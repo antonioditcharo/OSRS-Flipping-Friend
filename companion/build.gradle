@@ -1,0 +1,93 @@
+plugins {
+    id 'application'
+}
+
+group = 'com.flippingfriend'
+version = rootProject.version
+
+repositories { mavenCentral() }
+
+dependencies {
+    implementation project(':')
+    implementation project(':core')
+    implementation 'com.google.code.gson:gson:2.10.1'
+    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+    implementation 'org.xerial:sqlite-jdbc:3.45.3.0'
+    implementation 'com.microsoft.onnxruntime:onnxruntime:1.17.1'
+    // A binding, so the companion can actually say something when it fails. Without one slf4j falls
+    // back to a no-op logger and every swallowed exception in a 24/7 daemon is invisible forever.
+    // slf4j-simple writes to stderr, which the daemon already redirects to companion.log.err.
+    implementation 'org.slf4j:slf4j-simple:1.7.36'
+    testImplementation 'junit:junit:4.13.2'
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_11
+    targetCompatibility = JavaVersion.VERSION_11
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 11
+}
+
+application {
+    mainClass = 'com.flippingfriend.companion.CompanionMain'
+}
+
+tasks.register('shadowJar', Jar) {
+    dependsOn project(':core').tasks.named('jar')
+    archiveBaseName = 'flipping-friend-companion'
+    archiveVersion = ''
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    manifest { attributes 'Main-Class': application.mainClass.get() }
+    dependsOn ':core:jar'
+    from sourceSets.main.output
+    from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
+}
+
+tasks.named('test') {
+    testLogging {
+        events 'passed', 'skipped', 'failed'
+        exceptionFormat 'full'
+    }
+}
+
+/** Standalone runner for the walk-forward evaluation, kept out of the companion's own entry point. */
+tasks.register('replayJar', Jar) {
+    dependsOn project(':core').tasks.named('jar')
+    archiveBaseName = 'flipping-friend-replay'
+    archiveVersion = ''
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    manifest { attributes 'Main-Class': 'com.flippingfriend.companion.ReplayMain' }
+    from sourceSets.main.output
+    from project(':core').sourceSets.main.output
+    from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
+    exclude 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA', 'module-info.class'
+}
+
+/** Trains the outcome models on the daemon's observations and reports whether they learned anything. */
+tasks.register('trainerJar', Jar) {
+    dependsOn project(':core').tasks.named('jar')
+    archiveBaseName = 'flipping-friend-trainer'
+    archiveVersion = ''
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    manifest { attributes 'Main-Class': 'com.flippingfriend.companion.ModelTrainer' }
+    from sourceSets.main.output
+    from project(':core').sourceSets.main.output
+    from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
+    exclude 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA', 'module-info.class'
+}
+
+/** The learning monitor window. Read-only: it never writes to anything the other processes own. */
+tasks.register('monitorJar', Jar) {
+    dependsOn project(':core').tasks.named('jar')
+    archiveBaseName = 'flipping-friend-monitor'
+    archiveVersion = ''
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    manifest { attributes 'Main-Class': 'com.flippingfriend.companion.LearningMonitor' }
+    from sourceSets.main.output
+    from project(':core').sourceSets.main.output
+    from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
+    exclude 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA', 'module-info.class'
+}

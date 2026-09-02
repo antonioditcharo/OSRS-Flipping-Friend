@@ -1,0 +1,4 @@
+// The root project is the RuneLite-facing module. Shared decision logic and the
+// always-on local service live in their own modules so neither depends on the client.
+rootProject.name = 'runelite-plugin'
+include 'core', 'companion'

@@ -1,0 +1,114 @@
+plugins {
+    id 'java'
+}
+
+group = 'com.flippingfriend'
+version = '1.0.0'
+
+repositories {
+    mavenLocal()
+    maven { url = 'https://repo.runelite.net' }
+    mavenCentral()
+}
+
+// Pinned to the client version installed on this machine (~/.runelite/repository2).
+// Bump this when RuneLite updates and rebuild.
+ext.runeLiteVersion = '1.12.35'
+
+dependencies {
+    implementation project(':core')
+    // Everything RuneLite ships is provided at runtime by the client, so it is all
+    // compileOnly. That keeps the output jar to just our own classes, which is what
+    // the sideloading PluginClassLoader expects.
+    compileOnly group: 'net.runelite', name: 'client', version: runeLiteVersion
+
+    testImplementation group: 'net.runelite', name: 'client', version: runeLiteVersion
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.mockito:mockito-core:4.11.0'
+}
+
+java {
+    // The RuneLite launcher ships a Java 11 JRE, so the plugin must be Java 11 bytecode
+    // even though it is compiled here with a much newer JDK.
+    sourceCompatibility = JavaVersion.VERSION_11
+    targetCompatibility = JavaVersion.VERSION_11
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 11
+}
+
+tasks.named('test') {
+    testLogging {
+        events 'passed', 'skipped', 'failed'
+        exceptionFormat 'full'
+    }
+}
+
+tasks.named('jar') {
+    archiveBaseName = 'osrs-flipping-friend'
+    archiveVersion = ''
+    manifest {
+        attributes(
+                'Implementation-Title': 'OSRS Flipping Friend',
+                'Implementation-Version': project.version
+        )
+    }
+    // RuneLite side-loaded jars are not dependency-aware. Package the small,
+    // client-independent core beside the plugin classes.
+    from project(':core').sourceSets.main.output
+}
+
+// Runs the always-on learning daemon in the foreground, for testing it by hand.
+tasks.register('daemon', JavaExec) {
+    group = 'application'
+    description = 'Runs the background learning daemon (no game client needed).'
+    classpath = sourceSets.main.runtimeClasspath + configurations.compileClasspath
+    mainClass = 'com.flippingfriend.daemon.LearningDaemon'
+}
+
+// Builds a self-contained jar the scheduled task can run without Gradle.
+tasks.register('daemonJar', Jar) {
+    group = 'application'
+    description = 'Packages the learning daemon with its dependencies.'
+    archiveBaseName = 'flipping-friend-daemon'
+    archiveVersion = ''
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    manifest { attributes 'Main-Class': 'com.flippingfriend.daemon.LearningDaemon' }
+    dependsOn project(':core').tasks.named('jar')
+    from sourceSets.main.output
+    // The shared model lives in :core, and the daemon deliberately runs the shipping model rather
+    // than a copy of it — so core has to travel in this jar too. Omitting it does not fail the
+    // build; it fails at startup, in a background task nobody is watching, and the first symptom is
+    // simply that learning quietly stops.
+    from project(':core').sourceSets.main.output
+    from {
+        // The daemon runs outside RuneLite, so the libraries the plugin borrows from the client
+        // have to travel with it. Only the handful it actually uses are included.
+        configurations.compileClasspath
+            .filter { it.name.startsWith('okhttp') || it.name.startsWith('okio')
+                || it.name.startsWith('gson') || it.name.startsWith('javax.inject')
+                || it.name.startsWith('slf4j') }
+            .collect { it.isDirectory() ? it : zipTree(it) }
+    }
+}
+
+// Runs the backtester against real wiki price history without launching the game.
+tasks.register('backtest', JavaExec) {
+    group = 'verification'
+    description = 'Replays historical Grand Exchange data through the suggestion engine.'
+    classpath = project(':companion').sourceSets.main.runtimeClasspath
+    mainClass = 'com.flippingfriend.companion.Backtester'
+    // Lets the long-horizon model be switched off, so its contribution can be measured
+    // against identical cached data rather than inferred from two different days.
+    systemProperty 'flipping.backtest.noContext', (findProperty('noContext') ?: 'false')
+}
+
+// Convenience entry point for the new companion service. The legacy daemon
+// remains available only as a comparison baseline during migration.
+tasks.register('companionJar') {
+    group = 'application'
+    description = 'Builds the local portfolio companion service.'
+    dependsOn ':companion:shadowJar'
+}

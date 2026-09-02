@@ -1,0 +1,47 @@
+# ---- build output ----
+.gradle/
+build/
+out/
+bin/
+*.class
+*.jar
+
+# ---- IDE ----
+*.iml
+.idea/
+.vscode/
+
+# ---- Node / dashboard ----
+node_modules/
+.next/
+npm-debug.log*
+yarn-error.log*
+# dashboard-api/public is a copy of dashboard-ui/out made by tools/monitor.ps1,
+# not source. See audit item 81: the copy is conditional, so the committed copy
+# would go stale the moment the UI is rebuilt.
+dashboard-api/public/
+
+# ---- Python / ml-forecaster ----
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+# Trained weights and scalers are build artefacts, not source. A model whose
+# scaler is lost cannot be served, so both are produced by the trainer, never committed.
+ml-forecaster/models/
+
+# ---- local databases and generated dumps ----
+*.db
+*.db-journal
+*.sqlite
+codebase_dump.txt
+test_output.txt
+
+# ---- secrets ----
+# Never commit RuneLite launcher credentials if they get copied here by accident.
+# This file can log into the account without a password.
+credentials.properties
+companion.properties
+*.env
+.env.local
