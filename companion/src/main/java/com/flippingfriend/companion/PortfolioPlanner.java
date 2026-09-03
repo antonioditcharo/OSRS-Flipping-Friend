@@ -64,6 +64,12 @@ final class PortfolioPlanner
 		candidates.setCalibration(calibration);
 	}
 
+	/** Hands the factory the buy-limit windows, so a spent limit can say when it frees. */
+	void setBuyLimitLedger(BuyLimitLedger buyLimits)
+	{
+		candidates.setBuyLimitLedger(buyLimits);
+	}
+
 	/** Hands the factory the paper-trading channel that prices its own vetoes. */
 	void setShadowTrader(ShadowTrader shadow)
 	{

@@ -257,6 +257,15 @@ final class CandidateFactory
 	 */
 	private ShadowTrader shadow;
 
+	/**
+	 * The buy-limit windows, so a spent limit can say when it frees.
+	 *
+	 * <p>{@link BuyLimitLedger#resetsAt} has existed, tested, with no production caller: the system
+	 * knew to the second when every item became available again and never told anyone. Null in replay,
+	 * where there is no live ledger and the wait is not a thing a backtest can act on.
+	 */
+	private BuyLimitLedger buyLimits;
+
 	private final Map<Integer, String> lastVeto = new ConcurrentHashMap<>();
 	/** Names of the items behind those reasons, so the panel can say which ones rather than only how many. */
 	private final Map<Integer, String> vetoedNames = new ConcurrentHashMap<>();
@@ -396,6 +405,42 @@ final class CandidateFactory
 		return holdValue(itemId, offerPrice, remainingQuantity, true, margin, remainingHours);
 	}
 
+	/** The reason this item was turned away on the last pass, or null if it was not. */
+	String lastVetoFor(int itemId)
+	{
+		return lastVeto.get(itemId);
+	}
+
+	void setBuyLimitLedger(BuyLimitLedger buyLimits)
+	{
+		this.buyLimits = buyLimits;
+	}
+
+	/**
+	 * How long until this item's four-hour window resets, or null when it is not waiting on one.
+	 * <p>
+	 * Rounded to whole minutes: the ledger knows the second, and a second is not a number anyone acts
+	 * on.
+	 */
+	private String resetWait(int itemId, Instant now)
+	{
+		if (buyLimits == null)
+		{
+			return null;
+		}
+		Instant resets = buyLimits.resetsAt(itemId, now);
+		if (resets == null || !resets.isAfter(now))
+		{
+			return null;
+		}
+		long minutes = Math.max(1, (resets.getEpochSecond() - now.getEpochSecond()) / 60);
+		if (minutes < 60)
+		{
+			return minutes + "m";
+		}
+		return minutes / 60 + "h " + minutes % 60 + "m";
+	}
+
 	void setShadowTrader(ShadowTrader shadow)
 	{
 		this.shadow = shadow;
@@ -441,7 +486,7 @@ final class CandidateFactory
 		itemsQuoted.set(0);
 		itemsAnalysed.set(0);
 
-		List<Screened> shortlist = screen(universe, buyLimitRemaining, spendableCoins, horizonHours);
+		List<Screened> shortlist = screen(universe, buyLimitRemaining, spendableCoins, horizonHours, now);
 		itemsShortlisted.set(shortlist.size());
 		shadowRejected(universe, horizonHours, now);
 
@@ -575,7 +620,7 @@ final class CandidateFactory
 	 * nothing at all.
 	 */
 	private List<Screened> screen(Collection<QuotedItem> universe,
-		Map<Integer, Integer> buyLimitRemaining, long spendableCoins, double horizonHours)
+		Map<Integer, Integer> buyLimitRemaining, long spendableCoins, double horizonHours, Instant now)
 	{
 		List<Screened> shortlist = new ArrayList<>();
 
@@ -635,7 +680,12 @@ final class CandidateFactory
 			int remaining = buyLimitRemaining.getOrDefault(itemId, item.buyLimit);
 			if (remaining <= 0)
 			{
-				veto(itemId, item.name, "Four-hour buy limit is spent.");
+				// Say when it frees. "Spent" alone reads as permanent, and the player's response to a
+				// forty-minute wait is different from their response to three hours.
+				String wait = resetWait(itemId, now);
+				veto(itemId, item.name, wait == null
+					? "Four-hour buy limit is spent."
+					: "Four-hour buy limit is spent; resets in " + wait + ".");
 				continue;
 			}
 

@@ -124,8 +124,22 @@ final class BuyLimitLedger
 	/** When an item's allowance returns, for planning the slot's next occupant. */
 	synchronized Instant resetsAt(int itemId)
 	{
+		return resetsAt(itemId, Instant.now());
+	}
+
+	/**
+	 * When this item's window lifts, as judged from a supplied clock.
+	 *
+	 * <p>The no-argument form reads {@code Instant.now()} internally, which made it unusable anywhere
+	 * the time is not the wall clock — replay, and any test of a four-hour window. For a class whose
+	 * entire subject is a window, a hidden clock is the wrong default: the plugin's own
+	 * {@code BuyLimitTracker.resetsAt(int, Instant)} has always taken one, and this was the odd one
+	 * out. Kept as a delegating overload so existing callers are unaffected.
+	 */
+	synchronized Instant resetsAt(int itemId, Instant now)
+	{
 		Window window = windows.get(itemId);
-		if (window == null || window.hasExpired(Instant.now()))
+		if (window == null || window.hasExpired(now))
 		{
 			return null;
 		}

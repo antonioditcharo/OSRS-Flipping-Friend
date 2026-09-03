@@ -180,6 +180,7 @@ final class CompanionService implements AutoCloseable
 		// in a new place.
 		this.planner.setCalibration(calibration);
 		this.planner.setShadowTrader(shadow);
+		this.planner.setBuyLimitLedger(buyLimits);
 		restoreCalibration();
 		this.executions = new ExecutionRecorder(store);
 	}
