@@ -233,6 +233,70 @@ final class ShadowTrader
 			open.size(), resolved.size(), worst.vetoReason, worst.netGp / 1e6, worst.trades);
 	}
 
+	/**
+	 * Open and resolved positions, for the model registry.
+	 *
+	 * <p>The resolved rows are the point. They are the accumulated evidence behind
+	 * {@link com.flippingfriend.model.VetoThresholds}, and the table it publishes came from roughly
+	 * 1,500 of them — a count no companion reaches if the history is discarded every restart. The
+	 * open positions are worth carrying too, since a position abandoned mid-horizon is a
+	 * counterfactual that never resolves and therefore never counts.
+	 */
+	static final class Snapshot
+	{
+		int version = SNAPSHOT_VERSION;
+		List<Position> open;
+		List<Resolved> resolved;
+	}
+
+	static final int SNAPSHOT_VERSION = 1;
+
+	synchronized Snapshot snapshot()
+	{
+		Snapshot state = new Snapshot();
+		state.open = new ArrayList<>(open);
+		state.resolved = new ArrayList<>(resolved);
+		return state;
+	}
+
+	/**
+	 * Restores a snapshot, dropping malformed rows rather than the whole payload — unlike the
+	 * calibration curve, one bad row here skews a total slightly instead of corrupting a mapping, so
+	 * salvaging the rest is worth more than refusing everything.
+	 *
+	 * @return how many resolved outcomes came back
+	 */
+	synchronized int restore(Snapshot state)
+	{
+		if (state == null || state.version != SNAPSHOT_VERSION)
+		{
+			return 0;
+		}
+		open.clear();
+		resolved.clear();
+		if (state.open != null)
+		{
+			for (Position position : state.open)
+			{
+				if (position != null && position.itemId > 0 && position.vetoReason != null)
+				{
+					open.addLast(position);
+				}
+			}
+		}
+		if (state.resolved != null)
+		{
+			for (Resolved row : state.resolved)
+			{
+				if (row != null && row.vetoReason != null && row.outcome != null)
+				{
+					resolved.addLast(row);
+				}
+			}
+		}
+		return resolved.size();
+	}
+
 	enum Outcome
 	{
 		COMPLETED,

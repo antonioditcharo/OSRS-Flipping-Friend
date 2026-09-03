@@ -51,6 +51,9 @@ final class CompanionService implements AutoCloseable
 	 */
 	private static final String CALIBRATION_MODEL = "fill-calibration";
 
+	/** Stored separately from the calibration: different data, and one can fail to load without the other. */
+	private static final String SHADOW_MODEL = "shadow-trades";
+
 	/**
 	 * How often the learned state is written back. Frequent enough that a crash costs minutes of
 	 * evidence rather than a session, rare enough that it is not a write per offer.
@@ -412,6 +415,21 @@ final class CompanionService implements AutoCloseable
 			// price. Not a fault: this is the expected path on a first run.
 			log.warn("Could not restore calibration; starting cold", unreadable);
 		}
+		try
+		{
+			String payload = store.loadModel(SHADOW_MODEL);
+			if (payload != null)
+			{
+				// Resolved outcomes are the accumulated veto evidence. VetoThresholds' published table
+				// came from roughly 1,500 of them, a count nothing reaches if the history is thrown
+				// away on every restart.
+				shadow.restore(gson.fromJson(payload, ShadowTrader.Snapshot.class));
+			}
+		}
+		catch (Exception unreadable)
+		{
+			log.warn("Could not restore shadow trades; starting with none", unreadable);
+		}
 	}
 
 	/** Writes the learned state back, and retires all but the last {@value #CALIBRATION_HISTORY}. */
@@ -421,6 +439,7 @@ final class CompanionService implements AutoCloseable
 		try
 		{
 			store.saveModel(CALIBRATION_MODEL, gson.toJson(calibration.snapshot()));
+			store.saveModel(SHADOW_MODEL, gson.toJson(shadow.snapshot()));
 			store.pruneModels(CALIBRATION_HISTORY);
 		}
 		catch (Exception unwritable)
