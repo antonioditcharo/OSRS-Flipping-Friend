@@ -201,6 +201,20 @@ final class PortfolioPlanner
 		{
 			for (OfferEvent offer : activeOffers)
 			{
+				if (ActiveOfferTracker.isAwaitingCollection(offer))
+				{
+					// Finished, and holding a slot until it is emptied. None of the checks below
+					// apply -- there is nothing left to reprice, abandon or wait for -- and the only
+					// useful thing to say is what the idle slot is costing.
+					if (hurdle > 0)
+					{
+						alerts.add(new PortfolioAlert("COLLECT", offer.getItemId(), offer.getSlot(),
+							String.format("Collect this slot. It is finished and holding a slot worth "
+								+ "about %,d gp/hr.", Math.round(hurdle))));
+					}
+					continue;
+				}
+
 				long offerAge = nowSeconds - offer.getFirstSeenAt();
 				if (offerAge > 3600)
 				{
