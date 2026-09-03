@@ -66,6 +66,20 @@ final class FillCalibration
 	 */
 	private final ThompsonSampler exploration = new ThompsonSampler();
 
+	/**
+	 * One observation in {@value #HOLDOUT_EVERY} is withheld from the curve and used only to score it.
+	 * A calibrator scored on the data it was fitted to always looks good — that is what fitting means
+	 * — so the held-out channel is the only thing that can tell a correction from an overfit.
+	 */
+	private static final int HOLDOUT_EVERY = 5;
+
+	/** Held-out observations needed before the gate will pass or fail rather than abstain. */
+	private static final int MIN_HOLDOUT = 50;
+
+	private final Brier buyHoldout = new Brier();
+	private final Brier sellHoldout = new Brier();
+	private int seen;
+
 	private final AtomicLong draws = new AtomicLong();
 	private final AtomicLong exploratoryDraws = new AtomicLong();
 
@@ -83,7 +97,18 @@ final class FillCalibration
 		{
 			return false;
 		}
-		calibratorFor(event.isBuying()).observe(claimed, event.isComplete());
+		boolean buying = event.isBuying();
+		boolean occurred = event.isComplete();
+		if (++seen % HOLDOUT_EVERY == 0)
+		{
+			// Withheld. Scored against both the raw claim and what the curve would have said, so the
+			// two are compared on identical evidence neither has seen.
+			holdoutFor(buying).add(claimed, calibratorFor(buying).calibrate(claimed), occurred);
+		}
+		else
+		{
+			calibratorFor(buying).observe(claimed, occurred);
+		}
 		if (event.isBuying())
 		{
 			// Same evidence, different use: the calibrator learns how wrong the number was, the
@@ -150,7 +175,46 @@ final class FillCalibration
 	 */
 	double calibrate(boolean buying, double predicted)
 	{
-		return calibratorFor(buying).calibrate(predicted);
+		// Fitted is not the same as useful. Until the held-out evidence says the curve beats the raw
+		// claim, the raw claim is what ships -- a correction that has not been shown to help is just
+		// a second source of error wearing the word "calibrated".
+		return earningItsPlace(buying) ? calibratorFor(buying).calibrate(predicted) : predicted;
+	}
+
+	/** Whether this leg's curve has demonstrably beaten the uncorrected claim out of sample. */
+	boolean earningItsPlace(boolean buying)
+	{
+		Brier holdout = holdoutFor(buying);
+		return calibratorFor(buying).isActive() && holdout.count() >= MIN_HOLDOUT && holdout.improves();
+	}
+
+	/**
+	 * The promotion gates, evaluated on held-out data only.
+	 *
+	 * <p>Written down and scored mechanically because a gate checked by eye is a gate that gets
+	 * waived on the day it matters — which is {@link GateReport}'s own argument for existing.
+	 */
+	synchronized GateReport gate()
+	{
+		GateReport report = new GateReport();
+		addGates(report, true, "buy");
+		addGates(report, false, "sell");
+		return report;
+	}
+
+	private void addGates(GateReport report, boolean buying, String leg)
+	{
+		IsotonicCalibrator calibrator = calibratorFor(buying);
+		Brier holdout = holdoutFor(buying);
+		report.add(leg + " leg has enough evidence",
+			calibrator.isActive(),
+			calibrator.observations() + " of " + IsotonicCalibrator.MIN_OBSERVATIONS + " observations");
+		report.add(leg + " leg has enough held-out evidence",
+			holdout.count() >= MIN_HOLDOUT,
+			holdout.count() + " of " + MIN_HOLDOUT + " held out");
+		report.add(leg + " leg beats the uncorrected claim",
+			holdout.count() >= MIN_HOLDOUT && holdout.improves(),
+			holdout.describe());
 	}
 
 	/** How much longer this item's fills really take than predicted. 1.0 means no correction. */
@@ -179,12 +243,34 @@ final class FillCalibration
 				seen, IsotonicCalibrator.MIN_OBSERVATIONS * 2);
 		}
 		return String.format(
-			"Calibration: buy %d obs%s, sell %d obs%s; durations for %d items, pooled %.2fx; "
+			"Calibration: buy %d obs%s [%s], sell %d obs%s [%s]; durations for %d items, pooled %.2fx; "
 				+ "%.0f%% of draws above estimate across %d items.",
-			buyCompletion.observations(), bias(buyCompletion),
-			sellCompletion.observations(), bias(sellCompletion),
+			buyCompletion.observations(), bias(buyCompletion), applied(true),
+			sellCompletion.observations(), bias(sellCompletion), applied(false),
 			durations.itemsLearned(), durations.overallRatio(),
 			explorationRate() * 100.0, exploration.itemsTracked());
+	}
+
+	/**
+	 * Whether the correction is actually being applied to that leg, and why not when it is not. The
+	 * distinction between "fitted" and "in use" is the whole point of the gate, and a health line that
+	 * hid it would be describing a system that does not exist.
+	 */
+	private String applied(boolean buying)
+	{
+		if (earningItsPlace(buying))
+		{
+			return String.format("applied, skill %+.1f%%", holdoutFor(buying).skill() * 100.0);
+		}
+		if (!calibratorFor(buying).isActive())
+		{
+			return "not applied: still fitting";
+		}
+		if (holdoutFor(buying).count() < MIN_HOLDOUT)
+		{
+			return "not applied: " + holdoutFor(buying).count() + "/" + MIN_HOLDOUT + " held out";
+		}
+		return "not applied: no better than raw";
 	}
 
 	/** Positive bias means the model is optimistic — it claimed more than happened. */
@@ -211,6 +297,10 @@ final class FillCalibration
 		double[] buyCompletion;
 		double[] sellCompletion;
 		Map<Integer, double[]> exploration;
+		/** Held-out scores. Without these the gate re-earns its evidence from scratch on every restart. */
+		double[] buyHoldout;
+		double[] sellHoldout;
+		int seen;
 	}
 
 	static final int SNAPSHOT_VERSION = 1;
@@ -221,6 +311,9 @@ final class FillCalibration
 		state.buyCompletion = buyCompletion.snapshot();
 		state.sellCompletion = sellCompletion.snapshot();
 		state.exploration = exploration.snapshot();
+		state.buyHoldout = buyHoldout.snapshot();
+		state.sellHoldout = sellHoldout.snapshot();
+		state.seen = seen;
 		return state;
 	}
 
@@ -243,6 +336,9 @@ final class FillCalibration
 		buyCompletion.restore(state.buyCompletion);
 		sellCompletion.restore(state.sellCompletion);
 		exploration.restore(state.exploration);
+		buyHoldout.restore(state.buyHoldout);
+		sellHoldout.restore(state.sellHoldout);
+		seen = Math.max(0, state.seen);
 		return buyCompletion.observations() > 0
 			|| sellCompletion.observations() > 0
 			|| exploration.itemsTracked() > 0;
@@ -251,5 +347,77 @@ final class FillCalibration
 	private IsotonicCalibrator calibratorFor(boolean buying)
 	{
 		return buying ? buyCompletion : sellCompletion;
+	}
+
+	private Brier holdoutFor(boolean buying)
+	{
+		return buying ? buyHoldout : sellHoldout;
+	}
+
+	/**
+	 * Squared-error scoring of a probability against what happened, for the raw claim and the
+	 * corrected one side by side.
+	 *
+	 * <p>Brier rather than accuracy because a fill probability is not a yes/no call — being right
+	 * about direction while wrong about magnitude is precisely the failure calibration exists to fix,
+	 * and accuracy cannot see it.
+	 */
+	static final class Brier
+	{
+		private double rawError;
+		private double calibratedError;
+		private int count;
+
+		synchronized void add(double raw, double calibrated, boolean occurred)
+		{
+			double actual = occurred ? 1.0 : 0.0;
+			rawError += (raw - actual) * (raw - actual);
+			calibratedError += (calibrated - actual) * (calibrated - actual);
+			count++;
+		}
+
+		synchronized int count()
+		{
+			return count;
+		}
+
+		/** Strictly better, so a tie leaves the simpler uncorrected number in place. */
+		synchronized boolean improves()
+		{
+			return count > 0 && calibratedError < rawError;
+		}
+
+		/** Brier skill score against the raw claim: above zero means the correction is helping. */
+		synchronized double skill()
+		{
+			return count <= 0 || rawError <= 0 ? 0.0 : 1.0 - calibratedError / rawError;
+		}
+
+		synchronized double[] snapshot()
+		{
+			return new double[]{ rawError, calibratedError, count };
+		}
+
+		synchronized void restore(double[] state)
+		{
+			if (state == null || state.length != 3
+				|| !Double.isFinite(state[0]) || !Double.isFinite(state[1]) || state[2] < 0)
+			{
+				return;
+			}
+			rawError = state[0];
+			calibratedError = state[1];
+			count = (int) state[2];
+		}
+
+		synchronized String describe()
+		{
+            if (count <= 0)
+            {
+                return "no held-out evidence yet";
+            }
+			return String.format("Brier %.4f corrected vs %.4f raw, skill %+.1f%% over %d",
+				calibratedError / count, rawError / count, skill() * 100.0, count);
+		}
 	}
 }

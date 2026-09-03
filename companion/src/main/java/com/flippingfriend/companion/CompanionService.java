@@ -441,6 +441,14 @@ final class CompanionService implements AutoCloseable
 			store.saveModel(CALIBRATION_MODEL, gson.toJson(calibration.snapshot()));
 			store.saveModel(SHADOW_MODEL, gson.toJson(shadow.snapshot()));
 			store.pruneModels(CALIBRATION_HISTORY);
+
+			// Record the gate result beside the snapshot it describes. gate_result has existed since
+			// the schema was written and nothing has ever written to it, so until now there was no way
+			// to ask "was the calibration helping last Tuesday?" -- and that is exactly the question
+			// worth asking after a change to the fill model.
+			GateReport gates = calibration.gate();
+			store.recordGates(now, gates.allPassed() ? "PROMOTED" : "HELD",
+				gates.getGates(), Long.toString(store.latestModelVersion()));
 		}
 		catch (Exception unwritable)
 		{
