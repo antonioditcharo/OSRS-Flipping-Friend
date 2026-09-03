@@ -175,13 +175,16 @@ public final class OfferEvent
 		public Builder sequence(long value) { this.sequence = value; return this; }
 		public Builder firstSeenAt(long value) { this.firstSeenAt = value; return this; }
 
-		/** Links this offer to the advice that prompted it. */
-		public Builder recommendation(String id, int price, int quantity, long quoteAge,
-			double predictedMinutes)
-		{
-			return recommendation(id, price, quantity, quoteAge, predictedMinutes, 0);
-		}
-
+		/**
+		 * Links this offer to the advice that prompted it.
+		 * <p>
+		 * There was a five-argument form of this method that defaulted {@code predictedCompletion}
+		 * to zero. It was deleted on 2 September 2026 rather than left as a convenience, because the
+		 * convenience was the bug: {@code CompanionService.predictedCompletion} treats zero as "no
+		 * prediction was made" and declines to calibrate, so every offer routed through the short
+		 * form silently opted out of the comparison the system exists to make. There is now one way
+		 * to attach advice to an offer, and it requires saying what the model actually claimed.
+		 */
 		public Builder recommendation(String id, int price, int quantity, long quoteAge,
 			double predictedMinutes, double predictedCompletion)
 		{
