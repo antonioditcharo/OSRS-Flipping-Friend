@@ -489,6 +489,13 @@ final class CompanionService implements AutoCloseable
 	private void compactArchive(long now)
 	{
 		lastRollUp = now;
+		if (PriceArchive.FINE_RETENTION_DAYS <= 0)
+		{
+			// Retention is unlimited by choice. Five-minute bars are the most informative thing this
+			// system will ever own, and compacting them to save space that costs nothing would be
+			// trading an asset for a saving.
+			return;
+		}
 		try
 		{
 			store.priceArchive().rollUp(now - PriceArchive.FINE_RETENTION_DAYS * 86_400L);

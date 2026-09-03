@@ -166,6 +166,27 @@ public class PriceArchiveTest
 			source.series(ITEM, PriceArchive.FIVE_MINUTE).isEmpty());
 	}
 
+	/**
+	 * The health endpoint the plugin polls every cycle reports the row count. A {@code COUNT(*)} is a
+	 * full scan in SQLite, and this table is heading for hundreds of millions of rows, so the count
+	 * is maintained rather than queried — a health check must not become a table scan.
+	 */
+	@Test
+	public void theRowCountIsMaintainedRatherThanScanned() throws Exception
+	{
+		assertEquals(0, archive.rowCount());
+		archive.record(payload(ITEM, 1_010, 1_000, 500, 400), PriceArchive.FIVE_MINUTE, HOUR);
+		assertEquals("an insert moves it", 1, archive.rowCount());
+
+		archive.record(payload(ITEM, 1_010, 1_000, 500, 400), PriceArchive.FIVE_MINUTE, HOUR);
+		assertEquals("an ignored duplicate does not", 1, archive.rowCount());
+
+		archive.record(payload(ITEM, 1_020, 1_010, 100, 100), PriceArchive.FIVE_MINUTE, HOUR + 300);
+		archive.rollUp(HOUR + 3600);
+		assertEquals("and a rollup resynchronises it: two fine rows become one hourly",
+			1, archive.rowCount());
+	}
+
 	@Test
 	public void reportsHowMuchHistoryHasAccumulated() throws Exception
 	{

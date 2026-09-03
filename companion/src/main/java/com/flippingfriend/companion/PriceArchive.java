@@ -30,12 +30,13 @@ import java.util.Map;
  * history is usable by {@code PortfolioSimulator}, {@code ShadowTrader} and
  * {@code CandidateFactory} without any of them learning a new interface.
  *
- * <h2>Kept small deliberately</h2>
+ * <h2>Depth over tidiness</h2>
  *
- * <p>Roughly 4,600 items at twelve five-minute buckets an hour is about 1.3 million rows a day, which
- * is not a size to keep at full resolution forever. Recent history stays at five minutes, where the
- * fill model needs it; beyond {@value #FINE_RETENTION_DAYS} days it is rolled up to hourly, which is
- * the resolution long-horizon features actually use and about a twelfth of the rows.
+ * <p>Roughly 4,600 items at twelve five-minute buckets an hour is about 1.3 million rows a day, or
+ * some 19 GB a year at full resolution. That is kept, not compacted. Disk is cheap and the
+ * information is not: a fine bar can always be rolled up later and can never be un-rolled, and every
+ * model in L3 is better served by five minutes than by an hour. {@link #rollUp} remains available for
+ * anyone who needs the space back, and {@link #FINE_RETENTION_DAYS} turns it on.
  *
  * <p>Writes are idempotent: the primary key is {@code (item_id, timestep, ts)} and inserts ignore
  * conflicts, so polling every sixty seconds for a bucket that only changes every five minutes costs
@@ -46,10 +47,27 @@ final class PriceArchive
 	static final String FIVE_MINUTE = "5m";
 	static final String HOURLY = "1h";
 
-	/** How long five-minute resolution is kept before being rolled up. */
-	static final int FINE_RETENTION_DAYS = 7;
+	/**
+	 * Days of five-minute resolution to keep, or {@code 0} to keep it indefinitely.
+	 *
+	 * <p>Zero by default, which is a deliberate reversal. Full resolution costs roughly 19 GB a year
+	 * and disk is cheap; the information is not. You can always roll a fine bar up later and you can
+	 * never un-roll one, and every model in L3 — the fill hazard, the sequence model, purged
+	 * walk-forward folds — is better served by five minutes than by an hour. Compaction stays
+	 * available via {@link #rollUp} for anyone who needs the space back.
+	 */
+	static final int FINE_RETENTION_DAYS = 0;
 
 	private final Connection connection;
+
+	/**
+	 * Running row count.
+	 *
+	 * <p>Counted once at startup and maintained from there. {@code SELECT COUNT(*)} is a full scan in
+	 * SQLite, and the health endpoint the plugin polls every cycle reports this figure — on a table
+	 * heading for hundreds of millions of rows that would turn a health check into a table scan.
+	 */
+	private long rows;
 
 	PriceArchive(Connection connection) throws Exception
 	{
@@ -62,6 +80,12 @@ final class PriceArchive
 				+ "PRIMARY KEY (item_id, timestep, ts))");
 			// Rollup and range reads both scan by time, and without this they scan the table.
 			statement.execute("CREATE INDEX IF NOT EXISTS price_history_ts ON price_history(timestep, ts)");
+		}
+		try (Statement statement = connection.createStatement();
+			ResultSet result = statement.executeQuery("SELECT COUNT(*) FROM price_history"))
+		{
+			// The one scan, at startup, on an empty or already-open database.
+			rows = result.next() ? result.getLong(1) : 0;
 		}
 	}
 
@@ -124,6 +148,7 @@ final class PriceArchive
 					inserted++;
 				}
 			}
+			rows += inserted;
 			return inserted;
 		}
 		catch (Exception failed)
@@ -230,6 +255,13 @@ final class PriceArchive
 				retired = statement.executeUpdate();
 			}
 			connection.commit();
+			// The insert above added hourly rows the batch counter never saw, so the running total is
+			// resynchronised rather than adjusted. A rollup is rare; a scan here is affordable.
+			try (Statement statement = connection.createStatement();
+				ResultSet result = statement.executeQuery("SELECT COUNT(*) FROM price_history"))
+			{
+				rows = result.next() ? result.getLong(1) : 0;
+			}
 			return retired;
 		}
 		catch (Exception failed)
@@ -243,13 +275,10 @@ final class PriceArchive
 		}
 	}
 
-	synchronized long rowCount() throws Exception
+	/** Constant time, by design. See the note on {@link #rows}. */
+	synchronized long rowCount()
 	{
-		try (Statement statement = connection.createStatement();
-			ResultSet result = statement.executeQuery("SELECT COUNT(*) FROM price_history"))
-		{
-			return result.next() ? result.getLong(1) : 0;
-		}
+		return rows;
 	}
 
 	/** Oldest bar on record, or 0 when empty. How much history has actually accumulated. */
