@@ -154,6 +154,10 @@ final class CompanionService implements AutoCloseable
 		this.series = cacheDir == null ? new SeriesCache()
 			: new SeriesCache(cacheDir.resolve("series-cache.json.gz"));
 		this.planner = new PortfolioPlanner(series);
+		// Wired here, not merely offered: audit item 11 is a list of setters that exist, compile and
+		// are never called, with fields nothing reads. A correction nothing consults is the same bug
+		// in a new place.
+		this.planner.setCalibration(calibration);
 		this.executions = new ExecutionRecorder(store);
 	}
 

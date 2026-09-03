@@ -240,6 +240,16 @@ final class CandidateFactory
 	/** Names shown per veto reason. Three is enough to spot-check a filter, few enough to read. */
 	private static final int VETO_EXAMPLES_PER_REASON = 3;
 
+	/**
+	 * Corrections learned from this account's own fills.
+	 *
+	 * <p>Defaults to a fresh instance rather than null because a fresh {@link FillCalibration} is
+	 * inert by construction — no observations means no correction — so an unwired factory, such as
+	 * the one the backtester builds, behaves exactly as it did before calibration existed, with no
+	 * null handling on the hot path.
+	 */
+	private FillCalibration calibration = new FillCalibration();
+
 	private final Map<Integer, String> lastVeto = new ConcurrentHashMap<>();
 	/** Names of the items behind those reasons, so the panel can say which ones rather than only how many. */
 	private final Map<Integer, String> vetoedNames = new ConcurrentHashMap<>();
@@ -294,6 +304,24 @@ final class CandidateFactory
 	/**
 	 * @param horizonHours how long one leg of a flip is allowed to take, which sets order size
 	 */
+	/**
+	 * Supplies the live calibration. Called by {@link PortfolioPlanner}; without it the factory keeps
+	 * its own inert instance and applies no correction.
+	 */
+	void setCalibration(FillCalibration calibration)
+	{
+		if (calibration != null)
+		{
+			this.calibration = calibration;
+		}
+	}
+
+	/** Visible for testing that the calibration actually arrives, rather than only that it compiles. */
+	FillCalibration calibration()
+	{
+		return calibration;
+	}
+
 	List<PortfolioCandidate> build(MarketIngestionService.MarketState market, double horizonHours,
 		Map<Integer, Integer> buyLimitRemaining, long spendableCoins, boolean members, Instant now)
 	{
@@ -673,10 +701,21 @@ final class CandidateFactory
 					quantity, features, horizonHours);
 
 				// Where everything that has been learned re-enters the decision.
-				double buyHours = buyFill.getExpectedHours();
-				double sellHours = sellFill.getExpectedHours();
-				double buyProbability = buyFill.getProbability();
-				double sellProbability = sellFill.getProbability();
+				//
+				// Both corrections come from this account's own settled offers, and both are inert
+				// until there is enough evidence to justify them: a cold IsotonicCalibrator returns
+				// its input unchanged, and an unseen item's duration multiplier is 1.0. So an engine
+				// that has never traded ranks exactly as it did before this was wired.
+				//
+				// Correcting here rather than at the objective means expectedProfit(),
+				// expectedSlotHours() and expectedGpPerSlotHour() all see one consistent set of
+				// numbers -- the alternative is a candidate whose stated probability disagrees with
+				// the one it was ranked on.
+				double durationMultiplier = calibration.durationMultiplier(itemId);
+				double buyHours = buyFill.getExpectedHours() * durationMultiplier;
+				double sellHours = sellFill.getExpectedHours() * durationMultiplier;
+				double buyProbability = calibration.calibrate(true, buyFill.getProbability());
+				double sellProbability = calibration.calibrate(false, sellFill.getProbability());
 				double displayBuyProbability = buyProbability;
 
 				tactics.add(new PortfolioCandidate(itemId, screened.item.name, group,

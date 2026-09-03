@@ -52,6 +52,12 @@ final class PortfolioPlanner
 		this.candidates = new CandidateFactory(series);
 	}
 
+	/** Hands the factory the calibration learned from settled offers. */
+	void setCalibration(FillCalibration calibration)
+	{
+		candidates.setCalibration(calibration);
+	}
+
 	PortfolioPlan plan(MarketIngestionService.MarketState market, AccountSnapshot account,
 		Map<Integer, Integer> buyLimitRemaining, Collection<OfferEvent> activeOffers)
 	{
