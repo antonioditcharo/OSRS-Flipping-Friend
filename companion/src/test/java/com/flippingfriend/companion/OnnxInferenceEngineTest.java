@@ -10,17 +10,22 @@ import org.junit.Test;
  * Characterisation test for the ONNX inference path.
  *
  * <p>This does not assert correctness — nothing has established what correct output looks like for
- * these models. It records what the engine actually does today, because {@code CandidateFactory}
- * treats any non-zero output as authoritative and replaces the analytical {@code FillModel}
- * estimate with it:
+ * these models. It records what they actually do, which is why it was written: until T2.6 on
+ * 2 September 2026 {@code CandidateFactory} treated any non-zero output as authoritative and
+ * substituted it for the analytical {@code FillModel} estimate, then sized the position from it via
+ * fractional Kelly.
  *
  * <pre>
  *   if (buyProbs[0] &gt; 0) { buyFill = new FillEstimate(buyProbs[0], ...); }
  * </pre>
  *
- * <p>A zero therefore means "fall back to the physics model" and a non-zero means "this number is
- * now sizing the position", via the fractional-Kelly term at CandidateFactory:650. The distinction
- * matters enough to be pinned by a test rather than assumed.
+ * <p>{@code &gt; 0} was the entire validity test, and it cannot separate a genuine low probability
+ * from the zero every failure path in {@link OnnxInferenceEngine} returns. Running the models showed
+ * why that mattered: the fill model responds only to a coarse season bucket, so a 150 gp order for
+ * 1,000 units and a 2,000,000 gp order for 5 both score 0.329689.
+ *
+ * <p>Nothing consults the engine now. This test stays as the record of why, and as the gate any
+ * reconnection has to pass.
  */
 public class OnnxInferenceEngineTest
 {
@@ -50,11 +55,12 @@ public class OnnxInferenceEngineTest
 				float[] wait = engine.predictWaitTimes(f);
 				System.out.printf(
 					"price=%-10.0f qty=%-6.0f season=%.0f -> p=%.6f  wait=%.4f  usedByCandidateFactory=%s%n",
-					c[0], c[1], c[2], prob[0], wait[0], prob[0] > 0 ? "YES (replaces FillModel)" : "no (falls back)");
+					c[0], c[1], c[2], prob[0], wait[0], prob[0] > 0 ? "non-zero (would have replaced FillModel)" : "zero");
 			}
 
-			// Exactly what CandidateFactory:349 passes: new float[n][12][4], allocated and never
-			// populated, so every item is scored from an all-zeros tensor.
+			// Exactly what CandidateFactory used to pass: new float[n][12][4], allocated and never
+			// populated, so every item was scored from an all-zeros tensor and received the same
+			// constant. That call was removed in T2.6; this reproduces it to show what it produced.
 			System.out.println("=== momentum, production input (3 items, all zeros) ===");
 			float[][][] asProduction = new float[3][12][4];
 			float[][] mom = engine.predictMomentums(asProduction);
@@ -62,7 +68,7 @@ public class OnnxInferenceEngineTest
 			{
 				System.out.printf("item %d -> momentum=%.6f  usedByScorer=%s%n",
 					i, mom[i][0],
-					mom[i][0] != 0.0f ? "YES - collapses the 7-point sell grid" : "no");
+					mom[i][0] != 0.0f ? "non-zero, and identical for every item" : "zero");
 			}
 
 			// Does the model respond to its input at all, or is the output a constant?
@@ -88,12 +94,15 @@ public class OnnxInferenceEngineTest
 	 * both return 0.329689. CandidateFactory:641 then substitutes that number for the analytical
 	 * FillModel estimate and CandidateFactory:650 sizes the position from it via fractional Kelly.
 	 *
-	 * <p>Remove the {@code @Ignore} once the model takes liquidity as an input; it then guards the
-	 * fix. Do not delete it to make the suite green — that is the failure mode the CI guard job was
-	 * added to prevent.
+	 * <p>As of T2.6 (2 September 2026) {@code CandidateFactory} no longer consults this engine at all,
+	 * so nothing here reaches a live trade. The test stays because the models are still on the
+	 * classpath and this is the gate any attempt to reconnect them has to pass: remove the
+	 * {@code @Ignore} once the model takes liquidity as an input. Do not delete it to make the suite
+	 * green — that is the failure mode the CI guard job was added to prevent.
 	 */
 	@Test
-	@Ignore("Fails today: fill_prob_v1.onnx ignores price and quantity. See Build Order T2.6.")
+	@Ignore("Still fails: fill_prob_v1.onnx ignores price and quantity. No longer consulted "
+		+ "by CandidateFactory as of T2.6, so this gates any attempt to reconnect it.")
 	public void fillProbabilityRespondsToPriceAndQuantity()
 	{
 		try (OnnxInferenceEngine engine = new OnnxInferenceEngine())

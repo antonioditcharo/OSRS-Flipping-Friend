@@ -24,7 +24,6 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -32,7 +31,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.List;
 import java.util.Map;
-import com.flippingfriend.companion.ai.OnnxInferenceEngine;
 
 /**
  * Turns raw market data into vetted, fully priced tactics for the optimizer to choose between.
@@ -178,7 +176,6 @@ final class CandidateFactory
 	private final FillModel fillModel;
 	private final ManipulationFilter filter = new ManipulationFilter();
 	private final SeriesSource series;
-	private final OnnxInferenceEngine aiEngine = new OnnxInferenceEngine();
 	/** Everything learned so far; never null, and neutral until something has been learned. */
 
 	/**
@@ -345,15 +342,14 @@ final class CandidateFactory
 		}
 		shortlistIds = ids;
 
-		if (!shortlist.isEmpty()) {
-			float[][][] momentumInputs = new float[shortlist.size()][12][4];
-			Map<Integer, Double> momentums = new HashMap<>();
-			float[][] momentumsOut = aiEngine.predictMomentums(momentumInputs);
-			for (int i = 0; i < shortlist.size(); i++) {
-				momentums.put(shortlist.get(i).item.id, (double) momentumsOut[i][0]);
-			}
-			featureEngine.setPredictedMomentums(momentums);
-		}
+		// A momentum inference over the whole shortlist ran here every planning pass, on a tensor
+		// that was allocated and never populated -- new float[n][12][4], all zeros -- so every item
+		// got the model's output for an all-zero input: a constant -0.052978. It was written to this
+		// module's FeatureEngine, which nothing in the companion reads; the only caller of
+		// getPredictedMomentum() is Scorer, in the plugin, fed by its own separate instance. So it
+		// cost an inference per pass, moved no price, and would have applied a flat -5.3% haircut to
+		// every sell the moment anyone read it. Removed rather than repaired: a momentum signal
+		// should arrive with the features that justify it.
 
 		itemsAnalysed.set(shortlist.size());
 		List<PortfolioCandidate> candidates = shortlist.parallelStream()
@@ -632,14 +628,15 @@ final class CandidateFactory
 				// Fractional Kelly Sizing
 				long netProfitFull = marginPerItem * fillable;
 				long unwindLossFull = unwindCost(itemId, buyPrice, screened.price.getLow(), fillable, features, horizonHours);
-				
-				float[][] baseBuyFeatures = new float[][]{ { buyPrice, fillable, (float)season, 0f } };
-				float[][] baseSellFeatures = new float[][]{ { sellPrice, fillable, (float)season, 0f } };
-				float[] baseBuyProbs = aiEngine.predictFillProbabilities(baseBuyFeatures);
-				float[] baseSellProbs = aiEngine.predictFillProbabilities(baseSellFeatures);
-				
-				double pBuy = baseBuyProbs[0] > 0 ? baseBuyProbs[0] : fillModel().estimateBuy(curve, buyPrice, fillable, horizonHours, season).getProbability();
-				double pSell = baseSellProbs[0] > 0 ? baseSellProbs[0] : fillModel().estimateSell(curve, sellPrice, fillable, horizonHours, season).getProbability();
+
+				// Sizing is driven by FillModel, which reads the actual book: volume at or beyond the
+				// quote, the within-bucket dispersion, and the counterparty-wait term. Until
+				// 2 September 2026 an ONNX model overrode this whenever it returned above zero, and
+				// that model responded only to a coarse season bucket -- a 150gp order for 1,000 units
+				// and a 2,000,000gp order for 5 both scored 0.329689. It was setting deployed capital
+				// from a two-valued lookup. See OnnxInferenceEngineTest.
+				double pBuy = fillModel().estimateBuy(curve, buyPrice, fillable, horizonHours, season).getProbability();
+				double pSell = fillModel().estimateSell(curve, sellPrice, fillable, horizonHours, season).getProbability();
 				double p = pBuy * pSell;
 				
 				double b = unwindLossFull > 0 ? (double) netProfitFull / unwindLossFull : netProfitFull;
@@ -657,22 +654,13 @@ final class CandidateFactory
 					horizonHours, season);
 				FillEstimate sellFill = fillModel().estimateSell(curve, sellPrice, quantity,
 					horizonHours, season);
-					
-				float[][] buyFeatures = new float[][]{ { buyPrice, quantity, (float)season, 0f } };
-				float[][] sellFeatures = new float[][]{ { sellPrice, quantity, (float)season, 0f } };
-				
-				float[] buyProbs = aiEngine.predictFillProbabilities(buyFeatures);
-				float[] sellProbs = aiEngine.predictFillProbabilities(sellFeatures);
-				
-				float[] buyWaits = aiEngine.predictWaitTimes(buyFeatures);
-				float[] sellWaits = aiEngine.predictWaitTimes(sellFeatures);
-				
-				if (buyProbs[0] > 0) {
-					buyFill = new FillEstimate(buyProbs[0], Math.max(0.016, buyWaits[0] / 60.0 + quantity / buyFill.getUnitsPerHour()), buyFill.getUnitsPerHour(), buyWaits[0] / 60.0);
-				}
-				if (sellProbs[0] > 0) {
-					sellFill = new FillEstimate(sellProbs[0], Math.max(0.016, sellWaits[0] / 60.0 + quantity / sellFill.getUnitsPerHour()), sellFill.getUnitsPerHour(), sellWaits[0] / 60.0);
-				}
+
+				// The ONNX fill and wait models replaced both estimates here whenever they returned
+				// anything non-zero. `> 0` is not a validity test: it cannot tell a genuine low
+				// probability from the zero every failure path in OnnxInferenceEngine returns, so a
+				// model that failed to load and one that was confident looked identical. They return
+				// as a residual correction with an earned weight, on features that include liquidity,
+				// rather than as a replacement for a model that reads the book. See T2.6.
 
 				if (!buyFill.isPlausible() || !sellFill.isPlausible())
 				{
