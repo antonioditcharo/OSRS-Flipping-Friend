@@ -15,6 +15,21 @@ public final class PortfolioConstraints
 	/** The player's floor on what a flip is worth doing. */
 	private final long minProfitPerFlip;
 
+	/**
+	 * What a slot must earn before it is worth occupying, in gp per slot-hour.
+	 *
+	 * <p>The floor that mattered was always missing. A trade was taken when it was merely positive, so
+	 * eight slots could fill with trades earning a fraction of what a slot is worth, each tying its
+	 * slot up for a whole horizon. Slot-time is the binding constraint at scale — PLAN-2M's own
+	 * finding is that the gap to target is mostly wasted slot-time rather than bad prediction — and an
+	 * idle slot is re-planned within a cycle, so refusing a poor trade costs a few minutes and taking
+	 * one costs hours.
+	 *
+	 * <p>Zero keeps the old behaviour, which is what the measurement board wants: it has to rank
+	 * everything in order to say what a slot is worth in the first place.
+	 */
+	private final double hurdleGpPerSlotHour;
+
 	public java.util.Map<Integer, Long> getCommittedByItem()
 	{
 		return committedByItem == null ? java.util.Collections.emptyMap() : committedByItem;
@@ -38,6 +53,17 @@ public final class PortfolioConstraints
 		long perItemCapitalCap, long perGroupCapitalCap, java.util.Map<Integer, Long> committedByItem,
 		java.util.Map<String, Long> committedByGroup, long minProfitPerFlip)
 	{
+		this(freeSlots, freeCoins, sessionLossBudget, perItemCapitalCap, perGroupCapitalCap,
+			committedByItem, committedByGroup, minProfitPerFlip, 0.0);
+	}
+
+	private PortfolioConstraints(int freeSlots, long freeCoins, long sessionLossBudget,
+		long perItemCapitalCap, long perGroupCapitalCap, java.util.Map<Integer, Long> committedByItem,
+		java.util.Map<String, Long> committedByGroup, long minProfitPerFlip,
+		double hurdleGpPerSlotHour)
+	{
+		this.hurdleGpPerSlotHour = Double.isFinite(hurdleGpPerSlotHour)
+			? Math.max(0, hurdleGpPerSlotHour) : 0.0;
 		this.freeSlots = Math.max(0, freeSlots);
 		this.freeCoins = Math.max(0, freeCoins);
 		this.sessionLossBudget = Math.max(0, sessionLossBudget);
@@ -64,7 +90,8 @@ public final class PortfolioConstraints
 	public PortfolioConstraints withSlots(int slots)
 	{
 		return new PortfolioConstraints(slots, freeCoins, sessionLossBudget, perItemCapitalCap,
-			perGroupCapitalCap, committedByItem, committedByGroup, minProfitPerFlip);
+			perGroupCapitalCap, committedByItem, committedByGroup, minProfitPerFlip,
+			hurdleGpPerSlotHour);
 	}
 
 	/**
@@ -79,8 +106,22 @@ public final class PortfolioConstraints
 	public PortfolioConstraints withCoins(long coins)
 	{
 		return new PortfolioConstraints(freeSlots, coins, sessionLossBudget, perItemCapitalCap,
-			perGroupCapitalCap, committedByItem, committedByGroup, minProfitPerFlip);
+			perGroupCapitalCap, committedByItem, committedByGroup, minProfitPerFlip,
+			hurdleGpPerSlotHour);
 	}
+
+	/**
+	 * The same limits with an acceptance floor. Supplied by the planner from the measurement board,
+	 * which has to be ranked without one — hence a separate with-er rather than a constructor
+	 * argument every caller would have to answer.
+	 */
+	public PortfolioConstraints withHurdle(double gpPerSlotHour)
+	{
+		return new PortfolioConstraints(freeSlots, freeCoins, sessionLossBudget, perItemCapitalCap,
+			perGroupCapitalCap, committedByItem, committedByGroup, minProfitPerFlip, gpPerSlotHour);
+	}
+
+	public double getHurdleGpPerSlotHour() { return hurdleGpPerSlotHour; }
 
 	public int getFreeSlots() { return freeSlots; }
 	public long getFreeCoins() { return freeCoins; }

@@ -43,6 +43,12 @@ final class PortfolioPlanner
 	// available, and at the boldest setting the ceilings are lifted entirely so the only limits left
 	// are the game's buy limit and what the market will actually absorb.
 
+	/**
+	 * Share of the board's rate a trade must reach before it is worth a slot. See the derivation at
+	 * the call site; it is deliberately conservative and deliberately measurable.
+	 */
+	private static final double HURDLE_FRACTION = 0.25;
+
 	private final PortfolioOptimizer optimizer = new PortfolioOptimizer();
 	private final CandidateFactory candidates;
 
@@ -152,9 +158,36 @@ final class PortfolioPlanner
 		// shrink as money went into offers, so the chart still tracked how busy you were. Equity is
 		// spendable plus committed, which is the money the planner would have to work with once the
 		// current trades come back.
-		PortfolioPlan plan = optimizer.optimize(offerable, limits, correlationId, nowSeconds);
+		//
+		// The board is ranked first now, because it is what says how much a slot is worth. It must be
+		// ranked without a hurdle of its own -- a floor derived from the board cannot also be applied
+		// to it without circularity, and the board's job is to describe the whole opportunity set.
 		PortfolioPlan board = optimizer.optimize(offerable,
 			limits.withSlots(Math.max(1, account.getTotalSlots())).withCoins(equity),
+			correlationId, nowSeconds);
+
+		// What a slot must earn to be worth occupying: a fraction of what a slot earns on the best
+		// full slate available right now.
+		//
+		// The board's *weakest* pick would be the textbook marginal value, and it is the wrong
+		// statistic here: when the board is itself filling slots with near-worthless trades -- the
+		// case this floor exists to stop -- its weakest pick is one of them, so the hurdle would sit
+		// at nearly zero exactly when it is needed. The board's average is stable against that.
+		//
+		// HURDLE_FRACTION is a starting value, not a measured one. Three quarters of a typical slot's
+		// rate is still available to any trade, so a thin market is not starved, while a trade earning
+		// under a quarter is close to idling the slot outright. The count of what it turns away is
+		// reported so the number can be re-derived from evidence, which is how VetoThresholds was set.
+		// Per slot, not the board total. PortfolioPlan.getExpectedGpPerSlotHour() reads like a rate
+		// but is the SUM of the selected candidates' rates -- PortfolioOptimizer accumulates
+		// `score + candidate.expectedGpPerSlotHour()` across the chosen set -- which is why boardSize
+		// is carried beside it. Using the sum directly made the hurdle scale with the slot count and
+		// put it at roughly twice the average on an eight-slot account.
+		int boardSize = board.getAllocations().size();
+		double boardPerSlot = boardSize <= 0
+			? 0.0 : Math.max(0, board.getExpectedGpPerSlotHour()) / boardSize;
+		double hurdle = HURDLE_FRACTION * boardPerSlot;
+		PortfolioPlan plan = optimizer.optimize(offerable, limits.withHurdle(hurdle),
 			correlationId, nowSeconds);
 
 		List<PortfolioAlert> alerts = new java.util.ArrayList<>();

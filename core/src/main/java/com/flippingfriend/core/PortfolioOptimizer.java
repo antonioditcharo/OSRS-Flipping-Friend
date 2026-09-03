@@ -24,6 +24,7 @@ public final class PortfolioOptimizer
 			return PortfolioPlan.unavailable(correlationId,
 				"Every Grand Exchange slot is occupied.", now);
 		}
+		int belowHurdle = 0;
 		List<PortfolioCandidate> candidates = new ArrayList<>();
 		for (PortfolioCandidate candidate : raw)
 		{
@@ -34,6 +35,15 @@ public final class PortfolioOptimizer
 				&& candidate.getCapitalRequired() > 0
 				&& candidate.getExpiresAt() > now && candidate.getCompletionProbability() > 0)
 			{
+				// The floor that decides whether a slot is worth occupying at all. Without it the
+				// search maximises a sum, so any positive rate improves the total and eight slots
+				// happily fill with trades earning a fraction of what a slot is worth -- each one
+				// holding its slot for a full horizon. A refused slot is re-planned next cycle.
+				if (candidate.expectedGpPerSlotHour() < constraints.getHurdleGpPerSlotHour())
+				{
+					belowHurdle++;
+					continue;
+				}
 				candidates.add(candidate);
 			}
 		}
@@ -49,7 +59,12 @@ public final class PortfolioOptimizer
 			new HashSet<>(), 0, 0, 0, best);
 		if (best.selected.isEmpty())
 		{
-			return PortfolioPlan.unavailable(correlationId, "No candidate clears portfolio safety constraints.", now);
+			// Say which floor turned everything away. "Nothing worth trading" reads as a dead market
+			// when it is really the hurdle doing its job, and the two call for opposite responses.
+			return PortfolioPlan.unavailable(correlationId, belowHurdle > 0
+				? belowHurdle + (belowHurdle == 1 ? " trade was" : " trades were")
+					+ " worth less than leaving the slot free for a better one."
+				: "No candidate clears portfolio safety constraints.", now);
 		}
 		List<PortfolioAllocation> allocations = new ArrayList<>();
 		for (int i = 0; i < best.selected.size(); i++)
