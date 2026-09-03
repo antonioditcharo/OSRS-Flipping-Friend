@@ -82,6 +82,27 @@ final class ShadowTrader
 	synchronized void open(int itemId, String itemName, String vetoReason, int buyPrice, int sellPrice,
 		int quantity, long atEpochSeconds, double horizonHours)
 	{
+		open(itemId, itemName, vetoReason, buyPrice, sellPrice, quantity, atEpochSeconds,
+			horizonHours, null);
+	}
+
+	/**
+	 * Opens a notional position that also carries the feature vector that produced it.
+	 *
+	 * <p>This is what turns the paper-trading channel into a training set. Every resolved position
+	 * becomes a labelled row — the features as they stood at the decision, and what the market
+	 * subsequently did — and because vetoed candidates are recorded alongside accepted ones, the
+	 * labels are not censored by the policy that generated them. Real fills give a dozen rows a
+	 * session and only for trades that were taken; this gives hundreds an hour including the ones
+	 * that were refused, which is the difference between a model that can learn a veto is wrong and
+	 * one that structurally cannot.
+	 *
+	 * @param features {@link com.flippingfriend.learning.FlipFeatures} values, or null when the item
+	 *                 was turned away before there was enough history to build them
+	 */
+	synchronized void open(int itemId, String itemName, String vetoReason, int buyPrice, int sellPrice,
+		int quantity, long atEpochSeconds, double horizonHours, double[] features)
+	{
 		if (itemId <= 0 || buyPrice <= 0 || sellPrice <= 0 || quantity <= 0 || horizonHours <= 0)
 		{
 			return;
@@ -91,7 +112,7 @@ final class ShadowTrader
 			open.pollFirst();
 		}
 		open.addLast(new Position(itemId, itemName, vetoReason == null ? ACCEPTED : vetoReason,
-			buyPrice, sellPrice, quantity, atEpochSeconds, horizonHours));
+			buyPrice, sellPrice, quantity, atEpochSeconds, horizonHours, features));
 	}
 
 	/**
@@ -180,7 +201,8 @@ final class ShadowTrader
 		{
 			resolved.pollFirst();
 		}
-		resolved.addLast(new Resolved(position.vetoReason, outcome, profit, cost));
+		resolved.addLast(new Resolved(position.vetoReason, outcome, profit, cost,
+			position.itemId, position.features));
 	}
 
 	/**
@@ -297,6 +319,86 @@ final class ShadowTrader
 		return resolved.size();
 	}
 
+	/**
+	 * The labelled training set: every resolved position that carried a feature vector.
+	 *
+	 * <p>The label is whether the round trip completed. That is the quantity the fill model predicts
+	 * and the optimiser weights its whole objective by, so it is the one worth learning — not price
+	 * direction, which is what the existing LSTM predicts and what nothing downstream consumes.
+	 *
+	 * <p>Includes rejected candidates as well as accepted ones. A model trained only on trades the
+	 * engine chose to take learns the engine's existing opinion back; the counterfactuals are what let
+	 * it learn that an opinion was wrong.
+	 *
+	 * @param includeVetoed false to train only on trades the engine would have taken, for comparison
+	 */
+	synchronized TrainingSet trainingSet(boolean includeVetoed)
+	{
+		List<double[]> rows = new ArrayList<>();
+		List<Integer> labels = new ArrayList<>();
+		for (Resolved row : resolved)
+		{
+			if (row.features == null)
+			{
+				continue;
+			}
+			if (!includeVetoed && !ACCEPTED.equals(row.vetoReason))
+			{
+				continue;
+			}
+			rows.add(row.features);
+			labels.add(row.outcome == Outcome.COMPLETED ? 1 : 0);
+		}
+		return new TrainingSet(rows, labels);
+	}
+
+	/** A feature matrix and its labels, in the shape {@code GradientBoostedTrees.train} expects. */
+	static final class TrainingSet
+	{
+		private final double[][] features;
+		private final int[] labels;
+
+		private TrainingSet(List<double[]> rows, List<Integer> labelValues)
+		{
+			this.features = rows.toArray(new double[0][]);
+			this.labels = new int[labelValues.size()];
+			for (int i = 0; i < labelValues.size(); i++)
+			{
+				this.labels[i] = labelValues.get(i);
+			}
+		}
+
+		double[][] features()
+		{
+			return features;
+		}
+
+		int[] labels()
+		{
+			return labels;
+		}
+
+		int size()
+		{
+			return labels.length;
+		}
+
+		/** Share of rows that completed. A set that is nearly all one class cannot train anything. */
+		double positiveRate()
+		{
+			if (labels.length == 0)
+			{
+				return 0;
+			}
+			int positive = 0;
+			for (int label : labels)
+			{
+				positive += label;
+			}
+			return (double) positive / labels.length;
+		}
+	}
+
 	enum Outcome
 	{
 		COMPLETED,
@@ -352,10 +454,13 @@ final class ShadowTrader
 		private final int quantity;
 		private final long openedAt;
 		private final double horizonHours;
+		/** The feature vector as it stood at the decision, or null when none could be built. */
+		private final double[] features;
 
 		private Position(int itemId, String itemName, String vetoReason, int buyPrice, int sellPrice,
-			int quantity, long openedAt, double horizonHours)
+			int quantity, long openedAt, double horizonHours, double[] features)
 		{
+			this.features = features;
 			this.itemId = itemId;
 			this.itemName = itemName;
 			this.vetoReason = vetoReason;
@@ -373,13 +478,18 @@ final class ShadowTrader
 		private final Outcome outcome;
 		private final long profit;
 		private final long cost;
+		private final int itemId;
+		private final double[] features;
 
-		private Resolved(String vetoReason, Outcome outcome, long profit, long cost)
+		private Resolved(String vetoReason, Outcome outcome, long profit, long cost, int itemId,
+			double[] features)
 		{
 			this.vetoReason = vetoReason;
 			this.outcome = outcome;
 			this.profit = profit;
 			this.cost = cost;
+			this.itemId = itemId;
+			this.features = features;
 		}
 	}
 }

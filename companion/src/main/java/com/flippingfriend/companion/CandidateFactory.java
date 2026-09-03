@@ -14,6 +14,7 @@ import com.flippingfriend.model.FilterResult;
 import com.flippingfriend.model.ItemFeatures;
 import com.flippingfriend.model.ItemGroups;
 import com.flippingfriend.model.ManipulationFilter;
+import com.flippingfriend.learning.FlipFeatures;
 import com.flippingfriend.model.MarketContext;
 import com.flippingfriend.model.PriceAnchor;
 import com.flippingfriend.model.RiskAppetite;
@@ -756,6 +757,20 @@ final class CandidateFactory
 
 		List<PortfolioCandidate> tactics = new ArrayList<>();
 
+		// The labelled row this decision will become.
+		//
+		// Built once per analysed item, from the same ItemFeatures and MarketContext the filter and
+		// the fill model just used, so the features recorded are exactly the ones the decision saw.
+		// Computing them later from stored prices would reconstruct an approximation of a moment that
+		// has passed, and a training set assembled that way teaches a model to predict the
+		// reconstruction.
+		int hourOfDay = now.atZone(ZoneOffset.UTC).getHour();
+		double[] featureVector = FlipFeatures.of(
+			(double) (screened.price.getHigh() - screened.price.getLow())
+				/ Math.max(1, screened.price.getLow()),
+			screened.price.getLow(), screened.fillable, screened.item.buyLimit,
+			features, context, hourOfDay).values();
+
 
 		for (double buyOffset : appetite.getBuyOffsets())
 		{
@@ -880,6 +895,20 @@ final class CandidateFactory
 		{
 			veto(itemId, screened.item.name, "No price and size combination is expected to profit.");
 		}
+		// Paper-trade this item whatever the outcome, carrying the features that produced it.
+		//
+		// Recorded for accepted and rejected alike. A model trained only on trades the engine chose to
+		// take learns the engine's existing opinion back; the counterfactuals are what let it learn
+		// that an opinion was wrong, and this is the only place both are visible with their features.
+		ShadowTrader trader = shadow;
+		if (trader != null)
+		{
+			String outcome = tactics.isEmpty() ? lastVeto.get(itemId) : null;
+			trader.open(itemId, screened.item.name, outcome,
+				screened.price.getLow(), screened.price.getHigh(),
+				Math.max(1, screened.fillable), now.getEpochSecond(), horizonHours, featureVector);
+		}
+
 		return tactics.size() > TACTICS_PER_ITEM ? tactics.subList(0, TACTICS_PER_ITEM) : tactics;
 	}
 
