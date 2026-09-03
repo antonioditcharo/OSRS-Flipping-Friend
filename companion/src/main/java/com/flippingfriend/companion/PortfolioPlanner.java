@@ -58,6 +58,12 @@ final class PortfolioPlanner
 		candidates.setCalibration(calibration);
 	}
 
+	/** Hands the factory the paper-trading channel that prices its own vetoes. */
+	void setShadowTrader(ShadowTrader shadow)
+	{
+		candidates.setShadowTrader(shadow);
+	}
+
 	PortfolioPlan plan(MarketIngestionService.MarketState market, AccountSnapshot account,
 		Map<Integer, Integer> buyLimitRemaining, Collection<OfferEvent> activeOffers)
 	{

@@ -43,6 +43,7 @@ final class CompanionService implements AutoCloseable
 	private final BuyLimitLedger buyLimits = new BuyLimitLedger();
 	private final ExecutionRecorder executions;
 	private final FillCalibration calibration = new FillCalibration();
+	private final ShadowTrader shadow = new ShadowTrader(new com.flippingfriend.model.TaxCalculator());
 
 
 	/** Single thread, so plans are computed one at a time and in order. */
@@ -158,6 +159,7 @@ final class CompanionService implements AutoCloseable
 		// are never called, with fields nothing reads. A correction nothing consults is the same bug
 		// in a new place.
 		this.planner.setCalibration(calibration);
+		this.planner.setShadowTrader(shadow);
 		this.executions = new ExecutionRecorder(store);
 	}
 
@@ -405,6 +407,7 @@ final class CompanionService implements AutoCloseable
 		// have looked different if they had never been written. A number on the health line is what
 		// makes "the calibrator is learning" a claim that can be checked rather than assumed.
 		detail += " " + calibration.summary();
+		detail += " " + shadow.summary();
 		// The real version, not the literal 1 that stood here. A placeholder in a health response is
 		// worse than an absent field: it looks like an answer, and there is no way to tell from the
 		// outside that the model has been retrained seventy times since.

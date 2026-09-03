@@ -250,6 +250,13 @@ final class CandidateFactory
 	 */
 	private FillCalibration calibration = new FillCalibration();
 
+	/**
+	 * Paper-trades the items the screen rejects. Null until wired, because unlike calibration there
+	 * is no useful inert default — an unwired factory should do no shadow work at all rather than
+	 * accumulate positions nobody will ever read.
+	 */
+	private ShadowTrader shadow;
+
 	private final Map<Integer, String> lastVeto = new ConcurrentHashMap<>();
 	/** Names of the items behind those reasons, so the panel can say which ones rather than only how many. */
 	private final Map<Integer, String> vetoedNames = new ConcurrentHashMap<>();
@@ -322,6 +329,16 @@ final class CandidateFactory
 		return calibration;
 	}
 
+	void setShadowTrader(ShadowTrader shadow)
+	{
+		this.shadow = shadow;
+	}
+
+	ShadowTrader shadowTrader()
+	{
+		return shadow;
+	}
+
 	List<PortfolioCandidate> build(MarketIngestionService.MarketState market, double horizonHours,
 		Map<Integer, Integer> buyLimitRemaining, long spendableCoins, boolean members, Instant now)
 	{
@@ -351,7 +368,6 @@ final class CandidateFactory
 		Map<Integer, Integer> buyLimitRemaining, long spendableCoins, boolean members, Instant now)
 	{
 		this.membersAccount = members;
-		this.membersAccount = members;
 		lastVeto.clear();
 		vetoedNames.clear();
 		itemsInFeed.set(universe.size());
@@ -360,6 +376,7 @@ final class CandidateFactory
 
 		List<Screened> shortlist = screen(universe, buyLimitRemaining, spendableCoins, horizonHours);
 		itemsShortlisted.set(shortlist.size());
+		shadowRejected(universe, horizonHours, now);
 
 		// Published in screen order, so the warmer spends its budget on the most promising items
 		// first and the shortlist becomes usable from the top down rather than all at once.
@@ -883,6 +900,50 @@ final class CandidateFactory
 	}
 
 	/** One item with everything the screen needs, however it was obtained. */
+	/**
+	 * Opens a notional position for every item the screen turned away, and resolves whatever has come
+	 due since the last pass.
+	 *
+	 * <p>Priced at the market: buy at the instant-sell quote, sell at the instant-buy quote. That is
+	 * the trade the engine would have been choosing between had the veto not fired, so it is the
+	 * right counterfactual — not a hypothetical at some price nobody was offering.
+	 *
+	 * <p>Sized at the item's buy limit, which is the largest a real order could be.
+	 * {@link ShadowTrader#report} then filters by what a given bankroll could actually have afforded,
+	 * so sizing here does not have to guess at capital and the same recorded trade can be scored
+	 * against several bankrolls.
+	 */
+	private void shadowRejected(Collection<QuotedItem> universe, double horizonHours, Instant now)
+	{
+		ShadowTrader trader = shadow;
+		if (trader == null || lastVeto.isEmpty())
+		{
+			return;
+		}
+		long at = now.getEpochSecond();
+		for (QuotedItem quoted : universe)
+		{
+			String reason = lastVeto.get(quoted.item.id);
+			if (reason == null)
+			{
+				continue;
+			}
+			Integer low = quoted.quote == null ? null : quoted.quote.getLow();
+			Integer high = quoted.quote == null ? null : quoted.quote.getHigh();
+			if (low == null || high == null || low <= 0 || high <= low)
+			{
+				// No two-sided quote means there is no trade to have missed.
+				continue;
+			}
+			int quantity = Math.max(1, quoted.item.buyLimit);
+			trader.open(quoted.item.id, quoted.item.name, reason, low, high, quantity, at, horizonHours);
+		}
+		// Resolving here rather than on a timer keeps the whole channel on the planner thread, which
+		// already owns the series cache and runs often enough that nothing waits long past its
+		// horizon.
+		trader.resolve(series, shortStep, at);
+	}
+
 	static final class QuotedItem
 	{
 		private final MarketIngestionService.Item item;
