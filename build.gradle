@@ -60,39 +60,17 @@ tasks.named('jar') {
     from project(':core').sourceSets.main.output
 }
 
-// Runs the always-on learning daemon in the foreground, for testing it by hand.
-tasks.register('daemon', JavaExec) {
-    group = 'application'
-    description = 'Runs the background learning daemon (no game client needed).'
-    classpath = sourceSets.main.runtimeClasspath + configurations.compileClasspath
-    mainClass = 'com.flippingfriend.daemon.LearningDaemon'
-}
-
-// Builds a self-contained jar the scheduled task can run without Gradle.
-tasks.register('daemonJar', Jar) {
-    group = 'application'
-    description = 'Packages the learning daemon with its dependencies.'
-    archiveBaseName = 'flipping-friend-daemon'
-    archiveVersion = ''
-    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-    manifest { attributes 'Main-Class': 'com.flippingfriend.daemon.LearningDaemon' }
-    dependsOn project(':core').tasks.named('jar')
-    from sourceSets.main.output
-    // The shared model lives in :core, and the daemon deliberately runs the shipping model rather
-    // than a copy of it — so core has to travel in this jar too. Omitting it does not fail the
-    // build; it fails at startup, in a background task nobody is watching, and the first symptom is
-    // simply that learning quietly stops.
-    from project(':core').sourceSets.main.output
-    from {
-        // The daemon runs outside RuneLite, so the libraries the plugin borrows from the client
-        // have to travel with it. Only the handful it actually uses are included.
-        configurations.compileClasspath
-            .filter { it.name.startsWith('okhttp') || it.name.startsWith('okio')
-                || it.name.startsWith('gson') || it.name.startsWith('javax.inject')
-                || it.name.startsWith('slf4j') }
-            .collect { it.isDirectory() ? it : zipTree(it) }
-    }
-}
+// REMOVED 2026-09-02: the 'daemon' and 'daemonJar' tasks both pointed at
+// com.flippingfriend.daemon.LearningDaemon, which has no source file anywhere in the tree.
+// 'daemonJar' still *built*, because a Jar task only stamps the manifest and never checks the
+// main class exists — so it produced flipping-friend-daemon.jar with no LearningDaemon inside,
+// and the scheduled task installed by '3 - Background Learning.bat' died at startup with a
+// ClassNotFoundException nobody was watching. That is the failure the deleted comment below
+// warned about, except it was the entry point that went missing rather than :core.
+//
+// Not being re-added. Audit item 24 is right that the always-on learner belongs as a scheduled
+// task inside CompanionMain's existing executor rather than a fourth process with its own
+// ingestion path and its own cache.
 
 // Runs the backtester against real wiki price history without launching the game.
 tasks.register('backtest', JavaExec) {

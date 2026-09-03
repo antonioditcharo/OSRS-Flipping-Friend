@@ -53,41 +53,15 @@ tasks.named('test') {
     }
 }
 
-/** Standalone runner for the walk-forward evaluation, kept out of the companion's own entry point. */
-tasks.register('replayJar', Jar) {
-    dependsOn project(':core').tasks.named('jar')
-    archiveBaseName = 'flipping-friend-replay'
-    archiveVersion = ''
-    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-    manifest { attributes 'Main-Class': 'com.flippingfriend.companion.ReplayMain' }
-    from sourceSets.main.output
-    from project(':core').sourceSets.main.output
-    from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
-    exclude 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA', 'module-info.class'
-}
-
-/** Trains the outcome models on the daemon's observations and reports whether they learned anything. */
-tasks.register('trainerJar', Jar) {
-    dependsOn project(':core').tasks.named('jar')
-    archiveBaseName = 'flipping-friend-trainer'
-    archiveVersion = ''
-    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-    manifest { attributes 'Main-Class': 'com.flippingfriend.companion.ModelTrainer' }
-    from sourceSets.main.output
-    from project(':core').sourceSets.main.output
-    from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
-    exclude 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA', 'module-info.class'
-}
-
-/** The learning monitor window. Read-only: it never writes to anything the other processes own. */
-tasks.register('monitorJar', Jar) {
-    dependsOn project(':core').tasks.named('jar')
-    archiveBaseName = 'flipping-friend-monitor'
-    archiveVersion = ''
-    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-    manifest { attributes 'Main-Class': 'com.flippingfriend.companion.LearningMonitor' }
-    from sourceSets.main.output
-    from project(':core').sourceSets.main.output
-    from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
-    exclude 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA', 'module-info.class'
-}
+// REMOVED 2026-09-02: 'replayJar', 'trainerJar' and 'monitorJar' pointed at ReplayMain,
+// ModelTrainer and LearningMonitor, none of which has a source file. Unlike the daemon jar,
+// these three were built while their sources still existed (30 Aug) and the artefacts in
+// build/libs DO contain their main classes — which makes those jars the last surviving copy
+// of seventeen deleted classes, including the whole com.flippingfriend.learning package.
+//
+// Archived before removal to:
+//   C:\Users\Antonio\OSRS-Flipping-Friend-recovery\jars-2026-09-02\   (with SHA-256 sums)
+//
+// These three tasks come back in T1 as each main class is restored from that archive. Do not
+// run `gradlew clean` until then: it deletes build/libs, and the archive would be all that is
+// left. See the Build Order plan, tranche T1.
