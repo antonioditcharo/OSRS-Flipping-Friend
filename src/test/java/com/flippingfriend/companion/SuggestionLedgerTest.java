@@ -33,7 +33,7 @@ public class SuggestionLedgerTest
 	@Test
 	public void attributesAnOfferToTheAdviceThatPromptedIt()
 	{
-		ledger.recorded("plan-7", 4151, true, 1_000_000, 5, 12, 12.0);
+		ledger.recorded("plan-7", 4151, true, 1_000_000, 5, 12, 12.0, 0.87);
 
 		SuggestionLedger.Advice advice = ledger.attribute(4151, true, now());
 		assertNotNull(advice);
@@ -43,6 +43,14 @@ public class SuggestionLedgerTest
 		assertEquals(12, advice.getQuoteAgeSeconds());
 		assertEquals("the prediction must survive, or the outcome cannot be scored against it",
 			12.0, advice.getPredictedMinutes(), 1e-9);
+		// The completion probability is the other half of that prediction, and until 2 September 2026
+		// it was dropped on the floor: CompanionClient passed a hardcoded 0.0 to the 6-arg
+		// recommendation(...) overload, CompanionService.predictedCompletion then read zero, and by
+		// its own documented contract declined to calibrate. The comparison the whole system is built
+		// around -- the model claimed 93%, it happened 74% of the time -- had therefore never been
+		// made once. This assertion is what stops that regressing.
+		assertEquals("the completion probability must survive with it",
+			0.87, advice.getPredictedCompletion(), 1e-9);
 	}
 
 	@Test
@@ -50,7 +58,7 @@ public class SuggestionLedgerTest
 	{
 		// We suggested buying; selling the same item is a different decision entirely, usually the
 		// exit from a position we advised hours ago.
-		ledger.recorded("plan-7", 4151, true, 1_000_000, 5, 0, 12.0);
+		ledger.recorded("plan-7", 4151, true, 1_000_000, 5, 0, 12.0, 0.87);
 
 		assertNull(ledger.attribute(4151, false, now()));
 	}
@@ -58,7 +66,7 @@ public class SuggestionLedgerTest
 	@Test
 	public void doesNotCreditAdviceForADifferentItem()
 	{
-		ledger.recorded("plan-7", 4151, true, 1_000_000, 5, 0, 12.0);
+		ledger.recorded("plan-7", 4151, true, 1_000_000, 5, 0, 12.0, 0.87);
 
 		assertNull(ledger.attribute(561, true, now()));
 	}
@@ -73,11 +81,11 @@ public class SuggestionLedgerTest
 		// still on screen -- and an unprompted trade in a top-ranked item was credited to the plan.
 		//
 		// Sameness has to be the trade itself.
-		ledger.recorded("plan-7", 4151, true, 1_000_000, 5, 0, 12.0);
+		ledger.recorded("plan-7", 4151, true, 1_000_000, 5, 0, 12.0, 0.87);
 		long first = ledger.attribute(4151, true, Instant.now().getEpochSecond()).getSuggestedAt();
 
-		ledger.recorded("plan-8", 4151, true, 1_000_000, 5, 0, 12.0);
-		ledger.recorded("plan-9", 4151, true, 1_000_000, 5, 0, 12.0);
+		ledger.recorded("plan-8", 4151, true, 1_000_000, 5, 0, 12.0, 0.87);
+		ledger.recorded("plan-9", 4151, true, 1_000_000, 5, 0, 12.0, 0.87);
 
 		assertEquals("the same trade repeated keeps the moment it was first shown",
 			first, ledger.attribute(4151, true, Instant.now().getEpochSecond()).getSuggestedAt());
@@ -86,11 +94,11 @@ public class SuggestionLedgerTest
 	@Test
 	public void aGenuinelyDifferentTradeDoesRestartTheClock()
 	{
-		ledger.recorded("plan-7", 4151, true, 1_000_000, 5, 0, 12.0);
+		ledger.recorded("plan-7", 4151, true, 1_000_000, 5, 0, 12.0, 0.87);
 		long first = ledger.attribute(4151, true, Instant.now().getEpochSecond()).getSuggestedAt();
 
 		// A new price is new advice, and the player has only just been shown it.
-		ledger.recorded("plan-7", 4151, true, 1_050_000, 5, 0, 12.0);
+		ledger.recorded("plan-7", 4151, true, 1_050_000, 5, 0, 12.0, 0.87);
 
 		assertEquals(1_050_000,
 			ledger.attribute(4151, true, Instant.now().getEpochSecond()).getPrice());
@@ -101,7 +109,7 @@ public class SuggestionLedgerTest
 	@Test
 	public void staleAdviceIsNotCreditedWithACoincidence()
 	{
-		ledger.recorded("plan-7", 4151, true, 1_000_000, 5, 0, 12.0);
+		ledger.recorded("plan-7", 4151, true, 1_000_000, 5, 0, 12.0, 0.87);
 
 		long muchLater = now() + SuggestionLedger.ATTRIBUTION_WINDOW_SECONDS + 1;
 		assertNull("an unrelated trade in the same item an hour later is not our doing",
@@ -113,7 +121,7 @@ public class SuggestionLedgerTest
 	{
 		// The player rounds the price and buys half as many. That is the advice being followed
 		// imperfectly, not a different decision, and the divergence is exactly what we want recorded.
-		ledger.recorded("plan-7", 4151, true, 1_000_000, 10, 0, 12.0);
+		ledger.recorded("plan-7", 4151, true, 1_000_000, 10, 0, 12.0, 0.87);
 
 		SuggestionLedger.Advice advice = ledger.attribute(4151, true, now());
 		assertNotNull(advice);
@@ -125,8 +133,8 @@ public class SuggestionLedgerTest
 	@Test
 	public void theLatestAdviceForAnItemSupersedesTheEarlier()
 	{
-		ledger.recorded("plan-1", 4151, true, 1_000_000, 5, 0, 12.0);
-		ledger.recorded("plan-2", 4151, true, 1_010_000, 6, 0, 12.0);
+		ledger.recorded("plan-1", 4151, true, 1_000_000, 5, 0, 12.0, 0.87);
+		ledger.recorded("plan-2", 4151, true, 1_010_000, 6, 0, 12.0, 0.87);
 
 		assertEquals("plan-2", ledger.attribute(4151, true, now()).getRecommendationId());
 	}
@@ -144,9 +152,9 @@ public class SuggestionLedgerTest
 	@Test
 	public void ignoresIncompleteAdvice()
 	{
-		ledger.recorded(null, 4151, true, 100, 1, 0, 12.0);
-		ledger.recorded("", 4151, true, 100, 1, 0, 12.0);
-		ledger.recorded("plan-7", 0, true, 100, 1, 0, 12.0);
+		ledger.recorded(null, 4151, true, 100, 1, 0, 12.0, 0.87);
+		ledger.recorded("", 4151, true, 100, 1, 0, 12.0, 0.87);
+		ledger.recorded("plan-7", 0, true, 100, 1, 0, 12.0, 0.87);
 
 		assertNull(ledger.attribute(4151, true, now()));
 	}
