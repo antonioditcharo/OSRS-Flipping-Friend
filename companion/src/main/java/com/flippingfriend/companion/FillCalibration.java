@@ -2,7 +2,9 @@ package com.flippingfriend.companion;
 
 import com.flippingfriend.core.OfferEvent;
 import com.flippingfriend.learning.IsotonicCalibrator;
+import com.flippingfriend.learning.ThompsonSampler;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Turns settled offers into corrections the engine can apply.
@@ -45,9 +47,27 @@ final class FillCalibration
 	 */
 	private static final long DURATION_REFRESH_SECONDS = 120;
 
+	/**
+	 * How far above its own mean a draw must land before it counts as exploration. Purely for
+	 * reporting — the ranking uses every draw. Without a threshold the rate would read as ~50%,
+	 * since half of all draws land above the mean by some trivial amount.
+	 */
+	private static final double EXPLORATION_MARGIN = 0.02;
+
 	private final IsotonicCalibrator buyCompletion = new IsotonicCalibrator();
 	private final IsotonicCalibrator sellCompletion = new IsotonicCalibrator();
 	private final LearnedDurations durations = new LearnedDurations();
+
+	/**
+	 * Exploration over the buy leg — the leg that decides whether a position is entered at all, and
+	 * therefore the only one where a draw can win an under-rated item a slot it would never otherwise
+	 * get. The sell leg is calibrated but not sampled: by the time it matters the capital is already
+	 * committed, so perturbing it buys no information and only adds noise to the ranking.
+	 */
+	private final ThompsonSampler exploration = new ThompsonSampler();
+
+	private final AtomicLong draws = new AtomicLong();
+	private final AtomicLong exploratoryDraws = new AtomicLong();
 
 	private volatile long lastDurationRefresh;
 
@@ -64,7 +84,52 @@ final class FillCalibration
 			return false;
 		}
 		calibratorFor(event.isBuying()).observe(claimed, event.isComplete());
+		if (event.isBuying())
+		{
+			// Same evidence, different use: the calibrator learns how wrong the number was, the
+			// sampler learns how uncertain this item still is.
+			exploration.observe(event.getItemId(), event.isComplete());
+		}
 		return true;
+	}
+
+	/**
+	 * A draw from this item's completion posterior, for <em>ranking</em>. Pass the already-calibrated
+	 * probability: it becomes the prior, so the draw is centred on the corrected estimate rather than
+	 * the raw one.
+	 *
+	 * <p>Rank on this and display {@link #calibrate}. The spread of the draw is the exploration, and
+	 * it narrows on its own as evidence accumulates — the policy anneals without a schedule, and an
+	 * item nobody has tried is exactly the one whose draw is widest.
+	 */
+	double explore(int itemId, double calibratedProbability)
+	{
+		double drawn = exploration.sample(itemId, calibratedProbability);
+		draws.incrementAndGet();
+		if (drawn > calibratedProbability + EXPLORATION_MARGIN)
+		{
+			exploratoryDraws.incrementAndGet();
+		}
+		return drawn;
+	}
+
+	/**
+	 * Share of draws that landed more than {@value #EXPLORATION_MARGIN} above their own mean.
+	 *
+	 * <p>Read this as the width of the posterior, not as a suggestion-level exploration rate. Audit
+	 * item 26 targets roughly one suggestion in ten being a close runner-up, and that is a different
+	 * quantity: it would need the optimiser run twice per cycle, once on means and once on draws, and
+	 * the two top picks compared. Item 18 already flags the optimiser as expensive and unbudgeted, so
+	 * a third exact solve per cycle is the wrong trade until that is fixed.
+	 *
+	 * <p>What this number does give is the annealing curve. It starts high — an untried item drawing
+	 * against a prior of strength {@code PRIOR_STRENGTH} is genuinely uncertain — and falls as fills
+	 * accumulate. A rate that stays flat means evidence is not reaching the sampler.
+	 */
+	double explorationRate()
+	{
+		long total = draws.get();
+		return total <= 0 ? 0.0 : (double) exploratoryDraws.get() / total;
 	}
 
 	/** True when the duration multipliers are due a rebuild. */
@@ -96,7 +161,8 @@ final class FillCalibration
 
 	boolean isActive()
 	{
-		return buyCompletion.isActive() || sellCompletion.isActive() || durations.itemsLearned() > 0;
+		return buyCompletion.isActive() || sellCompletion.isActive() || durations.itemsLearned() > 0
+			|| exploration.itemsTracked() > 0;
 	}
 
 	/**
@@ -113,10 +179,12 @@ final class FillCalibration
 				seen, IsotonicCalibrator.MIN_OBSERVATIONS * 2);
 		}
 		return String.format(
-			"Calibration: buy %d obs%s, sell %d obs%s; durations for %d items, pooled %.2fx.",
+			"Calibration: buy %d obs%s, sell %d obs%s; durations for %d items, pooled %.2fx; "
+				+ "%.0f%% of draws above estimate across %d items.",
 			buyCompletion.observations(), bias(buyCompletion),
 			sellCompletion.observations(), bias(sellCompletion),
-			durations.itemsLearned(), durations.overallRatio());
+			durations.itemsLearned(), durations.overallRatio(),
+			explorationRate() * 100.0, exploration.itemsTracked());
 	}
 
 	/** Positive bias means the model is optimistic — it claimed more than happened. */

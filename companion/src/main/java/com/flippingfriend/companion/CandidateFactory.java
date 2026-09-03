@@ -714,9 +714,21 @@ final class CandidateFactory
 				double durationMultiplier = calibration.durationMultiplier(itemId);
 				double buyHours = buyFill.getExpectedHours() * durationMultiplier;
 				double sellHours = sellFill.getExpectedHours() * durationMultiplier;
-				double buyProbability = calibration.calibrate(true, buyFill.getProbability());
 				double sellProbability = calibration.calibrate(false, sellFill.getProbability());
-				double displayBuyProbability = buyProbability;
+
+				// Rank on a draw, show the mean.
+				//
+				// Ranking on the argmax means only trades the model already rates highly are ever
+				// attempted, so the evidence it learns from is censored by the policy that produced
+				// it: an item it has quietly underrated is never tried and therefore never corrected.
+				// The draw lets such an item win a slot in proportion to how uncertain its estimate
+				// is, and that uncertainty shrinks on its own as fills accumulate.
+				//
+				// The player sees the mean. A confidence that jumped around because it was a random
+				// draw would be unreadable, and worse, dishonest -- it is not what the system
+				// believes. withDisplayProbability carries exactly this split.
+				double displayBuyProbability = calibration.calibrate(true, buyFill.getProbability());
+				double buyProbability = calibration.explore(itemId, displayBuyProbability);
 
 				tactics.add(new PortfolioCandidate(itemId, screened.item.name, group,
 					buyPrice, buyPrice, buyPrice, sellPrice, sellPrice, sellPrice,
