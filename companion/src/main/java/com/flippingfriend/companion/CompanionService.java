@@ -45,6 +45,23 @@ final class CompanionService implements AutoCloseable
 	private final FillCalibration calibration = new FillCalibration();
 	private final ShadowTrader shadow = new ShadowTrader(new com.flippingfriend.model.TaxCalculator());
 
+	/**
+	 * What the calibration snapshot is stored under. One name, so {@code loadModel} finds the most
+	 * recent and {@code pruneModels} can retire the rest.
+	 */
+	private static final String CALIBRATION_MODEL = "fill-calibration";
+
+	/**
+	 * How often the learned state is written back. Frequent enough that a crash costs minutes of
+	 * evidence rather than a session, rare enough that it is not a write per offer.
+	 */
+	private static final long CALIBRATION_SAVE_SECONDS = 300;
+
+	/** Snapshots to keep, so a bad one is a rollback rather than a rebuild. */
+	private static final int CALIBRATION_HISTORY = 5;
+
+	private volatile long lastCalibrationSave;
+
 
 	/** Single thread, so plans are computed one at a time and in order. */
 	private final ExecutorService planThread = Executors.newSingleThreadExecutor(runnable ->
@@ -160,6 +177,7 @@ final class CompanionService implements AutoCloseable
 		// in a new place.
 		this.planner.setCalibration(calibration);
 		this.planner.setShadowTrader(shadow);
+		restoreCalibration();
 		this.executions = new ExecutionRecorder(store);
 	}
 
@@ -317,6 +335,10 @@ final class CompanionService implements AutoCloseable
 				// table, and the multipliers do not move fast enough to justify that on every fill.
 				calibration.refreshDurations(store.executionStats(), now);
 			}
+			if (now - lastCalibrationSave >= CALIBRATION_SAVE_SECONDS)
+			{
+				saveCalibration(now);
+			}
 		}
 
 		// An offer changing is the single most important reason to re-plan: a slot has just opened
@@ -359,6 +381,54 @@ final class CompanionService implements AutoCloseable
 				: "Working out the best use of your slots.", now);
 		}
 		return current;
+	}
+
+	/**
+	 * Reloads what previous sessions learned.
+	 * <p>
+	 * Without this the loop cannot get started on a machine that reboots: IsotonicCalibrator needs
+	 * {@code MIN_OBSERVATIONS} settled offers per leg before it corrects anything, and a companion
+	 * restarted daily would throw the count away before ever reaching it. The Thompson posteriors
+	 * matter for the same reason — every item reverting to untried restarts the annealing each time.
+	 */
+	private void restoreCalibration()
+	{
+		try
+		{
+			String payload = store.loadModel(CALIBRATION_MODEL);
+			if (payload == null)
+			{
+				return;
+			}
+			if (calibration.restore(gson.fromJson(payload, FillCalibration.Snapshot.class)))
+			{
+				healthReason = "Restored calibration from a previous session.";
+			}
+		}
+		catch (Exception unreadable)
+		{
+			// A snapshot that cannot be read is discarded, not repaired. Starting cold is honest, and
+			// the corrections are inert while cold, so the cost is a slow restart rather than a wrong
+			// price. Not a fault: this is the expected path on a first run.
+			log.warn("Could not restore calibration; starting cold", unreadable);
+		}
+	}
+
+	/** Writes the learned state back, and retires all but the last {@value #CALIBRATION_HISTORY}. */
+	private void saveCalibration(long now)
+	{
+		lastCalibrationSave = now;
+		try
+		{
+			store.saveModel(CALIBRATION_MODEL, gson.toJson(calibration.snapshot()));
+			store.pruneModels(CALIBRATION_HISTORY);
+		}
+		catch (Exception unwritable)
+		{
+			// Losing a snapshot costs evidence, not correctness -- the in-memory state is unaffected
+			// and the next attempt is five minutes away.
+			log.warn("Could not save calibration", unwritable);
+		}
 	}
 
 	CompanionHealth health()

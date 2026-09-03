@@ -115,6 +115,46 @@ public final class ThompsonSampler
 		return posteriors.size();
 	}
 
+	/**
+	 * Per-item posteriors for persistence: item id to {@code [successes, failures]}.
+	 *
+	 * <p>As with {@link IsotonicCalibrator#snapshot}, this diverges from the archived bytecode on
+	 * purpose. Without it every item reverts to untried on restart, and the exploration policy would
+	 * restart its annealing from scratch each time the companion comes up.
+	 */
+	public synchronized Map<Integer, double[]> snapshot()
+	{
+		Map<Integer, double[]> state = new java.util.HashMap<>();
+		for (Map.Entry<Integer, Beta> entry : posteriors.entrySet())
+		{
+			state.put(entry.getKey(), entry.getValue().counts());
+		}
+		return state;
+	}
+
+	/** Replaces the posteriors wholesale. Malformed entries are skipped rather than guessed at. */
+	public synchronized void restore(Map<Integer, double[]> state)
+	{
+		posteriors.clear();
+		if (state == null)
+		{
+			return;
+		}
+		for (Map.Entry<Integer, double[]> entry : state.entrySet())
+		{
+			double[] counts = entry.getValue();
+			if (entry.getKey() == null || counts == null || counts.length != 2
+				|| !Double.isFinite(counts[0]) || !Double.isFinite(counts[1])
+				|| counts[0] < 0 || counts[1] < 0)
+			{
+				continue;
+			}
+			Beta posterior = new Beta();
+			posterior.set(counts[0], counts[1]);
+			posteriors.put(entry.getKey(), posterior);
+		}
+	}
+
 	/** Beta(a, b) as the ratio of two gamma draws — the standard construction. */
 	private double sampleBeta(double alpha, double beta)
 	{
@@ -198,6 +238,17 @@ public final class ThompsonSampler
 		synchronized int total()
 		{
 			return (int) (successes + failures);
+		}
+
+		synchronized double[] counts()
+		{
+			return new double[]{ successes, failures };
+		}
+
+		synchronized void set(double successes, double failures)
+		{
+			this.successes = successes;
+			this.failures = failures;
 		}
 	}
 }

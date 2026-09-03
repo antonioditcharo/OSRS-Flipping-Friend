@@ -221,6 +221,43 @@ public final class IsotonicCalibrator
 		return mapping;
 	}
 
+	/**
+	 * Flattens the accumulated evidence for persistence: {@code [observations, successes...,
+	 * counts...]}, {@value #BINS} of each.
+	 *
+	 * <p>Added after recovery, so this class no longer matches the archived bytecode byte for byte.
+	 * That is deliberate. The diff was how the recovery was <em>verified</em> (commit 1b4b448), not a
+	 * promise never to change the class — and without persistence a calibrator that needs
+	 * {@value #MIN_OBSERVATIONS} observations per leg may never reach them on a companion that
+	 * restarts daily.
+	 */
+	public synchronized double[] snapshot()
+	{
+		double[] state = new double[1 + BINS * 2];
+		state[0] = observations;
+		System.arraycopy(successes, 0, state, 1, BINS);
+		System.arraycopy(counts, 0, state, 1 + BINS, BINS);
+		return state;
+	}
+
+	/**
+	 * Restores a snapshot, ignoring anything of the wrong shape. A snapshot written by a build with a
+	 * different bin count is discarded rather than stretched: a mangled calibration curve is worse
+	 * than a cold one, because a cold one is honest about knowing nothing.
+	 */
+	public synchronized boolean restore(double[] state)
+	{
+		if (state == null || state.length != 1 + BINS * 2)
+		{
+			return false;
+		}
+		observations = (int) state[0];
+		System.arraycopy(state, 1, successes, 0, BINS);
+		System.arraycopy(state, 1 + BINS, counts, 0, BINS);
+		calibrated = null;
+		return true;
+	}
+
 	private static double identityFor(int bin)
 	{
 		return clamp((bin + 0.5) / BINS);

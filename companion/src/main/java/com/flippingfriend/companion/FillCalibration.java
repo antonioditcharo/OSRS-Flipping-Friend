@@ -197,6 +197,57 @@ final class FillCalibration
 		return String.format(" (%+.1f%% optimistic)", calibrator.meanBias() * 100.0);
 	}
 
+	/**
+	 * Everything learned from settled offers, in a form the model registry can store.
+	 *
+	 * <p>{@link LearnedDurations} is deliberately absent: it is rebuilt from {@code execution_stat} on
+	 * the next refresh, so persisting it would create a second copy of the same truth and a way for
+	 * the two to disagree. Only state with no other home is snapshotted.
+	 */
+	static final class Snapshot
+	{
+		/** Guards against a build with different bin counts silently loading a mangled curve. */
+		int version = SNAPSHOT_VERSION;
+		double[] buyCompletion;
+		double[] sellCompletion;
+		Map<Integer, double[]> exploration;
+	}
+
+	static final int SNAPSHOT_VERSION = 1;
+
+	synchronized Snapshot snapshot()
+	{
+		Snapshot state = new Snapshot();
+		state.buyCompletion = buyCompletion.snapshot();
+		state.sellCompletion = sellCompletion.snapshot();
+		state.exploration = exploration.snapshot();
+		return state;
+	}
+
+	/**
+	 * Restores a snapshot. A version mismatch or a malformed payload is discarded rather than
+	 * partially applied — starting cold is honest, and the corrections are inert while cold, so the
+	 * cost of refusing a bad snapshot is a slow restart rather than a wrong price.
+	 *
+	 * @return whether any actual evidence came back — not merely whether the payload parsed. An
+	 *         empty snapshot is well-formed and restores nothing, and reporting that as a successful
+	 *         restore would put "Restored calibration from a previous session" on the health line of
+	 *         a companion that is starting cold.
+	 */
+	synchronized boolean restore(Snapshot state)
+	{
+		if (state == null || state.version != SNAPSHOT_VERSION)
+		{
+			return false;
+		}
+		buyCompletion.restore(state.buyCompletion);
+		sellCompletion.restore(state.sellCompletion);
+		exploration.restore(state.exploration);
+		return buyCompletion.observations() > 0
+			|| sellCompletion.observations() > 0
+			|| exploration.itemsTracked() > 0;
+	}
+
 	private IsotonicCalibrator calibratorFor(boolean buying)
 	{
 		return buying ? buyCompletion : sellCompletion;
