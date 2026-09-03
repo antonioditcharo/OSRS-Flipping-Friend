@@ -482,6 +482,23 @@ final class SqliteStore implements AutoCloseable
 	}
 
 	/** The newest trained model on record, or 0 when nothing has been trained yet. */
+	/**
+	 * The price archive, over this store's own connection.
+	 *
+	 * <p>One database file rather than a second: the same lock, the same backup, and no chance of the
+	 * archive and the event log disagreeing about which of them is authoritative after a crash.
+	 */
+	synchronized PriceArchive priceArchive() throws Exception
+	{
+		if (archive == null)
+		{
+			archive = new PriceArchive(connection);
+		}
+		return archive;
+	}
+
+	private PriceArchive archive;
+
 	synchronized long latestModelVersion() throws Exception
 	{
 		try (PreparedStatement statement =

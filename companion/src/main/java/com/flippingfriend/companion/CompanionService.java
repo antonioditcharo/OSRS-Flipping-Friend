@@ -65,6 +65,11 @@ final class CompanionService implements AutoCloseable
 
 	private volatile long lastCalibrationSave;
 
+	/** How often five-minute history older than the fine-retention window is compacted to hourly. */
+	private static final long ROLLUP_INTERVAL_SECONDS = 6 * 3600;
+
+	private volatile long lastRollUp;
+
 
 	/** Single thread, so plans are computed one at a time and in order. */
 	private final ExecutorService planThread = Executors.newSingleThreadExecutor(runnable ->
@@ -172,6 +177,16 @@ final class CompanionService implements AutoCloseable
 		this.store = store;
 		this.activeOffers = new ActiveOfferTracker();
 		this.market = new MarketIngestionService(gson);
+		// Start recording immediately. This is the one item on the plan where waiting has a permanent
+		// cost: the API retains a bounded window, so a day not recorded is a day nobody can recover.
+		try
+		{
+			this.market.setArchive(store.priceArchive());
+		}
+		catch (Exception unavailable)
+		{
+			log.warn("Price archive unavailable; history will not accumulate", unavailable);
+		}
 		this.series = cacheDir == null ? new SeriesCache()
 			: new SeriesCache(cacheDir.resolve("series-cache.json.gz"));
 		this.planner = new PortfolioPlanner(series);
@@ -343,6 +358,10 @@ final class CompanionService implements AutoCloseable
 			{
 				saveCalibration(now);
 			}
+			if (now - lastRollUp >= ROLLUP_INTERVAL_SECONDS)
+			{
+				compactArchive(now);
+			}
 		}
 
 		// An offer changing is the single most important reason to re-plan: a slot has just opened
@@ -459,6 +478,47 @@ final class CompanionService implements AutoCloseable
 		}
 	}
 
+	/**
+	 * Compacts five-minute history older than the fine-retention window down to hourly.
+	 *
+	 * <p>Roughly 4,600 items at twelve buckets an hour is about 1.3 million rows a day, which is not
+	 * a size to keep at full resolution forever. The fill model needs five minutes only for recent
+	 * history; the long-horizon features that justify keeping anything at all work at hourly, and it
+	 * is about a twelfth of the rows.
+	 */
+	private void compactArchive(long now)
+	{
+		lastRollUp = now;
+		try
+		{
+			store.priceArchive().rollUp(now - PriceArchive.FINE_RETENTION_DAYS * 86_400L);
+		}
+		catch (Exception unavailable)
+		{
+			log.warn("Could not compact the price archive", unavailable);
+		}
+	}
+
+	/** How far back the archive can see, for the health line. */
+	private String archiveSummary(long now)
+	{
+		try
+		{
+			PriceArchive archive = store.priceArchive();
+			long earliest = archive.earliest();
+			if (earliest <= 0)
+			{
+				return "Archive: empty.";
+			}
+			long days = Math.max(0, (now - earliest) / 86_400L);
+			return String.format("Archive: %,d bars, %d days of history.", archive.rowCount(), days);
+		}
+		catch (Exception unavailable)
+		{
+			return "Archive: unavailable.";
+		}
+	}
+
 	CompanionHealth health()
 	{
 		long now = Instant.now().getEpochSecond();
@@ -506,6 +566,9 @@ final class CompanionService implements AutoCloseable
 		// makes "the calibrator is learning" a claim that can be checked rather than assumed.
 		detail += " " + calibration.summary();
 		detail += " " + shadow.summary();
+		// Said out loud so the archive cannot quietly fail to accumulate for months. The value of this
+		// store is entirely in how far back it reaches, and that is not visible any other way.
+		detail += " " + archiveSummary(now);
 		// The real version, not the literal 1 that stood here. A placeholder in a health response is
 		// worse than an absent field: it looks like an answer, and there is no way to tell from the
 		// outside that the model has been retrained seventy times since.

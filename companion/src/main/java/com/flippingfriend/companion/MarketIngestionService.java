@@ -26,6 +26,48 @@ final class MarketIngestionService
 	private WebSocket webSocket;
 	private volatile boolean wsConnected = false;
 
+	/**
+	 * Where each poll is kept. Null until set, so a service without one behaves exactly as it did
+	 * before the archive existed — replay and tests do not need to record anything.
+	 */
+	private PriceArchive archive;
+
+	/**
+	 * Keeps this poll.
+	 *
+	 * <p>Bucket timestamps are floored to the resolution rather than stamped with the fetch time, so
+	 * polling every sixty seconds for a bucket that only changes every five minutes writes one row
+	 * and then silently does nothing — the primary key does the deduplication.
+	 *
+	 * <p>Failures are logged and swallowed. Losing a poll costs a bar; letting a storage error escape
+	 * would stop the ingestion loop and take every price in the system with it.
+	 */
+	private void archive(JsonObject fiveMinute, JsonObject hourly, long now)
+	{
+		PriceArchive target = archive;
+		if (target == null)
+		{
+			return;
+		}
+		try
+		{
+			target.record(fiveMinute, PriceArchive.FIVE_MINUTE, now / 300 * 300);
+			target.record(hourly, PriceArchive.HOURLY, now / 3600 * 3600);
+		}
+		catch (Exception unwritable)
+		{
+			log.warn("Could not archive prices for this poll", unwritable);
+		}
+	}
+
+	void setArchive(PriceArchive archive)
+	{
+		this.archive = archive;
+	}
+
+	private static final org.slf4j.Logger log =
+		org.slf4j.LoggerFactory.getLogger(MarketIngestionService.class);
+
 	MarketIngestionService(Gson gson)
 	{
 		this.gson = gson;
@@ -50,6 +92,7 @@ final class MarketIngestionService
 		// to a volunteer-run community API, in perpetuity, to fill a table nothing selects from.
 		JsonObject hourly = fetch("1h").getAsJsonObject("data");
 		state = new MarketState(mapping, latest, fiveMinute, hourly, now);
+		archive(fiveMinute, hourly, now);
 		
 		ensureWebSocket();
 	}
