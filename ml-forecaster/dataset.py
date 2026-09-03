@@ -3,12 +3,11 @@ import numpy as np
 import requests
 import datetime
 
+from wiki_api import BASE, HEADERS
+
 def fetch_wiki_data(item_id: int):
-    url = f"https://prices.runescape.wiki/api/v1/osrs/timeseries?timestep=5m&id={item_id}"
-    headers = {
-        'User-Agent': 'FlippingFriend_ML_Forecaster'
-    }
-    response = requests.get(url, headers=headers)
+    url = f"{BASE}/timeseries?timestep=5m&id={item_id}"
+    response = requests.get(url, headers=HEADERS)
     if response.status_code == 200:
         data = response.json().get("data", [])
         return data

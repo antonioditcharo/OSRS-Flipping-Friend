@@ -1,5 +1,6 @@
 package com.flippingfriend.companion;
 
+import com.flippingfriend.core.WikiApi;
 import com.flippingfriend.data.Candle;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -50,9 +51,9 @@ import okhttp3.Response;
  */
 final class SeriesCache implements SeriesSource
 {
-	private static final String BASE = "https://prices.runescape.wiki/api/v1/osrs/timeseries";
-	private static final String USER_AGENT =
-		"FlippingFriend local companion - contact local user";
+	private static final String BASE = WikiApi.BASE + "/timeseries";
+	/** Shared with every other client, so the wiki sees one identity for this product. */
+	private static final String USER_AGENT = WikiApi.USER_AGENT;
 
 	private static final Logger log = LoggerFactory.getLogger(SeriesCache.class);
 

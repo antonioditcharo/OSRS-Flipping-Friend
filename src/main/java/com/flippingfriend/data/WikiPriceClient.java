@@ -1,5 +1,6 @@
 package com.flippingfriend.data;
 
+import com.flippingfriend.core.WikiApi;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.reflect.TypeToken;
@@ -35,9 +36,9 @@ public class WikiPriceClient
 {
 	private static final Logger log = LoggerFactory.getLogger(WikiPriceClient.class);
 
-	private static final HttpUrl BASE = HttpUrl.get("https://prices.runescape.wiki/api/v1/osrs");
-	private static final String USER_AGENT =
-		"OSRS-Flipping-Friend/1.0.0 - RuneLite plugin - github.com/osrs-flipping-friend";
+	private static final HttpUrl BASE = HttpUrl.get(WikiApi.BASE);
+	/** Shared with every other client, so the wiki sees one identity for this product. */
+	private static final String USER_AGENT = WikiApi.USER_AGENT;
 
 	private static final Type LATEST_MAP = new TypeToken<Map<String, LatestPrice>>()
 	{

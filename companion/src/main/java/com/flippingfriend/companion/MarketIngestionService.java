@@ -1,5 +1,6 @@
 package com.flippingfriend.companion;
 
+import com.flippingfriend.core.WikiApi;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -17,7 +18,7 @@ import okhttp3.WebSocketListener;
 /** Polite cached ingestion of the public market feed; all raw responses are retained in SQLite. */
 final class MarketIngestionService
 {
-	private static final String BASE = "https://prices.runescape.wiki/api/v1/osrs/";
+	private static final String BASE = WikiApi.BASE + "/";
 	private final OkHttpClient client = new OkHttpClient();
 	private final Gson gson;
 	private volatile MarketState state = MarketState.empty();
@@ -58,8 +59,8 @@ final class MarketIngestionService
 		if (wsConnected || webSocket != null) return;
 		
 		Request request = new Request.Builder()
-			.url("wss://prices.runescape.wiki/api/ws")
-			.header("User-Agent", "FlippingFriend local companion - contact local user")
+			.url(WikiApi.WEBSOCKET)
+			.header("User-Agent", WikiApi.USER_AGENT)
 			.build();
 			
 		webSocket = client.newWebSocket(request, new WebSocketListener()
@@ -126,7 +127,7 @@ final class MarketIngestionService
 	private JsonObject fetch(String endpoint) throws Exception
 	{
 		Request request = new Request.Builder().url(BASE + endpoint)
-			.header("User-Agent", "FlippingFriend local companion - contact local user")
+			.header("User-Agent", WikiApi.USER_AGENT)
 			.build();
 		try (Response response = client.newCall(request).execute())
 		{
@@ -163,7 +164,7 @@ final class MarketIngestionService
 
 	private JsonElement fetchRaw(String endpoint) throws Exception
 	{
-		Request request = new Request.Builder().url(BASE + endpoint).header("User-Agent", "FlippingFriend local companion - contact local user").build();
+		Request request = new Request.Builder().url(BASE + endpoint).header("User-Agent", WikiApi.USER_AGENT).build();
 		try (Response response = client.newCall(request).execute())
 		{
 			if (!response.isSuccessful() || response.body() == null) { throw new IllegalStateException(endpoint + " returned " + response.code()); }
