@@ -329,6 +329,73 @@ final class CandidateFactory
 		return calibration;
 	}
 
+	/**
+	 * What a resting offer is still worth per hour of the slot it is holding.
+	 *
+	 * <p>The question a hold decision should ask, and the one nothing asked before: not "has this been
+	 * open a while" but "would this slot earn more doing something else". Repricing on a staleness
+	 * timer answers neither — it fires on an offer that is about to fill and stays silent on one that
+	 * never will.
+	 *
+	 * <p>Scored with the same {@link FillModel} and the same curve the entry decision used, so a hold
+	 * and a fresh trade are compared on one scale rather than by two rules that happen to disagree.
+	 *
+	 * @param remainingHours slot-time this offer will still consume before its horizon expires
+	 * @return expected gp per slot-hour from letting it stand, or a negative value when there is not
+	 *         enough history to judge — never zero, which would read as "worthless" rather than
+	 *         "unknown"
+	 */
+	double holdValue(int itemId, int price, int remainingQuantity, boolean buying, long marginPerItem,
+		double remainingHours)
+	{
+		if (itemId <= 0 || price <= 0 || remainingQuantity <= 0 || remainingHours <= 0)
+		{
+			return -1;
+		}
+		List<Candle> shortSeries = series.series(itemId, shortStep);
+		if (shortSeries == null || shortSeries.isEmpty())
+		{
+			return -1;
+		}
+		FillCurve curve = FillCurve.from(shortSeries);
+		FillEstimate estimate = buying
+			? fillModel().estimateBuy(curve, price, remainingQuantity, remainingHours)
+			: fillModel().estimateSell(curve, price, remainingQuantity, remainingHours);
+		if (!estimate.isPlausible())
+		{
+			return -1;
+		}
+		// Only the profit still ahead counts. What the offer has already cost in slot-time is spent
+		// either way, and charging it again would keep an offer alive purely because it has been
+		// expensive so far.
+		double expected = (double) marginPerItem * remainingQuantity * estimate.getProbability();
+		return expected / Math.max(1.0 / 60.0, remainingHours);
+	}
+
+	/**
+	 * The hold value of a resting <em>buy</em>, net of the tax the eventual sale will pay.
+	 *
+	 * <p>Buys only, deliberately. Cancelling a resting buy frees the slot and costs nothing — no
+	 * capital has changed hands. Cancelling a resting sell leaves you holding the item, so the slot is
+	 * not really freed and the decision is about exit pricing rather than opportunity cost. Applying
+	 * one hurdle to both would recommend abandoning positions to chase a better entry.
+	 */
+	double buyHoldValue(int itemId, int offerPrice, int remainingQuantity, int marketSellPrice,
+		double remainingHours)
+	{
+		if (marketSellPrice <= offerPrice)
+		{
+			return -1;
+		}
+		long margin = tax.netMarginPerItem(itemId, offerPrice, marketSellPrice);
+		if (margin <= 0)
+		{
+			// The spread no longer covers tax, so letting it stand earns nothing whatever it does.
+			return 0;
+		}
+		return holdValue(itemId, offerPrice, remainingQuantity, true, margin, remainingHours);
+	}
+
 	void setShadowTrader(ShadowTrader shadow)
 	{
 		this.shadow = shadow;

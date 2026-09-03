@@ -201,6 +201,13 @@ final class PortfolioPlanner
 					alerts.add(new PortfolioAlert("STALE", offer.getItemId(), offer.getSlot(), "Offer has been open for over an hour."));
 				}
 
+				// The same floor the entry decision uses, applied to holding. An offer's age says
+				// nothing on its own: a slow fill about to complete is worth keeping and a dead one is
+				// not, and an hour on the clock cannot tell them apart. What decides it is whether the
+				// slot would earn more doing something else.
+				alertIfNotWorthTheSlot(alerts, offer, market, hurdle, nowSeconds,
+					horizonFor(account, appetite));
+
 				if (market.latest != null && market.latest.has(String.valueOf(offer.getItemId())))
 				{
 					com.google.gson.JsonElement pricingEl = market.latest.get(String.valueOf(offer.getItemId()));
@@ -252,6 +259,64 @@ final class PortfolioPlanner
 		return plan.withDiagnostics(funnel)
 			.withBoard(board.getExpectedGpPerSlotHour(), board.getAllocations().size(),
 				bench(plan.getAllocations(), board.getAllocations()));
+	}
+
+	/**
+	 * Flags a resting buy whose remaining value has fallen below what a fresh trade would earn.
+	 *
+	 * <p>Advisory rather than automatic. The companion does not cancel anything — it says what it
+	 * would do and why, with the two numbers that decided it, because a cancellation the player
+	 * cannot account for is worse than a slow fill.
+	 */
+	private void alertIfNotWorthTheSlot(List<PortfolioAlert> alerts, OfferEvent offer,
+		MarketIngestionService.MarketState market, double hurdle, long nowSeconds, double horizonHours)
+	{
+		if (!offer.isBuying() || hurdle <= 0)
+		{
+			return;
+		}
+		int remaining = offer.getTotalQuantity() - offer.getFilledQuantity();
+		if (remaining <= 0)
+		{
+			return;
+		}
+		// Slot-time still ahead of it, not time already spent: what has been consumed is gone either
+		// way, and charging it again would keep an offer alive because it has been expensive so far.
+		double remainingHours = horizonHours - (nowSeconds - offer.getFirstSeenAt()) / 3600.0;
+		if (remainingHours <= 0.05)
+		{
+			return;
+		}
+		int marketSell = marketHigh(market, offer.getItemId());
+		if (marketSell <= 0)
+		{
+			return;
+		}
+		double value = candidates.buyHoldValue(offer.getItemId(), offer.getPrice(), remaining,
+			marketSell, remainingHours);
+		if (value < 0 || value >= hurdle)
+		{
+			// Negative means not enough history to judge, which is not the same as not worth keeping.
+			return;
+		}
+		alerts.add(new PortfolioAlert("RECONSIDER", offer.getItemId(), offer.getSlot(),
+			String.format("This slot is worth about %,d gp/hr and this offer is earning about %,d. "
+				+ "Cancelling frees it for a better trade.",
+				Math.round(hurdle), Math.round(value))));
+	}
+
+	private static int marketHigh(MarketIngestionService.MarketState market, int itemId)
+	{
+		if (market == null || market.latest == null || !market.latest.has(String.valueOf(itemId)))
+		{
+			return 0;
+		}
+		com.google.gson.JsonElement element = market.latest.get(String.valueOf(itemId));
+		if (!element.isJsonObject() || !element.getAsJsonObject().has("high"))
+		{
+			return 0;
+		}
+		return element.getAsJsonObject().get("high").getAsInt();
 	}
 
 	/**
