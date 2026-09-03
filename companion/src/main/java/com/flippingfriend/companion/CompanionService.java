@@ -42,6 +42,7 @@ final class CompanionService implements AutoCloseable
 	/** Buy-limit windows are per account and reset four hours after the first purchase in them. */
 	private final BuyLimitLedger buyLimits = new BuyLimitLedger();
 	private final ExecutionRecorder executions;
+	private final FillCalibration calibration = new FillCalibration();
 
 
 	/** Single thread, so plans are computed one at a time and in order. */
@@ -297,7 +298,20 @@ final class CompanionService implements AutoCloseable
 		// Settled offers are the only direct evidence of how our own orders behave in the queue,
 		// as opposed to what the public price history says the market did.
 		boolean settled = executions.record(event);
-		double claimed = predictedCompletion(event);
+		if (settled)
+		{
+			// Both of these were computed and discarded until 2 September 2026, which is why the
+			// comparison the system is built around had never been made once.
+			calibration.observeSettled(event, predictedCompletion(event));
+
+			long now = event.getObservedAt();
+			if (calibration.durationsDue(now))
+			{
+				// Rebuilt on a timer rather than per offer: refresh() reads the whole execution_stat
+				// table, and the multipliers do not move fast enough to justify that on every fill.
+				calibration.refreshDurations(store.executionStats(), now);
+			}
+		}
 
 		// An offer changing is the single most important reason to re-plan: a slot has just opened
 		// or closed, capital has moved, and a buy limit may have been consumed. Waiting for the next
@@ -382,6 +396,11 @@ final class CompanionService implements AutoCloseable
 		{
 			detail += " Planning in progress.";
 		}
+		// Say what calibration is doing. IsotonicCalibrator and LearnedDurations both existed,
+		// tested, for weeks without being called by anything -- and nothing in the product would
+		// have looked different if they had never been written. A number on the health line is what
+		// makes "the calibrator is learning" a claim that can be checked rather than assumed.
+		detail += " " + calibration.summary();
 		// The real version, not the literal 1 that stood here. A placeholder in a health response is
 		// worse than an absent field: it looks like an answer, and there is no way to tell from the
 		// outside that the model has been retrained seventy times since.
