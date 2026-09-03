@@ -54,6 +54,9 @@ final class CompanionService implements AutoCloseable
 	/** Stored separately from the calibration: different data, and one can fail to load without the other. */
 	private static final String SHADOW_MODEL = "shadow-trades";
 
+	private final LearnedFillModel learnedFill = new LearnedFillModel();
+
+
 	/**
 	 * How often the learned state is written back. Frequent enough that a crash costs minutes of
 	 * evidence rather than a session, rare enough that it is not a write per offer.
@@ -196,6 +199,7 @@ final class CompanionService implements AutoCloseable
 		this.planner.setCalibration(calibration);
 		this.planner.setShadowTrader(shadow);
 		this.planner.setBuyLimitLedger(buyLimits);
+		this.planner.setLearnedFillModel(learnedFill);
 		restoreCalibration();
 		this.executions = new ExecutionRecorder(store);
 	}
@@ -361,6 +365,16 @@ final class CompanionService implements AutoCloseable
 			if (now - lastRollUp >= ROLLUP_INTERVAL_SECONDS)
 			{
 				compactArchive(now);
+			}
+			if (now - lastTrainedAt >= RETRAIN_INTERVAL_SECONDS)
+			{
+				// RETRAIN_INTERVAL_SECONDS and lastTrainedAt have both existed since the companion was
+				// written and neither was ever read - audit item 82 lists the consequence, a monitor
+				// reporting a model version that was always zero. This is the first thing to use them.
+				lastTrainedAt = now;
+				// Refit against everything the shadow channel has resolved, and let the gate decide
+				// whether the result is allowed anywhere near a decision.
+				learnedFill.retrain(shadow.trainingSet(true));
 			}
 		}
 
@@ -576,6 +590,7 @@ final class CompanionService implements AutoCloseable
 		// Said out loud so the archive cannot quietly fail to accumulate for months. The value of this
 		// store is entirely in how far back it reaches, and that is not visible any other way.
 		detail += " " + archiveSummary(now);
+		detail += " " + learnedFill.summary();
 		// The real version, not the literal 1 that stood here. A placeholder in a health response is
 		// worse than an absent field: it looks like an answer, and there is no way to tell from the
 		// outside that the model has been retrained seventy times since.

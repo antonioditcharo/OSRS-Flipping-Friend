@@ -103,6 +103,20 @@ final class ShadowTrader
 	synchronized void open(int itemId, String itemName, String vetoReason, int buyPrice, int sellPrice,
 		int quantity, long atEpochSeconds, double horizonHours, double[] features)
 	{
+		open(itemId, itemName, vetoReason, buyPrice, sellPrice, quantity, atEpochSeconds,
+			horizonHours, features, -1);
+	}
+
+	/**
+	 * @param analyticalCompletion what {@code FillModel} predicted for this same trade at this same
+	 *                             moment, or negative when it could not be computed. Recorded so a
+	 *                             trained model can be scored against the analytical one on identical
+	 *                             evidence rather than against the base rate.
+	 */
+	synchronized void open(int itemId, String itemName, String vetoReason, int buyPrice, int sellPrice,
+		int quantity, long atEpochSeconds, double horizonHours, double[] features,
+		double analyticalCompletion)
+	{
 		if (itemId <= 0 || buyPrice <= 0 || sellPrice <= 0 || quantity <= 0 || horizonHours <= 0)
 		{
 			return;
@@ -112,7 +126,8 @@ final class ShadowTrader
 			open.pollFirst();
 		}
 		open.addLast(new Position(itemId, itemName, vetoReason == null ? ACCEPTED : vetoReason,
-			buyPrice, sellPrice, quantity, atEpochSeconds, horizonHours, features));
+			buyPrice, sellPrice, quantity, atEpochSeconds, horizonHours, features,
+			analyticalCompletion));
 	}
 
 	/**
@@ -202,7 +217,7 @@ final class ShadowTrader
 			resolved.pollFirst();
 		}
 		resolved.addLast(new Resolved(position.vetoReason, outcome, profit, cost,
-			position.itemId, position.features));
+			position.itemId, position.features, position.analyticalCompletion));
 	}
 
 	/**
@@ -336,6 +351,7 @@ final class ShadowTrader
 	{
 		List<double[]> rows = new ArrayList<>();
 		List<Integer> labels = new ArrayList<>();
+		List<Double> baselines = new ArrayList<>();
 		for (Resolved row : resolved)
 		{
 			if (row.features == null)
@@ -348,8 +364,9 @@ final class ShadowTrader
 			}
 			rows.add(row.features);
 			labels.add(row.outcome == Outcome.COMPLETED ? 1 : 0);
+			baselines.add(row.analyticalCompletion);
 		}
-		return new TrainingSet(rows, labels);
+		return new TrainingSet(rows, labels, baselines);
 	}
 
 	/** A feature matrix and its labels, in the shape {@code GradientBoostedTrees.train} expects. */
@@ -357,15 +374,24 @@ final class ShadowTrader
 	{
 		private final double[][] features;
 		private final int[] labels;
+		/** What FillModel predicted for each row, so a trained model has something to beat. */
+		private final double[] baseline;
 
-		private TrainingSet(List<double[]> rows, List<Integer> labelValues)
+		private TrainingSet(List<double[]> rows, List<Integer> labelValues, List<Double> baselines)
 		{
 			this.features = rows.toArray(new double[0][]);
 			this.labels = new int[labelValues.size()];
+			this.baseline = new double[baselines.size()];
 			for (int i = 0; i < labelValues.size(); i++)
 			{
 				this.labels[i] = labelValues.get(i);
+				this.baseline[i] = baselines.get(i);
 			}
+		}
+
+		double[] baseline()
+		{
+			return baseline;
 		}
 
 		double[][] features()
@@ -456,11 +482,15 @@ final class ShadowTrader
 		private final double horizonHours;
 		/** The feature vector as it stood at the decision, or null when none could be built. */
 		private final double[] features;
+		/** FillModel's own prediction at the decision, or negative when unavailable. */
+		private final double analyticalCompletion;
 
 		private Position(int itemId, String itemName, String vetoReason, int buyPrice, int sellPrice,
-			int quantity, long openedAt, double horizonHours, double[] features)
+			int quantity, long openedAt, double horizonHours, double[] features,
+			double analyticalCompletion)
 		{
 			this.features = features;
+			this.analyticalCompletion = analyticalCompletion;
 			this.itemId = itemId;
 			this.itemName = itemName;
 			this.vetoReason = vetoReason;
@@ -480,10 +510,12 @@ final class ShadowTrader
 		private final long cost;
 		private final int itemId;
 		private final double[] features;
+		private final double analyticalCompletion;
 
 		private Resolved(String vetoReason, Outcome outcome, long profit, long cost, int itemId,
-			double[] features)
+			double[] features, double analyticalCompletion)
 		{
+			this.analyticalCompletion = analyticalCompletion;
 			this.vetoReason = vetoReason;
 			this.outcome = outcome;
 			this.profit = profit;

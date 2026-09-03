@@ -259,6 +259,26 @@ final class CandidateFactory
 	private ShadowTrader shadow;
 
 	/**
+	 * The learned correction, which is inert until it has beaten {@code FillModel} out of sample.
+	 * A fresh instance has no model and weight zero, so an unwired factory ranks exactly as it did
+	 * before any of this existed.
+	 */
+	private LearnedFillModel learned = new LearnedFillModel();
+
+	void setLearnedFillModel(LearnedFillModel learned)
+	{
+		if (learned != null)
+		{
+			this.learned = learned;
+		}
+	}
+
+	LearnedFillModel learnedFillModel()
+	{
+		return learned;
+	}
+
+	/**
 	 * The buy-limit windows, so a spent limit can say when it frees.
 	 *
 	 * <p>{@link BuyLimitLedger#resetsAt} has existed, tested, with no production caller: the system
@@ -771,6 +791,16 @@ final class CandidateFactory
 			screened.price.getLow(), screened.fillable, screened.item.buyLimit,
 			features, context, hourOfDay).values();
 
+		// What FillModel says about this same trade, at this same moment, recorded beside the
+		// features. Without it a trained model can only be compared with the base rate, and the
+		// question that decides whether it ships is whether it beats the analytical model that reads
+		// the actual book. Computing it later would compare against a reconstruction.
+		double analyticalCompletion =
+			fillModel().estimateBuy(curve, screened.price.getLow(), Math.max(1, screened.fillable),
+					horizonHours, season).getProbability()
+				* fillModel().estimateSell(curve, screened.price.getHigh(),
+					Math.max(1, screened.fillable), horizonHours, season).getProbability();
+
 
 		for (double buyOffset : appetite.getBuyOffsets())
 		{
@@ -865,6 +895,7 @@ final class CandidateFactory
 				double sellHours = sellFill.getExpectedHours() * durationMultiplier;
 				double sellProbability = calibration.calibrate(false, sellFill.getProbability());
 
+
 				// Rank on a draw, show the mean.
 				//
 				// Ranking on the argmax means only trades the model already rates highly are ever
@@ -876,7 +907,13 @@ final class CandidateFactory
 				// The player sees the mean. A confidence that jumped around because it was a random
 				// draw would be unreadable, and worse, dishonest -- it is not what the system
 				// believes. withDisplayProbability carries exactly this split.
-				double displayBuyProbability = calibration.calibrate(true, buyFill.getProbability());
+				// Three corrections, in the order their evidence justifies. The analytical estimate
+				// reads the book; the learned model adjusts it only by as much as it has earned;
+				// calibration then corrects whatever remains wrong about the magnitude; and the draw
+				// is the exploration. Each is inert until it has grounds, so an engine that has never
+				// traded produces the same ranking as before any of them existed.
+				double adjustedBuy = learned.adjust(buyFill.getProbability(), featureVector);
+				double displayBuyProbability = calibration.calibrate(true, adjustedBuy);
 				double buyProbability = calibration.explore(itemId, displayBuyProbability);
 
 				tactics.add(new PortfolioCandidate(itemId, screened.item.name, group,
@@ -906,7 +943,8 @@ final class CandidateFactory
 			String outcome = tactics.isEmpty() ? lastVeto.get(itemId) : null;
 			trader.open(itemId, screened.item.name, outcome,
 				screened.price.getLow(), screened.price.getHigh(),
-				Math.max(1, screened.fillable), now.getEpochSecond(), horizonHours, featureVector);
+				Math.max(1, screened.fillable), now.getEpochSecond(), horizonHours, featureVector,
+				analyticalCompletion);
 		}
 
 		return tactics.size() > TACTICS_PER_ITEM ? tactics.subList(0, TACTICS_PER_ITEM) : tactics;

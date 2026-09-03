@@ -64,6 +64,12 @@ final class PortfolioPlanner
 		candidates.setCalibration(calibration);
 	}
 
+	/** Hands the factory the learned correction, which is inert until it has earned influence. */
+	void setLearnedFillModel(LearnedFillModel learned)
+	{
+		candidates.setLearnedFillModel(learned);
+	}
+
 	/** Hands the factory the buy-limit windows, so a spent limit can say when it frees. */
 	void setBuyLimitLedger(BuyLimitLedger buyLimits)
 	{
