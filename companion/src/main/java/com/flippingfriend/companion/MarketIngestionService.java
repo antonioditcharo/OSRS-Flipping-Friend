@@ -200,7 +200,12 @@ final class MarketIngestionService
 			// safe direction because an over-estimate produces an offer the game silently refuses to
 			// fill -- so the guess is recorded as a guess.
 			int limit = published ? object.get("limit").getAsInt() : (value >= 100_000 ? 8 : 100);
-			items.put(id, new Item(id, object.get("name").getAsString(), limit, members, published));
+			// Absent for anything that cannot be alched, which is the honest reading of a missing
+			// field here: zero means no floor rather than an unknown one.
+			int highAlch = object.has("highalch") && !object.get("highalch").isJsonNull()
+				? object.get("highalch").getAsInt() : 0;
+			items.put(id, new Item(id, object.get("name").getAsString(), limit, members, published,
+				highAlch));
 		}
 		return items;
 	}
@@ -255,6 +260,15 @@ final class MarketIngestionService
 		final boolean buyLimitPublished;
 		/** Members-only items cannot be traded at all on a free account, so they are not candidates. */
 		final boolean members;
+		/**
+		 * Coins High Level Alchemy turns one of these into, or 0 when it cannot be alched.
+		 * <p>
+		 * The only number in this whole pipeline that the market does not set. It comes from the same
+		 * {@code /mapping} response the buy limit does, it was already being downloaded, and it was
+		 * being dropped on the floor — while {@code unwindCost} estimated the downside of every
+		 * alchable item as though there were nothing underneath it.
+		 */
+		final int highAlch;
 
 		Item(int id, String name, int buyLimit)
 		{
@@ -268,11 +282,18 @@ final class MarketIngestionService
 
 		Item(int id, String name, int buyLimit, boolean members, boolean buyLimitPublished)
 		{
+			this(id, name, buyLimit, members, buyLimitPublished, 0);
+		}
+
+		Item(int id, String name, int buyLimit, boolean members, boolean buyLimitPublished,
+			int highAlch)
+		{
 			this.buyLimitPublished = buyLimitPublished;
 			this.id = id;
 			this.name = name;
 			this.buyLimit = buyLimit;
 			this.members = members;
+			this.highAlch = highAlch;
 		}
 	}
 

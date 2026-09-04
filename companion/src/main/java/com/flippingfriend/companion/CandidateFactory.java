@@ -6,6 +6,7 @@ import com.flippingfriend.data.Candle;
 import com.flippingfriend.data.ItemMetadata;
 import com.flippingfriend.data.LatestPrice;
 
+import com.flippingfriend.model.AlchemyFloor;
 import com.flippingfriend.model.FeatureEngine;
 import com.flippingfriend.model.FillCurve;
 import com.flippingfriend.model.FillEstimate;
@@ -279,6 +280,41 @@ final class CandidateFactory
 	/** Measured capture shares. Null until wired, which leaves the appetite's number in charge. */
 	private volatile CaptureRates captureRates;
 
+	/** Nature rune. Consumed by every High Level Alchemy cast, so its price is the floor's cost. */
+	private static final int NATURE_RUNE = 561;
+
+	/**
+	 * Nature runes, as the market last quoted them, because every alch consumes one.
+	 * <p>
+	 * Read from the same quote sweep everything else uses rather than hardcoded: the rune is one of
+	 * the most actively traded items in the game, and a stale figure here would sit underneath every
+	 * downside estimate in the system.
+	 */
+	private volatile int natureRunePrice = AlchemyFloor.DEFAULT_NATURE_RUNE_PRICE;
+
+	/** Rebuilt only when the rune price actually moves, since it is consulted per candidate. */
+	private volatile AlchemyFloor cachedFloor;
+
+	private AlchemyFloor alchemyFloor()
+	{
+		AlchemyFloor floor = cachedFloor;
+		if (floor == null || floor.natureRunePrice() != natureRunePrice)
+		{
+			floor = new AlchemyFloor(tax, natureRunePrice);
+			cachedFloor = floor;
+		}
+		return floor;
+	}
+
+	/** The live nature rune quote, from the sweep that is already running. */
+	void setNatureRunePrice(int price)
+	{
+		if (price > 0)
+		{
+			this.natureRunePrice = price;
+		}
+	}
+
 	/** One model per distinct rounded capture rate, shared across every item that lands on it. */
 	private final Map<Integer, FillModel> captureModels = new ConcurrentHashMap<>();
 
@@ -534,6 +570,14 @@ final class CandidateFactory
 		Map<Integer, Integer> buyLimitRemaining, long spendableCoins, boolean members, Instant now)
 	{
 		resolveExemptions(market.mapping.values());
+		// Every alch costs a rune, and the rune has a live price sitting in the sweep we are already
+		// holding. Read here rather than injected, so a setter cannot be left uncalled: the alch
+		// floor under every downside estimate below is only as current as this line.
+		LatestPrice runeQuote = quote(market.latest, NATURE_RUNE);
+		if (runeQuote != null && runeQuote.getHigh() != null && runeQuote.getHigh() > 0)
+		{
+			setNatureRunePrice(runeQuote.getHigh());
+		}
 		return build(quotedUniverse(market), horizonHours, buyLimitRemaining, spendableCoins,
 			members, now);
 	}
@@ -892,7 +936,8 @@ final class CandidateFactory
 
 				// Fractional Kelly Sizing
 				long netProfitFull = marginPerItem * fillable;
-				long unwindLossFull = unwindCost(itemId, buyPrice, screened.price.getLow(), fillable, features, horizonHours);
+				long unwindLossFull = unwindCost(itemId, screened.item.highAlch, buyPrice,
+					screened.price.getLow(), fillable, features, horizonHours);
 
 				// Sizing is driven by FillModel, which reads the actual book: volume at or beyond the
 				// quote, the within-bucket dispersion, and the counterparty-wait term. Until
@@ -934,7 +979,8 @@ final class CandidateFactory
 
 				long netProfit = marginPerItem * quantity;
 				long worstLoss = Math.max(1, (long) (buyPrice * stopDistance() * quantity));
-				long unwindLoss = unwindCost(itemId, buyPrice, screened.price.getLow(),
+				long unwindLoss = unwindCost(itemId, screened.item.highAlch, buyPrice,
+					screened.price.getLow(),
 					quantity, features, horizonHours);
 
 				// Where everything that has been learned re-enters the decision.
@@ -1068,6 +1114,15 @@ final class CandidateFactory
 	private long unwindCost(int itemId, int buyPrice, int bid, int quantity, ItemFeatures features,
 		double horizonHours)
 	{
+		return unwindCost(itemId, 0, buyPrice, bid, quantity, features, horizonHours);
+	}
+
+	/**
+	 * @param highAlch the item's high alchemy value, which puts a floor under how bad this can get
+	 */
+	private long unwindCost(int itemId, int highAlch, int buyPrice, int bid, int quantity,
+		ItemFeatures features, double horizonHours)
+	{
 		// What giving up actually costs. A stranded position is sold into the bid, not liquidated at
 		// a crash price, so most of the loss is structural -- the spread paid on the way in, plus tax
 		// on the way out -- and only the remainder is however far the price drifted while we waited.
@@ -1086,9 +1141,16 @@ final class CandidateFactory
 		double drift = Math.max(MIN_DRIFT_FRACTION, ADVERSE_DRIFT_SHARE * sigma);
 
 		int exitPrice = Math.max(1, (int) Math.round(Math.min(buyPrice, bid) * (1 - drift)));
-		long proceedsPerItem = exitPrice - tax.taxPerItem(itemId, exitPrice);
-		long lossPerItem = Math.max(0, buyPrice - proceedsPerItem);
-		return lossPerItem * quantity;
+
+		// Below a certain price the item stops being worth less, because it can be turned into a
+		// fixed number of coins instead of sold. That is the one number here the market does not
+		// set, and for an alchable item it converts the drift term above from an estimate into a
+		// bound: the price can wander as far as it likes and the recovery cannot fall past the
+		// furnace. Alching pays no tax, which is why this is not simply a floor on the exit price --
+		// the two routes are compared in coins recovered, not in prices quoted.
+		long recovered = alchemyFloor().unwindValue(itemId, highAlch, exitPrice, quantity,
+			horizonHours);
+		return Math.max(0, (long) buyPrice * quantity - recovered);
 	}
 
 	private static int shift(int price, double fraction)
