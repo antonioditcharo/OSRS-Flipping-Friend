@@ -102,7 +102,17 @@ public class SuggestionEngine
 	private final TradePlans tradePlans;
 	private final FlippingFriendConfig config;
 	private final LstmForecasterClient lstmClient;
-	private final com.flippingfriend.model.arbitrage.ArbitrageRegistry arbitrageRegistry;
+	/**
+	 * Built in the constructor, not at the field.
+	 * <p>
+	 * A field initialiser runs before the constructor body, so {@code new
+	 * ConversionEngine(taxCalculator)} here would have captured a null and thrown the first time a
+	 * conversion was priced. It compiles perfectly.
+	 */
+	private final ConversionEngine conversionEngine;
+	/** Rebuilt when the mapping changes, because the decant recipes are derived from it. */
+	private volatile ConversionRegistry conversionRegistry;
+	private volatile int conversionsBuiltFrom = -1;
 
 	private final AtomicReference<Suggestion> current = new AtomicReference<>(Suggestion.idle());
 	private volatile Suggestion pendingAdjustment = null;
@@ -133,7 +143,7 @@ public class SuggestionEngine
 		TaxCalculator taxCalculator, AccountMonitor accountMonitor, BuyLimitTracker buyLimits,
 		PositionBook positions, OfferTracker offers, SellTimingEngine sellTiming, TradePlans tradePlans,
 		FlippingFriendConfig config, SkipList skipped,
-		LstmForecasterClient lstmClient, com.flippingfriend.model.arbitrage.ArbitrageRegistry arbitrageRegistry)
+		LstmForecasterClient lstmClient)
 	{
 		this.skipped = skipped;
 		this.marketData = marketData;
@@ -143,6 +153,7 @@ public class SuggestionEngine
 		this.explainer = explainer;
 		this.calibrator = calibrator;
 		this.taxCalculator = taxCalculator;
+		this.conversionEngine = new ConversionEngine(taxCalculator);
 		this.accountMonitor = accountMonitor;
 		this.buyLimits = buyLimits;
 		this.positions = positions;
@@ -151,7 +162,6 @@ public class SuggestionEngine
 		this.tradePlans = tradePlans;
 		this.config = config;
 		this.lstmClient = lstmClient;
-		this.arbitrageRegistry = arbitrageRegistry;
 	}
 
 	public Suggestion getCurrent()
@@ -1099,69 +1109,101 @@ public class SuggestionEngine
 
 	// ---------------------------------------------------------------------- buy
 
+	/**
+	 * The best conversion the game is currently offering, or null when none clears the floor.
+	 *
+	 * <p>A conversion is a different profit source from a flip and a better one where it exists: the
+	 * clerk packs a set on the spot and Bob Barter decants on the spot, so the conversion itself is
+	 * free, instant and certain, and the only market risk left is the buy and sell legs a flip already
+	 * carries.
+	 *
+	 * <p>The pricing used to be done inline here and got four things wrong, each of which flattered the
+	 * answer. It applied a <b>1% tax</b> when the Grand Exchange charges 2% and every other line in
+	 * this codebase knows it — a second copy of the tax rule, at half the rate, turning losing
+	 * conversions into winning ones on thin margins. It ignored buy limits, so a recipe needing a
+	 * hundred of a component limited to seventy was reported as available. It always proposed a single
+	 * run, whatever the margin. And it returned the first profitable recipe it met rather than the
+	 * best, which ranks by the order somebody happened to type the registry in.
+	 *
+	 * <p>All four now live in {@link ConversionEngine}, which takes {@link TaxCalculator} and does not
+	 * know what the rate is.
+	 */
 	private Suggestion arbitrageSuggestion(MarketSnapshot market, AccountState account, Instant now)
 	{
 		long spendable = account.spendableCoins(config.includeBankValue(), config.bankrollCap());
-		
-		for (com.flippingfriend.model.arbitrage.ArbitrageRecipe recipe : arbitrageRegistry.getRecipes())
+		ConversionEngine.Conversion best = conversionEngine.best(conversions(market).getRecipes(),
+			market.getLatest(), buyLimitRemaining(market, now), spendable, config.minProfitPerFlip(),
+			now);
+		if (best == null)
 		{
-			long totalCost = 0;
-			boolean missingData = false;
-			for (Map.Entry<Integer, Integer> entry : recipe.getInputs().entrySet())
+			return null;
+		}
+
+		ConversionRecipe recipe = best.getRecipe();
+		int outputId = recipe.getOutputs().keySet().iterator().next();
+		return Suggestion.builder(typeOf(recipe))
+			.item(outputId, recipe.getName())
+			.quantity(best.getRuns())
+			.expectedProfit(best.getTotalProfit())
+			.headline(recipe.getName())
+			.detail(explainer.formatGp(best.getProfitPerRun()) + " a time, "
+				+ best.getRuns() + " of them within the buy limit, "
+				+ recipe.getVenue().describe() + ".")
+			.build();
+	}
+
+	/**
+	 * The registry, rebuilt when the item mapping changes.
+	 *
+	 * <p>Decant recipes are derived from the mapping rather than listed, so the set of them depends on
+	 * what the feed knows about. Rebuilding on every suggestion would re-scan four and a half thousand
+	 * item names several times a second; rebuilding when the mapping's size changes is enough, because
+	 * the mapping only changes on a game update.
+	 */
+	private ConversionRegistry conversions(MarketSnapshot market)
+	{
+		int mapped = market.getMetadata().size();
+		ConversionRegistry cached = conversionRegistry;
+		if (cached == null || mapped != conversionsBuiltFrom)
+		{
+			cached = new ConversionRegistry(market.getMetadata().values());
+			conversionRegistry = cached;
+			conversionsBuiltFrom = mapped;
+		}
+		return cached;
+	}
+
+	/**
+	 * What is left of each input's four-hour limit, which gates how many times a recipe can run.
+	 * <p>
+	 * Only items with a window already open appear. An item absent from the tracker has spent none
+	 * of its limit, and {@link ConversionEngine} reads a missing entry as unlimited — which is the
+	 * right reading, since the limit only binds once buying has started.
+	 */
+	private Map<Integer, Integer> buyLimitRemaining(MarketSnapshot market, Instant now)
+	{
+		Map<Integer, Integer> remaining = new HashMap<>();
+		for (Map.Entry<Integer, Integer> window : buyLimits.activeWindows(now).entrySet())
+		{
+			ItemMetadata item = market.metadata(window.getKey());
+			if (item != null)
 			{
-				LatestPrice compPrice = market.latest(entry.getKey());
-				if (compPrice == null || !compPrice.isComplete())
-				{
-					missingData = true;
-					break;
-				}
-				totalCost += (long) compPrice.getHigh() * entry.getValue();
-			}
-			
-			if (missingData || totalCost > spendable) continue;
-			
-			long expectedRevenue = 0;
-			int mainOutputId = -1;
-			int totalOutputQuantity = 0;
-			for (Map.Entry<Integer, Integer> entry : recipe.getOutputs().entrySet())
-			{
-				LatestPrice outPrice = market.latest(entry.getKey());
-				if (outPrice == null || !outPrice.isComplete())
-				{
-					missingData = true;
-					break;
-				}
-				expectedRevenue += (long) outPrice.getLow() * entry.getValue();
-				mainOutputId = entry.getKey();
-				totalOutputQuantity += entry.getValue();
-			}
-			
-			if (missingData || mainOutputId == -1) continue;
-			
-			// Let's rely on standard tax rule: 1% capped at 5m per item.
-			long tax = 0;
-			for (Map.Entry<Integer, Integer> entry : recipe.getOutputs().entrySet())
-			{
-				LatestPrice outPrice = market.latest(entry.getKey());
-				long itemTax = (long) (outPrice.getLow() * 0.01);
-				if (itemTax > 5_000_000) itemTax = 5_000_000;
-				tax += itemTax * entry.getValue();
-			}
-			
-			long netProfit = expectedRevenue - totalCost - tax;
-			
-			if (netProfit > config.minProfitPerFlip())
-			{
-				return Suggestion.builder(recipe.getActionType())
-					.item(mainOutputId, recipe.getName())
-					.quantity(totalOutputQuantity)
-					.expectedProfit(netProfit)
-					.headline("Arbitrage Opportunity: " + recipe.getName())
-					.build();
+				remaining.put(window.getKey(),
+					buyLimits.remaining(window.getKey(), item.getBuyLimit(), now));
 			}
 		}
-		
-		return null;
+		return remaining;
+	}
+
+	private static SuggestionType typeOf(ConversionRecipe recipe)
+	{
+		if (recipe.getVenue() == ConversionRecipe.Venue.DECANTER)
+		{
+			return SuggestionType.DECANT;
+		}
+		// A set recipe whose output is a single item is a pack; one that produces the pieces is an
+		// unpack. Reading it off the shape rather than storing it keeps the two from disagreeing.
+		return recipe.getOutputs().size() == 1 ? SuggestionType.PACK : SuggestionType.UNPACK;
 	}
 
 	private Suggestion buySuggestion(MarketSnapshot market, TradingHorizon horizon, AccountState account,
