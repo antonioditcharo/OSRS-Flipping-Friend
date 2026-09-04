@@ -245,13 +245,13 @@ public interface FlippingFriendConfig extends Config
 	}
 
 	@ConfigItem(
-		keyName = "autoPopulateHotkey",
-		name = "Auto-populate Hotkey",
-		description = "Press this hotkey while in the GE to automatically fill the current suggestion's price and quantity.",
+		keyName = "copyToClipboardHotkey",
+		name = "Copy to clipboard hotkey",
+		description = "Copies the number the walkthrough is asking for, ready to paste. This plugin never types into the game for you.",
 		position = 5,
 		section = guidanceSection
 	)
-	default Keybind autoPopulateHotkey()
+	default Keybind copyToClipboardHotkey()
 	{
 		return Keybind.NOT_SET;
 	}

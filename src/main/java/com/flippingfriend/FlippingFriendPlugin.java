@@ -33,8 +33,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import javax.inject.Inject;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
-import net.runelite.api.VarClientInt;
-import net.runelite.api.VarClientStr;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GrandExchangeOfferChanged;
 import net.runelite.api.events.ItemContainerChanged;
@@ -217,7 +215,7 @@ public class FlippingFriendPlugin extends Plugin
 
 		// Skipping or blocking has to reach the walkthrough, and only this loop writes to it.
 		panel.setOnRejection(this::requestEngineRefresh);
-		panel.setOnCardClicked(this::populateInputFromCard);
+		panel.setOnCardClicked(this::copyCurrentStepToClipboard);
 
 		// Before start(), so the very first thing the market service does is ask next door for a feed
 		// rather than the internet for one. The companion runs whether or not the game is open and
@@ -636,28 +634,9 @@ public class FlippingFriendPlugin extends Plugin
 		@Override
 		public void keyPressed(KeyEvent e)
 		{
-			if (config.autoPopulateHotkey().matches(e))
+			if (config.copyToClipboardHotkey().matches(e))
 			{
-				clientThread.invokeLater(() ->
-				{
-					if (!widgetResolver.isSetupOpen()) return;
-					
-					boolean isTyping = client.getVarcIntValue(VarClientInt.INPUT_TYPE) != 0;
-					if (!isTyping) return;
-
-					Suggestion suggestion = stepGuide.getSuggestion();
-					if (suggestion == null || !suggestion.isActionable()) return;
-
-					// The walkthrough tells us what the player is currently typing
-					if (!stepGuide.isQuantityDone() && suggestion.getQuantity() > 0)
-					{
-						client.setVarcStrValue(VarClientStr.INPUT_TEXT, String.valueOf(suggestion.getQuantity()));
-					}
-					else if (!stepGuide.isPriceDone() && suggestion.getPrice() > 0)
-					{
-						client.setVarcStrValue(VarClientStr.INPUT_TEXT, String.valueOf(suggestion.getPrice()));
-					}
-				});
+				copyCurrentStepToClipboard();
 				e.consume();
 			}
 		}
@@ -666,28 +645,57 @@ public class FlippingFriendPlugin extends Plugin
 		public void keyReleased(KeyEvent e) {}
 	};
 
-	private void populateInputFromCard()
+	/**
+	 * Puts the number the walkthrough is currently asking for onto the system clipboard.
+	 *
+	 * <p>This used to write it straight into the game's input field with
+	 * {@code client.setVarcStrValue(VarClientStr.INPUT_TEXT, ...)}, from two separate triggers.
+	 * RuneLite's rejected-features list forbids "plugins which programmatically insert text into the
+	 * user's chatbox input <em>for any reason</em>", and Jagex's macro rules forbid software that
+	 * "generates input to our game applets". It was both, aimed at the Grand Exchange, on an account
+	 * simultaneously running a trading advisor - and it contradicted this plugin's own central promise
+	 * that it never types for you.
+	 *
+	 * <p>The clipboard is unambiguously permitted, because the player still performs the paste. It
+	 * costs one keystroke and removes the single largest risk in the project, which is not a trade
+	 * worth thinking about for long.
+	 *
+	 * <p>Deliberately does not consult {@code widgetResolver} or {@code INPUT_TYPE}. Reading whether
+	 * the player happens to be typing was only ever needed to decide where to inject; copying works
+	 * whether the offer screen is open or not, and not reading game state is one less thing to justify
+	 * at review.
+	 */
+	private void copyCurrentStepToClipboard()
 	{
-		clientThread.invokeLater(() ->
+		Suggestion suggestion = stepGuide.getSuggestion();
+		if (suggestion == null || !suggestion.isActionable())
 		{
-			if (!widgetResolver.isSetupOpen()) return;
-			
-			boolean isTyping = client.getVarcIntValue(VarClientInt.INPUT_TYPE) != 0;
-			if (!isTyping) return;
-
-			Suggestion suggestion = stepGuide.getSuggestion();
-			if (suggestion == null || !suggestion.isActionable()) return;
-
-			// The walkthrough tells us what the player is currently typing
-			if (!stepGuide.isQuantityDone() && suggestion.getQuantity() > 0)
-			{
-				client.setVarcStrValue(VarClientStr.INPUT_TEXT, String.valueOf(suggestion.getQuantity()));
-			}
-			else if (!stepGuide.isPriceDone() && suggestion.getPrice() > 0)
-			{
-				client.setVarcStrValue(VarClientStr.INPUT_TEXT, String.valueOf(suggestion.getPrice()));
-			}
-		});
+			return;
+		}
+		String value = null;
+		if (!stepGuide.isQuantityDone() && suggestion.getQuantity() > 0)
+		{
+			value = String.valueOf(suggestion.getQuantity());
+		}
+		else if (!stepGuide.isPriceDone() && suggestion.getPrice() > 0)
+		{
+			value = String.valueOf(suggestion.getPrice());
+		}
+		if (value == null)
+		{
+			return;
+		}
+		try
+		{
+			java.awt.Toolkit.getDefaultToolkit().getSystemClipboard()
+				.setContents(new java.awt.datatransfer.StringSelection(value), null);
+		}
+		catch (Exception unavailable)
+		{
+			// A clipboard that refuses is a headless or locked desktop. Nothing to recover, and
+			// nothing worth failing over.
+			log.debug("Clipboard unavailable", unavailable);
+		}
 	}
 
 	private void requestEngineRefresh()
