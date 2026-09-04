@@ -467,7 +467,11 @@ final class CompanionService implements AutoCloseable
 		}
 		double minutes = event.secondsOpen() / 60.0;
 		boolean completed = event.isComplete();
-		fillHazard.observe(event.getItemId(), event.isBuying(), minutes, completed);
+		// Whether our own "this slot is worth more elsewhere" alert preceded the cancellation. Not a
+		// motive -- the game supplies no reason -- but a circumstance, and the only observable one.
+		boolean onOurAdvice = !completed && planner.cancelAdvice()
+			.wasAdvised(event.getItemId(), event.getSlot(), event.getObservedAt());
+		fillHazard.observe(event.getItemId(), event.isBuying(), minutes, completed, onOurAdvice);
 		try
 		{
 			store.recordFillHazard(event.getItemId(), event.isBuying(),

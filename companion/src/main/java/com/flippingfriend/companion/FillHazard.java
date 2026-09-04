@@ -43,8 +43,14 @@ import java.util.Map;
  *
  * <p>Cancellations are not a random sample: a player cancels the offers that are not filling, so the
  * censoring is informative and the measured hazard is, if anything, optimistic about long waits. The
- * same limitation {@link CaptureRates} carries, for the same reason, and it needs the same fix —
- * recording why an offer was cancelled.
+ * same limitation {@link CaptureRates} carries, for the same reason.
+ *
+ * <p>It is no longer only a caveat. {@link #informativeCensoringShare} measures how much of the
+ * censoring followed this system's own advice to cancel, which is the most direct form of the
+ * problem — the model's opinion is what stopped the observation. That number decides whether the
+ * bias is worth correcting for: a few per cent needs nothing, and a third would mean the late slices
+ * are largely describing our own impatience. Building the correction before knowing which is true
+ * would be fitting a machine to an unmeasured problem.
  */
 final class FillHazard
 {
@@ -85,6 +91,10 @@ final class FillHazard
 	private final Map<Long, Counts[]> perItem = new HashMap<>();
 	private final Counts[] pooled = newBuckets();
 	private int observations;
+	/** Offers that ended without filling. The censored half of the sample. */
+	private int censored;
+	/** Of those, how many followed this system's own advice to cancel. */
+	private int censoredByOurAdvice;
 
 	/** At-risk and filled counts for one slice of elapsed time. */
 	static final class Counts
@@ -155,9 +165,28 @@ final class FillHazard
 	 */
 	synchronized void observe(int itemId, boolean buying, double minutesOpen, boolean completed)
 	{
+		observe(itemId, buying, minutesOpen, completed, false);
+	}
+
+	/**
+	 * @param onOurAdvice whether the plan had asked for this offer to be reconsidered before it was
+	 *                    cancelled — informative censoring of the most direct kind, because the
+	 *                    model's own opinion is what stopped the observation
+	 */
+	synchronized void observe(int itemId, boolean buying, double minutesOpen, boolean completed,
+		boolean onOurAdvice)
+	{
 		if (itemId <= 0 || minutesOpen < 0)
 		{
 			return;
+		}
+		if (!completed)
+		{
+			censored++;
+			if (onOurAdvice)
+			{
+				censoredByOurAdvice++;
+			}
 		}
 		int reached = bucketOf(minutesOpen);
 		Counts[] item = perItem.computeIfAbsent(key(itemId, buying), id -> newBuckets());
@@ -184,6 +213,10 @@ final class FillHazard
 			pooled[i] = new Counts();
 		}
 		observations = 0;
+		// Not restored: the life table is durable but the censoring split is not stored, so it
+		// rebuilds from this session's offers rather than being resurrected as a stale figure.
+		censored = 0;
+		censoredByOurAdvice = 0;
 		if (stored == null)
 		{
 			return;
@@ -211,6 +244,28 @@ final class FillHazard
 	synchronized int observationCount()
 	{
 		return observations;
+	}
+
+	/**
+	 * The share of censored observations that this system's own advice brought to an end.
+	 *
+	 * <p>The size of the one bias here that cannot be seen from inside the estimate. A hazard assumes
+	 * censoring is independent of the event; a player cancelling the offers that are not filling
+	 * breaks that, and the estimate leans optimistic about long waits by an amount nobody could
+	 * previously name.
+	 *
+	 * <p>A few per cent and the caveat is a footnote. A third and the late slices are largely
+	 * describing our own impatience rather than the market's, and the curve needs bounding rather
+	 * than believing. Which of those is true is a measurement, and this is it.
+	 */
+	synchronized double informativeCensoringShare()
+	{
+		return censored <= 0 ? 0 : (double) censoredByOurAdvice / censored;
+	}
+
+	synchronized int censoredCount()
+	{
+		return censored;
 	}
 
 	/** True once there is enough evidence for anything here to be worth consulting. */
@@ -427,7 +482,10 @@ final class FillHazard
 					hazardRate(0, true, bucket) * 60));
 			}
 		}
-		return String.format("fill hazard: %d offers, %s (waiting costs %.2fx)%s",
-			observations, curve, durationDependence(), isUsable() ? "" : " — not yet used");
+		return String.format(
+			"fill hazard: %d offers, %s (waiting costs %.2fx; %.0f%% of %d cancels were on our own "
+				+ "advice)%s",
+			observations, curve, durationDependence(), informativeCensoringShare() * 100, censored,
+			isUsable() ? "" : " — not yet used");
 	}
 }

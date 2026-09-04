@@ -410,15 +410,45 @@ final class CandidateFactory
 	 * check; naming three of them lets them look at those items and decide whether the filter is
 	 * right.
 	 */
+	/**
+	 * A judgement: this item could have been traded and was not worth it.
+	 *
+	 * <p>Recorded for the funnel and handed to {@link ShadowTrader}, which paper-trades it so the
+	 * refusal can be scored later. That is the whole point of a veto — it is a decision, and a
+	 * decision is something that can turn out to have been wrong.
+	 */
 	private void veto(int itemId, String itemName, String reason)
 	{
 		lastVeto.put(itemId, reason);
 		vetoedNames.put(itemId, itemName == null ? "" : itemName);
 	}
+
+	/**
+	 * An item that was never on the table: unactionable, or unpriceable.
+	 *
+	 * <p>Counted in the funnel exactly like a veto, and deliberately <b>not</b> paper-traded. A
+	 * members item on a free account is not a trade this system passed up, it is one the player
+	 * could not have placed; scoring it as a missed opportunity would fill the counterfactual channel
+	 * with trades that never existed and quietly inflate the cost of every real refusal.
+	 *
+	 * <p>Until now these left through a bare {@code continue}. Nothing landed anywhere, so the funnel
+	 * could report "3,088 priced → 412 liquid enough → 90 studied → 0 cleared" and not account for a
+	 * single item that fell out between those numbers — which is audit item 67, and is also why a
+	 * player looking at an empty plan had no way to find out why.
+	 */
+	private void dropped(int itemId, String itemName, String reason)
+	{
+		lastDrop.put(itemId, reason);
+		droppedNames.put(itemId, itemName == null ? "" : itemName);
+	}
 	private boolean exemptionsResolved;
 
 	/** Items the screen wants history for, published so the warmer knows what to fetch next. */
 	private volatile List<Integer> shortlistIds = new ArrayList<>();
+
+	/** Items that were never actionable, kept apart from vetoes so the shadow channel stays honest. */
+	private final Map<Integer, String> lastDrop = new ConcurrentHashMap<>();
+	private final Map<Integer, String> droppedNames = new ConcurrentHashMap<>();
 
 	/** Funnel counters for the most recent build, so an empty plan can account for itself. */
 	private final AtomicInteger itemsInFeed = new AtomicInteger();
@@ -689,6 +719,10 @@ final class CandidateFactory
 		this.membersAccount = members;
 		lastVeto.clear();
 		vetoedNames.clear();
+		// Both records, every build. A discard map that survives a pass accumulates for the life of
+		// the process and the funnel starts reporting a history rather than a plan.
+		lastDrop.clear();
+		droppedNames.clear();
 		itemsInFeed.set(universe.size());
 		itemsQuoted.set(0);
 		itemsAnalysed.set(0);
@@ -755,13 +789,55 @@ final class CandidateFactory
 	}
 
 	/**
+	 * Why this item is not in the plan, from either record, or null if it is.
+	 *
+	 * <p>The two are separate because the shadow channel must only see judgements, but a player
+	 * asking "where did my item go" does not care which kind it was — and the property worth
+	 * guaranteeing is that <em>something</em> answers, for every item in the feed.
+	 */
+	String lastReasonFor(int itemId)
+	{
+		String veto = lastVeto.get(itemId);
+		return veto != null ? veto : lastDrop.get(itemId);
+	}
+
+	/** A few names for one reason, from whichever record holds them. */
+	private static void collectExamples(Map<Integer, String> reasons, Map<Integer, String> names,
+		String reason, List<String> into)
+	{
+		for (Map.Entry<Integer, String> entry : reasons.entrySet())
+		{
+			if (into.size() >= VETO_EXAMPLES_PER_REASON)
+			{
+				return;
+			}
+			if (!reason.equals(entry.getValue()))
+			{
+				continue;
+			}
+			String name = names.get(entry.getKey());
+			if (name != null && !name.isEmpty())
+			{
+				into.add(name);
+			}
+		}
+	}
+
+	/**
 	 * The funnel from the last build. Capital figures are left at zero here because only the
 	 * optimizer knows what was finally allocated.
 	 */
 	PlanDiagnostics lastFunnel(int tacticsGenerated, long capitalAvailable)
 	{
+		// Both kinds, so the funnel adds up. The shadow channel still reads lastVeto alone: what a
+		// player needs is a complete account of where four thousand items went, and what the
+		// counterfactual needs is only the ones that were genuinely passed up.
 		Map<String, Integer> counts = new LinkedHashMap<>();
 		for (String reason : lastVeto.values())
+		{
+			counts.merge(reason, 1, Integer::sum);
+		}
+		for (String reason : lastDrop.values())
 		{
 			counts.merge(reason, 1, Integer::sum);
 		}
@@ -776,22 +852,8 @@ final class CandidateFactory
 		for (String reason : ordered.keySet())
 		{
 			List<String> names = new ArrayList<>();
-			for (Map.Entry<Integer, String> entry : lastVeto.entrySet())
-			{
-				if (!reason.equals(entry.getValue()))
-				{
-					continue;
-				}
-				String name = vetoedNames.get(entry.getKey());
-				if (name != null && !name.isEmpty())
-				{
-					names.add(name);
-				}
-				if (names.size() >= VETO_EXAMPLES_PER_REASON)
-				{
-					break;
-				}
-			}
+			collectExamples(lastVeto, vetoedNames, reason, names);
+			collectExamples(lastDrop, droppedNames, reason, names);
 			examples.put(reason, names);
 		}
 
@@ -842,6 +904,7 @@ final class CandidateFactory
 			// physically cannot carry out.
 			if (item.members && !membersAccount)
 			{
+				dropped(itemId, item.name, "Members item, which this account cannot trade.");
 				continue;
 			}
 
@@ -850,14 +913,29 @@ final class CandidateFactory
 			LatestPrice anchored = PriceAnchor.anchor(quoted.quote, bar);
 			if (anchored == null || !anchored.isComplete())
 			{
+				dropped(itemId, item.name, "Only one side of this item has a recent price.");
 				continue;
 			}
 			itemsQuoted.incrementAndGet();
 
 			int buy = anchored.getLow();
 			int sell = anchored.getHigh();
-			if (buy <= 0 || sell <= buy || buy > spendableCoins)
+			// Three different situations, and they were one silent branch. A player staring at an
+			// empty plan is owed the difference between "nobody is trading this", "there is no gap to
+			// capture" and "you cannot afford one of these".
+			if (buy <= 0)
 			{
+				dropped(itemId, item.name, "No buy price to work from.");
+				continue;
+			}
+			if (sell <= buy)
+			{
+				veto(itemId, item.name, "No gap between the buy and sell price.");
+				continue;
+			}
+			if (buy > spendableCoins)
+			{
+				dropped(itemId, item.name, "Costs more than the whole bankroll.");
 				continue;
 			}
 
@@ -909,6 +987,7 @@ final class CandidateFactory
 			// of it can carry more capital than a full buy limit of something cheap.
 			if (fillable <= 0)
 			{
+				dropped(itemId, item.name, "Nothing of this is affordable or available right now.");
 				continue;
 			}
 
@@ -1336,6 +1415,12 @@ final class CandidateFactory
 
 	static final class QuotedItem
 	{
+		/** For tests that need to ask about an item by id without reaching into the wrapper. */
+		int itemId()
+		{
+			return item.id;
+		}
+
 		private final MarketIngestionService.Item item;
 		private final LatestPrice quote;
 		private final Candle fiveMinute;

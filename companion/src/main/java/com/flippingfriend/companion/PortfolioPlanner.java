@@ -94,6 +94,14 @@ final class PortfolioPlanner
 		candidates.setFillHazard(hazard);
 	}
 
+	/** What the plan has asked to be cancelled, so the learners can size their own censoring. */
+	private final CancelAdvice cancelAdvice = new CancelAdvice();
+
+	CancelAdvice cancelAdvice()
+	{
+		return cancelAdvice;
+	}
+
 	/** The capture share the current appetite assumes, so the health line can name what it beat. */
 	double assumedCaptureShare()
 	{
@@ -347,6 +355,9 @@ final class PortfolioPlanner
 			// Negative means not enough history to judge, which is not the same as not worth keeping.
 			return;
 		}
+		// Noted before the alert goes out, so a cancellation that follows can be recognised as
+		// something this system asked for rather than something the player decided alone.
+		cancelAdvice.advised(offer.getItemId(), offer.getSlot(), nowSeconds);
 		alerts.add(new PortfolioAlert("RECONSIDER", offer.getItemId(), offer.getSlot(),
 			String.format("This slot is worth about %,d gp/hr and this offer is earning about %,d. "
 				+ "Cancelling frees it for a better trade.",
