@@ -101,7 +101,6 @@ public class SuggestionEngine
 	private final SellTimingEngine sellTiming;
 	private final TradePlans tradePlans;
 	private final FlippingFriendConfig config;
-	private final LstmForecasterClient lstmClient;
 	/**
 	 * Built in the constructor, not at the field.
 	 * <p>
@@ -142,8 +141,7 @@ public class SuggestionEngine
 		ManipulationFilter filter, Scorer scorer, Explainer explainer, Calibrator calibrator,
 		TaxCalculator taxCalculator, AccountMonitor accountMonitor, BuyLimitTracker buyLimits,
 		PositionBook positions, OfferTracker offers, SellTimingEngine sellTiming, TradePlans tradePlans,
-		FlippingFriendConfig config, SkipList skipped,
-		LstmForecasterClient lstmClient)
+		FlippingFriendConfig config, SkipList skipped)
 	{
 		this.skipped = skipped;
 		this.marketData = marketData;
@@ -161,7 +159,6 @@ public class SuggestionEngine
 		this.sellTiming = sellTiming;
 		this.tradePlans = tradePlans;
 		this.config = config;
-		this.lstmClient = lstmClient;
 	}
 
 	public Suggestion getCurrent()
