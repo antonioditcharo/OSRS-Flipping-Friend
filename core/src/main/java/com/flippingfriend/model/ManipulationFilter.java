@@ -27,6 +27,23 @@ public class ManipulationFilter
 	/** A spread that has only just appeared is usually one person, not a market. */
 	private static final double MIN_SPREAD_STABILITY = 0.25;
 
+	/**
+	 * When the game changes underneath the market, so a level shift can be attributed rather than
+	 * only noticed. Defaults to the standing weekly schedule, which needs nothing from anyone.
+	 */
+	private final GameUpdateCalendar calendar;
+
+	public ManipulationFilter()
+	{
+		this(GameUpdateCalendar.weekly());
+	}
+
+	/** For a calendar carrying curated dates — a league start, a release moved off its usual day. */
+	public ManipulationFilter(GameUpdateCalendar calendar)
+	{
+		this.calendar = calendar == null ? GameUpdateCalendar.weekly() : calendar;
+	}
+
 	public FilterResult screen(ItemMetadata metadata, LatestPrice price, ItemFeatures features,
 		VetoThresholds thresholds, boolean canBuyMembersItems, Instant now)
 	{
@@ -89,6 +106,33 @@ public class ManipulationFilter
 			return FilterResult.rejected("This item barely trades.");
 		}
 
+		// Before the manipulation check, not after it, because a repricing looks exactly like
+		// manipulation from here and this is the more specific diagnosis.
+		//
+		// A freshly repriced item is by definition quoted a long way from its own fortnight median,
+		// so the median-absolute-deviation test below fires on it first and reports "the current buy
+		// price is far outside this item's normal range" — which reads as a warning about a
+		// manipulator when the truth is that Jagex changed a drop rate on Wednesday. The rejection is
+		// the same either way; the sentence is not, and the sentence is the only thing a player has
+		// to decide whether to come back tomorrow. A break with no update behind it still falls
+		// through to the manipulation reading, which is then the right one.
+		if (context.isUsable() && context.hasStructuralBreak())
+		{
+			// A shift the morning after an update is a repricing: the item is worth something
+			// different now, it will settle, and it is worth another look once there is history at
+			// the new level. The same shift on a quiet Sunday night is a squeeze or bad data, and the
+			// response to that is to stay away rather than to wait. The calendar is the one piece of
+			// information that separates them, and without it both got the same sentence.
+			if (calendar.explains(context.breakAt()))
+			{
+				return FilterResult.rejected("A game update has just changed what this item is worth, "
+					+ "so its past behaviour is no longer a guide. Worth another look once it has "
+					+ "settled at the new level.");
+			}
+			return FilterResult.rejected("This item's price has just moved to a new level with no "
+				+ "update to explain it, so its past behaviour is no longer a guide.");
+		}
+
 		// The core manipulation check: is a current quote far outside where this item normally
 		// sits, measured in a way a single outlier cannot skew?
 		double k = thresholds.getMadRejectionK();
@@ -124,14 +168,6 @@ public class ManipulationFilter
 
 		if (context.isUsable())
 		{
-			// A recent shift in price level means a game update or a crash has changed what this
-			// item is worth. Everything the model knows about it describes the old market.
-			if (context.hasStructuralBreak())
-			{
-				return FilterResult.rejected("This item's price has just moved to a new level, so its "
-					+ "past behaviour is no longer a guide.");
-			}
-
 			// Currently far jumpier than it normally is: something is happening that the last day of
 			// data cannot explain.
 			if (context.volatilityRatio(features.getVolatility()) > thresholds.getMaxVolatilityRatio())

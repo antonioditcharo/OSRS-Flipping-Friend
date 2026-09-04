@@ -10,6 +10,8 @@ import com.flippingfriend.model.FillModel;
 import com.flippingfriend.model.ItemFeatures;
 import com.flippingfriend.model.PriceForecast;
 import com.flippingfriend.model.TaxCalculator;
+import com.flippingfriend.model.GameUpdateCalendar;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -42,6 +44,19 @@ public class ReachableTargetTest
 	private static final int BUCKET_SECONDS = 300;
 	private static final int ITEM = 561;
 
+	/**
+	 * Three days before a game update, and therefore four days after the last one.
+	 *
+	 * <p>Not {@code Instant.now()}, which is what this used before the calendar existed. The engine
+	 * now shortens a position's horizon to end at the next update, so a test running on a Tuesday
+	 * afternoon would exercise a different code path from the same test on a Thursday — and would
+	 * pass six days a week. Derived from the calendar rather than hardcoded as a date, so it stays
+	 * three days clear however the window is defined.
+	 */
+	private static final Instant NOW =
+		GameUpdateCalendar.weekly().nextWindowStart(Instant.ofEpochSecond(1_700_000_000L))
+			.minus(Duration.ofDays(3));
+
 	private final TaxCalculator tax = new TaxCalculator();
 	private final SellTimingEngine engine = new SellTimingEngine(new FillModel(), tax);
 	private final FeatureEngine featureEngine = new FeatureEngine();
@@ -66,7 +81,7 @@ public class ReachableTargetTest
 	private Position position(int cost, int target, long minutesHeld)
 	{
 		Position position = new Position(ITEM, "Nature rune", 10_000, 10_000L * cost,
-			Instant.now().getEpochSecond() - minutesHeld * 60, true);
+			NOW.getEpochSecond() - minutesHeld * 60, true);
 		position.setTargetSellPrice(target);
 		return position;
 	}
@@ -74,7 +89,7 @@ public class ReachableTargetTest
 	private int targetAfter(int cost, int entryTarget, List<Candle> series, long minutesHeld)
 	{
 		return engine.reachableTarget(position(cost, entryTarget, minutesHeld), series, horizon,
-			minutesHeld);
+			minutesHeld, NOW);
 	}
 
 	private int holdLimit()
@@ -188,10 +203,10 @@ public class ReachableTargetTest
 		// Inherited holdings have no cost basis. Treating an unknown cost as a floor of zero is right;
 		// inventing one would put a floor under the target that no evidence supports.
 		Position inherited = Position.preExisting(ITEM, "Nature rune", 10_000,
-			Instant.now().getEpochSecond() - 30 * 60);
+			NOW.getEpochSecond() - 30 * 60);
 		inherited.setTargetSellPrice(1_200);
 
-		int target = engine.reachableTarget(inherited, around(900, 0.004, 250), horizon, 30);
+		int target = engine.reachableTarget(inherited, around(900, 0.004, 250), horizon, 30, NOW);
 
 		assertTrue("without a cost basis the forecast is the only floor: " + target, target < 1_000);
 	}
@@ -243,5 +258,15 @@ public class ReachableTargetTest
 		Instant now = Instant.ofEpochSecond(position.getOpenedAt() + minutesHeld * 60);
 		return engine.evaluate(position, latest, features, series, horizon, now, 0, false, false,
 			false);
+	}
+
+	@Test
+	public void theseTestsRunFarFromAnyUpdateWindow()
+	{
+		// The premise every other test here rests on. The engine now ends a position's horizon at the
+		// next game update, so a fixture that drifted into an update window would quietly be
+		// exercising a different mechanism and still passing.
+		assertTrue("the fixture must leave the whole horizon free of updates",
+			GameUpdateCalendar.weekly().hoursUntilNext(NOW) > 48);
 	}
 }

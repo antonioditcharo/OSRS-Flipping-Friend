@@ -7,6 +7,7 @@ import com.flippingfriend.data.LatestPrice;
 import com.flippingfriend.model.FillCurve;
 import com.flippingfriend.model.FillEstimate;
 import com.flippingfriend.model.FillModel;
+import com.flippingfriend.model.GameUpdateCalendar;
 import com.flippingfriend.model.ItemFeatures;
 import com.flippingfriend.model.PriceForecast;
 import com.flippingfriend.model.Regime;
@@ -92,12 +93,27 @@ public class SellTimingEngine
 
 	private final FillModel fillModel;
 	private final TaxCalculator taxCalculator;
+	/**
+	 * When the game changes underneath the position.
+	 * <p>
+	 * Every other input to this class is derived from price history. An update is the one event that
+	 * is knowable in advance and cannot be in the history, because it has not happened yet.
+	 */
+	private final GameUpdateCalendar calendar;
 
 	@Inject
 	public SellTimingEngine(FillModel fillModel, TaxCalculator taxCalculator)
 	{
+		this(fillModel, taxCalculator, GameUpdateCalendar.weekly());
+	}
+
+	/** For a calendar carrying curated dates beyond the weekly rhythm. */
+	public SellTimingEngine(FillModel fillModel, TaxCalculator taxCalculator,
+		GameUpdateCalendar calendar)
+	{
 		this.fillModel = fillModel;
 		this.taxCalculator = taxCalculator;
+		this.calendar = calendar == null ? GameUpdateCalendar.weekly() : calendar;
 	}
 
 	public SellDecision evaluate(Position position, LatestPrice latest, ItemFeatures features,
@@ -195,13 +211,32 @@ public class SellTimingEngine
 				"Position held past its horizon limit. Exiting.", exit.expectedMinutes, profitAtExit);
 		}
 
+		// Out before the game changes, not after.
+		//
+		// A game update is the one thing that moves a price for a reason no amount of price history
+		// contains, and holding through one is taking a position on content nobody here has read.
+		// This is not caution about volatility - the forecast handles that - it is that the forecast
+		// is fitted to a market that is about to stop existing. The test is whether the sale would
+		// still be in the queue when it lands: an exit that completes in ten minutes with four hours
+		// to go is fine, and the same exit with five minutes to go is a coin flip on patch notes.
+		double hoursToUpdate = calendar.hoursUntilNext(now);
+		if (hoursToUpdate * 60 <= exit.expectedMinutes)
+		{
+			return new SellDecision(SellDecision.Action.SELL, exit.price,
+				"A game update lands before this could sell. Exiting first.", exit.expectedMinutes,
+				profitAtExit);
+		}
+
 		// The target the position was opened with, revised down to what the market can still plausibly
 		// reach in the time that is left. Without this a position holds its original ask until the hard
 		// hold limit fires, which is the "hope" this class's own javadoc says it exists to avoid - and
 		// the slot is spent either way.
-		int targetPrice = reachableTarget(position, series, horizon, minutesHeld);
+		int targetPrice = reachableTarget(position, series, horizon, minutesHeld, now);
 		boolean nearTarget = targetPrice > 0 && marketSell >= targetPrice * (1.0 - NEAR_TARGET);
-		boolean nearDeadline = minutesHeld >= profile.getMaxHoldMinutes() * NEAR_DEADLINE;
+		// A slot is needed soon if either clock is running out, and the update is a clock too: the
+		// sale above will fire on it, so the slot has to be there when it does.
+		boolean nearDeadline = minutesHeld >= profile.getMaxHoldMinutes() * NEAR_DEADLINE
+			|| hoursToUpdate * 60 <= exit.expectedMinutes / NEAR_DEADLINE;
 
 		long floor = minProfitPerFlip / 2;
 
@@ -264,7 +299,7 @@ public class SellTimingEngine
 	 * @return the revised target, or the position's own when the forecast cannot improve on it
 	 */
 	int reachableTarget(Position position, List<Candle> series, TradingHorizon horizon,
-		long minutesHeld)
+		long minutesHeld, Instant now)
 	{
 		int original = position.getTargetSellPrice();
 		if (original <= 0 || series == null || series.isEmpty())
@@ -272,8 +307,13 @@ public class SellTimingEngine
 			return original;
 		}
 
-		double remainingHours =
+		// Whichever runs out first: the player's patience, or the market this forecast describes.
+		// Nothing has to be added to the walk-down for an approaching update - shortening the horizon
+		// is enough, because the target is already a function of how many chances are left to beat it
+		// and an update ends them all at once.
+		double patienceHours =
 			Math.max(0, horizon.getProfile().getMaxHoldMinutes() - minutesHeld) / 60.0;
+		double remainingHours = calendar.usableHorizonHours(now, patienceHours);
 		if (remainingHours <= 0)
 		{
 			// Out of time. The hold-limit exit above has already fired by now; leave the target alone
