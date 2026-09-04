@@ -98,6 +98,71 @@ public class PriceForecastTest
 	}
 
 	@Test
+	public void aTouchIsWorthMoreThanAnEndingOverTheSameWindow()
+	{
+		// The distinction reachableWithin exists for. A resting offer fills the first time the price
+		// arrives; where the price finally settles is somebody else's question.
+		PriceForecast forecast = PriceForecast.fit(reverting(1000, 20, 300, 7), BUCKET_SECONDS);
+
+		double ending = forecast.quantile(PriceForecast.Side.HIGH, 4, 0.75);
+		double touching = forecast.reachableWithin(PriceForecast.Side.HIGH, 4, 0.75);
+
+		assertTrue("four hours of chances beats one look at the close: " + touching + " vs " + ending,
+			touching > ending);
+	}
+
+	@Test
+	public void withOneLookLeftTouchingAndEndingAreTheSameEvent()
+	{
+		// The sanity check on the whole idea: at a one-candle horizon the maximum of the window is the
+		// end of it, so the two readings must agree exactly rather than merely closely.
+		PriceForecast forecast = PriceForecast.fit(reverting(1000, 20, 300, 8), BUCKET_SECONDS);
+		double oneStep = BUCKET_SECONDS / 3600.0;
+
+		assertEquals(forecast.quantile(PriceForecast.Side.HIGH, oneStep, 0.75),
+			forecast.reachableWithin(PriceForecast.Side.HIGH, oneStep, 0.75), 1e-9);
+	}
+
+	@Test
+	public void aReachablePriceFallsAsTheWindowCloses()
+	{
+		// What actually replaces the decay timer, and it has to hold at every step rather than only
+		// between the extremes: an endpoint quantile on a fast-reverting item stops moving once the
+		// reversion term has decayed, and gave targets six hours and twenty minutes apart that
+		// differed by a single coin. Counting chances to touch keeps falling because there are fewer
+		// of them left.
+		PriceForecast forecast = PriceForecast.fit(reverting(1000, 20, 300, 9), BUCKET_SECONDS);
+
+		// In coins, which is the resolution the answer has. Underneath, two terms move against each
+		// other - the reversion term un-decays as the horizon shrinks while the window of chances
+		// closes - and on a series whose last price sits a little above its median their sum wobbles
+		// in the fifth decimal. That is arithmetic, not ambition, and nobody can place an offer at
+		// 1071.00004.
+		long previous = Long.MAX_VALUE;
+		for (double hours = 8; hours >= 0.25; hours -= 0.25)
+		{
+			long reachable =
+				Math.round(forecast.reachableWithin(PriceForecast.Side.HIGH, hours, 0.75));
+			assertTrue("at " + hours + "h it asked for " + reachable + " after " + previous,
+				reachable <= previous);
+			previous = reachable;
+		}
+		assertTrue("and it must actually travel, not merely fail to rise: " + previous,
+			previous < forecast.reachableWithin(PriceForecast.Side.HIGH, 8, 0.75) - 1);
+		assertTrue("while staying above the centre it is walking down toward: " + previous,
+			previous >= forecast.centre(PriceForecast.Side.HIGH, 0.25));
+	}
+
+	@Test
+	public void anUnusableSideHasNoReachablePriceEither()
+	{
+		PriceForecast forecast = PriceForecast.fit(reverting(1000, 20, 5, 10), BUCKET_SECONDS);
+
+		assertEquals("a side that could not be fitted must not produce a price to trade on",
+			0, forecast.reachableWithin(PriceForecast.Side.LOW, 1, 0.75), 1e-9);
+	}
+
+	@Test
 	public void tooLittleHistorySaysSoRatherThanGuessing()
 	{
 		List<Candle> barely = reverting(1000, 20, 5, 5);

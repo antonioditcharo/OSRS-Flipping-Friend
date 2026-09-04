@@ -181,7 +181,11 @@ public class SellTimingEngine
 				"Position held past its horizon limit. Exiting.", exit.expectedMinutes, profitAtExit);
 		}
 
-		int targetPrice = position.getTargetSellPrice();
+		// The target the position was opened with, revised down to what the market can still plausibly
+		// reach in the time that is left. Without this a position holds its original ask until the hard
+		// hold limit fires, which is the "hope" this class's own javadoc says it exists to avoid - and
+		// the slot is spent either way.
+		int targetPrice = reachableTarget(position, series, horizon, minutesHeld);
 		boolean nearTarget = targetPrice > 0 && marketSell >= targetPrice * (1.0 - NEAR_TARGET);
 		boolean nearDeadline = minutesHeld >= profile.getMaxHoldMinutes() * NEAR_DEADLINE;
 
@@ -206,6 +210,87 @@ public class SellTimingEngine
 		}
 
 		return SellDecision.hold("Holding for target.", 0).withExitNear(nearTarget || nearDeadline);
+	}
+
+	/**
+	 * The best price still worth waiting for, given how much of the horizon is left.
+	 *
+	 * <p>Restored on 3 September 2026. {@link PriceForecast} was imported and unused, and
+	 * {@link #REACHABLE_QUANTILE}, {@link #MAX_USEFUL_BAND} and {@link #BUCKET_SECONDS} were each
+	 * declared and read by nothing: the method that used them had been deleted along with its test,
+	 * leaving the constants and their reasoning as the only evidence it had ever existed. The class
+	 * javadoc still promised the behaviour - "the ask is walked down towards break-even rather than
+	 * held out of stubbornness" - while the code held the entry target unchanged until the hold limit.
+	 *
+	 * <p>The decay is a property of the model rather than a schedule. The number asked for is
+	 * {@link PriceForecast#reachableWithin}: the price the market has historically <em>touched</em> at
+	 * some point in a window this long, one window in four. A long window contains more chances to
+	 * touch a high price than a short one, so the answer falls as the window closes - on its own, at
+	 * the rate this particular item's own history says, with no timer to tune. A linear schedule cannot
+	 * do that, because a schedule knows nothing about the item it is walking down.
+	 *
+	 * <p>Not {@link PriceForecast#quantile}, which prices where the item will <em>end up</em>. That was
+	 * the first attempt and it failed on measurement rather than on principle: a resting offer fills
+	 * the moment the price arrives and does not wait for the close, and because a fast-reverting fit
+	 * stops moving once its reversion term has decayed, the endpoint reading gave targets six hours and
+	 * twenty minutes apart that differed by one coin. Same constants, same model, right question.
+	 *
+	 * <p>Never below break-even. Walking an ask past the point where the sale loses money converts a
+	 * patient position into a realised loss, and the hold limit and stop already exist to end those
+	 * deliberately rather than by drift.
+	 *
+	 * <p>And never upward. The forecast is here to stop a position waiting for a price that is no
+	 * longer coming, not to talk it into holding out for more than it was opened for - that would be
+	 * the engine overriding the sizing decision that justified the trade in the first place.
+	 *
+	 * <p>Refuses the forecast when the middle half is wider than {@link #MAX_USEFUL_BAND}, when the
+	 * HIGH side could not be fitted, or when there is no history: in each case the original target
+	 * stands, because a quantile drawn from noise is a worse answer than the one already on record.
+	 *
+	 * @return the revised target, or the position's own when the forecast cannot improve on it
+	 */
+	int reachableTarget(Position position, List<Candle> series, TradingHorizon horizon,
+		long minutesHeld)
+	{
+		int original = position.getTargetSellPrice();
+		if (original <= 0 || series == null || series.isEmpty())
+		{
+			return original;
+		}
+
+		double remainingHours =
+			Math.max(0, horizon.getProfile().getMaxHoldMinutes() - minutesHeld) / 60.0;
+		if (remainingHours <= 0)
+		{
+			// Out of time. The hold-limit exit above has already fired by now; leave the target alone
+			// rather than ask the forecast about a horizon of zero.
+			return original;
+		}
+
+		PriceForecast forecast = PriceForecast.fit(series, BUCKET_SECONDS);
+		if (!forecast.isUsable(PriceForecast.Side.HIGH))
+		{
+			return original;
+		}
+		if (forecast.relativeSpread(PriceForecast.Side.HIGH, remainingHours) > MAX_USEFUL_BAND)
+		{
+			return original;
+		}
+
+		double reachable =
+			forecast.reachableWithin(PriceForecast.Side.HIGH, remainingHours, REACHABLE_QUANTILE);
+		if (!Double.isFinite(reachable) || reachable <= 0)
+		{
+			return original;
+		}
+
+		// Zero when the cost basis is unknown, which is the honest answer for a position the plugin
+		// inherited rather than opened. An unknown floor must not become a floor of the buy price.
+		int breakEven = position.isCostKnown()
+			? taxCalculator.breakEvenSellPrice(position.getItemId(), position.getAverageCost())
+			: 0;
+		int revised = (int) Math.round(reachable);
+		return Math.max(breakEven, Math.min(original, revised));
 	}
 
 	/**

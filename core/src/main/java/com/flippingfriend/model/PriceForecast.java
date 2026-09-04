@@ -151,6 +151,39 @@ public final class PriceForecast
 	}
 
 	/**
+	 * The best price the market can be expected to <em>touch</em> at some point within the horizon.
+	 * <p>
+	 * {@link #quantile} answers "where will this be in an hour", which is the wrong question for anyone
+	 * holding an offer. A sell order fills the first moment the price reaches it and does not care where
+	 * the price ends up; the seller is exposed to the whole path, not to its last point. Pricing the
+	 * endpoint understates what an hour of patience is worth, and - because a mean-reverting fit stops
+	 * moving once {@code phi^steps} has decayed - it gives back almost nothing as the hour runs out. Six
+	 * hours and twenty minutes produced targets one coin apart, which is not a walk-down.
+	 * <p>
+	 * Measured, like everything else here: stand at each point in the history, predict the horizon the
+	 * way {@link #centre} does, and record how far the <em>highest</em> price over the following window
+	 * ran past that prediction. The spread of those excesses is what a window of this length has
+	 * actually been worth. It falls to {@link #quantile} at a one-step horizon, which is correct - with
+	 * one look left, touching and ending are the same event - and it carries the autocorrelation for
+	 * free, where multiplying single-step probabilities would have assumed the steps were independent
+	 * and overstated the chance of a lucky excursion in a market that trends.
+	 *
+	 * @param quantile the fraction of past windows in which the market failed to beat the answer, so
+	 *                 0.75 is a price it touched one window in four
+	 * @return the price, or 0 when this side could not be fitted
+	 */
+	public double reachableWithin(Side side, double horizonHours, double quantile)
+	{
+		SideFit fit = fitFor(side);
+		if (!fit.usable)
+		{
+			return 0;
+		}
+		int steps = steps(horizonHours);
+		return Math.max(1, fit.centre(steps) + fit.runningMaxQuantile(steps, quantile));
+	}
+
+	/**
 	 * How wide the middle of the distribution is, as a fraction of the centre.
 	 * <p>
 	 * A cheap read on whether the forecast is saying anything: a band spanning half the price is a
@@ -273,17 +306,54 @@ public final class PriceForecast
 				errors[i] = prices[i + steps] - predicted;
 			}
 			Arrays.sort(errors);
+			return quantileOf(errors, quantile);
+		}
 
+		/**
+		 * The same replay, but recording how far the highest price in the window ran past the prediction
+		 * instead of where the window ended.
+		 * <p>
+		 * This is the quantity a resting offer is exposed to. At {@code steps == 1} it is identical to
+		 * {@link #errorQuantile}, because with one observation left the maximum of the window is the end
+		 * of it; past that the two separate, and the gap between them is the value of being able to sell
+		 * at any moment rather than only at the close.
+		 */
+		double runningMaxQuantile(int steps, double quantile)
+		{
+			double decay = Math.pow(phi, steps);
+			int available = prices.length - steps;
+			if (available < 2)
+			{
+				return 0;
+			}
+			double[] excesses = new double[available];
+			for (int i = 0; i < available; i++)
+			{
+				double predicted = median + (prices[i] - median) * decay;
+				double best = prices[i + 1];
+				for (int j = 2; j <= steps; j++)
+				{
+					best = Math.max(best, prices[i + j]);
+				}
+				excesses[i] = best - predicted;
+			}
+			Arrays.sort(excesses);
+			return quantileOf(excesses, quantile);
+		}
+
+		/** Linear interpolation into a sorted sample. One copy, so the two readings cannot drift apart. */
+		private static double quantileOf(double[] sorted, double quantile)
+		{
 			double clamped = Math.max(0, Math.min(1, quantile));
-			double position = clamped * (errors.length - 1);
+			double position = clamped * (sorted.length - 1);
 			int lower = (int) Math.floor(position);
 			int upper = (int) Math.ceil(position);
 			if (lower == upper)
 			{
-				return errors[lower];
+				return sorted[lower];
 			}
 			double weight = position - lower;
-			return errors[lower] * (1 - weight) + errors[upper] * weight;
+			return sorted[lower] * (1 - weight) + sorted[upper] * weight;
 		}
 
 		private static double median(double[] values)
