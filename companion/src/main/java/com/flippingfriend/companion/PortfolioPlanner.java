@@ -82,6 +82,18 @@ final class PortfolioPlanner
 		candidates.setShadowTrader(shadow);
 	}
 
+	/** Hands the factory what our own fills have shown about how much of a market we win. */
+	void setCaptureRates(CaptureRates rates)
+	{
+		candidates.setCaptureRates(rates);
+	}
+
+	/** The capture share the current appetite assumes, so the health line can name what it beat. */
+	double assumedCaptureShare()
+	{
+		return candidates.assumedCaptureShare();
+	}
+
 	PortfolioPlan plan(MarketIngestionService.MarketState market, AccountSnapshot account,
 		Map<Integer, Integer> buyLimitRemaining, Collection<OfferEvent> activeOffers)
 	{

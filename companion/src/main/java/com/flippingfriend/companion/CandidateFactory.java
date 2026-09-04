@@ -227,6 +227,12 @@ final class CandidateFactory
 		this.appetite = chosen;
 	}
 
+	/** What the current risk appetite claims of a market, before any measurement corrects it. */
+	double assumedCaptureShare()
+	{
+		return appetite.getCaptureShare();
+	}
+
 	/** Fill model reflecting the current appetite; falls back to the injected one before any is set. */
 	private FillModel fillModel()
 	{
@@ -234,7 +240,59 @@ final class CandidateFactory
 		return model == null ? fillModel : model;
 	}
 
+	/**
+	 * The fill model to use for one item, with the capture share this item has actually shown.
+	 * <p>
+	 * The appetite's number is a policy about how much of a market we are willing to claim; the
+	 * learned one is a measurement of how much we get. They are not the same question, and until now
+	 * only the first had an answer — every order in the system was sized against a constant chosen by
+	 * a dropdown. An item where we win a fifth of the flow and one where we win four fifths were
+	 * given identical orders.
+	 * <p>
+	 * With no evidence {@link CaptureRates#rateFor} returns the appetite's own number, so this is the
+	 * previous behaviour exactly until fills say otherwise.
+	 * <p>
+	 * Models are cached by rounded rate rather than rebuilt per item. {@link FillModel} is immutable
+	 * and this runs once per item per plan across thousands of items, so a hundred distinct models
+	 * are shared instead of thousands allocated — and rounding to a hundredth is well inside the
+	 * precision the measurement supports.
+	 */
+	private FillModel fillModel(int itemId)
+	{
+		CaptureRates rates = captureRates;
+		FillModel base = fillModel();
+		if (rates == null || itemId <= 0)
+		{
+			return base;
+		}
+		double learned = rates.rateFor(itemId, appetite.getCaptureShare());
+		int key = (int) Math.round(learned * 100);
+		if (key == (int) Math.round(appetite.getCaptureShare() * 100))
+		{
+			return base;
+		}
+		return captureModels.computeIfAbsent(key, rounded -> base.withCaptureRate(rounded / 100.0));
+	}
+
 	private volatile FillModel riskModel;
+
+	/** Measured capture shares. Null until wired, which leaves the appetite's number in charge. */
+	private volatile CaptureRates captureRates;
+
+	/** One model per distinct rounded capture rate, shared across every item that lands on it. */
+	private final Map<Integer, FillModel> captureModels = new ConcurrentHashMap<>();
+
+	/**
+	 * Hands the factory what our own fills have shown about capture.
+	 * <p>
+	 * Wired rather than merely offered — audit item 11 is a list of setters that exist, compile, and
+	 * are never called. A measurement nothing consults is the same bug in a new place.
+	 */
+	void setCaptureRates(CaptureRates rates)
+	{
+		this.captureRates = rates;
+		this.captureModels.clear();
+	}
 
 	/** Working from the most recent sizing decision, attached to the candidate it produced. */
 
@@ -389,8 +447,8 @@ final class CandidateFactory
 		}
 		FillCurve curve = FillCurve.from(shortSeries);
 		FillEstimate estimate = buying
-			? fillModel().estimateBuy(curve, price, remainingQuantity, remainingHours)
-			: fillModel().estimateSell(curve, price, remainingQuantity, remainingHours);
+			? fillModel(itemId).estimateBuy(curve, price, remainingQuantity, remainingHours)
+			: fillModel(itemId).estimateSell(curve, price, remainingQuantity, remainingHours);
 		if (!estimate.isPlausible())
 		{
 			return -1;
@@ -796,9 +854,9 @@ final class CandidateFactory
 		// question that decides whether it ships is whether it beats the analytical model that reads
 		// the actual book. Computing it later would compare against a reconstruction.
 		double analyticalCompletion =
-			fillModel().estimateBuy(curve, screened.price.getLow(), Math.max(1, screened.fillable),
-					horizonHours, season).getProbability()
-				* fillModel().estimateSell(curve, screened.price.getHigh(),
+			fillModel(itemId).estimateBuy(curve, screened.price.getLow(),
+					Math.max(1, screened.fillable), horizonHours, season).getProbability()
+				* fillModel(itemId).estimateSell(curve, screened.price.getHigh(),
 					Math.max(1, screened.fillable), horizonHours, season).getProbability();
 
 
@@ -842,8 +900,8 @@ final class CandidateFactory
 				// that model responded only to a coarse season bucket -- a 150gp order for 1,000 units
 				// and a 2,000,000gp order for 5 both scored 0.329689. It was setting deployed capital
 				// from a two-valued lookup. See OnnxInferenceEngineTest.
-				double pBuy = fillModel().estimateBuy(curve, buyPrice, fillable, horizonHours, season).getProbability();
-				double pSell = fillModel().estimateSell(curve, sellPrice, fillable, horizonHours, season).getProbability();
+				double pBuy = fillModel(itemId).estimateBuy(curve, buyPrice, fillable, horizonHours, season).getProbability();
+				double pSell = fillModel(itemId).estimateSell(curve, sellPrice, fillable, horizonHours, season).getProbability();
 				double p = pBuy * pSell;
 				
 				double b = unwindLossFull > 0 ? (double) netProfitFull / unwindLossFull : netProfitFull;
@@ -857,9 +915,9 @@ final class CandidateFactory
 				
 				int quantity = (int) Math.max(1, fillable * fStar);
 
-				FillEstimate buyFill = fillModel().estimateBuy(curve, buyPrice, quantity,
+				FillEstimate buyFill = fillModel(itemId).estimateBuy(curve, buyPrice, quantity,
 					horizonHours, season);
-				FillEstimate sellFill = fillModel().estimateSell(curve, sellPrice, quantity,
+				FillEstimate sellFill = fillModel(itemId).estimateSell(curve, sellPrice, quantity,
 					horizonHours, season);
 
 				// The ONNX fill and wait models replaced both estimates here whenever they returned
@@ -960,8 +1018,10 @@ final class CandidateFactory
 	private int quotableQuantity(FillCurve curve, int buyPrice, int sellPrice, double season,
 		Screened screened, long spendableCoins, double horizonHours)
 	{
-		FillEstimate buySide = fillModel().estimateBuy(curve, buyPrice, 1, horizonHours, season);
-		FillEstimate sellSide = fillModel().estimateSell(curve, sellPrice, 1, horizonHours, season);
+		FillEstimate buySide =
+			fillModel(screened.item.id).estimateBuy(curve, buyPrice, 1, horizonHours, season);
+		FillEstimate sellSide =
+			fillModel(screened.item.id).estimateSell(curve, sellPrice, 1, horizonHours, season);
 
 		// Size against the time left after the wait, not against the whole horizon.
 		//

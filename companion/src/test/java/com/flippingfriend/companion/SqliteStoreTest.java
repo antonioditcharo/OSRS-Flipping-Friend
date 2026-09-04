@@ -32,10 +32,42 @@ public class SqliteStoreTest
 			store.recordEvent(1, "c", "BOUGHT", "{}");
 			store.savePlan(1, 2, "c", "{}");
 			store.recordExecution(4151, true, 5.0, 4.0);
+			store.recordCapture(4151, 120, 900);
 			store.markMigration("legacy", "backup");
 			store.recordGates(1, "5m", Arrays.asList(
 				new GateReport.Gate("Profitable", true, "1,000 gp"),
 				new GateReport.Gate("Beats baseline", false, "0.83x")), "report");
+		}
+	}
+
+	/**
+	 * Capture evidence has to outlive the process, or the measurement restarts every time the
+	 * companion does and never accumulates enough to outweigh the risk appetite's guess.
+	 */
+	@Test
+	public void captureEvidenceSurvivesTheProcess() throws Exception
+	{
+		Path path = database();
+		try (SqliteStore store = new SqliteStore(path))
+		{
+			store.recordCapture(561, 100, 1_000);
+			store.recordCapture(561, 50, 1_000);
+			store.recordCapture(4151, 10, 40);
+		}
+
+		try (SqliteStore reopened = new SqliteStore(path))
+		{
+			java.util.Map<Integer, CaptureRates.Totals> stats = reopened.captureStats();
+
+			assertEquals("two items measured", 2, stats.size());
+			assertEquals("sums accumulate rather than overwrite", 150.0, stats.get(561).filled, 1e-9);
+			assertEquals(2_000.0, stats.get(561).flow, 1e-9);
+			assertEquals("and the offer count with them", 2, stats.get(561).observations);
+
+			CaptureRates rates = new CaptureRates();
+			rates.restore(stats);
+			assertTrue("a rate rebuilt from the table must reflect what was stored",
+				rates.rateFor(561, 0.5) < 0.5);
 		}
 	}
 

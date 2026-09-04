@@ -1,6 +1,7 @@
 package com.flippingfriend.companion;
 
 import com.flippingfriend.data.Candle;
+import java.util.List;
 import com.flippingfriend.core.AccountSnapshot;
 import com.flippingfriend.core.CompanionHealth;
 import com.flippingfriend.core.OfferEvent;
@@ -55,6 +56,14 @@ final class CompanionService implements AutoCloseable
 	private static final String SHADOW_MODEL = "shadow-trades";
 
 	private final LearnedFillModel learnedFill = new LearnedFillModel();
+	/**
+	 * How much of the flow at our price we really win, measured from our own settled offers.
+	 * <p>
+	 * The public feed cannot answer this — it publishes what traded, never who was queued for it —
+	 * so an offer we placed ourselves is the only experiment that can, and every one of them has been
+	 * running and going unrecorded.
+	 */
+	private final CaptureRates captureRates = new CaptureRates();
 
 
 	/**
@@ -200,7 +209,9 @@ final class CompanionService implements AutoCloseable
 		this.planner.setShadowTrader(shadow);
 		this.planner.setBuyLimitLedger(buyLimits);
 		this.planner.setLearnedFillModel(learnedFill);
+		this.planner.setCaptureRates(captureRates);
 		restoreCalibration();
+		restoreCaptureRates();
 		this.executions = new ExecutionRecorder(store);
 	}
 
@@ -350,6 +361,7 @@ final class CompanionService implements AutoCloseable
 			// Both of these were computed and discarded until 2 September 2026, which is why the
 			// comparison the system is built around had never been made once.
 			calibration.observeSettled(event, predictedCompletion(event));
+			observeCapture(event);
 
 			long now = event.getObservedAt();
 			if (calibration.durationsDue(now))
@@ -382,6 +394,57 @@ final class CompanionService implements AutoCloseable
 		// or closed, capital has moved, and a buy limit may have been consumed. Waiting for the next
 		// market poll would leave the panel telling the player to do something they have just done.
 		requestPlan();
+	}
+
+	/**
+	 * Measures what this offer won against the flow that passed it, and records the answer.
+	 * <p>
+	 * The denominator comes from the archive rather than the live series cache, because the question
+	 * is about the interval this offer was open — which is already in the past by the time it settles,
+	 * and which the public API's rolling window will eventually stop covering. This is the first
+	 * consumer of {@link PriceArchive} outside the replay harness, and the reason it was worth
+	 * starting to record on day one.
+	 * <p>
+	 * A failure here must never cost a fill. Everything above this point in {@link #offer} has
+	 * already been persisted, so a missing archive costs one measurement rather than an offer.
+	 */
+	private void observeCapture(OfferEvent event)
+	{
+		long open = event.getFirstSeenAt();
+		long closed = event.getObservedAt();
+		if (open <= 0 || closed - open < CaptureRates.MIN_OPEN_SECONDS)
+		{
+			return;
+		}
+		try
+		{
+			// One bucket of slack at each end, so the bars straddling the interval are fetched and can
+			// be prorated rather than dropped for having started a moment too early.
+			List<Candle> bars = store.priceArchive().series(event.getItemId(),
+				PriceArchive.FIVE_MINUTE, open - 300, closed + 300);
+			double flow = captureRates.observe(event, bars);
+			if (flow > 0)
+			{
+				store.recordCapture(event.getItemId(), event.getFilledQuantity(), flow);
+			}
+		}
+		catch (Exception unavailable)
+		{
+			log.debug("Could not measure capture for item {}", event.getItemId(), unavailable);
+		}
+	}
+
+	/** Brings back everything previous sessions learned about capture. */
+	private void restoreCaptureRates()
+	{
+		try
+		{
+			captureRates.restore(store.captureStats());
+		}
+		catch (Exception unavailable)
+		{
+			log.warn("Could not restore capture rates; they will rebuild from new fills", unavailable);
+		}
 	}
 
 	/**
@@ -591,6 +654,11 @@ final class CompanionService implements AutoCloseable
 		// store is entirely in how far back it reaches, and that is not visible any other way.
 		detail += " " + archiveSummary(now);
 		detail += " " + learnedFill.summary();
+		// Capture is the largest single lever on deployed capital and was a constant until it was
+		// measured, so the health line has to say what the measurement found and how much of it there
+		// is. "Learning" is not a claim anyone can check; "0.31 pooled against 0.50 assumed, from 74
+		// offers" is.
+		detail += " " + captureRates.summary(planner.assumedCaptureShare());
 		// The real version, not the literal 1 that stood here. A placeholder in a health response is
 		// worse than an absent field: it looks like an answer, and there is no way to tell from the
 		// outside that the model has been retrained seventy times since.

@@ -71,6 +71,10 @@ final class SqliteStore implements AutoCloseable
 			statement.execute("CREATE TABLE IF NOT EXISTS gate_result (id INTEGER PRIMARY KEY, evaluated_at INTEGER NOT NULL, resolution TEXT NOT NULL, gate TEXT NOT NULL, passed INTEGER NOT NULL, measured TEXT NOT NULL, payload TEXT NOT NULL)");
 			statement.execute("CREATE TABLE IF NOT EXISTS execution_stat (item_id INTEGER PRIMARY KEY, completed INTEGER NOT NULL DEFAULT 0, observed INTEGER NOT NULL DEFAULT 0, fill_minutes REAL NOT NULL DEFAULT 0, predicted_minutes REAL NOT NULL DEFAULT 0)");
 			statement.execute("CREATE TABLE IF NOT EXISTS counted_offer (identity TEXT PRIMARY KEY, counted_at INTEGER NOT NULL)");
+			// What our own offers won out of the flow that passed them. Per item, because queue
+			// competition is an item's property: a popular rune has a dozen buyers stacked at every
+			// price and a slow-moving armour piece has none.
+			statement.execute("CREATE TABLE IF NOT EXISTS capture_stat (item_id INTEGER PRIMARY KEY, filled REAL NOT NULL DEFAULT 0, flow REAL NOT NULL DEFAULT 0, observations INTEGER NOT NULL DEFAULT 0)");
 		}
 
 		// predicted_minutes arrived after the table had already shipped, so databases created by an
@@ -380,6 +384,48 @@ final class SqliteStore implements AutoCloseable
 			statement.setInt(6, comparable ? 1 : 0);
 			statement.executeUpdate();
 		}
+	}
+
+	/**
+	 * Folds one measured offer into the per-item capture record.
+	 * <p>
+	 * Accumulated as sums rather than as a running average, so an offer measured against a torrent
+	 * counts for more than one measured against a trickle. Averaging the ratios would give a
+	 * five-unit observation the same say as a five-thousand-unit one.
+	 */
+	synchronized void recordCapture(int itemId, double filled, double flow) throws Exception
+	{
+		if (itemId <= 0 || flow <= 0)
+		{
+			return;
+		}
+		try (PreparedStatement statement = connection.prepareStatement(
+			"INSERT INTO capture_stat(item_id, filled, flow, observations) VALUES(?,?,?,1) "
+				+ "ON CONFLICT(item_id) DO UPDATE SET filled = filled + excluded.filled, "
+				+ "flow = flow + excluded.flow, observations = observations + 1"))
+		{
+			statement.setInt(1, itemId);
+			statement.setDouble(2, Math.max(0, filled));
+			statement.setDouble(3, flow);
+			statement.executeUpdate();
+		}
+	}
+
+	/** Everything learned about capture so far, for rebuilding the learner on startup. */
+	synchronized Map<Integer, CaptureRates.Totals> captureStats() throws Exception
+	{
+		Map<Integer, CaptureRates.Totals> stats = new HashMap<>();
+		try (PreparedStatement statement = connection.prepareStatement(
+			"SELECT item_id, filled, flow, observations FROM capture_stat");
+			ResultSet result = statement.executeQuery())
+		{
+			while (result.next())
+			{
+				stats.put(result.getInt(1), new CaptureRates.Totals(
+					result.getDouble(2), result.getDouble(3), result.getInt(4)));
+			}
+		}
+		return stats;
 	}
 
 	/** Realised completion rate and mean fill time per item, for calibrating the fill model. */
