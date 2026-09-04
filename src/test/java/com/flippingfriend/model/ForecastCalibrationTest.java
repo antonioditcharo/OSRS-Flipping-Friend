@@ -120,6 +120,97 @@ public class ForecastCalibrationTest
 		assertTrue("a wider band must cover more, or the quantiles are not ordered", eighty > fifty);
 	}
 
+	/**
+	 * How often the market actually beat the price the forecast said it would beat {@code 1 - quantile}
+	 * of the time, over the whole window rather than at its close.
+	 */
+	private static double touchRate(double quantile) throws Exception
+	{
+		int touched = 0;
+		int total = 0;
+		for (int itemId : ITEMS)
+		{
+			List<Candle> series = load(itemId);
+			for (double horizonHours : HORIZONS)
+			{
+				int ahead = (int) Math.round(horizonHours * 3600 / BUCKET_SECONDS);
+				for (int origin = 120; origin + ahead < series.size(); origin += 5)
+				{
+					PriceForecast forecast =
+						PriceForecast.fit(series.subList(0, origin), BUCKET_SECONDS);
+					if (!forecast.isUsable(PriceForecast.Side.HIGH))
+					{
+						continue;
+					}
+					double claimed =
+						forecast.reachableWithin(PriceForecast.Side.HIGH, horizonHours, quantile);
+					boolean beaten = false;
+					boolean sawAPrice = false;
+					for (int step = 1; step <= ahead; step++)
+					{
+						Integer actual = series.get(origin + step).getAvgHighPrice();
+						if (actual == null || actual <= 0)
+						{
+							continue;
+						}
+						sawAPrice = true;
+						if (actual >= claimed)
+						{
+							beaten = true;
+							break;
+						}
+					}
+					if (!sawAPrice)
+					{
+						continue;
+					}
+					total++;
+					if (beaten)
+					{
+						touched++;
+					}
+				}
+			}
+		}
+		assertTrue("the fixtures must produce a real sample, not a handful", total > 2_000);
+		return (double) touched / total;
+	}
+
+	@Test
+	public void aReachablePriceIsReachedAsOftenAsItClaims() throws Exception
+	{
+		// The same question asked of the number the sell logic actually acts on. reachableWithin says
+		// "the market touched this at some point in a window this long, one window in four" - and if
+		// that is wrong in the optimistic direction, every position waits for a price that was never
+		// coming and is dumped at market when the hold limit fires. Which is the failure this whole
+		// mechanism exists to prevent, arriving by a different route.
+		double quarter = touchRate(0.75);
+		double half = touchRate(0.5);
+		double tenth = touchRate(0.9);
+
+		System.out.printf("reachable touch rate: q75 %.1f%% (claims 25%%), q50 %.1f%% (claims 50%%), "
+			+ "q90 %.1f%% (claims 10%%)%n", quarter * 100, half * 100, tenth * 100);
+
+		// 0.5 is the level the sell engine asks for, and the only one this fixture can answer.
+		// Measured at 58%. Six points of residual optimism, from overlapping windows that leave far
+		// fewer independent observations than rows.
+		assertTrue("the 0.5 price was reached " + Math.round(half * 100) + "% of the time",
+			half > 0.48 && half < 0.66);
+
+		// The upper tail, pinned as the defect it is rather than as a passing claim. 0.75 says the
+		// market beats it one window in four and it beat it 42%; 0.9 says one in ten and it beat it
+		// 31%. Both err toward selling too cheap, and neither is fixable at this sample size: a
+		// four-hour window over this much history has a handful of independent observations, and an
+		// upper tail cannot be read from a handful. If a later change makes these honest, this test
+		// fails and REACHABLE_QUANTILE can be reconsidered - which is the point of asserting it.
+		assertTrue("0.75 is still optimistic, as recorded: " + Math.round(quarter * 100) + "%",
+			quarter > 0.30 && quarter < 0.55);
+		assertTrue("0.9 is still optimistic, as recorded: " + Math.round(tenth * 100) + "%",
+			tenth > 0.20 && tenth < 0.42);
+		assertTrue("a more ambitious price must at least be reached less often: "
+			+ tenth + " < " + quarter + " < " + half, tenth < quarter && quarter < half);
+	}
+
 	@Test
 	public void theForecastBeatsAssumingThePriceStaysPut() throws Exception
 	{

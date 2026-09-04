@@ -202,12 +202,12 @@ public class ReachableTargetTest
 	public void theSamePriceIsRefusedEarlyAndTakenLate()
 	{
 		// The mechanism, end to end and at one price. Held at 1,000 against an entry target of 1,200
-		// the market never approached; 1,110 is on offer throughout. Early there are hours of chances
+		// the market never approached; 1,106 is on offer throughout. Early there are hours of chances
 		// left to beat it, so it is refused. Late there are not, so it is taken - and on the entry
 		// target alone this position would have sat there until the clock dumped it at market.
 		List<Candle> series = around(1_100, 0.004, 250);
 		ItemFeatures features = featureEngine.compute(ITEM, series, BUCKET_SECONDS);
-		int marketSell = 1_110;
+		int marketSell = 1_106;
 		LatestPrice latest = new LatestPrice(marketSell, 0L, marketSell - 2, 0L);
 
 		SellDecision early = decide(position(1_000, 1_200, 30), latest, features, series, 30);

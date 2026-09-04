@@ -40,12 +40,26 @@ public class SellTimingEngine
 	/**
 	 * How optimistic to be about the price still to come.
 	 * <p>
-	 * The three-quarter mark: a price the market beats one time in four over the time remaining.
-	 * Deliberately not the median, because a seller with hours in hand should hold out for better than
-	 * the coin-flip outcome, and deliberately not the extreme, because a target the market reaches one
-	 * time in twenty is a target that never gets hit and a position that never gets sold.
+	 * The middle of what the window's <em>best</em> price has been: a price the market has touched at
+	 * some point in a window this long about half the time. Already well above the price it is
+	 * expected to end at, which is what the original reasoning here was after - "a seller with hours
+	 * in hand should hold out for better than the coin-flip outcome" - and the maximum of a window
+	 * delivers that without needing an upper quantile to get it.
+	 * <p>
+	 * <b>Was 0.75, and the change is a measurement rather than a preference.</b> The recovered text
+	 * asked for "a price the market beats one time in four", which is the right ambition and an
+	 * unanswerable question. Windows overlap: a four-hour horizon over a fortnight of five-minute
+	 * candles contains a few hundred windows and only a handful of <em>independent</em> ones, and an
+	 * upper tail cannot be read from a handful. Measured on thirteen items of real wiki candles, the
+	 * 0.75 answer was beaten 42% of the time against the 25% it claimed, and the 0.9 answer 31% of the
+	 * time against 10%. Both are optimistic in the direction that sells too cheap, and both are
+	 * unfixable at this sample size. At 0.5 the estimate has the bulk of the distribution under it and
+	 * lands at 58% against a claim of 50%, which is a number that means roughly what it says.
+	 * <p>
+	 * So: do not raise this without re-running {@code ForecastCalibrationTest}. The constant is
+	 * pinned to where the data can answer, not to where the ambition would like to be.
 	 */
-	private static final double REACHABLE_QUANTILE = 0.75;
+	private static final double REACHABLE_QUANTILE = 0.5;
 
 	/** The candle spacing the sell-side history is fetched at. */
 	private static final int BUCKET_SECONDS = 300;
@@ -224,10 +238,10 @@ public class SellTimingEngine
 	 *
 	 * <p>The decay is a property of the model rather than a schedule. The number asked for is
 	 * {@link PriceForecast#reachableWithin}: the price the market has historically <em>touched</em> at
-	 * some point in a window this long, one window in four. A long window contains more chances to
-	 * touch a high price than a short one, so the answer falls as the window closes - on its own, at
-	 * the rate this particular item's own history says, with no timer to tune. A linear schedule cannot
-	 * do that, because a schedule knows nothing about the item it is walking down.
+	 * some point in a window this long. A long window contains more chances to touch a high price than
+	 * a short one, so the answer falls as the window closes - on its own, at the rate this particular
+	 * item's own history says, with no timer to tune. A linear schedule cannot do that, because a
+	 * schedule knows nothing about the item it is walking down.
 	 *
 	 * <p>Not {@link PriceForecast#quantile}, which prices where the item will <em>end up</em>. That was
 	 * the first attempt and it failed on measurement rather than on principle: a resting offer fills

@@ -62,6 +62,21 @@ public final class PriceForecast
 	 */
 	private static final double MAX_PHI = 0.995;
 
+	/**
+	 * How much of the history sets the level and the reversion rate, leaving the rest to be scored
+	 * against. Only {@link SideFit#runningMaxQuantile} uses it, because only that reading was measured
+	 * to need it.
+	 */
+	private static final double HOLDOUT_FRACTION = 0.7;
+
+	/**
+	 * Fewest held-back windows worth preferring to the whole history.
+	 * <p>
+	 * Below this the honest estimate is too noisy to be an improvement on the optimistic one, and a
+	 * long horizon eats the holdout quickly - a four-hour window is forty-eight candles.
+	 */
+	private static final int MIN_HOLDOUT_WINDOWS = 8;
+
 	private final SideFit low;
 	private final SideFit high;
 	private final double bucketHours;
@@ -275,6 +290,23 @@ public final class PriceForecast
 			return new SideFit(true, median, prices[prices.length - 1], phi, prices);
 		}
 
+		/** The reversion rate, fitted the one way, so a holdout measures what the full fit would. */
+		private static double fitPersistence(double[] prices, double median)
+		{
+			double covariance = 0;
+			double variance = 0;
+			for (int i = 0; i < prices.length - 1; i++)
+			{
+				covariance += (prices[i] - median) * (prices[i + 1] - median);
+				variance += (prices[i] - median) * (prices[i] - median);
+			}
+			if (variance <= 0)
+			{
+				return 0;
+			}
+			return Math.max(0, Math.min(MAX_PHI, covariance / variance));
+		}
+
 		/** Where the price is expected to be after n steps: part of the way back to the median. */
 		double centre(int steps)
 		{
@@ -320,22 +352,41 @@ public final class PriceForecast
 		 */
 		double runningMaxQuantile(int steps, double quantile)
 		{
-			double decay = Math.pow(phi, steps);
 			int available = prices.length - steps;
 			if (available < 2)
 			{
 				return 0;
 			}
-			double[] excesses = new double[available];
-			for (int i = 0; i < available; i++)
+
+			// Windows that had no hand in setting the level or the reversion rate, where there are
+			// enough of them to be worth the smaller sample. Grading a window against a median it
+			// helped compute is the in-sample optimism this class was already burned by once: on real
+			// wiki candles the whole-history version claimed the market would beat its answer half the
+			// time and it beat it 70% of the time, because the fit had already seen the very maxima it
+			// was being scored against. Holding back the tail brought that to 56%.
+			int first = 0;
+			double level = median;
+			double persistence = phi;
+			int split = (int) (prices.length * HOLDOUT_FRACTION);
+			if (split >= MIN_SAMPLES && available - split >= MIN_HOLDOUT_WINDOWS)
 			{
-				double predicted = median + (prices[i] - median) * decay;
+				double[] head = Arrays.copyOfRange(prices, 0, split);
+				level = median(head.clone());
+				persistence = fitPersistence(head, level);
+				first = split;
+			}
+
+			double decay = Math.pow(persistence, steps);
+			double[] excesses = new double[available - first];
+			for (int i = first; i < available; i++)
+			{
+				double predicted = level + (prices[i] - level) * decay;
 				double best = prices[i + 1];
 				for (int j = 2; j <= steps; j++)
 				{
 					best = Math.max(best, prices[i + j]);
 				}
-				excesses[i] = best - predicted;
+				excesses[i - first] = best - predicted;
 			}
 			Arrays.sort(excesses);
 			return quantileOf(excesses, quantile);
