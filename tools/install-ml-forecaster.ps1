@@ -25,7 +25,7 @@ if (-not (Test-Path $pythonEnv)) {
 }
 
 $action = New-ScheduledTaskAction -Execute $pythonEnv `
-    -Argument "-m uvicorn api:app --host 0.0.0.0 --port 8000" -WorkingDirectory $mlDir
+    -Argument "-m uvicorn api:app --host 127.0.0.1 --port 8000" -WorkingDirectory $mlDir
 
 $elevated = ([Security.Principal.WindowsPrincipal] `
     [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(

@@ -1,5 +1,4 @@
 const express = require('express');
-const cors = require('cors');
 const dotenv = require('dotenv');
 const Database = require('better-sqlite3');
 const path = require('path');
@@ -10,9 +9,48 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-app.use(cors());
+// Same origin only. `cors()` with no options sets Access-Control-Allow-Origin: *, which on a
+// service that serves this account's complete trade history means any page in any tab could read
+// it. Nothing legitimate here is cross-origin: the UI is served from this same process.
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
+
+// --- access control -------------------------------------------------------------------
+//
+// jsonwebtoken was a declared dependency and no route was authenticated. Combined with
+// app.listen(PORT) binding every interface, any host that could reach port 3001 could read the
+// lot. This shares the companion's token rather than inventing a second secret.
+const fs = require('fs');
+const TOKEN_HEADER = 'x-flipping-friend-token';
+
+function companionToken() {
+    if (process.env.FLIPPING_FRIEND_TOKEN) {
+        return process.env.FLIPPING_FRIEND_TOKEN.trim();
+    }
+    try {
+        const file = path.join(os.homedir(), '.runelite', 'osrs-flipping-friend', 'companion',
+            'companion.properties');
+        const lines = fs.readFileSync(file, 'utf8').split(String.fromCharCode(10));
+        const line = lines.map(l => l.trim()).find(l => l.startsWith('token='));
+        return line ? line.slice('token='.length).trim() : null;
+    } catch (e) {
+        return null;
+    }
+}
+
+const API_TOKEN = companionToken();
+
+// Fails closed. A service that believes it is authenticated but is not is worse than one that is
+// plainly refusing, and this one holds every trade the account has ever made.
+app.use('/api', (req, res, next) => {
+    if (!API_TOKEN) {
+        return res.status(503).json({ error: 'No companion token available; refusing to serve.' });
+    }
+    if (req.get(TOKEN_HEADER) !== API_TOKEN) {
+        return res.status(401).json({ error: 'Missing or invalid token.' });
+    }
+    next();
+});
 
 // Path to the plugin's SQLite database
 const dbPath = path.join(os.homedir(), '.runelite', 'osrs-flipping-friend', 'companion', 'flipping-friend.db');
@@ -352,6 +390,8 @@ app.get('/api/items/performance', (req, res) => {
     }
 });
 
-app.listen(PORT, () => {
-    console.log(`API running on http://localhost:${PORT}`);
+// Loopback only. Everything that legitimately reads this runs on the same machine, and binding
+// every interface put the account's full trade history on the local network.
+app.listen(PORT, '127.0.0.1', () => {
+    console.log(`API running on http://127.0.0.1:${PORT}`);
 });

@@ -1,6 +1,8 @@
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, Header, HTTPException
 from pydantic import BaseModel
-from typing import Dict, List
+from typing import Dict, List, Optional
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 import torch
 import os
 import threading
@@ -9,6 +11,56 @@ from advanced_model import AdvancedOSRSForecaster
 from dataset import get_inference_data
 
 app = FastAPI(title="OSRS LSTM Forecaster")
+
+# --- access control -------------------------------------------------------------------
+#
+# This service was bound to 0.0.0.0 with no authentication and registered as a scheduled task
+# at logon, so anything on the network could read from it and, worse, make it spawn unbounded
+# background training threads - one per unseen item id, straight out of a request handler.
+#
+# It shares the companion's token rather than inventing one. A second secret is a second thing
+# to rotate, a second thing to leak, and a second thing to be out of step.
+
+TOKEN_HEADER = "X-Flipping-Friend-Token"
+
+_COMPANION_PROPERTIES = (
+    Path.home() / ".runelite" / "osrs-flipping-friend" / "companion" / "companion.properties"
+)
+
+
+def _load_token() -> Optional[str]:
+    """The companion's token, or None when it has never run on this machine."""
+    override = os.environ.get("FLIPPING_FRIEND_TOKEN")
+    if override:
+        return override.strip()
+    try:
+        for line in _COMPANION_PROPERTIES.read_text(encoding="utf-8").splitlines():
+            if line.startswith("token="):
+                return line.split("=", 1)[1].strip()
+    except OSError:
+        pass
+    return None
+
+
+_TOKEN = _load_token()
+
+
+def require_token(x_flipping_friend_token: str = Header(default="")) -> None:
+    """Rejects anything that cannot present the companion's token.
+
+    Fails closed. If no token could be read the service refuses every request rather than
+    serving openly, because an unauthenticated service that believes it is authenticated is
+    worse than one that is plainly broken.
+    """
+    if not _TOKEN:
+        raise HTTPException(status_code=503, detail="No companion token available; refusing to serve.")
+    if x_flipping_friend_token != _TOKEN:
+        raise HTTPException(status_code=401, detail="Missing or invalid token.")
+
+
+# Training is bounded. A raw Thread per unseen item let one caller with a list of item ids
+# start arbitrarily many model fits at once, each loading torch and reading the wiki.
+_TRAINING_POOL = ThreadPoolExecutor(max_workers=2, thread_name_prefix="ff-train")
 
 # In-memory model cache so we don't reload from disk on every request.
 _model_cache: Dict[int, AdvancedOSRSForecaster] = {}
@@ -81,8 +133,7 @@ def _predict_single(item_id: int, prices: List[float]) -> float:
         with _training_lock:
             if item_id not in _training_in_progress:
                 _training_in_progress.add(item_id)
-                thread = threading.Thread(target=_train_in_background, args=(item_id, prices), daemon=True)
-                thread.start()
+                _TRAINING_POOL.submit(_train_in_background, item_id, prices)
         return 0.0
 
     try:
@@ -104,7 +155,7 @@ def _predict_single(item_id: int, prices: List[float]) -> float:
         return 0.0
 
 
-@app.post("/predict_bulk")
+@app.post("/predict_bulk", dependencies=[Depends(require_token)])
 def predict_bulk(req: BulkPredictRequest):
     results = {}
     for item_id, prices in req.item_histories.items():
@@ -112,7 +163,7 @@ def predict_bulk(req: BulkPredictRequest):
     return results
 
 
-@app.get("/health")
+@app.get("/health", dependencies=[Depends(require_token)])
 def health():
     """Simple health check for the Java client to verify the server is up."""
     return {"status": "ok", "models_loaded": len(_model_cache)}
@@ -120,4 +171,6 @@ def health():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("api:app", host="0.0.0.0", port=8000)
+    # Loopback only. The companion and the plugin both run on this machine; nothing else has any
+    # business reaching a service that holds this account's trading models.
+    uvicorn.run("api:app", host="127.0.0.1", port=8000)
