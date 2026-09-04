@@ -75,6 +75,13 @@ final class SqliteStore implements AutoCloseable
 			// competition is an item's property: a popular rune has a dozen buyers stacked at every
 			// price and a slow-moving armour piece has none.
 			statement.execute("CREATE TABLE IF NOT EXISTS capture_stat (item_id INTEGER PRIMARY KEY, filled REAL NOT NULL DEFAULT 0, flow REAL NOT NULL DEFAULT 0, observations INTEGER NOT NULL DEFAULT 0)");
+			// A life table, not a list of offers. For each item, side and slice of elapsed time:
+			// how many offers were still open when they reached it, and how many filled during it.
+			// That pair is the whole sufficient statistic for a hazard, so this stays a few thousand
+			// rows however many offers pass through it.
+			statement.execute("CREATE TABLE IF NOT EXISTS fill_hazard (item_id INTEGER NOT NULL, "
+				+ "buying INTEGER NOT NULL, bucket INTEGER NOT NULL, at_risk INTEGER NOT NULL DEFAULT 0, "
+				+ "filled INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(item_id, buying, bucket))");
 		}
 
 		// predicted_minutes arrived after the table had already shipped, so databases created by an
@@ -408,6 +415,97 @@ final class SqliteStore implements AutoCloseable
 			statement.setDouble(2, Math.max(0, filled));
 			statement.setDouble(3, flow);
 			statement.executeUpdate();
+		}
+	}
+
+	/**
+	 * Folds one settled offer into the life table.
+	 * <p>
+	 * The offer was at risk in every slice it survived into, and had its event -- if it filled -- in
+	 * the last of them. A cancelled offer adds denominators and no numerator, which is what
+	 * right-censoring means and is why these observations are usable here after being discarded by
+	 * the statistic in {@code execution_stat}.
+	 */
+	synchronized void recordFillHazard(int itemId, boolean buying, int reachedBucket,
+		boolean completed) throws Exception
+	{
+		if (itemId <= 0 || reachedBucket < 0)
+		{
+			return;
+		}
+		boolean autoCommit = connection.getAutoCommit();
+		connection.setAutoCommit(false);
+		try (PreparedStatement statement = connection.prepareStatement(
+			"INSERT INTO fill_hazard(item_id, buying, bucket, at_risk, filled) VALUES(?,?,?,1,?) "
+				+ "ON CONFLICT(item_id, buying, bucket) DO UPDATE SET at_risk = at_risk + 1, "
+				+ "filled = filled + excluded.filled"))
+		{
+			for (int bucket = 0; bucket <= reachedBucket; bucket++)
+			{
+				statement.setInt(1, itemId);
+				statement.setInt(2, buying ? 1 : 0);
+				statement.setInt(3, bucket);
+				statement.setInt(4, completed && bucket == reachedBucket ? 1 : 0);
+				statement.addBatch();
+			}
+			statement.executeBatch();
+			connection.commit();
+		}
+		catch (Exception failed)
+		{
+			connection.rollback();
+			throw failed;
+		}
+		finally
+		{
+			connection.setAutoCommit(autoCommit);
+		}
+	}
+
+	/** The life table, for rebuilding the hazard on startup. */
+	synchronized Map<Long, FillHazard.Counts[]> fillHazards() throws Exception
+	{
+		Map<Long, FillHazard.Counts[]> table = new HashMap<>();
+		try (PreparedStatement statement = connection.prepareStatement(
+			"SELECT item_id, buying, bucket, at_risk, filled FROM fill_hazard");
+			ResultSet result = statement.executeQuery())
+		{
+			while (result.next())
+			{
+				long key = ((long) result.getInt(1) << 1) | (result.getInt(2) == 1 ? 1L : 0L);
+				int bucket = result.getInt(3);
+				if (bucket < 0 || bucket >= FillHazard.BUCKET_MINUTES.length)
+				{
+					continue;
+				}
+				FillHazard.Counts[] buckets = table.computeIfAbsent(key,
+					id -> new FillHazard.Counts[FillHazard.BUCKET_MINUTES.length]);
+				buckets[bucket] = new FillHazard.Counts(result.getInt(4), result.getInt(5));
+			}
+		}
+		for (FillHazard.Counts[] buckets : table.values())
+		{
+			for (int i = 0; i < buckets.length; i++)
+			{
+				if (buckets[i] == null)
+				{
+					buckets[i] = new FillHazard.Counts();
+				}
+			}
+		}
+		return table;
+	}
+
+	/**
+	 * Offers behind the life table. Counted from the first slice, which every offer is at risk in.
+	 */
+	synchronized int fillHazardObservations() throws Exception
+	{
+		try (PreparedStatement statement = connection.prepareStatement(
+			"SELECT COALESCE(SUM(at_risk), 0) FROM fill_hazard WHERE bucket = 0");
+			ResultSet result = statement.executeQuery())
+		{
+			return result.next() ? result.getInt(1) : 0;
 		}
 	}
 

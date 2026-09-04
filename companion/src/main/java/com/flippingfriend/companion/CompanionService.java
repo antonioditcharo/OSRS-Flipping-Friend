@@ -65,6 +65,15 @@ final class CompanionService implements AutoCloseable
 	 */
 	private final CaptureRates captureRates = new CaptureRates();
 
+	/**
+	 * How the odds of an offer filling change the longer it waits.
+	 * <p>
+	 * Fed from the same settled offers everything else here reads, including the cancelled ones that
+	 * {@link ExecutionRecorder} correctly discards: a cancellation is not a fill time, but it is the
+	 * observation "this had not filled yet", which is exactly what a hazard is made of.
+	 */
+	private final FillHazard fillHazard = new FillHazard();
+
 
 	/**
 	 * How often the learned state is written back. Frequent enough that a crash costs minutes of
@@ -210,8 +219,10 @@ final class CompanionService implements AutoCloseable
 		this.planner.setBuyLimitLedger(buyLimits);
 		this.planner.setLearnedFillModel(learnedFill);
 		this.planner.setCaptureRates(captureRates);
+		this.planner.setFillHazard(fillHazard);
 		restoreCalibration();
 		restoreCaptureRates();
+		restoreFillHazard();
 		this.executions = new ExecutionRecorder(store);
 	}
 
@@ -362,6 +373,7 @@ final class CompanionService implements AutoCloseable
 			// comparison the system is built around had never been made once.
 			calibration.observeSettled(event, predictedCompletion(event));
 			observeCapture(event);
+			observeHazard(event);
 
 			long now = event.getObservedAt();
 			if (calibration.durationsDue(now))
@@ -434,6 +446,39 @@ final class CompanionService implements AutoCloseable
 		}
 	}
 
+	/**
+	 * Folds one settled offer into the fill hazard.
+	 * <p>
+	 * Both outcomes count, and that is the point. A completed offer says "it filled at this age"; a
+	 * cancelled one says "it had not filled by this age", and a life table uses the second as
+	 * readily as the first. About a third of settled offers are cancellations, and until now their
+	 * durations went nowhere because the statistic being kept was a mean, which has no way to hold a
+	 * censored observation.
+	 */
+	private void observeHazard(OfferEvent event)
+	{
+		long open = event.getFirstSeenAt();
+		if (open <= 0)
+		{
+			// The plugin never saw this offer appear -- a login replay -- so its age is unknown
+			// rather than zero, and a zero would put a fill in the first slice that did not happen
+			// there.
+			return;
+		}
+		double minutes = event.secondsOpen() / 60.0;
+		boolean completed = event.isComplete();
+		fillHazard.observe(event.getItemId(), event.isBuying(), minutes, completed);
+		try
+		{
+			store.recordFillHazard(event.getItemId(), event.isBuying(),
+				FillHazard.bucketOf(minutes), completed);
+		}
+		catch (Exception unavailable)
+		{
+			log.debug("Could not record the fill hazard for item {}", event.getItemId(), unavailable);
+		}
+	}
+
 	/** Brings back everything previous sessions learned about capture. */
 	private void restoreCaptureRates()
 	{
@@ -444,6 +489,19 @@ final class CompanionService implements AutoCloseable
 		catch (Exception unavailable)
 		{
 			log.warn("Could not restore capture rates; they will rebuild from new fills", unavailable);
+		}
+	}
+
+	/** Brings back the life table previous sessions built. */
+	private void restoreFillHazard()
+	{
+		try
+		{
+			fillHazard.restore(store.fillHazards(), store.fillHazardObservations());
+		}
+		catch (Exception unavailable)
+		{
+			log.warn("Could not restore the fill hazard; it will rebuild from new offers", unavailable);
 		}
 	}
 
@@ -659,6 +717,10 @@ final class CompanionService implements AutoCloseable
 		// is. "Learning" is not a claim anyone can check; "0.31 pooled against 0.50 assumed, from 74
 		// offers" is.
 		detail += " " + captureRates.summary(planner.assumedCaptureShare());
+		// The shape of the curve, said out loud, because the whole question of whether this is worth
+		// consulting is whether waiting gets worse -- and that is one number nobody can see any
+		// other way.
+		detail += " " + fillHazard.summary();
 		// The real version, not the literal 1 that stood here. A placeholder in a health response is
 		// worse than an absent field: it looks like an answer, and there is no way to tell from the
 		// outside that the model has been retrained seventy times since.

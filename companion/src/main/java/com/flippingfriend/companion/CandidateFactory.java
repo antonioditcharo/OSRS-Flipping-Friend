@@ -280,6 +280,23 @@ final class CandidateFactory
 	/** Measured capture shares. Null until wired, which leaves the appetite's number in charge. */
 	private volatile CaptureRates captureRates;
 
+	/**
+	 * How the odds of filling change with how long an offer has already waited. Null until wired,
+	 * and inert until it has both enough observations and something to say.
+	 */
+	private volatile FillHazard fillHazard;
+
+	/**
+	 * Hands the factory the measured fill hazard.
+	 * <p>
+	 * Wired rather than merely offered, and read in {@link #holdValue} rather than stored and
+	 * forgotten -- audit item 11 is a list of setters that exist, compile and are never called.
+	 */
+	void setFillHazard(FillHazard hazard)
+	{
+		this.fillHazard = hazard;
+	}
+
 	/** Nature rune. Consumed by every High Level Alchemy cast, so its price is the floor's cost. */
 	private static final int NATURE_RUNE = 561;
 
@@ -472,6 +489,17 @@ final class CandidateFactory
 	double holdValue(int itemId, int price, int remainingQuantity, boolean buying, long marginPerItem,
 		double remainingHours)
 	{
+		return holdValue(itemId, price, remainingQuantity, buying, marginPerItem, remainingHours, 0);
+	}
+
+	/**
+	 * @param waitedMinutes how long this offer has already been sitting there unfilled, which the
+	 *                      analytical model has no way to use and which is the whole of what
+	 *                      {@link FillHazard} adds
+	 */
+	double holdValue(int itemId, int price, int remainingQuantity, boolean buying, long marginPerItem,
+		double remainingHours, double waitedMinutes)
+	{
 		if (itemId <= 0 || price <= 0 || remainingQuantity <= 0 || remainingHours <= 0)
 		{
 			return -1;
@@ -492,9 +520,55 @@ final class CandidateFactory
 		// Only the profit still ahead counts. What the offer has already cost in slot-time is spent
 		// either way, and charging it again would keep an offer alive purely because it has been
 		// expensive so far.
-		double expected = (double) marginPerItem * remainingQuantity * estimate.getProbability();
+		double probability = estimate.getProbability()
+			* waitPenalty(itemId, buying, waitedMinutes, remainingHours * 60);
+		double expected = (double) marginPerItem * remainingQuantity * probability;
 		return expected / Math.max(1.0 / 60.0, remainingHours);
 	}
+
+	/**
+	 * How much less likely this offer is to fill because it has already waited.
+	 *
+	 * <p>A ratio, not a replacement. {@link FillModel} reads the book — the volume at our price, the
+	 * within-bucket dispersion, the counterparty wait — and its answer is sensitive to price and size
+	 * in ways nothing here could reproduce. What it structurally cannot know is that <em>this</em>
+	 * order has been sitting unfilled for forty minutes, because that is a fact about our order and
+	 * not about the market, and the price feed has never seen it.
+	 *
+	 * <p>Under the Poisson arrivals the analytical model assumes, the answer is always 1: a memoryless
+	 * process does not care how long you have waited. So this correction is inert exactly when that
+	 * assumption holds, and bites only to the extent the measured hazard actually declines — which
+	 * makes it safe to apply before anyone knows whether it will.
+	 *
+	 * <p>Floored, because the late buckets are always the thinnest and a handful of unlucky offers in
+	 * one of them should not be able to declare a perfectly good offer worthless.
+	 */
+	private double waitPenalty(int itemId, boolean buying, double waitedMinutes,
+		double horizonMinutes)
+	{
+		FillHazard hazard = fillHazard;
+		if (hazard == null || waitedMinutes <= 0 || horizonMinutes <= 0 || !hazard.isUsable())
+		{
+			return 1.0;
+		}
+		double fresh = hazard.completionWithin(itemId, buying, 0, horizonMinutes);
+		if (fresh <= 0)
+		{
+			return 1.0;
+		}
+		double waited = hazard.completionWithin(itemId, buying, waitedMinutes, horizonMinutes);
+		// Never above one. The hazard is here to say that waiting has cost something, not to talk a
+		// stale offer up past what the book says about it.
+		return Math.max(MIN_WAIT_PENALTY, Math.min(1.0, waited / fresh));
+	}
+
+	/**
+	 * Floor on the wait penalty.
+	 * <p>
+	 * A quarter. Past that the correction stops being a correction and starts overriding the model
+	 * that reads the book, on the strength of the thinnest buckets in the sample.
+	 */
+	private static final double MIN_WAIT_PENALTY = 0.25;
 
 	/**
 	 * The hold value of a resting <em>buy</em>, net of the tax the eventual sale will pay.
@@ -507,6 +581,15 @@ final class CandidateFactory
 	double buyHoldValue(int itemId, int offerPrice, int remainingQuantity, int marketSellPrice,
 		double remainingHours)
 	{
+		return buyHoldValue(itemId, offerPrice, remainingQuantity, marketSellPrice, remainingHours, 0);
+	}
+
+	/**
+	 * @param waitedMinutes how long the offer has already been open unfilled
+	 */
+	double buyHoldValue(int itemId, int offerPrice, int remainingQuantity, int marketSellPrice,
+		double remainingHours, double waitedMinutes)
+	{
 		if (marketSellPrice <= offerPrice)
 		{
 			return -1;
@@ -517,7 +600,8 @@ final class CandidateFactory
 			// The spread no longer covers tax, so letting it stand earns nothing whatever it does.
 			return 0;
 		}
-		return holdValue(itemId, offerPrice, remainingQuantity, true, margin, remainingHours);
+		return holdValue(itemId, offerPrice, remainingQuantity, true, margin, remainingHours,
+			waitedMinutes);
 	}
 
 	/** The reason this item was turned away on the last pass, or null if it was not. */

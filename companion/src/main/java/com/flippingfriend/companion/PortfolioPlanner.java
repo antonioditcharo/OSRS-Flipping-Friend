@@ -88,6 +88,12 @@ final class PortfolioPlanner
 		candidates.setCaptureRates(rates);
 	}
 
+	/** Hands the factory the measured fill hazard, which prices what waiting has already cost. */
+	void setFillHazard(FillHazard hazard)
+	{
+		candidates.setFillHazard(hazard);
+	}
+
 	/** The capture share the current appetite assumes, so the health line can name what it beat. */
 	double assumedCaptureShare()
 	{
@@ -330,8 +336,12 @@ final class PortfolioPlanner
 		{
 			return;
 		}
+		// The time already spent is not charged against the offer -- that is what remainingHours is
+		// for -- but it is evidence about it. An offer that has sat for an hour without filling has
+		// been saying so the whole time, and the analytical model has no way to hear it.
+		double waitedMinutes = Math.max(0, (nowSeconds - offer.getFirstSeenAt()) / 60.0);
 		double value = candidates.buyHoldValue(offer.getItemId(), offer.getPrice(), remaining,
-			marketSell, remainingHours);
+			marketSell, remainingHours, waitedMinutes);
 		if (value < 0 || value >= hurdle)
 		{
 			// Negative means not enough history to judge, which is not the same as not worth keeping.
