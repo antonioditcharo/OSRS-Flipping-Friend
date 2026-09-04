@@ -1,6 +1,7 @@
 package com.flippingfriend.core;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -14,6 +15,33 @@ import java.util.Set;
  */
 public final class PortfolioOptimizer
 {
+	/**
+	 * Why generated tactics did not become allocations, from the last run.
+	 *
+	 * <p>The funnel could account for every item the screen threw away and then lost its thread at
+	 * exactly the point where the money is decided: "81 tactics generated, 1 slot filled" and no
+	 * explanation for the other eighty. Every filter below is a threshold somebody can change, and a
+	 * player with idle slots cannot change the right one without being told which one fired.
+	 *
+	 * <p>Not thread-safe by design, and it does not need to be: one planner thread owns this
+	 * optimizer and reads the counts immediately after the run that produced them.
+	 */
+	private final Map<String, Integer> lastRejections = new LinkedHashMap<>();
+
+	private int lastConsidered;
+
+	/** Why the last run's tactics were turned away, and how many for each reason. */
+	public Map<String, Integer> lastRejections()
+	{
+		return new LinkedHashMap<>(lastRejections);
+	}
+
+	/** Tactics that survived every filter and were offered to the search. */
+	public int lastConsidered()
+	{
+		return lastConsidered;
+	}
+
 	public PortfolioPlan optimize(List<PortfolioCandidate> raw, PortfolioConstraints constraints,
 		String correlationId, long now)
 	{
@@ -25,28 +53,55 @@ public final class PortfolioOptimizer
 				"Every Grand Exchange slot is occupied.", now);
 		}
 		int belowHurdle = 0;
+		lastRejections.clear();
 		List<PortfolioCandidate> candidates = new ArrayList<>();
 		for (PortfolioCandidate candidate : raw)
 		{
 			// The player's floor on what a flip is worth doing. This lived only in the built-in engine,
 			// whose buy result is replaced by this plan on every cycle, so the setting had no effect on
 			// anything actually suggested -- a 5,000 gp floor still produced 200 gp flips.
-			if (candidate.getNetProfit() >= Math.max(1, constraints.getMinProfitPerFlip())
-				&& candidate.getCapitalRequired() > 0
-				&& candidate.getExpiresAt() > now && candidate.getCompletionProbability() > 0)
+			//
+			// Counted, now, and not only applied. On live data this one filter removed 80 of 81
+			// generated tactics and nothing anywhere said so: the plan reported "81 tactics, 1 slot
+			// filled" and left a player with eight free slots and forty-seven million idle coins to
+			// guess which of a dozen thresholds had done it. Its default is 50,000, which on that
+			// market would have removed all 81.
+			long floor = Math.max(1, constraints.getMinProfitPerFlip());
+			if (candidate.getNetProfit() < floor)
 			{
-				// The floor that decides whether a slot is worth occupying at all. Without it the
-				// search maximises a sum, so any positive rate improves the total and eight slots
-				// happily fill with trades earning a fraction of what a slot is worth -- each one
-				// holding its slot for a full horizon. A refused slot is re-planned next cycle.
-				if (candidate.expectedGpPerSlotHour() < constraints.getHurdleGpPerSlotHour())
-				{
-					belowHurdle++;
-					continue;
-				}
-				candidates.add(candidate);
+				lastRejections.merge("Worth less than your " + floor + " gp minimum profit per flip.",
+					1, Integer::sum);
+				continue;
 			}
+			if (candidate.getCapitalRequired() <= 0)
+			{
+				lastRejections.merge("No capital required, so nothing to place.", 1, Integer::sum);
+				continue;
+			}
+			if (candidate.getExpiresAt() <= now)
+			{
+				lastRejections.merge("Priced from a quote that has already expired.", 1, Integer::sum);
+				continue;
+			}
+			if (candidate.getCompletionProbability() <= 0)
+			{
+				lastRejections.merge("No chance of completing within the horizon.", 1, Integer::sum);
+				continue;
+			}
+			// The floor that decides whether a slot is worth occupying at all. Without it the
+			// search maximises a sum, so any positive rate improves the total and eight slots
+			// happily fill with trades earning a fraction of what a slot is worth -- each one
+			// holding its slot for a full horizon. A refused slot is re-planned next cycle.
+			if (candidate.expectedGpPerSlotHour() < constraints.getHurdleGpPerSlotHour())
+			{
+				belowHurdle++;
+				lastRejections.merge("Worth less than leaving the slot free for a better trade.",
+					1, Integer::sum);
+				continue;
+			}
+			candidates.add(candidate);
 		}
+		lastConsidered = candidates.size();
 		candidates.sort(Comparator.comparingDouble(PortfolioCandidate::expectedGpPerSlotHour).reversed());
 		Search best = new Search();
 		// Seeded with what is already held, not empty. Starting from zero meant the exposure ceilings

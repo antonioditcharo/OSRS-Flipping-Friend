@@ -304,7 +304,11 @@ final class PortfolioPlanner
 		PlanDiagnostics funnel = candidates
 			.lastFunnel(tactics.size(), account.getSpendableCoins())
 			.withOutcome(plan.getAllocations().size(), allocated)
-			.withAccount(occupiedSlots(account), account.getTotalSlots(), heldCapital(account));
+			.withAccount(occupiedSlots(account), account.getTotalSlots(), heldCapital(account))
+			// The last stretch of the funnel, which used to stop here. Screening explains which items
+			// were thrown away; this explains which of the surviving tactics were not worth a slot,
+			// and it is the half that owns the thresholds a player can actually change.
+			.withRejections(optimizer.lastRejections());
 
 		// slotsFilled keeps meaning what this plan would place. The board is not an allocation and must
 		// not inflate the utilisation numbers the Trading tab draws from it.

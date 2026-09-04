@@ -126,6 +126,33 @@ public final class PlanDiagnostics
 	}
 
 	/**
+	 * A copy carrying why the surviving tactics were not allocated.
+	 *
+	 * <p>Folded into the same counts the screen's vetoes use, because a player asking "why is nothing
+	 * being suggested" does not care which stage turned an item away — they care which threshold to
+	 * change. Keeping two lists would make them read the funnel twice and subtract.
+	 *
+	 * <p>This is the half that was missing. The funnel could account for every one of four thousand
+	 * items the screen discarded, then reported "81 tactics generated, 1 slot filled" and explained
+	 * none of the eighty — which is the stretch where every number a player can actually set lives.
+	 */
+	public PlanDiagnostics withRejections(Map<String, Integer> rejections)
+	{
+		if (rejections == null || rejections.isEmpty())
+		{
+			return this;
+		}
+		Map<String, Integer> merged = new LinkedHashMap<>(getVetoCounts());
+		for (Map.Entry<String, Integer> entry : rejections.entrySet())
+		{
+			merged.merge(entry.getKey(), entry.getValue(), Integer::sum);
+		}
+		return new PlanDiagnostics(itemsInFeed, itemsQuoted, itemsShortlisted, itemsAnalysed,
+			tacticsGenerated, slotsFilled, capitalAllocated, capitalAvailable, merged,
+			getVetoExamples(), slotsOccupied, slotsTotal, capitalHeld);
+	}
+
+	/**
 	 * A copy describing the account the plan was built against.
 	 * <p>
 	 * Attached to every plan including the ones that could not be made, because "there was no plan"
