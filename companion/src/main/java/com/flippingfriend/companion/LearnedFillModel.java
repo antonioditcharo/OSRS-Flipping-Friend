@@ -158,6 +158,12 @@ final class LearnedFillModel
 		return model != null && weight > 0;
 	}
 
+	/** Rows the last training run had to work with, so a weight can be read against its evidence. */
+	synchronized int trainingRows()
+	{
+		return trainedRows;
+	}
+
 	double weight()
 	{
 		return weight;

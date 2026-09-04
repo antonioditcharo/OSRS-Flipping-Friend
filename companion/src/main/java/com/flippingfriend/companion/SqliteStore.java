@@ -79,6 +79,14 @@ final class SqliteStore implements AutoCloseable
 			// how many offers were still open when they reached it, and how many filled during it.
 			// That pair is the whole sufficient statistic for a hazard, so this stays a few thousand
 			// rows however many offers pass through it.
+			// Every learned quantity, at a moment, with the evidence behind it. The other learned
+			// tables are cumulative and so can only ever answer "what is it now"; this is what lets
+			// anything answer "what was it on Tuesday, and what changed".
+			statement.execute("CREATE TABLE IF NOT EXISTS learning_snapshot ("
+				+ "taken_at INTEGER NOT NULL, metric TEXT NOT NULL, value REAL NOT NULL, "
+				+ "sample INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(taken_at, metric))");
+			statement.execute(
+				"CREATE INDEX IF NOT EXISTS learning_snapshot_metric ON learning_snapshot(metric, taken_at)");
 			statement.execute("CREATE TABLE IF NOT EXISTS fill_hazard (item_id INTEGER NOT NULL, "
 				+ "buying INTEGER NOT NULL, bucket INTEGER NOT NULL, at_risk INTEGER NOT NULL DEFAULT 0, "
 				+ "filled INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(item_id, buying, bucket))");
@@ -459,6 +467,103 @@ final class SqliteStore implements AutoCloseable
 		finally
 		{
 			connection.setAutoCommit(autoCommit);
+		}
+	}
+
+	/**
+	 * Writes one moment's worth of learned state.
+	 * <p>
+	 * One transaction for the whole snapshot, so a reader never sees half of one — a chart built from
+	 * a torn write would show every metric moving together at a time when nothing happened.
+	 */
+	synchronized void recordLearningSnapshot(LearningSnapshot snapshot) throws Exception
+	{
+		if (snapshot == null || snapshot.size() == 0)
+		{
+			return;
+		}
+		boolean autoCommit = connection.getAutoCommit();
+		connection.setAutoCommit(false);
+		try (PreparedStatement statement = connection.prepareStatement(
+			"INSERT OR REPLACE INTO learning_snapshot(taken_at, metric, value, sample) "
+				+ "VALUES(?,?,?,?)"))
+		{
+			for (LearningSnapshot.Metric metric : snapshot.metrics())
+			{
+				statement.setLong(1, snapshot.takenAt());
+				statement.setString(2, metric.name);
+				statement.setDouble(3, metric.value);
+				statement.setLong(4, metric.sample);
+				statement.addBatch();
+			}
+			statement.executeBatch();
+			connection.commit();
+		}
+		catch (Exception failed)
+		{
+			connection.rollback();
+			throw failed;
+		}
+		finally
+		{
+			connection.setAutoCommit(autoCommit);
+		}
+	}
+
+	/**
+	 * One metric's history, oldest first.
+	 *
+	 * <p>The whole point of the table: a series rather than a reading. Returned with the sample
+	 * alongside each value, because a move in the value means nothing without knowing whether the
+	 * evidence behind it grew.
+	 */
+	synchronized List<LearningSnapshot.Metric> learningHistory(String metric, long fromSeconds,
+		long toSeconds) throws Exception
+	{
+		List<LearningSnapshot.Metric> series = new ArrayList<>();
+		try (PreparedStatement statement = connection.prepareStatement(
+			"SELECT taken_at, value, sample FROM learning_snapshot "
+				+ "WHERE metric = ? AND taken_at >= ? AND taken_at <= ? ORDER BY taken_at"))
+		{
+			statement.setString(1, metric);
+			statement.setLong(2, fromSeconds);
+			statement.setLong(3, toSeconds);
+			try (ResultSet result = statement.executeQuery())
+			{
+				while (result.next())
+				{
+					series.add(new LearningSnapshot.Metric(
+						String.valueOf(result.getLong(1)), result.getDouble(2), result.getLong(3)));
+				}
+			}
+		}
+		return series;
+	}
+
+	/** Every metric name recorded so far, so a panel can discover what there is to plot. */
+	synchronized List<String> learningMetrics() throws Exception
+	{
+		List<String> names = new ArrayList<>();
+		try (PreparedStatement statement = connection.prepareStatement(
+			"SELECT DISTINCT metric FROM learning_snapshot ORDER BY metric");
+			ResultSet result = statement.executeQuery())
+		{
+			while (result.next())
+			{
+				names.add(result.getString(1));
+			}
+		}
+		return names;
+	}
+
+	/** Snapshots taken, for the health line and for knowing whether the record is being kept. */
+	synchronized int learningSnapshotCount() throws Exception
+	{
+		try (PreparedStatement statement = connection.prepareStatement(
+			"SELECT COUNT(DISTINCT taken_at) FROM learning_snapshot");
+			ResultSet result = statement.executeQuery())
+		{
+			return result.next() ? result.getInt(1) : 0;
 		}
 	}
 

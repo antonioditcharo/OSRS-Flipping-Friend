@@ -74,6 +74,17 @@ final class CompanionService implements AutoCloseable
 	 */
 	private final FillHazard fillHazard = new FillHazard();
 
+	/**
+	 * How often the learned state is written down.
+	 * <p>
+	 * A quarter of an hour. Not per fill: a row for every settled offer would make the table enormous
+	 * and the trajectory unreadable, and none of these quantities moves meaningfully inside a minute.
+	 * Not per day either — a change nobody can locate in time is a change nobody can explain.
+	 */
+	private static final long SNAPSHOT_INTERVAL_SECONDS = 15 * 60;
+
+	private volatile long lastSnapshotAt;
+
 
 	/**
 	 * How often the learned state is written back. Frequent enough that a crash costs minutes of
@@ -390,6 +401,7 @@ final class CompanionService implements AutoCloseable
 			{
 				compactArchive(now);
 			}
+
 			if (now - lastTrainedAt >= RETRAIN_INTERVAL_SECONDS)
 			{
 				// RETRAIN_INTERVAL_SECONDS and lastTrainedAt have both existed since the companion was
@@ -493,6 +505,74 @@ final class CompanionService implements AutoCloseable
 		catch (Exception unavailable)
 		{
 			log.warn("Could not restore capture rates; they will rebuild from new fills", unavailable);
+		}
+	}
+
+	/**
+	 * Writes down what every learner currently knows, so that later it can be compared with now.
+	 * <p>
+	 * The one thing the companion could not previously do. Every learned table here is cumulative, so
+	 * each could say what the capture rate <em>is</em> and none could say what it was yesterday or
+	 * what changed — and a monitor built on those is a gauge rather than an instrument.
+	 *
+	 * <p>Driven from the market loop rather than from settled offers, which is where it started.
+	 * Hanging it off fills would leave the record silent for exactly the periods worth explaining: a
+	 * quiet night, a session where nothing cleared the filters, a stretch where the learners were
+	 * doing nothing. A flat line and a missing line look identical on a chart and mean opposite
+	 * things, so the cadence has to come from the clock.
+	 */
+	void recordLearningSnapshotIfDue(long now)
+	{
+		if (now - lastSnapshotAt < SNAPSHOT_INTERVAL_SECONDS)
+		{
+			return;
+		}
+		recordLearningSnapshot(now);
+	}
+
+	/** The reader behind {@code /v1/learning/history}. */
+	java.util.List<LearningSnapshot.Metric> learningHistory(String metric, long from, long to)
+		throws Exception
+	{
+		return store.learningHistory(metric, from, to);
+	}
+
+	/** Metric names recorded so far, so a panel can discover what there is to plot. */
+	java.util.List<String> learningMetrics() throws Exception
+	{
+		return store.learningMetrics();
+	}
+
+	void recordLearningSnapshot(long now)
+	{
+		lastSnapshotAt = now;
+		try
+		{
+			store.recordLearningSnapshot(LearningSnapshot.of(now, captureRates,
+				planner.assumedCaptureShare(), fillHazard, calibration, shadow, learnedFill));
+		}
+		catch (Exception unavailable)
+		{
+			log.debug("Could not record the learning snapshot", unavailable);
+		}
+	}
+
+	/** How much of a trajectory there is to read, for the health line. */
+	private String learningRecordSummary()
+	{
+		try
+		{
+			int moments = store.learningSnapshotCount();
+			if (moments == 0)
+			{
+				return "learning record: nothing written down yet";
+			}
+			return String.format("learning record: %d moments across %d metrics", moments,
+				store.learningMetrics().size());
+		}
+		catch (Exception unavailable)
+		{
+			return "learning record: unreadable";
 		}
 	}
 
@@ -725,6 +805,10 @@ final class CompanionService implements AutoCloseable
 		// consulting is whether waiting gets worse -- and that is one number nobody can see any
 		// other way.
 		detail += " " + fillHazard.summary();
+		// Whether the record is being kept at all. Everything above says what is known now; this says
+		// whether anyone will be able to ask what was known last week, and it is the one line that
+		// cannot be reconstructed later if it turns out to be missing.
+		detail += " " + learningRecordSummary();
 		// The real version, not the literal 1 that stood here. A placeholder in a health response is
 		// worse than an absent field: it looks like an answer, and there is no way to tell from the
 		// outside that the model has been retrained seventy times since.

@@ -103,6 +103,11 @@ public final class CompanionMain
 		// its own error reporting down with it when it dies, so nothing inside the ingestion loop can
 		// report that the ingestion loop has stopped.
 		scheduler.scheduleWithFixedDelay(guarded(service::checkIngestion), 150, 60, TimeUnit.SECONDS);
+		// On the clock, not on fills. A learning record with gaps where nothing traded cannot be read:
+		// a flat line and a missing line look the same and mean opposite things.
+		scheduler.scheduleWithFixedDelay(
+			guarded(() -> service.recordLearningSnapshotIfDue(java.time.Instant.now().getEpochSecond())),
+			60, 60, TimeUnit.SECONDS);
 		// Retraining happens every twenty minutes or so while this process runs, so a startup-only
 		// sweep would leave a long session growing by roughly 34MB a day regardless. No compaction
 		// here: freed pages are reused by the next snapshot, which is all that is needed to hold the

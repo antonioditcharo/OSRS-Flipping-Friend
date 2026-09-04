@@ -32,6 +32,8 @@ final class ApiServer implements AutoCloseable
 		// launch.
 		server.createContext("/v1/market/snapshot", this::marketSnapshot);
 		server.createContext("/v1/market/series", this::marketSeries);
+		server.createContext("/v1/learning/metrics", this::learningMetrics);
+		server.createContext("/v1/learning/history", this::learningHistory);
 		server.createContext("/v1/events/account-state", this::account);
 		server.createContext("/v1/events/ge-offer", this::offer);
 		server.setExecutor(executor);
@@ -73,6 +75,54 @@ final class ApiServer implements AutoCloseable
 		catch (NumberFormatException ex)
 		{
 			respond(exchange, 400, "{\"error\":\"id must be a number\"}");
+		}
+	}
+
+	/** What there is to plot. A panel should discover the metrics, not carry a hardcoded list. */
+	private void learningMetrics(HttpExchange exchange) throws IOException
+	{
+		if (!authorized(exchange)) return;
+		try
+		{
+			respond(exchange, 200, gson.toJson(service.learningMetrics()));
+		}
+		catch (Exception ex)
+		{
+			respond(exchange, 500, "{\"error\":\"could not read the learning record\"}");
+		}
+	}
+
+	/**
+	 * One metric's trajectory.
+	 *
+	 * <p>Returns the sample alongside every value, always. The panel is not permitted to plot a line
+	 * without the evidence behind it, because a value that moved on eleven observations and one that
+	 * moved on nine hundred are different events and a chart of values alone shows them identically.
+	 */
+	private void learningHistory(HttpExchange exchange) throws IOException
+	{
+		if (!authorized(exchange)) return;
+		java.util.Map<String, String> query = queryOf(exchange);
+		String metric = query.get("metric");
+		if (metric == null || metric.isEmpty())
+		{
+			respond(exchange, 400, "{\"error\":\"metric is required\"}");
+			return;
+		}
+		long now = java.time.Instant.now().getEpochSecond();
+		try
+		{
+			long from = query.containsKey("from") ? Long.parseLong(query.get("from")) : 0;
+			long to = query.containsKey("to") ? Long.parseLong(query.get("to")) : now;
+			respond(exchange, 200, gson.toJson(service.learningHistory(metric, from, to)));
+		}
+		catch (NumberFormatException ex)
+		{
+			respond(exchange, 400, "{\"error\":\"from and to must be epoch seconds\"}");
+		}
+		catch (Exception ex)
+		{
+			respond(exchange, 500, "{\"error\":\"could not read the learning record\"}");
 		}
 	}
 

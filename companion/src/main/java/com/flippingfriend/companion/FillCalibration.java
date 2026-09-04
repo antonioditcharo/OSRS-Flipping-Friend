@@ -217,6 +217,44 @@ final class FillCalibration
 			holdout.describe());
 	}
 
+	/**
+	 * The held-out evidence, for the record that watches this improve over time.
+	 *
+	 * <p>Both legs together. Buy and sell calibrators are never pooled for <em>correcting</em> — they
+	 * are different processes and mixing them is the bug those two separate instances exist to
+	 * prevent — but for "is the calibration earning its place at all", one figure across both is the
+	 * question a reader is asking, and two lines that always move together tell them less than one.
+	 */
+	synchronized int heldOutCount()
+	{
+		return holdoutFor(true).count() + holdoutFor(false).count();
+	}
+
+	/**
+	 * Brier skill against the uncorrected claim, weighted by how much was held out on each leg.
+	 * <p>
+	 * Above zero means the correction is helping. Zero is the honest answer before there is enough to
+	 * say, and is what should be plotted rather than a gap — a component earning nothing is a fact,
+	 * not missing data.
+	 */
+	synchronized double heldOutSkill()
+	{
+		Brier buy = holdoutFor(true);
+		Brier sell = holdoutFor(false);
+		int total = buy.count() + sell.count();
+		if (total <= 0)
+		{
+			return 0;
+		}
+		return (buy.skill() * buy.count() + sell.skill() * sell.count()) / total;
+	}
+
+	/** Settled offers the calibrators have seen, across both legs. */
+	synchronized int observationCount()
+	{
+		return calibratorFor(true).observations() + calibratorFor(false).observations();
+	}
+
 	/** How much longer this item's fills really take than predicted. 1.0 means no correction. */
 	double durationMultiplier(int itemId)
 	{
