@@ -91,12 +91,17 @@ public class CompanionClient
 	private volatile PortfolioPlan lastPlan;
 	private volatile CompanionHealth lastHealth;
 
+	/** The one implementation of the tax rules, so the realised figure cannot drift from the predicted one. */
+	private final com.flippingfriend.model.TaxCalculator taxCalculator;
+
 	@Inject
-	public CompanionClient(PluginStorage storage, Gson gson, SuggestionLedger ledger)
+	public CompanionClient(PluginStorage storage, Gson gson, SuggestionLedger ledger,
+		com.flippingfriend.model.TaxCalculator taxCalculator)
 	{
 		this.storage = storage;
 		this.gson = gson;
 		this.ledger = ledger;
+		this.taxCalculator = taxCalculator;
 	}
 
 	/**
@@ -141,6 +146,10 @@ public class CompanionClient
 			.price(offer.getPrice())
 			.quantities(offer.getTotalQuantity(), offer.getQuantityFilled())
 			.spent(offer.getSpent())
+			// Computed with the same TaxCalculator the engine prices trades with, so the realised
+			// figure downstream cannot drift from the predicted one.
+			.tax(offer.isBuying() || offer.getQuantityFilled() <= 0 ? 0
+				: taxCalculator.taxFor(offer.getItemId(), offer.getPrice(), offer.getQuantityFilled()))
 			.sequence(ledger.nextSequence())
 			.firstSeenAt(offer.getFirstSeen());
 

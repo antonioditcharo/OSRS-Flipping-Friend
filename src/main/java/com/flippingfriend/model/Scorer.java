@@ -146,21 +146,21 @@ public class Scorer
 				continue;
 			}
 
-			double momentum = features.getPredictedMomentum();
-			boolean usePrediction = (momentum != 0.0);
-			double[] sellOffsetsToUse = usePrediction ? new double[]{0} : SELL_OFFSETS;
-
-			for (double sellOffset : sellOffsetsToUse)
+			// The seven-point sell search, restored.
+			//
+			// Any non-zero momentum used to replace this entire grid with a single price of
+			// quotedSell * (1 + momentum): no bound on the magnitude, no confidence gate, and no check
+			// that the model producing it had ever been validated. A model emitting 0.4 asks forty per
+			// cent over the market and never fills; one emitting -0.4 gives the spread away. The model
+			// behind it leaks its own target, is trained with one gradient step per epoch, and has
+			// never been scored against a baseline.
+			//
+			// A forecast comes back by *shifting* this grid, clamped to the offsets it already spans,
+			// and only after passing the same gate LearnedFillModel applies to the fill model: it must
+			// beat the analytical answer out of sample before it may move a price.
+			for (double sellOffset : SELL_OFFSETS)
 			{
-				int sellPrice;
-				if (usePrediction)
-				{
-					sellPrice = (int) Math.round(quotedSell * (1 + momentum));
-				}
-				else
-				{
-					sellPrice = applyOffset(quotedSell, sellOffset);
-				}
+				int sellPrice = applyOffset(quotedSell, sellOffset);
 
 				if (sellPrice <= buyPrice)
 				{

@@ -35,7 +35,8 @@ public class CompanionClientTest
 	@Before
 	public void setUp()
 	{
-		client = new CompanionClient(mock(PluginStorage.class), new Gson(), new SuggestionLedger());
+		client = new CompanionClient(mock(PluginStorage.class), new Gson(), new SuggestionLedger(),
+			new com.flippingfriend.model.TaxCalculator());
 	}
 
 	private static PortfolioAllocation allocation(int rank, int itemId, String name)

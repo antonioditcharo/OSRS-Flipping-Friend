@@ -49,6 +49,7 @@ public final class OfferEvent
 	 * carried alongside the advice rather than reconstructed after the fact.
 	 */
 	private final double predictedCompletion;
+	private final long tax;
 	/** When this offer first appeared, so elapsed fill time is computable from any later event. */
 	private final long firstSeenAt;
 
@@ -73,6 +74,7 @@ public final class OfferEvent
 		this.quoteAgeSeconds = builder.quoteAgeSeconds;
 		this.predictedMinutes = builder.predictedMinutes;
 		this.predictedCompletion = builder.predictedCompletion;
+		this.tax = builder.tax;
 		this.firstSeenAt = builder.firstSeenAt;
 	}
 
@@ -92,6 +94,17 @@ public final class OfferEvent
 	public int getPrice() { return price; }
 	public int getTotalQuantity() { return totalQuantity; }
 	public int getFilledQuantity() { return filledQuantity; }
+
+	/**
+	 * Grand Exchange tax paid on this sale, or 0 for a buy.
+	 * <p>
+	 * Carried rather than recomputed downstream. The dashboard was reporting realised profit gross of
+	 * tax - {@code itemRev - cogs} with no tax term anywhere - which on a typical 2% margin is close
+	 * to the entire profit, on the one number a person would judge the whole system by. The
+	 * alternative was a second implementation of the tax rules in JavaScript, and a second copy of a
+	 * rule is how the two quietly stop agreeing.
+	 */
+	public long getTax() { return tax; }
 	public long getSpent() { return spent; }
 	public long getSequence() { return sequence; }
 	public String getRecommendationId() { return recommendationId; }
@@ -152,6 +165,7 @@ public final class OfferEvent
 		private long quoteAgeSeconds;
 		private double predictedMinutes;
 		private double predictedCompletion;
+		private long tax;
 		private long firstSeenAt;
 
 		private Builder(String correlationId, long observedAt, String eventType)
@@ -160,6 +174,9 @@ public final class OfferEvent
 			this.observedAt = observedAt;
 			this.eventType = eventType;
 		}
+
+		/** Grand Exchange tax on this sale. Zero for a buy. */
+		public Builder tax(long value) { this.tax = Math.max(0, value); return this; }
 
 		public Builder slot(int value) { this.slot = value; return this; }
 		public Builder item(int id, String name) { this.itemId = id; this.itemName = name; return this; }

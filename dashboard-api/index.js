@@ -74,7 +74,14 @@ app.get('/api/performance', (req, res) => {
                     const matchedQty = Math.min(inventory[ev.itemId].qty, ev.filledQuantity);
                     const cogs = avgCost * matchedQty;
                     const itemRev = (ev.spent / ev.filledQuantity) * matchedQty;
-                    totalRealizedProfit += (itemRev - cogs);
+                    // Net of Grand Exchange tax. This figure was gross, with no tax term anywhere,
+                    // so every completed flip was overstated by roughly 2% of its sale value - which
+                    // on a typical 2% margin is close to the entire profit, on the one number anyone
+                    // would judge the system by. The tax is carried on the event, computed by the
+                    // same TaxCalculator the engine prices trades with, rather than reimplemented
+                    // here where the two copies would quietly stop agreeing.
+                    const itemTax = ((ev.tax || 0) / ev.filledQuantity) * matchedQty;
+                    totalRealizedProfit += (itemRev - itemTax - cogs);
                     inventory[ev.itemId].qty -= matchedQty;
                     inventory[ev.itemId].cost -= cogs;
                 }
@@ -124,10 +131,12 @@ app.get('/api/ai-suggestions', (req, res) => {
             return {
                 itemId: c.itemId,
                 item: c.itemName || `Item ${c.itemId}`,
-                confidence: confidence || 0.8,
+                // A real zero rendered as 80%. Never substitute a default that looks like a
+                // measurement: null becomes an em dash in the UI, which is honest about not knowing.
+                confidence: confidence > 0 ? confidence : null,
                 expectedProfit: formatGp(c.netProfit || 0),
                 rawExpectedProfit: c.netProfit || 0,
-                reason: c.group || "AI Target identified"
+                reason: c.group || null
             };
         }).filter(Boolean).slice(0, 8); // Return top 8 suggestions
 
@@ -199,7 +208,8 @@ app.get('/api/history/actual-profit', (req, res) => {
                     const cogs = avgCost * matchedQty;
                     const itemRev = (rev / soldQty) * matchedQty;
                     
-                    const profit = itemRev - cogs;
+                    const itemTax = ((ev.tax || 0) / ev.filledQuantity) * matchedQty;
+                    const profit = itemRev - itemTax - cogs;
                     totalProfit += profit;
                     
                     inventory[itemId].qty -= matchedQty;
@@ -305,8 +315,9 @@ app.get('/api/items/performance', (req, res) => {
                     const matchedQty = Math.min(inventory[itemId].qty, soldQty);
                     const cogs = avgCost * matchedQty;
                     const itemRev = (rev / soldQty) * matchedQty;
-                    
-                    itemProfit[itemId] += (itemRev - cogs);
+                    const itemTax = ((ev.tax || 0) / soldQty) * matchedQty;
+
+                    itemProfit[itemId] += (itemRev - itemTax - cogs);
                     
                     inventory[itemId].qty -= matchedQty;
                     inventory[itemId].cost -= cogs;

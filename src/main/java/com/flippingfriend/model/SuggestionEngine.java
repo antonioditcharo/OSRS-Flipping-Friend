@@ -1197,27 +1197,24 @@ public class SuggestionEngine
 		marketData.prefetchSeries(ids, TIMESTEP);
 		marketData.prefetchSeries(ids, LONG_TIMESTEP);
 
-		// Ask the LSTM forecaster for momentum predictions on every shortlisted item.
-		// The call is best-effort: if the server is down, predictions will be empty and
-		// the engine runs exactly as before.
-		Map<Integer, List<Double>> histories = new HashMap<>();
-		for (Screened screened : shortlist)
-		{
-			int itemId = screened.metadata.getId();
-			List<Candle> series = marketData.getSeries(itemId, TIMESTEP);
-			// dataset.py requires at least window_size (30) + 2 samples to train.
-			if (series.size() >= 32)
-			{
-				List<Double> prices = new ArrayList<>(series.size());
-				for (Candle c : series)
-				{
-					prices.add((double) c.getAvgHighPrice());
-				}
-				histories.put(itemId, prices);
-			}
-		}
-		Map<Integer, Double> predictions = lstmClient.predictBulk(histories);
-		featureEngine.setPredictedMomentums(predictions);
+		// The LSTM momentum call used to happen here, and it is gone for three reasons at once.
+		//
+		// It crashed. `prices.add((double) c.getAvgHighPrice())` unboxes an Integer that is null
+		// whenever a five-minute bucket saw no instant-buy, which is common on anything but the
+		// busiest items. The NPE propagated into the engine refresh, where a catch-all logged a
+		// warning and abandoned the whole cycle - so the panel silently stopped producing
+		// suggestions and the only trace was one line in the client log. A systematic failure
+		// presenting as "nothing worth trading right now" is the worst shape a bug can take here.
+		//
+		// Its only consumer was the sell-price grid collapse in Scorer, now removed: the prediction
+		// replaced a seven-point search with one unbounded number.
+		//
+		// And it was expensive. Up to thirty items per refresh, every thirty seconds, each becoming a
+		// blocking wiki fetch inside the Python service because _predict_single ignores the payload it
+		// is sent and re-fetches (audit item 40).
+		//
+		// A momentum forecast returns through LearnedFillModel's gate, on features that include
+		// liquidity, having beaten the analytical answer out of sample.
 
 		LatestPrice natureRuneLatest = market.latest(561);
 		int natureRunePrice = natureRuneLatest != null && natureRuneLatest.getHigh() > 0 ? natureRuneLatest.getHigh() : 200;
