@@ -30,6 +30,9 @@ __pycache__/
 # Trained weights and scalers are build artefacts, not source. A model whose
 # scaler is lost cannot be served, so both are produced by the trainer, never committed.
 ml-forecaster/models/
+# Fetched wiki bars, refetched on demand by data.fetch_series. Derived data with a cheap source is
+# not worth versioning, and the wiki's window moves anyway so a stale copy is worse than none.
+ml-forecaster/cache/
 
 # ---- local databases and generated dumps ----
 *.db
