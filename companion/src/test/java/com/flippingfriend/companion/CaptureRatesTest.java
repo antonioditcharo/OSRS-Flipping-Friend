@@ -87,19 +87,80 @@ public class CaptureRatesTest
 	}
 
 	@Test
-	public void aCompletedOfferMeasuresCaptureJustAsWellAsAPartialOne()
+	public void anOrderThatFilledCompletelyIsALowerBoundAndNotAMeasurement()
 	{
-		// Same flow, same fills. One offer wanted exactly what it got and one wanted far more, and
-		// the evidence they carry about the queue is identical: the order size capped the numerator
-		// in the first case and ended the interval in the same act.
+		// Same flow, same fills, and they do NOT carry the same evidence.
+		//
+		// This test used to assert that they did, on the reasoning that the order size capped the
+		// numerator and ended the interval in the same act. That is true and it is the problem: an
+		// order that filled completely never found out what it could not have had. Scoring it as
+		// filled/flow reads "we won a tenth of what passed" off an order that was only ever asking
+		// for a tenth -- and capture scales the next order, so the next one asks for less, and
+		// measures lower.
+		//
+		// It is not a hypothetical. Six offers on the live account recorded a pooled capture of 0.074
+		// against a prior of 0.85; every order in the plan was cut elevenfold and the plan fell from
+		// 437,506 gp per slot-hour to 60,889.
 		CaptureRates completed = new CaptureRates();
 		completed.observe(offer(ITEM, true, 100, 1_200, 1_200, 12 * BUCKET), bars(12, 100, 1_000));
 
 		CaptureRates partial = new CaptureRates();
 		partial.observe(offer(ITEM, true, 100, 9_999, 1_200, 12 * BUCKET), bars(12, 100, 1_000));
 
-		assertEquals("completing is not a reason to discard the measurement",
-			partial.rateFor(ITEM, APPETITE), completed.rateFor(ITEM, APPETITE), 1e-12);
+		assertTrue("taking everything asked for cannot read as worse than being outbid: "
+				+ completed.rateFor(ITEM, APPETITE) + " vs " + partial.rateFor(ITEM, APPETITE),
+			completed.rateFor(ITEM, APPETITE) > partial.rateFor(ITEM, APPETITE));
+		assertTrue("and it should read at or above the assumption, being a bound and not a ceiling: "
+			+ completed.rateFor(ITEM, APPETITE), completed.rateFor(ITEM, APPETITE) > APPETITE);
+	}
+
+	@Test
+	public void beingOutbidIsStillMeasuredAgainstTheWholeFlow()
+	{
+		// The other half, unchanged and load-bearing: when the market limited us rather than our own
+		// order size, the flow is exactly the right denominator and the rate must fall.
+		CaptureRates rates = new CaptureRates();
+		rates.observe(offer(ITEM, true, 100, 9_999, 1_200, 12 * BUCKET), bars(12, 100, 1_000));
+
+		assertTrue("outbid for nine tenths of it: " + rates.rateFor(ITEM, APPETITE),
+			rates.rateFor(ITEM, APPETITE) < APPETITE);
+	}
+
+	@Test
+	public void aFastCompleteFillIsEvidenceRatherThanNoise()
+	{
+		// An offer open for one minute is normally refused, because its flow estimate leans on a
+		// prorated bar and the polling slop is a large share of the interval. That is a reason to
+		// distrust the DENOMINATOR -- and an order that filled completely does not need one.
+		//
+		// Refusing them was not conservative. A fast complete fill is the strongest capture evidence
+		// there is, and dropping it while keeping the offers that sat for an hour and won nothing is
+		// a filter that admits only failures. On the live account it admitted six, all of them zeroes,
+		// while seventeen buys and eighty-three sales had completed.
+		CaptureRates rates = new CaptureRates();
+
+		double measured = rates.observe(offer(ITEM, true, 100, 400, 400, 60), bars(4, 100, 1_000));
+
+		assertTrue("a complete fill counts however quick it was", measured > 0);
+		assertEquals(1, rates.observationCount());
+		assertTrue("and it must not drag the rate down: " + rates.rateFor(ITEM, APPETITE),
+			rates.rateFor(ITEM, APPETITE) > APPETITE);
+	}
+
+	@Test
+	public void executingWellDoesNotShrinkTheNextOrder()
+	{
+		// The spiral, end to end. An account that keeps filling its orders completely must not end up
+		// with a lower capture rate than the appetite it started from, because that rate is what sets
+		// the size of the next order.
+		CaptureRates rates = new CaptureRates();
+		for (int i = 0; i < 6; i++)
+		{
+			rates.observe(offer(ITEM, true, 100, 1_000, 1_000, 12 * BUCKET), bars(12, 100, 1_000));
+		}
+
+		assertTrue("six orders, every one filled in full: " + rates.rateFor(ITEM, APPETITE),
+			rates.rateFor(ITEM, APPETITE) >= APPETITE);
 	}
 
 	@Test
@@ -178,20 +239,29 @@ public class CaptureRatesTest
 	}
 
 	@Test
-	public void fillsBeyondTheFlowAreRefusedAndCounted()
+	public void fillsBeyondTheFlowAreCappedRatherThanThrownAway()
 	{
-		// We cannot have won more than everything, so this is missing history rather than a spectacular
-		// queue position - the companion was down for part of the interval, or the archive has a gap.
-		// Recording it would put a wrong denominator into a permanent total.
+		// We cannot have won more than everything, so this is missing history rather than a
+		// spectacular queue position -- the companion was down for part of the interval, or the
+		// archive has a gap.
+		//
+		// It used to be discarded for that reason, and discarding it is worse than the wrong
+		// denominator it was avoiding: the offers this rule catches are the ones that filled hugely,
+		// so refusing them removes the best observations and leaves the failures. Two of the eight
+		// observations on the live account went this way, and the six that remained were all zeroes.
+		//
+		// Counted at the ceiling instead, and still reported, because a systematically short archive
+		// is worth seeing on the health line.
 		CaptureRates rates = new CaptureRates();
 
 		double flow = rates.observe(offer(ITEM, true, 100, 90_000, 90_000, 12 * BUCKET),
 			bars(12, 100, 1_000));
 
-		assertEquals("nothing recorded", 0, flow, 1e-9);
-		assertEquals(0, rates.observationCount());
-		assertEquals("but the health line can see it happened", 1, rates.overflowCount());
-		assertEquals("and the rate is untouched", APPETITE, rates.rateFor(ITEM, APPETITE), 1e-12);
+		assertTrue("the observation is kept", flow > 0);
+		assertEquals(1, rates.observationCount());
+		assertEquals("and the health line can still see it happened", 1, rates.overflowCount());
+		assertTrue("filling everything available cannot lower the rate: "
+			+ rates.rateFor(ITEM, APPETITE), rates.rateFor(ITEM, APPETITE) > APPETITE);
 	}
 
 	@Test

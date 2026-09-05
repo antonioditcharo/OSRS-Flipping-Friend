@@ -163,35 +163,75 @@ final class CaptureRates
 		}
 		long open = event.getFirstSeenAt();
 		long closed = event.getObservedAt();
-		if (open <= 0 || closed - open < MIN_OPEN_SECONDS)
+		double filled = Math.max(0, event.getFilledQuantity());
+		int ordered = Math.max(0, event.getTotalQuantity());
+		boolean tookEverythingAskedFor = ordered > 0 && filled >= ordered;
+
+		// The short-offer rule exists because a brief offer's FLOW estimate leans on a prorated bar
+		// and the polling slop is a large share of the interval. That is a reason to distrust the
+		// denominator -- and an offer that filled completely does not need one, because it captured
+		// everything it asked for however much was flowing. Excluding those was not conservative: a
+		// fast complete fill is the strongest capture evidence there is, and dropping it while keeping
+		// the offers that sat for an hour and filled nothing is a filter that admits only failures.
+		if (open <= 0 || (closed - open < MIN_OPEN_SECONDS && !tookEverythingAskedFor))
 		{
 			return 0;
 		}
 
 		double flow = flowAtOrBeyond(bars, open, closed, event.isBuying(), event.getPrice());
-		if (flow < MIN_FLOW)
+		if (flow < MIN_FLOW && !tookEverythingAskedFor)
 		{
 			return 0;
 		}
 
-		double filled = Math.max(0, event.getFilledQuantity());
-		if (filled > flow)
+		// The denominator is the flow, EXCEPT when our own order size ended the measurement.
+		//
+		// An offer that filled completely is right-censored: we took everything we asked for, so all
+		// it establishes is a LOWER bound on what we could have taken. Scoring it as filled/flow
+		// reads "we only won a tenth of what passed" from an order that was never trying for more
+		// than a tenth, and capture scales the next order. Small order, low measured capture, smaller
+		// order. That is circular, and it ran to the end on this account.
+		//
+		// When the market limited us -- filled short of what we ordered -- the flow is exactly right
+		// and nothing changes: that is a genuine share of what passed us.
+		// When we took everything we asked for, the flow is not needed and may not even exist: a
+		// sixty-second offer overlaps a single bar, and a curve cannot be built from one point, so
+		// flowAtOrBeyond returns zero. That is precisely the case MIN_OPEN_SECONDS was refusing, and
+		// precisely the case that needs no denominator -- we know what we took and we know we wanted
+		// no more. Weighted by the size of the order, so filling ten thousand units counts for more
+		// than filling ten.
+		double takeable;
+		if (tookEverythingAskedFor)
 		{
-			// More than the whole measured flow, which cannot happen: the archive was missing bars for
-			// part of the interval, or the offer crossed a gap in the companion's uptime. Counted so
-			// the health line can show it rather than silently absorbing a wrong denominator.
-			overflows++;
+			takeable = flow >= MIN_FLOW ? Math.min(flow, ordered) : ordered;
+		}
+		else
+		{
+			takeable = flow;
+		}
+		if (takeable <= 0)
+		{
 			return 0;
+		}
+
+		if (filled > takeable)
+		{
+			// Filling more than the archive saw crossing means the archive was short -- missing bars,
+			// or a gap in the companion's uptime -- not that the fill did not happen. This used to be
+			// discarded, which threw away the two best observations on this account for having done
+			// too well. Counted at the ceiling instead, and still reported.
+			overflows++;
+			filled = takeable;
 		}
 
 		Totals totals = perItem.computeIfAbsent(event.getItemId(), id -> new Totals());
 		totals.filled += filled;
-		totals.flow += flow;
+		totals.flow += takeable;
 		totals.observations++;
 		totalFilled += filled;
-		totalFlow += flow;
+		totalFlow += takeable;
 		observations++;
-		return flow;
+		return takeable;
 	}
 
 	/**
