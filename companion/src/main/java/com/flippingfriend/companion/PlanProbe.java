@@ -40,6 +40,25 @@ public final class PlanProbe
 	private static final String BASE = "http://127.0.0.1:37777/v1/";
 	private static final Gson GSON = new Gson();
 
+	/** A discarded planning pass whose only product is a populated series cache. */
+	private static void warm(CandidateFactory factory,
+		Map<Integer, MarketIngestionService.Item> mapping, String token, long coins) throws Exception
+	{
+		JsonObject snapshot = JsonParser.parseString(get("market/snapshot", token)).getAsJsonObject();
+		long started = System.currentTimeMillis();
+		factory.build(stateFrom(snapshot, mapping), 4.0, new HashMap<>(), coins, true, Instant.now());
+		System.out.printf("warmed the history cache in %.0fs%n",
+			(System.currentTimeMillis() - started) / 1000.0);
+	}
+
+	private static MarketIngestionService.MarketState stateFrom(JsonObject snapshot,
+		Map<Integer, MarketIngestionService.Item> mapping)
+	{
+		return new MarketIngestionService.MarketState(mapping,
+			snapshot.getAsJsonObject("latest"), snapshot.getAsJsonObject("fiveMinute"),
+			snapshot.getAsJsonObject("hourly"), snapshot.get("observedAt").getAsLong());
+	}
+
 	public static void main(String[] args) throws Exception
 	{
 		long coins = args.length > 0 ? Long.parseLong(args[0]) : 47_000_000L;
@@ -47,26 +66,34 @@ public final class PlanProbe
 		String appetiteName = System.getProperty("appetite", "AGGRESSIVE");
 		String token = token();
 
-		JsonObject snapshot = JsonParser.parseString(get("market/snapshot", token)).getAsJsonObject();
-		JsonObject latest = snapshot.getAsJsonObject("latest");
-		JsonObject fiveMinute = snapshot.getAsJsonObject("fiveMinute");
-		JsonObject hourly = snapshot.getAsJsonObject("hourly");
-		long observedAt = snapshot.get("observedAt").getAsLong();
-
 		Map<Integer, MarketIngestionService.Item> mapping =
 			MarketIngestionService.parseMapping(JsonParser.parseString(wiki("/mapping")));
-
-		System.out.printf("market observed %ds ago, %d items mapped, %d quoted%n",
-			Instant.now().getEpochSecond() - observedAt, mapping.size(), latest.size());
-
-		MarketIngestionService.MarketState state =
-			new MarketIngestionService.MarketState(mapping, latest, fiveMinute, hourly, observedAt);
 
 		CandidateFactory factory = new CandidateFactory(seriesFrom(token));
 		// The live planner sets this from the account snapshot; without it the probe silently runs a
 		// different risk profile from the thing it is meant to reproduce.
 		factory.setRiskAppetite(com.flippingfriend.model.RiskAppetite.forName(appetiteName));
 		System.out.println("appetite " + appetiteName + ", minProfitPerFlip " + minProfit);
+
+		// Twice, and the first one is thrown away.
+		//
+		// The companion plans from a warm series cache; the probe starts cold and fetches history for
+		// every shortlisted item as it goes. At a few hundred items that takes minutes, and the quotes
+		// the plan was priced from expire while it runs -- 489 of 593 tactics were rejected as "priced
+		// from a quote that has already expired", and the probe reported a plan of zero for a build
+		// that was fine. That is the measuring instrument reading itself.
+		//
+		// So the first pass exists to fill the cache, and the second one re-reads the market and is the
+		// one that counts. No extra load: the same history, fetched once and used twice.
+		warm(factory, mapping, token, coins);
+
+		JsonObject snapshot = JsonParser.parseString(get("market/snapshot", token)).getAsJsonObject();
+		long observedAt = snapshot.get("observedAt").getAsLong();
+		System.out.printf("market observed %ds ago, %d items mapped, %d quoted%n",
+			Instant.now().getEpochSecond() - observedAt, mapping.size(),
+			snapshot.getAsJsonObject("latest").size());
+
+		MarketIngestionService.MarketState state = stateFrom(snapshot, mapping);
 		List<PortfolioCandidate> tactics = factory.build(state, 4.0, new HashMap<>(), coins, true,
 			Instant.now());
 
@@ -128,6 +155,35 @@ public final class PlanProbe
 			System.out.printf("  %-30s qty %5d  capital %10d  %8.0f gp/slot-hr%n",
 				chosen.getItemName(), chosen.getQuantity(), chosen.getCapitalRequired(),
 				chosen.expectedGpPerSlotHour());
+		}
+
+		// Several plans from ONE market snapshot, when asked for them.
+		//
+		// Two consecutive measurements of the same build came out at 457,612 and 378,569 gp per
+		// slot-hour. Neither was wrong: buyFillProbability is a Thompson draw, so the optimizer
+		// explores, and a single plan is one sample from a distribution rather than the value of the
+		// code that produced it. Tuning a constant against one sample is tuning it against the draw.
+		//
+		// The snapshot is deliberately held fixed across the runs, so what spreads these numbers is
+		// the exploration and nothing else -- the market is not allowed to move underneath the
+		// comparison.
+		int runs = Integer.getInteger("runs", 1);
+		if (runs > 1)
+		{
+			double[] values = new double[runs];
+			values[0] = board.getExpectedGpPerSlotHour();
+			for (int run = 1; run < runs; run++)
+			{
+				List<PortfolioCandidate> again = factory.build(state, 4.0, new HashMap<>(), coins,
+					true, Instant.now());
+				values[run] = optimizer.optimize(again, limits, "probe",
+					Instant.now().getEpochSecond()).getExpectedGpPerSlotHour();
+			}
+			java.util.Arrays.sort(values);
+			double median = values[runs / 2];
+			System.out.printf("%n%d plans on one snapshot: worst %.0f, median %.0f, best %.0f "
+				+ "gp/slot-hour%nmedian is %.0f per slot%n",
+				runs, values[0], median, values[runs - 1], median / 8);
 		}
 
 		for (int i = 1; i < args.length; i++)

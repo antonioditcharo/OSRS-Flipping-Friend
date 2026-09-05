@@ -76,7 +76,7 @@ final class CandidateFactory
 	 * whatever it has most overestimated. Breadth is only an advantage over candidates the model can
 	 * actually judge.
 	 */
-	private static final int DEEP_ANALYSIS_LIMIT = 90;
+	private static final int DEEP_ANALYSIS_LIMIT = 600;
 	/**
 	 * Liquidity floors, in units and in gold.
 	 * <p>
@@ -778,12 +778,21 @@ final class CandidateFactory
 		{
 			int itemId = entry.getKey();
 			LatestPrice quote = quote(market.latest, itemId);
-			Candle bar = bar(market.fiveMinute, itemId);
-			if (quote == null || bar == null)
+			Candle fiveMinute = bar(market.fiveMinute, itemId);
+			Candle hourly = bar(market.hourly, itemId);
+			// Either bar will do. Requiring the five-minute one threw away 2,797 of 4,535 quoted
+			// items -- not because they were illiquid, but because they had not happened to trade in
+			// the last five minutes. An item that turns over forty times an hour is absent from any
+			// given five-minute window more often than it is present, so the filter was strongly
+			// biased towards the very cheapest and busiest items and silently hid the mid-priced
+			// ones, where the margins are. What the bar is actually for is a volume-weighted price to
+			// sanity-check the live quote against, and an hourly average serves that better if
+			// anything: it is a longer average, so it is harder for one misclick to move.
+			if (quote == null || (fiveMinute == null && hourly == null))
 			{
 				continue;
 			}
-			universe.add(new QuotedItem(entry.getValue(), quote, bar, bar(market.hourly, itemId)));
+			universe.add(new QuotedItem(entry.getValue(), quote, fiveMinute, hourly));
 		}
 		return universe;
 	}
@@ -910,7 +919,9 @@ final class CandidateFactory
 		{
 			int itemId = quoted.item.id;
 			MarketIngestionService.Item item = quoted.item;
-			Candle bar = quoted.fiveMinute;
+			// The five-minute bar when this item traded that recently, the hourly one when it did
+			// not. Only the volume reading below cares which it got, and it asks separately.
+			Candle bar = quoted.fiveMinute != null ? quoted.fiveMinute : quoted.hourly;
 
 			// A free account cannot place an offer on a members item at all, so recommending one is
 			// not a marginal call the optimizer should weigh — it is an instruction the player
