@@ -33,8 +33,47 @@ public final class CompanionMain
 	 */
 	private static final int MODEL_VERSIONS_KEPT = 5;
 
+	/**
+	 * Enough heap to plan the configured shortlist, with room for the garbage a pass makes.
+	 *
+	 * <p>Measured rather than guessed: warming and planning six hundred items peaks at about 340 MB of
+	 * heap while retaining only 51 MB, because most of a planning pass is short-lived -- parsed JSON,
+	 * candidates for six sizes of every tactic, fill curves. The retained set is small and the
+	 * transient set is not, so sizing the heap to what the cache holds is the wrong instinct.
+	 */
+	private static final long MINIMUM_HEAP_BYTES = 400L * 1024 * 1024;
+
+	/**
+	 * Say so at startup when the heap is too small, because the failure mode is otherwise silent.
+	 *
+	 * <p>The launcher pinned this at {@code -Xmx192m}, sized for a shortlist of ninety items. At six
+	 * hundred the process ran out, and a JVM out of heap does not stop: it keeps the listening socket
+	 * open and stops calling accept, so the port is bound, the backlog fills, and every connection is
+	 * REFUSED. From the plugin that is indistinguishable from a companion that is not running, and
+	 * from the player it is simply no recommendations, with nothing in any log to say why.
+	 *
+	 * <p>One line at startup is not a fix for that. It is the difference between a mystery and a
+	 * sentence naming the flag to change.
+	 */
+	private static void checkHeap()
+	{
+		long max = Runtime.getRuntime().maxMemory();
+		if (max >= MINIMUM_HEAP_BYTES)
+		{
+			return;
+		}
+		System.err.printf("This companion has %d MB of heap and needs about %d MB to plan %d items. "
+				+ "Start it with -Xmx512m. Without that it will run out during a planning pass, and "
+				+ "an out-of-heap JVM holds the port open while refusing every connection, which looks "
+				+ "exactly like the companion not running.%n",
+			max / (1024 * 1024), MINIMUM_HEAP_BYTES / (1024 * 1024),
+			CandidateFactory.DEEP_ANALYSIS_LIMIT);
+	}
+
 	public static void main(String[] args) throws Exception
 	{
+		checkHeap();
+
 		Path root = Paths.get(System.getProperty("user.home"), ".runelite", "osrs-flipping-friend");
 		Path companion = root.resolve("companion");
 		Files.createDirectories(companion);

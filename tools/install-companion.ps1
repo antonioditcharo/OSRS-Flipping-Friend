@@ -34,7 +34,13 @@ if (-not (Test-Path $java)) {
     Write-Host '  Using javaw from PATH (RuneLite runtime not found).' -ForegroundColor Yellow
 }
 
-$action = New-ScheduledTaskAction -Execute $java -Argument "-Xmx192m -jar `"$jar`"" -WorkingDirectory $root
+# 512 MB, measured: warming and planning 600 items peaks near 340 MB of heap while retaining only
+# 51 MB, because most of a pass is short-lived. This was -Xmx192m, sized when the shortlist was 90,
+# and at 600 the companion ran out -- which does not stop it. It keeps the port bound and stops
+# accepting, so every connection is refused and the plugin cannot tell it from a companion that was
+# never started. ExitOnOutOfMemoryError makes it die instead, which is a state something can act on.
+$action = New-ScheduledTaskAction -Execute $java `
+    -Argument "-Xmx512m -XX:+ExitOnOutOfMemoryError -jar `"$jar`"" -WorkingDirectory $root
 
 $elevated = ([Security.Principal.WindowsPrincipal] `
     [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(

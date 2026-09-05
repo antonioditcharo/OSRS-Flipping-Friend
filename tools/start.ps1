@@ -56,7 +56,11 @@ else {
         if (Test-Path $javaExe) {
             $log = Join-Path $env:USERPROFILE '.runelite\osrs-flipping-friend\companion\companion.log'
             New-Item -ItemType Directory -Force -Path (Split-Path $log) | Out-Null
-            Start-Process -FilePath $javaExe -ArgumentList '-jar', "`"$companionJar`"" `
+            # The same flags the scheduled task uses. This path inherited the JVM default, which is a
+            # quarter of the machine's RAM and therefore large enough by accident -- which is why the
+            # heap ceiling was only ever hit by the scheduled task, and never once in testing.
+            Start-Process -FilePath $javaExe `
+                -ArgumentList '-Xmx512m', '-XX:+ExitOnOutOfMemoryError', '-jar', "`"$companionJar`"" `
                 -RedirectStandardOutput $log -RedirectStandardError "$log.err" -WindowStyle Hidden
             Write-Host '  Market companion started.' -ForegroundColor Green
         }
