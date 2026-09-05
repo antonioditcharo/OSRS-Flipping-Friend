@@ -123,18 +123,27 @@ public class AlchFloorWiringTest
 		CandidateFactory factory = new CandidateFactory(history());
 		factory.setNatureRunePrice(50_000);
 
-		int dearRunes = sizeWith(factory);
+		long dearRunes = unwindWith(factory);
 
 		CandidateFactory cheap = new CandidateFactory(history());
 		cheap.setNatureRunePrice(100);
-		int cheapRunes = sizeWith(cheap);
+		long cheapRunes = unwindWith(cheap);
 
-		assertTrue("both still trade", dearRunes > 0 && cheapRunes > 0);
-		assertTrue("a rune costing half the alch value leaves a lower floor and a smaller order: "
-			+ dearRunes + " vs " + cheapRunes, dearRunes < cheapRunes);
+		// Asserted on the unwind loss rather than on the order size. Size is chosen from a ladder of
+		// six shares of what is fillable, so it quantises: a real change in the floor frequently
+		// lands on the same rung and the quantity does not move at all. The unwind loss is where the
+		// rune price actually enters, and it responds continuously.
+		// The cheap-rune case comes out at zero, and that is the floor working rather than a missing
+		// answer: an alch worth 119,900 against a market paying about 95,000 covers the whole
+		// downside, so there is no loss left to record. The dear rune leaves a real one.
+		assertTrue("a dear rune leaves a downside the floor no longer covers: " + dearRunes,
+			dearRunes > 0);
+		assertTrue("and a cheap one leaves less of it: " + cheapRunes + " vs " + dearRunes,
+			cheapRunes < dearRunes);
 	}
 
-	private static int sizeWith(CandidateFactory factory)
+	/** What stranding the position would cost, per unit, which is where the alch floor lands. */
+	private static long unwindWith(CandidateFactory factory)
 	{
 		List<PortfolioCandidate> candidates = factory.build(
 			Collections.singletonList(quoted(HIGH_ALCH)), 4.0, new HashMap<>(), 2_000_000_000L,
@@ -143,7 +152,7 @@ public class AlchFloorWiringTest
 		{
 			if (candidate.getItemId() == ITEM)
 			{
-				return candidate.getQuantity();
+				return candidate.getUnwindLoss() / Math.max(1, candidate.getQuantity());
 			}
 		}
 		return 0;

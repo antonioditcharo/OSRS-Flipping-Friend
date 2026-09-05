@@ -108,6 +108,25 @@ final class PortfolioPlanner
 		return candidates.assumedCaptureShare();
 	}
 
+	/**
+	 * Why one particular item is not in the plan.
+	 *
+	 * <p>The funnel says how many items each threshold turned away. It cannot say what happened to
+	 * <em>this</em> item, which is the question anyone actually has — and the one that took a
+	 * screenshot, a database read and three rounds of guessing to answer once.
+	 */
+	java.util.Map<String, Object> explain(int itemId)
+	{
+		java.util.Map<String, Object> trace = new java.util.LinkedHashMap<>();
+		trace.put("itemId", itemId);
+		String reason = candidates.lastReasonFor(itemId);
+		trace.put("turnedAwayBecause", reason);
+		trace.put("shortlisted", candidates.shortlistIds().contains(itemId));
+		trace.put("stage", reason != null ? "screened out"
+			: candidates.shortlistIds().contains(itemId) ? "analysed" : "not reached");
+		return trace;
+	}
+
 	PortfolioPlan plan(MarketIngestionService.MarketState market, AccountSnapshot account,
 		Map<Integer, Integer> buyLimitRemaining, Collection<OfferEvent> activeOffers)
 	{

@@ -32,6 +32,7 @@ final class ApiServer implements AutoCloseable
 		// launch.
 		server.createContext("/v1/market/snapshot", this::marketSnapshot);
 		server.createContext("/v1/market/series", this::marketSeries);
+		server.createContext("/v1/portfolio/explain", this::explain);
 		server.createContext("/v1/learning/metrics", this::learningMetrics);
 		server.createContext("/v1/learning/history", this::learningHistory);
 		server.createContext("/v1/events/account-state", this::account);
@@ -71,6 +72,31 @@ final class ApiServer implements AutoCloseable
 		try
 		{
 			respond(exchange, 200, gson.toJson(service.series(Integer.parseInt(id), timestep)));
+		}
+		catch (NumberFormatException ex)
+		{
+			respond(exchange, 400, "{\"error\":\"id must be a number\"}");
+		}
+	}
+
+	/**
+	 * Why one item is not in the plan.
+	 *
+	 * <p>The funnel counts what each threshold turned away; this says what happened to the item the
+	 * player is asking about. Those are different questions and only the second one ends an argument.
+	 */
+	private void explain(HttpExchange exchange) throws IOException
+	{
+		if (!authorized(exchange)) return;
+		String id = queryOf(exchange).get("id");
+		if (id == null)
+		{
+			respond(exchange, 400, "{\"error\":\"id is required\"}");
+			return;
+		}
+		try
+		{
+			respond(exchange, 200, gson.toJson(service.explainItem(Integer.parseInt(id))));
 		}
 		catch (NumberFormatException ex)
 		{

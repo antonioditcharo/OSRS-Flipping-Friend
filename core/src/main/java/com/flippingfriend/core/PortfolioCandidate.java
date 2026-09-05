@@ -200,6 +200,34 @@ public final class PortfolioCandidate
 		return expectedProfit() / expectedSlotHours();
 	}
 
+	/**
+	 * The same rate, computed from what the model believes rather than from the exploration draw.
+	 *
+	 * <p>{@link #expectedGpPerSlotHour()} is deliberately stochastic: {@code buyFillProbability} is a
+	 * Thompson draw, so an item the model has quietly underrated can still win a slot in proportion
+	 * to how uncertain the estimate is. That randomness belongs to <em>which item</em> gets a slot.
+	 *
+	 * <p>It does not belong to <em>how many units to buy</em>. Once several sizes of the same trade
+	 * compete as separate candidates, ranking them on the draw makes the recommended quantity
+	 * random: the same market, planned twice, produced 9,230 units and then 12,307. A player watching
+	 * the number change while nothing changed has no way to read it, and neither does a test.
+	 *
+	 * <p>So sizing ranks on this, and the optimizer still ranks across items on the draw. Same
+	 * expression, same inputs but one — which is why it is expressed as the same arithmetic rather
+	 * than a second rule that could drift from it.
+	 */
+	public double displayGpPerSlotHour()
+	{
+		double buy = displayBuyFillProbability > 0 ? displayBuyFillProbability : buyFillProbability;
+		double completed = buy * sellFillProbability;
+		double stranded = buy * (1 - sellFillProbability);
+		double neverBought = 1 - buy;
+		double hours = Math.max(1.0 / 60.0, neverBought * horizonHours
+			+ completed * (buyHours + sellHours)
+			+ stranded * (buyHours + horizonHours));
+		return (completed * netProfit - stranded * unwindLoss) / hours;
+	}
+
 	/** Probability the whole round trip completes, for display. */
 	public double getCompletionProbability()
 	{

@@ -557,6 +557,19 @@ final class CandidateFactory
 	}
 
 	/**
+	 * Sizes to try, as shares of what is fillable.
+	 *
+	 * <p>Coarse on purpose. The curve of value against size is smooth and single-peaked — profit
+	 * rises linearly while completion falls — so a handful of points finds the top closely enough,
+	 * and each one costs two fill estimates across twenty-five price pairs and ninety items. Starting
+	 * at the full amount matters: it is the size the old code could never reach, and on a liquid item
+	 * it is frequently the best one.
+	 */
+	private static final double[] SIZE_LADDER = {1.0, 0.75, 0.5, 0.3, 0.15, 0.05};
+
+
+
+	/**
 	 * How much less likely this offer is to fill because it has already waited.
 	 *
 	 * <p>A ratio, not a replacement. {@link FillModel} reads the book — the volume at our price, the
@@ -1097,31 +1110,35 @@ final class CandidateFactory
 					continue;
 				}
 
-				// Fractional Kelly Sizing
-				long netProfitFull = marginPerItem * fillable;
-				long unwindLossFull = unwindCost(itemId, screened.item.highAlch, buyPrice,
-					screened.price.getLow(), fillable, features, horizonHours);
-
-				// Sizing is driven by FillModel, which reads the actual book: volume at or beyond the
-				// quote, the within-bucket dispersion, and the counterparty-wait term. Until
-				// 2 September 2026 an ONNX model overrode this whenever it returned above zero, and
-				// that model responded only to a coarse season bucket -- a 150gp order for 1,000 units
-				// and a 2,000,000gp order for 5 both scored 0.329689. It was setting deployed capital
-				// from a two-valued lookup. See OnnxInferenceEngineTest.
-				double pBuy = fillModel(itemId).estimateBuy(curve, buyPrice, fillable, horizonHours, season).getProbability();
-				double pSell = fillModel(itemId).estimateSell(curve, sellPrice, fillable, horizonHours, season).getProbability();
-				double p = pBuy * pSell;
-				
-				double b = unwindLossFull > 0 ? (double) netProfitFull / unwindLossFull : netProfitFull;
-				
-				double fStar = 1.0;
-				if (b > 0 && p > 0)
+				// Size is swept, not guessed.
+				//
+				// Profit rises with size and completion falls with it, and the balance between those
+				// is a property of this item at this price -- not something a single coefficient can
+				// carry. It used to be fractional Kelly: quantity = fillable * 0.35 * (p - (1-p)/b).
+				// That was wrong twice over. Kelly's fraction is a share of a BANKROLL TO RISK and it
+				// was scaling an ORDER SIZE, so since the expression cannot exceed 0.35 every order
+				// was capped at about a third of what the market would fill; and the p it consumed was
+				// the completion probability at the FULL fillable quantity, the least likely size, so
+				// on anything marginal it collapsed to a 0.1 floor and every order became a flat tenth
+				// with no information in it. A live 47m account filled one slot with a single unit,
+				// at 12 gp per slot-hour, with 46.9m idle.
+				//
+				// Each size now becomes its own tactic and is judged by the same
+				// expectedGpPerSlotHour() the optimizer ranks on, so the sizing decision and the
+				// selection agree by construction. An earlier attempt scored sizes against a private
+				// copy of that expression which left out the unwind term; it chose large orders that
+				// looked good gross and were negative net, and the plan fell to 5,318 gp per
+				// slot-hour. There is one objective here now, and it is not written down twice.
+				int previousSize = -1;
+				for (double share : SIZE_LADDER)
 				{
-					fStar = 0.35 * ((p * b - (1.0 - p)) / b);
+				int quantity = (int) Math.max(1, Math.floor(fillable * share));
+				if (quantity > fillable || quantity == previousSize)
+				{
+					continue;
 				}
-				fStar = Math.max(0.1, Math.min(1.0, fStar));
-				
-				int quantity = (int) Math.max(1, fillable * fStar);
+				previousSize = quantity;
+
 
 				FillEstimate buyFill = fillModel(itemId).estimateBuy(curve, buyPrice, quantity,
 					horizonHours, season);
@@ -1189,12 +1206,17 @@ final class CandidateFactory
 					unwindLoss, buyProbability, sellProbability,
 					buyHours, sellHours, horizonHours, expiresAt)
 					.withDisplayProbability(displayBuyProbability));
+				}
 			}
 		}
 
 		// Keep only the strongest few. Near-duplicate tactics add branching to the optimizer's
 		// search without adding any real choice.
-		tactics.sort(Comparator.comparingDouble(PortfolioCandidate::expectedGpPerSlotHour).reversed());
+		// Deterministically, because this sort now decides the order size as well as the price pair:
+		// several sizes of the same trade compete here as separate candidates, and ranking them on the
+		// exploration draw made the recommended quantity random between identical plans. The draw
+		// still decides which items win slots, in the optimizer, which is where it was designed to act.
+		tactics.sort(Comparator.comparingDouble(PortfolioCandidate::displayGpPerSlotHour).reversed());
 		if (tactics.isEmpty())
 		{
 			veto(itemId, screened.item.name, "No price and size combination is expected to profit.");

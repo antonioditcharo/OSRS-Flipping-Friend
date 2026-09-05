@@ -537,6 +537,12 @@ final class CompanionService implements AutoCloseable
 		return store.learningHistory(metric, from, to);
 	}
 
+	/** Why one item is not in the plan, for the question a funnel of counts cannot answer. */
+	java.util.Map<String, Object> explainItem(int itemId)
+	{
+		return planner.explain(itemId);
+	}
+
 	/** Metric names recorded so far, so a panel can discover what there is to plot. */
 	java.util.List<String> learningMetrics() throws Exception
 	{
