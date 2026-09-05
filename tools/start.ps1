@@ -60,7 +60,8 @@ else {
             # quarter of the machine's RAM and therefore large enough by accident -- which is why the
             # heap ceiling was only ever hit by the scheduled task, and never once in testing.
             Start-Process -FilePath $javaExe `
-                -ArgumentList '-Xmx512m', '-XX:+ExitOnOutOfMemoryError', '-jar', "`"$companionJar`"" `
+                -ArgumentList '-Xmx1g', '-XX:InitiatingHeapOccupancyPercent=30', `
+                    '-XX:+ExitOnOutOfMemoryError', '-jar', "`"$companionJar`"" `
                 -RedirectStandardOutput $log -RedirectStandardError "$log.err" -WindowStyle Hidden
             Write-Host '  Market companion started.' -ForegroundColor Green
         }

@@ -34,13 +34,20 @@ if (-not (Test-Path $java)) {
     Write-Host '  Using javaw from PATH (RuneLite runtime not found).' -ForegroundColor Yellow
 }
 
-# 512 MB, measured: warming and planning 600 items peaks near 340 MB of heap while retaining only
-# 51 MB, because most of a pass is short-lived. This was -Xmx192m, sized when the shortlist was 90,
-# and at 600 the companion ran out -- which does not stop it. It keeps the port bound and stops
-# accepting, so every connection is refused and the plugin cannot tell it from a companion that was
-# never started. ExitOnOutOfMemoryError makes it die instead, which is a state something can act on.
+# Measured from a GC log rather than guessed, twice over -- 192 MB and then 512 MB both died.
+#
+# The steady state is small: after a full collection the companion runs in a 197 MB heap with young
+# pauses going 159M->78M. There is no leak; that same collection reclaimed 672M down to 52M. What
+# killed it is warm-up, which parses a thousand-odd price series and promotes them out of the young
+# generation faster than G1 chose to reclaim the old one. Young pauses were leaving 366-775 MB
+# standing while the live set was under 80 MB.
+#
+# So: room for that burst, and a lower occupancy trigger so G1 starts reclaiming at 30% instead of
+# waiting for 45%, which is what let the promoted garbage pile up to an OutOfMemoryError in the first
+# place. ExitOnOutOfMemoryError stays, because a companion that dies is a state the plugin reports
+# and one that runs out of heap without dying holds the port open and refuses every connection.
 $action = New-ScheduledTaskAction -Execute $java `
-    -Argument "-Xmx512m -XX:+ExitOnOutOfMemoryError -jar `"$jar`"" -WorkingDirectory $root
+    -Argument "-Xmx1g -XX:InitiatingHeapOccupancyPercent=30 -XX:+ExitOnOutOfMemoryError -jar `"$jar`"" -WorkingDirectory $root
 
 $elevated = ([Security.Principal.WindowsPrincipal] `
     [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(

@@ -36,12 +36,18 @@ public final class CompanionMain
 	/**
 	 * Enough heap to plan the configured shortlist, with room for the garbage a pass makes.
 	 *
-	 * <p>Measured rather than guessed: warming and planning six hundred items peaks at about 340 MB of
-	 * heap while retaining only 51 MB, because most of a planning pass is short-lived -- parsed JSON,
-	 * candidates for six sizes of every tactic, fill curves. The retained set is small and the
-	 * transient set is not, so sizing the heap to what the cache holds is the wrong instinct.
+	 * <p>Measured from a GC log, after guessing twice and being wrong twice. The steady state is
+	 * small -- after a full collection this runs in a 197 MB heap with young pauses going 159M->78M,
+	 * and there is no leak, since that collection reclaimed 672M down to 52M. What needs the room is
+	 * warm-up: parsing a thousand-odd price series promotes them out of the young generation faster
+	 * than G1 chooses to reclaim the old one, and young pauses were leaving 366-775 MB standing
+	 * against a live set under 80 MB.
+	 *
+	 * <p>So the requirement is not "what does it retain" but "what does a burst promote before G1
+	 * catches up", and the launchers pair this with
+	 * {@code -XX:InitiatingHeapOccupancyPercent=30} so it catches up sooner.
 	 */
-	private static final long MINIMUM_HEAP_BYTES = 400L * 1024 * 1024;
+	private static final long MINIMUM_HEAP_BYTES = 900L * 1024 * 1024;
 
 	/**
 	 * Say so at startup when the heap is too small, because the failure mode is otherwise silent.
@@ -62,10 +68,11 @@ public final class CompanionMain
 		{
 			return;
 		}
-		System.err.printf("This companion has %d MB of heap and needs about %d MB to plan %d items. "
-				+ "Start it with -Xmx512m. Without that it will run out during a planning pass, and "
-				+ "an out-of-heap JVM holds the port open while refusing every connection, which looks "
-				+ "exactly like the companion not running.%n",
+		System.err.printf("This companion has %d MB of heap and needs about %d MB to study %d items. "
+				+ "Start it with -Xmx1g -XX:InitiatingHeapOccupancyPercent=30. Without that it will "
+				+ "run out while warming its price history, and an out-of-heap JVM holds the port open "
+				+ "while refusing every connection, which looks exactly like the companion not "
+				+ "running.%n",
 			max / (1024 * 1024), MINIMUM_HEAP_BYTES / (1024 * 1024),
 			CandidateFactory.DEEP_ANALYSIS_LIMIT);
 	}
