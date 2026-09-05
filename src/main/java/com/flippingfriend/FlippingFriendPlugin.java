@@ -983,5 +983,8 @@ public class FlippingFriendPlugin extends Plugin
 		positions.save();
 		tradePlans.save();
 		offerTracker.save();
+		// Not the journal itself -- that is append-only and already on disk -- but the fact that the
+		// session is still running, so reopening the client resumes it instead of starting over.
+		journal.touch();
 	}
 }

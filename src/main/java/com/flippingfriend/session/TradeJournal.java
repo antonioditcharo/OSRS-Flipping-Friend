@@ -25,8 +25,19 @@ public class TradeJournal
 {
 	private static final Logger log = LoggerFactory.getLogger(TradeJournal.class);
 	private static final String FILE_NAME = "journal.jsonl";
+	/** Where the session boundary is kept, so closing the client does not end the session. */
+	private static final String SESSION_FILE_NAME = "session.json";
 	/** Enough history to calibrate against without reading a huge file at every login. */
 	private static final int MAX_LOADED = 2000;
+	/**
+	 * How long a break can be before reopening counts as a new session rather than a continuation.
+	 *
+	 * <p>Long enough that closing the client for a meal, a crash, or a plugin reload keeps the
+	 * session that was in progress; short enough that yesterday's losses are not still being charged
+	 * against today's drawdown budget. Six hours also sits clear of the four-hour buy limit window,
+	 * so a resumed session is never one whose limits have silently rolled over mid-count.
+	 */
+	private static final long RESUME_WINDOW_SECONDS = 6 * 60 * 60;
 
 	private final PluginStorage storage;
 	private final ItemManager itemManager;
@@ -46,6 +57,19 @@ public class TradeJournal
 
 	private Path loadedFrom;
 	private Instant sessionStart = Instant.now();
+
+	/**
+	 * The session boundary on disk.
+	 *
+	 * <p>Only the boundary, not the flips: every completed flip is already durable in the journal, so
+	 * writing the session's own copy of them would be a second record of the same thing that could
+	 * disagree with the first. The session view is derived from the journal on the way back in.
+	 */
+	private static final class SessionMark
+	{
+		private long startedAt;
+		private long lastSeenAt;
+	}
 
 	@Inject
 	public TradeJournal(PluginStorage storage, ItemManager itemManager, AccountMonitor accountMonitor)
@@ -72,6 +96,8 @@ public class TradeJournal
 		lifetimeEarliest = Long.MAX_VALUE;
 		lifetimeLatest = 0;
 		lifetimeSectorProfits.clear();
+
+		session.clear();
 
 		List<String> lines = storage.readLines(file);
 		int from = Math.max(0, lines.size() - MAX_LOADED);
@@ -100,6 +126,61 @@ public class TradeJournal
 			}
 		}
 		loadedFrom = file;
+		resumeSession();
+	}
+
+	/**
+	 * Pick the session back up where the client left it.
+	 *
+	 * <p>{@code sessionStart} was a field initialised to {@code Instant.now()} and never read back
+	 * from anywhere, so every restart began a brand new session: flips 0, profit 0, elapsed 0, and --
+	 * the part that matters -- a drawdown circuit breaker that had forgotten every loss it was
+	 * holding. A player who closed the client after a bad hour reopened it with a full loss budget
+	 * and no memory of why it should not be.
+	 *
+	 * <p>The flips come back from the journal rather than from a saved copy of the session list.
+	 * There is one durable record of what happened and this reads it; a parallel file would be a
+	 * second answer to the same question, free to drift from the first.
+	 */
+	private void resumeSession()
+	{
+		Path mark = storage.accountDir().resolve(SESSION_FILE_NAME);
+		SessionMark saved = storage.readJson(mark, SessionMark.class, null);
+		long now = Instant.now().getEpochSecond();
+
+		if (saved == null || saved.startedAt <= 0
+			|| now - saved.lastSeenAt > RESUME_WINDOW_SECONDS)
+		{
+			startSession();
+			return;
+		}
+
+		sessionStart = Instant.ofEpochSecond(saved.startedAt);
+		synchronized (history)
+		{
+			for (FlipRecord record : history)
+			{
+				if (record.getSoldAt() >= saved.startedAt)
+				{
+					session.add(record);
+				}
+			}
+		}
+		touch();
+	}
+
+	/**
+	 * Write down that the session is still going.
+	 *
+	 * <p>Called wherever the plugin persists the rest of its state, so a session that is open for
+	 * hours without completing a flip is not mistaken for one that was abandoned.
+	 */
+	public synchronized void touch()
+	{
+		SessionMark mark = new SessionMark();
+		mark.startedAt = sessionStart.getEpochSecond();
+		mark.lastSeenAt = Instant.now().getEpochSecond();
+		storage.writeJson(storage.accountDir().resolve(SESSION_FILE_NAME), mark, SessionMark.class);
 	}
 
 	private void accumulateLifetime(FlipRecord record)
@@ -131,6 +212,8 @@ public class TradeJournal
 		history.add(record);
 		session.add(record);
 		storage.appendLine(storage.accountDir().resolve(FILE_NAME), storage.gson().toJson(record));
+		// The session is demonstrably alive, and this is the cheapest moment to say so.
+		touch();
 	}
 
 	private long calculateLiquidValue()
@@ -166,6 +249,7 @@ public class TradeJournal
 	{
 		session.clear();
 		sessionStart = Instant.now();
+		touch();
 	}
 
 	public SessionStats sessionStats()

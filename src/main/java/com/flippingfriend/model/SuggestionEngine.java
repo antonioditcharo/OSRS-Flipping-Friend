@@ -817,6 +817,48 @@ public class SuggestionEngine
 			.build();
 	}
 
+	/**
+	 * What a working buy on the same item does to the wish to sell it.
+	 *
+	 * <p>Pulled out of the sell loop and named, because it is the whole of the rule and it was
+	 * previously a fall-through with a comment: the engine sold the part of an order that had arrived
+	 * while the rest of the order was still filling behind it. The player was told to sell stock they
+	 * were in the middle of buying.
+	 */
+	enum BuyInTheWay
+	{
+		/** No buy running. The ordinary sell path applies. */
+		NOTHING_IN_THE_WAY,
+		/** A buy is filling. Sell nothing until it stops; the target will still be there. */
+		WAIT_FOR_THE_BUY,
+		/** The trade has gone wrong. Cancel the buy, then sell whatever arrived before it stopped. */
+		STOP_THE_BUY
+	}
+
+	/**
+	 * The rule, in one place: a part-filled order is a position being built, not a position.
+	 *
+	 * <p>Listing the part that has arrived puts the same item on both sides of the book -- the buy
+	 * keeps filling behind the sale, so the round ends holding stock that was reported as sold, taxed
+	 * on a flip that never closed, having spent a second slot to do it.
+	 *
+	 * <p>A cut is the exception, and not because selling early is suddenly acceptable: it is because
+	 * an order that keeps buying more of a collapsing item makes the hole deeper every minute. Even
+	 * then the action is to stop the buy, not to sell around it.
+	 */
+	static BuyInTheWay buyInTheWay(boolean buyStillWorking, SellDecision decision)
+	{
+		if (!buyStillWorking)
+		{
+			return BuyInTheWay.NOTHING_IN_THE_WAY;
+		}
+		if (decision == null || decision.getAction() != SellDecision.Action.CUT)
+		{
+			return BuyInTheWay.WAIT_FOR_THE_BUY;
+		}
+		return BuyInTheWay.STOP_THE_BUY;
+	}
+
 	/** The buy still working on this item, or null. */
 	private TrackedOffer openBuyFor(int itemId)
 	{
@@ -985,20 +1027,40 @@ public class SuggestionEngine
 			// buy -- it is to stop buying. If the price has turned, continuing to accumulate an item we
 			// are trying to leave makes no sense at any slot count, and on three it is indefensible.
 			// Abandon the buy; the next pass sees no open order and sells normally.
+			//
+			// Nothing is ever sold around a working buy. A part-filled order is not a position, it is
+			// a position being built, and listing the part that has arrived sells the same item on
+			// both sides of the book at once: the buy keeps filling behind the sale, so the player
+			// ends the round holding stock they were told they had sold, having paid tax on a flip
+			// that never closed and spent a second slot to do it. This fell through to the ordinary
+			// sell path on the strength of a roadmap note about turning part-filled slots into sell
+			// instructions -- which is right the moment the buy stops, and wrong while it is running.
+			//
+			// So there are exactly two ways a holding leaves: the buy finishes, or the buy is
+			// cancelled and what arrived before it stopped is sold.
 			if (stillBuying.contains(itemId))
 			{
-				if (!decision.isSell())
+				if (buyInTheWay(true, decision) == BuyInTheWay.WAIT_FOR_THE_BUY)
 				{
 					TrackedOffer buy = openBuyFor(itemId);
 					statuses.put(itemId, buy == null ? PositionStatus.stillBuying(0, 0)
 						: PositionStatus.stillBuying(buy.getQuantityFilled(), buy.getTotalQuantity()));
 					continue;
 				}
-				// The roadmap specifies we should instantly transform BOUGHT or partially filled
-				// slots into PLACE_SELL instructions if we have available slots.
-				// By falling through here, we treat this partial fill as a normal sell candidate.
-				// remainderWarrantsItsOwnOffer will ensure the partial fill is large enough to warrant a slot.
-				// If no slots are available, makeRoomToSell will handle cancelling a buy offer.
+
+				// A cut is the one case that cannot wait: the trade has gone wrong, and an order that
+				// keeps buying more of it makes the hole deeper every minute. The answer is still not
+				// to sell around the buy -- it is to stop the buy. That is one action instead of two,
+				// it frees the slot and returns the unspent coins, and the next pass finds nothing in
+				// the way and sells what actually arrived.
+				statuses.put(itemId, PositionStatus.exitBlockedByOwnBuy(decision));
+				SellCandidate stop = new SellCandidate(position, decision, Math.min(held, toSell),
+					unconfirmed, inInventory).blockedByOwnBuy();
+				if (best == null || stop.priority() > best.priority())
+				{
+					best = stop;
+				}
+				continue;
 			}
 
 			// Recorded whether or not it wins, and whether or not it is a sale. A holding being waited
@@ -1039,6 +1101,22 @@ public class SuggestionEngine
 		{
 			positionStatuses.set(Collections.unmodifiableMap(statuses));
 			return null;
+		}
+
+		if (best.blockedByOwnBuy)
+		{
+			// Cancelling does not need a free slot -- it makes one -- so this is settled before the
+			// slot check below, which would otherwise start cancelling some unrelated offer to make
+			// room for a sale that must not be placed yet anyway.
+			Suggestion stop = cancelBuyBlockingExit(best, market);
+			if (stop != null)
+			{
+				positionStatuses.set(Collections.unmodifiableMap(statuses));
+				return stop;
+			}
+			// The buy finished between the status pass and here, so there is nothing left to cancel
+			// and the holding is free to leave by the ordinary path.
+			best = best.unblocked();
 		}
 
 		if (account.getFreeSlots() <= 0)
@@ -1650,6 +1728,8 @@ public class SuggestionEngine
 		/** True when the holding is on record but has not been seen in any container. */
 		private final boolean unconfirmed;
 		private final boolean inInventory;
+		/** Set when this holding cannot be sold yet because our own buy is still adding to it. */
+		private boolean blockedByOwnBuy;
 
 		SellCandidate(Position position, SellDecision decision, int quantity, boolean unconfirmed, boolean inInventory)
 		{
@@ -1658,6 +1738,25 @@ public class SuggestionEngine
 			this.quantity = quantity;
 			this.unconfirmed = unconfirmed;
 			this.inInventory = inInventory;
+		}
+
+		/**
+		 * The same candidate, wanting out, with its own buy in the way.
+		 *
+		 * <p>It competes on priority with the ordinary sales rather than short-circuiting them,
+		 * because a cut on a collapsing item should outrank banking a winner and the priority
+		 * function already says so. What changes is what gets emitted if it wins: stop the buy.
+		 */
+		SellCandidate blockedByOwnBuy()
+		{
+			this.blockedByOwnBuy = true;
+			return this;
+		}
+
+		SellCandidate unblocked()
+		{
+			this.blockedByOwnBuy = false;
+			return this;
 		}
 
 		/** 
