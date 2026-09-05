@@ -163,7 +163,20 @@ public class SellTimingEngine
 		// question of whether now is a reasonable time to convert them to coins.
 		if (!position.isCostKnown())
 		{
-			if (inInventory && !isSkipped)
+			// Skipped means skipped.
+			//
+			// This flag used to steer around one branch and then fall through to "Listing this banked
+			// item", which is also a sale -- so asking the plugin not to sell something did nothing
+			// except change the sentence it gave for selling it. There is nothing to manage here: the
+			// item was not bought by this plugin, there is no cost basis and no capital tied up, so
+			// declining to sell it costs nothing but the slot it was never using.
+			if (isSkipped)
+			{
+				return SellDecision.hold("You asked the plugin to leave this one alone.",
+					exit.expectedMinutes);
+			}
+
+			if (inInventory)
 			{
 				return new SellDecision(SellDecision.Action.SELL, exit.price,
 					"This is in your inventory, so the plugin is assuming you want to sell it now.",

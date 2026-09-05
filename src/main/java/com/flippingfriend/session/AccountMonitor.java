@@ -55,6 +55,44 @@ public class AccountMonitor
 	 */
 	private long lastSeenBankCoins;
 	private Map<Integer, Integer> lastSeenBankItems = new HashMap<>();
+	/** The inventory at the moment the bank was last readable, as the baseline for withdrawals. */
+	private Map<Integer, Integer> inventoryWhenBankSeen = new HashMap<>();
+
+	/**
+	 * The remembered bank, less whatever has been withdrawn from it since.
+	 *
+	 * <p>The bank container is only legible while the bank is open, so between visits this class works
+	 * from a snapshot. That snapshot was merged into holdings unconditionally, and a withdrawal put
+	 * the item in TWO places at once: in the inventory, where it now is, and in the remembered bank,
+	 * where it no longer is. Take one piece of armour out to sell it and the plugin believed there
+	 * were two -- and went on believing it until the bank was opened again, because that is the only
+	 * moment the snapshot is refreshed.
+	 *
+	 * <p>What gives it away is the inventory. Anything above what the inventory held when the bank was
+	 * last read has arrived since, and for an item that was sitting in the bank the overwhelmingly
+	 * likely route is that it came out of it. So the remembered bank is reduced by that difference,
+	 * floored at zero.
+	 *
+	 * <p>The other route in is a Grand Exchange collection, and for an item that is ALSO in the bank
+	 * this will discount it once too often and understate the total. That is the direction to be wrong
+	 * in: a holding counted short is an opportunity missed, while one counted long is an instruction
+	 * to sell something that is not there. It corrects itself the moment the bank is opened.
+	 */
+	private Map<Integer, Integer> stillInTheBank(Map<Integer, Integer> inventoryNow)
+	{
+		Map<Integer, Integer> remaining = new HashMap<>();
+		for (Map.Entry<Integer, Integer> banked : lastSeenBankItems.entrySet())
+		{
+			int id = banked.getKey();
+			int since = inventoryNow.getOrDefault(id, 0) - inventoryWhenBankSeen.getOrDefault(id, 0);
+			int left = banked.getValue() - Math.max(0, since);
+			if (left > 0)
+			{
+				remaining.put(id, left);
+			}
+		}
+		return remaining;
+	}
 	private boolean bankSeen;
 
 	@Inject
@@ -74,6 +112,7 @@ public class AccountMonitor
 	{
 		lastSeenBankCoins = 0;
 		lastSeenBankItems = new HashMap<>();
+		inventoryWhenBankSeen = new HashMap<>();
 		bankSeen = false;
 		state.set(AccountState.loggedOut());
 	}
@@ -127,9 +166,12 @@ public class AccountMonitor
 			});
 			
 			lastSeenBankItems = bankItems;
+			// The inventory as it stood when the bank was last legible, so a withdrawal can be told
+			// apart from something that was always in the inventory. See stillInTheBank().
+			inventoryWhenBankSeen = new HashMap<>(inventoryHoldings);
 			bankSeen = true;
 		}
-		merge(holdings, lastSeenBankItems);
+		merge(holdings, stillInTheBank(inventoryHoldings));
 
 		long collectionCoins = 0;
 		for (int containerId : COLLECTION_CONTAINERS)
@@ -142,7 +184,8 @@ public class AccountMonitor
 		long committed = committedToBuyOffers();
 
 		AccountState updated = new AccountState(true, members, ironman, inventoryCoins, lastSeenBankCoins,
-			collectionCoins, freeSlots, totalSlots, committed, bankSeen, holdings, inventoryHoldings, lastSeenBankItems);
+			collectionCoins, freeSlots, totalSlots, committed, bankSeen, holdings, inventoryHoldings,
+			stillInTheBank(inventoryHoldings));
 		state.set(updated);
 		return updated;
 	}

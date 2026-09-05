@@ -254,7 +254,14 @@ class SuggestionCard extends JPanel
 		confidenceBar.setValue(suggestion.getConfidence());
 		confidenceBar.setVisible(suggestion.getType() == SuggestionType.BUY);
 
-		actionsPanel.setVisible(suggestion.getType() == SuggestionType.BUY);
+		// Shown for sales as well as purchases.
+		//
+		// These were on buys only, which left no way to say "not that one" about a sale -- and the
+		// plugin offers to sell whatever it finds in your inventory, so the armour you took out to
+		// wear gets listed alongside the stock you meant to flip. Skip drops it for this session;
+		// Never trade this adds it to the blocklist and it stops being a holding at all.
+		actionsPanel.setVisible(suggestion.getType() == SuggestionType.BUY
+			|| suggestion.getType() == SuggestionType.SELL);
 
 		revalidate();
 		repaint();
