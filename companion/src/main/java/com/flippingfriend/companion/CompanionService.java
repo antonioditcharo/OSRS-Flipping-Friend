@@ -234,6 +234,9 @@ final class CompanionService implements AutoCloseable
 		restoreCalibration();
 		restoreCaptureRates();
 		restoreFillHazard();
+		// Seeded once, here, so a companion that already has a long record says so on its first
+		// health line instead of claiming it has learned nothing.
+		learningRecord = countLearningRecord();
 		this.executions = new ExecutionRecorder(store);
 	}
 
@@ -521,6 +524,9 @@ final class CompanionService implements AutoCloseable
 	 * doing nothing. A flat line and a missing line look identical on a chart and mean opposite
 	 * things, so the cadence has to come from the clock.
 	 */
+	/** Last known, refreshed when a snapshot is written. Never read from the database by health. */
+	private volatile String learningRecord = "learning record: nothing written down yet";
+
 	void recordLearningSnapshotIfDue(long now)
 	{
 		if (now - lastSnapshotAt < SNAPSHOT_INTERVAL_SECONDS)
@@ -556,6 +562,9 @@ final class CompanionService implements AutoCloseable
 		{
 			store.recordLearningSnapshot(LearningSnapshot.of(now, captureRates,
 				planner.assumedCaptureShare(), fillHazard, calibration, shadow, learnedFill));
+			// Counted here, where the number can only just have changed, rather than in the health
+			// line that reports it. See learningRecordSummary().
+			learningRecord = countLearningRecord();
 		}
 		catch (Exception unavailable)
 		{
@@ -564,7 +573,23 @@ final class CompanionService implements AutoCloseable
 	}
 
 	/** How much of a trajectory there is to read, for the health line. */
+	/**
+	 * The cached count, because health is polled and the database is not.
+	 *
+	 * <p>This used to run two queries on the store every time {@code /v1/health} was asked for, and
+	 * the plugin asks continuously. That put a database read on the path of a call whose entire job
+	 * is to answer instantly, and it contends with the writes: an account-state POST, which has to
+	 * take a write lock to record the event, timed out behind a run of health polls. A status line
+	 * that can block the thing it is reporting the status of is worse than no status line.
+	 *
+	 * <p>The count only changes when a snapshot is written, so it is taken there.
+	 */
 	private String learningRecordSummary()
+	{
+		return learningRecord;
+	}
+
+	private String countLearningRecord()
 	{
 		try
 		{
