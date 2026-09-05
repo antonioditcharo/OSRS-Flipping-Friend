@@ -830,8 +830,11 @@ public class FlippingFriendPlugin extends Plugin
 			int setupItemId = isSetupOpen ? client.getVarpValue(VarPlayerID.TRADINGPOST_SEARCH) : -1;
 			Suggestion active = stepGuide.getSuggestion();
 			
-			if (active != null && isSetupOpen && setupItemId == active.getItemId() &&
-				(active.getType() == SuggestionType.MODIFY_BUY || active.getType() == SuggestionType.MODIFY_SELL))
+			boolean adjustingBuy = active != null && active.getType() == SuggestionType.MODIFY_BUY && abandonedBuys.isAwaiting(active.getItemId());
+			boolean setupMatches = active != null && isSetupOpen && setupItemId == active.getItemId() &&
+				(active.getType() == SuggestionType.MODIFY_BUY || active.getType() == SuggestionType.MODIFY_SELL);
+
+			if (adjustingBuy || setupMatches)
 			{
 				engine.setPendingAdjustment(active);
 			}

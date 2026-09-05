@@ -98,7 +98,16 @@ class PortfolioPanel extends JPanel
 	private static double perSlotHour(PortfolioPlan plan)
 	{
 		int slots = plan.getAllocations().size();
-		return slots <= 0 ? 0 : plan.getExpectedGpPerSlotHour() / slots;
+		if (slots <= 0)
+		{
+			return 0;
+		}
+		double total = 0;
+		for (com.flippingfriend.core.PortfolioAllocation alloc : plan.getAllocations())
+		{
+			total += alloc.getCandidate().displayGpPerSlotHour();
+		}
+		return total / slots;
 	}
 
 	private JPanel row(PortfolioAllocation allocation)
@@ -115,8 +124,8 @@ class PortfolioPanel extends JPanel
 			+ explainer.formatNumber(candidate.getSellPrice()) + " gp");
 		detail.setAlignmentX(Component.LEFT_ALIGNMENT);
 		row.add(detail);
-		JLabel value = UiUtils.small(explainer.formatGp(Math.round(candidate.expectedGpPerSlotHour()))
-			+ "/slot-hour · " + Math.round(candidate.getCompletionProbability() * 100) + "% completion");
+		JLabel value = UiUtils.small(explainer.formatGp(Math.round(candidate.displayGpPerSlotHour()))
+			+ "/slot-hour · " + Math.round(candidate.getDisplayCompletionProbability() * 100) + "% completion");
 		value.setAlignmentX(Component.LEFT_ALIGNMENT);
 		row.add(value);
 		// Both legs, separately: a slow buy and a slow sell need different responses from the player.

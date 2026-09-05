@@ -502,6 +502,18 @@ public class SuggestionEngine
 
 					long expectedProfit = taxCalculator.netProfit(offer.getItemId(), newPrice, targetSellPrice, remaining);
 
+					RiskProfile profile = horizon.getProfile();
+					long marginPerItem = taxCalculator.netMarginPerItem(offer.getItemId(), newPrice, targetSellPrice);
+					if (marginPerItem <= 0 || (double) marginPerItem / newPrice < profile.getMinNetMarginPct())
+					{
+						continue;
+					}
+
+					if (expectedProfit < config.minProfitPerFlip())
+					{
+						continue;
+					}
+
 					return Suggestion.builder(SuggestionType.MODIFY_BUY)
 						.item(offer.getItemId(), name)
 						.slot(offer.getSlot())
