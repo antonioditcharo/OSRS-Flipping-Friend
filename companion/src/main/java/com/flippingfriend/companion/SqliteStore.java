@@ -135,6 +135,44 @@ final class SqliteStore implements AutoCloseable
 	}
 
 	/**
+	 * The most recent settled offers, newest first, for seeding the duplicate guard on startup.
+	 *
+	 * <p>Read back through the same Gson the events were written with, so the fingerprint computed
+	 * here is the one that will be computed for a live event of the same offer.
+	 */
+	synchronized List<com.flippingfriend.core.OfferEvent> recentSettledOffers(
+		com.google.gson.Gson gson, int limit) throws Exception
+	{
+		List<com.flippingfriend.core.OfferEvent> events = new ArrayList<>();
+		try (PreparedStatement statement = connection.prepareStatement(
+			"SELECT payload FROM event_log WHERE event_type IN "
+				+ "('BOUGHT','SOLD','CANCELLED_BUY','CANCELLED_SELL') ORDER BY id DESC LIMIT ?"))
+		{
+			statement.setInt(1, Math.max(1, limit));
+			try (ResultSet result = statement.executeQuery())
+			{
+				while (result.next())
+				{
+					try
+					{
+						com.flippingfriend.core.OfferEvent event =
+							gson.fromJson(result.getString(1), com.flippingfriend.core.OfferEvent.class);
+						if (event != null)
+						{
+							events.add(event);
+						}
+					}
+					catch (Exception unreadable)
+					{
+						// One corrupt row must not cost the whole seeding pass.
+					}
+				}
+			}
+		}
+		return events;
+	}
+
+	/**
 	 * Notes that an endpoint was fetched. The response body is deliberately not kept.
 	 * <p>
 	 * It used to be. Nothing has ever read it back -- there is no SELECT against this table anywhere

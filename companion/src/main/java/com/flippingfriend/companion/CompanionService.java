@@ -234,6 +234,7 @@ final class CompanionService implements AutoCloseable
 		restoreCalibration();
 		restoreCaptureRates();
 		restoreFillHazard();
+		restoreSettledOnce();
 		// Seeded once, here, so a companion that already has a long record says so on its first
 		// health line instead of claiming it has learned nothing.
 		learningRecord = countLearningRecord();
@@ -412,6 +413,16 @@ final class CompanionService implements AutoCloseable
 		// Settled offers are the only direct evidence of how our own orders behave in the queue,
 		// as opposed to what the public price history says the market did.
 		boolean settled = executions.record(event);
+		if (settled && !settledOnce.firstSighting(event))
+		{
+			// The same physical offer, reported twice. Everything below weights by quantity, so
+			// counting it again does not add a row -- it doubles that offer's say in what the model
+			// believes. The event is still on the log above, because the log is a record of what
+			// arrived and this is a judgement about what it meant.
+			log.debug("ignoring a repeat settlement of {} in slot {}", event.getItemId(),
+				event.getSlot());
+			settled = false;
+		}
 		if (settled)
 		{
 			// Both of these were computed and discarded until 2 September 2026, which is why the
@@ -471,6 +482,25 @@ final class CompanionService implements AutoCloseable
 		long open = event.getFirstSeenAt();
 		long closed = event.getObservedAt();
 		if (open <= 0)
+		{
+			return;
+		}
+
+		// An offer WE told the player to abandon says nothing about whether we can win a queue.
+		//
+		// Capture is the share of available flow our orders take. When the offer is stopped because
+		// the planner wanted the slot elsewhere, the zero that follows measures our own decision to
+		// leave, not the market refusing us -- and since the planner advises cancelling the offers
+		// that are NOT filling, counting them selects on exactly the outcome being measured. That is
+		// textbook informative censoring, and unusually we can identify the informative cases
+		// precisely rather than having to model them, because the advice was recorded when it was
+		// given. The fill hazard already leans on the same signal for the same reason.
+		//
+		// Cancellations the player makes for their own reasons are still counted. The game supplies
+		// no motive, we did not cause them, and dropping them would throw away the genuine evidence
+		// that a price was not competitive.
+		if (!event.isComplete() && planner.cancelAdvice()
+			.wasAdvised(event.getItemId(), event.getSlot(), event.getObservedAt()))
 		{
 			return;
 		}
@@ -648,6 +678,36 @@ final class CompanionService implements AutoCloseable
 			return "learning record: unreadable";
 		}
 	}
+
+	/** One settlement, counted once, however many times the client reports it. */
+	private final SettledOnce settledOnce = new SettledOnce();
+
+	/**
+	 * Teaches the duplicate guard what is already on record, so a restart does not re-count.
+	 *
+	 * <p>The client replays its Grand Exchange slots on login, and those replays arrive as fresh
+	 * events with fresh correlation ids. Without this the first minutes after every restart would
+	 * fold the same offers into capture, the hazard table and calibration a second time -- which is
+	 * exactly the window in which the model has the least other evidence to dilute them.
+	 */
+	private void restoreSettledOnce()
+	{
+		try
+		{
+			for (OfferEvent event : store.recentSettledOffers(gson, SETTLED_MEMORY))
+			{
+				settledOnce.remember(event);
+			}
+		}
+		catch (Exception unavailable)
+		{
+			log.debug("Could not read recent settlements; duplicates may survive this restart",
+				unavailable);
+		}
+	}
+
+	/** How far back to seed the duplicate guard. Comfortably past a login replay. */
+	private static final int SETTLED_MEMORY = 512;
 
 	/** Brings back the life table previous sessions built. */
 	private void restoreFillHazard()
