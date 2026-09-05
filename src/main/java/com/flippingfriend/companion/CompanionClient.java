@@ -466,6 +466,29 @@ public class CompanionClient
 		}
 	}
 
+	/**
+	 * Every metric's latest reading, for the learning panel, or null when the companion is not up.
+	 *
+	 * <p>One request for the whole panel. The alternative is a call per metric against
+	 * {@code learning/history}, which reads a full trajectory off disk to use the last row of it,
+	 * eighteen times over -- and a panel that expensive to draw gets refreshed too rarely to be worth
+	 * looking at.
+	 */
+	public java.util.List<com.flippingfriend.model.LearningReading> fetchLearning()
+	{
+		try
+		{
+			com.flippingfriend.model.LearningReading[] latest = gson.fromJson(
+				request("learning/summary", "GET", null),
+				com.flippingfriend.model.LearningReading[].class);
+			return latest == null ? null : java.util.Arrays.asList(latest);
+		}
+		catch (Exception ex)
+		{
+			return null;
+		}
+	}
+
 	/** The three all-item payloads, in the wiki's own shape. */
 	public static final class MarketFeed
 	{

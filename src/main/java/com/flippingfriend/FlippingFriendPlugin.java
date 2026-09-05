@@ -419,6 +419,48 @@ public class FlippingFriendPlugin extends Plugin
 			lastPersist = now;
 			persist();
 		}
+
+		if (now - lastLearningPoll > LEARNING_POLL_MILLIS)
+		{
+			lastLearningPoll = now;
+			refreshLearning();
+		}
+	}
+
+	/** How often the learning panel is refreshed. It moves on a fifteen-minute snapshot cadence. */
+	private static final long LEARNING_POLL_MILLIS = 30_000;
+	private long lastLearningPoll;
+
+	/**
+	 * Collect what the companion has learned, for the panel.
+	 *
+	 * <p>On the worker, never on the Swing thread: it is a loopback request and the panel that
+	 * displays it is rebuilt on the event thread. The panel is handed the answer and renders it on its
+	 * next ordinary refresh rather than being forced to redraw, because this changes slowly and the
+	 * sidebar is already redrawn on every plan.
+	 */
+	private void refreshLearning()
+	{
+		ExecutorService executor = worker;
+		if (executor == null || executor.isShutdown())
+		{
+			return;
+		}
+		executor.execute(() ->
+		{
+			try
+			{
+				java.util.List<com.flippingfriend.model.LearningReading> readings =
+					companion.fetchLearning();
+				// Null means the request failed, which is the companion being down rather than a
+				// companion with nothing to say. The panel says something different for each.
+				panel.setLearning(readings, readings != null);
+			}
+			catch (Exception ex)
+			{
+				panel.setLearning(null, false);
+			}
+		});
 	}
 
 	// ------------------------------------------------------------------ helpers

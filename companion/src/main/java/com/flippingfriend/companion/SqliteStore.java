@@ -540,6 +540,36 @@ final class SqliteStore implements AutoCloseable
 		return series;
 	}
 
+	/**
+	 * The most recent reading of every metric, in one query.
+	 *
+	 * <p>For the panel, which wants a snapshot rather than eighteen trajectories. Asking for each
+	 * metric's history and keeping the last point would be eighteen round trips and eighteen full
+	 * series read off disk to use one row of each.
+	 *
+	 * <p>The sample comes back alongside the value, for the same reason it does in
+	 * {@link #learningHistory}: a number the model has not earned yet has to be able to say so.
+	 */
+	synchronized List<LearningSnapshot.Metric> latestLearning() throws Exception
+	{
+		List<LearningSnapshot.Metric> latest = new ArrayList<>();
+		try (PreparedStatement statement = connection.prepareStatement(
+			"SELECT s.metric, s.value, s.sample FROM learning_snapshot s "
+				+ "JOIN (SELECT metric, MAX(taken_at) AS taken_at FROM learning_snapshot "
+				+ "GROUP BY metric) newest "
+				+ "ON s.metric = newest.metric AND s.taken_at = newest.taken_at "
+				+ "ORDER BY s.metric");
+			ResultSet result = statement.executeQuery())
+		{
+			while (result.next())
+			{
+				latest.add(new LearningSnapshot.Metric(
+					result.getString(1), result.getDouble(2), result.getLong(3)));
+			}
+		}
+		return latest;
+	}
+
 	/** Every metric name recorded so far, so a panel can discover what there is to plot. */
 	synchronized List<String> learningMetrics() throws Exception
 	{

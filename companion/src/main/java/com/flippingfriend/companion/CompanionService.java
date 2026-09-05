@@ -581,6 +581,11 @@ final class CompanionService implements AutoCloseable
 	}
 
 	/** Metric names recorded so far, so a panel can discover what there is to plot. */
+	java.util.List<LearningSnapshot.Metric> latestLearning() throws Exception
+	{
+		return store.latestLearning();
+	}
+
 	java.util.List<String> learningMetrics() throws Exception
 	{
 		return store.learningMetrics();

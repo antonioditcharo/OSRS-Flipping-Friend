@@ -35,6 +35,7 @@ final class ApiServer implements AutoCloseable
 		server.createContext("/v1/portfolio/explain", this::explain);
 		server.createContext("/v1/learning/metrics", this::learningMetrics);
 		server.createContext("/v1/learning/history", this::learningHistory);
+		server.createContext("/v1/learning/summary", this::learningSummary);
 		server.createContext("/v1/events/account-state", this::account);
 		server.createContext("/v1/events/ge-offer", this::offer);
 		server.setExecutor(executor);
@@ -105,6 +106,26 @@ final class ApiServer implements AutoCloseable
 	}
 
 	/** What there is to plot. A panel should discover the metrics, not carry a hardcoded list. */
+	/**
+	 * Every metric's latest reading, for the panel.
+	 *
+	 * <p>One request rather than one per metric. The plugin renders this beside the health line, and a
+	 * panel that costs eighteen round trips to draw is a panel that gets refreshed too rarely to be
+	 * worth looking at.
+	 */
+	private void learningSummary(HttpExchange exchange) throws IOException
+	{
+		if (!authorized(exchange)) return;
+		try
+		{
+			respond(exchange, 200, gson.toJson(service.latestLearning()));
+		}
+		catch (Exception ex)
+		{
+			respond(exchange, 500, "{\"error\":\"could not read the learning record\"}");
+		}
+	}
+
 	private void learningMetrics(HttpExchange exchange) throws IOException
 	{
 		if (!authorized(exchange)) return;

@@ -45,6 +45,57 @@ public class LearningRecordTest
 	}
 
 	@Test
+	public void theSummaryReturnsTheNewestReadingOfEachMetricAndNothingElse() throws Exception
+	{
+		// What the learning panel draws itself from. Asking for each metric's full trajectory and
+		// keeping the last point would be one round trip and one full series read off disk per
+		// metric, eighteen times over, to use one row of each -- and a panel that expensive to draw
+		// gets refreshed too rarely to be worth having.
+		Path path = database();
+		try (SqliteStore store = new SqliteStore(path))
+		{
+			store.recordLearningSnapshot(snapshot(T0, 0.50, 8));
+			store.recordLearningSnapshot(snapshot(T0 + 900, 0.34, 11));
+			store.recordLearningSnapshot(snapshot(T0 + 1800, 0.62, 40));
+
+			List<LearningSnapshot.Metric> latest = store.latestLearning();
+
+			assertEquals("one row per metric, not one per snapshot", 2, latest.size());
+			LearningSnapshot.Metric pooled = null;
+			for (LearningSnapshot.Metric metric : latest)
+			{
+				if ("capture.pooled".equals(metric.name))
+				{
+					pooled = metric;
+				}
+			}
+			assertNotNull(pooled);
+			assertEquals("the newest value, not the first or the largest", 0.62, pooled.value, 1e-9);
+			assertEquals("and the sample that came with it", 40, pooled.sample);
+		}
+	}
+
+	@Test
+	public void theSummaryCarriesEveryMetricEvenWhenTheyWereWrittenAtDifferentTimes()
+		throws Exception
+	{
+		// Metrics do not all start at once: capture appears when the first offer settles, calibration
+		// when it has enough to fit. A summary built from the newest SNAPSHOT would show only what
+		// happened to be in that one and silently drop the rest, so it is built per metric.
+		Path path = database();
+		try (SqliteStore store = new SqliteStore(path))
+		{
+			store.recordLearningSnapshot(new LearningSnapshot(T0).record("capture.pooled", 0.5, 8));
+			store.recordLearningSnapshot(
+				new LearningSnapshot(T0 + 900).record("calibration.skill", 0.2, 30));
+
+			List<LearningSnapshot.Metric> latest = store.latestLearning();
+
+			assertEquals("the older metric must not vanish", 2, latest.size());
+		}
+	}
+
+	@Test
 	public void aMetricCanBeReadBackAsASeriesRatherThanAReading() throws Exception
 	{
 		Path path = database();

@@ -75,6 +75,17 @@ public class FlippingFriendPanel extends PluginPanel
 	private final PositionsPanel positionsPanel;
 	private final HistoryPanel historyPanel;
 	private final StatsPanel statsPanel;
+	private final LearningPanel learningPanel;
+
+	/**
+	 * The companion's latest learning readings, or null when it has not answered.
+	 *
+	 * <p>Volatile and set from outside because fetching them is a network call and this panel is
+	 * rebuilt on the Swing thread. Nothing here reaches for the companion; the plugin hands it over
+	 * from its worker and this only ever renders what it was given.
+	 */
+	private volatile java.util.List<com.flippingfriend.model.LearningReading> learning;
+	private volatile boolean companionReachable;
 	private final PortfolioPanel portfolioPanel;
 	private final BankTrajectoryPanel bankTrajectoryPanel;
 
@@ -128,6 +139,7 @@ public class FlippingFriendPanel extends PluginPanel
 		});
 		this.historyPanel = new HistoryPanel(journal, itemManager, explainer);
 		this.statsPanel = new StatsPanel(explainer);
+		this.learningPanel = new LearningPanel();
 		this.portfolioPanel = new PortfolioPanel(companion, explainer);
 		this.bankTrajectoryPanel = new BankTrajectoryPanel(journal, explainer);
 
@@ -155,6 +167,10 @@ public class FlippingFriendPanel extends PluginPanel
 		content.add(new CollapsibleSection("Holding", positionsPanel, false));
 		content.add(new CollapsibleSection("Recent trades", historyPanel, false));
 		content.add(new CollapsibleSection("Performance", statsPanel, false));
+		// Collapsed by default. It is a diagnostic, not something to read every trade -- but it has to
+		// be reachable, because the one time it matters is when the advice has gone strange and the
+		// reason is a number in here.
+		content.add(new CollapsibleSection("Learning", learningPanel, true));
 		content.add(new CollapsibleSection("Bank Trajectory", bankTrajectoryPanel, false));
 
 
@@ -306,6 +322,18 @@ public class FlippingFriendPanel extends PluginPanel
 			: "Winding down? This stops new buys and helps you close out what you are holding.");
 	}
 
+	/**
+	 * Hand over what the companion has learned. Safe to call from any thread; renders on the next
+	 * refresh rather than forcing one, since this changes on a slow cadence and the panel is redrawn
+	 * often anyway.
+	 */
+	public void setLearning(java.util.List<com.flippingfriend.model.LearningReading> readings,
+		boolean reachable)
+	{
+		this.learning = readings;
+		this.companionReachable = reachable;
+	}
+
 	/** Safe to call from any thread. */
 	public void refresh()
 	{
@@ -347,6 +375,14 @@ public class FlippingFriendPanel extends PluginPanel
 		SessionStats session = journal.sessionStats();
 		SessionStats lifetime = journal.lifetimeStats();
 		statsPanel.update(session, lifetime);
+		if (!companionReachable)
+		{
+			learningPanel.clear("The companion is not running, so nothing is being learned.");
+		}
+		else
+		{
+			learningPanel.update(learning);
+		}
 		portfolioPanel.refresh();
 		bankTrajectoryPanel.repaint();
 
