@@ -76,7 +76,9 @@ final class CandidateFactory
 	 * whatever it has most overestimated. Breadth is only an advantage over candidates the model can
 	 * actually judge.
 	 */
-	private static final int DEEP_ANALYSIS_LIMIT = 600;
+	// Not private: SeriesCache has to be big enough to hold the history this asks for, and when the
+	// two disagree the cache silently wins. See SeriesCache.MAX_ENTRIES.
+	static final int DEEP_ANALYSIS_LIMIT = 600;
 	/**
 	 * Liquidity floors, in units and in gold.
 	 * <p>

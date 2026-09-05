@@ -337,17 +337,48 @@ final class CompanionService implements AutoCloseable
 			warming = true;
 			try
 			{
-				java.util.List<Integer> wanted = planner.shortlistIds();
-				if (!wanted.isEmpty())
+				// Keep going while there is anything left to fetch, instead of one budgeted pass per
+				// planning cycle.
+				//
+				// One pass per plan tied the refill rate to how often the planner happened to run, and
+				// at a six-hundred item shortlist that is slower than the twenty-minute expiry: the
+				// warm count climbed to 363 of 600 and then FELL -- 319, 311, 306 -- as entries aged
+				// out faster than they were replaced. A cache that can never converge is worse than a
+				// smaller one, because the items it is missing are arbitrary, so the planner silently
+				// skips a different third of the market every pass.
+				//
+				// This is not a faster rate, it is a rate that is allowed to finish. Each pass is
+				// still spaced request by request, and the loop stops the moment a pass fetches
+				// nothing, so the sustained cost is exactly the expiry rate and no more. A cold start
+				// converges in about four minutes rather than never.
+				boolean planned = false;
+				while (!Thread.currentThread().isInterrupted())
 				{
+					java.util.List<Integer> wanted = planner.shortlistIds();
+					if (wanted.isEmpty())
+					{
+						break;
+					}
 					int spent = series.warm(wanted, CandidateFactory.LIVE_SHORT_STEP, WARM_BUDGET);
 					spent += series.warm(wanted, CandidateFactory.LIVE_LONG_STEP, WARM_BUDGET);
-					if (spent > 0)
+					if (spent == 0)
+					{
+						break;
+					}
+					if (!planned)
 					{
 						// A fresh item cannot be planned until its history lands, so a plan made
-						// before the top-up is already out of date by the time it is served.
+						// before the top-up is already out of date by the time it is served. Once per
+						// warm-up, not once per batch: ten batches used to mean ten replans, each one
+						// replacing what the player was reading.
 						requestPlan();
+						planned = true;
 					}
+				}
+				if (planned)
+				{
+					// And once at the end, on everything that arrived after the first plan.
+					requestPlan();
 				}
 			}
 			catch (Exception ex)

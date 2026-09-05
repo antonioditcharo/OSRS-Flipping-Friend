@@ -61,7 +61,22 @@ final class SeriesCache implements SeriesSource
 	private static final Duration LONG_TTL = Duration.ofHours(3);
 	/** A failed fetch is worth retrying soon; it is not a result worth keeping for three hours. */
 	private static final Duration FAILURE_TTL = Duration.ofMinutes(2);
-	private static final int MAX_ENTRIES = 600;
+	/**
+	 * Room for every shortlisted item at both resolutions, and then some.
+	 *
+	 * <p>This was a flat 600 while the shortlist grew to 600 ITEMS, and each item needs two entries.
+	 * So the cache could hold half of what the planner was asking for, and being access-ordered it
+	 * evicted precisely what the warmer had just fetched: the warm count oscillated between 250 and
+	 * 340 of 600 for as long as it was left running, never converging, re-fetching the same history
+	 * from a volunteer-run API for ever and getting no further. The planner meanwhile skipped a
+	 * different arbitrary third of the market on every pass.
+	 *
+	 * <p>Derived from the shortlist rather than set beside it, because a number that has to agree
+	 * with another number will not, and the failure is silent. The spare capacity absorbs the churn
+	 * as items enter and leave the shortlist, so a brief change of mind does not evict history that
+	 * is about to be wanted again.
+	 */
+	private static final int MAX_ENTRIES = CandidateFactory.DEEP_ANALYSIS_LIMIT * 2 + 400;
 	/**
 	 * Shortest gap between writes of the cache file.
 	 * <p>
