@@ -158,6 +158,16 @@ public class FlippingFriendPanel extends PluginPanel
 		content.add(UiUtils.gap(UiUtils.SPACE_M));
 		content.add(onboardingSlot);
 
+		// The session line only moves where this session is counted from -- every flip stays on
+		// record -- so the panel can do it itself. Clearing the all-time figures also has to rebuild
+		// the calibrator from the emptied history, and that lives with the plugin.
+		statsPanel.setOnResetSession(() ->
+		{
+			journal.startSession();
+			refresh();
+		});
+		statsPanel.setOnResetAllTime(() -> onResetAllTime.run());
+
 		suggestionCard.setOnSkip(this::skipItem);
 		suggestionCard.setOnBlock(this::blockItem);
 		content.add(UiUtils.gap(UiUtils.SPACE_M));
@@ -332,6 +342,18 @@ public class FlippingFriendPanel extends PluginPanel
 	{
 		this.learning = readings;
 		this.companionReachable = reachable;
+	}
+
+	private Runnable onResetAllTime = () -> { };
+
+	/**
+	 * What to do when the all-time figures are cleared. Set by the plugin, which owns the calibrator
+	 * that has to be rebuilt afterwards -- otherwise it would go on correcting from a history the
+	 * journal no longer holds.
+	 */
+	public void setOnResetAllTime(Runnable onResetAllTime)
+	{
+		this.onResetAllTime = onResetAllTime;
 	}
 
 	/** Safe to call from any thread. */

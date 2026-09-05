@@ -215,6 +215,16 @@ public class FlippingFriendPlugin extends Plugin
 
 		// Skipping or blocking has to reach the walkthrough, and only this loop writes to it.
 		panel.setOnRejection(this::requestEngineRefresh);
+		panel.setOnResetAllTime(() ->
+		{
+			java.nio.file.Path archived = journal.archiveAndReset();
+			// Rebuilt from what the journal holds now, which is nothing. Left as it was, the
+			// calibrator would go on applying corrections learned from trades the plugin can no
+			// longer show you, which is the one state worse than having no corrections at all.
+			calibrator.rebuild(journal.getHistory());
+			log.info("all-time figures reset; previous journal kept at {}", archived);
+			panel.refresh();
+		});
 		panel.setOnCardClicked(this::copyCurrentStepToClipboard);
 
 		// Before start(), so the very first thing the market service does is ask next door for a feed

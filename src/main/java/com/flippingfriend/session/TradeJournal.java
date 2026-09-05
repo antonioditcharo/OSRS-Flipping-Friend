@@ -252,6 +252,56 @@ public class TradeJournal
 		touch();
 	}
 
+	/**
+	 * Starts the all-time figures again, keeping the trades themselves.
+	 *
+	 * <p>The journal is renamed, not deleted. It is the only record of how this plugin's own
+	 * predictions turned out -- the calibrator is built from it and nothing else -- and a flip that
+	 * was not recorded is gone for good. Wanting the counter back at zero is not the same as wanting
+	 * the evidence destroyed, so the file moves aside with a timestamp and a fresh one starts.
+	 *
+	 * <p>Restoring is renaming it back. The plugin reads whatever {@code journal.jsonl} contains at
+	 * load, so nothing else needs to happen.
+	 *
+	 * @return where the old journal was put, or null if there was nothing to move
+	 */
+	public synchronized Path archiveAndReset()
+	{
+		Path file = storage.accountDir().resolve(FILE_NAME);
+		Path archived = null;
+		try
+		{
+			if (java.nio.file.Files.exists(file))
+			{
+				archived = storage.accountDir().resolve(FILE_NAME + ".before-reset-"
+					+ java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")
+						.withZone(java.time.ZoneId.systemDefault()).format(Instant.now()));
+				java.nio.file.Files.move(file, archived);
+			}
+		}
+		catch (Exception ex)
+		{
+			log.warn("could not archive the journal; leaving it alone rather than clearing it", ex);
+			return null;
+		}
+
+		history.clear();
+		session.clear();
+		lifetimeFlips = 0;
+		lifetimeWins = 0;
+		lifetimeProfit = 0;
+		lifetimeTax = 0;
+		lifetimeMinutes = 0;
+		lifetimeEarliest = Long.MAX_VALUE;
+		lifetimeLatest = 0;
+		lifetimeSectorProfits.clear();
+		// So a later load() reads the new, empty file rather than short-circuiting on the path it
+		// believes it has already read.
+		loadedFrom = null;
+		startSession();
+		return archived;
+	}
+
 	public SessionStats sessionStats()
 	{
 		int flips = 0;

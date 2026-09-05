@@ -31,6 +31,13 @@ class StatsPanel extends JPanel
 
 	private final java.util.Map<com.flippingfriend.model.MarketSector, JLabel> sectorLabels = new java.util.HashMap<>();
 
+	private final javax.swing.JButton resetSession = new javax.swing.JButton("Reset session");
+	private final javax.swing.JButton resetAllTime = new javax.swing.JButton("Reset all time");
+
+	/** Told what to do when a reset is asked for; the panel does not reach for the journal itself. */
+	private Runnable onResetSession = () -> { };
+	private Runnable onResetAllTime = () -> { };
+
 	private final JPanel lifetimePanel = new JPanel();
 	private final JLabel lifetimeProfit = new JLabel();
 	private final JLabel lifetimeFlips = new JLabel();
@@ -89,7 +96,71 @@ class StatsPanel extends JPanel
 
 		add(lifetimePanel);
 
+		// Two buttons, because they undo different things and one of them is not really undoable.
+		//
+		// "Reset session" only moves the line this session is counted from; every flip stays on
+		// record and the all-time figures do not move. "Reset all time" is the one to be careful
+		// with, so it asks first, and even having asked it RENAMES the journal rather than deleting
+		// it -- that file is the only record of how the plugin's own predictions turned out, and the
+		// calibrator is built from it and nothing else.
+		JPanel resets = new JPanel();
+		resets.setLayout(new BoxLayout(resets, BoxLayout.X_AXIS));
+		resets.setOpaque(false);
+		resets.setAlignmentX(Component.LEFT_ALIGNMENT);
+		styleSmallButton(resetSession);
+		styleSmallButton(resetAllTime);
+		resetSession.addActionListener(event -> onResetSession.run());
+		resetAllTime.addActionListener(event -> confirmAllTime());
+		resets.add(resetSession);
+		resets.add(javax.swing.Box.createRigidArea(new Dimension(UiUtils.SPACE_S, 0)));
+		resets.add(resetAllTime);
+		UiUtils.constrainWidth(resets);
+
+		add(UiUtils.gap(UiUtils.SPACE_M));
+		add(resets);
+
 		update(SessionStats.empty(), SessionStats.empty());
+	}
+
+	void setOnResetSession(Runnable onResetSession)
+	{
+		this.onResetSession = onResetSession;
+	}
+
+	void setOnResetAllTime(Runnable onResetAllTime)
+	{
+		this.onResetAllTime = onResetAllTime;
+	}
+
+	/**
+	 * Asks before wiping the record, and says what actually happens to it.
+	 *
+	 * <p>A confirmation that only says "are you sure" tells the reader nothing they did not already
+	 * know. This one says where the file goes, because the honest answer -- it is renamed, not
+	 * destroyed -- is the thing that makes the decision easy.
+	 */
+	private void confirmAllTime()
+	{
+		int answer = javax.swing.JOptionPane.showConfirmDialog(this,
+			"Set the all-time profit, flip count and win rate back to zero?\n\n"
+				+ "Your trade history is kept: the journal file is renamed with today's date rather\n"
+				+ "than deleted, so it can be put back. The plugin will start learning from an empty\n"
+				+ "record, which means its fill estimates lose what they have worked out so far.",
+			"Reset all-time figures", javax.swing.JOptionPane.OK_CANCEL_OPTION,
+			javax.swing.JOptionPane.WARNING_MESSAGE);
+		if (answer == javax.swing.JOptionPane.OK_OPTION)
+		{
+			onResetAllTime.run();
+		}
+	}
+
+	private static void styleSmallButton(javax.swing.JButton button)
+	{
+		button.setFont(FontManager.getRunescapeSmallFont());
+		button.setForeground(UiUtils.MUTED);
+		button.setBackground(UiUtils.CARD_HOVER);
+		button.setFocusPainted(false);
+		button.setBorder(javax.swing.BorderFactory.createEmptyBorder(3, 8, 3, 8));
 	}
 
 	void update(SessionStats session, SessionStats lifetime)
