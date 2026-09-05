@@ -307,28 +307,47 @@ final class SeriesCache implements SeriesSource
 
 		int restored = 0;
 		int expired = 0;
-		try (Reader reader = new InputStreamReader(
-			new GZIPInputStream(Files.newInputStream(file)), StandardCharsets.UTF_8))
+		// Streamed, one entry at a time.
+		//
+		// This used to be JsonParser.parseReader over the whole document, which builds a tree of the
+		// entire file before a single entry is looked at. At six hundred shortlisted items the file is
+		// 58 MB of JSON holding about 1,600 series -- roughly 2.9 million boxed numbers, ALL live
+		// simultaneously, because the tree is not released until the loop over it ends. The companion
+		// died on startup with OutOfMemoryError inside a 512 MB heap, having never served a request.
+		//
+		// A bigger heap only moves that: the file grows with DEEP_ANALYSIS_LIMIT, so the tree grows
+		// with it. Reading entry by entry bounds the transient cost at one series regardless of how
+		// large the file gets, and what stays behind is the cache itself, which is what we came for.
+		try (com.google.gson.stream.JsonReader reader = new com.google.gson.stream.JsonReader(
+			new InputStreamReader(new GZIPInputStream(Files.newInputStream(file)),
+				StandardCharsets.UTF_8)))
 		{
-			JsonObject root = JsonParser.parseReader(reader).getAsJsonObject();
-			if (!root.has("entries") || !root.get("entries").isJsonArray())
+			reader.beginObject();
+			while (reader.hasNext())
 			{
-				return;
-			}
-			for (JsonElement element : root.getAsJsonArray("entries"))
-			{
-				JsonObject stored = element.getAsJsonObject();
-				String key = stored.get("key").getAsString();
-				Cached cached = new Cached(parse(stored),
-					Instant.ofEpochSecond(stored.get("fetchedAt").getAsLong()));
-				if (cached.isStale(timestepOf(key)))
+				if (!"entries".equals(reader.nextName()))
 				{
-					expired++;
+					reader.skipValue();
 					continue;
 				}
-				cache.put(key, cached);
-				restored++;
+				reader.beginArray();
+				while (reader.hasNext())
+				{
+					JsonObject stored = JsonParser.parseReader(reader).getAsJsonObject();
+					String key = stored.get("key").getAsString();
+					Cached cached = new Cached(parse(stored),
+						Instant.ofEpochSecond(stored.get("fetchedAt").getAsLong()));
+					if (cached.isStale(timestepOf(key)))
+					{
+						expired++;
+						continue;
+					}
+					cache.put(key, cached);
+					restored++;
+				}
+				reader.endArray();
 			}
+			reader.endObject();
 		}
 		catch (Exception ex)
 		{

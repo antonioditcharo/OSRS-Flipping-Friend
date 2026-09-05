@@ -470,20 +470,26 @@ final class CompanionService implements AutoCloseable
 	{
 		long open = event.getFirstSeenAt();
 		long closed = event.getObservedAt();
-		if (open <= 0 || closed - open < CaptureRates.MIN_OPEN_SECONDS)
+		if (open <= 0)
 		{
 			return;
 		}
+		// The minimum-duration rule is NOT repeated here. It used to be, and it silently outranked the
+		// one inside observe(): CaptureRates was changed to admit a short offer that filled completely
+		// -- the strongest capture evidence there is -- and this gate went on refusing them before it
+		// was ever called. One rule, in the class that owns it.
 		try
 		{
 			// One bucket of slack at each end, so the bars straddling the interval are fetched and can
 			// be prorated rather than dropped for having started a moment too early.
 			List<Candle> bars = store.priceArchive().series(event.getItemId(),
 				PriceArchive.FIVE_MINUTE, open - 300, closed + 300);
-			double flow = captureRates.observe(event, bars);
-			if (flow > 0)
+			CaptureRates.Observation seen = captureRates.observe(event, bars);
+			if (seen.isSomething())
 			{
-				store.recordCapture(event.getItemId(), event.getFilledQuantity(), flow);
+				// Exactly what was counted in memory. Passing the raw fill here instead is what put
+				// impossible rows in capture_stat and fed them back on the next restart.
+				store.recordCapture(event.getItemId(), seen.filled, seen.flow);
 			}
 		}
 		catch (Exception unavailable)

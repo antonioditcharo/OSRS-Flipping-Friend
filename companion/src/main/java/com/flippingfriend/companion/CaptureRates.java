@@ -155,11 +155,11 @@ final class CaptureRates
 	 * @param bars the archive's five-minute bars overlapping the offer's open interval, oldest first
 	 * @return the flow the offer was measured against, or 0 when it taught us nothing
 	 */
-	synchronized double observe(OfferEvent event, List<Candle> bars)
+	synchronized Observation observe(OfferEvent event, List<Candle> bars)
 	{
 		if (event == null || event.getItemId() <= 0 || event.getPrice() <= 0)
 		{
-			return 0;
+			return NOTHING;
 		}
 		long open = event.getFirstSeenAt();
 		long closed = event.getObservedAt();
@@ -175,13 +175,13 @@ final class CaptureRates
 		// the offers that sat for an hour and filled nothing is a filter that admits only failures.
 		if (open <= 0 || (closed - open < MIN_OPEN_SECONDS && !tookEverythingAskedFor))
 		{
-			return 0;
+			return NOTHING;
 		}
 
 		double flow = flowAtOrBeyond(bars, open, closed, event.isBuying(), event.getPrice());
 		if (flow < MIN_FLOW && !tookEverythingAskedFor)
 		{
-			return 0;
+			return NOTHING;
 		}
 
 		// The denominator is the flow, EXCEPT when our own order size ended the measurement.
@@ -200,38 +200,90 @@ final class CaptureRates
 		// precisely the case that needs no denominator -- we know what we took and we know we wanted
 		// no more. Weighted by the size of the order, so filling ten thousand units counts for more
 		// than filling ten.
-		double takeable;
+		// The rate this offer demonstrates, and separately how much that rate should count for.
+		//
+		// Those are two questions and conflating them is what put the pooled rate at 9%. Weighting an
+		// observation by the flow that passed lets ONE offer own the estimate: a buy left open for
+		// hours on a liquid rune accumulated 1,077,132 units of flow against zero fills, which was 73%
+		// of all the weight in the system and set the rate every other item was shrunk toward.
+		//
+		// We could never have taken more than we asked for, so flow past our order size is not
+		// evidence about us -- we were not competing for it. The rate still comes from the flow, which
+		// is what identifies it; only the weight is capped at what was actually at stake.
+		if (filled > flow && flow > 0)
+		{
+			// More than the archive saw crossing means the archive was short -- missing bars, or a gap
+			// in the companion's uptime -- not that the fill did not happen. Counted here, outside the
+			// branches, because it is a fact about the ARCHIVE and is worth reporting whether or not
+			// the offer also happened to fill completely.
+			overflows++;
+		}
+
+		double rate;
 		if (tookEverythingAskedFor)
 		{
-			takeable = flow >= MIN_FLOW ? Math.min(flow, ordered) : ordered;
+			// Right-censored: we took everything we asked for and never found out what we could not
+			// have had. All this establishes is a lower bound, and scoring it as filled/flow reads
+			// "we won a tenth of what passed" off an order that was only ever asking for a tenth.
+			rate = 1.0;
+		}
+		else if (flow <= 0)
+		{
+			return NOTHING;
 		}
 		else
 		{
-			takeable = flow;
-		}
-		if (takeable <= 0)
-		{
-			return 0;
-		}
-
-		if (filled > takeable)
-		{
-			// Filling more than the archive saw crossing means the archive was short -- missing bars,
-			// or a gap in the companion's uptime -- not that the fill did not happen. This used to be
-			// discarded, which threw away the two best observations on this account for having done
-			// too well. Counted at the ceiling instead, and still reported.
-			overflows++;
-			filled = takeable;
+			// Capped at one: we cannot have won more than everything that passed. Refusing these
+			// outright, as this once did, threw away the best observations on the account for having
+			// done too well.
+			rate = Math.min(1.0, filled / flow);
 		}
 
+		double weight = ordered > 0 ? Math.min(Math.max(flow, 1), ordered) : flow;
+		if (weight <= 0)
+		{
+			return NOTHING;
+		}
+
+		double counted = rate * weight;
 		Totals totals = perItem.computeIfAbsent(event.getItemId(), id -> new Totals());
-		totals.filled += filled;
-		totals.flow += takeable;
+		totals.filled += counted;
+		totals.flow += weight;
 		totals.observations++;
-		totalFilled += filled;
-		totalFlow += takeable;
+		totalFilled += counted;
+		totalFlow += weight;
 		observations++;
-		return takeable;
+		return new Observation(counted, weight);
+	}
+
+	/** Nothing was learned from this offer. */
+	static final Observation NOTHING = new Observation(0, 0);
+
+	/**
+	 * What one offer contributed, so the caller stores exactly what was counted.
+	 *
+	 * <p>This used to return the flow alone and the caller persisted
+	 * {@code event.getFilledQuantity()} beside it -- the RAW fill, not the one this class had capped.
+	 * So the durable record disagreed with the running totals, and a restart read the disagreement
+	 * back in as fact: rows in {@code capture_stat} with 20,850 filled against 5,221 of flow, a ratio
+	 * of four, which is not a thing that can happen. Two numbers derived by two pieces of code from
+	 * the same event will differ eventually. Now there is one.
+	 */
+	static final class Observation
+	{
+		final double filled;
+		final double flow;
+
+		Observation(double filled, double flow)
+		{
+			this.filled = filled;
+			this.flow = flow;
+		}
+
+		boolean isSomething()
+		{
+			return flow > 0;
+		}
 	}
 
 	/**

@@ -75,15 +75,55 @@ public class CaptureRatesTest
 		CaptureRates rates = new CaptureRates();
 		// Twelve five-minute bars, 1,000 units each side: 12,000 units of flow past a buy at 100.
 		// We took 1,200 of them, so the truth is 0.10 against an appetite that assumed 0.50.
-		double flow = rates.observe(offer(ITEM, true, 100, 5_000, 1_200, 12 * BUCKET),
-			bars(12, 100, 1_000));
+		CaptureRates.Observation seen = rates.observe(
+			offer(ITEM, true, 100, 5_000, 1_200, 12 * BUCKET), bars(12, 100, 1_000));
 
-		assertEquals("the denominator is the flow that passed at or beyond our price",
-			12_000.0, flow, 1.0);
+		// The RATE is still identified from the flow that passed: 1,200 of 12,000 is a tenth, and the
+		// assertions below pin it. What is capped is the WEIGHT -- this offer asked for 5,000, so it
+		// counts for 5,000 and not for the 12,000 it was never competing for.
+		assertEquals("weighted by what was actually at stake", 5_000.0, seen.flow, 1.0);
+		assertEquals("carrying the tenth it demonstrated", 500.0, seen.filled, 1.0);
 		double learned = rates.rateFor(ITEM, APPETITE);
 		assertTrue("the measurement must pull the rate well below the assumption: " + learned,
 			learned < 0.2);
 		assertTrue("but not below the truth it measured: " + learned, learned > 0.10);
+	}
+
+	@Test
+	public void oneLongRunningOfferCannotOwnTheEstimate()
+	{
+		// The live failure. A buy left open for hours on a liquid rune accumulated 1,077,132 units of
+		// flow against zero fills -- one observation holding 73% of all the weight in the system,
+		// setting the rate that every other item was shrunk toward. The pooled rate sat at 9% against
+		// a prior of 0.85 and every order in the plan was sized from it.
+		//
+		// We could never have taken more than we asked for, so flow past our order size is not
+		// evidence about us: we were not competing for it. The zero is still counted, and still
+		// pulls the rate down. It just cannot drown out everything else.
+		CaptureRates dominated = new CaptureRates();
+		dominated.observe(offer(ITEM, true, 100, 5_000, 0, 12 * BUCKET), bars(12, 100, 100_000));
+		dominated.observe(offer(OTHER, true, 100, 5_000, 4_000, 12 * BUCKET), bars(12, 100, 1_000));
+
+		// The good item must still read as good, rather than being dragged to the bad one's rate.
+		assertTrue("a well-executing item must survive a neighbour's bad hour: "
+				+ dominated.rateFor(OTHER, APPETITE),
+			dominated.rateFor(OTHER, APPETITE) > APPETITE / 2);
+	}
+
+	@Test
+	public void whatIsCountedIsWhatGetsStored()
+	{
+		// The caller persists what observe() returns, and it has to be the same numbers that went into
+		// the running totals. It used to persist the RAW fill quantity beside this class's capped
+		// flow, so the durable record disagreed with memory and a restart read the disagreement back
+		// as fact: rows with 20,850 filled against 5,221 of flow, a ratio of four, which cannot happen.
+		CaptureRates rates = new CaptureRates();
+
+		CaptureRates.Observation seen = rates.observe(
+			offer(ITEM, true, 100, 90_000, 90_000, 12 * BUCKET), bars(12, 100, 1_000));
+
+		assertTrue("a stored row can never claim more filled than flowed: "
+			+ seen.filled + " of " + seen.flow, seen.filled <= seen.flow);
 	}
 
 	@Test
@@ -139,9 +179,10 @@ public class CaptureRatesTest
 		// while seventeen buys and eighty-three sales had completed.
 		CaptureRates rates = new CaptureRates();
 
-		double measured = rates.observe(offer(ITEM, true, 100, 400, 400, 60), bars(4, 100, 1_000));
+		CaptureRates.Observation measured =
+			rates.observe(offer(ITEM, true, 100, 400, 400, 60), bars(4, 100, 1_000));
 
-		assertTrue("a complete fill counts however quick it was", measured > 0);
+		assertTrue("a complete fill counts however quick it was", measured.isSomething());
 		assertEquals(1, rates.observationCount());
 		assertTrue("and it must not drag the rate down: " + rates.rateFor(ITEM, APPETITE),
 			rates.rateFor(ITEM, APPETITE) > APPETITE);
@@ -169,10 +210,10 @@ public class CaptureRatesTest
 		// An hour of flow passing and none of it ours says more about the queue than any fill does.
 		// Dropping the zeroes would bias the estimate up by exactly the quantity being measured.
 		CaptureRates rates = new CaptureRates();
-		double flow = rates.observe(offer(ITEM, true, 100, 5_000, 0, 12 * BUCKET),
+		CaptureRates.Observation seen = rates.observe(offer(ITEM, true, 100, 5_000, 0, 12 * BUCKET),
 			bars(12, 100, 1_000));
 
-		assertTrue("a zero-fill offer must be counted", flow > 0);
+		assertTrue("a zero-fill offer must be counted", seen.isSomething());
 		assertEquals(1, rates.observationCount());
 		assertTrue("and must pull the rate down: " + rates.rateFor(ITEM, APPETITE),
 			rates.rateFor(ITEM, APPETITE) < APPETITE);
@@ -192,8 +233,9 @@ public class CaptureRatesTest
 
 		assertTrue("flow at our price counts: " + reached, reached > 10_000);
 		assertTrue("flow that never came to us does not: " + missed, missed < reached / 4);
-		assertEquals("and an offer measured against nothing teaches nothing", 0,
-			rates.observe(offer(ITEM, true, 100, 5_000, 0, 12 * BUCKET), bars(12, 500, 1_000)), 1e-9);
+		assertTrue("and an offer measured against nothing teaches nothing",
+			!rates.observe(offer(ITEM, true, 100, 5_000, 0, 12 * BUCKET), bars(12, 500, 1_000))
+				.isSomething());
 	}
 
 	@Test
@@ -234,7 +276,8 @@ public class CaptureRatesTest
 		// rests on a single prorated bucket.
 		CaptureRates rates = new CaptureRates();
 
-		assertEquals(0, rates.observe(offer(ITEM, true, 100, 500, 100, 60), bars(4, 100, 1_000)), 1e-9);
+		assertTrue(!rates.observe(offer(ITEM, true, 100, 500, 100, 60), bars(4, 100, 1_000))
+			.isSomething());
 		assertEquals(0, rates.observationCount());
 	}
 
@@ -254,10 +297,10 @@ public class CaptureRatesTest
 		// is worth seeing on the health line.
 		CaptureRates rates = new CaptureRates();
 
-		double flow = rates.observe(offer(ITEM, true, 100, 90_000, 90_000, 12 * BUCKET),
-			bars(12, 100, 1_000));
+		CaptureRates.Observation seen = rates.observe(
+			offer(ITEM, true, 100, 90_000, 90_000, 12 * BUCKET), bars(12, 100, 1_000));
 
-		assertTrue("the observation is kept", flow > 0);
+		assertTrue("the observation is kept", seen.isSomething());
 		assertEquals(1, rates.observationCount());
 		assertEquals("and the health line can still see it happened", 1, rates.overflowCount());
 		assertTrue("filling everything available cannot lower the rate: "
@@ -280,7 +323,12 @@ public class CaptureRatesTest
 
 		assertTrue("a thin observation must leave the assumption nearly intact: " + afterThin,
 			afterThin > APPETITE * 0.85);
-		assertTrue("a thick one must not: " + afterThick, afterThick < APPETITE * 0.2);
+		assertTrue("a thick one must not: " + afterThick, afterThick < APPETITE * 0.6);
+		assertTrue("and it must move the rate much further than the trickle did: "
+			+ afterThick + " vs " + afterThin, afterThick < afterThin / 1.5);
+		// Both offers asked for 500 units, so neither can count for more than 500 however much flowed
+		// past. That ceiling is deliberate -- an offer is only evidence about the race it entered --
+		// and it is why the thick case no longer collapses the rate to almost nothing on one reading.
 	}
 
 	@Test
