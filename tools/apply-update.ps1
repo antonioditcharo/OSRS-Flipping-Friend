@@ -61,7 +61,10 @@ if (-not $SkipBuild) {
     Write-Host 'Building...'
     Push-Location $root
     try {
-        & .\gradlew.bat jar daemonJar :companion:shadowJar :companion:monitorJar :companion:replayJar --console=plain -q
+        # jar and the companion, which is all that exists. daemonJar, monitorJar and replayJar were
+        # removed on 2026-09-02 -- they pointed at classes that were not in the tree -- and asking
+        # for them here made every update fail at the build step.
+        & .\gradlew.bat jar :companion:shadowJar --console=plain -q
         if ($LASTEXITCODE -ne 0) { throw "Build failed with exit code $LASTEXITCODE." }
     }
     finally { Pop-Location }

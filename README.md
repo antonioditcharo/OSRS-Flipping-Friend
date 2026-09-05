@@ -109,10 +109,12 @@ which factors it now weights most.
 
 ### The always-on learner
 
-`3 - Background Learning` installs a headless process that runs at login and studies the market
-continuously. It closes two holes the in-game learner cannot:
+The companion **is** the always-on learner. It runs beside the client, studies the market
+continuously, and keeps learning for as long as it is up — which closes the two holes an
+in-session learner cannot:
 
-- **Volume.** A session yields a few dozen resolved observations. This yields thousands.
+- **Volume.** A session yields a few dozen resolved observations. Running continuously yields
+  thousands.
 - **Bias.** The plugin only observes the hours you play, which is a poor sample for a model whose
   job includes working out *what time of day an item trades*.
 
@@ -121,11 +123,16 @@ It runs the shipping model — the same `Scorer`, `ManipulationFilter`, `Feature
 produce corrections that are worse than useless.
 
 It learns **market behaviour only**, written to a shared store every account can read. How fast your
-offers fill is a property of you, and a daemon has no queue to wait in, so execution stays with the
-plugin and is informed only by real flips.
+offers fill is a property of you, and a background learner has no queue to wait in, so execution
+stays with the plugin and is informed only by real flips.
 
-Footprint: under 100 MB, a few requests a minute to the same public API, a few MB on disk. Nothing
-touches the game or the account. `tools\uninstall-daemon.ps1` removes it.
+`1 - First Time Setup` registers it to start with Windows; `tools\uninstall-companion.ps1` removes
+that and stops it. Footprint: a few requests a second to the same public API while it is warming a
+shortlist, close to nothing once warm, and a few MB on disk. Nothing touches the game or the account.
+
+> A separate `3 - Background Learning` launcher used to install a second headless daemon for this.
+> Its build task and its classes were removed on 2026-09-02 and the launcher went with them on
+> 2026-09-04.
 
 ### Sizing at scale
 

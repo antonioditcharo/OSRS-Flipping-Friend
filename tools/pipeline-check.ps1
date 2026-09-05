@@ -66,8 +66,10 @@ if ($SkipBuild) {
     Report 'Build' 'SKIP' 'skipped by request'
 } else {
     Push-Location $root
-    & .\gradlew.bat jar daemonJar :companion:shadowJar :companion:monitorJar `
-        :companion:replayJar :companion:trainerJar --console=plain -q 2>&1 | Out-Null
+    # daemonJar, monitorJar, replayJar and trainerJar were removed on 2026-09-02, having pointed at
+    # classes that were not in the tree. Naming them here failed the build step of the very check
+    # that is supposed to tell you whether the build is healthy.
+    & .\gradlew.bat jar :companion:shadowJar --console=plain -q 2>&1 | Out-Null
     $built = $LASTEXITCODE -eq 0
     Pop-Location
     if ($built) { Report 'Build' 'PASS' 'every jar task succeeded' }
@@ -424,6 +426,9 @@ foreach ($line in $dbOut) {
 if ($SkipWalkForward) {
     Report 'Walk-forward' 'SKIP' 'skipped by request'
 } elseif ($java) {
+    # No build task produces this any more, so it only fires against a jar someone archived on
+    # purpose. Left in rather than deleted: the walk-forward it runs is still the honest end-to-end
+    # check of the engine, and the guard below already reports its absence rather than failing.
     $replayJar = Join-Path $root 'companion\build\libs\flipping-friend-replay.jar'
     if (Test-Path $replayJar) {
         $replay = & $java -jar $replayJar 90 40000000 5m 2>&1
