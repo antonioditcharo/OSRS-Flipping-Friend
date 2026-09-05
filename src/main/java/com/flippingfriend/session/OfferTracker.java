@@ -413,6 +413,38 @@ public class OfferTracker
 			return;
 		}
 
+		if (costBasis <= 0)
+		{
+			// Backed by a position that carries no price: the item was already owned, not bought here.
+			// Selling your own armour converts an asset into coins, and the proceeds are not profit --
+			// booking them as profit is how one account's all-time figure reached 62.1m of which 61.9m
+			// was twenty sales of its own gear, Ranger boots alone counting for 35.9m.
+			//
+			// The comment above the reconstruction block already names this failure -- "booking the
+			// proceeds as pure profit is not the answer either" -- and guards the case where nothing
+			// is backed. It did not guard the case where something is backed at a price of zero, which
+			// is the same thing wearing a position.
+			log.info("sold {} x {} that this plugin never bought; not a flip, so it is left out of "
+					+ "the profit figures", quantity, tracked.getItemName());
+			return;
+		}
+
+		if (costBasis <= 0)
+		{
+			// Backed by a position that carries no price: the item was already owned, not bought here.
+			// Selling your own armour converts an asset into coins, and the proceeds are not profit --
+			// booking them as profit is how one account's all-time figure reached 62.1m of which 61.9m
+			// was twenty sales of its own gear, Ranger boots alone counting for 35.9m.
+			//
+			// The comment above the reconstruction block already names this failure -- "booking the
+			// proceeds as pure profit is not the answer either" -- and guards the case where nothing
+			// is backed. It did not guard the case where something is backed at a price of zero, which
+			// is the same thing wearing a position.
+			log.info("sold {} x {} that this plugin never bought; not a flip, so it is left out of "
+					+ "the profit figures", quantity, tracked.getItemName());
+			return;
+		}
+
 		long gross = tracked.getPendingGross();
 		long tax = tracked.getPendingTax();
 
@@ -471,52 +503,39 @@ public class OfferTracker
 		}
 		else
 		{
-			// The exchange deducts the tax before returning coins for a sell offer, so the money actually
-			// received is the truth. If the user listed it for 1 gp to instant-sell, the price in the offer
-			// is 1 gp, but they actually received the true market value. Using tracked.getPrice() here
-			// caused massive artificial losses to be recorded.
-			long spentSoFar = offer == null ? tracked.getSpent() : offer.getSpent();
-			long net = Math.max(0, spentSoFar - tracked.getRecordedSpent());
-			long gross;
-			long tax;
+			// What the exchange reports for a sale is the GROSS, before tax.
+			//
+			// This assumed the opposite, and reconstructed a pre-tax figure by dividing by 0.98 --
+			// then subtracted the difference as the tax. Both halves were wrong and they cancelled,
+			// leaving the real tax never deducted at all and a fabricated one of the same size written
+			// into the journal beside it.
+			//
+			// A seller cannot receive more than they asked. 24,370 Blood runes listed at 347 came out
+			// of that arithmetic at 354 a piece, which is not a price anyone was ever paid, and the
+			// 170,590 gp of "tax" recorded against them is exactly (354 - 347) x 24,370. Diamond
+			// dragon bolts at 2,991 produced 3,052 and 224,236 the same way. Half the journal --
+			// eighty records of a hundred and fifty-nine -- carries a profit with no tax taken off,
+			// overstating it by four million gp in total.
+			//
+			// The tax is not something to infer. Its rule is known exactly, so it is computed from
+			// the price actually received, and the net follows from it rather than the other way
+			// round.
+			long grossSoFar = offer == null ? tracked.getSpent() : offer.getSpent();
+			long gross = Math.max(0, grossSoFar - tracked.getRecordedSpent());
+			if (gross <= 0)
+			{
+				// No usable figure from the exchange, so fall back to what was asked. Listing below
+				// the market does not cost the seller anything -- the exchange matches at the older
+				// offer's price and refunds the buyer -- so the ask is the right fallback.
+				gross = (long) tracked.getPrice() * quantity;
+			}
+			int receivedPerItem = (int) (gross / Math.max(1, quantity));
+			long tax = taxCalculator.taxFor(itemId, receivedPerItem, quantity);
+			long net = gross - tax;
 
-			if (net > 0)
-			{
-				long expectedNet = (long) tracked.getPrice() * quantity - taxCalculator.taxFor(itemId, tracked.getPrice(), quantity);
-				if (net == expectedNet)
-				{
-					gross = (long) tracked.getPrice() * quantity;
-					tax = gross - net;
-				}
-				else
-				{
-					long netPerItem = net / quantity;
-					long grossPerItem;
-					if (taxCalculator.isExempt(itemId))
-					{
-						grossPerItem = netPerItem;
-					}
-					else if (netPerItem >= TaxCalculator.CAP_THRESHOLD - TaxCalculator.MAX_TAX_PER_ITEM)
-					{
-						grossPerItem = netPerItem + TaxCalculator.MAX_TAX_PER_ITEM;
-					}
-					else
-					{
-						grossPerItem = (long) Math.round(netPerItem / (1.0 - TaxCalculator.TAX_RATE));
-					}
-					gross = grossPerItem * quantity;
-					tax = gross - net;
-				}
-			}
-			else
-			{
-				int price = tracked.getPrice();
-				gross = (long) price * quantity;
-				tax = taxCalculator.taxFor(itemId, price, quantity);
-				net = gross - tax;
-			}
-			
-			tracked.setRecordedSpent(Math.max(spentSoFar, tracked.getRecordedSpent() + net));
+			// Accumulated as gross, matching what the exchange reports, or the running total drifts
+			// from it by the tax on every partial fill.
+			tracked.setRecordedSpent(Math.max(grossSoFar, tracked.getRecordedSpent() + gross));
 
 			Position position = positions.get(itemId);
 			int averageCost = position == null ? 0 : position.getAverageCost();

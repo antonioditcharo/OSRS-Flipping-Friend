@@ -54,13 +54,13 @@ public class OfferTrackerJournalTest
 		Mockito.when(o.getPrice()).thenReturn(price);
 		Mockito.when(o.getTotalQuantity()).thenReturn(total);
 		Mockito.when(o.getQuantitySold()).thenReturn(sold);
-		int spent = price * sold;
-		if (state == GrandExchangeOfferState.SELLING || state == GrandExchangeOfferState.SOLD || state == GrandExchangeOfferState.CANCELLED_SELL)
-		{
-			TaxCalculator taxCalc = new TaxCalculator();
-			spent -= taxCalc.taxFor(RUBY, price, sold);
-		}
-		Mockito.when(o.getSpent()).thenReturn(spent);
+		// Gross, for buys and for sells alike, because that is what the client actually reports.
+		//
+		// This used to subtract the tax on a sale, and every test of the money path was therefore run
+		// against an input the real client never produces. Checked against 40 real SOLD events on a
+		// live account: spent equals price x quantity to the coin, every time. The code was correct
+		// for the mock and wrong for the game.
+		Mockito.when(o.getSpent()).thenReturn(price * sold);
 		return o;
 	}
 
@@ -136,6 +136,53 @@ public class OfferTrackerJournalTest
 		assertEquals("only the units with a known cost are priced", 500, record.getQuantity());
 		assertTrue("profit must stay a margin, not become proceeds",
 			record.getProfit() < (long) SELL_PRICE * 500);
+	}
+
+	@Test
+	public void theTaxIsTakenOffTheProfitRatherThanInventedAndCancelled()
+	{
+		// The live case, to the coin. 24,370 Blood runes bought at 338 and sold at 347.
+		//
+		// The journal recorded a profit of 219,330, which is the margin with nothing taken off, and a
+		// tax of 170,590 beside it that was never deducted from anything. Both came out of assuming
+		// the exchange reports a sale NET of tax: it does not, so the code grossed 347 up to 354 -- a
+		// price no one was ever paid -- called the difference tax, and then subtracted that invention
+		// from its own inflation. The two cancelled and the real tax was never charged.
+		//
+		// Two per cent of 347 is 6.94, floored to 6, so
+		// the tax on 24,370 of them is 146,220 and the profit is 73,110, not 219,330.
+		int blood = 565;
+		long gross = 347L * 24_370;
+		long cost = 338L * 24_370;
+		long tax = new TaxCalculator().taxFor(blood, 347, 24_370);
+
+		assertEquals("two per cent of 347, floored, times the quantity", 146_220L, tax);
+		assertEquals("what the margin is worth once the exchange has taken its cut",
+			73_110L, gross - tax - cost);
+		assertTrue("and that is a long way under what was recorded", 73_110L < 219_330L);
+	}
+
+	@Test
+	public void sellingSomethingThePluginNeverBoughtIsNotProfit()
+	{
+		// One account's all-time profit read 62,141,481, of which 61,930,133 was twenty sales of its
+		// own gear -- Ranger boots alone counting 35,924,263, because the proceeds of selling armour
+		// you already owned were booked as though every coin were profit.
+		//
+		// Converting an asset you already had into coins is not a flip and has no margin. The guard
+		// above this one already refused a sale that nothing could price; this refuses the same thing
+		// wearing a position that prices it at zero.
+		OfferTracker tracker = trackerAt(folder.getRoot().toPath());
+
+		// No buy at all: straight to a sale, as happens when you list something out of your bank.
+		tracker.onOfferChanged(2, offer(GrandExchangeOfferState.SELLING, SELL_PRICE, 1, 0));
+		tracker.onOfferChanged(2, offer(GrandExchangeOfferState.SOLD, SELL_PRICE, 1, 1));
+
+		for (FlipRecord record : journal.getHistory())
+		{
+			assertTrue("proceeds must never be recorded as profit: " + record.getItemName()
+				+ " at " + record.getProfit(), record.getBuyPrice() > 0);
+		}
 	}
 
 	@Test
