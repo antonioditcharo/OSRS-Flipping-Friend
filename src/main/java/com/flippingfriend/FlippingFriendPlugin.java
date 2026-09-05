@@ -289,6 +289,13 @@ public class FlippingFriendPlugin extends Plugin
 			persist();
 			accountMonitor.reset();
 			accountDataLoaded.set(false);
+			// A cancelled buy waiting to see whether the player goes back to it: they have logged
+			// out, so the question can no longer be answered. Dropped rather than decided -- the
+			// verdict it was heading for is an eight-hour cooldown, and imposing that because
+			// somebody logged off mid-edit is exactly the kind of silent punishment this whole
+			// mechanism exists to stop. It also would not survive a hop to another world, which is
+			// not a decision about an item either.
+			abandonedBuys.clear();
 		}
 	}
 
@@ -318,6 +325,15 @@ public class FlippingFriendPlugin extends Plugin
 
 		offerTracker.setMarket(marketData.getSnapshot());
 		drainPendingOffers();
+		// Before the ledger sees it, because onOfferChanged is what raises the abandonment in the
+		// first place and a fresh offer must not be able to arm a judgement it should be clearing.
+		if (event.getOffer() != null
+			&& event.getOffer().getState() == net.runelite.api.GrandExchangeOfferState.BUYING
+			&& abandonedBuys.replaced(event.getOffer().getItemId()))
+		{
+			log.debug("re-placed {} after cancelling it; that was a modification, not a rejection",
+				event.getOffer().getItemId());
+		}
 		offerTracker.onOfferChanged(event.getSlot(), event.getOffer());
 		publishOfferToCompanion(offerTracker.getOffer(event.getSlot()));
 		persist();
@@ -384,6 +400,7 @@ public class FlippingFriendPlugin extends Plugin
 
 		loadAccountDataIfNeeded();
 		resolveTaxExemptionsIfNeeded();
+		settleAbandonedBuys();
 
 		long now = System.currentTimeMillis();
 		if (now - lastAccountRefresh > ACCOUNT_REFRESH_MILLIS)
@@ -584,7 +601,64 @@ public class FlippingFriendPlugin extends Plugin
 			return;
 		}
 
-		skipList.skipUntilCooldownEnds(itemId, java.time.Instant.now());
+		// Held open, not decided.
+		//
+		// There is no "modify" in the Grand Exchange: changing an offer means aborting it and placing
+		// another, so every modification arrives here looking exactly like an abandonment. And
+		// isRejection treats any part-filled buy that was cancelled as a rejection, so adjusting the
+		// price of an order that had started to fill put the item on an eight-hour cooldown every
+		// single time -- the plan dropped it and moved to the next one while the player was still
+		// halfway through re-placing it.
+		//
+		// The two exemptions above try to catch this by reading the interface at the instant the
+		// cancel event fires, which is a race the client usually wins: the offer is cancelled first
+		// and the setup panel opens after. That is why they did not help.
+		//
+		// So the question is not asked yet. What separates a modification from a rejection is what
+		// the player does NEXT, and waiting a minute costs nothing: a genuine rejection is a cooldown
+		// that starts a minute late, while a false one takes the item off the table for eight hours.
+		// Re-placing an offer for this item by ANY route -- the modify button, an abort from the slot
+		// menu, an abort from inside the offer -- withdraws the judgement in noteOfferPlaced.
+		abandonedBuys.cancelled(itemId, System.currentTimeMillis());
+	}
+
+	/**
+	 * Cancelled buys whose meaning is not settled yet. The rule lives in
+	 * {@link com.flippingfriend.session.AbandonedBuys}, where a test can reach it.
+	 */
+	private final com.flippingfriend.session.AbandonedBuys abandonedBuys =
+		new com.flippingfriend.session.AbandonedBuys();
+
+	/**
+	 * Settle any cancelled buy the player has not gone back to.
+	 *
+	 * <p>Runs on the scheduled tick rather than on an event, because the thing being waited for is
+	 * the player doing nothing, and nothing raises no event.
+	 */
+	private void settleAbandonedBuys()
+	{
+		for (int itemId : abandonedBuys.awaiting())
+		{
+			// Still in the middle of it: the setup panel is open on this very item. Asked here as
+			// well as at cancel time, because here it is no longer a race -- the client has had whole
+			// seconds to finish transitioning.
+			if (widgetResolver.isSetupOpen()
+				&& client.getVarpValue(VarPlayerID.TRADINGPOST_SEARCH) == itemId)
+			{
+				abandonedBuys.replaced(itemId);
+			}
+		}
+
+		java.util.List<Integer> walkedAwayFrom = abandonedBuys.due(System.currentTimeMillis());
+		if (walkedAwayFrom.isEmpty())
+		{
+			return;
+		}
+
+		for (int itemId : walkedAwayFrom)
+		{
+			skipList.skipUntilCooldownEnds(itemId, java.time.Instant.now());
+		}
 		// Written now rather than at the next scheduled save: the whole point of the cooldown is that
 		// it survives the client being closed, and a crash between here and then would lose it.
 		skipList.save();
