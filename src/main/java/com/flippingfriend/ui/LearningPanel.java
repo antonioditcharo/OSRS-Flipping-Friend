@@ -126,10 +126,14 @@ class LearningPanel extends JPanel
 			calibrationValue.setText(percent(skill.getValue()) + " better than guessing");
 		}
 
-		LearningReading pooledDuration = by.get("hazard.duration_dependence");
-		durationsValue.setText(pooledDuration == null || pooledDuration.getSample() <= 0
+		// durations.pooled, not hazard.duration_dependence. The latter describes how the fill hazard
+		// changes as an offer stands, which is a real number about something else entirely -- and
+		// showing it under this label put 3.45x on screen while the companion's own health line said
+		// 0.50x. Two numbers, one caption, and no way for a reader to tell which was being described.
+		LearningReading pooledDuration = by.get("durations.pooled");
+		durationsValue.setText(pooledDuration == null || pooledDuration.getValue() <= 0
 			? "learning"
-			: String.format("%.2fx expected, %s offers", pooledDuration.getValue(),
+			: String.format("%.2fx expected, %s items", pooledDuration.getValue(),
 				count(pooledDuration.getSample())));
 
 		LearningReading weight = by.get("gate.weight");
@@ -219,19 +223,19 @@ class LearningPanel extends JPanel
 
 	private JPanel row(String name, JLabel value)
 	{
-		JPanel row = new JPanel(new BorderLayout(UiUtils.SPACE_S, 0));
+		JPanel row = new JPanel(new BorderLayout(0, UiUtils.SPACE_XS));
 		row.setOpaque(false);
 		row.setAlignmentX(Component.LEFT_ALIGNMENT);
-		row.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 0, 2, 0));
+		row.setBorder(javax.swing.BorderFactory.createEmptyBorder(4, 0, 4, 0));
 
-		row.add(UiUtils.small(name), BorderLayout.WEST);
+		JLabel nameLabel = UiUtils.small(name);
+		row.add(nameLabel, BorderLayout.NORTH);
 
 		value.setFont(FontManager.getRunescapeFont());
 		value.setForeground(UiUtils.TEXT);
-		value.setHorizontalAlignment(JLabel.RIGHT);
-		row.add(value, BorderLayout.EAST);
+		value.setHorizontalAlignment(JLabel.LEFT);
+		row.add(value, BorderLayout.CENTER);
 
-		UiUtils.constrainWidth(row);
 		return row;
 	}
 
