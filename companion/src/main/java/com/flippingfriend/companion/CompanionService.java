@@ -924,6 +924,15 @@ final class CompanionService implements AutoCloseable
 		// have looked different if they had never been written. A number on the health line is what
 		// makes "the calibrator is learning" a claim that can be checked rather than assumed.
 		detail += " " + calibration.summary();
+		// Written down where it can be seen. 124 of 784 settled offers on this account arrived twice,
+		// and the only reason anybody found out was going looking. A counter kept in memory and read
+		// by nothing is the same as not counting: if the client starts double-reporting again, this
+		// is the line that says so.
+		int repeats = settledOnce.duplicatesRefused();
+		if (repeats > 0)
+		{
+			detail += String.format(" Repeat settlements ignored: %d.", repeats);
+		}
 		detail += " " + shadow.summary();
 		// Said out loud so the archive cannot quietly fail to accumulate for months. The value of this
 		// store is entirely in how far back it reaches, and that is not visible any other way.

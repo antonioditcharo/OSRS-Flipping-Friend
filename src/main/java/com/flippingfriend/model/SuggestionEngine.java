@@ -814,6 +814,17 @@ public class SuggestionEngine
 
 		if (offer.isBuying())
 		{
+			// Winding down, so there is nothing to improve about a purchase.
+			//
+			// abandonBuySuggestion runs before this and should have claimed every open buy already,
+			// which makes this unreachable -- as long as that method is exhaustive. Depending on
+			// another path being exhaustive is how most of today's bugs stayed hidden, so the
+			// intention is stated here rather than inferred from somewhere else.
+			if (sellOnly)
+			{
+				return null;
+			}
+
 			int leading = price.getLow() + 1;
 			// What the flip is worth bought at each price and sold where a buy is planned to sell.
 			int exit = Math.max(1, price.getHigh() - 1);
