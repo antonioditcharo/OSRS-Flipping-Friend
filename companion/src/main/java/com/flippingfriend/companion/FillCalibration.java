@@ -289,6 +289,18 @@ final class FillCalibration
 			explorationRate() * 100.0, exploration.itemsTracked());
 	}
 
+	/** How much longer or shorter fills actually take than the model predicts, pooled across items. */
+	synchronized double pooledDurationRatio()
+	{
+		return durations.overallRatio();
+	}
+
+	/** How many items have enough settled offers to have a duration correction of their own. */
+	synchronized int durationItemsLearned()
+	{
+		return durations.itemsLearned();
+	}
+
 	/**
 	 * Whether the correction is actually being applied to that leg, and why not when it is not. The
 	 * distinction between "fitted" and "in use" is the whole point of the gate, and a health line that

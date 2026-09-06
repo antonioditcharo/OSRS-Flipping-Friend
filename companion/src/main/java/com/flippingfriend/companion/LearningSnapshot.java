@@ -140,6 +140,12 @@ final class LearningSnapshot
 
 		if (calibration != null)
 		{
+			// What the health line has always printed as "durations ... pooled 0.50x". The panel was
+			// showing hazard.duration_dependence for this instead, which is a different quantity --
+			// how the fill hazard varies with how long an offer has been standing, not how wrong the
+			// duration estimate is -- and the two disagreed on screen, 3.45x against 0.50x.
+			snapshot.record("durations.pooled", calibration.pooledDurationRatio(),
+				calibration.durationItemsLearned());
 			snapshot.record("calibration.observations", calibration.observationCount(),
 				calibration.observationCount());
 			// Skill, not the Brier score itself. A raw Brier is a number that is lower when things are
