@@ -130,14 +130,25 @@ public class TradePlans
 		{
 			return;
 		}
+		// Each field on its own terms.
+		//
+		// All three used to hang off whether the TARGET was unset, which coupled them for no reason
+		// -- and now that a live sell offer writes the target, a position could arrive here with a
+		// target already set and never be given the stop or the duration it was missing. The graph's
+		// stop line was undrawn for exactly that class of reason once already: a field nothing
+		// happened to set, because the thing that sets it was gated on a different field.
 		if (position.getTargetSellPrice() <= 0)
 		{
 			position.setTargetSellPrice(plan.targetSellPrice);
-			// The level at which this stops being a trade to manage and becomes a loss to cut. It was
-			// decided when the trade was chosen, so it belongs to the plan; nothing was setting it,
-			// which left every position on the profile-wide fallback and left the graph's stop line
-			// permanently undrawn because the field it reads was always zero.
+		}
+		// The level at which this stops being a trade to manage and becomes a loss to cut. It was
+		// decided when the trade was chosen, so it belongs to the plan.
+		if (position.getStopPrice() <= 0)
+		{
 			position.setStopPrice(plan.stopPrice);
+		}
+		if (position.getPredictedSellMinutes() <= 0)
+		{
 			position.setPredictedSellMinutes(plan.predictedMinutes);
 		}
 	}

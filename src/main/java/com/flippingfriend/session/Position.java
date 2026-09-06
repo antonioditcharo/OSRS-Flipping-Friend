@@ -136,9 +136,30 @@ public class Position
 		{
 			return;
 		}
+		int costBefore = getAverageCost();
+
 		this.quantity += extraQuantity;
 		this.totalCost += extraCost;
 		this.costKnown = true;
+
+		// The stop moves with the cost it was set against.
+		//
+		// It is written once, by the plan, as a percentage below what the item cost at the time --
+		// twelve per cent on the High profile. Averaging more units into the position moves the
+		// average cost and left the stop where it was, so the distance between them was whatever
+		// arithmetic happened to produce.
+		//
+		// Averaging DOWN is the dangerous direction. Buy one at 1,000 and the stop is 880; buy another
+		// at 800 and the average is 900 with the stop still at 880 -- two per cent below cost instead
+		// of twelve. A dip that the profile intended to sit through now cuts the position instead.
+		//
+		// Rescaled by the same ratio rather than recomputed, because the percentage belongs to the
+		// risk profile the trade was opened under and this class has no business knowing it.
+		int costAfter = getAverageCost();
+		if (stopPrice > 0 && costBefore > 0 && costAfter > 0)
+		{
+			stopPrice = (int) Math.max(1, Math.round((double) stopPrice / costBefore * costAfter));
+		}
 	}
 
 	/**

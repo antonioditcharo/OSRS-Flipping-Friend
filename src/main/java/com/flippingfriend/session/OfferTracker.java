@@ -312,6 +312,27 @@ public class OfferTracker
 			}
 		}
 
+		// A live sell offer IS the exit price. Whatever the plan intended, this is what the item is
+		// actually listed at, and it is the number every surface should be reasoning about.
+		//
+		// The position's target was written once -- by TradePlans, when the buy was booked, and only
+		// when it was still unset -- and then never again. Reprice the offer, by hand or on this
+		// plugin's own advice, and nothing wrote the new price back. So the recommendation card, the
+		// Grand Exchange overlay, the holdings panel, the journal's predicted profit and the sell
+		// engine's own exit search all went on reading the price the plan chose when the trade was
+		// opened, however far the offer had since moved from it.
+		//
+		// Only for a sale. While the item is still being bought there is no listed price to learn
+		// from and the plan's intention is the best answer there is.
+		if (!buying && price > 0)
+		{
+			Position holding = positions.get(itemId);
+			if (holding != null && holding.getTargetSellPrice() != price)
+			{
+				holding.setTargetSellPrice(price);
+			}
+		}
+
 		int delta = filled - tracked.getRecordedQuantity();
 		String previousState = tracked.getState();
 
