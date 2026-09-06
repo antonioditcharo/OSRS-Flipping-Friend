@@ -126,8 +126,27 @@ public class SellTimingEngine
 	 * @param minProfitPerFlip the player's floor for a whole trade, from which the exit's own floor is
 	 *                         derived. Zero leaves exits ungated, which is the old behaviour.
 	 */
+	/**
+	 * What to do with this holding, and how likely the exit behind that answer was judged to fill.
+	 *
+	 * <p>The probability is attached here rather than at each of the dozen return points below,
+	 * because there are a dozen of them and the one that gets forgotten is the one that matters. It
+	 * is the claim the calibrator grades: without it every settled sale arrives with a predicted
+	 * completion of zero, which the calibrator reads as "no claim was made" and discards.
+	 */
 	public SellDecision evaluate(Position position, LatestPrice latest, ItemFeatures features,
-		List<Candle> series, TradingHorizon horizon, Instant now, long minProfitPerFlip, boolean inInventory, boolean sellOnly, boolean isSkipped)
+		List<Candle> series, TradingHorizon horizon, Instant now, long minProfitPerFlip,
+		boolean inInventory, boolean sellOnly, boolean isSkipped)
+	{
+		double[] probability = new double[1];
+		SellDecision decision = decide(position, latest, features, series, horizon, now,
+			minProfitPerFlip, inInventory, sellOnly, isSkipped, probability);
+		return decision == null || probability[0] <= 0 ? decision
+			: decision.withCompletion(probability[0]);
+	}
+
+	private SellDecision decide(Position position, LatestPrice latest, ItemFeatures features,
+		List<Candle> series, TradingHorizon horizon, Instant now, long minProfitPerFlip, boolean inInventory, boolean sellOnly, boolean isSkipped, double[] probability)
 	{
 		RiskProfile profile = horizon.getProfile();
 		if (position == null || position.getQuantity() <= 0)
@@ -147,6 +166,10 @@ public class SellTimingEngine
 		PricedExit exit = bestExit(series, itemId, marketSell, quantity, horizon,
 			position.isCostKnown() ? position.getAverageCost() : 0, sellOnly,
 			position.getTargetSellPrice());
+		if (exit != null)
+		{
+			probability[0] = exit.probability;
+		}
 		if (exit == null)
 		{
 			return SellDecision.hold("Nobody is buying this at the moment. Holding until they are.", 0);
@@ -468,7 +491,7 @@ public class SellTimingEngine
 			if (rate > bestRate)
 			{
 				bestRate = rate;
-				best = new PricedExit(price, fill.getExpectedMinutes());
+				best = new PricedExit(price, fill.getExpectedMinutes(), fill.getProbability());
 			}
 		}
 
@@ -479,11 +502,19 @@ public class SellTimingEngine
 	{
 		private final int price;
 		private final double expectedMinutes;
+		/** What the fill model gave this price. Carried out so the calibrator has a claim to grade. */
+		private final double probability;
 
 		PricedExit(int price, double expectedMinutes)
 		{
+			this(price, expectedMinutes, 0);
+		}
+
+		PricedExit(int price, double expectedMinutes, double probability)
+		{
 			this.price = price;
 			this.expectedMinutes = expectedMinutes;
+			this.probability = probability;
 		}
 	}
 }

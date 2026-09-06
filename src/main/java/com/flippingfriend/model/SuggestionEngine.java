@@ -1186,6 +1186,11 @@ public class SuggestionEngine
 			.expectedProfit(profit)
 			.expectedMinutes(decision.getExpectedMinutes())
 			.fillMinutes(0, decision.getExpectedMinutes())
+			// The claim the calibrator grades. Without it recordSellAdvice hands the ledger a zero,
+			// the ledger stamps a zero onto the settled offer, and FillCalibration reads that as "no
+			// claim was made" and throws the observation away -- which is why the sell leg had sat at
+			// nought observations while the buy leg passed sixty.
+			.confidence(decision.getCompletionProbability())
 			.headline((cut ? "Cut your losses on " : "Sell your ") + position.getItemName());
 
 

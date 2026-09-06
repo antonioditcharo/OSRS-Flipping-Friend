@@ -20,6 +20,21 @@ public class SellDecision
 	private final String reason;
 	private final double expectedMinutes;
 	private final long expectedProfit;
+
+	/**
+	 * How likely this exit was judged to fill, which is the claim the calibrator grades.
+	 *
+	 * <p>The engine has always computed this -- {@code bestExit} scores every candidate price on
+	 * probability and duration and picks the best -- and then dropped it on the floor. Nothing
+	 * downstream could say what the plugin had CLAIMED about a sale, so every settled sale reached
+	 * the calibrator with a predicted completion of zero, and the calibrator's own rule is that a
+	 * zero means no claim was made and the observation is discarded.
+	 *
+	 * <p>The result was a sell calibrator sitting at nought observations for the life of the plugin
+	 * while the buy leg passed sixty. Not slow: unreachable. It could never have learned anything
+	 * however long it ran, because it was never told what it was supposed to be grading.
+	 */
+	private double completionProbability;
 	/**
 	 * Whether this holding is close enough to leaving that a slot should be kept for it.
 	 * <p>
@@ -42,6 +57,22 @@ public class SellDecision
 	public static SellDecision hold(String reason, double expectedMinutes)
 	{
 		return new SellDecision(Action.HOLD, 0, reason, expectedMinutes, 0);
+	}
+
+	/** The completion this exit was judged at, 0 when no estimate stood behind it. */
+	public double getCompletionProbability()
+	{
+		return completionProbability;
+	}
+
+	/** A copy carrying the probability, set after the fact since only the caller has it. */
+	public SellDecision withCompletion(double probability)
+	{
+		SellDecision copy = new SellDecision(action, price, reason, expectedMinutes, expectedProfit);
+		copy.exitNear = exitNear;
+		copy.completionProbability = Double.isFinite(probability)
+			? Math.max(0, Math.min(1, probability)) : 0;
+		return copy;
 	}
 
 	/** A copy that says the exit is close. Set after the fact, since only the caller knows. */
