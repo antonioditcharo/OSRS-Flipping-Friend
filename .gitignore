@@ -49,3 +49,9 @@ companion.properties
 *.env
 .env.local
 scratch/
+
+# ---- productivity workspace (personal, not part of the plugin) ----
+TASKS.md
+dashboard.html
+memory/
+CLAUDE.md
