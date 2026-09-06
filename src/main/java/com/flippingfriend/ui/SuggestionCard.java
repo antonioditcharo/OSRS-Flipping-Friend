@@ -67,10 +67,19 @@ class SuggestionCard extends JPanel
 	private final JPanel actionsPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, UiUtils.SPACE_S, 0));
 	private final JButton skipButton = new JButton("Skip");
 	private final JButton blockButton = new JButton("Never trade this");
+	
+	private final JLabel windowHeading = UiUtils.small("");
+	private final WindowRow buyFillsInRow = new WindowRow("Buy fills in");
+	private final WindowRow thenSellsInRow = new WindowRow("Then sells in");
+	private final WindowRow roundTripRow = new WindowRow("Round trip");
+	private final WindowRow shouldSellInRow = new WindowRow("Should sell in");
 	/** What was last drawn, so an unchanged update can be skipped rather than blinked through. */
+	private Suggestion suggestion = Suggestion.idle();
 	private String lastSignature;
 
-	private Suggestion suggestion = Suggestion.idle();
+	private final NumberRow priceRow = new NumberRow("Price");
+	private final NumberRow quantityRow = new NumberRow("Quantity");
+	private final NumberRow targetSellPriceRow = new NumberRow("Then sell at");
 	/**
 	 * The rejection handlers are handed the suggestion they are rejecting, not just its id.
 	 * <p>
@@ -130,6 +139,14 @@ class SuggestionCard extends JPanel
 		numbersPanel.setLayout(new BoxLayout(numbersPanel, BoxLayout.Y_AXIS));
 		numbersPanel.setOpaque(false);
 		numbersPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+		numbersPanel.add(priceRow);
+		numbersPanel.add(UiUtils.gap(UiUtils.SPACE_S));
+		numbersPanel.add(quantityRow);
+		numbersPanel.add(UiUtils.gap(UiUtils.SPACE_S));
+		numbersPanel.add(targetSellPriceRow);
+		numbersPanel.add(UiUtils.gap(UiUtils.SPACE_S));
+
 		add(UiUtils.gap(UiUtils.SPACE_M));
 		add(numbersPanel);
 
@@ -141,6 +158,19 @@ class SuggestionCard extends JPanel
 		windowPanel.setLayout(new BoxLayout(windowPanel, BoxLayout.Y_AXIS));
 		windowPanel.setOpaque(false);
 		windowPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+		
+		windowHeading.setAlignmentX(Component.LEFT_ALIGNMENT);
+		windowPanel.add(windowHeading);
+		windowPanel.add(UiUtils.gap(UiUtils.SPACE_XS));
+		windowPanel.add(buyFillsInRow);
+		windowPanel.add(UiUtils.gap(2));
+		windowPanel.add(thenSellsInRow);
+		windowPanel.add(UiUtils.gap(2));
+		windowPanel.add(roundTripRow);
+		windowPanel.add(UiUtils.gap(2));
+		windowPanel.add(shouldSellInRow);
+		windowPanel.add(UiUtils.gap(2));
+
 		add(UiUtils.gap(UiUtils.SPACE_M));
 		add(windowPanel);
 
@@ -318,71 +348,36 @@ class SuggestionCard extends JPanel
 
 	private void updateNumbers()
 	{
-		numbersPanel.removeAll();
-		javax.swing.ToolTipManager.sharedInstance().setEnabled(false);
-		javax.swing.ToolTipManager.sharedInstance().setEnabled(true);
-
 		if (!suggestion.isActionable() || suggestion.getPrice() <= 0)
 		{
+			priceRow.setVisible(false);
+			quantityRow.setVisible(false);
+			targetSellPriceRow.setVisible(false);
 			return;
 		}
 
-		addNumberRow("Price", explainer.formatNumber(suggestion.getPrice()) + " gp",
-			Integer.toString(suggestion.getPrice()));
+		priceRow.update(explainer.formatNumber(suggestion.getPrice()) + " gp", Integer.toString(suggestion.getPrice()));
+		priceRow.setVisible(true);
 
 		if (suggestion.getQuantity() > 0)
 		{
-			addNumberRow("Quantity", explainer.formatNumber(suggestion.getQuantity()),
-				Integer.toString(suggestion.getQuantity()));
+			quantityRow.update(explainer.formatNumber(suggestion.getQuantity()), Integer.toString(suggestion.getQuantity()));
+			quantityRow.setVisible(true);
+		}
+		else
+		{
+			quantityRow.setVisible(false);
 		}
 
 		if ((suggestion.getType() == SuggestionType.BUY || suggestion.getType() == SuggestionType.MODIFY_BUY) && suggestion.getTargetSellPrice() > 0)
 		{
-			addNumberRow("Then sell at", explainer.formatNumber(suggestion.getTargetSellPrice()) + " gp",
-				Integer.toString(suggestion.getTargetSellPrice()));
+			targetSellPriceRow.update(explainer.formatNumber(suggestion.getTargetSellPrice()) + " gp", Integer.toString(suggestion.getTargetSellPrice()));
+			targetSellPriceRow.setVisible(true);
 		}
-	}
-
-	/**
-	 * A labelled number with a copy button, so nothing has to be transcribed by eye.
-	 * <p>
-	 * Two lines, because one does not fit. The sidebar gives a row about 197px; a fixed 78px label,
-	 * a copy button and two gaps left roughly 69px for the value, and a price like 5,111,111 gp
-	 * measures nearer 90px in the bold font -- so the one number you have to type correctly was
-	 * rendered as "5,111,11...". Putting the label on its own line hands the value the best part of
-	 * 150px, which holds for any price the game can produce.
-	 */
-	private void addNumberRow(String label, String display, String clipboardValue)
-	{
-		JPanel row = new JPanel();
-		row.setLayout(new BoxLayout(row, BoxLayout.Y_AXIS));
-		row.setOpaque(false);
-		row.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-		JLabel name = UiUtils.small(label);
-		name.setAlignmentX(Component.LEFT_ALIGNMENT);
-		row.add(name);
-
-		JPanel line = new JPanel(new BorderLayout(UiUtils.SPACE_S, 0));
-		line.setOpaque(false);
-		line.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-		JLabel value = UiUtils.label(display, UiUtils.TEXT, FontManager.getRunescapeBoldFont());
-		line.add(value, BorderLayout.CENTER);
-
-		JButton copy = new JButton("copy");
-		styleSmallButton(copy);
-		copy.setToolTipText("Copy " + display + " to the clipboard");
-		copy.addActionListener(e -> Toolkit.getDefaultToolkit().getSystemClipboard()
-			.setContents(new StringSelection(clipboardValue), null));
-		line.add(copy, BorderLayout.EAST);
-
-		UiUtils.constrainWidth(line);
-		row.add(line);
-
-		UiUtils.constrainWidth(row);
-		numbersPanel.add(row);
-		numbersPanel.add(UiUtils.gap(UiUtils.SPACE_S));
+		else
+		{
+			targetSellPriceRow.setVisible(false);
+		}
 	}
 
 	private void updateProfit()
@@ -408,10 +403,6 @@ class SuggestionCard extends JPanel
 	 */
 	private void updateTradeWindow()
 	{
-		windowPanel.removeAll();
-		javax.swing.ToolTipManager.sharedInstance().setEnabled(false);
-		javax.swing.ToolTipManager.sharedInstance().setEnabled(true);
-
 		boolean buying = suggestion.getType() == SuggestionType.BUY;
 		boolean selling = suggestion.getType() == SuggestionType.SELL;
 
@@ -423,52 +414,42 @@ class SuggestionCard extends JPanel
 
 		windowPanel.setVisible(true);
 
-		JLabel heading = UiUtils.small(buying ? "Estimated trade window" : "Estimated time to sell");
-		heading.setAlignmentX(Component.LEFT_ALIGNMENT);
-		windowPanel.add(heading);
-		windowPanel.add(UiUtils.gap(UiUtils.SPACE_XS));
+		windowHeading.setText(buying ? "Estimated trade window" : "Estimated time to sell");
 
 		if (buying)
 		{
 			double buyLeg = suggestion.getBuyFillMinutes();
 			double sellLeg = suggestion.getSellFillMinutes();
-			addWindowRow("Buy fills in", approx(buyLeg));
-			addWindowRow("Then sells in", approx(sellLeg));
+			
+			buyFillsInRow.update(approx(buyLeg), UiUtils.MUTED);
+			buyFillsInRow.setVisible(true);
+			
+			thenSellsInRow.update(approx(sellLeg), UiUtils.MUTED);
+			thenSellsInRow.setVisible(true);
+			
 			// The two legs, not the expected slot occupancy. getExpectedMinutes() is a
 			// probability-weighted figure that folds in the branches where the buy never fills and
 			// where the position strands, so it is systematically shorter than the trip a player who
 			// completes the flip actually experiences -- and it was labelled "Round trip" anyway.
 			double roundTrip = buyLeg > 0 && sellLeg > 0 ? buyLeg + sellLeg
 				: suggestion.getExpectedMinutes();
-			addWindowRow("Round trip", approx(roundTrip), UiUtils.TEXT);
+			
+			roundTripRow.update(approx(roundTrip), UiUtils.TEXT);
+			roundTripRow.setVisible(true);
+			
+			shouldSellInRow.setVisible(false);
 		}
 		else
 		{
-			addWindowRow("Should sell in", approx(suggestion.getSellFillMinutes() > 0
+			buyFillsInRow.setVisible(false);
+			thenSellsInRow.setVisible(false);
+			roundTripRow.setVisible(false);
+			
+			shouldSellInRow.update(approx(suggestion.getSellFillMinutes() > 0
 				? suggestion.getSellFillMinutes()
 				: suggestion.getExpectedMinutes()), UiUtils.TEXT);
+			shouldSellInRow.setVisible(true);
 		}
-	}
-
-	private void addWindowRow(String label, String value)
-	{
-		addWindowRow(label, value, UiUtils.MUTED);
-	}
-
-	private void addWindowRow(String label, String value, Color valueColor)
-	{
-		JPanel row = new JPanel(new BorderLayout(UiUtils.SPACE_S, 0));
-		row.setOpaque(false);
-		row.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-		JLabel name = UiUtils.small(label);
-		name.setPreferredSize(new Dimension(78, name.getPreferredSize().height));
-		row.add(name, BorderLayout.WEST);
-		row.add(UiUtils.label(value, valueColor, FontManager.getRunescapeSmallFont()), BorderLayout.CENTER);
-
-		UiUtils.constrainWidth(row);
-		windowPanel.add(row);
-		windowPanel.add(UiUtils.gap(2));
 	}
 
 	/** Always hedged, because these are model estimates and should not read as promises. */
@@ -555,6 +536,94 @@ class SuggestionCard extends JPanel
 			{
 				graphics.dispose();
 			}
+		}
+	}
+
+	private static class NumberRow extends JPanel
+	{
+		private final JLabel value;
+		private final JButton copy;
+		private String clipboardValue;
+
+		NumberRow(String labelText)
+		{
+			setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
+			setOpaque(false);
+			setAlignmentX(Component.LEFT_ALIGNMENT);
+
+			JLabel name = UiUtils.small(labelText);
+			name.setAlignmentX(Component.LEFT_ALIGNMENT);
+			add(name);
+
+			JPanel line = new JPanel(new BorderLayout(UiUtils.SPACE_S, 0));
+			line.setOpaque(false);
+			line.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+			value = UiUtils.label("", UiUtils.TEXT, FontManager.getRunescapeBoldFont());
+			line.add(value, BorderLayout.CENTER);
+
+			copy = new JButton("copy");
+			copy.setFont(FontManager.getRunescapeSmallFont());
+			copy.setForeground(UiUtils.MUTED);
+			copy.setBackground(UiUtils.CARD_HOVER);
+			copy.setFocusPainted(false);
+			copy.setBorder(BorderFactory.createEmptyBorder(3, 8, 3, 8));
+			copy.addMouseListener(new java.awt.event.MouseAdapter()
+			{
+				@Override
+				public void mouseEntered(java.awt.event.MouseEvent e)
+				{
+					copy.setForeground(UiUtils.TEXT);
+				}
+
+				@Override
+				public void mouseExited(java.awt.event.MouseEvent e)
+				{
+					copy.setForeground(UiUtils.MUTED);
+				}
+			});
+
+			copy.addActionListener(e -> java.awt.Toolkit.getDefaultToolkit().getSystemClipboard()
+				.setContents(new java.awt.datatransfer.StringSelection(clipboardValue), null));
+			line.add(copy, BorderLayout.EAST);
+
+			UiUtils.constrainWidth(line);
+			add(line);
+			UiUtils.constrainWidth(this);
+		}
+
+		void update(String display, String clipboardValue)
+		{
+			value.setText(display);
+			this.clipboardValue = clipboardValue;
+			copy.setToolTipText("Copy " + display + " to the clipboard");
+		}
+	}
+
+	private static class WindowRow extends JPanel
+	{
+		private final JLabel valueLabel;
+
+		WindowRow(String labelText)
+		{
+			setLayout(new BorderLayout(UiUtils.SPACE_S, 0));
+			setOpaque(false);
+			setAlignmentX(Component.LEFT_ALIGNMENT);
+
+			JLabel name = UiUtils.small(labelText);
+			name.setPreferredSize(new Dimension(78, name.getPreferredSize().height));
+			add(name, BorderLayout.WEST);
+			
+			valueLabel = UiUtils.label("", UiUtils.MUTED, FontManager.getRunescapeSmallFont());
+			add(valueLabel, BorderLayout.CENTER);
+
+			UiUtils.constrainWidth(this);
+		}
+
+		void update(String value, Color valueColor)
+		{
+			valueLabel.setText(value);
+			valueLabel.setForeground(valueColor);
 		}
 	}
 }

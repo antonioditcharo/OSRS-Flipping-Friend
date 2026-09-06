@@ -386,45 +386,66 @@ public class FlippingFriendPanel extends PluginPanel
 		java.awt.Point scrolledTo = scrolledColumn == null ? null
 			: scrolledColumn.getViewport().getViewPosition();
 
-		// What the guide is actually guiding, which during a half-entered offer is not the newest
-		// advice — plus whatever is queued behind it, so the deferral is visible rather than silent.
-		Suggestion suggestion = stepGuide == null ? engine.getCurrent() : stepGuide.getSuggestion();
-		suggestionCard.update(suggestion,
-			stepGuide == null ? null : stepGuide.getPending());
-		positionsPanel.refresh();
-		historyPanel.refresh();
-
-		SessionStats session = journal.sessionStats();
-		SessionStats lifetime = journal.lifetimeStats();
-		statsPanel.update(session, lifetime);
-		if (!companionReachable)
+		// Turn off BLIT_SCROLL_MODE temporarily to prevent JViewport from synchronously copying pixels 
+		// to the screen if the view height fluctuates during validation. This is what caused the visual
+		// stutter where the UI jumped down and then snapped back up.
+		int oldMode = scrolledColumn == null ? javax.swing.JViewport.BLIT_SCROLL_MODE 
+			: scrolledColumn.getViewport().getScrollMode();
+		if (scrolledColumn != null)
 		{
-			learningPanel.clear("The companion is not running, so nothing is being learned.");
+			scrolledColumn.getViewport().setScrollMode(javax.swing.JViewport.SIMPLE_SCROLL_MODE);
 		}
-		else
-		{
-			learningPanel.update(learning);
-		}
-		portfolioPanel.refresh();
-		bankTrajectoryPanel.repaint();
 
-		updateBankroll();
-		syncSelectors();
-		revalidate();
-		repaint();
-
-		if (scrolledTo != null)
+		try
 		{
-			// After the layout has settled, or the position is clamped against the old height.
-			SwingUtilities.invokeLater(() ->
+			// What the guide is actually guiding, which during a half-entered offer is not the newest
+			// advice — plus whatever is queued behind it, so the deferral is visible rather than silent.
+			Suggestion suggestion = stepGuide == null ? engine.getCurrent() : stepGuide.getSuggestion();
+			suggestionCard.update(suggestion,
+				stepGuide == null ? null : stepGuide.getPending());
+			positionsPanel.refresh();
+			historyPanel.refresh();
+
+			SessionStats session = journal.sessionStats();
+			SessionStats lifetime = journal.lifetimeStats();
+			statsPanel.update(session, lifetime);
+			if (!companionReachable)
+			{
+				learningPanel.clear("The companion is not running, so nothing is being learned.");
+			}
+			else
+			{
+				learningPanel.update(learning);
+			}
+			portfolioPanel.refresh();
+			bankTrajectoryPanel.repaint();
+
+			updateBankroll();
+			syncSelectors();
+			
+			// Force the layout to settle immediately so we can accurately restore scroll position.
+			// revalidate() schedules an asynchronous layout which causes the viewport to jump during
+			// intermediate empty states before this restore logic fires.
+			validate();
+
+			if (scrolledTo != null)
 			{
 				java.awt.Dimension extent = scrolledColumn.getViewport().getExtentSize();
 				java.awt.Dimension full = scrolledColumn.getViewport().getViewSize();
 				int highest = Math.max(0, full.height - extent.height);
 				scrolledTo.y = Math.min(scrolledTo.y, highest);
 				scrolledColumn.getViewport().setViewPosition(scrolledTo);
-			});
+			}
 		}
+		finally
+		{
+			if (scrolledColumn != null)
+			{
+				scrolledColumn.getViewport().setScrollMode(oldMode);
+			}
+		}
+
+		repaint();
 	}
 
 	private void updateBankroll()

@@ -17,6 +17,7 @@ import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.mockito.Mockito;
 
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
@@ -73,20 +74,52 @@ public class PanelRebuildTest
 	}
 
 	@Test
-	public void aChangedHoldingStillRedrawsImmediately() throws Exception
+	public void aChangedHoldingStillShowsTheChange()
 	{
-		PositionsPanel panel = panelAt(folder.newFolder("b").toPath());
+		PositionsPanel panel = panelAt(folder.getRoot().toPath());
 		book.recordBuy(MAGIC_LOGS, "Magic logs", 10, 10_000, Instant.now());
 
 		panel.refresh();
-		Component card = panel.getComponent(0);
+		assertTrue("premise: ten held is on screen", renderedText(panel).contains("10 held"));
 
 		// Skipping a redraw is only safe if a real change still lands on the next pass. This is the
 		// half that a signature covering too little would break, and it would break silently.
 		book.recordBuy(MAGIC_LOGS, "Magic logs", 5, 10_000, Instant.now());
 		panel.refresh();
 
-		assertNotSame("a change in the holding must redraw", card, panel.getComponent(0));
+		// Asserted on what is drawn rather than on component identity.
+		//
+		// It used to check that the card object had been replaced, which was the right question while
+		// every refresh tore the panel down and built new cards. The rows are now kept and their
+		// labels updated in place -- a better answer to the flicker this class exists about -- and
+		// under that strategy the card SHOULD be the same object. Identity stopped being evidence of
+		// anything; the text is the thing a player can actually see.
+		assertTrue("the new quantity has to reach the screen: " + renderedText(panel),
+			renderedText(panel).contains("15 held"));
+		assertFalse("and the old one must not still be there",
+			renderedText(panel).contains("10 held"));
+	}
+
+	/** Every piece of text the panel is currently displaying, wherever it sits in the tree. */
+	private static String renderedText(java.awt.Container root)
+	{
+		StringBuilder text = new StringBuilder();
+		for (Component child : root.getComponents())
+		{
+			if (child instanceof javax.swing.JLabel)
+			{
+				text.append(((javax.swing.JLabel) child).getText()).append(' ');
+			}
+			else if (child instanceof javax.swing.text.JTextComponent)
+			{
+				text.append(((javax.swing.text.JTextComponent) child).getText()).append(' ');
+			}
+			if (child instanceof java.awt.Container)
+			{
+				text.append(renderedText((java.awt.Container) child));
+			}
+		}
+		return text.toString();
 	}
 
 	@Test

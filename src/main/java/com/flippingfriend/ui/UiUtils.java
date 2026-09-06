@@ -146,13 +146,12 @@ final class UiUtils
 		// A JTextArea keeps a live caret even when it is read-only and unfocusable. setText moves
 		// that caret, and JTextComponent responds by calling scrollRectToVisible on itself, which
 		// walks up to the enclosing viewport and scrolls it -- every refresh, whether or not the text
-		// changed. The last component to do it wins, and that is the learning verdict near the bottom
-		// of the column, so the sidebar jumped to the bottom on every single update.
-		if (area.getCaret() instanceof javax.swing.text.DefaultCaret)
-		{
-			((javax.swing.text.DefaultCaret) area.getCaret())
-				.setUpdatePolicy(javax.swing.text.DefaultCaret.NEVER_UPDATE);
-		}
+		// changed. RuneLite uses Substance/FlatLaf which provide their own Caret implementations that
+		// do not extend DefaultCaret, so an instanceof check fails. We forcefully inject a standard 
+		// DefaultCaret here so we can guarantee the update policy is disabled.
+		javax.swing.text.DefaultCaret caret = new javax.swing.text.DefaultCaret();
+		caret.setUpdatePolicy(javax.swing.text.DefaultCaret.NEVER_UPDATE);
+		area.setCaret(caret);
 		area.setOpaque(false);
 		area.setBorder(null);
 		area.setForeground(color);
@@ -220,10 +219,8 @@ final class UiUtils
 
 	static void constrainWidth(JComponent component)
 	{
-		// Deprecated in favor of anonymous subclassing with getMaximumSize override, 
-		// but retained for any existing components that still use it.
-		// Note that this permanently fixes the height to its current preferred height!
-		component.setMaximumSize(new Dimension(Integer.MAX_VALUE, component.getPreferredSize().height));
+		// Removed height pinning to fix text clipping and fall-off when text wraps.
+		component.setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));
 	}
 
 	static JPanel row(Component left, Component right)
