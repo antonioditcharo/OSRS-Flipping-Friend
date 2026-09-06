@@ -530,7 +530,35 @@ public class SuggestionEngine
 				}
 				else
 				{
-					int newPrice = Math.max(1, price.getHigh() - 1);
+					// Never below what the position cost.
+					//
+					// The branch further down carries this floor already, and its comment is
+					// unambiguous about why: "every losing flip in the journal came from here and
+					// nowhere else -- Maple logs bought at 11 and repriced to 10 for -15,000; Soft
+					// clay bought at 119 and repriced to 116, twice, for -25,540". The floor was added
+					// there and not here, and this branch returns FIRST, so it went on doing exactly
+					// what that comment describes.
+					//
+					// It fires constantly, too. For a sale, isOutbid means our ask is above the market
+					// -- which is the normal condition of every healthy flip in progress, since the
+					// whole trade is buying at the bid and asking above it. So each time the market
+					// ticked, this proposed walking the ask down to meet it, with no floor but 1 gp
+					// and no reference to what had been paid.
+					//
+					// Below break-even this is not repricing at all, it is deciding to take a loss,
+					// and that belongs to SellTimingEngine: it holds while the position is above its
+					// stop and cuts when it is not. Say nothing here and let it answer.
+					Position position = positions.get(offer.getItemId());
+					boolean costKnown = position != null && position.isCostKnown()
+						&& position.getAverageCost() > 0;
+					int newPrice = repricedSell(price.getHigh(), position, costKnown
+						? taxCalculator.breakEvenSellPrice(offer.getItemId(), position.getAverageCost())
+						: 0);
+					if (newPrice <= 0)
+					{
+						continue;
+					}
+
 					return Suggestion.builder(SuggestionType.MODIFY_SELL)
 						.item(offer.getItemId(), name)
 						.slot(offer.getSlot())
@@ -701,6 +729,25 @@ public class SuggestionEngine
 			return true;
 		}
 		return newPrice >= breakEvenPrice;
+	}
+
+	/**
+	 * Where to move a sell offer that is not filling, or 0 when moving it there would realise a loss.
+	 *
+	 * <p>One function because there were two places doing this and only one of them had the floor.
+	 * The guarded one carried the explanation -- "every losing flip in the journal came from here and
+	 * nowhere else" -- and the unguarded one sat ABOVE it in the chain and returned first, so it went
+	 * on doing precisely what that comment describes. A rule enforced at one of its two call sites is
+	 * not enforced.
+	 *
+	 * <p>Below break-even this is not a repricing decision at all, it is a decision to take a loss,
+	 * and that belongs to the sell engine: it holds while the position is above its stop and cuts when
+	 * it is not. Returning 0 is how this says "not mine to answer".
+	 */
+	static int repricedSell(int marketHigh, Position position, int breakEvenPrice)
+	{
+		int newPrice = Math.max(1, marketHigh - 1);
+		return repriceAllowed(newPrice, position, breakEvenPrice) ? newPrice : 0;
 	}
 
 	// --------------------------------------------------------------------- sell

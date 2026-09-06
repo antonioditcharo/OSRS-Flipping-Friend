@@ -28,6 +28,48 @@ public class RepriceFloorTest
 	}
 
 	@Test
+	public void beingOutbidIsNotAReasonToSellBelowCost()
+	{
+		// The branch this test did not cover.
+		//
+		// There were two places that repriced a sell offer down to the market. The one below carried
+		// the floor and the explanation; this one sat ABOVE it in the chain, returned first, and had
+		// no floor but 1 gp. So the rule was written, tested, commented -- and enforced at one of its
+		// two call sites, which is not enforced.
+		//
+		// It fires constantly, which is what makes it expensive. For a sale, "outbid" means our ask is
+		// above the market, and that is the normal condition of every healthy flip in progress: the
+		// whole trade is buying at the bid and asking above it. Every tick of the market proposed
+		// walking the ask down to meet it.
+		Position clay = bought(SOFT_CLAY, 10_000, 119);
+		int breakEven = tax.breakEvenSellPrice(SOFT_CLAY, 119);
+
+		assertEquals("a market at 117 is not a reason to sell what cost 119", 0,
+			SuggestionEngine.repricedSell(117, clay, breakEven));
+	}
+
+	@Test
+	public void aRepriceThatStillClearsCostIsProposed()
+	{
+		// The other half: when the market is still above break-even, chasing it down is exactly right,
+		// and refusing would leave the offer stranded above a market that has moved on.
+		Position clay = bought(SOFT_CLAY, 10_000, 119);
+		int breakEven = tax.breakEvenSellPrice(SOFT_CLAY, 119);
+
+		int proposed = SuggestionEngine.repricedSell(breakEven + 50, clay, breakEven);
+
+		assertEquals("one under the market, as it has always been", breakEven + 49, proposed);
+	}
+
+	@Test
+	public void somethingAlreadyOwnedHasNoCostToClear()
+	{
+		// No cost basis, so nothing to lose against. Repricing an item out of your own bank down to
+		// whatever the market pays is not a loss, it is the price.
+		assertEquals(116, SuggestionEngine.repricedSell(117, null, 0));
+	}
+
+	@Test
 	public void aRepriceIsNeverTakenBelowWhatThePositionCost()
 	{
 		// The real case: 15,000 Maple logs bought at 11. The market bid fell to 11, this step offered
