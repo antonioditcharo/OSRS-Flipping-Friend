@@ -136,6 +136,12 @@ public class SuggestionEngine
 		new AtomicReference<>(Collections.emptyList());
 	private final SkipList skipped;
 
+	/**
+	 * Whether an open offer is still priced where this engine would price it, and whether saying so
+	 * is worth interrupting the player for. Holds the per-slot cooldown, so it is one instance.
+	 */
+	private final RepriceReview repriceReview = new RepriceReview();
+
 	@Inject
 	public SuggestionEngine(MarketDataService marketData, FeatureEngine featureEngine,
 		ManipulationFilter filter, Scorer scorer, Explainer explainer, Calibrator calibrator,
@@ -517,6 +523,23 @@ public class SuggestionEngine
 			String name = market.getItemName(offer.getItemId());
 			int remaining = offer.getRemaining();
 
+			// Is this offer still priced where we would price it now -- in EITHER direction?
+			//
+			// Everything below this asks the one-directional question: has the offer become too
+			// passive to fill. That leaves the opposite case unspoken. A sell listed at 100 while
+			// buyers move to 110 is not stalled, it is underpriced, and it fills at 100 with nobody
+			// having mentioned it. The same in reverse for a buy left above a bid that has fallen.
+			//
+			// Top of book either way, so this never trades fill probability for price: a buy at one
+			// over the best bid and a sell at one under the best ask both still lead the queue. What
+			// changes is only how much the trade earns, which is why the decision is purely "is the
+			// improvement worth the click" and RepriceReview can answer it without a fill model.
+			Suggestion improvement = improvePricing(offer, price, trend, name, remaining, horizon, now);
+			if (improvement != null)
+			{
+				return improvement;
+			}
+
 			if (horizon.isOutbid(offer.isBuying(), offer.getPrice(), price, trend))
 			{
 				if (offer.isBuying())
@@ -538,6 +561,11 @@ public class SuggestionEngine
 						continue;
 					}
 
+					// The rescue paths start the cooldown too. Without this, a rescue and an
+					// improvement could take turns moving the same offer every pass, each one
+					// perfectly justified on its own and the pair of them useless.
+					repriceReview.noteAdvised(offer.getSlot(), offer.getItemId(), newPrice,
+						now.getEpochSecond());
 					return Suggestion.builder(SuggestionType.MODIFY_BUY)
 						.item(offer.getItemId(), name)
 						.slot(offer.getSlot())
@@ -583,6 +611,11 @@ public class SuggestionEngine
 						continue;
 					}
 
+					// The rescue paths start the cooldown too. Without this, a rescue and an
+					// improvement could take turns moving the same offer every pass, each one
+					// perfectly justified on its own and the pair of them useless.
+					repriceReview.noteAdvised(offer.getSlot(), offer.getItemId(), newPrice,
+						now.getEpochSecond());
 					return Suggestion.builder(SuggestionType.MODIFY_SELL)
 						.item(offer.getItemId(), name)
 						.slot(offer.getSlot())
@@ -635,6 +668,8 @@ public class SuggestionEngine
 				}
 				// What the new price is actually worth. The reprice card carried no figure at all, so a
 				long change = taxCalculator.netProfit(offer.getItemId(), costKnown ? position.getAverageCost() : 0, newPrice, remaining);
+				repriceReview.noteAdvised(offer.getSlot(), offer.getItemId(), newPrice,
+					now.getEpochSecond());
 				return Suggestion.builder(SuggestionType.MODIFY_SELL)
 					.item(offer.getItemId(), name)
 					.slot(offer.getSlot())
@@ -746,6 +781,136 @@ public class SuggestionEngine
 	 * Without the floor this step chased a falling market down with nothing beneath it but 1 gp, and
 	 * since adjust ranks above sell in the chain it bypassed the stop entirely.
 	 */
+	/**
+	 * The same offer, priced where it would be priced now, when that is worth the interruption.
+	 *
+	 * <p>Top of book on both sides: a buy belongs one coin above the best bid and a sell one coin
+	 * below the best ask, which is where the rescue paths below already move them. Applying it in the
+	 * favourable direction too is the whole of this method -- the market moving your way is not a
+	 * reason to hear nothing.
+	 *
+	 * <p>Value is measured as the flip's expected profit at each price, so the comparison is in the
+	 * units the player cares about and the thresholds in {@link RepriceReview} mean something
+	 * concrete. A sell is valued against what the position cost; a buy against what it could then be
+	 * sold for.
+	 *
+	 * @return the advice, or null when the offer is priced well enough to leave alone
+	 */
+	private Suggestion improvePricing(TrackedOffer offer, LatestPrice price,
+		com.flippingfriend.data.Candle trend, String name, int remaining, TradingHorizon horizon,
+		Instant now)
+	{
+		if (remaining <= 0 || price == null || !price.isComplete())
+		{
+			return null;
+		}
+
+		Position position = positions.get(offer.getItemId());
+		boolean costKnown = position != null && position.isCostKnown()
+			&& position.getAverageCost() > 0;
+		int itemId = offer.getItemId();
+		long minProfit = config.minProfitPerFlip();
+		long nowSeconds = now.getEpochSecond();
+
+		if (offer.isBuying())
+		{
+			int leading = price.getLow() + 1;
+			// What the flip is worth bought at each price and sold where a buy is planned to sell.
+			int exit = Math.max(1, price.getHigh() - 1);
+			long valueNow = taxCalculator.netProfit(itemId, offer.getPrice(), exit, remaining);
+			long valueMoved = taxCalculator.netProfit(itemId, leading, exit, remaining);
+
+			// Only ever downwards here. Bidding UP to reach a market that has risen is the rescue
+			// case below, which has its own margin and minimum-profit gates; duplicating them here
+			// would be a second copy of a rule to drift from.
+			if (leading >= offer.getPrice())
+			{
+				return null;
+			}
+			// And the five-minute average has to agree that sellers have come down, for the same
+			// reason as the sell side: one cheap trade is not a market, and bidding down to meet it
+			// leaves the offer below a market that has not actually moved.
+			if (trend == null || trend.getAvgLowPrice() == null
+				|| trend.getAvgLowPrice() >= offer.getPrice())
+			{
+				return null;
+			}
+			if (!repriceReview.worthMoving(offer.getSlot(), itemId, offer.getPrice(), leading,
+				valueNow, valueMoved, minProfit, nowSeconds))
+			{
+				return null;
+			}
+
+			RiskProfile profile = horizon.getProfile();
+			long marginPerItem = taxCalculator.netMarginPerItem(itemId, leading, exit);
+			if (marginPerItem <= 0 || (double) marginPerItem / leading < profile.getMinNetMarginPct())
+			{
+				return null;
+			}
+
+			repriceReview.noteAdvised(offer.getSlot(), itemId, leading, nowSeconds);
+			return Suggestion.builder(SuggestionType.MODIFY_BUY)
+				.item(itemId, name)
+				.slot(offer.getSlot())
+				.price(leading)
+				.quantity(remaining)
+				.targetSellPrice(exit)
+				.expectedProfit(valueMoved)
+				.headline("You can buy " + name + " cheaper")
+				.detail("Sellers have come down to " + explainer.formatNumber(price.getLow())
+					+ " gp, and your offer is at " + explainer.formatNumber(offer.getPrice())
+					+ " gp." + System.lineSeparator() + System.lineSeparator()
+					+ "Adjust it to " + explainer.formatNumber(leading)
+					+ " gp — still first in the queue, and "
+					+ explainer.formatGp(valueMoved - valueNow) + " gp better on this trade.")
+				.build();
+		}
+
+		int leading = Math.max(1, price.getHigh() - 1);
+		// Only ever upwards here, for the same reason: a sell that has been left above the market is
+		// the rescue case, and it owns the break-even floor that goes with selling into a fall.
+		if (leading <= offer.getPrice())
+		{
+			return null;
+		}
+		// And the five-minute average has to agree that buyers have moved up.
+		//
+		// A spot price is one trade. Acting on it alone would chase every spike up and then, when it
+		// fell back a minute later, leave the offer stranded above a market that was never really
+		// there -- turning an improvement into the very stall this whole path exists to prevent.
+		// isOutbid takes both readings for exactly this reason, and so does this.
+		if (trend == null || trend.getAvgHighPrice() == null
+			|| trend.getAvgHighPrice() <= offer.getPrice())
+		{
+			return null;
+		}
+
+		int cost = costKnown ? position.getAverageCost() : 0;
+		long valueNow = taxCalculator.netProfit(itemId, cost, offer.getPrice(), remaining);
+		long valueMoved = taxCalculator.netProfit(itemId, cost, leading, remaining);
+		if (!repriceReview.worthMoving(offer.getSlot(), itemId, offer.getPrice(), leading,
+			valueNow, valueMoved, minProfit, nowSeconds))
+		{
+			return null;
+		}
+
+		repriceReview.noteAdvised(offer.getSlot(), itemId, leading, nowSeconds);
+		return Suggestion.builder(SuggestionType.MODIFY_SELL)
+			.item(itemId, name)
+			.slot(offer.getSlot())
+			.price(leading)
+			.quantity(remaining)
+			.expectedProfit(valueMoved)
+			.headline("You can sell " + name + " for more")
+			.detail("Buyers have come up to " + explainer.formatNumber(price.getHigh())
+				+ " gp, and your offer is at " + explainer.formatNumber(offer.getPrice())
+				+ " gp." + System.lineSeparator() + System.lineSeparator()
+					+ "Adjust it to " + explainer.formatNumber(leading)
+				+ " gp — still first in the queue, and "
+				+ explainer.formatGp(valueMoved - valueNow) + " gp better on this trade.")
+			.build();
+	}
+
 	static boolean repriceAllowed(int newPrice, Position position, int breakEvenPrice)
 	{
 		if (position == null || !position.isCostKnown() || position.getAverageCost() <= 0)
