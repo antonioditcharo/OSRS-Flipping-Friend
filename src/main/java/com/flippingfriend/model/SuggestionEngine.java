@@ -270,14 +270,38 @@ public class SuggestionEngine
 		return suggestion;
 	}
 
+	/**
+	 * The advice to show, holding the player on the trade they are part way through entering.
+	 *
+	 * <p>While an offer is being adjusted this used to return the pinned suggestion and compute
+	 * nothing at all, so the price on the card and in the overlay was whatever had been calculated at
+	 * the moment the editor opened. Reprice advice is worth exactly its price, and the number the
+	 * player was being told to type went stale the instant the market moved -- on both surfaces at
+	 * once, because they read the same object.
+	 *
+	 * <p>StepGuide already had the right rule and could never exercise it: "a correction to the trade
+	 * already being typed is applied even mid-entry -- the whole point of holding advice back is to
+	 * avoid placing the wrong offer, and letting a price go stale under the player's fingers achieves
+	 * exactly that by a different route. Only a genuinely different trade waits." It never saw a
+	 * correction, because nothing upstream produced one.
+	 *
+	 * <p>So the pin holds the CHOICE of trade and not its numbers. Same item, same slot, same action:
+	 * the fresh figures win, and the guide decides whether the player has already typed past them. A
+	 * genuinely different trade still waits, which is what the pin was for.
+	 */
 	private Suggestion compute(boolean computeBuy)
 	{
-		Suggestion pending = pendingAdjustment;
-		if (pending != null)
+		Suggestion pinned = pendingAdjustment;
+		Suggestion fresh = computeFresh(computeBuy);
+		if (pinned == null)
 		{
-			return pending;
+			return fresh;
 		}
+		return fresh != null && fresh.isSameTradeAs(pinned) ? fresh : pinned;
+	}
 
+	private Suggestion computeFresh(boolean computeBuy)
+	{
 		AccountState account = accountMonitor.getState();
 		MarketSnapshot market = marketData.getSnapshot();
 		Instant now = Instant.now();
