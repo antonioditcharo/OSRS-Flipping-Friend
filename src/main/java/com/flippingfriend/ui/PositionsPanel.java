@@ -298,7 +298,18 @@ class PositionsPanel extends JPanel
 		// not reached yet always read as a loss -- which is true of the moment and not of the trade.
 		// The price it is aiming for is the honest basis for "what is this position worth", and the
 		// Market now and Selling at rows sit directly beneath it for the other half of the picture.
-		int basis = position.getTargetSellPrice() > 0 ? position.getTargetSellPrice() : marketSell;
+		//
+		// Once there is an offer on the market, though, the target stops being the answer. The plan's
+		// target is a forecast, and it holds only while the offer is still priced the way the plan
+		// intended -- which it frequently is not, because prices get adjusted, by the player and by
+		// the reprice advice alike. A figure captioned "at target" beside an offer listed somewhere
+		// else is a number about a trade nobody is making.
+		//
+		// So: while it is being bought the target is all there is and the caption says so. The moment
+		// it is listed, the listed price is the fact and the forecast is not needed.
+		Basis valuation = Basis.of(position, statuses.get().get(position.getItemId()), marketSell);
+		int basis = valuation.price;
+		String caption = valuation.caption;
 		if (position.isCostKnown() && basis > 0)
 		{
 			long unrealised = taxCalculator.netProfit(position.getItemId(), position.getAverageCost(),
@@ -312,11 +323,10 @@ class PositionsPanel extends JPanel
 			valueBlock.add(value);
 			// Captioned, because a figure at a price the market has not reached would otherwise read
 			// as money already made.
-			JLabel caption = UiUtils.label(
-				position.getTargetSellPrice() > 0 ? "at target" : "at market", UiUtils.MUTED,
+			JLabel captionLabel = UiUtils.label(caption, UiUtils.MUTED,
 				FontManager.getRunescapeSmallFont());
-			caption.setAlignmentX(Component.RIGHT_ALIGNMENT);
-			valueBlock.add(caption);
+			captionLabel.setAlignmentX(Component.RIGHT_ALIGNMENT);
+			valueBlock.add(captionLabel);
 			header.add(valueBlock, BorderLayout.EAST);
 		}
 
@@ -432,5 +442,47 @@ class PositionsPanel extends JPanel
 
 		UiUtils.constrainWidth(row);
 		return row;
+	}
+
+	/**
+	 * Which price a holding should be valued at, and what to call it.
+	 *
+	 * <p>Pulled out of the panel so it can be tested without a screen. The rule is small and it was
+	 * wrong in a way nothing would have caught: everything held was valued at the plan's target, and
+	 * captioned "at target", including positions that were already listed somewhere else entirely.
+	 */
+	static final class Basis
+	{
+		final int price;
+		final String caption;
+
+		private Basis(int price, String caption)
+		{
+			this.price = price;
+			this.caption = caption;
+		}
+
+		/**
+		 * @param listing what the sell engine says is happening to this holding, or null
+		 * @param marketSell what buyers are paying right now
+		 */
+		static Basis of(Position position, com.flippingfriend.model.PositionStatus listing,
+			int marketSell)
+		{
+			// An offer on the market is a fact; the plan's target is a forecast, and it holds only
+			// while the offer is still priced the way the plan intended. Prices get adjusted -- by the
+			// player, and by the plugin's own reprice advice -- so a figure captioned "at target"
+			// beside an offer listed elsewhere is a number about a trade nobody is making.
+			if (listing != null && listing.isSelling() && listing.getListedPrice() > 0)
+			{
+				return new Basis(listing.getListedPrice(), "if it sells");
+			}
+			// Still being bought, so the target is all there is, and the caption says as much.
+			if (position.getTargetSellPrice() > 0)
+			{
+				return new Basis(position.getTargetSellPrice(), "at target");
+			}
+			return new Basis(marketSell, "at market");
+		}
 	}
 }
