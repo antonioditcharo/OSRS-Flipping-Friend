@@ -145,7 +145,8 @@ public class SellTimingEngine
 		long minutesHeld = position.minutesHeld(now.getEpochSecond());
 
 		PricedExit exit = bestExit(series, itemId, marketSell, quantity, horizon,
-			position.isCostKnown() ? position.getAverageCost() : 0, sellOnly);
+			position.isCostKnown() ? position.getAverageCost() : 0, sellOnly,
+			position.getTargetSellPrice());
 		if (exit == null)
 		{
 			return SellDecision.hold("Nobody is buying this at the moment. Holding until they are.", 0);
@@ -251,11 +252,22 @@ public class SellTimingEngine
 		boolean nearDeadline = minutesHeld >= profile.getMaxHoldMinutes() * NEAR_DEADLINE
 			|| hoursToUpdate * 60 <= exit.expectedMinutes / NEAR_DEADLINE;
 
-		long floor = minProfitPerFlip / 2;
-
-		if (profitAtExit < floor)
+		// Whether a slot is worth spending was settled when the item was bought.
+		//
+		// This used to hold anything whose exit earned less than half the minimum profit per flip, on
+		// the reasoning that the slot was better spent elsewhere. That reasoning belongs to the
+		// decision to ENTER a trade, and it was already made. We are holding the stock either way;
+		// declining to list it frees no capital and no slot, it only postpones getting the coins back,
+		// and the position goes on ageing towards the hold limit that will force it out at whatever
+		// the market offers then.
+		//
+		// So a profitable exit is taken, however modest. What is still worth waiting on is an exit
+		// that would LOSE money -- there the stop loss and the hold horizon above are the things with
+		// an opinion, and they have already had their say by the time we get here.
+		if (profitAtExit <= 0)
 		{
-			return SellDecision.hold("The expected profit is not worth a Grand Exchange slot.", 0)
+			return SellDecision.hold(
+				"Waiting for a price that does not lose money on this position.", 0)
 				.withExitNear(nearTarget || nearDeadline);
 		}
 
@@ -271,7 +283,24 @@ public class SellTimingEngine
 				"Target price reached. Selling.", exit.expectedMinutes, profitAtExit);
 		}
 
-		return SellDecision.hold("Holding for target.", 0).withExitNear(nearTarget || nearDeadline);
+		// List it. The offer does the waiting, not the player.
+		//
+		// This used to hold until the MARKET rose to meet the target, which is not how the exchange
+		// works: a sell offer sits in the queue at whatever ask it was placed at and fills when a
+		// buyer takes it. Waiting for the market to come to the price before placing the offer means
+		// the offer is only ever placed after the moment it was needed -- and in the meantime the
+		// position ages towards the hold limit that will force it out at whatever is on screen then.
+		//
+		// Three Karil's leathertops sat exactly here: in profit at their target of 880,755, told to
+		// hold because the market's buy price was 854,390, and never listed at all.
+		//
+		// Everything above has already had its say -- the stop loss, the hold horizon, a game update,
+		// a falling market, and an exit that would lose money. What is left is a position we bought on
+		// purpose with a profitable price to sell it at, and the only thing to do with that is offer
+		// it.
+		return new SellDecision(SellDecision.Action.SELL, exit.price,
+			"Listing this at the price it was bought to sell at. The offer waits in the queue.",
+			exit.expectedMinutes, profitAtExit);
 	}
 
 	/**
@@ -368,8 +397,11 @@ public class SellTimingEngine
 	 *                    came out of the bank have no cost basis, and for those the fastest
 	 *                    conversion to coins genuinely is the whole objective
 	 */
+	/**
+	 * @param plannedTarget the price this position was opened to sell at, or 0 if none was recorded
+	 */
 	private PricedExit bestExit(List<Candle> series, int itemId, int marketSell, int quantity,
-		TradingHorizon horizon, int averageCost, boolean sellOnly)
+		TradingHorizon horizon, int averageCost, boolean sellOnly, int plannedTarget)
 	{
 		if (series == null || series.isEmpty())
 		{
@@ -383,9 +415,32 @@ public class SellTimingEngine
 		// still the one to take; starting the search at zero would return nothing and hold forever.
 		double bestRate = -Double.MAX_VALUE;
 
-		for (double offset : SELL_OFFSETS)
+		// The grid, plus the price this flip was bought to sell at.
+		//
+		// SELL_OFFSETS spans one per cent below the market to two tenths above it, which asks "how
+		// fast can this be liquidated at roughly today's price". That is the wrong question for a
+		// position we bought on purpose: a flip's profit is the gap between the bid we bought at and
+		// the ask we sell at, and the ask is further away than any offset on that grid can reach.
+		//
+		// Three Karil's leathertops bought at 843,350 were opened to sell at 880,755. The market's
+		// buy price was 854,390, so the grid could propose 856,098 at the very most -- an 18,141 gp
+		// LOSS -- and the engine, quite correctly, declined to spend a slot on it and held. It would
+		// have gone on holding until the hold limit forced the loss, having never once considered the
+		// price the trade was entered for. 19,962 Revenant ether sat the same way, 179,658 down at the
+		// market and in profit at its target of 174.
+		//
+		// The target is on the position; the plan puts it there when the buy is booked. It only had to
+		// be asked about.
+		double[] offsets = SELL_OFFSETS;
+		int[] prices = new int[offsets.length + 1];
+		for (int i = 0; i < offsets.length; i++)
 		{
-			int price = Math.max(1, marketSell + (int) Math.round(marketSell * offset));
+			prices[i] = Math.max(1, marketSell + (int) Math.round(marketSell * offsets[i]));
+		}
+		prices[offsets.length] = plannedTarget > 0 ? plannedTarget : prices[offsets.length - 1];
+
+		for (int price : prices)
+		{
 			FillEstimate fill = fillModel.estimateSell(curve, price, quantity, horizonHours);
 			if (!fill.isPlausible())
 			{
