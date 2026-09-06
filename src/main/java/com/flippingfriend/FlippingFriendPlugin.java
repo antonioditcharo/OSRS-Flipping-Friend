@@ -848,8 +848,20 @@ public class FlippingFriendPlugin extends Plugin
 			{
 				engine.setPendingAdjustment(active);
 			}
-			else if (!widgetResolver.isGeOpen())
+			else if (!isSetupOpen)
 			{
+				// Cleared when the editor closes, not when the whole Grand Exchange does.
+				//
+				// The pin holds the advice on the trade being typed so the player is not yanked
+				// elsewhere mid-entry. Keyed on the GE window it outlived the edit entirely: close
+				// the offer editor, stay at the booth, and the pin kept the recommendation stuck on
+				// the offer last touched for as long as the interface was open -- so nothing could be
+				// said about the other seven slots.
+				//
+				// That was survivable while the pin merely repeated an old suggestion. It is not now
+				// that an offer under the cursor is guaranteed an answer, because the pinned one would
+				// win the card every time. No editor open means nothing is being typed and there is
+				// nothing to protect.
 				engine.setPendingAdjustment(null);
 			}
 

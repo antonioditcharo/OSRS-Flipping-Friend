@@ -489,8 +489,20 @@ public class SuggestionEngine
 				continue;
 			}
 
-			// Never nag about an offer the player has not had a chance to look at yet.
-			if (offer.minutesOpen(now.getEpochSecond()) < horizon.staleOfferMinutes())
+			// Never nag about an offer the player has not had a chance to look at yet -- unless they
+			// are looking at it right now.
+			//
+			// These two rules produced the fault between them. Opening the editor pins the advice
+			// showing at that moment, so the player is not yanked onto another trade mid-entry. This
+			// gate then skipped the very offer they had opened, because it was younger than eight
+			// minutes, so the engine formed no opinion about it at all. compute() therefore had
+			// nothing for that trade to compare against, fell back to the pin, and showed the price
+			// from before they started editing -- for as long as they were editing.
+			//
+			// The gate is about not interrupting. There is no interruption here: the editor is open
+			// on this offer and the question has been asked.
+			boolean asked = beingAdjusted(offer);
+			if (!asked && offer.minutesOpen(now.getEpochSecond()) < horizon.staleOfferMinutes())
 			{
 				continue;
 			}
@@ -534,7 +546,8 @@ public class SuggestionEngine
 			// over the best bid and a sell at one under the best ask both still lead the queue. What
 			// changes is only how much the trade earns, which is why the decision is purely "is the
 			// improvement worth the click" and RepriceReview can answer it without a fill model.
-			Suggestion improvement = improvePricing(offer, price, trend, name, remaining, horizon, now);
+			Suggestion improvement = improvePricing(offer, price, trend, name, remaining, horizon, now,
+				asked);
 			if (improvement != null)
 			{
 				return improvement;
@@ -796,9 +809,13 @@ public class SuggestionEngine
 	 *
 	 * @return the advice, or null when the offer is priced well enough to leave alone
 	 */
+	/**
+	 * @param asked true when the player has this offer open in the editor and is waiting to be told
+	 *              what to type
+	 */
 	private Suggestion improvePricing(TrackedOffer offer, LatestPrice price,
 		com.flippingfriend.data.Candle trend, String name, int remaining, TradingHorizon horizon,
-		Instant now)
+		Instant now, boolean asked)
 	{
 		if (remaining <= 0 || price == null || !price.isComplete())
 		{
@@ -836,7 +853,7 @@ public class SuggestionEngine
 			// would be a second copy of a rule to drift from.
 			if (leading >= offer.getPrice())
 			{
-				return null;
+				return asked ? confirmPrice(offer, name, remaining, offer.getPrice()) : null;
 			}
 			// And the five-minute average has to agree that sellers have come down, for the same
 			// reason as the sell side: one cheap trade is not a market, and bidding down to meet it
@@ -844,10 +861,18 @@ public class SuggestionEngine
 			if (trend == null || trend.getAvgLowPrice() == null
 				|| trend.getAvgLowPrice() >= offer.getPrice())
 			{
-				return null;
+				// Declining to chase a spike is an answer, and when the editor is open it has to be
+				// given as one. Returning nothing here would drop through to the pinned suggestion,
+				// which carries the price from before the market moved -- the exact staleness this
+				// whole path exists to remove.
+				return asked ? confirmPrice(offer, name, remaining, offer.getPrice()) : null;
 			}
-			if (!repriceReview.worthMoving(offer.getSlot(), itemId, offer.getPrice(), leading,
-				valueNow, valueMoved, minProfit, nowSeconds))
+			// The review decides whether a change is worth INTERRUPTING for. With the editor already
+			// open there is nothing to interrupt, so the thresholds and the settling period are not
+			// the question -- the player is holding a box waiting for a number. The direction and
+			// safety guards above and below still apply.
+			if (!asked && !repriceReview.worthMoving(offer.getSlot(), itemId, offer.getPrice(),
+				leading, valueNow, valueMoved, minProfit, nowSeconds))
 			{
 				return null;
 			}
@@ -856,7 +881,9 @@ public class SuggestionEngine
 			long marginPerItem = taxCalculator.netMarginPerItem(itemId, leading, exit);
 			if (marginPerItem <= 0 || (double) marginPerItem / leading < profile.getMinNetMarginPct())
 			{
-				return null;
+				// The cheaper bid would leave too thin a margin to be worth having, so the offer stays
+				// where it is -- said out loud rather than left to the pin.
+				return asked ? confirmPrice(offer, name, remaining, offer.getPrice()) : null;
 			}
 
 			repriceReview.noteAdvised(offer.getSlot(), itemId, leading, nowSeconds);
@@ -882,7 +909,7 @@ public class SuggestionEngine
 		// the rescue case, and it owns the break-even floor that goes with selling into a fall.
 		if (leading <= offer.getPrice())
 		{
-			return null;
+			return asked ? confirmPrice(offer, name, remaining, offer.getPrice()) : null;
 		}
 		// And the five-minute average has to agree that buyers have moved up.
 		//
@@ -893,13 +920,13 @@ public class SuggestionEngine
 		if (trend == null || trend.getAvgHighPrice() == null
 			|| trend.getAvgHighPrice() <= offer.getPrice())
 		{
-			return null;
+			return asked ? confirmPrice(offer, name, remaining, offer.getPrice()) : null;
 		}
 
 		int cost = costKnown ? position.getAverageCost() : 0;
 		long valueNow = taxCalculator.netProfit(itemId, cost, offer.getPrice(), remaining);
 		long valueMoved = taxCalculator.netProfit(itemId, cost, leading, remaining);
-		if (!repriceReview.worthMoving(offer.getSlot(), itemId, offer.getPrice(), leading,
+		if (!asked && !repriceReview.worthMoving(offer.getSlot(), itemId, offer.getPrice(), leading,
 			valueNow, valueMoved, minProfit, nowSeconds))
 		{
 			return null;
@@ -920,6 +947,44 @@ public class SuggestionEngine
 				+ " gp — still first in the queue, and "
 				+ explainer.formatGp(valueMoved - valueNow) + " gp better on this trade.")
 			.build();
+	}
+
+	/**
+	 * The price this offer should be at, when the answer is "the one it already has".
+	 *
+	 * <p>Only produced for an offer the player has open in the editor. Without it, an offer that is
+	 * already priced correctly produces no advice at all, compute() finds nothing about that trade to
+	 * serve, and falls back to the suggestion pinned when the editor opened -- which carries the
+	 * price from before the market moved. A stale number is the one thing this must never show, so
+	 * the case where there is nothing to change is answered explicitly rather than left to a
+	 * fallback that was designed for something else.
+	 */
+	private Suggestion confirmPrice(TrackedOffer offer, String name, int remaining, int price)
+	{
+		return Suggestion.builder(offer.isBuying()
+				? SuggestionType.MODIFY_BUY : SuggestionType.MODIFY_SELL)
+			.item(offer.getItemId(), name)
+			.slot(offer.getSlot())
+			.price(price)
+			.quantity(remaining)
+			.headline(name + " is priced right")
+			.detail("Nothing to change here: " + explainer.formatNumber(price)
+				+ " gp is where this offer should be against the market as it stands.")
+			.build();
+	}
+
+	/**
+	 * Whether this is the offer the player currently has open in the editor.
+	 *
+	 * <p>Matched on item and slot, not on price: the price is the thing being changed, and the whole
+	 * point is to answer a question about it. {@link Suggestion#isSameTradeAs} draws the same line
+	 * for the same reason.
+	 */
+	private boolean beingAdjusted(TrackedOffer offer)
+	{
+		Suggestion pinned = pendingAdjustment;
+		return pinned != null && pinned.getItemId() == offer.getItemId()
+			&& pinned.getSlot() == offer.getSlot();
 	}
 
 	static boolean repriceAllowed(int newPrice, Position position, int breakEvenPrice)
