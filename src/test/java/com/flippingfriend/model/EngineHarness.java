@@ -102,6 +102,44 @@ final class EngineHarness
 			new HashMap<>(), new HashMap<>(), new HashMap<>()));
 	}
 
+	/**
+	 * An offer that has been standing for {@code minutes}, written and loaded the way a real one is.
+	 *
+	 * <p>The reprice loop ignores anything younger than eight minutes, so a test about repricing needs
+	 * an offer older than that -- and an offer created through onOfferChanged is always seconds old,
+	 * with no setter and no clock to inject. Rather than open a seam in TrackedOffer purely for tests,
+	 * this writes the offer file the tracker persists and asks it to load, which exercises the real
+	 * serialisation on the way through.
+	 *
+	 * <p>Pinning the offer instead does NOT work, and finding out why was worth the detour: the pin
+	 * short-circuits the whole decision chain, so a pinned offer wins over collecting, selling and
+	 * everything else. That is correct -- it is what stops the player being yanked off a trade they
+	 * are typing -- but it makes the pin useless for testing what outranks what.
+	 */
+	void standingOffer(int slot, int itemId, String name, boolean buying, int price, int quantity,
+		long minutes)
+	{
+		long since = Instant.now().getEpochSecond() - minutes * 60;
+		String json = "[{\"slot\":" + slot + ",\"itemId\":" + itemId + ",\"itemName\":\"" + name
+			+ "\",\"buying\":" + buying + ",\"price\":" + price + ",\"totalQuantity\":" + quantity
+			+ ",\"quantityFilled\":0,\"recordedQuantity\":0,\"recordedSpent\":0,\"spent\":0"
+			+ ",\"state\":\"" + (buying ? "BUYING" : "SELLING") + "\",\"firstSeen\":" + since
+			+ ",\"lastChanged\":" + since + ",\"collected\":false,\"journalled\":false"
+			+ ",\"pendingQuantity\":0,\"pendingBackedQuantity\":0,\"pendingUnbackedQuantity\":0"
+			+ ",\"pendingCostBasis\":0,\"pendingGross\":0,\"pendingTax\":0,\"pendingOpenedAt\":0"
+			+ ",\"pendingPredictedMinutes\":0,\"pendingPredictedProfit\":0}]";
+		try
+		{
+			java.nio.file.Files.write(storage.accountDir().resolve("offers.json"),
+				json.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+		}
+		catch (Exception failed)
+		{
+			throw new AssertionError("could not write the offer fixture", failed);
+		}
+		offers.load();
+	}
+
 	/** The market, as the engine sees it. Prices and history are whatever a test puts here. */
 	static final class Market extends MarketDataService
 	{
