@@ -24,6 +24,9 @@ import net.runelite.client.ui.overlay.Overlay;
 import net.runelite.client.ui.overlay.OverlayLayer;
 import net.runelite.client.ui.overlay.OverlayPosition;
 import com.flippingfriend.AccountMode;
+import com.flippingfriend.session.OfferTracker;
+import com.flippingfriend.session.TrackedOffer;
+import java.time.Instant;
 import net.runelite.api.WorldType;
 
 /**
@@ -51,16 +54,18 @@ public class GrandExchangeOverlay extends Overlay
 	private final StepGuide stepGuide;
 	private final FlippingFriendConfig config;
 	private final Explainer explainer;
+	private final OfferTracker offerTracker;
 
 	@Inject
 	public GrandExchangeOverlay(Client client, GeWidgetResolver resolver, StepGuide stepGuide,
-		FlippingFriendConfig config, Explainer explainer)
+		FlippingFriendConfig config, Explainer explainer, OfferTracker offerTracker)
 	{
 		this.client = client;
 		this.resolver = resolver;
 		this.stepGuide = stepGuide;
 		this.config = config;
 		this.explainer = explainer;
+		this.offerTracker = offerTracker;
 
 		setLayer(OverlayLayer.ABOVE_WIDGETS);
 		setPosition(OverlayPosition.DYNAMIC);
@@ -74,13 +79,15 @@ public class GrandExchangeOverlay extends Overlay
 			return null;
 		}
 
+		graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+		drawTimers(graphics);
+
 		StepGuide.GuideState state = stepGuide.resolve(totalSlots(), occupiedSlots());
 		if (state.getStep() == GuideStep.NONE)
 		{
 			return null;
 		}
-
-		graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
 		Rectangle anchor = null;
 		for (Widget target : state.getTargets())
@@ -103,6 +110,61 @@ public class GrandExchangeOverlay extends Overlay
 		}
 
 		return null;
+	}
+
+	private void drawTimers(Graphics2D graphics)
+	{
+		long now = Instant.now().getEpochSecond();
+		for (int i = 0; i < 8; i++)
+		{
+			TrackedOffer offer = offerTracker.getOffer(i);
+			if (offer != null && ("BUYING".equals(offer.getState()) || "SELLING".equals(offer.getState())))
+			{
+				Widget slotWidget = resolver.getSlot(i);
+				if (slotWidget != null && !slotWidget.isHidden())
+				{
+					Rectangle bounds = slotWidget.getBounds();
+					if (bounds != null)
+					{
+						graphics.setFont(FontManager.getRunescapeSmallFont());
+						FontMetrics metrics = graphics.getFontMetrics();
+
+						long minutesOpen = offer.minutesOpen(now);
+						String openTimeStr = formatDuration(minutesOpen);
+						int openWidth = metrics.stringWidth(openTimeStr);
+						int openX = bounds.x + bounds.width - openWidth - 4;
+						int openY = bounds.y + 16;
+
+						graphics.setColor(Color.BLACK);
+						graphics.drawString(openTimeStr, openX + 1, openY + 1);
+						graphics.setColor(CARD_MUTED);
+						graphics.drawString(openTimeStr, openX, openY);
+
+						long minutesSinceChange = offer.minutesSinceChange(now);
+						String changeTimeStr = formatDuration(minutesSinceChange);
+						int changeWidth = metrics.stringWidth(changeTimeStr);
+						int changeX = bounds.x + (bounds.width - changeWidth) / 2;
+						int changeY = bounds.y + bounds.height - 20;
+
+						graphics.setColor(Color.BLACK);
+						graphics.drawString(changeTimeStr, changeX + 1, changeY + 1);
+						graphics.setColor(CARD_MUTED);
+						graphics.drawString(changeTimeStr, changeX, changeY);
+					}
+				}
+			}
+		}
+	}
+
+	private String formatDuration(long minutes)
+	{
+		if (minutes < 60)
+		{
+			return minutes + "m";
+		}
+		long hours = minutes / 60;
+		long mins = minutes % 60;
+		return hours + "h " + mins + "m";
 	}
 
 	private void drawHighlight(Graphics2D graphics, Rectangle bounds)

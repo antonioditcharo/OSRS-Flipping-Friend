@@ -9,8 +9,11 @@ package com.flippingfriend.session;
  * them into the journal a second time, and every restart would corrupt both the profit figures and
  * the buy-limit ledger.
  */
+import java.util.UUID;
+
 public class TrackedOffer
 {
+	private UUID id = UUID.randomUUID();
 	private int slot;
 	private int itemId;
 	private String itemName;
@@ -67,6 +70,11 @@ public class TrackedOffer
 		this.totalQuantity = totalQuantity;
 		this.firstSeen = firstSeen;
 		this.lastChanged = firstSeen;
+	}
+
+	public UUID getId()
+	{
+		return id;
 	}
 
 	public int getSlot()
@@ -188,6 +196,11 @@ public class TrackedOffer
 	public long minutesOpen(long nowEpochSeconds)
 	{
 		return Math.max(0, (nowEpochSeconds - firstSeen) / 60);
+	}
+
+	public long minutesSinceChange(long nowEpochSeconds)
+	{
+		return Math.max(0, (nowEpochSeconds - lastChanged) / 60);
 	}
 
 	/** True when this slot describes the same offer, rather than a new one placed after a collect. */

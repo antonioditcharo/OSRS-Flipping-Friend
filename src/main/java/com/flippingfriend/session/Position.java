@@ -59,6 +59,11 @@ public class Position
 		return itemName == null ? "Item " + itemId : itemName;
 	}
 
+	public void setTotalCost(long totalCost)
+	{
+		this.totalCost = totalCost;
+	}
+
 	public void setItemName(String itemName)
 	{
 		this.itemName = itemName;

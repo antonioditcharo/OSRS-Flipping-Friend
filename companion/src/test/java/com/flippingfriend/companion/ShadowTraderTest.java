@@ -28,7 +28,7 @@ public class ShadowTraderTest
 	private static final long T0 = 1_000_000L;
 	private static final String STEP = "5m";
 
-	private final ShadowTrader shadow = new ShadowTrader(new TaxCalculator());
+	private final ShadowTrader shadow = new ShadowTrader(new com.flippingfriend.model.TaxCalculator(), null, null);
 
 	/** A series source over fixed bars, keyed by item. */
 	private static SeriesSource historyOf(Map<Integer, List<Candle>> bars)

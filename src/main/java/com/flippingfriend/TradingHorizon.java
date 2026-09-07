@@ -116,13 +116,13 @@ public class TradingHorizon
 		if (isBuying)
 		{
 			boolean spotOutbid = currentPrice < spot.getLow();
-			boolean trendOutbid = trend == null || trend.getAvgHighPrice() == null || currentPrice < trend.getAvgHighPrice();
+			boolean trendOutbid = trend == null || trend.getAvgLowPrice() == null || currentPrice < trend.getAvgLowPrice();
 			return spotOutbid && trendOutbid;
 		}
 		else
 		{
 			boolean spotOutbid = currentPrice > spot.getHigh();
-			boolean trendOutbid = trend == null || trend.getAvgLowPrice() == null || currentPrice > trend.getAvgLowPrice();
+			boolean trendOutbid = trend == null || trend.getAvgHighPrice() == null || currentPrice > trend.getAvgHighPrice();
 			return spotOutbid && trendOutbid;
 		}
 	}

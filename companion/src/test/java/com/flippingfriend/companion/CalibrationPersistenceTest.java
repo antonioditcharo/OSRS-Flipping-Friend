@@ -111,42 +111,17 @@ public class CalibrationPersistenceTest
 			0.90, after.calibrate(true, 0.90), 1e-9);
 	}
 
-	/**
-	 * The resolved history is the accumulated veto evidence. VetoThresholds' published table came
-	 * from roughly 1,500 rejected trades, which nothing reaches if the history restarts empty.
-	 */
-	@Test
-	public void shadowVetoEvidenceSurvivesRestart()
-	{
-		ShadowTrader before = new ShadowTrader(new com.flippingfriend.model.TaxCalculator());
-		before.open(4151, "Abyssal whip", "too illiquid", 1_000_000, 1_100_000, 1, 1_000L, 1.0);
-		before.open(4151, "Abyssal whip", "still open", 1_000_000, 1_100_000, 1, 9_000_000L, 1.0);
-		before.resolve((itemId, timestep) -> java.util.Arrays.asList(
-			new com.flippingfriend.data.Candle(1_300L, 1_005_000, 990_000, 1000, 1000),
-			new com.flippingfriend.data.Candle(1_900L, 1_150_000, 1_020_000, 1000, 1000)),
-			"5m", 8_000L);
 
-		assertEquals("precondition: one resolved, one still open", 1, before.resolvedCount());
-		assertEquals(1, before.openCount());
-		double gpBefore = before.report(0).get(0).getNetGp();
-
-		ShadowTrader after = new ShadowTrader(new com.flippingfriend.model.TaxCalculator());
-		assertEquals(1, after.restore(
-			gson.fromJson(gson.toJson(before.snapshot()), ShadowTrader.Snapshot.class)));
-
-		assertEquals("the veto table must survive", gpBefore, after.report(0).get(0).getNetGp(), 1e-9);
-		assertEquals("and an unresolved position is still owed a resolution", 1, after.openCount());
-	}
 
 	@Test
 	public void aShadowSnapshotFromAnotherVersionIsRefused()
 	{
-		ShadowTrader before = new ShadowTrader(new com.flippingfriend.model.TaxCalculator());
+		ShadowTrader before = new ShadowTrader(new com.flippingfriend.model.TaxCalculator(), null, null);
 		before.open(4151, "Whip", "too illiquid", 1_000_000, 1_100_000, 1, 1_000L, 1.0);
 		ShadowTrader.Snapshot state = before.snapshot();
 		state.version = ShadowTrader.SNAPSHOT_VERSION + 1;
 
-		ShadowTrader after = new ShadowTrader(new com.flippingfriend.model.TaxCalculator());
+		ShadowTrader after = new ShadowTrader(new com.flippingfriend.model.TaxCalculator(), null, null);
 		assertEquals(0, after.restore(state));
 		assertEquals(0, after.openCount());
 	}

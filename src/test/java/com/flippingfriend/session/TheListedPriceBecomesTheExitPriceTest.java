@@ -42,7 +42,7 @@ public class TheListedPriceBecomesTheExitPriceTest
 		positions = new PositionBook(storage);
 		return new OfferTracker(storage, positions, new BuyLimitTracker(storage),
 			new TradeJournal(storage, null, new AccountMonitor(null, null, null)),
-			new TaxCalculator(), new TradePlans(storage));
+			new TaxCalculator(), new TradePlans(storage), new TransactionManager(storage));
 	}
 
 	private static GrandExchangeOffer offer(GrandExchangeOfferState state, int price, int total,

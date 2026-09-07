@@ -32,7 +32,7 @@ public class OfferTrackerReportingTest
 	{
 		return new OfferTracker(TestStorage.rootedAt(root, "p"), new PositionBook(TestStorage.rootedAt(root, "p")),
 			new BuyLimitTracker(TestStorage.rootedAt(root, "p")),
-			new TradeJournal(TestStorage.rootedAt(root, "p"), null, new AccountMonitor(null, null, null)), new TaxCalculator(), new TradePlans(TestStorage.rootedAt(root, "p")));
+			new TradeJournal(TestStorage.rootedAt(root, "p"), null, new AccountMonitor(null, null, null)), new TaxCalculator(), new TradePlans(TestStorage.rootedAt(root, "p")), new TransactionManager(TestStorage.rootedAt(root, "p")));
 	}
 
 	private static GrandExchangeOffer offer(GrandExchangeOfferState state, int itemId, int price,

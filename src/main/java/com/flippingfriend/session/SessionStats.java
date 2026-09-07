@@ -13,9 +13,10 @@ public class SessionStats
 	private final double totalMinutesHeld;
 	private final long elapsedSeconds;
 	private final java.util.Map<com.flippingfriend.model.MarketSector, Long> sectorProfits;
+	private final long cost;
 
 	public SessionStats(int flips, int wins, long profit, long taxPaid, double totalMinutesHeld,
-		long elapsedSeconds, java.util.Map<com.flippingfriend.model.MarketSector, Long> sectorProfits)
+		long elapsedSeconds, java.util.Map<com.flippingfriend.model.MarketSector, Long> sectorProfits, long cost)
 	{
 		this.flips = flips;
 		this.wins = wins;
@@ -24,11 +25,12 @@ public class SessionStats
 		this.totalMinutesHeld = totalMinutesHeld;
 		this.elapsedSeconds = elapsedSeconds;
 		this.sectorProfits = sectorProfits;
+		this.cost = cost;
 	}
 
 	public static SessionStats empty()
 	{
-		return new SessionStats(0, 0, 0, 0, 0, 0, java.util.Collections.emptyMap());
+		return new SessionStats(0, 0, 0, 0, 0, 0, java.util.Collections.emptyMap(), 0);
 	}
 
 	public int getFlips()
@@ -79,5 +81,35 @@ public class SessionStats
 	public java.util.Map<com.flippingfriend.model.MarketSector, Long> getSectorProfits()
 	{
 		return sectorProfits;
+	}
+
+	public long getCost()
+	{
+		return cost;
+	}
+
+	public double getRoi()
+	{
+		return cost == 0 ? 0 : (double) profit / cost;
+	}
+
+	public SessionStats withOngoing(long ongoingProfit, long ongoingTax, long ongoingCost, java.util.Map<com.flippingfriend.model.MarketSector, Long> ongoingSectorProfits)
+	{
+		java.util.Map<com.flippingfriend.model.MarketSector, Long> mergedSectorProfits = new java.util.HashMap<>(this.sectorProfits);
+		for (java.util.Map.Entry<com.flippingfriend.model.MarketSector, Long> entry : ongoingSectorProfits.entrySet())
+		{
+			mergedSectorProfits.put(entry.getKey(), mergedSectorProfits.getOrDefault(entry.getKey(), 0L) + entry.getValue());
+		}
+
+		return new SessionStats(
+			this.flips,
+			this.wins,
+			this.profit + ongoingProfit,
+			this.taxPaid + ongoingTax,
+			this.totalMinutesHeld,
+			this.elapsedSeconds,
+			mergedSectorProfits,
+			this.cost + ongoingCost
+		);
 	}
 }

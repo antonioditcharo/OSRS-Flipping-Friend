@@ -76,7 +76,7 @@ final class EngineHarness
 		skipList = new SkipList(storage);
 		journal = new TradeJournal(storage, null, new AccountMonitor(null, null, null));
 		TaxCalculator tax = new TaxCalculator();
-		offers = new OfferTracker(storage, positions, buyLimits, journal, tax, tradePlans);
+		offers = new OfferTracker(storage, positions, buyLimits, journal, tax, tradePlans, new com.flippingfriend.session.TransactionManager(storage));
 
 		config = Mockito.mock(FlippingFriendConfig.class);
 		Mockito.when(config.riskProfile()).thenReturn(RiskProfile.HIGH);

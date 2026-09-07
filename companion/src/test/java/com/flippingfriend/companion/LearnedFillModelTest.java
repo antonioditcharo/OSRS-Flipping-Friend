@@ -71,7 +71,7 @@ public class LearnedFillModelTest
 	 */
 	private static ShadowTrader learnableSet(int rows, double analytical)
 	{
-		ShadowTrader shadow = new ShadowTrader(new TaxCalculator());
+		ShadowTrader shadow = new ShadowTrader(new com.flippingfriend.model.TaxCalculator(), null, null);
 		Random random = new Random(5);
 		for (int i = 0; i < rows; i++)
 		{
@@ -118,7 +118,7 @@ public class LearnedFillModelTest
 	@Test
 	public void aModelTrainedOnNoiseIsRefusedOutright()
 	{
-		ShadowTrader shadow = new ShadowTrader(new TaxCalculator());
+		ShadowTrader shadow = new ShadowTrader(new com.flippingfriend.model.TaxCalculator(), null, null);
 		Random random = new Random(9);
 		for (int i = 0; i < 900; i++)
 		{

@@ -303,6 +303,12 @@ public class SuggestionEngine
 		{
 			return fresh;
 		}
+
+		if (fresh != null && fresh.getType() == SuggestionType.COLLECT && fresh.getSlot() == pinned.getSlot())
+		{
+			return fresh;
+		}
+
 		return fresh != null && fresh.isSameTradeAs(pinned) ? fresh : pinned;
 	}
 
@@ -350,7 +356,7 @@ public class SuggestionEngine
 			}
 		}
 
-		Suggestion adjust = adjustSuggestion(market, horizon, now);
+		Suggestion adjust = adjustSuggestion(market, horizon, account, now);
 		if (adjust != null)
 		{
 			return adjust;
@@ -478,7 +484,7 @@ public class SuggestionEngine
 	 * now selling at, or a sell offer priced above what people are now paying, will sit there
 	 * indefinitely — the slot is doing nothing, and the player has no way of knowing.
 	 */
-	private Suggestion adjustSuggestion(MarketSnapshot market, TradingHorizon horizon, Instant now)
+	private Suggestion adjustSuggestion(MarketSnapshot market, TradingHorizon horizon, AccountState account, Instant now)
 	{
 		for (TrackedOffer offer : offers.getOffers())
 		{
@@ -546,11 +552,20 @@ public class SuggestionEngine
 			// over the best bid and a sell at one under the best ask both still lead the queue. What
 			// changes is only how much the trade earns, which is why the decision is purely "is the
 			// improvement worth the click" and RepriceReview can answer it without a fill model.
-			Suggestion improvement = improvePricing(offer, price, trend, name, remaining, horizon, now,
+			Suggestion improvement = improvePricing(market, offer, price, trend, name, remaining, horizon, now,
 				asked);
 			if (improvement != null)
 			{
 				return improvement;
+			}
+
+			if (offer.isBuying())
+			{
+				Suggestion oppCost = evaluateOpportunityCost(offer, market, horizon, account, now);
+				if (oppCost != null)
+				{
+					return oppCost;
+				}
 			}
 
 			if (horizon.isOutbid(offer.isBuying(), offer.getPrice(), price, trend))
@@ -813,7 +828,148 @@ public class SuggestionEngine
 	 * @param asked true when the player has this offer open in the editor and is waiting to be told
 	 *              what to type
 	 */
-	private Suggestion improvePricing(TrackedOffer offer, LatestPrice price,
+	private Suggestion evaluateOpportunityCost(TrackedOffer offer, MarketSnapshot market, TradingHorizon horizon, AccountState account, Instant now)
+	{
+		List<EvaluatedCandidate> evaluated = lastEvaluated.get();
+		if (evaluated == null || evaluated.isEmpty())
+		{
+			return null;
+		}
+
+		EvaluatedCandidate bestAlternative = null;
+		for (EvaluatedCandidate ev : evaluated)
+		{
+			if (ev.isAccepted() && ev.getItemId() != offer.getItemId())
+			{
+				if (bestAlternative == null || ev.getScore() > bestAlternative.getScore())
+				{
+					bestAlternative = ev;
+				}
+			}
+		}
+
+		if (bestAlternative == null)
+		{
+			return null;
+		}
+
+		int itemId = offer.getItemId();
+		LatestPrice price = market.latest(itemId);
+		List<Candle> series = marketData.getSeries(itemId, TIMESTEP);
+		if (series.isEmpty() || price == null || !price.isComplete())
+		{
+			return null;
+		}
+
+		ItemFeatures features = featureEngine.compute(itemId, series, BUCKET_SECONDS);
+		MarketContext context = MarketContext.from(marketData.getSeries(itemId, LONG_TIMESTEP), price.getLow());
+		
+		LatestPrice natureRuneLatest = market.latest(561);
+		int natureRunePrice = natureRuneLatest != null && natureRuneLatest.getHigh() > 0 ? natureRuneLatest.getHigh() : 200;
+		long spendable = account.spendableCoins(config.includeBankValue(), config.bankrollCap());
+		
+		ItemMetadata metadata = market.metadata(itemId);
+		int buyLimit = metadata != null ? metadata.getBuyLimit() : 0;
+		int buyLimitRemaining = buyLimit > 0 ? buyLimits.remaining(itemId, buyLimit, now) : 10000;
+
+		Candidate currentCandidate = scorer.score(metadata, price, features, series, context,
+			horizon, spendable, buyLimitRemaining, config.useCalibration(), natureRunePrice, now);
+
+		double currentScore = 0;
+		if (currentCandidate != null)
+		{
+			currentScore = currentCandidate.getScore();
+		}
+
+		// Require a 20% margin over the current expected score to account for queue priority loss and friction
+		// Or if currentScore is 0 (unprofitable now), and bestAlternative is good, we cancel.
+		if (bestAlternative.getScore() > currentScore * 1.2)
+		{
+			String name = market.getItemName(itemId);
+			return Suggestion.builder(SuggestionType.CANCEL)
+				.item(itemId, name)
+				.slot(offer.getSlot())
+				.price(offer.getPrice())
+				.quantity(offer.getRemaining())
+				.headline("Cancel your " + name + " offer")
+				.detail("This offer is tying up your capital and slots, and there is a better opportunity available (like " + bestAlternative.getItemName() + ") that is expected to make significantly more profit per hour.")
+				.build();
+		}
+
+		return null;
+	}
+
+	private SellDecision evaluateSellOpportunityCost(Position position, SellDecision currentDecision, MarketSnapshot market, AccountState account, TradingHorizon horizon, Instant now)
+	{
+		List<EvaluatedCandidate> evaluated = lastEvaluated.get();
+		if (evaluated == null || evaluated.isEmpty())
+		{
+			return null;
+		}
+
+		EvaluatedCandidate bestAlternative = null;
+		for (EvaluatedCandidate ev : evaluated)
+		{
+			if (ev.isAccepted() && ev.getItemId() != position.getItemId())
+			{
+				if (bestAlternative == null || ev.getScore() > bestAlternative.getScore())
+				{
+					bestAlternative = ev;
+				}
+			}
+		}
+
+		if (bestAlternative == null)
+		{
+			return null;
+		}
+
+		int itemId = position.getItemId();
+		LatestPrice price = market.latest(itemId);
+		List<Candle> series = marketData.getSeries(itemId, TIMESTEP);
+		if (series.isEmpty() || price == null || !price.isComplete())
+		{
+			return null;
+		}
+
+		ItemFeatures features = featureEngine.compute(itemId, series, BUCKET_SECONDS);
+		MarketContext context = MarketContext.from(marketData.getSeries(itemId, LONG_TIMESTEP), price.getLow());
+		
+		LatestPrice natureRuneLatest = market.latest(561);
+		int natureRunePrice = natureRuneLatest != null && natureRuneLatest.getHigh() > 0 ? natureRuneLatest.getHigh() : 200;
+		long spendable = account.spendableCoins(config.includeBankValue(), config.bankrollCap());
+		
+		ItemMetadata metadata = market.metadata(itemId);
+		int buyLimit = metadata != null ? metadata.getBuyLimit() : 0;
+		int buyLimitRemaining = buyLimit > 0 ? buyLimits.remaining(itemId, buyLimit, now) : 10000;
+
+		Candidate currentCandidate = scorer.score(metadata, price, features, series, context,
+			horizon, spendable, buyLimitRemaining, config.useCalibration(), natureRunePrice, now);
+
+		double currentScore = 0;
+		if (currentCandidate != null)
+		{
+			currentScore = currentCandidate.getScore();
+		}
+
+		// Require a 20% margin over the current expected score to account for GE tax and friction.
+		// If currentScore is 0 (the item is no longer profitable to trade), we liquidate.
+		if (bestAlternative.getScore() > currentScore * 1.2)
+		{
+			int exitPrice = Math.max(1, price.getHigh() - 1); // target the leading sell price to exit
+			long profitAtExit = taxCalculator.netProfit(itemId, position.getAverageCost(), exitPrice, position.getQuantity());
+			double hourlyVolume = hourlyVolume(market, itemId);
+			double expectedMinutes = hourlyVolume > 0 ? ((double) position.getQuantity() / hourlyVolume) * 60 : 60;
+			
+			return new SellDecision(SellDecision.Action.CUT, exitPrice,
+				"Holding this is tying up capital/slots, and there is a better opportunity available (like " + bestAlternative.getItemName() + ") that is expected to make significantly more profit per hour. Liquidating to free the slot.",
+				expectedMinutes, profitAtExit);
+		}
+
+		return null;
+	}
+
+	private Suggestion improvePricing(MarketSnapshot market, TrackedOffer offer, LatestPrice price,
 		com.flippingfriend.data.Candle trend, String name, int remaining, TradingHorizon horizon,
 		Instant now, boolean asked)
 	{
@@ -843,11 +999,18 @@ public class SuggestionEngine
 			}
 
 			int leading = price.getLow() + 1;
-			// What the flip is worth bought at each price and sold where a buy is planned to sell.
 			int exit = Math.max(1, price.getHigh() - 1);
 			long valueNow = taxCalculator.netProfit(itemId, offer.getPrice(), exit, remaining);
 			long valueMoved = taxCalculator.netProfit(itemId, leading, exit, remaining);
 
+			double hourlyVolume = hourlyVolume(market, itemId);
+			double baseExpectedHours = hourlyVolume > 0 ? ((double) remaining / hourlyVolume) : 1.0;
+			
+			double gpPerHourNow = valueNow / baseExpectedHours;
+			double gpPerHourMoved = valueMoved / baseExpectedHours;
+
+
+			
 			// Only ever downwards here. Bidding UP to reach a market that has risen is the rescue
 			// case below, which has its own margin and minimum-profit gates; duplicating them here
 			// would be a second copy of a rule to drift from.
@@ -872,7 +1035,7 @@ public class SuggestionEngine
 			// the question -- the player is holding a box waiting for a number. The direction and
 			// safety guards above and below still apply.
 			if (!asked && !repriceReview.worthMoving(offer.getSlot(), itemId, offer.getPrice(),
-				leading, valueNow, valueMoved, minProfit, nowSeconds))
+				leading, gpPerHourNow, gpPerHourMoved, nowSeconds))
 			{
 				return null;
 			}
@@ -926,8 +1089,15 @@ public class SuggestionEngine
 		int cost = costKnown ? position.getAverageCost() : 0;
 		long valueNow = taxCalculator.netProfit(itemId, cost, offer.getPrice(), remaining);
 		long valueMoved = taxCalculator.netProfit(itemId, cost, leading, remaining);
+		
+		double hourlyVolume = hourlyVolume(market, itemId);
+		double baseExpectedHours = hourlyVolume > 0 ? ((double) remaining / hourlyVolume) : 1.0;
+		
+		double gpPerHourNow = valueNow / baseExpectedHours;
+		double gpPerHourMoved = valueMoved / baseExpectedHours;
+
 		if (!asked && !repriceReview.worthMoving(offer.getSlot(), itemId, offer.getPrice(), leading,
-			valueNow, valueMoved, minProfit, nowSeconds))
+			gpPerHourNow, gpPerHourMoved, nowSeconds))
 		{
 			return null;
 		}
@@ -1342,6 +1512,15 @@ public class SuggestionEngine
 			SellDecision decision = sellTiming.evaluate(position, price, features, series, horizon, now,
 				config.minProfitPerFlip(), inInventory, sellOnly, isSkipped);
 
+			if (!decision.isSell() && !stillBuying.contains(itemId))
+			{
+				SellDecision oppCostDecision = evaluateSellOpportunityCost(position, decision, market, account, horizon, now);
+				if (oppCostDecision != null)
+				{
+					decision = oppCostDecision;
+				}
+			}
+
 			// A buy for this item is still working, so the position is still growing.
 			//
 			// Nothing can be listed until it stops, and reserving a slot to sell a fraction of a
@@ -1725,14 +1904,7 @@ public class SuggestionEngine
 			// (price percentile, volatility ratio, hour liquidity) collapsed to the constants 0.5,
 			// 0.25 and 0.5 at inference. Any weight the model had learned on them was applied
 			// identically to every candidate, which is worse than not using them at all.
-			double scorePenalty = 1.0;
-			int benchmark = config.benchmarkProfitPerFlip();
-			if (benchmark > 0 && candidate.getNetProfit() < benchmark)
-			{
-				scorePenalty = (double) candidate.getNetProfit() / benchmark;
-			}
-
-			candidate.setAdjustedScore(candidate.getScore() * scorePenalty);
+			candidate.setAdjustedScore(candidate.getScore());
 
 			evaluated.add(EvaluatedCandidate.accepted(candidate, null));
 			ranked.add(candidate);
@@ -2096,7 +2268,9 @@ public class SuggestionEngine
 		{
 			double base = inInventory ? 1e24 : 0;
 			base += decision.getAction() == SellDecision.Action.CUT ? 1e12 : 0;
-			return base + decision.getExpectedProfit();
+			double expectedMinutes = Math.max(1.0, decision.getExpectedMinutes());
+			double profitPerHour = decision.getExpectedProfit() * (60.0 / expectedMinutes);
+			return base + profitPerHour;
 		}
 	}
 }

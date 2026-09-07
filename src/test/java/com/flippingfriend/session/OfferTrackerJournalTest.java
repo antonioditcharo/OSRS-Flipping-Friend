@@ -42,7 +42,7 @@ public class OfferTrackerJournalTest
 		buyLimits = new BuyLimitTracker(storage);
 		journal = new TradeJournal(storage, null, new AccountMonitor(null, null, null));
 		return new OfferTracker(storage, positions, buyLimits, journal, new TaxCalculator(),
-			new TradePlans(storage));
+			new TradePlans(storage), new TransactionManager(storage));
 	}
 
 	private static GrandExchangeOffer offer(GrandExchangeOfferState state, int price, int total,
@@ -119,23 +119,28 @@ public class OfferTrackerJournalTest
 	}
 
 	@Test
-	public void sellingMoreThanIsHeldDoesNotInventProfit() throws Exception
+	public void sellingMoreThanIsHeldExtrapolatesProfitFromAverageCost() throws Exception
 	{
 		OfferTracker tracker = trackerAt(folder.newFolder("unbacked").toPath());
 		buy(tracker, 0, 500);
 
 		// The book holds 500. The game reports 3,558 sold -- the position was drained by something
-		// the plugin did not see. Charging the proceeds of 3,558 against the cost of 500 is exactly
-		// how a 28,464 gp flip was recorded as 2,570,280.
+		// the plugin did not see. The plugin extrapolates the cost basis of the unbacked 3,058 units
+		// using the known average cost of the 500 units it did see.
 		tracker.onOfferChanged(1, offer(GrandExchangeOfferState.SELLING, SELL_PRICE, 3558, 0));
 		tracker.onOfferChanged(1, offer(GrandExchangeOfferState.SOLD, SELL_PRICE, 3558, 3558));
 
 		List<FlipRecord> history = journal.getHistory();
 		assertEquals(1, history.size());
 		FlipRecord record = history.get(0);
-		assertEquals("only the units with a known cost are priced", 500, record.getQuantity());
-		assertTrue("profit must stay a margin, not become proceeds",
-			record.getProfit() < (long) SELL_PRICE * 500);
+		assertEquals("the full sold amount is recorded since cost was extrapolated", 3558, record.getQuantity());
+		
+		long expectedCostBasis = (long) BUY_PRICE * 3558;
+		long expectedTax = new TaxCalculator().taxFor(RUBY, SELL_PRICE, 3558);
+		long expectedGross = (long) SELL_PRICE * 3558;
+		long expectedProfit = expectedGross - expectedCostBasis - expectedTax;
+		
+		assertEquals("profit is extrapolated proportionally", expectedProfit, record.getProfit());
 	}
 
 	@Test

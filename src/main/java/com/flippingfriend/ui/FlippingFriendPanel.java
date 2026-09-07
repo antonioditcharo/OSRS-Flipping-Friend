@@ -58,6 +58,8 @@ public class FlippingFriendPanel extends PluginPanel
 	private final ConfigManager configManager;
 	private final Explainer explainer;
 	private final CompanionClient companion;
+	private final PositionBook positions;
+	private final TaxCalculator taxCalculator;
 	private Runnable onRejection = () -> { };
 
 	/** Our own handle on the scrolled column; PluginPanel keeps a private one of its own. */
@@ -87,7 +89,7 @@ public class FlippingFriendPanel extends PluginPanel
 	private volatile java.util.List<com.flippingfriend.model.LearningReading> learning;
 	private volatile boolean companionReachable;
 	private final PortfolioPanel portfolioPanel;
-	private final BankTrajectoryPanel bankTrajectoryPanel;
+	private final ProfitLossGraphPanel profitLossGraphPanel;
 
 	private final JPanel onboardingSlot = new JPanel(new BorderLayout());
 	private final JButton sellOnlyButton = new JButton();
@@ -117,6 +119,8 @@ public class FlippingFriendPanel extends PluginPanel
 		this.configManager = configManager;
 		this.explainer = explainer;
 		this.companion = companion;
+		this.positions = positions;
+		this.taxCalculator = taxCalculator;
 
 		this.sellOnlyNote = UiUtils.wrappedText("", UiUtils.MUTED,
 			FontManager.getRunescapeSmallFont(), UiUtils.CONTENT_WIDTH);
@@ -137,11 +141,13 @@ public class FlippingFriendPanel extends PluginPanel
 				rejected();
 			}
 		});
-		this.historyPanel = new HistoryPanel(journal, itemManager, explainer);
+		this.historyPanel = new HistoryPanel(journal, positions, itemManager, explainer, taxCalculator,
+			engine::getPositionStatuses);
+		this.historyPanel.setOnTradeEdited(this::refresh);
 		this.statsPanel = new StatsPanel(explainer);
 		this.learningPanel = new LearningPanel();
 		this.portfolioPanel = new PortfolioPanel(companion, explainer);
-		this.bankTrajectoryPanel = new BankTrajectoryPanel(journal, explainer);
+		this.profitLossGraphPanel = new ProfitLossGraphPanel(journal, explainer);
 
 		setLayout(new BorderLayout());
 		setBackground(UiUtils.BACKGROUND);
@@ -152,6 +158,7 @@ public class FlippingFriendPanel extends PluginPanel
 		content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
 
 		content.add(buildHeader());
+		content.add(new CollapsibleSection("Basic Trade Settings", buildSettings(), true));
 
 		onboardingSlot.setBackground(UiUtils.BACKGROUND);
 		onboardingSlot.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -173,15 +180,30 @@ public class FlippingFriendPanel extends PluginPanel
 		content.add(UiUtils.gap(UiUtils.SPACE_M));
 		content.add(new CollapsibleSection("Recommendation", suggestionCard, false));
 
-		content.add(new CollapsibleSection("Portfolio", portfolioPanel, false));
+		content.add(UiUtils.sectionHeader("Portfolio"));
+		content.add(portfolioPanel);
 		content.add(new CollapsibleSection("Holding", positionsPanel, false));
-		content.add(new CollapsibleSection("Recent trades", historyPanel, false));
+		
+		JScrollPane historyScroll = new JScrollPane(historyPanel,
+			ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS,
+			ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+		historyScroll.setBackground(UiUtils.BACKGROUND);
+		historyScroll.getViewport().setBackground(UiUtils.BACKGROUND);
+		historyScroll.setBorder(BorderFactory.createEmptyBorder());
+		historyScroll.getVerticalScrollBar().setUnitIncrement(16);
+		historyScroll.getVerticalScrollBar().setPreferredSize(new Dimension(9, 0));
+		historyScroll.setPreferredSize(new Dimension(0, 300));
+		historyScroll.setMaximumSize(new Dimension(Integer.MAX_VALUE, 300));
+		historyScroll.setWheelScrollingEnabled(false);
+		
+		content.add(new CollapsibleSection("Recent/Ongoing Trades", historyScroll, false));
+		
 		content.add(new CollapsibleSection("Performance", statsPanel, false));
 		// Collapsed by default. It is a diagnostic, not something to read every trade -- but it has to
 		// be reachable, because the one time it matters is when the advice has gone strange and the
 		// reason is a number in here.
 		content.add(new CollapsibleSection("Learning", learningPanel, true));
-		content.add(new CollapsibleSection("Bank Trajectory", bankTrajectoryPanel, false));
+		content.add(new CollapsibleSection("Profit / Loss", profitLossGraphPanel, false));
 
 
 		content.add(UiUtils.gap(UiUtils.SPACE_L));
@@ -216,6 +238,16 @@ public class FlippingFriendPanel extends PluginPanel
 		bankrollLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
 		header.add(UiUtils.gap(2));
 		header.add(bankrollLabel);
+
+		return header;
+	}
+
+	private JPanel buildSettings()
+	{
+		JPanel settings = new JPanel();
+		settings.setLayout(new BoxLayout(settings, BoxLayout.Y_AXIS));
+		settings.setBackground(UiUtils.BACKGROUND);
+		settings.setAlignmentX(Component.LEFT_ALIGNMENT);
 
 		riskSelector.setModel(new DefaultComboBoxModel<>(RiskProfile.values()));
 		riskSelector.setSelectedItem(config.riskProfile());
@@ -277,17 +309,17 @@ public class FlippingFriendPanel extends PluginPanel
 		sellOnlyButton.setFocusPainted(false);
 		sellOnlyButton.setAlignmentX(Component.LEFT_ALIGNMENT);
 		sellOnlyButton.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, 26));
-		header.add(UiUtils.gap(UiUtils.SPACE_M));
-		header.add(sellOnlyButton);
-		header.add(UiUtils.gap(UiUtils.SPACE_XS));
-		header.add(sellOnlyNote);
+		settings.add(UiUtils.gap(UiUtils.SPACE_M));
+		settings.add(sellOnlyButton);
+		settings.add(UiUtils.gap(UiUtils.SPACE_XS));
+		settings.add(sellOnlyNote);
 
-		header.add(UiUtils.gap(UiUtils.SPACE_M));
-		header.add(selectorBlock("Risk level", riskSelector, riskDescription));
-		header.add(UiUtils.gap(UiUtils.SPACE_M));
-		header.add(selectorBlock("How often you check the GE", intervalSelector, intervalDescription));
+		settings.add(UiUtils.gap(UiUtils.SPACE_M));
+		settings.add(selectorBlock("Risk level", riskSelector, riskDescription));
+		settings.add(UiUtils.gap(UiUtils.SPACE_M));
+		settings.add(selectorBlock("How often you check the GE", intervalSelector, intervalDescription));
 
-		return header;
+		return settings;
 	}
 
 	private JPanel selectorBlock(String label, JComboBox<?> selector, JTextArea description)
@@ -408,6 +440,36 @@ public class FlippingFriendPanel extends PluginPanel
 
 			SessionStats session = journal.sessionStats();
 			SessionStats lifetime = journal.lifetimeStats();
+
+			long ongoingProfit = 0;
+			long ongoingTax = 0;
+			long ongoingCost = 0;
+			java.util.Map<com.flippingfriend.model.MarketSector, Long> ongoingSectorProfits = new java.util.HashMap<>();
+			java.util.Map<Integer, com.flippingfriend.model.PositionStatus> currentStatuses = engine.getPositionStatuses();
+
+			for (com.flippingfriend.session.Position position : positions.all()) {
+				com.flippingfriend.model.PositionStatus status = currentStatuses.get(position.getItemId());
+				if (status != null && status.isSelling()) {
+					int filled = status.getListedFilled();
+					if (filled > 0) {
+						long profit = taxCalculator.netProfit(position.getItemId(), position.getAverageCost(), status.getListedPrice(), filled);
+						long tax = taxCalculator.taxFor(position.getItemId(), status.getListedPrice(), filled);
+						long cost = (long) position.getAverageCost() * filled;
+						ongoingProfit += profit;
+						ongoingTax += tax;
+						ongoingCost += cost;
+
+						com.flippingfriend.model.MarketSector sector = com.flippingfriend.model.SectorMapper.getSector(position.getItemId(), position.getItemName());
+						ongoingSectorProfits.put(sector, ongoingSectorProfits.getOrDefault(sector, 0L) + profit);
+					}
+				}
+			}
+
+			if (ongoingProfit != 0 || ongoingCost != 0) {
+				session = session.withOngoing(ongoingProfit, ongoingTax, ongoingCost, ongoingSectorProfits);
+				lifetime = lifetime.withOngoing(ongoingProfit, ongoingTax, ongoingCost, ongoingSectorProfits);
+			}
+
 			statsPanel.update(session, lifetime);
 			if (!companionReachable)
 			{
@@ -418,7 +480,7 @@ public class FlippingFriendPanel extends PluginPanel
 				learningPanel.update(learning);
 			}
 			portfolioPanel.refresh();
-			bankTrajectoryPanel.repaint();
+			profitLossGraphPanel.repaint();
 
 			updateBankroll();
 			syncSelectors();

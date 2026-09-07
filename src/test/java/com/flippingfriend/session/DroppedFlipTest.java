@@ -48,7 +48,7 @@ public class DroppedFlipTest
 		positions = new PositionBook(storage);
 		journal = new TradeJournal(storage, null, new AccountMonitor(null, null, null));
 		return new OfferTracker(storage, positions, new BuyLimitTracker(storage), journal,
-			new TaxCalculator(), new TradePlans(storage));
+			new TaxCalculator(), new TradePlans(storage), new TransactionManager(storage));
 	}
 
 	private static GrandExchangeOffer offer(GrandExchangeOfferState state, boolean buying, int price,

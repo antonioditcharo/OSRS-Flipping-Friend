@@ -90,6 +90,9 @@ final class SqliteStore implements AutoCloseable
 			statement.execute("CREATE TABLE IF NOT EXISTS fill_hazard (item_id INTEGER NOT NULL, "
 				+ "buying INTEGER NOT NULL, bucket INTEGER NOT NULL, at_risk INTEGER NOT NULL DEFAULT 0, "
 				+ "filled INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(item_id, buying, bucket))");
+			statement.execute("CREATE TABLE IF NOT EXISTS shadow_resolved (id INTEGER PRIMARY KEY, "
+				+ "veto_reason TEXT, outcome TEXT NOT NULL, profit INTEGER NOT NULL, cost INTEGER NOT NULL, "
+				+ "item_id INTEGER NOT NULL, features TEXT, analytical_completion REAL NOT NULL)");
 		}
 
 		// predicted_minutes arrived after the table had already shipped, so databases created by an
@@ -933,5 +936,62 @@ final class SqliteStore implements AutoCloseable
 		}
 	}
 
-	@Override public synchronized void close() throws Exception { connection.close(); }
+	@Override
+	public synchronized void close() throws Exception
+	{
+		connection.close();
+	}
+
+	synchronized void recordShadowResolved(ShadowTrader.Resolved resolved, com.google.gson.Gson gson) throws Exception
+	{
+		try (PreparedStatement statement = connection.prepareStatement(
+			"INSERT INTO shadow_resolved(veto_reason, outcome, profit, cost, item_id, features, analytical_completion) VALUES(?,?,?,?,?,?,?)"))
+		{
+			statement.setString(1, resolved.vetoReason);
+			statement.setString(2, resolved.outcome.name());
+			statement.setLong(3, resolved.profit);
+			statement.setLong(4, resolved.cost);
+			statement.setInt(5, resolved.itemId);
+			statement.setString(6, resolved.features != null ? gson.toJson(resolved.features) : null);
+			statement.setDouble(7, resolved.analyticalCompletion);
+			statement.executeUpdate();
+		}
+	}
+
+	synchronized java.util.List<ShadowTrader.Resolved> recentShadowResolved(int limit, com.google.gson.Gson gson) throws Exception
+	{
+		java.util.List<ShadowTrader.Resolved> result = new java.util.ArrayList<>();
+		try (PreparedStatement statement = connection.prepareStatement(
+			"SELECT veto_reason, outcome, profit, cost, item_id, features, analytical_completion " +
+			"FROM (SELECT * FROM shadow_resolved ORDER BY id DESC LIMIT ?) ORDER BY id ASC"))
+		{
+			statement.setInt(1, limit);
+			try (ResultSet rs = statement.executeQuery())
+			{
+				while (rs.next())
+				{
+					String vetoReason = rs.getString(1);
+					ShadowTrader.Outcome outcome = ShadowTrader.Outcome.valueOf(rs.getString(2));
+					long profit = rs.getLong(3);
+					long cost = rs.getLong(4);
+					int itemId = rs.getInt(5);
+					String featuresJson = rs.getString(6);
+					double[] features = featuresJson != null ? gson.fromJson(featuresJson, double[].class) : null;
+					double analyticalCompletion = rs.getDouble(7);
+					result.add(new ShadowTrader.Resolved(vetoReason, outcome, profit, cost, itemId, features, analyticalCompletion));
+				}
+			}
+		}
+		return result;
+	}
+
+	synchronized int pruneShadowResolved(int keepCount) throws Exception
+	{
+		try (PreparedStatement statement = connection.prepareStatement(
+			"DELETE FROM shadow_resolved WHERE id < (SELECT min(id) FROM (SELECT id FROM shadow_resolved ORDER BY id DESC LIMIT ?))"))
+		{
+			statement.setInt(1, keepCount);
+			return statement.executeUpdate();
+		}
+	}
 }
