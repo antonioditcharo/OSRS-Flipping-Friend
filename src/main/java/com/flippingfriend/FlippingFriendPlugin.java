@@ -969,16 +969,18 @@ public class FlippingFriendPlugin extends Plugin
 	 */
 	private void settleAbandonedBuys()
 	{
-		for (int itemId : abandonedBuys.awaiting())
+		// Whether the player is sitting in the offer editor is a question only the client thread is
+		// allowed to answer, and this method runs on the scheduler.
+		//
+		// Reading a widget from here threw an AssertionError straight out of the tick, and because it
+		// happened on the third line of the heartbeat it took the whole rest of it down with it every
+		// two seconds: the account refresh, the engine refresh, the periodic save and the learning
+		// poll never ran at all. The only advice that ever reached the panel came from offer events
+		// arriving on the client thread, which is exactly why a reprice would appear for an instant
+		// as something else settled and then never again.
+		if (!abandonedBuys.awaiting().isEmpty())
 		{
-			// Still in the middle of it: the setup panel is open on this very item. Asked here as
-			// well as at cancel time, because here it is no longer a race -- the client has had whole
-			// seconds to finish transitioning.
-			if (widgetResolver.isSetupOpen()
-				&& client.getVarpValue(VarPlayerID.TRADINGPOST_SEARCH) == itemId)
-			{
-				abandonedBuys.replaced(itemId);
-			}
+			clientThread.invokeLater(this::withdrawJudgementOnTheOfferBeingEdited);
 		}
 
 		java.util.List<Integer> walkedAwayFrom = abandonedBuys.due(System.currentTimeMillis());
@@ -996,6 +998,30 @@ public class FlippingFriendPlugin extends Plugin
 		skipList.save();
 		companion.clearIncumbent();
 		requestEngineRefresh();
+	}
+
+	/**
+	 * Withdraw the pending judgement on whatever the player currently has open in the offer editor.
+	 *
+	 * <p>On the client thread, because reading a widget anywhere else is an assertion failure. Asked
+	 * here as well as at cancel time, because here it is no longer a race -- the client has had whole
+	 * seconds to finish transitioning.
+	 *
+	 * <p>The answer landing a tick later than the question costs nothing. The grace period is a
+	 * minute and the tick is two seconds, so this is asked around thirty times before
+	 * {@link com.flippingfriend.session.AbandonedBuys#due} is able to settle anything.
+	 *
+	 * <p>Reads the open item once and asks whether that one is awaiting judgement, rather than
+	 * looping the awaiting items and reading the interface for each. Only one offer can be open, so
+	 * the two are equivalent and this way touches the client once.
+	 */
+	private void withdrawJudgementOnTheOfferBeingEdited()
+	{
+		if (!widgetResolver.isSetupOpen())
+		{
+			return;
+		}
+		abandonedBuys.replaced(client.getVarpValue(VarPlayerID.TRADINGPOST_SEARCH));
 	}
 
 	private boolean hasProfile()
