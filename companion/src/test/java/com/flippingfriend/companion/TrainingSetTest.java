@@ -31,7 +31,7 @@ public class TrainingSetTest
 	private static final int ITEM = 4151;
 	private static final long T0 = 1_000_000L;
 
-	private final ShadowTrader shadow = new ShadowTrader(new TaxCalculator());
+	private final ShadowTrader shadow = new ShadowTrader(new com.flippingfriend.model.TaxCalculator(), null, null);
 
 	private static Candle bar(long at, int low, int high)
 	{

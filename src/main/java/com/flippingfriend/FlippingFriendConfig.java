@@ -126,20 +126,7 @@ public interface FlippingFriendConfig extends Config
 	)
 	default int minProfitPerFlip()
 	{
-		return 50000;
-	}
-
-	@ConfigItem(
-		keyName = "benchmarkProfitPerFlip",
-		name = "Benchmark profit per flip",
-		description = "A benchmark to shoot for. Trades below this profit will be penalized in scoring, "
-			+ "encouraging the engine to find trades closer to this target.",
-		position = 4,
-		section = tradingSection
-	)
-	default int benchmarkProfitPerFlip()
-	{
-		return 100000;
+		return 30000;
 	}
 
 	@ConfigItem(
@@ -153,21 +140,6 @@ public interface FlippingFriendConfig extends Config
 	default boolean includeBankValue()
 	{
 		return true;
-	}
-
-	@ConfigItem(
-		keyName = "adoptExistingItems",
-		name = "Also sell items I already own",
-		description = "Off by default. When on, tradeable items already in your bank and inventory "
-			+ "are treated as things to sell. Most people do not want this: your bank is your gear "
-			+ "and supplies, not flipping stock. Items the plugin buys for you are always tracked "
-			+ "either way.",
-		position = 5,
-		section = tradingSection
-	)
-	default boolean adoptExistingItems()
-	{
-		return false;
 	}
 
 	@ConfigItem(
@@ -246,8 +218,8 @@ public interface FlippingFriendConfig extends Config
 
 	@ConfigItem(
 		keyName = "copyToClipboardHotkey",
-		name = "Copy to clipboard hotkey",
-		description = "Copies the number the walkthrough is asking for, ready to paste. This plugin never types into the game for you.",
+		name = "Auto-fill / Copy hotkey",
+		description = "Auto-fills the Grand Exchange input box if it is open, or copies the number to the clipboard otherwise.",
 		position = 5,
 		section = guidanceSection
 	)

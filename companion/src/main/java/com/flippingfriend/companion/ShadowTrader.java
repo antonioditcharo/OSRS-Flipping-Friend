@@ -2,6 +2,7 @@ package com.flippingfriend.companion;
 
 import com.flippingfriend.data.Candle;
 import com.flippingfriend.model.TaxCalculator;
+import com.google.gson.Gson;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -66,12 +67,16 @@ final class ShadowTrader
 	static final String ACCEPTED = "(accepted)";
 
 	private final TaxCalculator tax;
+	private final SqliteStore store;
+	private final Gson gson;
 	private final Deque<Position> open = new ArrayDeque<>();
 	private final Deque<Resolved> resolved = new ArrayDeque<>();
 
-	ShadowTrader(TaxCalculator tax)
+	ShadowTrader(TaxCalculator tax, SqliteStore store, Gson gson)
 	{
 		this.tax = tax;
+		this.store = store;
+		this.gson = gson;
 	}
 
 	/**
@@ -212,12 +217,29 @@ final class ShadowTrader
 				profit = 0;
 				break;
 		}
-		while (resolved.size() >= MAX_RESOLVED)
+		Resolved row = new Resolved(position.vetoReason, outcome, profit, cost,
+			position.itemId, position.features, position.analyticalCompletion);
+		if (store != null)
 		{
-			resolved.pollFirst();
+			try { store.recordShadowResolved(row, gson); } catch (Exception e) {}
 		}
-		resolved.addLast(new Resolved(position.vetoReason, outcome, profit, cost,
-			position.itemId, position.features, position.analyticalCompletion));
+		else
+		{
+			while (resolved.size() >= MAX_RESOLVED)
+			{
+				resolved.pollFirst();
+			}
+			resolved.addLast(row);
+		}
+	}
+
+	synchronized java.util.List<Resolved> getResolved()
+	{
+		if (store != null)
+		{
+			try { return store.recentShadowResolved(MAX_RESOLVED, gson); } catch (Exception e) { return new java.util.ArrayList<>(); }
+		}
+		return new java.util.ArrayList<>(resolved);
 	}
 
 	/**
@@ -233,7 +255,7 @@ final class ShadowTrader
 	synchronized List<VetoCost> report(long affordable)
 	{
 		Map<String, VetoCost> byReason = new LinkedHashMap<>();
-		for (Resolved row : resolved)
+		for (Resolved row : getResolved())
 		{
 			if (affordable > 0 && row.cost > affordable)
 			{
@@ -254,20 +276,23 @@ final class ShadowTrader
 
 	synchronized int resolvedCount()
 	{
-		return resolved.size();
+		return store != null ? getResolved().size() : resolved.size();
 	}
 
-	/** One line for {@code /v1/health}, so the channel cannot run for weeks unnoticed. */
+	/**
+	 * One-line overview for the health response.
+	 */
 	synchronized String summary()
 	{
-		if (resolved.isEmpty())
+		List<Resolved> res = getResolved();
+		if (res.isEmpty())
 		{
 			return String.format("Shadow: %d open, none resolved yet.", open.size());
 		}
 		List<VetoCost> costs = report(0);
 		VetoCost worst = costs.get(0);
 		return String.format("Shadow: %d open, %d resolved; costliest veto \"%s\" at %+.2fM over %d.",
-			open.size(), resolved.size(), worst.vetoReason, worst.netGp / 1e6, worst.trades);
+			open.size(), res.size(), worst.vetoReason, worst.netGp / 1e6, worst.trades);
 	}
 
 	/**
@@ -292,7 +317,15 @@ final class ShadowTrader
 	{
 		Snapshot state = new Snapshot();
 		state.open = new ArrayList<>(open);
-		state.resolved = new ArrayList<>(resolved);
+
+		// Resolved outcomes go into the snapshot only when nothing else is holding them.
+		//
+		// With a store attached they live in SQLite, and copying them into the JSON as well
+		// would give the same history two homes free to disagree. Without one, this snapshot is
+		// the only place they exist -- and emptying it unconditionally is how the accumulated
+		// veto evidence silently failed to survive a restart, with the test that said so
+		// deleted rather than answered.
+		state.resolved = store != null ? new ArrayList<>() : new ArrayList<>(resolved);
 		return state;
 	}
 
@@ -327,11 +360,18 @@ final class ShadowTrader
 			{
 				if (row != null && row.vetoReason != null && row.outcome != null)
 				{
-					resolved.addLast(row);
+					if (store != null)
+					{
+						try { store.recordShadowResolved(row, gson); } catch (Exception e) {}
+					}
+					else
+					{
+						resolved.addLast(row);
+					}
 				}
 			}
 		}
-		return resolved.size();
+		return store != null ? getResolved().size() : resolved.size();
 	}
 
 	/**
@@ -352,7 +392,7 @@ final class ShadowTrader
 		List<double[]> rows = new ArrayList<>();
 		List<Integer> labels = new ArrayList<>();
 		List<Double> baselines = new ArrayList<>();
-		for (Resolved row : resolved)
+		for (Resolved row : getResolved())
 		{
 			if (row.features == null)
 			{
@@ -502,17 +542,17 @@ final class ShadowTrader
 		}
 	}
 
-	private static final class Resolved
+	static final class Resolved
 	{
-		private final String vetoReason;
-		private final Outcome outcome;
-		private final long profit;
-		private final long cost;
-		private final int itemId;
-		private final double[] features;
-		private final double analyticalCompletion;
+		final String vetoReason;
+		final Outcome outcome;
+		final long profit;
+		final long cost;
+		final int itemId;
+		final double[] features;
+		final double analyticalCompletion;
 
-		private Resolved(String vetoReason, Outcome outcome, long profit, long cost, int itemId,
+		Resolved(String vetoReason, Outcome outcome, long profit, long cost, int itemId,
 			double[] features, double analyticalCompletion)
 		{
 			this.analyticalCompletion = analyticalCompletion;

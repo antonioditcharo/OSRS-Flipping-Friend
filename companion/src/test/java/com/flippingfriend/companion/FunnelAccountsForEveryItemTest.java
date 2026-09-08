@@ -171,7 +171,7 @@ public class FunnelAccountsForEveryItemTest
 		// this system passed up; scoring it as a missed opportunity would fill the counterfactual
 		// channel with trades that never existed and inflate the cost of every real refusal.
 		CandidateFactory factory = new CandidateFactory(noHistory());
-		ShadowTrader trader = new ShadowTrader(new com.flippingfriend.model.TaxCalculator());
+		ShadowTrader trader = new ShadowTrader(new com.flippingfriend.model.TaxCalculator(), null, null);
 		factory.setShadowTrader(trader);
 
 		factory.build(Collections.singletonList(quoted(4151, "Abyssal whip", true, 1_000, 1_400)),
@@ -187,7 +187,7 @@ public class FunnelAccountsForEveryItemTest
 		// And the other half: a genuine judgement must still reach the shadow channel, or fixing the
 		// accounting would have quietly switched the counterfactual off.
 		CandidateFactory factory = new CandidateFactory(noHistory());
-		ShadowTrader trader = new ShadowTrader(new com.flippingfriend.model.TaxCalculator());
+		ShadowTrader trader = new ShadowTrader(new com.flippingfriend.model.TaxCalculator(), null, null);
 		factory.setShadowTrader(trader);
 
 		factory.build(Collections.singletonList(

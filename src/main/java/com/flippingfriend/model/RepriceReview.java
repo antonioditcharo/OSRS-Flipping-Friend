@@ -51,12 +51,6 @@ public final class RepriceReview
 	 */
 	static final long COOLDOWN_SECONDS = 300;
 
-	/** The gain must be at least this share of the player's own minimum profit per flip. */
-	static final double FLOOR_SHARE_OF_MINIMUM = 0.10;
-
-	/** And never less than this, for players who set the minimum very low or to zero. */
-	static final long ABSOLUTE_FLOOR_GP = 100;
-
 	/** The gain must also be this share of what the offer is already worth, when it is worth anything. */
 	static final double MATERIAL_SHARE = 0.05;
 
@@ -90,36 +84,34 @@ public final class RepriceReview
 	 * @param slot          the Grand Exchange slot the offer occupies
 	 * @param currentPrice  what the offer is priced at now
 	 * @param recommended   what the engine would price it at now, or 0 if it has no opinion
-	 * @param valueNow      what the offer is worth left alone
-	 * @param valueMoved    what it would be worth at {@code recommended}
-	 * @param minProfitPerFlip the player's own bar for a trade being worth doing
+	 * @param gpPerHourNow      projected gp/hr if the offer is left alone
+	 * @param gpPerHourMoved    projected gp/hr if it is moved to {@code recommended}
 	 * @param nowSeconds    the current time
 	 * @return true when the player should be told to move this offer
 	 */
 	public synchronized boolean worthMoving(int slot, int itemId, int currentPrice, int recommended,
-		long valueNow, long valueMoved, long minProfitPerFlip, long nowSeconds)
+		double gpPerHourNow, double gpPerHourMoved, long nowSeconds)
 	{
 		if (recommended <= 0 || recommended == currentPrice)
 		{
 			return false;
 		}
 
-		long gain = valueMoved - valueNow;
-		if (gain <= 0)
+		double gainGpHr = gpPerHourMoved - gpPerHourNow;
+		if (gainGpHr <= 0)
 		{
 			return false;
 		}
 
-		long floor = Math.max(ABSOLUTE_FLOOR_GP,
-			Math.round(Math.max(0, minProfitPerFlip) * FLOOR_SHARE_OF_MINIMUM));
-		if (gain < floor)
+		// The floor is now based on a relative improvement rather than a flat GP amount.
+		// A minimum 2% improvement in GP/hr is required to justify a move.
+		if (gpPerHourNow > 0 && gainGpHr < gpPerHourNow * 0.02)
 		{
 			return false;
 		}
-
-		// Skipped when the offer is worth nothing as it stands: that is a stalled offer, where any
-		// gain is the whole gain and proportion has nothing to say.
-		if (valueNow > 0 && gain < valueNow * MATERIAL_SHARE)
+		
+		// Absolute minimum GP/hr gain to avoid spamming tiny moves on very low margin items.
+		if (gainGpHr < 5000)
 		{
 			return false;
 		}

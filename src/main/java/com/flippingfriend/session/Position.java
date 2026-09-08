@@ -59,6 +59,11 @@ public class Position
 		return itemName == null ? "Item " + itemId : itemName;
 	}
 
+	public void setTotalCost(long totalCost)
+	{
+		this.totalCost = totalCost;
+	}
+
 	public void setItemName(String itemName)
 	{
 		this.itemName = itemName;
@@ -174,6 +179,37 @@ public class Position
 	 *
 	 * @return how many units actually had a cost basis, and what that cost was
 	 */
+	/**
+	 * Sets the quantity and cost a player says this position really has.
+	 *
+	 * <p>Separate from {@link #setQuantity} and {@link #addFill} because it is a different claim.
+	 * addFill blends a fill the game reported; this records a correction the player made by hand, so
+	 * the cost becomes known by assertion rather than by observation -- which is the only way to price
+	 * a holding that was adopted pre-existing and never had a cost at all.
+	 *
+	 * <p>The stop is rescaled with the cost for the reason addFill spells out above: it was written
+	 * once as a percentage below what the item cost at the time, and leaving it behind when the cost
+	 * moves turns a twelve per cent stop into whatever arithmetic happens to produce.
+	 */
+	public void statedCost(int quantity, long totalCost)
+	{
+		if (quantity <= 0 || totalCost < 0)
+		{
+			return;
+		}
+		int costBefore = getAverageCost();
+
+		this.quantity = quantity;
+		this.totalCost = totalCost;
+		this.costKnown = true;
+
+		int costAfter = getAverageCost();
+		if (stopPrice > 0 && costBefore > 0 && costAfter > 0)
+		{
+			stopPrice = (int) Math.max(1, Math.round((double) stopPrice / costBefore * costAfter));
+		}
+	}
+
 	public Removal removeQuantity(int soldQuantity)
 	{
 		if (soldQuantity <= 0 || quantity <= 0)

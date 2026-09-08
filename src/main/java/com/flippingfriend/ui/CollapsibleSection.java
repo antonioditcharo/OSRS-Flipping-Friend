@@ -25,15 +25,20 @@ public class CollapsibleSection extends JPanel
 
 	public CollapsibleSection(String title, Component contentComponent, boolean startCollapsed)
 	{
+		this(title, contentComponent, startCollapsed, UiUtils.BACKGROUND);
+	}
+
+	public CollapsibleSection(String title, Component contentComponent, boolean startCollapsed, java.awt.Color background)
+	{
 		setLayout(new BorderLayout());
-		setBackground(UiUtils.BACKGROUND);
+		setBackground(background);
 		setAlignmentX(Component.LEFT_ALIGNMENT);
 		
 		// Fix maximum size to allow vertical stretching when expanded, but prevent width expansion.
 		// We'll override getMaximumSize dynamically so it can recalculate if content grows.
 
 		JPanel header = new JPanel(new BorderLayout(UiUtils.SPACE_S, 0));
-		header.setBackground(UiUtils.BACKGROUND);
+		header.setBackground(background);
 		header.setBorder(BorderFactory.createEmptyBorder(UiUtils.SPACE_L, 0, UiUtils.SPACE_S, 0));
 
 		titleLabel = new JLabel(title.toUpperCase());
@@ -52,13 +57,13 @@ public class CollapsibleSection extends JPanel
 		rule.setPreferredSize(new Dimension(0, 1));
 
 		JPanel ruleHolder = new JPanel(new BorderLayout());
-		ruleHolder.setBackground(UiUtils.BACKGROUND);
+		ruleHolder.setBackground(background);
 		ruleHolder.setBorder(BorderFactory.createEmptyBorder(7, 0, 0, 0));
 		ruleHolder.add(rule, BorderLayout.CENTER);
 		header.add(ruleHolder, BorderLayout.CENTER);
 
 		content = new JPanel(new BorderLayout());
-		content.setBackground(UiUtils.BACKGROUND);
+		content.setBackground(background);
 		content.add(contentComponent, BorderLayout.CENTER);
 
 		add(header, BorderLayout.NORTH);

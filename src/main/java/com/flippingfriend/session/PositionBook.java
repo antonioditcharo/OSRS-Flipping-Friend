@@ -358,6 +358,71 @@ public class PositionBook
 		return true;
 	}
 
+	/**
+	 * Sets what is really held, by hand, keeping the average cost intact.
+	 *
+	 * <p>Zero removes the position outright, because the panel offers this as "delete" for a holding
+	 * that was never really there and a position of no units would otherwise sit in the book for ever.
+	 *
+	 * <p>Any other quantity rescales the total cost to match. The average is total over quantity, so
+	 * moving one without the other silently re-prices the stack -- {@link Position#reduceTo} draws the
+	 * same line for the same reason. This is not limited to shrinking, because a player correcting a
+	 * miscount can turn out to hold more than the book thought, not only less.
+	 *
+	 * @return true if there was a position to change
+	 */
+	public synchronized boolean setQuantity(int itemId, int quantity)
+	{
+		if (quantity <= 0)
+		{
+			boolean closed = close(itemId);
+			save();
+			return closed;
+		}
+
+		Position position = positions.get(itemId);
+		if (position == null)
+		{
+			return false;
+		}
+
+		int unitCost = position.getAverageCost();
+		position.setQuantity(quantity);
+		if (unitCost > 0)
+		{
+			position.setTotalCost((long) unitCost * quantity);
+		}
+		save();
+		return true;
+	}
+
+	/**
+	 * Sets both the quantity and what was paid per unit, by hand.
+	 *
+	 * <p>The stop moves with the cost, and the cost becomes known: see {@link Position#statedCost}.
+	 *
+	 * @return true if there was a position to change
+	 */
+	public synchronized boolean setCostAndQuantity(int itemId, int quantity, int unitCost)
+	{
+		if (quantity <= 0)
+		{
+			boolean closed = close(itemId);
+			save();
+			return closed;
+		}
+
+		Position position = positions.get(itemId);
+		if (position == null)
+		{
+			return false;
+		}
+
+		position.statedCost(quantity, (long) Math.max(0, unitCost) * quantity);
+		save();
+		return true;
+	}
+
 	public synchronized void clear()
 	{
 		positions.clear();

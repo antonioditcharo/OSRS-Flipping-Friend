@@ -243,7 +243,7 @@ public class LearningRecordTest
 		CaptureRates capture = new CaptureRates();
 		FillHazard hazard = new FillHazard();
 		FillCalibration calibration = new FillCalibration();
-		ShadowTrader shadow = new ShadowTrader(new com.flippingfriend.model.TaxCalculator());
+		ShadowTrader shadow = new ShadowTrader(new com.flippingfriend.model.TaxCalculator(), null, null);
 		LearnedFillModel learned = new LearnedFillModel();
 
 		LearningSnapshot snapshot =

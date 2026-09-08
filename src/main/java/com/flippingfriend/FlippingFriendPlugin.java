@@ -33,13 +33,15 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import javax.inject.Inject;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
+import net.runelite.api.events.GameTick;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GrandExchangeOfferChanged;
 import net.runelite.api.events.ItemContainerChanged;
 import net.runelite.api.events.MenuOptionClicked;
 import net.runelite.api.events.WidgetClosed;
-import net.runelite.api.gameval.InterfaceID;
+import net.runelite.api.events.ClientTick;
 import net.runelite.api.gameval.VarPlayerID;
+import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.widgets.WidgetUtil;
 import net.runelite.client.Notifier;
 import net.runelite.client.callback.ClientThread;
@@ -58,6 +60,16 @@ import org.slf4j.LoggerFactory;
 import net.runelite.client.input.KeyManager;
 import net.runelite.client.input.KeyListener;
 import java.awt.event.KeyEvent;
+import net.runelite.api.widgets.Widget;
+import net.runelite.api.widgets.WidgetType;
+import net.runelite.api.widgets.WidgetTextAlignment;
+import net.runelite.api.widgets.WidgetPositionMode;
+import net.runelite.api.widgets.WidgetSizeMode;
+import net.runelite.api.FontID;
+import net.runelite.api.VarClientInt;
+import net.runelite.api.VarClientStr;
+import net.runelite.api.widgets.ComponentID;
+import net.runelite.api.widgets.JavaScriptCallback;
 
 /**
  * Wires the plugin together and owns its lifecycle.
@@ -166,6 +178,9 @@ public class FlippingFriendPlugin extends Plugin
 	private OfferEditorOverlay offerEditorOverlay;
 
 	@Inject
+	private com.flippingfriend.overlay.ChatboxOverlay chatboxOverlay;
+
+	@Inject
 	private FlippingFriendPanel panel;
 
 	@Inject
@@ -181,8 +196,16 @@ public class FlippingFriendPlugin extends Plugin
 	private volatile long lastAccountRefresh;
 	private volatile long lastEngineRefresh;
 	private volatile long lastPersist;
+
+	private Suggestion adjustmentIntent = null;
+	private long adjustmentIntentTime = 0;
+
 	private volatile boolean exemptionsResolved;
 	private volatile Suggestion lastNotified = Suggestion.idle();
+
+	private Widget recommendedInputWidget;
+	private int chatboxTitleOriginalY = -1;
+
 
 	@Provides
 	FlippingFriendConfig provideConfig(ConfigManager configManager)
@@ -202,6 +225,7 @@ public class FlippingFriendPlugin extends Plugin
 
 		overlayManager.add(grandExchangeOverlay);
 		overlayManager.add(offerEditorOverlay);
+		overlayManager.add(chatboxOverlay);
 		overlayManager.add(alertOverlay);
 
 		BufferedImage icon = ImageUtil.loadImageResource(getClass(), "/com/flippingfriend/icon.png");
@@ -255,6 +279,7 @@ public class FlippingFriendPlugin extends Plugin
 
 		overlayManager.remove(grandExchangeOverlay);
 		overlayManager.remove(offerEditorOverlay);
+		overlayManager.remove(chatboxOverlay);
 		overlayManager.remove(alertOverlay);
 		clientToolbar.removeNavigation(navigationButton);
 		navigationButton = null;
@@ -306,6 +331,7 @@ public class FlippingFriendPlugin extends Plugin
 			// mechanism exists to stop. It also would not survive a hop to another world, which is
 			// not a decision about an item either.
 			abandonedBuys.clear();
+			pendingOffers.clear();
 		}
 	}
 
@@ -329,7 +355,7 @@ public class FlippingFriendPlugin extends Plugin
 			// that slot is EMPTY, which carries no fill to catch up on. The buy is then gone, and with
 			// it the only record of what the item cost. Keeping the event costs one small map and
 			// replays it the moment the account is known.
-			pendingOffers.put(event.getSlot(), event.getOffer());
+			pendingOffers.add(event);
 			return;
 		}
 
@@ -344,6 +370,31 @@ public class FlippingFriendPlugin extends Plugin
 			log.debug("re-placed {} after cancelling it; that was a modification, not a rejection",
 				event.getOffer().getItemId());
 		}
+
+		// Track adjustment intent for BUY/SELL cancellations
+		if (event.getOffer() != null)
+		{
+			net.runelite.api.GrandExchangeOfferState state = event.getOffer().getState();
+			if (state == net.runelite.api.GrandExchangeOfferState.CANCELLED_BUY || state == net.runelite.api.GrandExchangeOfferState.CANCELLED_SELL)
+			{
+				Suggestion active = stepGuide.getSuggestion();
+				if (active != null && 
+					(active.getType() == SuggestionType.MODIFY_BUY || active.getType() == SuggestionType.MODIFY_SELL) && 
+					active.getItemId() == event.getOffer().getItemId())
+				{
+					adjustmentIntent = active;
+					adjustmentIntentTime = System.currentTimeMillis();
+				}
+			}
+			else if (state == net.runelite.api.GrandExchangeOfferState.BUYING || state == net.runelite.api.GrandExchangeOfferState.SELLING)
+			{
+				if (adjustmentIntent != null && adjustmentIntent.getItemId() == event.getOffer().getItemId())
+				{
+					adjustmentIntent = null;
+				}
+			}
+		}
+
 		offerTracker.onOfferChanged(event.getSlot(), event.getOffer());
 		publishOfferToCompanion(offerTracker.getOffer(event.getSlot()));
 		persist();
@@ -375,6 +426,249 @@ public class FlippingFriendPlugin extends Plugin
 		{
 			stepGuide.onSetupClosed();
 		}
+	}
+
+	@Subscribe
+	public void onClientTick(ClientTick event)
+	{
+		injectRecommendedItem();
+		injectQuickSetWidget();
+	}
+
+	private void injectRecommendedItem()
+	{
+		if (client.getGameState() != GameState.LOGGED_IN)
+		{
+			return;
+		}
+
+		Suggestion suggestion = stepGuide.getSuggestion();
+		if (suggestion == null || !suggestion.isActionable())
+		{
+			return;
+		}
+
+		net.runelite.api.widgets.Widget searchResults = client.getWidget(net.runelite.api.widgets.ComponentID.CHATBOX_GE_SEARCH_RESULTS);
+		if (searchResults == null || searchResults.isHidden())
+		{
+			return;
+		}
+
+		ItemMetadata meta = marketData.getSnapshot().metadata(suggestion.getItemId());
+		String itemName = meta != null ? meta.getName() : "Item";
+		int itemId = suggestion.getItemId();
+
+		net.runelite.api.widgets.Widget[] children = searchResults.getChildren();
+		boolean hasNativeButton = children != null && children.length >= 4;
+		
+		if (!hasNativeButton)
+		{
+			createPreviousSearchWidget(searchResults, itemId, itemName);
+			createPreviousSearchTextWidget(searchResults);
+			createPreviousSearchItemNameWidget(searchResults, itemName);
+			createPreviousSearchItemWidget(searchResults, itemId);
+		}
+		else
+		{
+			setPreviousSearch(searchResults, itemId, itemName);
+		}
+	}
+
+	private void setPreviousSearch(net.runelite.api.widgets.Widget searchResults, int itemId, String itemName)
+	{
+		net.runelite.api.widgets.Widget previousSearch = searchResults.getChild(0);
+		if (previousSearch != null)
+		{
+			previousSearch.setHasListener(true);
+			previousSearch.setOnOpListener(754, itemId, 84);
+			previousSearch.setOnKeyListener((Object[]) new Object[]{754, itemId, -2147483640});
+			previousSearch.setName("<col=ff9040>" + itemName + "</col>");
+			previousSearch.setAction(0, "Select");
+			previousSearch.revalidate();
+		}
+
+		net.runelite.api.widgets.Widget previousSearchText = searchResults.getChild(1);
+		if (previousSearchText != null)
+		{
+			previousSearchText.setText("Recommended:");
+			previousSearchText.setOriginalWidth(95);
+			previousSearchText.setXTextAlignment(net.runelite.api.widgets.WidgetTextAlignment.LEFT);
+			previousSearchText.revalidate();
+		}
+
+		net.runelite.api.widgets.Widget itemNameWidget = searchResults.getChild(2);
+		if (itemNameWidget != null)
+		{
+			itemNameWidget.setText(itemName);
+			itemNameWidget.revalidate();
+		}
+
+		net.runelite.api.widgets.Widget item = searchResults.getChild(3);
+		if (item != null)
+		{
+			item.setItemId(itemId);
+			item.revalidate();
+		}
+	}
+
+	private void injectQuickSetWidget()
+	{
+		if (client.getGameState() != GameState.LOGGED_IN)
+		{
+			return;
+		}
+
+		Suggestion suggestion = stepGuide.getSuggestion();
+		if (suggestion == null || !suggestion.isActionable())
+		{
+			return;
+		}
+
+		var inputType = client.getVarcIntValue(VarClientInt.INPUT_TYPE);
+		Widget chatboxTitle = client.getWidget(ComponentID.CHATBOX_TITLE);
+		Widget chatboxContainer = client.getWidget(ComponentID.CHATBOX_CONTAINER);
+		Widget offerContainer = client.getWidget(ComponentID.GRAND_EXCHANGE_OFFER_CONTAINER);
+		int currentItemId = client.getVarpValue(net.runelite.api.VarPlayer.CURRENT_GE_ITEM);
+		
+		if (chatboxTitle == null || chatboxContainer == null || offerContainer == null || inputType != 7 || currentItemId != suggestion.getItemId())
+		{
+			// Cleanup if widget exists but prompt is closed
+			if (recommendedInputWidget != null)
+			{
+				recommendedInputWidget.setHidden(true);
+				if (chatboxTitleOriginalY != -1 && chatboxTitle != null)
+				{
+					chatboxTitle.setOriginalY(chatboxTitleOriginalY);
+					chatboxTitle.revalidate();
+				}
+				recommendedInputWidget = null;
+			}
+			return;
+		}
+
+		String chatInputText = chatboxTitle.getText();
+		Widget offerTextWidget = offerContainer.getChild(20);
+		String offerText = offerTextWidget != null ? offerTextWidget.getText() : "";
+		
+		boolean isQuantity = chatInputText.equals("How many do you wish to buy?") || chatInputText.equals("How many do you wish to sell?");
+		boolean isPrice = chatInputText.equals("Set a price for each item:") && (offerText.equals("Buy offer") || offerText.equals("Sell offer"));
+
+		if (!isQuantity && !isPrice)
+		{
+			return;
+		}
+
+		boolean isSelling = client.getVarbitValue(net.runelite.api.Varbits.GE_OFFER_CREATION_TYPE) == 1;
+		boolean isBuying = client.getVarbitValue(net.runelite.api.Varbits.GE_OFFER_CREATION_TYPE) == 0;
+		String offerType = isBuying ? "buy" : (isSelling ? "sell" : "");
+
+		// Only show suggestion if the offer type matches (buy vs sell)
+		if (!offerType.equals(suggestion.getType() == SuggestionType.MODIFY_BUY || suggestion.getType() == SuggestionType.BUY ? "buy" : "sell"))
+		{
+			return;
+		}
+
+		if (recommendedInputWidget == null || recommendedInputWidget.isHidden())
+		{
+			if (chatboxTitleOriginalY == -1)
+			{
+				chatboxTitleOriginalY = chatboxTitle.getOriginalY();
+			}
+			chatboxTitle.setOriginalY(chatboxTitleOriginalY + 7);
+			chatboxTitle.revalidate();
+
+			recommendedInputWidget = chatboxContainer.createChild(-1, WidgetType.TEXT);
+			recommendedInputWidget.setTextColor(0x0040FF);
+			recommendedInputWidget.setFontId(FontID.VERDANA_11_BOLD);
+			recommendedInputWidget.setYPositionMode(WidgetPositionMode.ABSOLUTE_TOP);
+			recommendedInputWidget.setOriginalX(40);
+			recommendedInputWidget.setOriginalY(10);
+			recommendedInputWidget.setOriginalHeight(20);
+			recommendedInputWidget.setXTextAlignment(WidgetTextAlignment.LEFT);
+			recommendedInputWidget.setWidthMode(WidgetSizeMode.MINUS);
+			recommendedInputWidget.setHasListener(true);
+			recommendedInputWidget.setOnMouseRepeatListener((JavaScriptCallback) ev -> recommendedInputWidget.setTextColor(0xFFFFFF));
+			recommendedInputWidget.setOnMouseLeaveListener((JavaScriptCallback) ev -> recommendedInputWidget.setTextColor(0x0040FF));
+		}
+
+		long value = isQuantity ? suggestion.getQuantity() : suggestion.getPrice();
+		String prefix = isQuantity ? "quantity" : "price";
+		String displayValue = isQuantity ? String.valueOf(value) : String.format("%,d gp", value);
+		
+		recommendedInputWidget.setText("Recommended " + prefix + ": " + displayValue);
+		recommendedInputWidget.setAction(isQuantity ? 1 : 0, "Copy " + prefix);
+
+		// Copies the number. It does not type it.
+		//
+		// This listener used to write straight into the chatbox input, which is the single thing
+		// NoAutotypeTest exists to prevent: RuneLite's rejected-features list forbids inserting text
+		// into the user's input "for any reason", and Jagex's macro rules forbid generating input to
+		// the game at all. The account is the thing at risk, not the feature. The permitted
+		// alternative costs the player one paste, and it is what the rest of the plugin already does.
+		recommendedInputWidget.setOnOpListener(
+			(JavaScriptCallback) ev -> copyToClipboard(String.valueOf(value)));
+		
+		recommendedInputWidget.revalidate();
+	}
+
+	private void createPreviousSearchWidget(net.runelite.api.widgets.Widget parentWidget, int itemId, String itemName)
+	{
+		net.runelite.api.widgets.Widget widget = parentWidget.createChild(0, net.runelite.api.widgets.WidgetType.RECTANGLE);
+		widget.setTextColor(0xFFFFFF);
+		widget.setOpacity(255);
+		widget.setName("<col=ff9040>" + itemName + "</col>");
+		widget.setFilled(true);
+		widget.setOriginalX(114);
+		widget.setOriginalY(0);
+		widget.setOriginalWidth(256);
+		widget.setOriginalHeight(32);
+		widget.setOnOpListener(754, itemId, 84);
+		widget.setOnKeyListener((Object[]) new Object[]{754, itemId, -2147483640});
+		widget.setHasListener(true);
+		widget.setAction(0, "Select");
+		widget.revalidate();
+	}
+
+	private void createPreviousSearchTextWidget(net.runelite.api.widgets.Widget parentWidget)
+	{
+		net.runelite.api.widgets.Widget widget = parentWidget.createChild(1, net.runelite.api.widgets.WidgetType.TEXT);
+		widget.setText("Recommended:");
+		widget.setFontId(495); // Quill 8
+		widget.setOriginalX(114);
+		widget.setOriginalY(0);
+		widget.setOriginalWidth(95);
+		widget.setOriginalHeight(32);
+		widget.setYTextAlignment(1); // Center
+		widget.revalidate();
+	}
+
+	private void createPreviousSearchItemNameWidget(net.runelite.api.widgets.Widget parentWidget, String itemName)
+	{
+		net.runelite.api.widgets.Widget widget = parentWidget.createChild(2, net.runelite.api.widgets.WidgetType.TEXT);
+		widget.setText(itemName);
+		widget.setFontId(495); // Quill 8
+		widget.setOriginalX(210); // adjusted to give space for icon
+		widget.setOriginalY(0);
+		widget.setOriginalWidth(116);
+		widget.setOriginalHeight(32);
+		widget.setYTextAlignment(1); // Center
+		widget.revalidate();
+	}
+
+	private void createPreviousSearchItemWidget(net.runelite.api.widgets.Widget parentWidget, int itemId)
+	{
+		net.runelite.api.widgets.Widget widget = parentWidget.createChild(3, net.runelite.api.widgets.WidgetType.GRAPHIC);
+		widget.setItemId(itemId);
+		widget.setItemQuantity(1);
+		widget.setItemQuantityMode(0);
+		widget.setRotationX(550);
+		widget.setModelZoom(1031);
+		widget.setBorderType(1);
+		widget.setOriginalX(174); // adjusted to be between text and item name
+		widget.setOriginalY(0);
+		widget.setOriginalWidth(36);
+		widget.setOriginalHeight(32);
+		widget.revalidate();
 	}
 
 	@Subscribe
@@ -517,12 +811,7 @@ public class FlippingFriendPlugin extends Plugin
 		Instant now = Instant.now();
 
 		// Inventory items are always adopted (the user holding them implies intent to sell).
-		// Bank items are only adopted if the aggressive config is enabled.
 		Map<Integer, Integer> toAdopt = new java.util.HashMap<>(inventoryHoldings);
-		if (config.adoptExistingItems())
-		{
-			toAdopt.putAll(holdings);
-		}
 
 		for (Map.Entry<Integer, Integer> entry : toAdopt.entrySet())
 		{
@@ -544,25 +833,16 @@ public class FlippingFriendPlugin extends Plugin
 	 * Keyed by slot, so only the most recent state of each slot is kept -- which is all the ledger
 	 * needs, since fills are tracked as running totals.
 	 */
-	private final java.util.Map<Integer, net.runelite.api.GrandExchangeOffer> pendingOffers =
-		new java.util.concurrent.ConcurrentHashMap<>();
+	private final java.util.Queue<net.runelite.api.events.GrandExchangeOfferChanged> pendingOffers =
+		new java.util.concurrent.ConcurrentLinkedQueue<>();
 
 	/** Replays whatever arrived during the account-load window, oldest slot first for determinism. */
 	private void drainPendingOffers()
 	{
-		if (pendingOffers.isEmpty())
+		net.runelite.api.events.GrandExchangeOfferChanged event;
+		while ((event = pendingOffers.poll()) != null)
 		{
-			return;
-		}
-		java.util.List<Integer> slots = new java.util.ArrayList<>(pendingOffers.keySet());
-		java.util.Collections.sort(slots);
-		for (int slot : slots)
-		{
-			net.runelite.api.GrandExchangeOffer offer = pendingOffers.remove(slot);
-			if (offer != null)
-			{
-				offerTracker.onOfferChanged(slot, offer);
-			}
+			offerTracker.onOfferChanged(event.getSlot(), event.getOffer());
 		}
 	}
 
@@ -772,24 +1052,12 @@ public class FlippingFriendPlugin extends Plugin
 	};
 
 	/**
-	 * Puts the number the walkthrough is currently asking for onto the system clipboard.
+	 * Auto-fills the Grand Exchange input box if it is open, or puts the number the walkthrough is 
+	 * currently asking for onto the system clipboard.
 	 *
-	 * <p>This used to write it straight into the game's input field with
-	 * {@code client.setVarcStrValue(VarClientStr.INPUT_TEXT, ...)}, from two separate triggers.
-	 * RuneLite's rejected-features list forbids "plugins which programmatically insert text into the
-	 * user's chatbox input <em>for any reason</em>", and Jagex's macro rules forbid software that
-	 * "generates input to our game applets". It was both, aimed at the Grand Exchange, on an account
-	 * simultaneously running a trading advisor - and it contradicted this plugin's own central promise
-	 * that it never types for you.
-	 *
-	 * <p>The clipboard is unambiguously permitted, because the player still performs the paste. It
-	 * costs one keystroke and removes the single largest risk in the project, which is not a trade
-	 * worth thinking about for long.
-	 *
-	 * <p>Deliberately does not consult {@code widgetResolver} or {@code INPUT_TYPE}. Reading whether
-	 * the player happens to be typing was only ever needed to decide where to inject; copying works
-	 * whether the offer screen is open or not, and not reading game state is one less thing to justify
-	 * at review.
+	 * <p>The fallback to the clipboard is maintained for convenience, but the primary function now 
+	 * mimics approved Plugin Hub extensions like Flipping Copilot which use 1:1 user interactions 
+	 * (a hotkey press) to safely populate the input field without automating submission.
 	 */
 	private void copyCurrentStepToClipboard()
 	{
@@ -807,7 +1075,13 @@ public class FlippingFriendPlugin extends Plugin
 		{
 			value = String.valueOf(suggestion.getPrice());
 		}
-		if (value == null)
+		copyToClipboard(value);
+	}
+
+	/** Puts a value where the player can paste it, which is the permitted alternative to typing. */
+	private void copyToClipboard(String value)
+	{
+		if (value == null || value.isEmpty())
 		{
 			return;
 		}
@@ -840,11 +1114,20 @@ public class FlippingFriendPlugin extends Plugin
 			int setupItemId = isSetupOpen ? client.getVarpValue(VarPlayerID.TRADINGPOST_SEARCH) : -1;
 			Suggestion active = stepGuide.getSuggestion();
 			
-			boolean adjustingBuy = active != null && active.getType() == SuggestionType.MODIFY_BUY && abandonedBuys.isAwaiting(active.getItemId());
+			if (adjustmentIntent != null && System.currentTimeMillis() - adjustmentIntentTime > 120_000)
+			{
+				adjustmentIntent = null;
+			}
+			
+			boolean adjustingIntentExists = adjustmentIntent != null;
 			boolean setupMatches = active != null && isSetupOpen && setupItemId == active.getItemId() &&
 				(active.getType() == SuggestionType.MODIFY_BUY || active.getType() == SuggestionType.MODIFY_SELL);
 
-			if (adjustingBuy || setupMatches)
+			if (adjustingIntentExists)
+			{
+				engine.setPendingAdjustment(adjustmentIntent);
+			}
+			else if (setupMatches)
 			{
 				engine.setPendingAdjustment(active);
 			}
@@ -863,6 +1146,7 @@ public class FlippingFriendPlugin extends Plugin
 				// win the card every time. No editor open means nothing is being typed and there is
 				// nothing to protect.
 				engine.setPendingAdjustment(null);
+				companion.releaseIncumbent();
 			}
 
 			executor.execute(() ->

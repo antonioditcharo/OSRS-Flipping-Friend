@@ -49,7 +49,7 @@ final class LearnedFillModel
 	 */
 	private static final double MAX_WEIGHT = 0.5;
 
-	private GradientBoostedTrees model;
+	private volatile GradientBoostedTrees model;
 	private volatile double weight;
 	private volatile String verdict = "never trained";
 	private volatile int trainedRows;

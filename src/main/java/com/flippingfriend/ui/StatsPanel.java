@@ -24,6 +24,7 @@ class StatsPanel extends JPanel
 
 	private final JLabel profitValue = new JLabel();
 	private final JLabel perHourValue = new JLabel();
+	private final JLabel roiValue = new JLabel();
 	private final JLabel flipsValue = new JLabel();
 	private final JLabel winRateValue = new JLabel();
 	private final JLabel holdValue = new JLabel();
@@ -40,6 +41,7 @@ class StatsPanel extends JPanel
 
 	private final JPanel lifetimePanel = new JPanel();
 	private final JLabel lifetimeProfit = new JLabel();
+	private final JLabel lifetimeRoi = new JLabel();
 	private final JLabel lifetimeFlips = new JLabel();
 	private final JLabel lifetimeWinRate = new JLabel();
 
@@ -54,23 +56,41 @@ class StatsPanel extends JPanel
 
 		add(row("Profit", profitValue));
 		add(row("Per hour", perHourValue));
+		add(row("ROI", roiValue));
 		add(row("Flips done", flipsValue));
 		add(row("Went well", winRateValue));
 		add(row("Average hold", holdValue));
 		add(row("Tax paid", taxValue));
 
 		add(UiUtils.gap(UiUtils.SPACE_S));
-		JLabel sectorHeading = UiUtils.small("Sector Profit (Session)");
+		JLabel sectorHeading = UiUtils.small("▶ Sector Profit (Session)");
 		sectorHeading.setAlignmentX(Component.LEFT_ALIGNMENT);
+		sectorHeading.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR));
 		add(sectorHeading);
 		add(UiUtils.gap(UiUtils.SPACE_XS));
+
+		JPanel sectorPanel = new JPanel();
+		sectorPanel.setLayout(new BoxLayout(sectorPanel, BoxLayout.Y_AXIS));
+		sectorPanel.setOpaque(false);
+		sectorPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+		sectorPanel.setVisible(false);
+
+		sectorHeading.addMouseListener(new java.awt.event.MouseAdapter() {
+			@Override
+			public void mouseClicked(java.awt.event.MouseEvent e) {
+				boolean visible = !sectorPanel.isVisible();
+				sectorPanel.setVisible(visible);
+				sectorHeading.setText(visible ? "▼ Sector Profit (Session)" : "▶ Sector Profit (Session)");
+			}
+		});
 
 		for (com.flippingfriend.model.MarketSector sector : com.flippingfriend.model.MarketSector.values())
 		{
 			JLabel sectorLabel = new JLabel("—");
 			sectorLabels.put(sector, sectorLabel);
-			add(row(sector.getName(), sectorLabel));
+			sectorPanel.add(row(sector.getName(), sectorLabel));
 		}
+		add(sectorPanel);
 
 		lifetimePanel.setLayout(new BoxLayout(lifetimePanel, BoxLayout.Y_AXIS));
 		lifetimePanel.setOpaque(false);
@@ -91,6 +111,7 @@ class StatsPanel extends JPanel
 		lifetimePanel.add(UiUtils.gap(UiUtils.SPACE_XS));
 
 		lifetimePanel.add(row("Profit", lifetimeProfit));
+		lifetimePanel.add(row("ROI", lifetimeRoi));
 		lifetimePanel.add(row("Flips done", lifetimeFlips));
 		lifetimePanel.add(row("Went well", lifetimeWinRate));
 
@@ -171,6 +192,15 @@ class StatsPanel extends JPanel
 		perHourValue.setText(session.getFlips() == 0 ? "—" : explainer.formatGp(session.getProfitPerHour()));
 		perHourValue.setForeground(UiUtils.profitColor(session.getProfitPerHour()));
 
+		double roi = session.getRoi();
+		if (session.getFlips() == 0 || session.getCost() == 0) {
+			roiValue.setText("—");
+			roiValue.setForeground(UiUtils.TEXT);
+		} else {
+			roiValue.setText(String.format("%.1f%%", roi * 100));
+			roiValue.setForeground(UiUtils.profitColor(session.getProfit()));
+		}
+
 		flipsValue.setText(Integer.toString(session.getFlips()));
 		winRateValue.setText(formatWinRate(session));
 		holdValue.setText(session.getFlips() == 0
@@ -202,6 +232,16 @@ class StatsPanel extends JPanel
 		{
 			lifetimeProfit.setText(explainer.formatGp(lifetime.getProfit()));
 			lifetimeProfit.setForeground(UiUtils.profitColor(lifetime.getProfit()));
+			
+			double lRoi = lifetime.getRoi();
+			if (lifetime.getCost() == 0) {
+				lifetimeRoi.setText("—");
+				lifetimeRoi.setForeground(UiUtils.TEXT);
+			} else {
+				lifetimeRoi.setText(String.format("%.1f%%", lRoi * 100));
+				lifetimeRoi.setForeground(UiUtils.profitColor(lifetime.getProfit()));
+			}
+			
 			lifetimeFlips.setText(Integer.toString(lifetime.getFlips()));
 			lifetimeWinRate.setText(formatWinRate(lifetime));
 		}

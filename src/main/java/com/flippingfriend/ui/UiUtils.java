@@ -137,6 +137,7 @@ final class UiUtils
 	static JTextArea wrappedText(String text, Color color, Font font, int width)
 	{
 		JTextArea area = new JTextArea(text == null ? "" : text);
+		area.putClientProperty("wrapWidth", width);
 		area.setLineWrap(true);
 		area.setWrapStyleWord(true);
 		area.setEditable(false);
@@ -175,7 +176,9 @@ final class UiUtils
 	static void setWrappedText(JTextArea area, String text)
 	{
 		area.setText(text == null ? "" : text);
-		sizeToWidth(area, area.getWidth() > 0 ? area.getWidth() : CARD_TEXT_WIDTH);
+		Integer wrapWidth = (Integer) area.getClientProperty("wrapWidth");
+		int width = wrapWidth != null ? wrapWidth : CARD_TEXT_WIDTH;
+		sizeToWidth(area, width);
 		area.revalidate();
 	}
 

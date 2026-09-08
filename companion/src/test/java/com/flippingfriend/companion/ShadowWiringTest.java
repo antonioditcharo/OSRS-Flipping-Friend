@@ -72,7 +72,7 @@ public class ShadowWiringTest
 	public void vetoedItemsBecomeOpenShadowPositions()
 	{
 		CandidateFactory factory = new CandidateFactory(emptyHistory());
-		ShadowTrader trader = new ShadowTrader(new TaxCalculator());
+		ShadowTrader trader = new ShadowTrader(new com.flippingfriend.model.TaxCalculator(), null, null);
 		factory.setShadowTrader(trader);
 		assertSame(trader, factory.shadowTrader());
 
@@ -96,7 +96,7 @@ public class ShadowWiringTest
 	public void silentlyDroppedItemsAreNotShadowed()
 	{
 		CandidateFactory factory = new CandidateFactory(emptyHistory());
-		ShadowTrader trader = new ShadowTrader(new TaxCalculator());
+		ShadowTrader trader = new ShadowTrader(new com.flippingfriend.model.TaxCalculator(), null, null);
 		factory.setShadowTrader(trader);
 
 		MarketIngestionService.Item item = new MarketIngestionService.Item(4151, "Abyssal whip", 70, true, true);
@@ -117,7 +117,7 @@ public class ShadowWiringTest
 	@Test
 	public void aVetoAcquiresAGpFigureOnceTheHorizonElapses()
 	{
-		ShadowTrader trader = new ShadowTrader(new TaxCalculator());
+		ShadowTrader trader = new ShadowTrader(new com.flippingfriend.model.TaxCalculator(), null, null);
 		trader.open(4151, "Abyssal whip", "too illiquid", 1_000_000, 1_100_000, 1, T0, 1.0);
 
 		Map<Integer, List<Candle>> bars = new HashMap<>();

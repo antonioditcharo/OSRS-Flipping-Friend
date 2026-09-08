@@ -280,6 +280,7 @@ class PositionsPanel extends JPanel
 		private final PriceGraphPanel graph = new PriceGraphPanel();
 		
 		private final javax.swing.JTextArea statusNote = UiUtils.wrappedText("", UiUtils.MUTED, FontManager.getRunescapeSmallFont(), UiUtils.CARD_TEXT_WIDTH);
+		private final javax.swing.JTextField quantityEditField = new javax.swing.JTextField();
 		
 		private final LabelledRow heldForRow = new LabelledRow("Held for");
 		private final LabelledRow paidRow = new LabelledRow("Paid");
@@ -340,14 +341,14 @@ class PositionsPanel extends JPanel
 			add(graph);
 			add(UiUtils.gap(UiUtils.SPACE_S));
 
-			// Footer
-			JPanel footer = new JPanel();
-			footer.setLayout(new BoxLayout(footer, BoxLayout.Y_AXIS));
-			footer.setOpaque(false);
-			footer.setAlignmentX(Component.LEFT_ALIGNMENT);
+			// Details Content
+			JPanel detailsContent = new JPanel();
+			detailsContent.setLayout(new BoxLayout(detailsContent, BoxLayout.Y_AXIS));
+			detailsContent.setOpaque(false);
+			detailsContent.setAlignmentX(Component.LEFT_ALIGNMENT);
 			
 			statusNote.setAlignmentX(Component.LEFT_ALIGNMENT);
-			footer.add(statusNote);
+			detailsContent.add(statusNote);
 			
 			// We add gaps in code dynamically depending on visibility, but for simplicity we can just
 			// let BoxLayout handle it or add fixed small rigid areas. But wait, if they are invisible, 
@@ -370,25 +371,23 @@ class PositionsPanel extends JPanel
 			cutLossAtRow.setBorder(BorderFactory.createEmptyBorder(2, 0, 0, 0));
 			expectedRow.setBorder(BorderFactory.createEmptyBorder(2, 0, 0, 0));
 			
-			footer.add(heldForRow);
-			footer.add(paidRow);
-			footer.add(breakEvenRow);
-			footer.add(marketNowRow);
-			footer.add(listedRow);
-			footer.add(sellingAtRow);
-			footer.add(cutLossAtRow);
-			footer.add(expectedRow);
+			detailsContent.add(heldForRow);
+			detailsContent.add(paidRow);
+			detailsContent.add(breakEvenRow);
+			detailsContent.add(marketNowRow);
+			detailsContent.add(listedRow);
+			detailsContent.add(sellingAtRow);
+			detailsContent.add(cutLossAtRow);
+			detailsContent.add(expectedRow);
 			
-			UiUtils.constrainWidth(footer);
-			add(footer);
-			add(UiUtils.gap(UiUtils.SPACE_S));
-
-			// Dismiss
+			UiUtils.constrainWidth(detailsContent);
+			
+			// Dismiss and Edit Quantity
 			JPanel dismissRow = new JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 0, 0));
 			dismissRow.setOpaque(false);
 			dismissRow.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-			javax.swing.JButton dismiss = new javax.swing.JButton("Not holding this");
+			javax.swing.JButton dismiss = new javax.swing.JButton("Not holding");
 			dismiss.setFont(FontManager.getRunescapeSmallFont());
 			dismiss.setForeground(UiUtils.MUTED);
 			dismiss.setBackground(UiUtils.CARD_HOVER);
@@ -399,8 +398,45 @@ class PositionsPanel extends JPanel
 			dismiss.addActionListener(e -> onClose.accept(itemId));
 			dismissRow.add(dismiss);
 
+			dismissRow.add(javax.swing.Box.createRigidArea(new Dimension(8, 0)));
+
+			quantityEditField.setPreferredSize(new Dimension(45, 22));
+			quantityEditField.setFont(FontManager.getRunescapeSmallFont());
+			quantityEditField.setBackground(UiUtils.CARD_HOVER);
+			quantityEditField.setForeground(UiUtils.TEXT);
+			quantityEditField.setBorder(BorderFactory.createCompoundBorder(
+				BorderFactory.createLineBorder(UiUtils.MUTED),
+				BorderFactory.createEmptyBorder(2, 4, 2, 4)));
+			quantityEditField.addActionListener(e -> {
+				try {
+					int newQty = Integer.parseInt(quantityEditField.getText().trim());
+					positions.setQuantity(itemId, newQty);
+				} catch (NumberFormatException ignored) {}
+			});
+			dismissRow.add(quantityEditField);
+
+			dismissRow.add(javax.swing.Box.createRigidArea(new Dimension(4, 0)));
+
+			javax.swing.JButton updateQtyBtn = new javax.swing.JButton("Update");
+			updateQtyBtn.setFont(FontManager.getRunescapeSmallFont());
+			updateQtyBtn.setForeground(UiUtils.TEXT);
+			updateQtyBtn.setBackground(UiUtils.CARD_HOVER);
+			updateQtyBtn.setFocusPainted(false);
+			updateQtyBtn.setBorder(BorderFactory.createEmptyBorder(3, 8, 3, 8));
+			updateQtyBtn.addActionListener(e -> {
+				try {
+					int newQty = Integer.parseInt(quantityEditField.getText().trim());
+					positions.setQuantity(itemId, newQty);
+				} catch (NumberFormatException ignored) {}
+			});
+			dismissRow.add(updateQtyBtn);
+
 			UiUtils.constrainWidth(dismissRow);
-			add(dismissRow);
+			detailsContent.add(UiUtils.gap(UiUtils.SPACE_S));
+			detailsContent.add(dismissRow);
+			
+			CollapsibleSection detailsSection = new CollapsibleSection("Trade Details", detailsContent, true, UiUtils.CARD);
+			add(detailsSection);
 
 			UiUtils.constrainWidth(this);
 		}
@@ -416,6 +452,11 @@ class PositionsPanel extends JPanel
 			nameLabel.setText(position.getItemName());
 			detailLabel.setText(explainer.formatNumber(position.getQuantity()) + " held"
 				+ (position.isCostKnown() ? "" : "  ·  already owned"));
+				
+			if (!quantityEditField.hasFocus())
+			{
+				quantityEditField.setText(String.valueOf(position.getQuantity()));
+			}
 				
 			Basis valuation = Basis.of(position, status, marketSell);
 			int basis = valuation.price;

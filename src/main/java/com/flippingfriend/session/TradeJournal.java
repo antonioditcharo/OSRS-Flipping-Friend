@@ -50,6 +50,7 @@ public class TradeJournal
 	private int lifetimeWins = 0;
 	private long lifetimeProfit = 0;
 	private long lifetimeTax = 0;
+	private long lifetimeCost = 0;
 	private double lifetimeMinutes = 0;
 	private long lifetimeEarliest = Long.MAX_VALUE;
 	private long lifetimeLatest = 0;
@@ -92,6 +93,7 @@ public class TradeJournal
 		lifetimeWins = 0;
 		lifetimeProfit = 0;
 		lifetimeTax = 0;
+		lifetimeCost = 0;
 		lifetimeMinutes = 0;
 		lifetimeEarliest = Long.MAX_VALUE;
 		lifetimeLatest = 0;
@@ -192,6 +194,7 @@ public class TradeJournal
 		}
 		lifetimeProfit += record.getProfit();
 		lifetimeTax += record.getTax();
+		lifetimeCost += (long) record.getBuyPrice() * record.getQuantity();
 		lifetimeMinutes += record.actualMinutes();
 		lifetimeEarliest = Math.min(lifetimeEarliest, record.getBoughtAt());
 		lifetimeLatest = Math.max(lifetimeLatest, record.getSoldAt());
@@ -291,6 +294,7 @@ public class TradeJournal
 		lifetimeWins = 0;
 		lifetimeProfit = 0;
 		lifetimeTax = 0;
+		lifetimeCost = 0;
 		lifetimeMinutes = 0;
 		lifetimeEarliest = Long.MAX_VALUE;
 		lifetimeLatest = 0;
@@ -308,6 +312,7 @@ public class TradeJournal
 		int wins = 0;
 		long profit = 0;
 		long tax = 0;
+		long cost = 0;
 		double minutes = 0;
 		java.util.Map<com.flippingfriend.model.MarketSector, Long> sectorProfits = new java.util.HashMap<>();
 
@@ -320,6 +325,7 @@ public class TradeJournal
 			}
 			profit += record.getProfit();
 			tax += record.getTax();
+			cost += (long) record.getBuyPrice() * record.getQuantity();
 			minutes += record.actualMinutes();
 			
 			com.flippingfriend.model.MarketSector sector = com.flippingfriend.model.SectorMapper.getSector(record.getItemId(), record.getItemName());
@@ -327,7 +333,7 @@ public class TradeJournal
 		}
 
 		long elapsed = Instant.now().getEpochSecond() - sessionStart.getEpochSecond();
-		return new SessionStats(flips, wins, profit, tax, minutes, elapsed, sectorProfits);
+		return new SessionStats(flips, wins, profit, tax, minutes, elapsed, sectorProfits, cost);
 	}
 
 	/**
@@ -342,7 +348,122 @@ public class TradeJournal
 		// Elapsed is measured across the span the trades actually cover, so an idle week between
 		// sessions does not drag the hourly rate towards zero.
 		long elapsed = lifetimeFlips == 0 || lifetimeEarliest == Long.MAX_VALUE ? 0 : Math.max(0, lifetimeLatest - lifetimeEarliest);
-		return new SessionStats(lifetimeFlips, lifetimeWins, lifetimeProfit, lifetimeTax, lifetimeMinutes, elapsed, new java.util.HashMap<>(lifetimeSectorProfits));
+		return new SessionStats(lifetimeFlips, lifetimeWins, lifetimeProfit, lifetimeTax, lifetimeMinutes, elapsed, new java.util.HashMap<>(lifetimeSectorProfits), lifetimeCost);
+	}
+
+	/**
+	 * Removes one flip from the journal, on disk and in memory.
+	 *
+	 * @return true if a matching record was found and removed
+	 */
+	public synchronized boolean deleteFlip(FlipRecord target)
+	{
+		return rewriteJournal(target, null);
+	}
+
+	/**
+	 * Replaces one flip with a corrected version, on disk and in memory.
+	 *
+	 * @return true if a matching record was found and replaced
+	 */
+	public synchronized boolean updateFlip(FlipRecord target, FlipRecord replacement)
+	{
+		return replacement != null && rewriteJournal(target, replacement);
+	}
+
+	/**
+	 * Rewrites the journal with one record removed or replaced, then reloads everything from it.
+	 *
+	 * <p>The file is rewritten rather than the memory, because {@code history} holds only the last
+	 * {@link #MAX_LOADED} records while the file holds every one of them. Writing memory back would
+	 * quietly delete every flip older than that window -- and the window is two thousand records, so
+	 * it would look like it worked for a long time before anyone noticed.
+	 *
+	 * <p>Reloading rather than adjusting the running totals is deliberate too. Lifetime profit, tax,
+	 * wins, cost, the earliest and latest timestamps, the sector split and the session list are all
+	 * derived from this file; there are enough of them that correcting each by hand is a standing
+	 * invitation for one to be missed. {@link #load()} already computes every one from the file.
+	 */
+	private boolean rewriteJournal(FlipRecord target, FlipRecord replacement)
+	{
+		if (target == null || !storage.hasAccount())
+		{
+			return false;
+		}
+
+		Path file = storage.accountDir().resolve(FILE_NAME);
+		List<String> lines = storage.readLines(file);
+		List<String> kept = new ArrayList<>(lines.size());
+		boolean done = false;
+
+		for (String line : lines)
+		{
+			if (done || line.trim().isEmpty())
+			{
+				kept.add(line);
+				continue;
+			}
+
+			FlipRecord parsed;
+			try
+			{
+				parsed = storage.gson().fromJson(line, FlipRecord.class);
+			}
+			catch (Exception unreadable)
+			{
+				// Left exactly as found. A line this cannot parse is a line it has no business
+				// rewriting, and load() already knows to skip it.
+				kept.add(line);
+				continue;
+			}
+
+			if (parsed == null || !isSameFlip(parsed, target))
+			{
+				kept.add(line);
+				continue;
+			}
+
+			done = true;
+			if (replacement != null)
+			{
+				// The liquid value was measured when the flip was recorded and is not the player's to
+				// edit, so it is carried across rather than lost to a default of zero.
+				replacement.setLiquidValue(parsed.getLiquidValue());
+				kept.add(storage.gson().toJson(replacement));
+			}
+		}
+
+		if (!done)
+		{
+			log.warn("no journal line matched the {} being edited by hand", target.getItemName());
+			return false;
+		}
+
+		storage.writeLines(file, kept);
+
+		// load() returns early when asked for the file it already holds, and the file it already
+		// holds is the one just rewritten.
+		loadedFrom = null;
+		load();
+		return true;
+	}
+
+	/**
+	 * Whether two records describe the same flip.
+	 *
+	 * <p>Matched on what the trade was, not on object identity: the target came from {@code history}
+	 * and the other was parsed fresh off the disk, so they are never the same object. The timestamps
+	 * are what make it specific -- two flips of one item at identical prices are still told apart by
+	 * when they opened and closed.
+	 */
+	private static boolean isSameFlip(FlipRecord a, FlipRecord b)
+	{
+		return a.getItemId() == b.getItemId()
+			&& a.getBoughtAt() == b.getBoughtAt()
+			&& a.getSoldAt() == b.getSoldAt()
+			&& a.getQuantity() == b.getQuantity()
+			&& a.getBuyPrice() == b.getBuyPrice()
+			&& a.getSellPrice() == b.getSellPrice();
 	}
 
 	/** The most recent completed flips, newest first. */

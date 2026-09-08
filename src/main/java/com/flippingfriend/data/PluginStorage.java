@@ -155,6 +155,19 @@ public class PluginStorage
 		}
 	}
 
+	public void writeLines(Path file, List<String> lines)
+	{
+		try
+		{
+			ensure(file.getParent());
+			Files.write(file, lines);
+		}
+		catch (IOException ex)
+		{
+			log.warn("could not write to {}: {}", file.getFileName(), ex.getMessage());
+		}
+	}
+
 	public Gson gson()
 	{
 		return gson;

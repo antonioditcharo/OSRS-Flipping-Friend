@@ -36,8 +36,10 @@ class LearningPanel extends JPanel
 	private final JLabel captureNote = new JLabel();
 	private final JLabel calibrationValue = new JLabel();
 	private final JLabel hazardValue = new JLabel();
+	private final JLabel censoringValue = new JLabel();
 	private final JLabel shadowValue = new JLabel();
 	private final JLabel durationsValue = new JLabel();
+	private final JLabel gateValue = new JLabel();
 	private final JLabel recordValue = new JLabel();
 	private final JLabel status = new JLabel();
 
@@ -71,7 +73,9 @@ class LearningPanel extends JPanel
 		add(row("Fill estimates", calibrationValue));
 		add(row("How long fills take", durationsValue));
 		add(row("Waiting cost", hazardValue));
+		add(row("Canceled offers", censoringValue));
 		add(row("Trades watched", shadowValue));
+		add(row("Model confidence", gateValue));
 		add(row("History kept", recordValue));
 
 		clear("Waiting for the companion.");
@@ -85,9 +89,13 @@ class LearningPanel extends JPanel
 		captureValue.setForeground(UiUtils.TEXT);
 		captureNote.setText(" ");
 		calibrationValue.setText("—");
+		calibrationValue.setToolTipText(null);
 		durationsValue.setText("—");
+		durationsValue.setToolTipText(null);
 		hazardValue.setText("—");
+		censoringValue.setText("—");
 		shadowValue.setText("—");
+		gateValue.setText("—");
 		recordValue.setText("—");
 	}
 
@@ -116,14 +124,17 @@ class LearningPanel extends JPanel
 		if (observations == null || observations.getValue() <= 0)
 		{
 			calibrationValue.setText("learning");
+			calibrationValue.setToolTipText("Model is still learning and hasn't yet outperformed the baseline guess");
 		}
 		else if (skill == null || skill.getValue() <= 0)
 		{
 			calibrationValue.setText(count(observations.getValue()) + " seen, not applied yet");
+			calibrationValue.setToolTipText("Model is still learning and hasn't yet outperformed the baseline guess");
 		}
 		else
 		{
 			calibrationValue.setText(percent(skill.getValue()) + " better than guessing");
+			calibrationValue.setToolTipText("Brier score improvement over the analytical baseline");
 		}
 
 		// durations.pooled, not hazard.duration_dependence. The latter describes how the fill hazard
@@ -131,15 +142,32 @@ class LearningPanel extends JPanel
 		// showing it under this label put 3.45x on screen while the companion's own health line said
 		// 0.50x. Two numbers, one caption, and no way for a reader to tell which was being described.
 		LearningReading pooledDuration = by.get("durations.pooled");
-		durationsValue.setText(pooledDuration == null || pooledDuration.getValue() <= 0
-			? "learning"
-			: String.format("%.2fx expected, %s items", pooledDuration.getValue(),
+		if (pooledDuration == null || pooledDuration.getValue() <= 0)
+		{
+			durationsValue.setText("learning");
+			durationsValue.setToolTipText("Not enough data to estimate fill durations yet");
+		}
+		else
+		{
+			durationsValue.setText(String.format("%.2fx expected, %s items", pooledDuration.getValue(),
 				count(pooledDuration.getSample())));
+			durationsValue.setToolTipText("Fills are taking " + Math.round(pooledDuration.getValue() * 100) + "% of the assumed time");
+		}
+
+		LearningReading durationDependence = by.get("hazard.duration_dependence");
+		hazardValue.setText(durationDependence == null || durationDependence.getValue() <= 0
+			? "learning"
+			: String.format("%.2fx penalty for standing time", durationDependence.getValue()));
+
+		LearningReading censoring = by.get("hazard.informative_censoring");
+		censoringValue.setText(censoring == null || censoring.getValue() <= 0
+			? "learning"
+			: percent(censoring.getValue()) + " pulled early");
 
 		LearningReading weight = by.get("gate.weight");
-		hazardValue.setText(weight == null || weight.getValue() <= 0
+		gateValue.setText(weight == null || weight.getValue() <= 0
 			? "not applied yet"
-			: String.format("%.2fx", weight.getValue()));
+			: percent(weight.getValue()) + " applied");
 
 		LearningReading open = by.get("shadow.open");
 		LearningReading resolved = by.get("shadow.resolved");
@@ -184,12 +212,12 @@ class LearningPanel extends JPanel
 		{
 			captureValue.setText(percent(pooled.getValue()) + " of the market");
 			captureValue.setForeground(UiUtils.TEXT);
-			captureNote.setText("Your risk level's assumption. No fills measured yet.");
+			captureNote.setText("<html>Your risk level's assumption. No fills measured yet.</html>");
 			return;
 		}
 
 		captureValue.setText(percent(pooled.getValue()) + " of the market");
-		captureNote.setText(String.format("Measured from %s. Your risk level assumes %s.",
+		captureNote.setText(String.format("<html>Measured from %s. Your risk level assumes %s.</html>",
 			count(sample) + (sample == 1 ? " offer" : " offers"), percent(prior)));
 
 		// Loud on purpose when a large move rests on almost nothing. This is the exact shape of the
@@ -198,8 +226,8 @@ class LearningPanel extends JPanel
 		if (farBelow && sample < THIN_EVIDENCE)
 		{
 			captureValue.setForeground(UiUtils.WARNING);
-			captureNote.setText(captureNote.getText()
-				+ " That is a long way down on very little evidence — worth checking.");
+			captureNote.setText(captureNote.getText().replace("</html>", "")
+				+ " That is a long way down on very little evidence — worth checking.</html>");
 		}
 		else if (farBelow)
 		{

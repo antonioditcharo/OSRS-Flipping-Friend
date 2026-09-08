@@ -59,6 +59,15 @@ public class CompanionClient
 		lastBuy = null;
 	}
 
+	/**
+	 * Releases the hold on the current recommendation so a better one can take its place,
+	 * but leaves the last-shown trade in the fallback cache to prevent UI flickering.
+	 */
+	public void releaseIncumbent()
+	{
+		incumbentItemId = 0;
+	}
+
 	/** The single point where a plan becomes the one in force, so tests can reach the same state. */
 	void acceptPlan(PortfolioPlan plan)
 	{

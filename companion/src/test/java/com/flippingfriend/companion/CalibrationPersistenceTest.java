@@ -118,7 +118,7 @@ public class CalibrationPersistenceTest
 	@Test
 	public void shadowVetoEvidenceSurvivesRestart()
 	{
-		ShadowTrader before = new ShadowTrader(new com.flippingfriend.model.TaxCalculator());
+		ShadowTrader before = new ShadowTrader(new com.flippingfriend.model.TaxCalculator(), null, null);
 		before.open(4151, "Abyssal whip", "too illiquid", 1_000_000, 1_100_000, 1, 1_000L, 1.0);
 		before.open(4151, "Abyssal whip", "still open", 1_000_000, 1_100_000, 1, 9_000_000L, 1.0);
 		before.resolve((itemId, timestep) -> java.util.Arrays.asList(
@@ -130,7 +130,7 @@ public class CalibrationPersistenceTest
 		assertEquals(1, before.openCount());
 		double gpBefore = before.report(0).get(0).getNetGp();
 
-		ShadowTrader after = new ShadowTrader(new com.flippingfriend.model.TaxCalculator());
+		ShadowTrader after = new ShadowTrader(new com.flippingfriend.model.TaxCalculator(), null, null);
 		assertEquals(1, after.restore(
 			gson.fromJson(gson.toJson(before.snapshot()), ShadowTrader.Snapshot.class)));
 
@@ -141,12 +141,12 @@ public class CalibrationPersistenceTest
 	@Test
 	public void aShadowSnapshotFromAnotherVersionIsRefused()
 	{
-		ShadowTrader before = new ShadowTrader(new com.flippingfriend.model.TaxCalculator());
+		ShadowTrader before = new ShadowTrader(new com.flippingfriend.model.TaxCalculator(), null, null);
 		before.open(4151, "Whip", "too illiquid", 1_000_000, 1_100_000, 1, 1_000L, 1.0);
 		ShadowTrader.Snapshot state = before.snapshot();
 		state.version = ShadowTrader.SNAPSHOT_VERSION + 1;
 
-		ShadowTrader after = new ShadowTrader(new com.flippingfriend.model.TaxCalculator());
+		ShadowTrader after = new ShadowTrader(new com.flippingfriend.model.TaxCalculator(), null, null);
 		assertEquals(0, after.restore(state));
 		assertEquals(0, after.openCount());
 	}

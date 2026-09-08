@@ -192,7 +192,7 @@ app.get('/api/history/profit', (req, res) => {
 
     try {
         // Fetch the last 100 plans
-        const plans = db.prepare('SELECT created_at, payload FROM portfolio_plan ORDER BY created_at ASC LIMIT 100').all();
+        const plans = db.prepare('SELECT created_at, payload FROM portfolio_plan ORDER BY created_at DESC LIMIT 100').all();
         const history = plans.map(row => {
             const plan = JSON.parse(row.payload);
             const allocations = plan.bench || plan.allocations || [];
@@ -210,6 +210,7 @@ app.get('/api/history/profit', (req, res) => {
                 expectedProfit: totalExpectedProfit
             };
         });
+        history.reverse();
         res.json({ profitHistory: history });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -262,13 +263,8 @@ app.get('/api/history/actual-profit', (req, res) => {
             });
         });
 
-        // To avoid returning thousands of points, we sample/aggregate the history to 100 points
-        if (profitHistory.length > 100) {
-            const step = Math.ceil(profitHistory.length / 100);
-            profitHistory = profitHistory.filter((_, i) => i % step === 0);
-        }
-
-        res.json({ actualProfitHistory: profitHistory });
+        // To avoid returning thousands of points, we return only the most recent 100 points
+        res.json({ actualProfitHistory: profitHistory.slice(-100) });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -279,7 +275,7 @@ app.get('/api/history/gates', (req, res) => {
 
     try {
         // Fetch gate history
-        const gates = db.prepare('SELECT evaluated_at, gate, passed, measured FROM gate_result ORDER BY evaluated_at ASC LIMIT 200').all();
+        const gates = db.prepare('SELECT evaluated_at, gate, passed, measured FROM gate_result ORDER BY evaluated_at DESC LIMIT 200').all();
         const gateHistory = gates.map(row => {
             const date = new Date(row.evaluated_at * 1000);
             let measuredVal = 0;
@@ -297,6 +293,7 @@ app.get('/api/history/gates', (req, res) => {
                 measured: measuredVal
             };
         });
+        gateHistory.reverse();
         res.json({ gateHistory });
     } catch (err) {
         res.status(500).json({ error: err.message });

@@ -39,7 +39,7 @@ public class SessionRiskTest
 
 	private static SessionStats profit(long amount)
 	{
-		return new SessionStats(1, 1, amount, 0, 0, 3600, java.util.Collections.emptyMap());
+		return new SessionStats(1, 1, amount, 0, 0, 3600, java.util.Collections.emptyMap(), 0);
 	}
 
 	private static MarketSnapshot marketAt(int bid)

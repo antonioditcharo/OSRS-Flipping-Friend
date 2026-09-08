@@ -44,7 +44,7 @@ final class CompanionService implements AutoCloseable
 	private final BuyLimitLedger buyLimits = new BuyLimitLedger();
 	private final ExecutionRecorder executions;
 	private final FillCalibration calibration = new FillCalibration();
-	private final ShadowTrader shadow = new ShadowTrader(new com.flippingfriend.model.TaxCalculator());
+	private final ShadowTrader shadow;
 
 	/**
 	 * What the calibration snapshot is stored under. One name, so {@code loadModel} finds the most
@@ -129,6 +129,16 @@ final class CompanionService implements AutoCloseable
 		return thread;
 	});
 
+	/**
+	 * Dispatches heavy machine learning tasks (like model retraining) off the HTTP thread.
+	 */
+	private final ExecutorService learnThread = Executors.newSingleThreadExecutor(runnable ->
+	{
+		Thread thread = new Thread(runnable, "flipping-friend-learner");
+		thread.setDaemon(true);
+		return thread;
+	});
+
 	private volatile AccountSnapshot account;
 	/** When the last plan was built, and against how many free slots, for the spacing rule below. */
 	private volatile long lastPlanAt;
@@ -207,6 +217,7 @@ final class CompanionService implements AutoCloseable
 	{
 		this.gson = gson;
 		this.store = store;
+		this.shadow = new ShadowTrader(new com.flippingfriend.model.TaxCalculator(), store, gson);
 		this.activeOffers = new ActiveOfferTracker();
 		this.market = new MarketIngestionService(gson);
 		// Start recording immediately. This is the one item on the plan where waiting has a permanent
@@ -455,7 +466,14 @@ final class CompanionService implements AutoCloseable
 				lastTrainedAt = now;
 				// Refit against everything the shadow channel has resolved, and let the gate decide
 				// whether the result is allowed anywhere near a decision.
-				learnedFill.retrain(shadow.trainingSet(true));
+				ShadowTrader.TrainingSet trainingSet = shadow.trainingSet(true);
+				learnThread.execute(() -> {
+					try {
+						learnedFill.retrain(trainingSet);
+					} catch (Exception ex) {
+						log.warn("Model retraining failed", ex);
+					}
+				});
 			}
 		}
 
@@ -856,6 +874,14 @@ final class CompanionService implements AutoCloseable
 		{
 			log.warn("Could not compact the price archive", unavailable);
 		}
+		try
+		{
+			store.pruneShadowResolved(20_000);
+		}
+		catch (Exception unavailable)
+		{
+			log.warn("Could not prune shadow resolved", unavailable);
+		}
 	}
 
 	/** How far back the archive can see, for the health line. */
@@ -1095,6 +1121,7 @@ final class CompanionService implements AutoCloseable
 	{
 		planThread.shutdownNow();
 		warmThread.shutdownNow();
+		learnThread.shutdownNow();
 		market.close();
 		// Whatever the last warming pass collected, before the process goes. Saving is throttled
 		// during a run, so without this a restart discards up to five minutes of fetching.

@@ -235,7 +235,7 @@ public class StepGuide
 				return collectState(suggestion);
 			case MODIFY_BUY:
 			case MODIFY_SELL:
-				return adjustState(suggestion);
+				return adjustState(suggestion, totalSlots, occupiedSlots);
 			case BUY:
 				return offerState(suggestion, true, totalSlots, occupiedSlots);
 			case SELL:
@@ -269,7 +269,7 @@ public class StepGuide
 		return new GuideState(GuideStep.COLLECT, targets, suggestion);
 	}
 
-	private GuideState adjustState(Suggestion suggestion)
+	private GuideState adjustState(Suggestion suggestion, int totalSlots, boolean[] occupiedSlots)
 	{
 		if (resolver.isSetupOpen())
 		{
@@ -305,6 +305,27 @@ public class StepGuide
 
 			Widget confirm = resolver.getConfirmButton();
 			return new GuideState(GuideStep.CONFIRM, single(confirm), suggestion);
+		}
+
+		int slotIndex = suggestion.getSlot();
+		if (slotIndex >= 0 && slotIndex < occupiedSlots.length && !occupiedSlots[slotIndex])
+		{
+			// The slot is empty. The offer has been cancelled and collected, so it is time to place the new one.
+			if (suggestion.getType() == SuggestionType.MODIFY_BUY)
+			{
+				List<Widget> slots = resolver.getEmptySlots(totalSlots, occupiedSlots);
+				return new GuideState(GuideStep.PICK_SLOT, slots, suggestion);
+			}
+			else
+			{
+				List<Widget> targets = new ArrayList<>();
+				Widget item = resolver.getSideItem(suggestion.getItemId());
+				if (item != null)
+				{
+					targets.add(item);
+					return new GuideState(GuideStep.SELL_FROM_INVENTORY, targets, suggestion);
+				}
+			}
 		}
 
 		List<Widget> targets = new ArrayList<>();
