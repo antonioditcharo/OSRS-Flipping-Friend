@@ -55,3 +55,9 @@ TASKS.md
 dashboard.html
 memory/
 CLAUDE.md
+
+# ---- third-party reference source, kept locally, never committed ----
+# A full clone of github.com/cbrewitt/flipping-copilot (BSD 2-Clause), consulted while
+# building the trade-history features. Untracked but unignored, one "git add -A" would
+# have committed someone else's codebase into this repository's history.
+flipping-copilot-source/
