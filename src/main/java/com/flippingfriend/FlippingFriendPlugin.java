@@ -393,6 +393,18 @@ public class FlippingFriendPlugin extends Plugin
 					adjustmentIntent = null;
 				}
 			}
+			else if (state == net.runelite.api.GrandExchangeOfferState.BOUGHT || state == net.runelite.api.GrandExchangeOfferState.SOLD)
+			{
+				// The offer has completed -- there is nothing left to modify. Without this the
+				// intent survived until its 120-second timeout, and the next engine refresh
+				// still set pendingAdjustment from it, pinning a stale MODIFY recommendation
+				// about an offer that no longer exists. That pin then fought the COLLECT for
+				// the same slot and produced the visible flash.
+				if (adjustmentIntent != null && adjustmentIntent.getItemId() == event.getOffer().getItemId())
+				{
+					adjustmentIntent = null;
+				}
+			}
 		}
 
 		offerTracker.onOfferChanged(event.getSlot(), event.getOffer());

@@ -304,8 +304,13 @@ public class SuggestionEngine
 			return fresh;
 		}
 
+		// The offer being modified has completed -- there is nothing left to modify. The pin is
+		// cleared so the next cycle sees a clean state rather than a zombie recommendation about an
+		// offer that no longer exists. Without this the stale MODIFY flashes for one tick before the
+		// COLLECT overtakes it, because the pin outlives the offer it referred to.
 		if (fresh != null && fresh.getType() == SuggestionType.COLLECT && fresh.getSlot() == pinned.getSlot())
 		{
+			pendingAdjustment = null;
 			return fresh;
 		}
 
@@ -340,7 +345,22 @@ public class SuggestionEngine
 			config.targetHoldMinutes());
 
 		Suggestion collect = collectSuggestion(market);
-		if (collect != null)
+
+		// Collecting still outranks everything when nothing else is in progress -- a finished offer
+		// holds a slot and coins hostage and nothing productive can happen until it is cleared. But
+		// when the player is actively following a MODIFY recommendation for a DIFFERENT slot, a
+		// collect for this one is not urgent enough to obliterate it: the time-sensitive advice is
+		// what price to type, not what to pick up. The collect is deferred -- not discarded -- so it
+		// is served the moment the adjust/sell chain comes up empty.
+		//
+		// Without this, every offer completing in any slot silently preempted modification advice for
+		// every other slot. In an active session with multiple slots filling, the MODIFY flashed for
+		// one tick and then vanished, replaced by a COLLECT for something entirely unrelated.
+		Suggestion pinned = pendingAdjustment;
+		boolean deferCollect = collect != null && pinned != null
+			&& pinned.getType().isModify() && collect.getSlot() != pinned.getSlot();
+
+		if (collect != null && !deferCollect)
 		{
 			return collect;
 		}
@@ -360,6 +380,14 @@ public class SuggestionEngine
 		if (adjust != null)
 		{
 			return adjust;
+		}
+
+		// The adjust chain has had its turn. If the collect was deferred, serve it now — the
+		// modification advice the deferral was protecting either came through or does not exist, so
+		// the collect is the most important thing remaining.
+		if (deferCollect)
+		{
+			return collect;
 		}
 
 		Suggestion sell = sellSuggestion(market, horizon, account, now);
