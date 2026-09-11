@@ -42,6 +42,7 @@ public class CompanionClient
 	private final PluginStorage storage;
 	private final Gson gson;
 	private final SuggestionLedger ledger;
+	private final CompanionEventOutbox outbox;
 
 	/** The item currently being recommended, kept so a re-plan does not move it. */
 	private volatile int incumbentItemId;
@@ -91,12 +92,20 @@ public class CompanionClient
 	private volatile PortfolioPlan lastPlan;
 	private volatile CompanionHealth lastHealth;
 
-	@Inject
+	/** Kept for direct construction in tests and small standalone tools. */
 	public CompanionClient(PluginStorage storage, Gson gson, SuggestionLedger ledger)
+	{
+		this(storage, gson, ledger, new CompanionEventOutbox(storage));
+	}
+
+	@Inject
+	public CompanionClient(PluginStorage storage, Gson gson, SuggestionLedger ledger,
+		CompanionEventOutbox outbox)
 	{
 		this.storage = storage;
 		this.gson = gson;
 		this.ledger = ledger;
+		this.outbox = outbox;
 	}
 
 	/**
@@ -397,8 +406,28 @@ public class CompanionClient
 
 	private void post(String path, Object body)
 	{
-		try { request(path, "POST", gson.toJson(body)); }
-		catch (Exception ex) { lastError = ex.getMessage(); }
+		String json = gson.toJson(body);
+		if (!outbox.enqueue(path, json))
+		{
+			lastError = "Could not persist the companion event for later delivery.";
+			return;
+		}
+
+		// Every publication cycle also retries anything older. The outbox stops at the first
+		// failure, preserving event order, and keeps that entry on disk for the next cycle.
+		outbox.drain((queuedPath, queuedBody) ->
+		{
+			try
+			{
+				request(queuedPath, "POST", queuedBody);
+				return true;
+			}
+			catch (Exception ex)
+			{
+				lastError = ex.getMessage();
+				return false;
+			}
+		});
 	}
 
 	private <T> T get(String path, Class<T> type) throws Exception

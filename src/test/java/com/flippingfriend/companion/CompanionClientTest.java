@@ -4,6 +4,7 @@ import com.flippingfriend.core.PortfolioAllocation;
 import com.flippingfriend.data.PluginStorage;
 import com.flippingfriend.core.PortfolioCandidate;
 import com.flippingfriend.core.PortfolioPlan;
+import com.flippingfriend.session.TrackedOffer;
 import com.google.gson.Gson;
 import java.util.Arrays;
 import java.util.Collections;
@@ -14,7 +15,13 @@ import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
  * Which trade the player is shown, and — the harder half — whether it stays shown.
@@ -222,6 +229,45 @@ public class CompanionClientTest
 			NATURE_RUNE, after.getCandidate().getItemId());
 	}
 
+	@Test
+	public void offerPublicationIsPersistedBeforeDeliveryIsAttempted()
+	{
+		PluginStorage storage = mock(PluginStorage.class);
+		CompanionEventOutbox outbox = mock(CompanionEventOutbox.class);
+		when(outbox.enqueue(anyString(), anyString())).thenReturn(true);
+		CompanionClient publishing = new CompanionClient(
+			storage, new Gson(), new SuggestionLedger(), outbox);
+
+		TrackedOffer offer = new TrackedOffer(2, RUBY, true, 800, 100, 1_000);
+		offer.setState("BUYING");
+		offer.setQuantityFilled(10);
+		offer.setSpent(8_000);
+
+		publishing.publishOffer(offer);
+
+		org.mockito.InOrder ordered = inOrder(outbox);
+		ordered.verify(outbox).enqueue(
+			org.mockito.ArgumentMatchers.eq("events/ge-offer"), anyString());
+		ordered.verify(outbox).drain(any(CompanionEventOutbox.Sender.class));
+	}
+
+	@Test
+	public void anEventThatCannotBePersistedIsNotDelivered()
+	{
+		PluginStorage storage = mock(PluginStorage.class);
+		CompanionEventOutbox outbox = mock(CompanionEventOutbox.class);
+		when(outbox.enqueue(anyString(), anyString())).thenReturn(false);
+		CompanionClient publishing = new CompanionClient(
+			storage, new Gson(), new SuggestionLedger(), outbox);
+
+		publishing.publishOffer(
+			new TrackedOffer(1, FIRE_RUNE, true, 5, 100, 1_000));
+
+		verify(outbox, never()).drain(any(CompanionEventOutbox.Sender.class));
+		assertEquals(
+			"Could not persist the companion event for later delivery.",
+			publishing.lastError());
+	}
 	@Test
 	public void rejectingEverythingIsAnAnswerRatherThanACrash()
 	{
