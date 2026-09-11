@@ -107,6 +107,20 @@ public class PluginStorage
 	 */
 	public void writeJson(Path file, Object value, Type type)
 	{
+		writeJsonChecked(file, value, type);
+	}
+
+	/**
+	 * Atomically writes JSON and reports whether the new copy reached its final path.
+	 *
+	 * <p>The ordinary {@link #writeJson(Path, Object, Type)} method remains appropriate for
+	 * rebuildable state. Delivery queues need a result, however, because an event must not be
+	 * transmitted and removed from memory when its durable copy was never written.</p>
+	 *
+	 * @return true only when the temporary file was successfully moved into place
+	 */
+	public boolean writeJsonChecked(Path file, Object value, Type type)
+	{
 		try
 		{
 			Files.createDirectories(file.getParent());
@@ -116,10 +130,12 @@ public class PluginStorage
 				gson.toJson(value, type, writer);
 			}
 			Files.move(temp, file, StandardCopyOption.REPLACE_EXISTING);
+			return true;
 		}
 		catch (Exception ex)
 		{
 			log.warn("could not write {}: {}", file.getFileName(), ex.getMessage());
+			return false;
 		}
 	}
 
