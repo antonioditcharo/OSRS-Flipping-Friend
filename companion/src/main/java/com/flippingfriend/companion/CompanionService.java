@@ -175,6 +175,10 @@ final class CompanionService implements AutoCloseable
 			{
 				buyLimits.apply(event);
 				activeOffers.apply(event);
+				// ExecutionRecorder has its own durable offer claim. Replaying here repairs the
+				// case where the event reached the log immediately before the process stopped,
+				// while an event already applied remains a no-op.
+				executions.record(event);
 				replayed++;
 			}
 		}
@@ -279,25 +283,39 @@ final class CompanionService implements AutoCloseable
 
 	void account(AccountSnapshot snapshot) throws Exception
 	{
+		if (snapshot == null)
+		{
+			throw new IllegalArgumentException("account snapshot is required");
+		}
+
+		// A retry keeps the same correlation id. Store its forensic row once, but always
+		// reapply the snapshot because assignment and buy-limit reconciliation are idempotent.
+		store.recordEventOnce(snapshot.getCorrelationId(), snapshot.getObservedAt(),
+			snapshot.getCorrelationId(), "ACCOUNT_STATE", gson.toJson(snapshot));
 		account = snapshot;
 		// The plugin's ledger is durable; this one is rebuilt from events that can go missing. Take
 		// the higher of the two so a dropped fill is corrected on the next cycle rather than never.
 		buyLimits.reconcile(snapshot.getBuyLimitUsed());
-		store.recordEvent(snapshot.getObservedAt(), snapshot.getCorrelationId(), "ACCOUNT_STATE",
-			gson.toJson(snapshot));
 		requestPlan();
 	}
 
 	void offer(OfferEvent event) throws Exception
 	{
-		store.recordEvent(event.getObservedAt(), event.getCorrelationId(), event.getEventType(),
-			gson.toJson(event));
+		if (event == null)
+		{
+			throw new IllegalArgumentException("offer event is required");
+		}
+
+		// Keep one forensic row per event id. The effects below are deliberately reapplied
+		// on a retry: buy limits use per-offer high-water marks, active offers replace by
+		// slot, and ExecutionRecorder has a durable claim for settled offers.
+		store.recordEventOnce(event.getCorrelationId(), event.getObservedAt(),
+			event.getCorrelationId(), event.getEventType(), gson.toJson(event));
 		buyLimits.apply(event);
 		activeOffers.apply(event);
 		// Settled offers are the only direct evidence of how our own orders behave in the queue,
 		// as opposed to what the public price history says the market did.
-		boolean settled = executions.record(event);
-		double claimed = predictedCompletion(event);
+		executions.record(event);
 
 		// An offer changing is the single most important reason to re-plan: a slot has just opened
 		// or closed, capital has moved, and a buy limit may have been consumed. Waiting for the next

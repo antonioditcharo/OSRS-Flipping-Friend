@@ -69,6 +69,52 @@ public class RehydrationTest
 	}
 
 	@Test
+	public void retryingTheSameOfferKeepsOneLogRowAndOneExecution() throws Exception
+	{
+		SqliteStore store = open();
+		CompanionService service = new CompanionService(gson, store);
+		OfferEvent event = buy(9_000, Instant.now());
+
+		service.offer(event);
+		service.offer(event);
+
+		assertEquals("one stable event id produces one forensic row",
+			1, store.recentOfferEvents(0).size());
+		assertEquals("retrying a running total does not consume the allowance twice",
+			Integer.valueOf(LIMIT - 9_000), remaining(service));
+		assertEquals("the durable execution claim prevents duplicate observations",
+			1, store.executionStats().get(ITEM).observed);
+
+		service.close();
+		store.close();
+	}
+
+	@Test
+	public void rehydrationFinishesAnEventLoggedBeforeItsEffectsWereApplied() throws Exception
+	{
+		Instant now = Instant.now();
+		OfferEvent event = buy(9_000, now);
+
+		SqliteStore first = open();
+		assertEquals(true, first.recordEventOnce(
+			event.getCorrelationId(), event.getObservedAt(), event.getCorrelationId(),
+			event.getEventType(), gson.toJson(event)));
+		assertEquals("the simulated stop happened before execution effects",
+			true, first.executionStats().isEmpty());
+		first.close();
+
+		SqliteStore second = open();
+		CompanionService recovered = new CompanionService(gson, second);
+		recovered.rehydrate();
+
+		assertEquals(Integer.valueOf(LIMIT - 9_000), remaining(recovered));
+		assertEquals("rehydration completes the missing execution effect",
+			1, second.executionStats().get(ITEM).observed);
+
+		recovered.close();
+		second.close();
+	}
+	@Test
 	public void windowsOlderThanFourHoursAreNotResurrected() throws Exception
 	{
 		SqliteStore first = open();
