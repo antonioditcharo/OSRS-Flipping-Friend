@@ -45,3 +45,9 @@ credentials.properties
 companion.properties
 *.env
 .env.local
+
+# Local review artifacts
+code-context.txt
+project-tree.txt
+OSRS-Flipping-Friend-*.zip
+OSRS-Flipping-Friend-*-MANIFEST.txt
