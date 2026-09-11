@@ -62,6 +62,7 @@ final class SqliteStore implements AutoCloseable
 			statement.execute("PRAGMA journal_mode=WAL");
 			statement.execute("PRAGMA foreign_keys=ON");
 			statement.execute("CREATE TABLE IF NOT EXISTS event_log (id INTEGER PRIMARY KEY, observed_at INTEGER NOT NULL, correlation_id TEXT NOT NULL, event_type TEXT NOT NULL, payload TEXT NOT NULL)");
+			statement.execute("CREATE TABLE IF NOT EXISTS processed_event (event_id TEXT PRIMARY KEY, processed_at INTEGER NOT NULL)");
 			// market_observation is not created any more, and is dropped below if an older database
 			// still has it. Nothing ever read a row from it: every SELECT in all three modules is
 			// nine queries and none name the table.
@@ -112,6 +113,66 @@ final class SqliteStore implements AutoCloseable
 			statement.setString(3, eventType);
 			statement.setString(4, payload);
 			statement.executeUpdate();
+		}
+	}
+
+	/**
+	 * Records an event only the first time its stable identifier is seen.
+	 *
+	 * <p>The identifier claim and event-log insert share one transaction. A failed log insert
+	 * therefore cannot leave behind a claim that would suppress a later retry.</p>
+	 *
+	 * @return true when this call recorded the event, false when it was already recorded
+	 */
+	synchronized boolean recordEventOnce(String eventId, long observedAt,
+		String correlationId, String eventType, String payload) throws Exception
+	{
+		if (eventId == null || eventId.isEmpty())
+		{
+			recordEvent(observedAt, correlationId, eventType, payload);
+			return true;
+		}
+
+		boolean originalAutoCommit = connection.getAutoCommit();
+		connection.setAutoCommit(false);
+		try
+		{
+			boolean claimed;
+			try (PreparedStatement claim = connection.prepareStatement(
+				"INSERT OR IGNORE INTO processed_event(event_id, processed_at) VALUES(?,?)"))
+			{
+				claim.setString(1, eventId);
+				claim.setLong(2, observedAt);
+				claimed = claim.executeUpdate() > 0;
+			}
+
+			if (!claimed)
+			{
+				connection.rollback();
+				return false;
+			}
+
+			try (PreparedStatement statement = connection.prepareStatement(
+				"INSERT INTO event_log(observed_at, correlation_id, event_type, payload) VALUES(?,?,?,?)"))
+			{
+				statement.setLong(1, observedAt);
+				statement.setString(2, correlationId);
+				statement.setString(3, eventType);
+				statement.setString(4, payload);
+				statement.executeUpdate();
+			}
+
+			connection.commit();
+			return true;
+		}
+		catch (Exception ex)
+		{
+			connection.rollback();
+			throw ex;
+		}
+		finally
+		{
+			connection.setAutoCommit(originalAutoCommit);
 		}
 	}
 

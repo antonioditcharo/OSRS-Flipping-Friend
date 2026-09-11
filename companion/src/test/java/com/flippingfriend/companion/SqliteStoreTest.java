@@ -61,6 +61,39 @@ public class SqliteStoreTest
 	}
 
 	@Test
+	public void theSameEventIdentifierIsRecordedOnlyOnce() throws Exception
+	{
+		try (SqliteStore store = new SqliteStore(database()))
+		{
+			assertTrue(store.recordEventOnce(
+				"event-1", 100, "correlation-1", "BOUGHT", "{\"attempt\":1}"));
+			assertTrue("a retry must be acknowledged without another log row",
+				!store.recordEventOnce(
+					"event-1", 101, "correlation-1", "BOUGHT", "{\"attempt\":2}"));
+
+			List<String> rows = store.recentOfferEvents(0);
+			assertEquals(1, rows.size());
+			assertEquals("{\"attempt\":1}", rows.get(0));
+		}
+	}
+
+	@Test
+	public void differentEventIdentifiersRemainDifferentEvents() throws Exception
+	{
+		try (SqliteStore store = new SqliteStore(database()))
+		{
+			assertTrue(store.recordEventOnce(
+				"event-1", 100, "correlation-1", "BUYING", "{\"number\":1}"));
+			assertTrue(store.recordEventOnce(
+				"event-2", 101, "correlation-2", "BOUGHT", "{\"number\":2}"));
+
+			List<String> rows = store.recentOfferEvents(0);
+			assertEquals(2, rows.size());
+			assertEquals("{\"number\":1}", rows.get(0));
+			assertEquals("{\"number\":2}", rows.get(1));
+		}
+	}
+	@Test
 	public void executionStatisticsAccumulateAcrossCalls() throws Exception
 	{
 		try (SqliteStore store = new SqliteStore(database()))
