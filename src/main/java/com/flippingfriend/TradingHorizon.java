@@ -103,8 +103,58 @@ public class TradingHorizon
 	}
 
 	/**
-	 * Determines if an offer is genuinely outbid by checking both the volatile spot price
-	 * and the more stable 5-minute trend, reducing noisy re-price alerts.
+	 * How long an offer is left alone before repricing it is even considered.
+	 * <p>
+	 * <b>An offer is slow relative to how long it was expected to take, not to how often you look at
+	 * it.</b> The bar used to be {@link #staleOfferMinutes()} alone, which is the checking interval —
+	 * so on a fifteen-minute check the plugin began agitating to move the price fifteen minutes in,
+	 * on a leg the plan itself had predicted would take two hours. Reported from a live session: a
+	 * trade entered for 90k of profit was told, a quarter of an hour after being listed, to drop its
+	 * price by nearly 200k. Nothing had gone wrong with it. It had been on the market for an eighth
+	 * of the time it was supposed to need.
+	 * <p>
+	 * Half the predicted time is the point where the estimate is starting to look wrong rather than
+	 * merely unfulfilled. Below that there is no information yet, only impatience — and impatience
+	 * here is expensive, because the thing it buys is a worse price.
+	 *
+	 * @param predictedMinutes what this leg was predicted to take, or 0 when that is not known
+	 */
+	public long patienceMinutes(double predictedMinutes)
+	{
+		double expected = predictedMinutes > 0 ? predictedMinutes : legHorizonHours() * 60.0;
+		return Math.max(staleOfferMinutes(), Math.round(expected * PATIENCE_SHARE));
+	}
+
+	/**
+	 * The share of a leg's predicted time that has to pass before its price is questioned. Halfway
+	 * is when being unfilled stops being consistent with the estimate and starts contradicting it.
+	 */
+	private static final double PATIENCE_SHARE = 0.5;
+
+	/**
+	 * How far the market has to move past an offer before saying so is worth the player's attention.
+	 * <p>
+	 * Half a percent of the price being tested. The thing being filtered out is noise in the quote,
+	 * and quote noise scales with the price: a gp of movement is meaningless on a 400 gp item and
+	 * invisible on a 280,000 gp one. Without any deadband the comparison was strict, and a quote
+	 * drifting a gp either side of the offer price crossed it every time the feed updated -- measured
+	 * on a stranded 400 gp buy with the bid alternating 399 / 401, the plugin alternated between
+	 * "reprice your Grapes offer" and "buy Adamant bars" on <em>every single refresh</em>.
+	 * <p>
+	 * Scaling it to the item's spread was tried first and is wrong in the other direction: on an
+	 * Awakener's orb quoted 282,023 / 299,999 that made the bar 2,696 gp, which would have suppressed
+	 * the real 1,583 gp gap the player was right to act on. A share of the price puts the bar at 2 gp
+	 * on the grapes and 1,402 on the orb, which is the shape the problem actually has.
+	 * <p>
+	 * It is not free: a gap of, say, 0.4% is now left alone. Against a trade whose whole margin is
+	 * six percent that is a fourteenth of the margin, and worth less than being told about it twice a
+	 * minute and never being sure which price to type.
+	 */
+	private static final double OUTBID_DEADBAND_SHARE = 0.005;
+
+	/**
+	 * Determines if an offer is genuinely outbid by checking both the volatile spot price and the
+	 * more stable 5-minute trend, and by requiring the gap to be big enough to be worth acting on.
 	 */
 	public boolean isOutbid(boolean isBuying, int currentPrice, com.flippingfriend.data.LatestPrice spot, com.flippingfriend.data.Candle trend)
 	{
@@ -113,18 +163,28 @@ public class TradingHorizon
 			return false;
 		}
 
+		int deadband = outbidDeadband(currentPrice);
 		if (isBuying)
 		{
-			boolean spotOutbid = currentPrice < spot.getLow();
+			boolean spotOutbid = spot.getLow() - currentPrice >= deadband;
 			boolean trendOutbid = trend == null || trend.getAvgHighPrice() == null || currentPrice < trend.getAvgHighPrice();
 			return spotOutbid && trendOutbid;
 		}
 		else
 		{
-			boolean spotOutbid = currentPrice > spot.getHigh();
+			boolean spotOutbid = currentPrice - spot.getHigh() >= deadband;
 			boolean trendOutbid = trend == null || trend.getAvgLowPrice() == null || currentPrice > trend.getAvgLowPrice();
 			return spotOutbid && trendOutbid;
 		}
+	}
+
+	/**
+	 * The gap that counts as the market having moved, at this price. Never less than a gp, so an item
+	 * cheap enough that half a percent rounds away is still answerable.
+	 */
+	public int outbidDeadband(int price)
+	{
+		return Math.max(1, (int) Math.round(Math.max(0, price) * OUTBID_DEADBAND_SHARE));
 	}
 
 	/** Plain-English summary for the panel. */

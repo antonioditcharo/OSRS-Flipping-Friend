@@ -73,32 +73,28 @@ public class MakeRoomToSellTest
 	}
 
 	/**
-	 * The other half: which holdings hold a slot back at all. The reservation reads the decision the
-	 * sell pass has just published, so the card and the reservation cannot disagree.
+	 * The other half: which holdings hold a slot back at all.
+	 * <p>
+	 * All of them, now. Three tests here used to distinguish a holding whose exit was in sight from
+	 * one waiting hours for a price that might never arrive, and reserved a slot only for the first.
+	 * That distinction went with the rule it served: nothing is kept back any more, so every holding
+	 * is a sale about to be placed and every one of them needs somewhere to go.
 	 */
 	@Test
-	public void aHoldingFarFromItsExitDoesNotReserveASlot()
+	public void everyHoldingReservesASlot()
 	{
-		SellDecision waiting = SellDecision.hold("Waiting for 1,449 gp.", 90);
-
-		assertFalse("a price hours away must not hold a slot idle",
-			SuggestionEngine.exitIsNear(new PositionStatus(waiting, false, false)));
+		assertTrue("a sale reserves one", new SellDecision(SellDecision.Action.SELL, 1_449,
+			"Listed now rather than waited on.", 12, 5_000).isExitNear());
+		assertTrue("so does a loss cut", new SellDecision(SellDecision.Action.CUT, 1_300,
+			"Through its stop.", 4, -2_000).isExitNear());
 	}
 
 	@Test
-	public void aHoldingNearItsExitStillReservesOne()
+	public void anEmptyDecisionDoesNot()
 	{
-		SellDecision arriving = SellDecision.hold("Almost there.", 5).withExitNear(true);
-
-		assertTrue("a slot must be there when the price arrives",
-			SuggestionEngine.exitIsNear(new PositionStatus(arriving, false, false)));
+		// The placeholder for "there is no holding here", which is the only thing left that is not a
+		// sale in waiting.
+		assertFalse(SellDecision.hold("Nothing held.", 0).isExitNear());
 	}
 
-	@Test
-	public void aHoldingWithNoDecisionYetReservesOne()
-	{
-		// A position seen before the first sell evaluation. On no information the safe direction is
-		// to reserve: refusing to is the one that can strand a holding with nowhere to sell it.
-		assertTrue(SuggestionEngine.exitIsNear(null));
-	}
 }

@@ -35,11 +35,16 @@ Write-Host '  Plugin up to date.' -ForegroundColor Green
 # The companion decides every buy. Without it the plugin falls back to the older built-in engine and
 # quietly does worse, with nothing on screen to say why — so it is started here rather than being
 # left as a separate thing to remember.
-$running = Get-CimInstance Win32_Process -Filter "Name='java.exe'" -ErrorAction SilentlyContinue |
-    Where-Object { $_.CommandLine -like '*flipping-friend-companion*' }
+# By the port, not the command line. The companion normally runs from its scheduled task under an
+# S4U token in session 0, where an ordinary Win32_Process query gets a NULL CommandLine back -- so
+# this scan reported "not running" about a companion that was serving perfectly well, and the branch
+# below then started a second one to die on the port.
+$listening = Get-NetTCPConnection -LocalPort 37777 -State Listen -ErrorAction SilentlyContinue |
+    Select-Object -First 1
+$running = if ($listening) { $listening.OwningProcess } else { $null }
 
 if ($running) {
-    Write-Host '  Market companion already running.' -ForegroundColor Green
+    Write-Host "  Market companion already running (pid $running)." -ForegroundColor Green
 }
 else {
     $companionJar = Join-Path $root 'companion\build\libs\flipping-friend-companion.jar'

@@ -20,16 +20,6 @@ public class SellDecision
 	private final String reason;
 	private final double expectedMinutes;
 	private final long expectedProfit;
-	/**
-	 * Whether this holding is close enough to leaving that a slot should be kept for it.
-	 * <p>
-	 * Decided here because this is the only place that knows both the price the position could leave
-	 * at and the target it is being held for. The slot reservation used to hold a slot for anything
-	 * held at all, which meant a position waiting hours for a price it might never reach kept a
-	 * Grand Exchange slot idle the whole time.
-	 */
-	private boolean exitNear;
-
 	public SellDecision(Action action, int price, String reason, double expectedMinutes, long expectedProfit)
 	{
 		this.action = action;
@@ -44,22 +34,19 @@ public class SellDecision
 		return new SellDecision(Action.HOLD, 0, reason, expectedMinutes, 0);
 	}
 
-	/** A copy that says the exit is close. Set after the fact, since only the caller knows. */
-	public SellDecision withExitNear(boolean near)
-	{
-		SellDecision copy = new SellDecision(action, price, reason, expectedMinutes, expectedProfit);
-		copy.exitNear = near;
-		return copy;
-	}
-
 	/**
-	 * True when leaving is close enough to be worth reserving a slot for: the price is within a
-	 * pricing step of the target, or the hold limit is about to force the sale anyway. Always true
-	 * once the decision is actually to sell.
+	 * True when this holding should have a Grand Exchange slot kept for it.
+	 * <p>
+	 * Which is any holding the engine can price, because every one of them is listed on the pass
+	 * that sees it. This used to be a separate flag the caller set after the fact -- "the price is
+	 * within a pricing step of the target, or the hold limit is about to force the sale" -- from the
+	 * days when a position could be kept back for hours and it would have been wasteful to reserve a
+	 * slot for something that might never leave. Nothing is kept back now, so the question answers
+	 * itself, and a flag nobody sets is worse than no flag.
 	 */
 	public boolean isExitNear()
 	{
-		return exitNear || action != Action.HOLD;
+		return action != Action.HOLD;
 	}
 
 	public Action getAction()

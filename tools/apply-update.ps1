@@ -29,6 +29,36 @@ function Find-Java {
     throw 'No Java runtime found. Set JAVA_HOME or put java on the PATH.'
 }
 
+# Whoever is actually holding the companion's port, whether or not we can read their command line.
+#
+# The command-line scan below is blind to the one process that matters most. The companion is
+# normally started by its scheduled task, which runs under an S4U token in session 0, and
+# Win32_Process returns a NULL CommandLine for a process an ordinary user query is not entitled to
+# inspect. So the scan finds nothing, this script concludes nothing is running, starts a second
+# companion, and that one dies with "Address already in use" while the old build carries on serving.
+#
+# The health check afterwards then passes -- because the old companion answers it -- and the script
+# reports "Update applied." That is the worst shape a deployment failure can take: the fix is built,
+# the plugin is copied, the script says it worked, and the process making the decisions is the one
+# from before. It happened, and the only trace was a BindException in companion.log.err.
+#
+# A listening socket cannot hide. Find it by the port.
+function Get-CompanionPid {
+    $conn = Get-NetTCPConnection -LocalPort 37777 -State Listen -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+    if ($conn) { return [int] $conn.OwningProcess }
+    return 0
+}
+
+function Wait-PortFree([int] $seconds = 20) {
+    $deadline = (Get-Date).AddSeconds($seconds)
+    while ((Get-Date) -lt $deadline) {
+        if ((Get-CompanionPid) -eq 0) { return $true }
+        Start-Sleep -Milliseconds 500
+    }
+    return $false
+}
+
 function Stop-Ours([string] $match, [string] $label) {
     $found = Get-CimInstance Win32_Process -Filter "Name='java.exe' or Name='javaw.exe'" -ErrorAction SilentlyContinue |
         Where-Object { $_.CommandLine -like "*$match*" }
@@ -47,6 +77,19 @@ Write-Host ''
 # 1. Stop everything that holds a jar open, BEFORE any of them are rewritten.
 Write-Host 'Stopping running components...'
 $hadCompanion = Stop-Ours 'flipping-friend-companion' 'companion'
+
+# And again by port, for the copy the scan cannot see. The scheduled task has to be stopped too, or
+# it simply restarts the old jar underneath us.
+$portPid = Get-CompanionPid
+if ($portPid -ne 0) {
+    Write-Host "  stopping companion holding port 37777 (pid $portPid)"
+    Stop-ScheduledTask -TaskName 'FlippingFriendCompanion' -ErrorAction SilentlyContinue
+    Stop-Process -Id $portPid -Force -ErrorAction SilentlyContinue
+    $hadCompanion = $true
+}
+if (-not (Wait-PortFree)) {
+    throw 'Something is still listening on 37777. The new companion cannot start while it is there.'
+}
 $hadDaemon = $false
 if (-not $KeepDaemon) {
     # The daemon has to come down too. It holds its own jar open, and a daemon left running on the
@@ -84,11 +127,19 @@ New-Item -ItemType Directory -Force -Path $logDir | Out-Null
 if ($hadCompanion -or -not $KeepDaemon) {
     Write-Host ''
     Write-Host 'Starting companion...'
-    Start-Process -FilePath $java `
-        -ArgumentList '-jar', "`"$(Join-Path $root 'companion\build\libs\flipping-friend-companion.jar')`"" `
-        -WindowStyle Hidden `
-        -RedirectStandardOutput (Join-Path $logDir 'companion.log') `
-        -RedirectStandardError (Join-Path $logDir 'companion.log.err')
+    # Through the scheduled task where there is one, so the thing that owns the companion the
+    # rest of the time is the thing that started it. A bare process here is restarted by the
+    # task's hourly watchdog anyway, and then there are two of them racing for the port.
+    $task = Get-ScheduledTask -TaskName 'FlippingFriendCompanion' -ErrorAction SilentlyContinue
+    if ($task) {
+        Start-ScheduledTask -TaskName 'FlippingFriendCompanion'
+    } else {
+        Start-Process -FilePath $java `
+            -ArgumentList '-jar', "`"$(Join-Path $root 'companion\build\libs\flipping-friend-companion.jar')`"" `
+            -WindowStyle Hidden `
+            -RedirectStandardOutput (Join-Path $logDir 'companion.log') `
+            -RedirectStandardError (Join-Path $logDir 'companion.log.err')
+    }
 }
 
 if ($hadDaemon) {
@@ -130,7 +181,7 @@ while ((Get-Date) -lt $deadline) {
 
 Write-Host ''
 if ($healthy) {
-    Write-Host 'Update applied.' -ForegroundColor Green
+    Write-Host "Update applied. Companion pid $(Get-CompanionPid)." -ForegroundColor Green
 } else {
     Write-Host 'Companion did not answer within 60s. Check:' -ForegroundColor Yellow
     Write-Host "  $logDir\companion.log.err"

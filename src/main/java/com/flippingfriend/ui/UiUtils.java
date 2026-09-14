@@ -172,20 +172,50 @@ final class UiUtils
 		return wrappedText(text, MUTED, FontManager.getRunescapeSmallFont(), CARD_TEXT_WIDTH);
 	}
 
+	/**
+	 * The column width an area was built for, kept so a later re-measure uses the same one.
+	 * <p>
+	 * The width matters as much as the text. The recommendation headline sits beside a 36px item
+	 * icon and is built 44px narrower than the card; measuring it against the full card width would
+	 * report a height one line short of what it needs, which is the same class of fault as the one
+	 * below.
+	 */
+	private static final String WRAP_WIDTH = "flippingfriend.wrapWidth";
+
 	/** Replaces wrapped text and lets the component re-measure its height for the new content. */
 	static void setWrappedText(JTextArea area, String text)
 	{
 		area.setText(text == null ? "" : text);
-		sizeToWidth(area, area.getWidth() > 0 ? area.getWidth() : CARD_TEXT_WIDTH);
+		sizeToWidth(area, area.getWidth() > 0 ? area.getWidth() : builtForWidth(area));
 		area.revalidate();
+	}
+
+	private static int builtForWidth(JTextArea area)
+	{
+		Object stored = area.getClientProperty(WRAP_WIDTH);
+		return stored instanceof Integer ? (Integer) stored : CARD_TEXT_WIDTH;
 	}
 
 	/**
 	 * Pins the wrapping width so the text area measures its height against the column it will
 	 * really occupy, rather than reporting one very long line.
+	 * <p>
+	 * <b>The height has to be measured, not remembered.</b> {@code getPreferredSize()} returns
+	 * whatever was last handed to {@code setPreferredSize} and never looks at the text again — so
+	 * the second call to this method for a given area gave back the height the <em>first</em> text
+	 * needed, and pinned it there. Every area in this panel that is created empty and filled in
+	 * later was therefore stuck at the single line an empty string occupies, for the life of the
+	 * session: the recommendation headline (so "Buy 14,969 x Adamant bar" rendered as "Buy 14,969
+	 * x", with the item name cut off), its detail (so the instruction telling you to cancel and
+	 * re-place an offer stopped after about thirty characters), the queued-advice banner, and all
+	 * three descriptions under the header controls. Clearing the stored size first makes the
+	 * component measure the text it is actually holding.
 	 */
 	private static void sizeToWidth(JTextArea area, int width)
 	{
+		area.putClientProperty(WRAP_WIDTH, width);
+		area.setPreferredSize(null);
+		area.setMaximumSize(null);
 		area.setSize(new Dimension(width, Short.MAX_VALUE));
 		int height = area.getPreferredSize().height;
 		area.setPreferredSize(new Dimension(width, height));

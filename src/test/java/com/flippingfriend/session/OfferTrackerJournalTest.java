@@ -54,13 +54,10 @@ public class OfferTrackerJournalTest
 		Mockito.when(o.getPrice()).thenReturn(price);
 		Mockito.when(o.getTotalQuantity()).thenReturn(total);
 		Mockito.when(o.getQuantitySold()).thenReturn(sold);
-		int spent = price * sold;
-		if (state == GrandExchangeOfferState.SELLING || state == GrandExchangeOfferState.SOLD || state == GrandExchangeOfferState.CANCELLED_SELL)
-		{
-			TaxCalculator taxCalc = new TaxCalculator();
-			spent -= taxCalc.taxFor(RUBY, price, sold);
-		}
-		Mockito.when(o.getSpent()).thenReturn(spent);
+		// Pre-tax on both sides of the book, which is what the game reports. This fixture used to
+		// subtract the sale tax here, so it agreed with production exactly where production was
+		// wrong and the whole suite stayed green over a 2% error in every recorded sale.
+		Mockito.when(o.getSpent()).thenReturn(price * sold);
 		return o;
 	}
 
@@ -199,6 +196,67 @@ public class OfferTrackerJournalTest
 
 		assertEquals("an uncollected offer still occupies its slot", 1, restarted.getOffers().size());
 		assertEquals(1500, restarted.getOffer(1).getQuantityFilled());
+	}
+
+	/**
+	 * The sale tax has to leave the profit, because the game takes it out of the coins.
+	 * <p>
+	 * This is the failure that made a live journal read 11,813,500 when the true figure was
+	 * 5,734,246. {@code getSpent()} is pre-tax, the tracker read it as post-tax, and the gross it
+	 * reconstructed by dividing by 0.98 cancelled against the tax it inferred the same way -- so
+	 * profit came out as the gross proceeds less the cost, with the fee never deducted. The panel
+	 * still printed a "Tax paid" line, which made the ledger look like it balanced.
+	 */
+	@Test
+	public void theSaleTaxIsDeductedFromBookedProfit() throws Exception
+	{
+		OfferTracker tracker = trackerAt(folder.newFolder("tax").toPath());
+		buy(tracker, 0, 1000);
+
+		tracker.onOfferChanged(1, offer(GrandExchangeOfferState.SELLING, SELL_PRICE, 1000, 0));
+		tracker.onOfferChanged(1, offer(GrandExchangeOfferState.SOLD, SELL_PRICE, 1000, 1000));
+
+		List<FlipRecord> history = journal.getHistory();
+		assertEquals(1, history.size());
+		FlipRecord record = history.get(0);
+
+		long expectedTax = new TaxCalculator().taxFor(RUBY, SELL_PRICE, 1000);
+		assertEquals("the recorded tax is what the game charges, not an inferred 2.04%",
+			expectedTax, record.getTax());
+		assertEquals("profit is the gross less the tax less what the units cost",
+			(long) SELL_PRICE * 1000 - expectedTax - (long) BUY_PRICE * 1000, record.getProfit());
+		assertTrue("and it is strictly less than the untaxed figure the bug produced",
+			record.getProfit() < (long) (SELL_PRICE - BUY_PRICE) * 1000);
+	}
+
+	/**
+	 * An offer filled at a better price than it asked is booked at the price that actually traded.
+	 * <p>
+	 * The gross is what the game reports, so the per-unit price comes from the gross rather than
+	 * from the ask -- which is what stops a position cleared at 1 gp from being recorded as a
+	 * catastrophic loss, and stops the tax being computed off a price nobody paid.
+	 */
+	@Test
+	public void aFillAboveTheAskIsTaxedOnWhatActuallyTraded() throws Exception
+	{
+		OfferTracker tracker = trackerAt(folder.newFolder("betterfill").toPath());
+		buy(tracker, 0, 100);
+
+		int asked = 1;
+		int received = 900;
+		GrandExchangeOffer sold = Mockito.mock(GrandExchangeOffer.class);
+		Mockito.when(sold.getState()).thenReturn(GrandExchangeOfferState.SOLD);
+		Mockito.when(sold.getItemId()).thenReturn(RUBY);
+		Mockito.when(sold.getPrice()).thenReturn(asked);
+		Mockito.when(sold.getTotalQuantity()).thenReturn(100);
+		Mockito.when(sold.getQuantitySold()).thenReturn(100);
+		Mockito.when(sold.getSpent()).thenReturn(received * 100);
+		tracker.onOfferChanged(1, sold);
+
+		FlipRecord record = journal.getHistory().get(0);
+		long expectedTax = new TaxCalculator().taxFor(RUBY, received, 100);
+		assertEquals(expectedTax, record.getTax());
+		assertEquals((long) received * 100 - expectedTax - (long) BUY_PRICE * 100, record.getProfit());
 	}
 
 	@Test

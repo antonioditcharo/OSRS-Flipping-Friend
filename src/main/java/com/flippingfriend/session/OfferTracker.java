@@ -471,52 +471,44 @@ public class OfferTracker
 		}
 		else
 		{
-			// The exchange deducts the tax before returning coins for a sell offer, so the money actually
-			// received is the truth. If the user listed it for 1 gp to instant-sell, the price in the offer
-			// is 1 gp, but they actually received the true market value. Using tracked.getPrice() here
-			// caused massive artificial losses to be recorded.
-			long spentSoFar = offer == null ? tracked.getSpent() : offer.getSpent();
-			long net = Math.max(0, spentSoFar - tracked.getRecordedSpent());
-			long gross;
-			long tax;
+			// getSpent() is the PRE-TAX value of what the offer has traded, on both sides of the book.
+			//
+			// This is the single most expensive thing to get wrong in the whole plugin, and it was
+			// wrong here. The code read getSpent() as the coins actually received, then reconstructed
+			// a gross by dividing by 0.98 and set tax = gross - net. Downstream, writeJournalEntry
+			// books profit = gross - tax - cost, so the reconstruction cancelled exactly and the
+			// booked profit came out as getSpent() - cost: the 2% sale tax was never subtracted at
+			// all. An audit of a live journal found 88 of 446 records overstated by precisely the
+			// sale tax, 6,079,254 gp between them, and the "Tax paid" figure in the panel was a
+			// fabricated 2.04% that no arithmetic anywhere actually deducted.
+			//
+			// How the API's meaning was settled, since its javadoc says only "the total amount of
+			// money spent so far": RuneLite's own GrandExchangeOfferSlot renders it against
+			// price * totalQuantity under "Received:", which a post-tax numerator could never reach;
+			// GrandExchangePlugin.saveTrade takes the traded price to be spent / quantity; and in
+			// every one of those 88 records the implied receipt per unit was exactly the ask.
+			//
+			// So the delta is the gross, the price that actually traded is the gross over the units,
+			// and the tax is computed from that price by the same calculator the rest of the engine
+			// quotes profit with. Deriving the price from what moved rather than from the ask also
+			// keeps the case the old comment here was worried about: an offer listed at 1 gp to
+			// clear stock is filled by the standing buy orders, and the gross says so.
+			long grossSoFar = offer == null ? tracked.getSpent() : offer.getSpent();
+			long gross = Math.max(0, grossSoFar - tracked.getRecordedSpent());
+			if (gross <= 0)
+			{
+				// Nothing to read a price from -- a late settle-up whose running total was never
+				// seen. The ask is the best estimate left.
+				gross = (long) tracked.getPrice() * quantity;
+			}
 
-			if (net > 0)
-			{
-				long expectedNet = (long) tracked.getPrice() * quantity - taxCalculator.taxFor(itemId, tracked.getPrice(), quantity);
-				if (net == expectedNet)
-				{
-					gross = (long) tracked.getPrice() * quantity;
-					tax = gross - net;
-				}
-				else
-				{
-					long netPerItem = net / quantity;
-					long grossPerItem;
-					if (taxCalculator.isExempt(itemId))
-					{
-						grossPerItem = netPerItem;
-					}
-					else if (netPerItem >= TaxCalculator.CAP_THRESHOLD - TaxCalculator.MAX_TAX_PER_ITEM)
-					{
-						grossPerItem = netPerItem + TaxCalculator.MAX_TAX_PER_ITEM;
-					}
-					else
-					{
-						grossPerItem = (long) Math.round(netPerItem / (1.0 - TaxCalculator.TAX_RATE));
-					}
-					gross = grossPerItem * quantity;
-					tax = gross - net;
-				}
-			}
-			else
-			{
-				int price = tracked.getPrice();
-				gross = (long) price * quantity;
-				tax = taxCalculator.taxFor(itemId, price, quantity);
-				net = gross - tax;
-			}
-			
-			tracked.setRecordedSpent(Math.max(spentSoFar, tracked.getRecordedSpent() + net));
+			// Rounded rather than floored: a delta covering fills at more than one price is an
+			// average, and flooring it would understate the tax on every mixed fill.
+			int tradedPrice = (int) Math.max(1, Math.round((double) gross / quantity));
+			long tax = taxCalculator.taxFor(itemId, tradedPrice, quantity);
+			long net = gross - tax;
+
+			tracked.setRecordedSpent(Math.max(grossSoFar, tracked.getRecordedSpent() + gross));
 
 			Position position = positions.get(itemId);
 			int averageCost = position == null ? 0 : position.getAverageCost();

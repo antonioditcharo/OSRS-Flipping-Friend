@@ -91,3 +91,18 @@ tasks.register('monitorJar', Jar) {
     from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
     exclude 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA', 'module-info.class'
 }
+
+/**
+ * Lets a probe be pointed at captured market data from the command line.
+ * <p>
+ * Gradle runs tests in a forked JVM that inherits none of the daemon's system properties, so a
+ * -Dprobe.dir on the command line reaches the build and not the code. Forwarded explicitly, and only
+ * this one property, so nothing else about the test environment depends on how the build was invoked.
+ */
+tasks.named('test') {
+    if (System.getProperty('probe.dir') != null) {
+        systemProperty 'probe.dir', System.getProperty('probe.dir')
+        outputs.upToDateWhen { false }
+        testLogging { showStandardStreams = true }
+    }
+}

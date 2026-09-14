@@ -149,6 +149,27 @@ final class CandidateFactory
 	{
 		return appetite == null ? 0.05 : appetite.getLossCutPct();
 	}
+	/** Share of the full Kelly stake actually taken, against probabilities that are estimates. */
+	private static final double KELLY_SHARE = 0.35;
+
+	/**
+	 * Multiples of the fractional-Kelly order offered to the optimizer, smallest first.
+	 * <p>
+	 * Spans from half that order up to whatever the market, the buy limit and the coins on hand
+	 * allow, so the search can find the size where profit per slot-hour actually peaks instead of
+	 * being handed one point on that curve. One of these is 1.0, so the old behaviour is still on
+	 * the menu and wins whenever it deserves to.
+	 */
+	private static final double[] SIZE_GRID = { 0.5, 1.0, 2.0, 4.0, 8.0 };
+	/**
+	 * Smallest share of the available flow ever ordered.
+	 * <p>
+	 * A floor rather than zero because the model being pessimistic about one item is not a reason to
+	 * sit out entirely -- but a fraction resting on this floor is the model saying it does not like
+	 * the trade, and a whole plan resting on it means something upstream is wrong.
+	 */
+	private static final double MIN_KELLY_FRACTION = 0.1;
+
 	/** Floor on assumed drift, so an item that is flat right now is not treated as risk-free. */
 	private static final double MIN_DRIFT_FRACTION = 0.002;
 
@@ -179,7 +200,30 @@ final class CandidateFactory
 	private final ManipulationFilter filter = new ManipulationFilter();
 	private final SeriesSource series;
 	private final OnnxInferenceEngine aiEngine = new OnnxInferenceEngine();
-	/** Everything learned so far; never null, and neutral until something has been learned. */
+
+	/**
+	 * Everything learned so far; never null, and neutral until something has been learned.
+	 * <p>
+	 * This javadoc outlived its field. The comment sat here on its own, describing a learned model
+	 * that had been deleted, while the line further down marked "where everything that has been
+	 * learned re-enters the decision" read four values straight off the raw fill model. Meanwhile the
+	 * recorder kept writing every settled offer to {@code execution_stat} and
+	 * {@code SqliteStore.executionStats()} sat there with no callers -- so the account had 1,386
+	 * observations of how wrong the timings were and not one of them reached a decision.
+	 */
+	private volatile FillCalibration calibration = FillCalibration.NEUTRAL;
+
+	/** Replaces what has been learned. Called when the recorder's totals are re-read. */
+	void setCalibration(FillCalibration updated)
+	{
+		this.calibration = updated == null ? FillCalibration.NEUTRAL : updated;
+	}
+
+	/** What is currently being applied, for the health line and for tests. */
+	FillCalibration getCalibration()
+	{
+		return calibration;
+	}
 
 	/**
 	 * Which resolutions this factory reads, and how long one bar covers.
@@ -211,6 +255,36 @@ final class CandidateFactory
 	 * Kept switchable so the comparison can be repeated rather than re-argued.
 	 */
 	private boolean waitAwareSizing = false;
+
+	/**
+	 * Whether the ONNX fill classifier is allowed to override the measured fill model.
+	 * <p>
+	 * <b>Off, because the model that ships in this repository is fitted to random numbers.</b>
+	 * {@code ml-forecaster/train_models.py} builds {@code fill_prob_v1.onnx} from
+	 * {@code X = np.random.rand(100, 4)} against {@code y = np.random.randint(0, 2, 100)} -- a
+	 * hundred rows of noise and ten trees, exported so the loading path could be written before
+	 * there was anything real to load. It is a placeholder, and it was wired in live.
+	 * <p>
+	 * What it was doing while it was on: the classifier returns something near 0.5 for any input,
+	 * which is greater than zero, so the {@code > 0} guard beneath it meant the measured
+	 * {@link FillModel} estimate was never consulted for either leg. Both fill probabilities, the
+	 * completion figure drawn as the confidence bar, {@code expectedProfit()} and therefore
+	 * {@code expectedGpPerSlotHour()} -- the number the whole plan is ranked by -- came from noise.
+	 * And with a completion probability near 0.25 the Kelly fraction below always landed on its 0.1
+	 * floor, so every order was sized at a tenth of what the market could absorb, on every item, on
+	 * every cycle. That is the shape of the complaint that the trades suggested are not worth
+	 * enough.
+	 * <p>
+	 * The features were never going to work either: four raw unnormalised numbers -- price,
+	 * quantity, an hour-of-day multiplier and a literal zero -- fed to a model whose inputs were
+	 * uniform on [0, 1).
+	 * <p>
+	 * Left switchable rather than deleted. A real classifier trained on the execution recorder's own
+	 * observations is a reasonable thing to want here; what is not reasonable is a placeholder
+	 * silently outranking a measurement. Turning this on needs a model trained on real fills and
+	 * features built to match it.
+	 */
+	private boolean onnxOverridesFillModel = false;
 
 	/** Whether the account may trade members-only items; false for free-to-play. */
 	private volatile boolean membersAccount = true;
@@ -260,6 +334,12 @@ final class CandidateFactory
 		lastVeto.put(itemId, reason);
 		vetoedNames.put(itemId, itemName == null ? "" : itemName);
 	}
+	/** Why one item was turned away on the last build, or null if it was not. Diagnostics only. */
+	String vetoFor(int itemId)
+	{
+		return lastVeto.get(itemId);
+	}
+
 	private boolean exemptionsResolved;
 
 	/** Items the screen wants history for, published so the warmer knows what to fetch next. */
@@ -326,7 +406,6 @@ final class CandidateFactory
 		Map<Integer, Integer> buyLimitRemaining, long spendableCoins, boolean members, Instant now)
 	{
 		this.membersAccount = members;
-		this.membersAccount = members;
 		lastVeto.clear();
 		vetoedNames.clear();
 		itemsInFeed.set(universe.size());
@@ -345,15 +424,15 @@ final class CandidateFactory
 		}
 		shortlistIds = ids;
 
-		if (!shortlist.isEmpty()) {
-			float[][][] momentumInputs = new float[shortlist.size()][12][4];
-			Map<Integer, Double> momentums = new HashMap<>();
-			float[][] momentumsOut = aiEngine.predictMomentums(momentumInputs);
-			for (int i = 0; i < shortlist.size(); i++) {
-				momentums.put(shortlist.get(i).item.id, (double) momentumsOut[i][0]);
-			}
-			featureEngine.setPredictedMomentums(momentums);
-		}
+		// A momentum pass used to run here and has been removed. It allocated
+		// `new float[shortlist.size()][12][4]` -- every element zero -- handed that to the ONNX
+		// session as though it were twelve buckets of features per item, and stored whatever the
+		// model maps all-zeros to against every item on the shortlist. That is one constant, not a
+		// prediction. Nothing in this module reads ItemFeatures.getPredictedMomentum, so the only
+		// thing it changed was the cost of a model run per planning cycle -- but a constant sitting
+		// in a field that looks like a forecast is exactly the shape of the last bug in this layer,
+		// where a fixed value reached live position sizing. If the forecast is wanted here, the
+		// tensor has to be filled from the series first.
 
 		itemsAnalysed.set(shortlist.size());
 		List<PortfolioCandidate> candidates = shortlist.parallelStream()
@@ -384,6 +463,17 @@ final class CandidateFactory
 	void setWaitAwareSizing(boolean enabled)
 	{
 		this.waitAwareSizing = enabled;
+	}
+
+	/** See the field: off unless a fill classifier trained on real observations is actually loaded. */
+	boolean isOnnxOverridingFillModel()
+	{
+		return onnxOverridesFillModel;
+	}
+
+	void setOnnxOverridesFillModel(boolean enabled)
+	{
+		this.onnxOverridesFillModel = enabled;
 	}
 
 
@@ -583,7 +673,7 @@ final class CandidateFactory
 			return java.util.Collections.emptyList();
 		}
 
-		FillCurve curve = FillCurve.from(shortSeries);
+		FillCurve curve = FillCurve.overRecentHistory(shortSeries);
 		if (curve.isEmpty())
 		{
 			veto(itemId, screened.item.name, "Not enough traded history to estimate fills.");
@@ -597,7 +687,7 @@ final class CandidateFactory
 		long expiresAt = now.getEpochSecond() + PLAN_TTL_SECONDS;
 
 		List<PortfolioCandidate> tactics = new ArrayList<>();
-
+		boolean unfillable = false;
 
 		for (double buyOffset : appetite.getBuyOffsets())
 		{
@@ -626,6 +716,14 @@ final class CandidateFactory
 					spendableCoins, horizonHours);
 				if (fillable <= 0)
 				{
+					// Almost always one leg, not both, and worth naming separately from a thin
+					// margin. An order is sized against the time left after the wait for a first
+					// counterparty, so once that wait reaches the horizon there is no time left to
+					// fill in and the size is zero -- which drops the item even when it is trading
+					// heavily. Measured live at the quoted bid and ask, Avantoe potion (unf) and
+					// Grimy guam leaf both went to zero this way on five and nineteen thousand units
+					// an hour of real volume.
+					unfillable = true;
 					continue;
 				}
 
@@ -633,45 +731,116 @@ final class CandidateFactory
 				long netProfitFull = marginPerItem * fillable;
 				long unwindLossFull = unwindCost(itemId, buyPrice, screened.price.getLow(), fillable, features, horizonHours);
 				
-				float[][] baseBuyFeatures = new float[][]{ { buyPrice, fillable, (float)season, 0f } };
-				float[][] baseSellFeatures = new float[][]{ { sellPrice, fillable, (float)season, 0f } };
-				float[] baseBuyProbs = aiEngine.predictFillProbabilities(baseBuyFeatures);
-				float[] baseSellProbs = aiEngine.predictFillProbabilities(baseSellFeatures);
-				
-				double pBuy = baseBuyProbs[0] > 0 ? baseBuyProbs[0] : fillModel().estimateBuy(curve, buyPrice, fillable, horizonHours, season).getProbability();
-				double pSell = baseSellProbs[0] > 0 ? baseSellProbs[0] : fillModel().estimateSell(curve, sellPrice, fillable, horizonHours, season).getProbability();
+				double pBuy = fillModel().estimateBuy(curve, buyPrice, fillable, horizonHours, season)
+					.getProbability();
+				double pSell = fillModel().estimateSell(curve, sellPrice, fillable, horizonHours, season)
+					.getProbability();
+				if (onnxOverridesFillModel)
+				{
+					// See the field. The guard here used to be `prob > 0`, which any classifier
+					// satisfies, so this was never a fallback -- it was a replacement.
+					float[] buyProbs = aiEngine.predictFillProbabilities(
+						new float[][]{ { buyPrice, fillable, (float) season, 0f } });
+					float[] sellProbs = aiEngine.predictFillProbabilities(
+						new float[][]{ { sellPrice, fillable, (float) season, 0f } });
+					if (buyProbs[0] > 0 && sellProbs[0] > 0)
+					{
+						pBuy = buyProbs[0];
+						pSell = sellProbs[0];
+					}
+				}
 				double p = pBuy * pSell;
 				
 				double b = unwindLossFull > 0 ? (double) netProfitFull / unwindLossFull : netProfitFull;
-				
-				double fStar = 1.0;
-				if (b > 0 && p > 0)
+
+				// Offer the optimizer a choice of size, rather than deciding it here and telling it.
+				//
+				// Every price pair used to produce exactly one candidate, at one quantity, chosen by
+				// a fixed fraction -- so the search ranged over prices and never over size. That is
+				// the one dimension it should range over, because the objective it already maximises
+				// is expected profit per hour of slot occupancy, and size is precisely the knob that
+				// trades those two against each other: profit grows with the order, while the time
+				// it ties a slot up grows more slowly, because a large part of the wait is waiting
+				// for the first counterparty at all and that does not depend on size. Whether the
+				// extra units are worth the extra hours is the question the objective exists to
+				// answer, and it was being answered by a constant.
+				//
+				// Measured live, every order came out between 0.3% and 4.3% of the buy limit the
+				// market would have taken, on a 128m account with seven of eight slots busy. Two
+				// separate haircuts produce that: the capture share, which is already inside the
+				// fill model's throughput, and then this fraction on top of it. The second one is
+				// also the wrong shape -- a Kelly fraction says what share of a <em>bankroll</em> to
+				// stake, and it is being applied to a quantity the market can absorb, which the buy
+				// limit, the coins on hand and the optimizer's own exposure ceilings already bound.
+				//
+				// The fraction stays, as the middle of the grid: it is a reasonable guess and the
+				// point is not to overrule it but to stop it being the only offer. Sizes that cost
+				// more in fill probability than they earn in margin score worse and are dropped by
+				// the sort below, which is the same gate every other tactic passes through.
+				double kelly = kellyFraction(p, b);
+				int lastQuantity = 0;
+				for (double share : SIZE_GRID)
 				{
-					fStar = 0.35 * ((p * b - (1.0 - p)) / b);
-				}
-				fStar = Math.max(0.1, Math.min(1.0, fStar));
-				
-				int quantity = (int) Math.max(1, fillable * fStar);
+					int quantity = (int) Math.max(1,
+						Math.min(fillable, Math.round(fillable * kelly * share)));
+					// Once the grid is against a ceiling -- the buy limit, the coins, or what the
+					// market will absorb -- every larger share clamps to the same order. Emitting it
+					// again would put identical candidates in front of the optimizer, which is pure
+					// branching for no added choice, and the same reason the list is trimmed below.
+					if (quantity == lastQuantity)
+					{
+						continue;
+					}
+					lastQuantity = quantity;
 
 				FillEstimate buyFill = fillModel().estimateBuy(curve, buyPrice, quantity,
 					horizonHours, season);
 				FillEstimate sellFill = fillModel().estimateSell(curve, sellPrice, quantity,
 					horizonHours, season);
 					
-				float[][] buyFeatures = new float[][]{ { buyPrice, quantity, (float)season, 0f } };
-				float[][] sellFeatures = new float[][]{ { sellPrice, quantity, (float)season, 0f } };
-				
-				float[] buyProbs = aiEngine.predictFillProbabilities(buyFeatures);
-				float[] sellProbs = aiEngine.predictFillProbabilities(sellFeatures);
-				
-				float[] buyWaits = aiEngine.predictWaitTimes(buyFeatures);
-				float[] sellWaits = aiEngine.predictWaitTimes(sellFeatures);
-				
-				if (buyProbs[0] > 0) {
-					buyFill = new FillEstimate(buyProbs[0], Math.max(0.016, buyWaits[0] / 60.0 + quantity / buyFill.getUnitsPerHour()), buyFill.getUnitsPerHour(), buyWaits[0] / 60.0);
-				}
-				if (sellProbs[0] > 0) {
-					sellFill = new FillEstimate(sellProbs[0], Math.max(0.016, sellWaits[0] / 60.0 + quantity / sellFill.getUnitsPerHour()), sellFill.getUnitsPerHour(), sellWaits[0] / 60.0);
+				if (onnxOverridesFillModel)
+				{
+					// The second override, and the one that actually decided whether anything was ever
+					// recommended.
+					//
+					// The gate went on the Kelly-sizing call above and this one was missed, which made
+					// the gate worthless: these four lines replace the *measured* fill estimates with
+					// the placeholder model's output, and it is these that are stored on the candidate.
+					// From there they set getCompletionProbability(), expectedProfit() and
+					// expectedGpPerSlotHour() -- the number the optimizer ranks on and requires to be
+					// positive before it will select anything at all.
+					//
+					// Measured on a deliberately healthy item -- a six percent spread, four thousand
+					// units crossing each side every five minutes, ordering three thousand over two and
+					// a half hours -- the fill model says 0.999 and this said 0.397. At 0.397 per leg
+					// the expected profit of a 234,000 gp flip is *negative* once the cost of a
+					// position that does not sell is weighted in, so the optimizer selected nothing,
+					// at every risk level and every horizon, on a live 128m account with eight free
+					// slots. The plan reported "No candidate clears portfolio safety constraints" and
+					// the player saw no buy recommendations at all.
+					//
+					// The wait-time model is the same placeholder and was overwriting the expected
+					// duration too, so the minutes on the card were noise as well.
+					float[][] buyFeatures = new float[][]{ { buyPrice, quantity, (float) season, 0f } };
+					float[][] sellFeatures = new float[][]{ { sellPrice, quantity, (float) season, 0f } };
+
+					float[] buyProbs = aiEngine.predictFillProbabilities(buyFeatures);
+					float[] sellProbs = aiEngine.predictFillProbabilities(sellFeatures);
+					float[] buyWaits = aiEngine.predictWaitTimes(buyFeatures);
+					float[] sellWaits = aiEngine.predictWaitTimes(sellFeatures);
+
+					if (buyProbs[0] > 0)
+					{
+						buyFill = new FillEstimate(buyProbs[0],
+							Math.max(0.016, buyWaits[0] / 60.0 + quantity / buyFill.getUnitsPerHour()),
+							buyFill.getUnitsPerHour(), buyWaits[0] / 60.0);
+					}
+					if (sellProbs[0] > 0)
+					{
+						sellFill = new FillEstimate(sellProbs[0],
+							Math.max(0.016, sellWaits[0] / 60.0 + quantity / sellFill.getUnitsPerHour()),
+							sellFill.getUnitsPerHour(), sellWaits[0] / 60.0);
+					}
 				}
 
 				if (!buyFill.isPlausible() || !sellFill.isPlausible())
@@ -684,9 +853,18 @@ final class CandidateFactory
 				long unwindLoss = unwindCost(itemId, buyPrice, screened.price.getLow(),
 					quantity, features, horizonHours);
 
-				// Where everything that has been learned re-enters the decision.
-				double buyHours = buyFill.getExpectedHours();
-				double sellHours = sellFill.getExpectedHours();
+				// Where everything that has been learned re-enters the decision -- which, until this
+				// line was written, it did not. See the calibration field.
+				//
+				// Only the waiting is corrected. A predicted duration is a wait for the first
+				// counterparty plus the time to work through the size ordered, and every observation
+				// behind the multiplier was recorded while sizing was broken and orders were a single
+				// unit. The throughput half of that history describes a market absorbing one item at
+				// a time; the wait half is how long it takes anybody to turn up at the price, which
+				// is the same whether the order is for one or two thousand.
+				FillCalibration learned = learningDisabled ? FillCalibration.NEUTRAL : calibration;
+				double buyHours = correctedHours(buyFill, learned.waitMultiplier(itemId));
+				double sellHours = correctedHours(sellFill, learned.waitMultiplier(itemId));
 				double buyProbability = buyFill.getProbability();
 				double sellProbability = sellFill.getProbability();
 				double displayBuyProbability = buyProbability;
@@ -697,6 +875,7 @@ final class CandidateFactory
 					unwindLoss, buyProbability, sellProbability,
 					buyHours, sellHours, horizonHours, expiresAt)
 					.withDisplayProbability(displayBuyProbability));
+				}
 			}
 		}
 
@@ -705,7 +884,13 @@ final class CandidateFactory
 		tactics.sort(Comparator.comparingDouble(PortfolioCandidate::expectedGpPerSlotHour).reversed());
 		if (tactics.isEmpty())
 		{
-			veto(itemId, screened.item.name, "No price and size combination is expected to profit.");
+			// Two different answers, and telling them apart is the difference between a filter a
+			// player can check and one they cannot. "Not expected to profit" is about the margin;
+			// this other one is about the clock, and it lands on items whose margin is fine.
+			veto(itemId, screened.item.name, unfillable
+				? "Not expected to find a buyer or a seller for this within the time a flip is "
+					+ "given. A longer \"how long a flip should take\" would let it through."
+				: "No price and size combination is expected to profit.");
 		}
 		return tactics.size() > TACTICS_PER_ITEM ? tactics.subList(0, TACTICS_PER_ITEM) : tactics;
 	}
@@ -758,6 +943,37 @@ final class CandidateFactory
 	}
 
 	/**
+	 * The share of what the market could absorb that is actually ordered.
+	 * <p>
+	 * Fractional Kelly: the full stake maximises long-run growth only if the probabilities are
+	 * right, and these are estimates from noisy data, so a third of it is taken.
+	 * <p>
+	 * Worth reading with {@code onnxOverridesFillModel} in mind, because this is where that bug did
+	 * its damage. The fraction is acutely sensitive to the completion probability -- on a typical
+	 * flip, where the profit is around one and a half times the cost of unwinding, it sits on its
+	 * floor below about a 0.45 chance of completing and climbs steeply above it. The placeholder
+	 * classifier reported roughly 0.25 for everything, so every order on every item was floored at a
+	 * tenth of what the market could take.
+	 *
+	 * @param p the chance both legs complete
+	 * @param b what the trade makes against what unwinding it would cost
+	 */
+	static double kellyFraction(double p, double b)
+	{
+		if (b <= 0 || p <= 0)
+		{
+			// No odds to compute a stake from. The floor, not everything: this used to default to
+			// 1.0, which is the largest order the market will take, handed to the one case where
+			// the arithmetic could say nothing at all about whether the trade was any good. The
+			// screen guarantees a positive margin before this is reached, so nothing live took that
+			// branch -- but it is not a default worth keeping now the sizing stands on its own.
+			return MIN_KELLY_FRACTION;
+		}
+		return Math.max(MIN_KELLY_FRACTION,
+			Math.min(1.0, KELLY_SHARE * ((p * b - (1.0 - p)) / b)));
+	}
+
+	/**
 	 * What it costs to get out of a position whose sell leg did not fill.
 	 * <p>
 	 * You do not eat a stop; you re-list into the bid, which is roughly where you bought. So the
@@ -789,6 +1005,24 @@ final class CandidateFactory
 		long proceedsPerItem = exitPrice - tax.taxPerItem(itemId, exitPrice);
 		long lossPerItem = Math.max(0, buyPrice - proceedsPerItem);
 		return lossPerItem * quantity;
+	}
+
+	/**
+	 * An estimate's own hours with the learned bias applied to its waiting, and to nothing else.
+	 * <p>
+	 * Never below the wait itself: the throughput term cannot be negative, and a multiplier that
+	 * shortened the whole estimate below the time before the first trade would be describing an
+	 * order that finishes before it starts.
+	 */
+	private static double correctedHours(FillEstimate estimate, double waitMultiplier)
+	{
+		double wait = estimate.getWaitHours();
+		if (wait <= 0 || Double.isNaN(wait) || Double.isInfinite(wait))
+		{
+			return estimate.getExpectedHours();
+		}
+		double working = Math.max(0, estimate.getExpectedHours() - wait);
+		return wait * waitMultiplier + working;
 	}
 
 	private static int shift(int price, double fraction)

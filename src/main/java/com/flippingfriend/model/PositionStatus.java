@@ -51,6 +51,29 @@ public final class PositionStatus
 	}
 
 	/**
+	 * The buy was cancelled on this plugin's instruction and has not been re-placed yet.
+	 * <p>
+	 * Between the cancel and the replacement the item is not on the board at all, so nothing else can
+	 * tell that this is one accumulation in the middle of being moved rather than a finished holding
+	 * sitting unlisted. Saying so is what stops the next pass from dumping whatever had already
+	 * filled -- and tells the player the plugin has not forgotten what it asked them to do.
+	 */
+	public static PositionStatus awaitingReplacement(int boughtSoFar, int ordered)
+	{
+		return new PositionStatus(null, false, false, false, 0, 0, 0, 0, true, boughtSoFar, ordered)
+			.asAwaitingReplacement();
+	}
+
+	/** Set while the replacement for a cancelled buy is still owed. */
+	private boolean awaitingReplacement;
+
+	private PositionStatus asAwaitingReplacement()
+	{
+		this.awaitingReplacement = true;
+		return this;
+	}
+
+	/**
 	 * The exit is wanted, and our own buy is the thing standing in the way.
 	 * <p>
 	 * Distinct from an ordinary sell decision because the action is not "sell this" -- it is "stop
@@ -170,6 +193,13 @@ public final class PositionStatus
 			String why = decision == null || decision.getReason() == null ? "" : " " + decision.getReason();
 			return "Time to leave this, but your own buy is still adding to it — cancel that first."
 				+ why;
+		}
+		if (awaitingReplacement)
+		{
+			String progress = ordered > 0
+				? " — " + boughtSoFar + " of " + ordered + " so far" : "";
+			return "Waiting for you to place the replacement buy offer" + progress
+				+ ". It will be offered for sale once the buy finishes.";
 		}
 		if (stillBuying)
 		{

@@ -314,10 +314,23 @@ final class SeriesCache implements SeriesSource
 				restored++;
 			}
 		}
-		catch (Exception ex)
+		catch (Throwable ex)
 		{
+			// Throwable, not Exception, and the difference killed a live session.
+			//
+			// This method's own promise is that nothing here is fatal, because the cache is
+			// rebuildable by definition. Catching Exception does not keep that promise: the whole
+			// file is parsed into a JSON tree before any of it becomes a Candle, and on a cache that
+			// has grown past the heap the service died on OutOfMemoryError at startup -- an Error,
+			// straight through the guard written to prevent exactly this. The companion never came
+			// up, the plugin got no plans, and the only trace was a stack trace in a file nobody
+			// reads.
+			//
+			// A partly built cache is dropped with it: half a cache is not better than none, and it
+			// re-warms within minutes.
+			cache.clear();
 			log.warn("could not read the series cache at {}, starting cold: {}", file,
-				String.valueOf(ex.getMessage()));
+				String.valueOf(ex.toString()));
 			return;
 		}
 		log.info("restored {} cached series from disk, {} had expired", restored, expired);

@@ -192,6 +192,7 @@ final class CompanionService implements AutoCloseable
 			market.refresh();
 			resolved("Market refresh");
 			healthReason = "Ready.";
+			refreshCalibration();
 			requestPlan();
 			requestWarm();
 		}
@@ -275,6 +276,48 @@ final class CompanionService implements AutoCloseable
 				warming = false;
 			}
 		});
+	}
+
+	/**
+	 * How long the learned timings are kept before being re-read from the recorder.
+	 * <p>
+	 * The totals only move when an offer settles, which is a handful of times an hour at most, so
+	 * re-reading them every planning cycle would be a query a minute to learn nothing. Ten minutes is
+	 * far inside the rate at which the numbers can meaningfully change and far outside the rate at
+	 * which they do.
+	 */
+	private static final long CALIBRATION_INTERVAL_SECONDS = 600;
+
+	private volatile long lastCalibratedAt;
+
+	/**
+	 * Re-reads what the account's own settled offers say about the model's timings.
+	 * <p>
+	 * Never fatal. A calibration that cannot be loaded leaves the planner on whatever it had, which
+	 * at worst is the raw model -- the same thing it ran on for the whole time this table was being
+	 * written and never read.
+	 */
+	private void refreshCalibration()
+	{
+		long now = Instant.now().getEpochSecond();
+		if (now - lastCalibratedAt < CALIBRATION_INTERVAL_SECONDS)
+		{
+			return;
+		}
+		lastCalibratedAt = now;
+		try
+		{
+			FillCalibration calibration = FillCalibration.from(store.executionStats());
+			planner.setCalibration(calibration);
+			log.info("calibrated fill timings from settled offers: {} items with their own "
+				+ "correction, overall {}", calibration.itemsLearned(),
+				String.format("%.2fx", calibration.overall()));
+		}
+		catch (Exception ex)
+		{
+			log.warn("could not read execution statistics; planning on uncalibrated timings: {}",
+				String.valueOf(ex.getMessage()));
+		}
 	}
 
 	void account(AccountSnapshot snapshot) throws Exception

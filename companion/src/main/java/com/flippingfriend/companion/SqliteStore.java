@@ -89,8 +89,26 @@ final class SqliteStore implements AutoCloseable
 		// these, fill_minutes accumulated for every completed offer while predicted_minutes only did
 		// for the ones carrying advice, so their ratio put unattributed durations over attributed
 		// predictions and ran systematically high.
+		// Every settled offer's time on the book, and the prediction it carried, whether or not it
+		// finished.
+		//
+		// The columns above count only completions, and a completion is not a random sample of
+		// offers -- it is the subset that happened to be quick. Calibrating a duration model on them
+		// tells it the market is faster than it is, which is the same mistake the duration gate made
+		// before it was rewritten. On the account this was written against the effect was not subtle:
+		// 531 completions averaged 2.8 minutes against 27 predicted, while the 855 offers that did
+		// not complete contributed nothing at all, so the naive ratio came out at 0.10 and would have
+		// had the planner believe every fill takes a tenth of the time it does.
+		//
+		// An offer that was cancelled at forty minutes is not a missing observation. It is a real
+		// one, censored: whatever the true fill time was, it was longer than forty minutes. Summing
+		// the time every settled offer actually spent on the book, against what every one of them was
+		// predicted to take, compares like with like and still understates rather than overstates.
 		for (String column : new String[]{"paired_fill_minutes REAL NOT NULL DEFAULT 0",
-			"paired_completed INTEGER NOT NULL DEFAULT 0"})
+			"paired_completed INTEGER NOT NULL DEFAULT 0",
+			"open_minutes REAL NOT NULL DEFAULT 0",
+			"open_predicted_minutes REAL NOT NULL DEFAULT 0",
+			"open_observed INTEGER NOT NULL DEFAULT 0"})
 		{
 			try (Statement statement = connection.createStatement())
 			{
@@ -354,18 +372,33 @@ final class SqliteStore implements AutoCloseable
 	 * accumulates only over completed offers, so dividing by {@code completed} gives the mean time a
 	 * fill actually took.
 	 */
+	/** The completions-only form, for callers that have no censored observation to add. */
 	synchronized void recordExecution(int itemId, boolean completed, double fillMinutes,
 		double predictedMinutes) throws Exception
 	{
+		recordExecution(itemId, completed, fillMinutes, predictedMinutes, 0, 0);
+	}
+
+	/**
+	 * @param openMinutes how long the offer was on the book, completed or not, or 0 when unknown
+	 */
+	synchronized void recordExecution(int itemId, boolean completed, double fillMinutes,
+		double predictedMinutes, double openMinutes, double openPredictedMinutes) throws Exception
+	{
+		int openObserved = openMinutes > 0 && openPredictedMinutes > 0 ? 1 : 0;
 		try (PreparedStatement statement = connection.prepareStatement(
 			"INSERT INTO execution_stat(item_id, completed, observed, fill_minutes, predicted_minutes, "
-				+ "paired_fill_minutes, paired_completed) "
-				+ "VALUES(?,?,1,?,?,?,?) "
+				+ "paired_fill_minutes, paired_completed, open_minutes, open_predicted_minutes, "
+				+ "open_observed) "
+				+ "VALUES(?,?,1,?,?,?,?,?,?,?) "
 				+ "ON CONFLICT(item_id) DO UPDATE SET completed = completed + excluded.completed, "
 				+ "observed = observed + 1, fill_minutes = fill_minutes + excluded.fill_minutes, "
 				+ "predicted_minutes = predicted_minutes + excluded.predicted_minutes, "
 				+ "paired_fill_minutes = paired_fill_minutes + excluded.paired_fill_minutes, "
-				+ "paired_completed = paired_completed + excluded.paired_completed"))
+				+ "paired_completed = paired_completed + excluded.paired_completed, "
+				+ "open_minutes = open_minutes + excluded.open_minutes, "
+				+ "open_predicted_minutes = open_predicted_minutes + excluded.open_predicted_minutes, "
+				+ "open_observed = open_observed + excluded.open_observed"))
 		{
 			// A duration only teaches us something when there is a prediction beside it to compare
 			// against, and a fill time of zero means the plugin never saw the offer appear rather than
@@ -378,6 +411,9 @@ final class SqliteStore implements AutoCloseable
 			statement.setDouble(4, comparable ? predictedMinutes : 0);
 			statement.setDouble(5, comparable ? fillMinutes : 0);
 			statement.setInt(6, comparable ? 1 : 0);
+			statement.setDouble(7, openObserved == 1 ? openMinutes : 0);
+			statement.setDouble(8, openObserved == 1 ? openPredictedMinutes : 0);
+			statement.setInt(9, openObserved);
 			statement.executeUpdate();
 		}
 	}
@@ -388,13 +424,15 @@ final class SqliteStore implements AutoCloseable
 		Map<Integer, ExecutionStat> stats = new HashMap<>();
 		try (PreparedStatement statement = connection.prepareStatement(
 			"SELECT item_id, completed, observed, fill_minutes, predicted_minutes, "
-				+ "paired_fill_minutes, paired_completed FROM execution_stat");
+				+ "paired_fill_minutes, paired_completed, open_minutes, open_predicted_minutes, "
+				+ "open_observed FROM execution_stat");
 			ResultSet result = statement.executeQuery())
 		{
 			while (result.next())
 			{
 				stats.put(result.getInt(1), new ExecutionStat(result.getInt(2), result.getInt(3),
-					result.getDouble(4), result.getDouble(5), result.getDouble(6), result.getInt(7)));
+					result.getDouble(4), result.getDouble(5), result.getDouble(6), result.getInt(7),
+					result.getDouble(8), result.getDouble(9), result.getInt(10)));
 			}
 		}
 		return stats;
@@ -425,9 +463,25 @@ final class SqliteStore implements AutoCloseable
 				predictedMinutes > 0 && fillMinutes > 0 ? completed : 0);
 		}
 
+		/** Time on the book across every settled offer, completed or not. See the migration note. */
+		final double openMinutes;
+		final double openPredictedMinutes;
+		final int openObserved;
+
 		ExecutionStat(int completed, int observed, double fillMinutes, double predictedMinutes,
 			double pairedFillMinutes, int pairedCompleted)
 		{
+			this(completed, observed, fillMinutes, predictedMinutes, pairedFillMinutes,
+				pairedCompleted, 0, 0, 0);
+		}
+
+		ExecutionStat(int completed, int observed, double fillMinutes, double predictedMinutes,
+			double pairedFillMinutes, int pairedCompleted, double openMinutes,
+			double openPredictedMinutes, int openObserved)
+		{
+			this.openMinutes = openMinutes;
+			this.openPredictedMinutes = openPredictedMinutes;
+			this.openObserved = openObserved;
 			this.pairedFillMinutes = pairedFillMinutes;
 			this.pairedCompleted = pairedCompleted;
 			this.completed = completed;

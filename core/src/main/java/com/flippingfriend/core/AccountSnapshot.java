@@ -63,6 +63,18 @@ public final class AccountSnapshot
 	 */
 	private final int checkIntervalMinutes;
 	/**
+	 * How long the player says a flip should take, start to finish, or 0 to let the risk appetite
+	 * decide.
+	 * <p>
+	 * A different question from how often they check, and the setting says so in as many words --
+	 * "you can want slow flips while standing at the Exchange". The plugin's own TradingHorizon has
+	 * honoured it since it was added; nothing carried it across the wire, so on the path that
+	 * actually chooses which trade to recommend it did nothing at all. Someone asking for
+	 * twenty-minute flips was planned for at the appetite's two and a half hours a leg, and got
+	 * orders sized to match.
+	 */
+	private final int targetHoldMinutes;
+	/**
 	 * Trades the player has already rejected, so the plan can leave them out rather than be filtered
 	 * afterwards.
 	 * <p>
@@ -151,6 +163,22 @@ public final class AccountSnapshot
 		int checkIntervalMinutes, java.util.Set<String> blockedItems,
 		java.util.Set<Integer> skippedItems, java.util.Set<Integer> itemsOnOffer, boolean sellOnly)
 	{
+		this(correlationId, observedAt, spendableCoins, committedCoins, freeSlots, totalSlots, members,
+			bankSeen, markedSessionDrawdown, riskAppetite, committedByItem, minProfitPerFlip,
+			buyLimitUsed, learningDisabled, checkIntervalMinutes, blockedItems, skippedItems,
+			itemsOnOffer, sellOnly, 0);
+	}
+
+	public AccountSnapshot(String correlationId, long observedAt, long spendableCoins,
+		long committedCoins, int freeSlots, int totalSlots, boolean members, boolean bankSeen,
+		double markedSessionDrawdown,
+		String riskAppetite, Map<Integer, Long> committedByItem, long minProfitPerFlip,
+		Map<Integer, Integer> buyLimitUsed, boolean learningDisabled,
+		int checkIntervalMinutes, java.util.Set<String> blockedItems,
+		java.util.Set<Integer> skippedItems, java.util.Set<Integer> itemsOnOffer, boolean sellOnly,
+		int targetHoldMinutes)
+	{
+		this.targetHoldMinutes = Math.max(0, targetHoldMinutes);
 		this.sellOnly = sellOnly;
 		this.blockedItems = blockedItems == null
 			? java.util.Collections.emptySet() : java.util.Collections.unmodifiableSet(blockedItems);
@@ -201,6 +229,9 @@ public final class AccountSnapshot
 	public long getMinProfitPerFlip() { return Math.max(0, minProfitPerFlip); }
 
 	public int getCheckIntervalMinutes() { return Math.max(0, checkIntervalMinutes); }
+
+	/** How long a flip should take, or 0 when the player has not said and the appetite decides. */
+	public int getTargetHoldMinutes() { return Math.max(0, targetHoldMinutes); }
 
 	/** Lower-cased item names the player has blocked. Never null, even straight out of Gson. */
 	public java.util.Set<String> getBlockedItems()

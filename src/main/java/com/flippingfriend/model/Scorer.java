@@ -36,6 +36,14 @@ public class Scorer
 	/** Offsets from the quoted sell price. Negative means asking less to fill sooner. */
 	private static final double[] SELL_OFFSETS = {-0.008, -0.004, -0.002, -0.001, 0.0, 0.002, 0.004};
 
+	/**
+	 * Most the forecaster may move the sell anchor, either way.
+	 * <p>
+	 * Half a percent. The model predicts one five-minute bucket of smoothed return and the trade
+	 * being priced runs for hours, so it is worth a tilt and not worth a price.
+	 */
+	private static final double MAX_MOMENTUM_TILT = 0.005;
+
 	/** Buying into a rising market helps the exit; buying into a falling one fights it. */
 	private static final double RISING_BONUS = 1.10;
 	private static final double FALLING_PENALTY = 0.70;
@@ -122,13 +130,30 @@ public class Scorer
 
 		// Built once and reused across the whole price grid. Rebuilding it per price would make the
 		// grid search quadratic in the length of the history for no gain.
-		FillCurve curve = FillCurve.from(series);
+		FillCurve curve = FillCurve.overRecentHistory(series);
 		if (curve.isEmpty())
 		{
 			return null;
 		}
 
 		Candidate best = null;
+
+		// The forecast tilts the grid; it does not replace it.
+		//
+		// This used to do exactly that: whenever the forecaster answered at all, SELL_OFFSETS was
+		// thrown away and the ask became quotedSell * (1 + momentum), a single point with no
+		// alternative. Three things were wrong with it. The grid is the only thing that trades
+		// margin for speed, and this class exists to make that trade -- without it the price is
+		// assumed again, which is what the header promises it does not do. A negative forecast
+		// pushed the ask below the quote and often below the buy price, at which point the item
+		// produced no candidate at all rather than a slower one. And the forecast it trusted that
+		// far is a single five-minute bucket of smoothed return, used as the exit price of a flip
+		// that may run for hours.
+		//
+		// So it moves the anchor the grid sweeps around, by a clamped amount, and the fill model
+		// judges every point on the grid as it always did. An unavailable forecaster returns zero
+		// and nothing changes.
+		int sellAnchor = tilt(quotedSell, features.getPredictedMomentum());
 
 		for (double buyOffset : BUY_OFFSETS)
 		{
@@ -146,21 +171,9 @@ public class Scorer
 				continue;
 			}
 
-			double momentum = features.getPredictedMomentum();
-			boolean usePrediction = (momentum != 0.0);
-			double[] sellOffsetsToUse = usePrediction ? new double[]{0} : SELL_OFFSETS;
-
-			for (double sellOffset : sellOffsetsToUse)
+			for (double sellOffset : SELL_OFFSETS)
 			{
-				int sellPrice;
-				if (usePrediction)
-				{
-					sellPrice = (int) Math.round(quotedSell * (1 + momentum));
-				}
-				else
-				{
-					sellPrice = applyOffset(quotedSell, sellOffset);
-				}
+				int sellPrice = applyOffset(sellAnchor, sellOffset);
 
 				if (sellPrice <= buyPrice)
 				{
@@ -314,6 +327,24 @@ public class Scorer
 			return 0;
 		}
 		return Math.max(0, Math.min(1, value));
+	}
+
+	/**
+	 * Moves the sell-price anchor by the forecaster's predicted move, clamped.
+	 * <p>
+	 * The clamp is the point. The prediction is a one-bucket smoothed return and the flip it is
+	 * pricing may take hours, so it is evidence about direction rather than a price. Half a percent
+	 * either way is enough to tilt which end of the grid wins and small enough that a wild reading
+	 * cannot move the ask off the book entirely.
+	 */
+	static int tilt(int quotedSell, double momentum)
+	{
+		if (momentum == 0 || Double.isNaN(momentum) || Double.isInfinite(momentum))
+		{
+			return quotedSell;
+		}
+		double clamped = Math.max(-MAX_MOMENTUM_TILT, Math.min(MAX_MOMENTUM_TILT, momentum));
+		return Math.max(1, (int) Math.round(quotedSell * (1 + clamped)));
 	}
 
 	static int applyOffset(int price, double offset)

@@ -34,7 +34,7 @@ if (-not (Test-Path $java)) {
     Write-Host '  Using javaw from PATH (RuneLite runtime not found).' -ForegroundColor Yellow
 }
 
-$action = New-ScheduledTaskAction -Execute $java -Argument "-Xmx192m -jar `"$jar`"" -WorkingDirectory $root
+$action = New-ScheduledTaskAction -Execute $java -Argument "-Xmx768m -jar `"$jar`"" -WorkingDirectory $root
 
 $elevated = ([Security.Principal.WindowsPrincipal] `
     [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
@@ -83,15 +83,63 @@ try {
     exit 1
 }
 
-# Only when nothing is already serving on the port. apply-update.ps1 starts its own copy, and a
-# second one would lose the race for 37777 and die reporting a port clash that means nothing.
-$running = Get-CimInstance Win32_Process -Filter "Name='java.exe' or Name='javaw.exe'" -ErrorAction SilentlyContinue |
-    Where-Object { $_.CommandLine -like '*flipping-friend-companion*' }
-if ($running) {
-    Write-Host ''
-    Write-Host "  Already running (pid $($running.ProcessId)); leaving it alone." -ForegroundColor Green
-} else {
-    Start-ScheduledTask -TaskName $taskName
-    Write-Host ''
-    Write-Host '  Started.' -ForegroundColor Green
+# Restart it, and find it by the port rather than by its command line.
+#
+# Two faults lived in the six lines this replaces. The scan was Win32_Process filtered on
+# CommandLine, and the companion normally runs from its scheduled task under an S4U token in session
+# 0, where an ordinary user query gets a NULL CommandLine back. So the check saw nothing, the script
+# started a second companion, that one died on "Address already in use", and this script printed
+# "Started." over the top of it -- with the previous build still serving every recommendation.
+#
+# The second fault is what it did when the check worked: it left the running companion alone. That is
+# right for avoiding a port race and wrong for everything else, because this script has just rebuilt
+# the jar. Leaving the old process up means the build you just made is not the build that is running,
+# which is the whole reason someone runs this.
+#
+# A listening socket cannot hide, and restarting through the task keeps ownership where it belongs.
+function Get-CompanionPid {
+    $conn = Get-NetTCPConnection -LocalPort 37777 -State Listen -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+    if ($conn) { return [int] $conn.OwningProcess }
+    return 0
 }
+
+Write-Host ''
+$existing = Get-CompanionPid
+if ($existing -ne 0) {
+    Write-Host "  Stopping the companion already running (pid $existing)..."
+    Stop-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
+    Stop-Process -Id $existing -Force -ErrorAction SilentlyContinue
+    $deadline = (Get-Date).AddSeconds(20)
+    while ((Get-Date) -lt $deadline -and (Get-CompanionPid) -ne 0) { Start-Sleep -Milliseconds 500 }
+    if ((Get-CompanionPid) -ne 0) {
+        Write-Host '  Something is still on port 37777; the new build cannot start.' -ForegroundColor Red
+        Write-Host '  Close it and re-run, or use .	oolspply-update.ps1.' -ForegroundColor Yellow
+        exit 1
+    }
+}
+
+Start-ScheduledTask -TaskName $taskName
+
+# Do not claim it started until something is actually listening. The old script said "Started."
+# whatever happened, including when the process it started had already exited.
+$deadline = (Get-Date).AddSeconds(45)
+$pidNow = 0
+while ((Get-Date) -lt $deadline -and $pidNow -eq 0) {
+    Start-Sleep -Seconds 2
+    $pidNow = Get-CompanionPid
+}
+
+Write-Host ''
+if ($pidNow -ne 0) {
+    Write-Host "  Started (pid $pidNow)." -ForegroundColor Green
+} else {
+    Write-Host '  It did not come up within 45 seconds. Check:' -ForegroundColor Red
+    Write-Host "  $env:USERPROFILE\.runelite\osrs-flipping-friend\companion\companion.log.err"
+    exit 1
+}
+
+Write-Host ''
+Write-Host '  This installs the companion only. To update the RuneLite plugin as well, run' -ForegroundColor Yellow
+Write-Host '  .	oolspply-update.ps1 -- it copies the plugin jar into sideloaded-plugins,' -ForegroundColor Yellow
+Write-Host '  which this script has never done.' -ForegroundColor Yellow

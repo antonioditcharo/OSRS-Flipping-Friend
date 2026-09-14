@@ -38,6 +38,8 @@ final class PortfolioPlanner
 	 * has used the same figure on the plugin side since before the companion existed.
 	 */
 	private static final double HABIT_COMFORT_FACTOR = 0.8;
+	/** A round trip is a buy and a sell, so the patience budget is split between them. */
+	private static final int LEGS_PER_FLIP = 2;
 	// Exposure ceilings and leg horizon now come from the risk appetite. They are diversification
 	// limits, not a cap on how much of the bankroll may be used: the whole balance is always
 	// available, and at the boldest setting the ceilings are lifted entirely so the only limits left
@@ -50,6 +52,18 @@ final class PortfolioPlanner
 	PortfolioPlanner(SeriesCache series)
 	{
 		this.candidates = new CandidateFactory(series);
+	}
+
+	/** Hands the factory what the recorder has observed. See {@link FillCalibration}. */
+	void setCalibration(FillCalibration calibration)
+	{
+		candidates.setCalibration(calibration);
+	}
+
+	/** What is currently being applied, for the health line. */
+	FillCalibration calibration()
+	{
+		return candidates.getCalibration();
 	}
 
 	PortfolioPlan plan(MarketIngestionService.MarketState market, AccountSnapshot account,
@@ -89,6 +103,10 @@ final class PortfolioPlanner
 
 		RiskAppetite appetite = RiskAppetite.forName(account.getRiskAppetite());
 		candidates.setRiskAppetite(appetite);
+		// "Learn from my trades", which the player can turn off and which had no effect here: the
+		// flag crossed the wire on every snapshot, CandidateFactory had a setter for it, and nothing
+		// ever called that setter. Off means off on both sides now.
+		candidates.setLearningDisabled(account.isLearningDisabled());
 
 		List<PortfolioCandidate> tactics = candidates.build(market, horizonFor(account, appetite),
 			buyLimitRemaining, account.getSpendableCoins(), account.isMembers(), now);
@@ -312,20 +330,27 @@ final class PortfolioPlanner
 	/**
 	 * How long one leg is given to fill.
 	 * <p>
-	 * The risk appetite sets the floor and the player's habits can only lengthen it: someone who
-	 * leaves offers for three hours should be given a bigger order than someone stood at the Exchange,
-	 * because an order that completes while they are away holds its slot doing nothing until they come
-	 * back. Checking more often does not shorten it -- being present does not make the market fill any
-	 * faster, and a shorter window would only mean smaller orders.
+	 * Two settings feed this and they answer different questions. <b>How long a flip should take</b>
+	 * is the patience budget: halved, because a round trip is two legs. <b>How often you check</b> is
+	 * a floor under it, and only ever a floor -- someone who leaves offers for three hours should be
+	 * given a bigger order than someone stood at the Exchange, because an order that completes while
+	 * they are away holds its slot doing nothing until they return, whereas being present does not
+	 * make the market fill any faster. When the patience budget is unstated the risk appetite's own
+	 * horizon stands in its place.
 	 * <p>
-	 * This mirrors {@code TradingHorizon.legHorizonHours()} on the plugin side, which is where the
-	 * setting has always been honoured. Nothing carried it across the wire, so on the path that
-	 * actually chooses trades the dropdown did nothing at all.
+	 * This mirrors {@code TradingHorizon.legHorizonHours()} on the plugin side. Both settings have
+	 * been honoured there since they were added, but only the checking habit ever crossed the wire,
+	 * and this is the path that actually chooses which trade to recommend -- so a player asking for
+	 * twenty-minute flips was planned for at two and a half hours a leg and handed orders sized to
+	 * match. Whichever of the two is longer wins, exactly as it does in the plugin.
 	 */
 	static double horizonFor(AccountSnapshot account, RiskAppetite appetite)
 	{
 		double fromHabit = account.getCheckIntervalMinutes() * HABIT_COMFORT_FACTOR / 60.0;
-		return Math.max(appetite.getHorizonHours(), fromHabit);
+		double wanted = account.getTargetHoldMinutes() > 0
+			? account.getTargetHoldMinutes() / (double) LEGS_PER_FLIP / 60.0
+			: appetite.getHorizonHours();
+		return Math.max(wanted, fromHabit);
 	}
 
 

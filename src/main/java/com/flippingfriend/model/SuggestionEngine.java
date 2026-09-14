@@ -22,6 +22,7 @@ import com.flippingfriend.session.TradePlans;
 import com.flippingfriend.session.TrackedOffer;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -106,10 +107,48 @@ public class SuggestionEngine
 
 	private final AtomicReference<Suggestion> current = new AtomicReference<>(Suggestion.idle());
 	private volatile Suggestion pendingAdjustment = null;
+	/**
+	 * A buy this engine told the player to cancel so it could be re-placed higher, or null.
+	 * <p>
+	 * The Grand Exchange cannot change the price of a running offer, so every reprice is three
+	 * separate actions -- cancel, collect, place again -- and the first two destroy the evidence of
+	 * the third. Without something to carry the intent across them, the engine issued the cancel and
+	 * then had nothing to say about the item at all: the offer left the book, the reprice card went
+	 * with it, and what appeared next was whatever the planner ranked top on that cycle. Telling a
+	 * player to abandon a working offer and then not replacing it is worse than saying nothing.
+	 */
+	private volatile Reprice reprice = null;
+
+	/**
+	 * How long an outstanding reprice is honoured for.
+	 * <p>
+	 * Half an hour, which is long by the standards of a price but this does not carry a price: the
+	 * replacement is quoted fresh from the market at the moment it is offered, so age costs nothing
+	 * in accuracy. What it bounds is a player who cancelled an offer, wandered off, and came back to
+	 * an instruction about a trade they no longer remember. Five minutes was the first guess and it
+	 * was far too short -- a sale placed in between pushes the replacement behind it, and anyone who
+	 * steps away from the Exchange for a moment loses the offer they were told to abandon.
+	 */
+	private static final long REPRICE_VALID_SECONDS = 1_800;
 	
+	/** When the held card was pinned, so a pin that is never released cannot outlive its reason. */
+	private volatile long pendingAdjustmentAt;
+
+	/**
+	 * How long a held card may stand without being re-pinned.
+	 * <p>
+	 * A backstop, not the mechanism. The caller re-pins on every refresh while the player is in the
+	 * editor, so this only expires when those refreshes stop arriving -- and a card that is returned
+	 * ahead of every other decision must not be able to freeze the engine for the rest of a session
+	 * because one client-thread call was missed. The walkthrough holds its own advice steady while an
+	 * offer is half-typed, so letting this go early costs nothing.
+	 */
+	private static final long PENDING_ADJUSTMENT_SECONDS = 300;
+
 	public void setPendingAdjustment(Suggestion pending)
 	{
 		this.pendingAdjustment = pending;
+		this.pendingAdjustmentAt = pending == null ? 0 : Instant.now().getEpochSecond();
 	}
 
 	/** Everything looked at on the last pass, accepted and rejected, for the shadow trader. */
@@ -180,6 +219,11 @@ public class SuggestionEngine
 	/** Temporarily ignores an item the user has skipped, until the plugin restarts. */
 	public void skip(int itemId)
 	{
+		Reprice pending = reprice;
+		if (pending != null && pending.itemId == itemId)
+		{
+			reprice = null;
+		}
 		skipped.skipForSession(itemId);
 	}
 
@@ -265,15 +309,27 @@ public class SuggestionEngine
 
 	private Suggestion compute(boolean computeBuy)
 	{
-		Suggestion pending = pendingAdjustment;
-		if (pending != null)
-		{
-			return pending;
-		}
-
 		AccountState account = accountMonitor.getState();
 		MarketSnapshot market = marketData.getSnapshot();
 		Instant now = Instant.now();
+
+		// The reprice the player is partway through carrying out, held still so it does not change
+		// under them. Checked after the account is read rather than before, because a card pinned
+		// while logged in used to survive logging out: the engine returned it ahead of the
+		// logged-in check and went on telling a logged-out player to adjust an offer.
+		Suggestion pending = pendingAdjustment;
+		if (pending != null)
+		{
+			if (now.getEpochSecond() - pendingAdjustmentAt > PENDING_ADJUSTMENT_SECONDS
+				|| !account.isLoggedIn())
+			{
+				setPendingAdjustment(null);
+			}
+			else
+			{
+				return pending;
+			}
+		}
 
 		if (!account.isLoggedIn())
 		{
@@ -290,7 +346,14 @@ public class SuggestionEngine
 
 		if (!market.isUsable())
 		{
-			return Suggestion.idle();
+			// "Getting the latest prices" is the right thing to say for the first few seconds and a
+			// lie after that. It was said for ever: the price feed could die permanently and
+			// silently, and this card gave a stuck plugin exactly the same face as a starting one.
+			// Ask the service what is actually missing, and only fall back to the loading card while
+			// there is genuinely nothing to report yet.
+			String reason = marketData.unavailableReason();
+			return reason == null ? Suggestion.idle()
+				: Suggestion.waiting("Still waiting for market data", reason);
 		}
 
 		TradingHorizon horizon = TradingHorizon.of(config.riskProfile(), config.checkInterval(),
@@ -313,16 +376,49 @@ public class SuggestionEngine
 			}
 		}
 
-		Suggestion adjust = adjustSuggestion(market, horizon, now);
-		if (adjust != null)
+		// Finishing what the player has already started comes before starting anything new.
+		//
+		// This block used to sit below the sell pass, directly contradicting its own comment -- "the
+		// player has already cancelled an offer on this plugin's instruction and is owed the
+		// replacement before anything else is asked of them" -- and the contradiction had a cost.
+		// The Grand Exchange cannot reprice a running offer, so a reprice is: cancel, collect, place
+		// again. Collecting a part-filled buy puts those units in the inventory, and the moment the
+		// cancelled offer leaves the board the item is no longer "still being bought" -- so the sell
+		// pass saw a holding with nothing listed and claimed it.
+		//
+		// Live, on a 50-unit Awakener's orb order with one filled: the card promised "you will be
+		// told to place the replacement at 282,024 gp straight afterwards", the player cancelled as
+		// instructed, and the next card told them to sell the single orb. A 586,800 gp plan replaced
+		// by a 13,600 gp one, by following the instruction it had just been given.
+		Suggestion replace = replaceRepricedBuy(market, account, now);
+		if (replace != null)
 		{
-			return adjust;
+			return replace;
 		}
 
+		// Sells, then modifications, then buys.
+		//
+		// Selling used to rank below repricing, and the argument for that was that there is no point
+		// tuning an offer that is about to be abandoned. It is the wrong way round. A sale turns a
+		// holding into coins that can be spent on the next trade; a reprice only improves an offer
+		// that is, by definition, already sitting there not filling. Putting the reprice first meant
+		// a position ready to leave waited behind housekeeping on an order that was going nowhere,
+		// and on three slots that is the whole account waiting.
+		//
+		// Nothing is lost by the swap. An item already fully listed produces no sell suggestion at
+		// all -- the sell pass skips it and records that it is selling -- so the offer that needs
+		// repricing is exactly the one the sell pass has nothing to say about, and the reprice runs
+		// on the very next check.
 		Suggestion sell = sellSuggestion(market, horizon, account, now);
 		if (sell != null)
 		{
 			return sell;
+		}
+
+		Suggestion adjust = adjustSuggestion(market, horizon, now);
+		if (adjust != null)
+		{
+			return adjust;
 		}
 
 		if (account.getFreeSlots() <= 0)
@@ -354,17 +450,22 @@ public class SuggestionEngine
 		// Relaxing this is only safe because of what sellSuggestion now does when the exit does arrive
 		// and nothing is free: it cancels a buy to make room, rather than telling the player to sort it
 		// out themselves. The holding is not forgotten -- room is taken back for it.
+		// Every holding qualifies now, because every holding is being listed. The filter that used to
+		// stand here -- reserve only for a position whose exit is actually in sight -- existed to
+		// stop a slot sitting idle for something that might never leave, and nothing is kept back
+		// long enough for that to happen any more.
+		//
+		// In practice this rarely fires: a holding that can be priced produces a sell suggestion
+		// above this, and that sale takes the slot itself. What is left is the holding that cannot be
+		// priced at all, which is exactly the one worth keeping a slot for -- the moment a price
+		// arrives it is listed.
 		Position awaiting = awaitingExit();
-		if (awaiting != null && !exitIsNear(awaiting))
-		{
-			awaiting = null;
-		}
 		if (awaiting != null && account.getFreeSlots() <= 1)
 		{
 			return Suggestion.waiting("Keeping this slot free to sell",
 				"You still hold " + explainer.formatNumber(awaiting.getQuantity()) + " "
 					+ awaiting.getItemName() + " that has to be sold, and this is your last free slot. "
-					+ "Buying with it would leave nowhere to place that sale when the price arrives.");
+					+ "Buying with it would leave nowhere to place that sale.");
 		}
 
 		if (sellOnly)
@@ -443,7 +544,7 @@ public class SuggestionEngine
 	 */
 	private Suggestion adjustSuggestion(MarketSnapshot market, TradingHorizon horizon, Instant now)
 	{
-		for (TrackedOffer offer : offers.getOffers())
+		for (TrackedOffer offer : mostStrandedFirst(offers.getOffers(), market))
 		{
 			String state = offer.getState();
 			boolean open = "BUYING".equals(state) || "SELLING".equals(state);
@@ -453,7 +554,25 @@ public class SuggestionEngine
 			}
 
 			// Never nag about an offer the player has not had a chance to look at yet.
-			if (offer.minutesOpen(now.getEpochSecond()) < horizon.staleOfferMinutes())
+			//
+			// A sale waits longer than that, and waits in proportion to what it was told to expect.
+			// The two sides are not the same problem. A buy that is being skipped over has had the
+			// market move past it -- that is information about the price, available immediately, and
+			// acting on it costs nothing now that the replacement has to be worth placing. A sale
+			// that has not filled yet has produced no information at all until enough of its own
+			// predicted time has gone by, and acting early costs real money, because the only thing
+			// impatience can buy here is a worse price. Fifteen minutes into a leg the plan predicted
+			// would take two hours, an unfilled offer means nothing except that two hours is longer
+			// than fifteen minutes -- and that was enough to have a 90,000 gp position marked down by
+			// nearly 200,000.
+			long patience = horizon.staleOfferMinutes();
+			if (!offer.isBuying())
+			{
+				Position planned = positions.get(offer.getItemId());
+				patience = horizon.patienceMinutes(planned == null ? 0
+					: planned.getPredictedSellMinutes());
+			}
+			if (offer.minutesOpen(now.getEpochSecond()) < patience)
 			{
 				continue;
 			}
@@ -490,10 +609,54 @@ public class SuggestionEngine
 			{
 				if (offer.isBuying())
 				{
-					int newPrice = price.getLow() + 1;
+					// Settled before it is judged, so the profitability gate below and the card the
+					// player reads are talking about the same price. See advisedPrice.
+					int newPrice = advisedPrice(offer.getItemId(), true, price.getLow() + 1,
+						now.getEpochSecond());
 					int targetSellPrice = Math.max(1, price.getHigh() - 1);
 
 					long expectedProfit = taxCalculator.netProfit(offer.getItemId(), newPrice, targetSellPrice, remaining);
+
+					// Chasing the price up is only worth doing while the trade is still worth doing.
+					//
+					// This branch worked out what the repriced flip would earn, put the figure on the
+					// card, and then never looked at it -- so when the spread had closed while the
+					// offer sat there, the advice was to cancel a working offer and re-place it at a
+					// price where the round trip loses money. Reported from a live session, and it is
+					// hard to argue with: nothing recommends entering a trade at a loss before it has
+					// begun. The offer is being skipped over *and* it is no longer worth having, so
+					// the honest answer is the slot, not a better price for a bad trade.
+					if (expectedProfit < Math.max(1, config.minProfitPerFlip()))
+					{
+						return Suggestion.builder(SuggestionType.CANCEL)
+							.item(offer.getItemId(), name)
+							.slot(offer.getSlot())
+							.price(offer.getPrice())
+							.quantity(remaining)
+							.expectedProfit(expectedProfit)
+							.headline("Give up on " + name)
+							.detail("Your offer at " + explainer.formatNumber(offer.getPrice())
+								+ " gp is being skipped over, and the gap has closed too far to be "
+								+ "worth chasing -- buying at " + explainer.formatNumber(newPrice)
+								+ " gp and selling at " + explainer.formatNumber(targetSellPrice)
+								+ " gp would " + (expectedProfit < 0 ? "lose " : "make only ")
+								+ explainer.formatGp(Math.abs(expectedProfit)) + " gp after tax.\n\n"
+								+ "Cancel the offer to free the slot and get "
+								+ explainer.formatGp((long) offer.getPrice() * remaining)
+								+ " gp back for something better.")
+							.build();
+					}
+
+					// Remembered, so the re-placing actually happens.
+					//
+					// The Grand Exchange has no way to change the price of a running offer: this is
+					// a cancel, a collect, and a fresh offer, and the first two wipe every trace of
+					// why. The engine used to issue the cancel and then forget it -- the offer left
+					// the book, the reprice card went with it, and what the player was shown next
+					// was whatever the planner happened to rank top, at whatever size it liked.
+					// Telling someone to abandon a working offer and then not replacing it is worse
+					// than never having said anything.
+					reprice = new Reprice(offer.getItemId(), remaining, now.getEpochSecond());
 
 					return Suggestion.builder(SuggestionType.MODIFY_BUY)
 						.item(offer.getItemId(), name)
@@ -505,24 +668,40 @@ public class SuggestionEngine
 						.headline("Your " + name + " offer is too low")
 						.detail("You offered " + explainer.formatNumber(offer.getPrice()) + " gp, but people "
 							+ "are now selling at " + explainer.formatNumber(price.getLow()) + " gp, so your "
-							+ "offer is being skipped over.\n\nAdjust your offer to "
-							+ explainer.formatNumber(newPrice) + " gp.")
-						.build();
-				}
-				else
-				{
-					int newPrice = Math.max(1, price.getHigh() - 1);
-					return Suggestion.builder(SuggestionType.MODIFY_SELL)
-						.item(offer.getItemId(), name)
-						.slot(offer.getSlot())
-						.price(newPrice)
-						.quantity(remaining)
-						.headline("Reprice your " + name + " sell offer to **" + explainer.formatGp(newPrice) + "** gp. You have been outbid.")
+							+ "offer is being skipped over.\n\nThe Grand Exchange cannot change the price "
+							+ "of an offer that is already running, so cancel this one and collect what it "
+							+ "bought along with the coins it gives back. You will be told to place the "
+							+ "replacement at " + explainer.formatNumber(newPrice) + " gp straight "
+							+ "afterwards.")
 						.build();
 				}
 			}
 
-			if (!offer.isBuying() && price.getHigh() < offer.getPrice())
+			/*
+			 * The sell arm of this branch has been removed, and its removal is the fix for the
+			 * worst-behaved thing in this class.
+			 *
+			 * It fired on "your ask is above the market" and dropped the price straight to one under
+			 * the best bid, with no floor of any kind. The block below asks the same question --
+			 * price.getHigh() < offer.getPrice() is exactly the condition, minus a trend
+			 * confirmation -- and has since gained a break-even floor and a hand-off to the sell
+			 * engine for anything under it. But this arm returned first, so that floor was
+			 * unreachable on nearly every real offer. It was written from the journal, to stop the
+			 * losing flips the journal was full of, and it was guarding a door nobody used.
+			 *
+			 * Live consequence: a position entered for 90,000 gp of profit was told, a quarter of an
+			 * hour after being listed, to drop its price by nearly 200,000 -- straight through
+			 * break-even, straight through the stop, without either being consulted.
+			 *
+			 * Nothing is lost by deleting it. The condition below is strictly weaker, so every offer
+			 * this caught is still caught; it is caught by the path that knows what the position cost.
+			 */
+
+			// The same deadband the buy side uses. A strict comparison here would chase a quote that
+			// wobbles by a gp, cancelling and re-listing a working offer for no gain, which is the
+			// other half of the flashing the player reported.
+			if (!offer.isBuying()
+				&& offer.getPrice() - price.getHigh() >= horizon.outbidDeadband(offer.getPrice()))
 			{
 				int newPrice = Math.max(1, price.getHigh() - 1);
 				// Never reprice a sale below what the position cost.
@@ -541,12 +720,24 @@ public class SuggestionEngine
 				Position position = positions.get(offer.getItemId());
 				boolean costKnown = position != null && position.isCostKnown()
 					&& position.getAverageCost() > 0;
+				int breakEven = costKnown
+					? taxCalculator.breakEvenSellPrice(offer.getItemId(), position.getAverageCost()) : 0;
 				boolean isCut = false;
-				if (!repriceAllowed(newPrice, position, costKnown
-					? taxCalculator.breakEvenSellPrice(offer.getItemId(), position.getAverageCost()) : 0))
+				if (!repriceAllowed(newPrice, position, breakEven))
 				{
-					// The new competitive price is below break-even. We only reprice if the timing engine
-					// says we should cut our losses.
+					// Below break-even this stops being a repricing decision and becomes a decision to
+					// take a loss, and only one thing authorises that: the stop.
+					//
+					// This used to hand the question to the sell engine and act on any answer that was
+					// a sale. That worked while the engine could still answer HOLD. It cannot any more
+					// -- under the never-hold rule every position it is asked about comes back as a
+					// sale -- so the escape hatch stopped existing and the floor above it stopped
+					// meaning anything, in the one branch that still reached it.
+					//
+					// Listing is not the same as marking down. An offer already on the market is
+					// already listed; the never-hold rule is satisfied and has nothing further to say
+					// about what price it sits at. So the offer chases the market down as far as
+					// break-even and no further, and only a position through its stop goes past.
 					List<Candle> series = marketData.getSeries(offer.getItemId(), TIMESTEP);
 					ItemFeatures features = featureEngine.compute(offer.getItemId(), series, BUCKET_SECONDS);
 					boolean inInventory = accountMonitor.getState().getInventoryHoldings().containsKey(offer.getItemId())
@@ -554,14 +745,33 @@ public class SuggestionEngine
 					SellDecision decision = sellTiming.evaluate(position, price, features, series, horizon, now,
 						config.minProfitPerFlip(), inInventory, sellOnly, skippedItems().contains(offer.getItemId()));
 
-					if (!decision.isSell())
+					if (decision.getAction() == SellDecision.Action.CUT)
 					{
+						// Through the stop. This one is meant to realise a loss, and the card says so.
+						newPrice = decision.getPrice();
+						isCut = true;
+					}
+					else if (breakEven < offer.getPrice())
+					{
+						// Not through the stop: come down to the cheapest price that is not a loss.
+						// Better placed in the queue than it was, and costing nothing to get there.
+						newPrice = breakEven;
+					}
+					else
+					{
+						// The offer is already at or below break-even and the position is still
+						// healthy. There is nothing to do that would not be a loss; leave it alone.
 						continue;
 					}
-					// Use the price decided by the timing engine for the loss cut.
-					newPrice = decision.getPrice();
-					isCut = decision.getAction() == SellDecision.Action.CUT;
 				}
+				// Settled through noise, and then floored again: stickiness must never be the thing
+				// that walks a price below what the position cost.
+				newPrice = advisedPrice(offer.getItemId(), false, newPrice, now.getEpochSecond());
+				if (!isCut && costKnown)
+				{
+					newPrice = Math.max(newPrice, breakEven);
+				}
+
 				// What the new price is actually worth. The reprice card carried no figure at all, so a
 				long change = taxCalculator.netProfit(offer.getItemId(), costKnown ? position.getAverageCost() : 0, newPrice, remaining);
 				return Suggestion.builder(SuggestionType.MODIFY_SELL)
@@ -572,17 +782,206 @@ public class SuggestionEngine
 					.expectedProfit(change)
 					.lossCut(isCut)
 					.headline(isCut ? "Cut your losses on " + name : "Your " + name + " offer is too high")
-					.detail(isCut
-						? "This has fallen past the point where holding is worth the risk. Adjust your offer down to "
-							+ explainer.formatNumber(newPrice) + " gp to keep the loss small."
+					.detail((isCut
+						? "This has fallen past the point where holding is worth the risk. "
 						: "You asked " + explainer.formatNumber(offer.getPrice()) + " gp, but buyers are "
 							+ "only paying " + explainer.formatNumber(price.getHigh()) + " gp, so nobody is "
-							+ "taking it.\n\nAdjust your offer to "
-							+ explainer.formatNumber(newPrice) + " gp.")
+							+ "taking it. ")
+						+ "\n\nThe Grand Exchange cannot change the price of an offer that is already "
+						+ "running, so cancel this one, collect the items back, and list them again at "
+						+ explainer.formatNumber(newPrice) + " gp.")
 					.build();
 			}
 		}
 		return null;
+	}
+
+	/**
+	 * Places the buy that a reprice cancelled, once the old offer is out of the way.
+	 * <p>
+	 * The price is worked out afresh rather than replayed. The quote that justified the reprice is
+	 * by then a cancel and a collect old, and the point of the exercise was to be at the front of
+	 * the book -- a stale number would put the replacement straight back where the original was.
+	 * The size is what was left unfilled, trimmed to what the buy limit and the coins still allow.
+	 * <p>
+	 * Deliberately narrow. It fires only for a buy this engine itself asked to have cancelled, only
+	 * while no offer for that item is open, only with a slot free, and only for five minutes. It is
+	 * finishing an instruction already given, not choosing a trade -- which remains the companion's
+	 * job, and which is why the reprice is cleared the moment it has been offered and an offer for
+	 * the item appears.
+	 */
+	/**
+	 * True while this plugin still owes the player a replacement for an offer it had them cancel.
+	 * <p>
+	 * Deliberately the same question {@link #replaceRepricedBuy} asks, so the two cannot disagree:
+	 * anything short of a verdict to drop the reprice means the trade is still in flight, even on a
+	 * pass where the replacement itself cannot be offered yet because every slot is busy. That gap is
+	 * exactly where a part-filled position would otherwise be claimed by the sell pass.
+	 */
+	private boolean awaitingReplacement(int itemId, AccountState account, Instant now)
+	{
+		Reprice pending = reprice;
+		if (pending == null || pending.itemId != itemId)
+		{
+			return false;
+		}
+		return repriceVerdict(pending, now.getEpochSecond(),
+			offers.itemsWithOpenOffers().contains(itemId), skippedItems().contains(itemId),
+			sellOnly, account.getFreeSlots()) != RepriceVerdict.DROP;
+	}
+
+	private Suggestion replaceRepricedBuy(MarketSnapshot market, AccountState account, Instant now)
+	{
+		Reprice pending = reprice;
+		RepriceVerdict verdict = repriceVerdict(pending, now.getEpochSecond(),
+			pending != null && offers.itemsWithOpenOffers().contains(pending.itemId),
+			pending != null && skippedItems().contains(pending.itemId), sellOnly,
+			account.getFreeSlots());
+
+		if (verdict == RepriceVerdict.DROP)
+		{
+			reprice = null;
+			return null;
+		}
+		if (verdict == RepriceVerdict.WAIT)
+		{
+			return null;
+		}
+
+		LatestPrice price = market.latest(pending.itemId);
+		if (price == null || !price.isComplete())
+		{
+			return null;
+		}
+
+		int newPrice = price.getLow() + 1;
+		ItemMetadata metadata = market.metadata(pending.itemId);
+		int buyLimit = metadata == null ? 0 : metadata.getBuyLimit();
+		int allowedByLimit = buyLimit > 0
+			? buyLimits.remaining(pending.itemId, buyLimit, now) : pending.quantity;
+		int quantity = replacementQuantity(pending.quantity, allowedByLimit,
+			account.spendableCoins(config.includeBankValue(), config.bankrollCap()), newPrice);
+		if (quantity <= 0)
+		{
+			// The limit or the coins ran out while the offer was being cancelled. Nothing to replace.
+			reprice = null;
+			return null;
+		}
+
+		String name = market.getItemName(pending.itemId);
+		int targetSell = Math.max(newPrice + 1, price.getHigh() - 1);
+		long expectedProfit = taxCalculator.netProfit(pending.itemId, newPrice, targetSell, quantity);
+
+		pending.markOffered();
+		// The exit plan is rewritten around the new entry price, but the time estimate is carried
+		// over from the plan the original offer was opened with. This is the same trade continuing,
+		// and there is nothing here that could produce a better one -- writing a zero would leave
+		// the position with no expected duration, which is what the holding card counts down and
+		// what the journal scores the prediction against.
+		TradePlans.PlannedExit existing = tradePlans.get(pending.itemId);
+		tradePlans.plan(pending.itemId, targetSell,
+			(int) Math.round(newPrice * (1 - config.riskProfile().getLossCutPct())),
+			existing == null ? 0 : existing.getPredictedMinutes(), expectedProfit);
+
+		return Suggestion.builder(SuggestionType.BUY)
+			.item(pending.itemId, name)
+			.price(newPrice)
+			.quantity(quantity)
+			.targetSellPrice(targetSell)
+			.expectedProfit(expectedProfit)
+			.breakEvenPrice(taxCalculator.breakEvenSellPrice(pending.itemId, newPrice))
+			.headline("Place your " + name + " offer again at "
+				+ explainer.formatNumber(newPrice) + " gp")
+			.detail("This is the replacement for the offer you just cancelled. The price has been "
+				+ "worked out again from the market as it is now, so it goes in at the front of the "
+				+ "queue rather than back where the old one was.")
+			.build();
+	}
+
+	/** What to do about an outstanding reprice on this pass. */
+	enum RepriceVerdict
+	{
+		/** Put the replacement offer in front of the player. */
+		PLACE,
+		/** Not yet, but the intent still stands. */
+		WAIT,
+		/** Forget it; the replacement is no longer wanted or no longer possible. */
+		DROP
+	}
+
+	/**
+	 * Whether a cancelled buy should be placed again yet.
+	 * <p>
+	 * The three answers are genuinely different and the difference matters. DROP forgets the
+	 * instruction; WAIT keeps it and says nothing this pass. Collapsing them was the mistake waiting
+	 * to be made here: an intent dropped because a slot happened to be busy would leave the player
+	 * having cancelled a working offer for no reason at all, which is the whole failure this exists
+	 * to fix.
+	 *
+	 * @param itemOnOffer whether any offer for the item currently occupies a slot, which means
+	 *                    either that the cancellation has not happened yet or that the replacement
+	 *                    is already placed -- told apart by whether the replacement was ever shown
+	 */
+	static RepriceVerdict repriceVerdict(Reprice pending, long nowSeconds, boolean itemOnOffer,
+		boolean skipped, boolean sellOnly, int freeSlots)
+	{
+		if (pending == null)
+		{
+			return RepriceVerdict.WAIT;
+		}
+		// Past its shelf life, rejected by the player, or overtaken by a decision to stop buying
+		// altogether. None of these will improve by waiting.
+		if (nowSeconds - pending.recordedAt > REPRICE_VALID_SECONDS || skipped || sellOnly)
+		{
+			return RepriceVerdict.DROP;
+		}
+		if (itemOnOffer)
+		{
+			return pending.offered ? RepriceVerdict.DROP : RepriceVerdict.WAIT;
+		}
+		// Collect ranks above this and frees the slot the cancelled offer is still holding, so a
+		// full board is a reason to say nothing this pass rather than to give up.
+		return freeSlots > 0 ? RepriceVerdict.PLACE : RepriceVerdict.WAIT;
+	}
+
+	/**
+	 * How much of the cancelled order can actually be placed again.
+	 * <p>
+	 * What was left unfilled, less anything the buy limit has since swallowed, less anything the
+	 * coins no longer cover. The unfilled part of the old offer had its coins reserved by the
+	 * exchange; between the cancel and the replacement those coins come back and can be spent
+	 * elsewhere, so the affordability question has to be asked again rather than assumed.
+	 */
+	static int replacementQuantity(int unfilled, int buyLimitRemaining, long spendable, int price)
+	{
+		if (unfilled <= 0 || price <= 0 || spendable <= 0)
+		{
+			return 0;
+		}
+		long affordable = spendable / price;
+		return (int) Math.max(0, Math.min(Math.min(unfilled, buyLimitRemaining), affordable));
+	}
+
+	/** A buy that was cancelled for repricing and has not been placed again yet. */
+	static final class Reprice
+	{
+		private final int itemId;
+		private final int quantity;
+		private final long recordedAt;
+		/** Set once the replacement has been put in front of the player, so it can be retired. */
+		private volatile boolean offered;
+
+		Reprice(int itemId, int quantity, long recordedAt)
+		{
+			this.itemId = itemId;
+			this.quantity = quantity;
+			this.recordedAt = recordedAt;
+		}
+
+		void markOffered()
+		{
+			offered = true;
+		}
 	}
 
 	/**
@@ -675,6 +1074,119 @@ public class SuggestionEngine
 	 * Without the floor this step chased a falling market down with nothing beneath it but 1 gp, and
 	 * since adjust ranks above sell in the chain it bypassed the stop entirely.
 	 */
+	/**
+	 * The open offers, worst first: whichever the market has left furthest behind comes first.
+	 * <p>
+	 * Only one instruction is shown at a time, so when several offers are mispriced the engine has to
+	 * choose -- and it was choosing by whatever order a {@link java.util.concurrent.ConcurrentHashMap}
+	 * keyed by slot happened to iterate in. That is arbitrary rather than random: it is stable while
+	 * the slots are, and it rearranges as offers settle and new ones are placed, so the card could
+	 * hand itself to a different item because something unrelated finished. Measured, it picked an
+	 * Adamant bar offer stranded by 0.05% over a Grapes offer stranded by 20%.
+	 * <p>
+	 * Distance is measured as a share of the offer's own price, so a hundred gp adrift on a bond and
+	 * a hundred gp adrift on a rune are not treated as the same problem.
+	 */
+	private List<TrackedOffer> mostStrandedFirst(Collection<TrackedOffer> open, MarketSnapshot market)
+	{
+		List<TrackedOffer> ordered = new ArrayList<>(open);
+		ordered.sort(Comparator
+			.comparingDouble((TrackedOffer offer) -> strandedBy(offer, market)).reversed()
+			// A stable tie-break, so two equally-placed offers do not swap between refreshes.
+			.thenComparingInt(TrackedOffer::getSlot));
+		return ordered;
+	}
+
+	/** How far past this offer the market has moved, as a fraction of the offer's price. */
+	private static double strandedBy(TrackedOffer offer, MarketSnapshot market)
+	{
+		LatestPrice price = market.latest(offer.getItemId());
+		if (price == null || !price.isComplete() || offer.getPrice() <= 0)
+		{
+			return 0;
+		}
+		int gap = offer.isBuying()
+			? price.getLow() - offer.getPrice()
+			: offer.getPrice() - price.getHigh();
+		return Math.max(0, gap) / (double) offer.getPrice();
+	}
+
+	/**
+	 * How long a price already put in front of the player is honoured before being re-derived.
+	 * <p>
+	 * Long enough to walk to a banker and type it, short enough that it re-anchors to the market
+	 * within a session.
+	 */
+	private static final long ADVISED_PRICE_SECONDS = 600;
+
+	/**
+	 * How far a price may drift before the card is allowed to name a different one.
+	 * <p>
+	 * Wider than the outbid deadband on purpose, because the two answer different questions. That one
+	 * asks whether an offer has become uncompetitive enough to be worth cancelling; this one asks
+	 * whether a number the player is in the middle of typing is now wrong enough to be worth making
+	 * them start again. Having committed to an action, the cost of changing its terms is higher than
+	 * the cost of being a few gp off -- so this gives way later. Bounded anyway by
+	 * {@link #ADVISED_PRICE_SECONDS}, after which the price re-anchors regardless.
+	 */
+	private static final double ADVISED_PRICE_TOLERANCE = 0.02;
+
+	/** The drift this price may absorb before the card is rewritten. Never less than a gp. */
+	private static int advisedPriceDeadband(int price)
+	{
+		return Math.max(1, (int) Math.round(Math.max(0, price) * ADVISED_PRICE_TOLERANCE));
+	}
+
+	/** A price the player has already been shown, and when they were shown it. */
+	private static final class AdvisedPrice
+	{
+		final int price;
+		final long at;
+
+		AdvisedPrice(int price, long at)
+		{
+			this.price = price;
+			this.at = at;
+		}
+	}
+
+	private final Map<Long, AdvisedPrice> advisedPrices = new java.util.concurrent.ConcurrentHashMap<>();
+
+	/** One item can carry a buy instruction and a sell instruction at once; they are not the same. */
+	private static long advisedKey(int itemId, boolean buying)
+	{
+		return ((long) itemId << 1) | (buying ? 1L : 0L);
+	}
+
+	/**
+	 * The price to show for this item, which is the one already shown unless the market has actually
+	 * moved.
+	 * <p>
+	 * <b>An instruction must not be rewritten while the player is carrying it out.</b> Every price on
+	 * every card was re-derived from the live quote on each refresh, and the live quote moves every
+	 * time the feed republishes -- so a card reading "sell 100 Adamant bars at 2,099 gp" became 2,105,
+	 * then 2,093, on a board where nothing had happened. Measured over twenty refreshes with the quote
+	 * drifting a third of a percent, the advice was rewritten fourteen times. Someone halfway through
+	 * typing that number watches it change, which is indistinguishable from the plugin having changed
+	 * its mind -- and was reported as recommendations flashing and being lost.
+	 * <p>
+	 * The deadband is the item's own, so this holds a price still through noise and gives way as soon
+	 * as the market genuinely moves past it.
+	 */
+	private int advisedPrice(int itemId, boolean buying, int fresh, long nowSeconds)
+	{
+		int deadband = advisedPriceDeadband(fresh);
+		long key = advisedKey(itemId, buying);
+		AdvisedPrice held = advisedPrices.get(key);
+		if (held != null && nowSeconds - held.at < ADVISED_PRICE_SECONDS
+			&& Math.abs(fresh - held.price) < Math.max(1, deadband))
+		{
+			return held.price;
+		}
+		advisedPrices.put(key, new AdvisedPrice(fresh, nowSeconds));
+		return fresh;
+	}
+
 	static boolean repriceAllowed(int newPrice, Position position, int breakEvenPrice)
 	{
 		if (position == null || !position.isCostKnown() || position.getAverageCost() <= 0)
@@ -756,27 +1268,6 @@ public class SuggestionEngine
 	}
 
 	/**
-	 * Whether this holding is close enough to leaving to be worth a slot.
-	 * <p>
-	 * Read from the status the sell pass has just published, so the reservation and the card agree.
-	 * A holding with no status yet -- a position seen before the first sell evaluation -- counts as
-	 * near, because refusing to reserve on no information is the one direction that can strand it.
-	 */
-	private boolean exitIsNear(Position position)
-	{
-		return exitIsNear(positionStatuses.get().get(position.getItemId()));
-	}
-
-	static boolean exitIsNear(PositionStatus status)
-	{
-		if (status == null || status.getDecision() == null)
-		{
-			return true;
-		}
-		return status.getDecision().isExitNear();
-	}
-
-	/**
 	 * What to do when a sale is wanted and every slot is busy.
 	 *
 	 * @param give     the buy to give up, or null when every slot holds a sale and there is nothing
@@ -829,37 +1320,36 @@ public class SuggestionEngine
 	 * <p>
 	 * The exit cannot happen while our own order keeps adding to the position, and selling around it
 	 * would spend a second slot to leave a holding that is still growing. Cancelling is one action
-	 * instead of two, it frees the slot and returns the unspent coins, and on the next pass the
-	 * ordinary sell path takes over with nothing in its way.
+	 * instead of two: it frees the slot, returns the unspent coins, and on the next pass the ordinary
+	 * sell path takes over with nothing in its way.
+	 * <p>
+	 * Only for a position through its stop. An accumulation that is merely unfinished is left alone
+	 * to finish.
 	 */
-	private Suggestion cancelBuyBlockingExit(SellCandidate wanted, MarketSnapshot market)
+	private Suggestion cancelBuyBlockingExit(Position position, SellDecision decision,
+		MarketSnapshot market)
 	{
-		int itemId = wanted.position.getItemId();
+		int itemId = position.getItemId();
 		TrackedOffer buy = openBuyFor(itemId);
 		if (buy == null)
 		{
-			// It finished between the status pass and here; the ordinary sell path can have it.
 			return null;
 		}
 
 		String name = market.getItemName(itemId);
-		boolean cut = wanted.decision.getAction() == SellDecision.Action.CUT;
 		long coins = (long) buy.getPrice() * buy.getRemaining();
 		return Suggestion.builder(SuggestionType.CANCEL)
 			.item(itemId, name)
 			.slot(buy.getSlot())
 			.price(buy.getPrice())
 			.quantity(buy.getRemaining())
-			.lossCut(cut)
+			.lossCut(true)
 			.headline("Stop buying " + name)
-			.detail((cut
-				? "This has fallen past the point where holding it is worth the risk, so buying more "
-					+ "of it makes no sense. "
-				: "It is time to sell this, and the buy still running would keep adding to what you "
-					+ "have to sell. ")
-				+ "Cancel the offer to free the slot and get "
+			.detail("This has fallen past the point where holding it is worth the risk, so buying "
+				+ "more of it makes no sense. Cancel the offer to free the slot and get "
 				+ explainer.formatGp(coins) + " gp back. You will be told to sell the "
-				+ explainer.formatNumber(wanted.quantity) + " you already have straight afterwards.")
+				+ explainer.formatNumber(position.getQuantity()) + " you already have straight "
+				+ "afterwards.")
 			.build();
 	}
 
@@ -969,29 +1459,66 @@ public class SuggestionEngine
 			SellDecision decision = sellTiming.evaluate(position, price, features, series, horizon, now,
 				config.minProfitPerFlip(), inInventory, sellOnly, isSkipped);
 
-			// A buy for this item is still working, so the position is still growing.
+			// A buy for this item is still working, so nothing of it is listed.
 			//
-			// Nothing can be listed until it stops, and reserving a slot to sell a fraction of a
-			// growing order wastes the scarcest thing on the account. So an ordinary exit waits.
+			// <b>Half a trade is not a holding.</b> The rule that everything held is listed at once is
+			// about a position that has finished arriving; it was never meant to reach into the middle
+			// of an order that is still filling. The guard here first asked "is this a sell?", which
+			// stopped meaning anything once the sell engine began answering yes to everything, and
+			// then asked "can we see the units?" -- which is no better, because collecting a part-
+			// filled buy is exactly how the units become visible. Both let the same thing through: a
+			// buy that had filled a fraction of itself was treated as a finished holding and put up
+			// for sale, and with no slot free the engine cancelled another item's buy to make room.
 			//
-			// An exit the engine actually wants is different, and the answer is not to sell around the
-			// buy -- it is to stop buying. If the price has turned, continuing to accumulate an item we
-			// are trying to leave makes no sense at any slot count, and on three it is indefensible.
-			// Abandon the buy; the next pass sees no open order and sells normally.
+			// Being able to see the units is not the question. It is one accumulation, and selling
+			// the early part of it back into the same book while the rest is still arriving is not
+			// market-making -- it pays the tax twice on the same capital, spends a second slot, and
+			// abandons the trade that was actually planned. The order finishes, or it is cancelled,
+			// and then the position is listed. Which happens on the very next pass.
+			//
+			// A position that has gone through its stop is the one exception, and the answer there is
+			// still not to sell around the buy: it is to stop buying. Continuing to accumulate
+			// something we have decided to leave makes no sense at any slot count. Cancel the buy,
+			// and the next pass finds no open order and sells normally.
+			// The same accumulation, in the gap between a cancel and its replacement.
+			//
+			// A reprice is cancel, collect, place again, and for the length of that the item has no
+			// offer on the board -- so the guard below, which asks whether a buy is running, sees
+			// nothing and lets the partial fill through. That is how a player who cancelled exactly
+			// as instructed was then told to sell the one unit that had filled. The plugin owes them
+			// a replacement; until it has given them one, this is still a trade in progress.
+			if (awaitingReplacement(itemId, account, now))
+			{
+				TrackedOffer buy = openBuyFor(itemId);
+				statuses.put(itemId, buy == null
+					? PositionStatus.awaitingReplacement(position.getQuantity(), 0)
+					: PositionStatus.awaitingReplacement(buy.getQuantityFilled(),
+						buy.getTotalQuantity()));
+				continue;
+			}
+
 			if (stillBuying.contains(itemId))
 			{
-				if (!decision.isSell())
+				if (decision.getAction() == SellDecision.Action.CUT)
+				{
+					Suggestion stopBuying = cancelBuyBlockingExit(position, decision, market);
+					if (stopBuying != null)
+					{
+						// Not the plain sell reason. The card has to say the same thing the suggestion
+						// beside it says -- stop buying, then sell -- or the two read as disagreeing.
+						statuses.put(itemId, PositionStatus.exitBlockedByOwnBuy(decision));
+						positionStatuses.set(Collections.unmodifiableMap(statuses));
+						return stopBuying;
+					}
+					// The buy finished between the status pass and here; sell normally.
+				}
+				else
 				{
 					TrackedOffer buy = openBuyFor(itemId);
 					statuses.put(itemId, buy == null ? PositionStatus.stillBuying(0, 0)
 						: PositionStatus.stillBuying(buy.getQuantityFilled(), buy.getTotalQuantity()));
 					continue;
 				}
-				// The roadmap specifies we should instantly transform BOUGHT or partially filled
-				// slots into PLACE_SELL instructions if we have available slots.
-				// By falling through here, we treat this partial fill as a normal sell candidate.
-				// remainderWarrantsItsOwnOffer will ensure the partial fill is large enough to warrant a slot.
-				// If no slots are available, makeRoomToSell will handle cancelling a buy offer.
 			}
 
 			// Recorded whether or not it wins, and whether or not it is a sale. A holding being waited
@@ -1022,7 +1549,7 @@ public class SuggestionEngine
 				continue;
 			}
 			SellCandidate candidate = new SellCandidate(position, decision, quantity, unconfirmed, inInventory);
-			if (best == null || candidate.priority() > best.priority())
+			if (best == null || SellCandidate.MOST_URGENT_FIRST.compare(candidate, best) < 0)
 			{
 				best = candidate;
 			}
@@ -1061,7 +1588,12 @@ public class SuggestionEngine
 		int itemId = position.getItemId();
 		boolean cut = decision.getAction() == SellDecision.Action.CUT;
 
-		long profit = taxCalculator.netProfit(itemId, position.isCostKnown() ? position.getAverageCost() : 0, decision.getPrice(),
+		// Held still through noise. See advisedPrice: the quote moves on every feed update, and a
+		// card whose number changes while the player is typing it reads as the plugin changing its
+		// mind about a trade it has not changed its mind about.
+		int sellPrice = advisedPrice(itemId, false, decision.getPrice(), now.getEpochSecond());
+
+		long profit = taxCalculator.netProfit(itemId, position.isCostKnown() ? position.getAverageCost() : 0, sellPrice,
 			best.quantity);
 
 		int collectionSlot = -1;
@@ -1083,7 +1615,7 @@ public class SuggestionEngine
 		Suggestion.Builder builder = Suggestion.builder(SuggestionType.SELL)
 			.lossCut(cut)
 			.item(itemId, position.getItemName())
-			.price(decision.getPrice())
+			.price(sellPrice)
 			.quantity(best.quantity)
 			.slot(collectionSlot)
 			.expectedProfit(profit)
@@ -1624,15 +2156,24 @@ public class SuggestionEngine
 			this.inInventory = inInventory;
 		}
 
-		/** 
-		 * Inventory items always take absolute priority.
-		 * Cutting a losing position is more urgent than banking a winning one. 
+		/**
+		 * Which of two ready sales goes first.
+		 * <p>
+		 * Three tiers, compared in order rather than added together. Something already in the
+		 * inventory is one click from being listed and is blocking nothing while it sits there, so
+		 * it goes first. A loss cut beats banking a winner, because the winner is not getting worse.
+		 * Past that, the larger profit goes first.
+		 * <p>
+		 * This was a single {@code double}: {@code (inInventory ? 1e24 : 0) + (cut ? 1e12 : 0) +
+		 * profit}. A double carries about sixteen significant digits, so adding a profit of a few
+		 * million to 1e24 came back as 1e24 exactly -- with more than one item in the inventory the
+		 * profit term vanished entirely and the order came down to whichever the map happened to
+		 * iterate first. Tiers that mean different things do not belong on one number line.
 		 */
-		double priority()
-		{
-			double base = inInventory ? 1e24 : 0;
-			base += decision.getAction() == SellDecision.Action.CUT ? 1e12 : 0;
-			return base + decision.getExpectedProfit();
-		}
+		static final Comparator<SellCandidate> MOST_URGENT_FIRST =
+			Comparator.comparing((SellCandidate c) -> c.inInventory)
+				.thenComparing(c -> c.decision.getAction() == SellDecision.Action.CUT)
+				.thenComparingLong(c -> c.decision.getExpectedProfit())
+				.reversed();
 	}
 }

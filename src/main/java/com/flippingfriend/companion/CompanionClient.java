@@ -124,7 +124,11 @@ public class CompanionClient
 			committedByItem, config.minProfitPerFlip(), buyLimitUsed,
 			!config.useCalibration(),
 			config.checkInterval() == null ? 0 : config.checkInterval().getMinutes(),
-			blocked, skipped, onOffer, sellOnly);
+			blocked, skipped, onOffer, sellOnly,
+			// How long a flip should take. The companion is what actually chooses the trade, and
+			// until this travelled it planned every leg at the risk appetite's own horizon however
+			// short or long a flip the player had asked for.
+			config.targetHoldMinutes());
 		post("events/account-state", snapshot);
 	}
 
@@ -238,7 +242,21 @@ public class CompanionClient
 				.item(candidate.getItemId(), candidate.getItemName())
 				.price(candidate.getBuyPrice())
 				.quantity(candidate.getQuantity())
-				.expectedProfit(Math.round(candidate.expectedProfit()))
+				// What the trade makes if it works, which is what the same row means on every other
+				// card in the panel.
+				//
+				// This used to be candidate.expectedProfit(), a probability-weighted figure with the
+				// cost of a stranded position already netted out of it. Two problems. The built-in
+				// engine puts the if-it-works profit under the identical label, so the meaning of
+				// "Expected profit" changed depending on which engine had produced the card -- and
+				// the holding card that appears minutes later shows the if-it-works figure too, so
+				// a flip going exactly to plan looked like it had gained value on the way. And the
+				// card already draws a confidence bar from the same probabilities, so weighting the
+				// headline by them as well charged the player for the risk twice.
+				//
+				// The weighted figure is the right one for *ranking*, and it is still what ranks the
+				// plan: PortfolioCandidate.expectedGpPerSlotHour uses it and is untouched.
+				.expectedProfit(candidate.getNetProfit())
 				.confidence(candidate.getDisplayCompletionProbability())
 				.expectedMinutes(candidate.getSlotHours() * 60)
 				// Both legs, which the panel has always been able to show and was never given: the

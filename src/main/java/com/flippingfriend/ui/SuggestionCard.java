@@ -84,17 +84,33 @@ class SuggestionCard extends JPanel
 	private java.util.function.Consumer<Suggestion> onBlock = ignored -> { };
 	private Runnable onCardClicked = () -> { };
 
+	/**
+	 * Width of the header's text column: the card, less the 36px item icon and the gap beside it.
+	 * <p>
+	 * Named because three components depend on it and one of them silently did not use it.
+	 */
+	private static final int HEADER_TEXT_WIDTH = UiUtils.CARD_TEXT_WIDTH - 44;
+
 	SuggestionCard(ItemManager itemManager, Explainer explainer)
 	{
 		this.itemManager = itemManager;
 		this.explainer = explainer;
 
-		this.idleReason = UiUtils.mutedText("");
+		// All three live in the header's text column, which is the card less the item icon -- so all
+		// three have to be measured against that width and not against the card's.
+		//
+		// Only the headline was. The detail was built at the full card width and rendered in a
+		// column a quarter narrower, so it was always about three lines short of the text it held
+		// and the tail was simply cut off. That is where the instruction lives: the reprice card
+		// ended mid-sentence at "cancel this one, collect the", with the price to re-list at -- the
+		// one number the player has to type -- never shown at all.
+		this.idleReason = UiUtils.wrappedText("", UiUtils.MUTED, FontManager.getRunescapeSmallFont(),
+			HEADER_TEXT_WIDTH);
 		this.queuedLabel = UiUtils.wrappedText("", UiUtils.WARNING, FontManager.getRunescapeSmallFont(),
-			UiUtils.CARD_TEXT_WIDTH);
+			HEADER_TEXT_WIDTH);
 		this.queuedLabel.setVisible(false);
 		this.headlineLabel = UiUtils.wrappedText("", UiUtils.TEXT, FontManager.getRunescapeBoldFont(),
-			UiUtils.CARD_TEXT_WIDTH - 44);
+			HEADER_TEXT_WIDTH);
 
 		setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
 		setBackground(UiUtils.CARD);

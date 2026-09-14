@@ -90,6 +90,18 @@ public class FlippingFriendPlugin extends Plugin
 	 */
 	private static final long PERSIST_INTERVAL_MILLIS = 60_000;
 
+	/**
+	 * How many refreshes in a row may fail before the panel says so.
+	 * <p>
+	 * Three. One is a blip -- a market fetch that timed out, a snapshot swapped underneath the pass
+	 * -- and blanking the card for that would be worse than the fault itself. Three in a row is not a
+	 * blip, and the alternative is a stale card the player has no way to recognise as stale.
+	 */
+	private static final int REFRESH_FAILURES_BEFORE_SAYING_SO = 3;
+
+	private final java.util.concurrent.atomic.AtomicInteger consecutiveRefreshFailures =
+		new java.util.concurrent.atomic.AtomicInteger();
+
 	@Inject
 	private Client client;
 
@@ -706,15 +718,19 @@ public class FlippingFriendPlugin extends Plugin
 			int setupItemId = isSetupOpen ? client.getVarpValue(VarPlayerID.TRADINGPOST_SEARCH) : -1;
 			Suggestion active = stepGuide.getSuggestion();
 			
-			if (active != null && isSetupOpen && setupItemId == active.getItemId() &&
-				(active.getType() == SuggestionType.MODIFY_BUY || active.getType() == SuggestionType.MODIFY_SELL))
-			{
-				engine.setPendingAdjustment(active);
-			}
-			else if (!widgetResolver.isGeOpen())
-			{
-				engine.setPendingAdjustment(null);
-			}
+			// Hold the reprice card still while the player is in the editor for that same item, and
+			// let it go the instant they are not.
+			//
+			// This used to be released only when the whole Grand Exchange was closed, and the engine
+			// returns a held card ahead of everything else -- so closing the offer editor while
+			// leaving the Exchange open left the plugin frozen on a reprice for an offer that no
+			// longer existed. Every recommendation behind it was dropped for as long as the window
+			// stayed open, which is the whole session for anyone who flips with it up. Cancelling an
+			// offer is precisely the action that closes the editor and leaves the Exchange open, so
+			// the card most likely to wedge the engine was the one the player had just acted on.
+			boolean midAdjustment = active != null && isSetupOpen
+				&& setupItemId == active.getItemId() && active.getType().isModify();
+			engine.setPendingAdjustment(midAdjustment ? active : null);
 
 			executor.execute(() ->
 			{
@@ -827,6 +843,7 @@ public class FlippingFriendPlugin extends Plugin
 					companion.recordSellAdvice(suggestion);
 				}
 
+				consecutiveRefreshFailures.set(0);
 				Suggestion settled = suggestion;
 				clientThread.invokeLater(() ->
 				{
@@ -840,10 +857,40 @@ public class FlippingFriendPlugin extends Plugin
 			}
 			catch (Exception ex)
 			{
+				// A failure here used to be a log line and nothing else, and the panel draws the last
+				// suggestion the walkthrough was given -- so a refresh that kept throwing left a card
+				// on screen that looked live and was minutes or hours old. That is the worst version
+				// of a lost recommendation: the player is not told to do the next thing, and has no
+				// way to tell they are not being told.
+				//
+				// One failure is a blip and is ridden out, because blanking the card on a momentary
+				// network fault would be worse than the fault. A run of them is a fault that is not
+				// going away, and then it is said out loud.
 				log.warn("could not refresh suggestion", ex);
+				if (consecutiveRefreshFailures.incrementAndGet() >= REFRESH_FAILURES_BEFORE_SAYING_SO)
+				{
+					Suggestion problem = Suggestion.waiting("The plugin has stopped being able to "
+							+ "work out your next trade",
+						"Something went wrong while it was thinking: " + describe(ex)
+							+ ". It will keep trying. If this does not clear, the RuneLite log has "
+							+ "the details.");
+					clientThread.invokeLater(() ->
+					{
+						stepGuide.setSuggestion(problem);
+						panel.refresh();
+					});
+				}
 			}
 		});
 		});
+	}
+
+	/** A short, readable description of a failure, for a card rather than a log. */
+	private static String describe(Exception ex)
+	{
+		String message = ex.getMessage();
+		return message == null || message.isEmpty()
+			? ex.getClass().getSimpleName() : message;
 	}
 
 	/** Never runs on the client thread: local IPC must not make RuneLite input lag. */

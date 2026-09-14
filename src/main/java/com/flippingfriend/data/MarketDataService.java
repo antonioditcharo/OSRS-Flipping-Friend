@@ -64,6 +64,15 @@ public class MarketDataService
 	 */
 	private static final Duration FAILURE_TTL = Duration.ofMinutes(2);
 	private static final int SERIES_CACHE_SIZE = 256;
+	/**
+	 * How often the item mapping is re-attempted while there is not a usable one.
+	 * <p>
+	 * Short, because nothing in the plugin works without it. Once it is in hand the job checks the
+	 * freshness stamp and returns immediately, so the cost of asking often is a map lookup.
+	 */
+	private static final Duration MAPPING_RETRY_INTERVAL = Duration.ofSeconds(20);
+	/** How long the loading card may be the honest answer before it becomes a stuck one. */
+	private static final Duration STARTUP_GRACE = Duration.ofSeconds(45);
 
 	private static final Type MAPPING_LIST = new TypeToken<List<ItemMetadata>>()
 	{
@@ -116,6 +125,13 @@ public class MarketDataService
 	private ScheduledExecutorService scheduler;
 	private volatile Runnable updateListener;
 
+	/** How long each feed has been failing, so a persistent fault can be told from a blip. */
+	private final Map<String, Integer> failures = new ConcurrentHashMap<>();
+	private volatile String lastFailure = "";
+	private volatile Instant startedAt = Instant.now();
+	/** Until when the loaded mapping counts as current, so it is not re-read every retry. */
+	private volatile Instant mappingFreshUntil = Instant.EPOCH;
+
 	/**
 	 * The local companion, when there is one. Never required: everything here works without it, just
 	 * slower, which is exactly how it worked before.
@@ -160,6 +176,9 @@ public class MarketDataService
 			return;
 		}
 
+		startedAt = Instant.now();
+		failures.clear();
+
 		ThreadFactory threads = r ->
 		{
 			Thread t = new Thread(r, "flipping-friend-market");
@@ -177,11 +196,126 @@ public class MarketDataService
 		// Before anything is asked of the internet. The companion has been running the whole time and
 		// is holding a feed no more than a minute old; taking it turns the "getting the latest
 		// prices" wait into a loopback read. Costs nothing when the companion is not running.
-		scheduler.execute(this::seedFromCompanion);
-		scheduler.execute(this::refreshMetadata);
-		scheduler.scheduleWithFixedDelay(this::refreshLatest, 0, LATEST_INTERVAL.getSeconds(), TimeUnit.SECONDS);
-		scheduler.scheduleWithFixedDelay(this::refreshFiveMinute, 2, FIVE_MIN_INTERVAL.getSeconds(), TimeUnit.SECONDS);
-		scheduler.scheduleWithFixedDelay(this::refreshHourly, 4, HOURLY_INTERVAL.getSeconds(), TimeUnit.SECONDS);
+		scheduler.execute(guarded("companion seed", this::seedFromCompanion));
+		// Retried, not attempted once.
+		//
+		// The item mapping was a single `execute`, and nothing in the plugin works without it: with
+		// no mapping the snapshot is never usable, the engine returns its idle card on every pass,
+		// and the panel says "Getting the latest prices" for the rest of the session. One failed
+		// request at the wrong moment -- a network blip while the client is still starting, which is
+		// exactly when this runs -- was permanent. It now keeps trying, and stops re-reading once it
+		// has an answer that is still fresh.
+		scheduler.scheduleWithFixedDelay(guarded("item mapping", this::refreshMetadataIfNeeded),
+			0, MAPPING_RETRY_INTERVAL.getSeconds(), TimeUnit.SECONDS);
+		scheduler.scheduleWithFixedDelay(guarded("latest prices", this::refreshLatest),
+			0, LATEST_INTERVAL.getSeconds(), TimeUnit.SECONDS);
+		scheduler.scheduleWithFixedDelay(guarded("5m averages", this::refreshFiveMinute),
+			2, FIVE_MIN_INTERVAL.getSeconds(), TimeUnit.SECONDS);
+		scheduler.scheduleWithFixedDelay(guarded("1h averages", this::refreshHourly),
+			4, HOURLY_INTERVAL.getSeconds(), TimeUnit.SECONDS);
+	}
+
+	/**
+	 * Wraps a scheduled job so that nothing it throws can stop it being run again.
+	 * <p>
+	 * <b>This is the difference between a bad minute and a dead session.</b>
+	 * {@code scheduleWithFixedDelay} cancels a task the moment it throws, and hands the throwable to
+	 * a {@code Future} that nobody reads — so a single unexpected response would silently end the
+	 * price feed for the rest of the session. The three polls below caught {@code IOException} and
+	 * nothing else, which covers a refused connection and not a malformed number, a changed field
+	 * type, or anything else the far end might do.
+	 * <p>
+	 * The symptom was not an error. It was the plugin sitting on "Getting the latest prices" for
+	 * ever, with an idle scheduler, an empty engine queue, a reachable wiki, and not one line in the
+	 * log — because every failure on this path was logged at {@code debug} and RuneLite runs at
+	 * {@code info}. So this logs at {@code warn}, and the first failure of each feed says so.
+	 */
+	Runnable guarded(String what, Runnable job)
+	{
+		return () ->
+		{
+			try
+			{
+				job.run();
+			}
+			catch (Throwable ex)
+			{
+				if (failures.merge(what, 1, Integer::sum) == 1)
+				{
+					log.warn("{} failed and will be retried: {}", what, ex.toString(), ex);
+				}
+				else
+				{
+					log.warn("{} failed again ({} times): {}", what, failures.get(what), ex.toString());
+				}
+			}
+		};
+	}
+
+	private void succeeded(String what)
+	{
+		if (failures.remove(what) != null)
+		{
+			log.warn("{} is working again", what);
+		}
+	}
+
+	private void failed(String what, Exception ex)
+	{
+		lastFailure = ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage();
+		if (failures.merge(what, 1, Integer::sum) == 1)
+		{
+			log.warn("{} failed: {}", what, lastFailure);
+		}
+	}
+
+	/** Re-reads the item mapping only when there is not a usable one already. */
+	void refreshMetadataIfNeeded()
+	{
+		if (!metadata.isEmpty() && Instant.now().isBefore(mappingFreshUntil))
+		{
+			return;
+		}
+		refreshMetadata();
+	}
+
+	/**
+	 * Why the plugin has nothing to say yet, in one sentence, or null when it does have something.
+	 * <p>
+	 * "Getting the latest prices" is the right message for the first few seconds and a lie after
+	 * that. Whatever is actually missing is worth naming: it is the difference between a player
+	 * waiting patiently for something that is never coming and one who knows to check their
+	 * connection.
+	 */
+	public String unavailableReason()
+	{
+		boolean haveItems = !metadata.isEmpty();
+		boolean havePrices = !latest.isEmpty();
+		if (haveItems && havePrices)
+		{
+			return null;
+		}
+
+		long waiting = Duration.between(startedAt, Instant.now()).getSeconds();
+		if (waiting < STARTUP_GRACE.getSeconds() && failures.isEmpty())
+		{
+			return null;
+		}
+
+		String missing = !haveItems && !havePrices ? "the item list and the prices"
+			: !haveItems ? "the item list" : "the prices";
+		StringBuilder reason = new StringBuilder("The plugin still has no ").append(missing)
+			.append(" from the Old School Wiki, ").append(waiting / 60).append(" minutes in. ");
+		if (failures.isEmpty())
+		{
+			reason.append("The requests are not failing, so this should clear on its own shortly.");
+		}
+		else
+		{
+			reason.append("It keeps trying every few seconds. The most recent problem was: ")
+				.append(lastFailure).append('.');
+		}
+		return reason.toString();
 	}
 
 	public void stop()
@@ -297,6 +431,8 @@ public class MarketDataService
 
 		if (loadMappingFromDisk(cacheFile))
 		{
+			mappingFreshUntil = Instant.now().plus(MAPPING_TTL);
+			succeeded("item mapping");
 			publish();
 			return;
 		}
@@ -306,12 +442,14 @@ public class MarketDataService
 			List<ItemMetadata> mapping = client.fetchMapping();
 			applyMapping(mapping);
 			writeMappingToDisk(cacheFile, mapping);
+			mappingFreshUntil = Instant.now().plus(MAPPING_TTL);
+			succeeded("item mapping");
 			publish();
 			log.debug("loaded {} items from the wiki mapping", mapping.size());
 		}
 		catch (IOException ex)
 		{
-			log.warn("could not load item mapping: {}", ex.getMessage());
+			failed("item mapping", ex);
 		}
 	}
 
@@ -474,12 +612,19 @@ public class MarketDataService
 					latest.clear();
 					latest.putAll(prices);
 				}
+				succeeded("latest prices");
 				publish();
+			}
+			else
+			{
+				// An empty answer is not a success. It used to be swallowed in silence, and an empty
+				// price map is precisely what keeps the snapshot unusable.
+				failed("latest prices", new IOException("the wiki returned no prices at all"));
 			}
 		}
 		catch (IOException ex)
 		{
-			log.debug("latest price poll failed: {}", ex.getMessage());
+			failed("latest prices", ex);
 		}
 	}
 
@@ -495,12 +640,13 @@ public class MarketDataService
 					fiveMinute.clear();
 					fiveMinute.putAll(candles);
 				}
+				succeeded("5m averages");
 				publish();
 			}
 		}
 		catch (IOException ex)
 		{
-			log.debug("5m poll failed: {}", ex.getMessage());
+			failed("5m averages", ex);
 		}
 	}
 
@@ -516,6 +662,7 @@ public class MarketDataService
 					hourly.clear();
 					hourly.putAll(candles);
 				}
+				succeeded("1h averages");
 				publish();
 			}
 		}

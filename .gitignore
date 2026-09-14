@@ -5,6 +5,9 @@ out/
 bin/
 *.class
 *.jar
+# ...but the Gradle wrapper jar is source: without it a fresh clone or worktree
+# cannot build at all.
+!gradle/wrapper/gradle-wrapper.jar
 
 # ---- IDE ----
 *.iml

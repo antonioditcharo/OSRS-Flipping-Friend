@@ -249,6 +249,15 @@ public class FlippingFriendPanel extends PluginPanel
 			rejected();
 		});
 		sellOnlyButton.setFocusPainted(false);
+		// Coloured from this panel's own palette rather than left to the look and feel. Every other
+		// component here paints itself explicitly, and this one did not: on a light look and feel it
+		// drew the panel's light grey text onto a near-white button, which is the single control
+		// that changes what the plugin will say and it was effectively invisible.
+		sellOnlyButton.setOpaque(true);
+		sellOnlyButton.setBackground(UiUtils.CARD);
+		sellOnlyButton.setBorder(javax.swing.BorderFactory.createCompoundBorder(
+			javax.swing.BorderFactory.createLineBorder(UiUtils.DIVIDER),
+			javax.swing.BorderFactory.createEmptyBorder(4, 8, 4, 8)));
 		sellOnlyButton.setAlignmentX(Component.LEFT_ALIGNMENT);
 		sellOnlyButton.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, 26));
 		header.add(UiUtils.gap(UiUtils.SPACE_M));

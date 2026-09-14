@@ -67,7 +67,17 @@ final class ExecutionRecorder
 		// duration with a prediction from a different offer, or with no prediction at all, would
 		// corrupt the ratio the learner is built on.
 		double predicted = complete ? event.getPredictedMinutes() : 0;
-		store.recordExecution(event.getItemId(), complete, minutes, predicted);
+
+		// And the same offer again, without the completion filter.
+		//
+		// The two figures above describe only offers that finished, and an offer that finished is
+		// not a random one -- it is one that happened to be quick. A model calibrated on them alone
+		// learns that the market is faster than it is. An offer cancelled at forty minutes is not a
+		// missing observation but a censored one: whatever its true fill time was, it exceeded forty
+		// minutes, and that is worth more to a duration model than silence.
+		double openMinutes = event.secondsOpen() / 60.0;
+		store.recordExecution(event.getItemId(), complete, minutes, predicted, openMinutes,
+			event.getPredictedMinutes());
 		return true;
 	}
 

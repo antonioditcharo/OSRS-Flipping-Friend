@@ -11,8 +11,6 @@ import java.util.Map;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
-import okhttp3.WebSocket;
-import okhttp3.WebSocketListener;
 
 /** Polite cached ingestion of the public market feed; all raw responses are retained in SQLite. */
 final class MarketIngestionService
@@ -22,13 +20,30 @@ final class MarketIngestionService
 	private final Gson gson;
 	private volatile MarketState state = MarketState.empty();
 	private long lastMapping;
-	private WebSocket webSocket;
-	private volatile boolean wsConnected = false;
 
 	MarketIngestionService(Gson gson)
 	{
 		this.gson = gson;
 	}
+
+	/**
+	 * How long a five-minute bar is worth keeping before asking for it again.
+	 * <p>
+	 * The three feeds were all fetched every sixty seconds, which is what the loop runs at, but only
+	 * one of them changes that often. The five-minute aggregate is republished every five minutes and
+	 * the hourly one every hour, so we were asking for them five and sixty times more often than
+	 * they could possibly differ -- two whole-universe requests a minute, in perpetuity, to a
+	 * volunteer-run community API, for bytes we already had. Two captures 849 seconds apart confirmed
+	 * it: the hourly payload was byte-identical.
+	 * <p>
+	 * Half the publication interval, so a bar is picked up within a couple of minutes of appearing
+	 * without depending on our clock lining up with theirs.
+	 */
+	private static final long FIVE_MINUTE_TTL = 150;
+	private static final long HOURLY_TTL = 900;
+
+	private long lastFiveMinute;
+	private long lastHourly;
 
 	synchronized void refresh() throws Exception
 	{
@@ -39,87 +54,54 @@ final class MarketIngestionService
 			mapping = parseMapping(fetchRaw("mapping"));
 			lastMapping = now;
 		}
+
+		// The only one of the three that is worth a fresh request every cycle -- and even this one is
+		// not fresh in the sense that matters. Across 4,184 quoted items, the newest trade the feed
+		// knew about was a median 793 seconds old and <em>not one item</em> had a trade under sixty
+		// seconds old. There is no latency here to win by polling harder; the delay is upstream, in
+		// how the prices are published, and no cadence on our side reaches behind it.
 		JsonObject latest = fetch("latest").getAsJsonObject("data");
-		JsonObject fiveMinute = fetch("5m").getAsJsonObject("data");
+
+		JsonObject fiveMinute = state.fiveMinute;
+		if (fiveMinute == null || fiveMinute.size() == 0 || now - lastFiveMinute >= FIVE_MINUTE_TTL)
+		{
+			fiveMinute = fetch("5m").getAsJsonObject("data");
+			lastFiveMinute = now;
+		}
+
 		// The hourly bar is a full hour of real trades rather than five minutes extrapolated, which
 		// makes it the honest basis for judging how busy an item is.
 		//
 		// The six-hour and daily bars used to be fetched here too, described as durable context for
 		// the learner. No learner ever read them: their only effect was two more requests a minute
 		// to a volunteer-run community API, in perpetuity, to fill a table nothing selects from.
-		JsonObject hourly = fetch("1h").getAsJsonObject("data");
-		state = new MarketState(mapping, latest, fiveMinute, hourly, now);
-		
-		ensureWebSocket();
-	}
-
-	private synchronized void ensureWebSocket()
-	{
-		if (wsConnected || webSocket != null) return;
-		
-		Request request = new Request.Builder()
-			.url("wss://prices.runescape.wiki/api/ws")
-			.header("User-Agent", "FlippingFriend local companion - contact local user")
-			.build();
-			
-		webSocket = client.newWebSocket(request, new WebSocketListener()
+		JsonObject hourly = state.hourly;
+		if (hourly == null || hourly.size() == 0 || now - lastHourly >= HOURLY_TTL)
 		{
-			@Override
-			public void onOpen(WebSocket webSocket, Response response)
-			{
-				wsConnected = true;
-				// The wiki websocket does not require subscription payload for 'latest' sometimes, but we send it anyway just in case, though some docs suggest different formats. We will just log open.
-			}
+			hourly = fetch("1h").getAsJsonObject("data");
+			lastHourly = now;
+		}
 
-			@Override
-			public void onMessage(WebSocket webSocket, String text)
-			{
-				try
-				{
-					JsonObject msg = JsonParser.parseString(text).getAsJsonObject();
-					if (msg.has("latest"))
-					{
-						// In case the message is nested or direct
-					}
-					// Based on standard wiki api WS format: usually {"type": "update", "item": {"id": ...}} or something similar, but typical OSRS price streams look like: 
-					// {"type":"latest","message":{"554":{"high":4,"highTime":...}}}
-					// Or just a stream of JSON objects.
-					// We merge into the current state's latest object.
-					
-					MarketState current = state;
-					if (current != null && current.latest != null)
-					{
-						if (msg.has("type") && "latest".equals(msg.get("type").getAsString()) && msg.has("message"))
-						{
-							JsonObject updates = msg.getAsJsonObject("message");
-							for (String key : updates.keySet())
-							{
-								current.latest.add(key, updates.get(key));
-							}
-						}
-					}
-				}
-				catch (Exception e)
-				{
-					// ignore parsing errors on stream
-				}
-			}
-
-			@Override
-			public void onClosed(WebSocket webSocket, int code, String reason)
-			{
-				wsConnected = false;
-				MarketIngestionService.this.webSocket = null;
-			}
-
-			@Override
-			public void onFailure(WebSocket webSocket, Throwable t, Response response)
-			{
-				wsConnected = false;
-				MarketIngestionService.this.webSocket = null;
-			}
-		});
+		state = new MarketState(mapping, latest, fiveMinute, hourly, now);
 	}
+
+	/*
+	 * A websocket client lived here and has been removed.
+	 *
+	 * It opened wss://prices.runescape.wiki/api/ws, which does not exist and answers 404. Its failure
+	 * handler cleared the field that guards reconnection, and it was called from refresh(), so it
+	 * retried once a minute for the life of the process -- about fourteen hundred failed handshakes a
+	 * day -- and swallowed every failure, which is why the companion log never mentioned it once.
+	 *
+	 * Its message handler was written against a guessed payload format, by its own comments, and
+	 * merged whatever arrived straight into the live MarketState's `latest` object from the
+	 * websocket's thread while the planner was reading it. Had the endpoint existed, that is a data
+	 * race on the market state every plan is built from.
+	 *
+	 * And the thing it was for is not available. The feed is published stale: across 4,184 quoted
+	 * items not one had a trade under sixty seconds old, and the median was thirteen minutes. A live
+	 * stream of it would arrive no sooner.
+	 */
 
 	MarketState state() { return state; }
 
@@ -234,12 +216,6 @@ final class MarketIngestionService
 
 	void close()
 	{
-		if (webSocket != null)
-		{
-			webSocket.close(1000, "Shutting down");
-			webSocket = null;
-		}
-		wsConnected = false;
 		client.dispatcher().executorService().shutdown();
 		client.connectionPool().evictAll();
 	}
