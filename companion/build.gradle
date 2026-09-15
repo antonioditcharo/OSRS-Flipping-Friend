@@ -53,45 +53,6 @@ tasks.named('test') {
     }
 }
 
-/** Standalone runner for the walk-forward evaluation, kept out of the companion's own entry point. */
-tasks.register('replayJar', Jar) {
-    dependsOn project(':core').tasks.named('jar')
-    archiveBaseName = 'flipping-friend-replay'
-    archiveVersion = ''
-    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-    manifest { attributes 'Main-Class': 'com.flippingfriend.companion.ReplayMain' }
-    from sourceSets.main.output
-    from project(':core').sourceSets.main.output
-    from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
-    exclude 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA', 'module-info.class'
-}
-
-/** Trains the outcome models on the daemon's observations and reports whether they learned anything. */
-tasks.register('trainerJar', Jar) {
-    dependsOn project(':core').tasks.named('jar')
-    archiveBaseName = 'flipping-friend-trainer'
-    archiveVersion = ''
-    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-    manifest { attributes 'Main-Class': 'com.flippingfriend.companion.ModelTrainer' }
-    from sourceSets.main.output
-    from project(':core').sourceSets.main.output
-    from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
-    exclude 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA', 'module-info.class'
-}
-
-/** The learning monitor window. Read-only: it never writes to anything the other processes own. */
-tasks.register('monitorJar', Jar) {
-    dependsOn project(':core').tasks.named('jar')
-    archiveBaseName = 'flipping-friend-monitor'
-    archiveVersion = ''
-    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-    manifest { attributes 'Main-Class': 'com.flippingfriend.companion.LearningMonitor' }
-    from sourceSets.main.output
-    from project(':core').sourceSets.main.output
-    from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
-    exclude 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA', 'module-info.class'
-}
-
 /**
  * Lets a probe be pointed at captured market data from the command line.
  * <p>
