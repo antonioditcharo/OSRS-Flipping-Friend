@@ -14,7 +14,6 @@ import com.flippingfriend.model.Calibrator;
 import com.flippingfriend.model.Explainer;
 import com.flippingfriend.model.FeatureEngine;
 import com.flippingfriend.model.FillModel;
-import com.flippingfriend.model.LstmForecasterClient;
 import com.flippingfriend.model.ManipulationFilter;
 import com.flippingfriend.model.PositionSizer;
 import com.flippingfriend.model.PositionStatus;
@@ -248,14 +247,12 @@ public class PartialBuyTest
 		offers.setMarket(marketData.getSnapshot());
 
 		FillModel fillModel = new FillModel();
-		LstmForecasterClient noForecaster = Mockito.mock(LstmForecasterClient.class);
-		Mockito.when(noForecaster.predictBulk(Mockito.any())).thenReturn(Collections.emptyMap());
 
 		engine = new SuggestionEngine(marketData, new FeatureEngine(), new ManipulationFilter(),
 			new Scorer(tax, fillModel, new PositionSizer(), new Calibrator()), new Explainer(),
 			new Calibrator(), tax, account, buyLimits, positions, offers,
 			new SellTimingEngine(fillModel, tax), plans, config(), new SkipList(storage),
-			noForecaster, new ArbitrageRegistry());
+			new ArbitrageRegistry());
 
 		journal.startSession();
 	}
