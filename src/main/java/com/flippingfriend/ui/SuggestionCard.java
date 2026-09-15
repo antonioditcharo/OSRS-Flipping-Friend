@@ -20,7 +20,6 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JTextArea;
 import javax.swing.SwingConstants;
-import javax.swing.SwingUtilities;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.ui.FontManager;
 import net.runelite.client.util.AsyncBufferedImage;
@@ -82,7 +81,6 @@ class SuggestionCard extends JPanel
 	 */
 	private java.util.function.Consumer<Suggestion> onSkip = ignored -> { };
 	private java.util.function.Consumer<Suggestion> onBlock = ignored -> { };
-	private Runnable onCardClicked = () -> { };
 
 	/**
 	 * Width of the header's text column: the card, less the 36px item icon and the gap beside it.
@@ -117,29 +115,6 @@ class SuggestionCard extends JPanel
 		setBorder(UiUtils.cardBorder());
 		setAlignmentX(Component.LEFT_ALIGNMENT);
 
-		addMouseListener(new java.awt.event.MouseAdapter()
-		{
-			@Override
-			public void mouseClicked(java.awt.event.MouseEvent e)
-			{
-				if (SwingUtilities.isLeftMouseButton(e))
-				{
-					onCardClicked.run();
-				}
-			}
-			
-			@Override
-			public void mouseEntered(java.awt.event.MouseEvent e)
-			{
-				setBackground(UiUtils.CARD_HOVER);
-			}
-
-			@Override
-			public void mouseExited(java.awt.event.MouseEvent e)
-			{
-				setBackground(UiUtils.CARD);
-			}
-		});
 
 		add(buildHeader());
 
@@ -186,10 +161,6 @@ class SuggestionCard extends JPanel
 		this.onBlock = onBlock;
 	}
 
-	void setOnCardClicked(Runnable onCardClicked)
-	{
-		this.onCardClicked = onCardClicked;
-	}
 
 	private JPanel buildHeader()
 	{
