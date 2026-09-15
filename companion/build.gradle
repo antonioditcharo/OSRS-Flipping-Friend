@@ -13,7 +13,6 @@ dependencies {
     implementation 'com.google.code.gson:gson:2.10.1'
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'
     implementation 'org.xerial:sqlite-jdbc:3.45.3.0'
-    implementation 'com.microsoft.onnxruntime:onnxruntime:1.17.1'
     // A binding, so the companion can actually say something when it fails. Without one slf4j falls
     // back to a no-op logger and every swallowed exception in a 24/7 daemon is invisible forever.
     // slf4j-simple writes to stderr, which the daemon already redirects to companion.log.err.

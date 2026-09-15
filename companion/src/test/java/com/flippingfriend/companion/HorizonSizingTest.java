@@ -149,8 +149,6 @@ public class HorizonSizingTest
 		// With the measured fill model back in charge, the same buy limit against a busy book and a
 		// quiet one has to produce different orders.
 		CandidateFactory busy = factory(BUSY);
-		assertFalse("the placeholder classifier must not be sizing anything",
-			busy.isOnnxOverridingFillModel());
 
 		PortfolioCandidate onABusyBook = best(plan(busy, 2.5, BUSY));
 		PortfolioCandidate onAQuietBook = best(plan(factory(QUIET), 2.5, QUIET));
