@@ -42,16 +42,14 @@ The following Gradle tasks referred to classes absent from the current source tr
 - `:companion:trainerJar` -> `com.flippingfriend.companion.ModelTrainer`
 - `:companion:monitorJar` -> `com.flippingfriend.companion.LearningMonitor`
 
-The build invocations in `tools/apply-update.ps1` and `tools/pipeline-check.ps1` now request only supported artifacts. Runtime launcher retirement is intentionally deferred to later Phase 1 packages.
+The build invocations in `tools/apply-update.ps1` and `tools/pipeline-check.ps1` now request only supported artifacts. The Python ML launcher was retired in Package 1.4, and this package retires the unsupported dashboard launcher.
 
 ## Non-production or pending classification
 
 The following remain in the repository but are not declared supported production artifacts by this package:
 
-- `dashboard-api`, `dashboard-ui`, and `dashboard-desktop`
 - `ml-forecaster`
 - root scratch utilities and `WSTest.java`
-- background-learning, monitor, and ML-forecaster launchers
 - the `backtest` Gradle task, which points to the existing `Backtester` class and is a developer verification tool, not a production artifact
 
 These paths require evidence-driven retirement or containment in later Phase 1 packages. Package 1.1 does not change their runtime behavior.
@@ -59,8 +57,6 @@ These paths require evidence-driven retirement or containment in later Phase 1 p
 ## Ports found during inventory
 
 - Java companion: `127.0.0.1:37777`
-- Dashboard API: port `3001`; bind behavior requires Package 1.5 review
-- Python forecaster: port `8000`; startup and bind behavior require Package 1.4 review
 
 ## Baseline execution result
 
