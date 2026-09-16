@@ -26,6 +26,7 @@ __pycache__/
 ml-forecaster/models/
 
 # ---- local databases and generated dumps ----
+codebase-review.txt
 *.db
 *.db-journal
 *.sqlite
