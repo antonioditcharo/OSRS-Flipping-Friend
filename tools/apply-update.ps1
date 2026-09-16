@@ -10,8 +10,7 @@
 # So: stop first, swap second, start third, and do not claim success until the thing answers.
 
 param(
-    [switch] $SkipBuild,
-    [switch] $KeepDaemon
+    [switch] $SkipBuild
 )
 
 $ErrorActionPreference = 'Stop'
@@ -90,13 +89,6 @@ if ($portPid -ne 0) {
 if (-not (Wait-PortFree)) {
     throw 'Something is still listening on 37777. The new companion cannot start while it is there.'
 }
-$hadDaemon = $false
-if (-not $KeepDaemon) {
-    # The daemon has to come down too. It holds its own jar open, and a daemon left running on the
-    # old build is how a fix ships and then quietly does nothing for a day.
-    $hadDaemon = Stop-Ours 'flipping-friend-daemon' 'learning daemon'
-}
-Stop-Ours 'flipping-friend-monitor' 'learning monitor' | Out-Null
 
 # 2. Build with nothing holding the outputs open.
 if (-not $SkipBuild) {
@@ -120,37 +112,24 @@ if (Test-Path $built) {
     Write-Host "  plugin installed ($((Get-Item $installed).Length) bytes)"
 }
 
-# 4. Start the pieces that were running before, on the new build.
+# 4. Start the companion on the new build.
 $logDir = Join-Path $env:USERPROFILE '.runelite\osrs-flipping-friend\companion'
 New-Item -ItemType Directory -Force -Path $logDir | Out-Null
 
-if ($hadCompanion -or -not $KeepDaemon) {
-    Write-Host ''
-    Write-Host 'Starting companion...'
-    # Through the scheduled task where there is one, so the thing that owns the companion the
-    # rest of the time is the thing that started it. A bare process here is restarted by the
-    # task's hourly watchdog anyway, and then there are two of them racing for the port.
-    $task = Get-ScheduledTask -TaskName 'FlippingFriendCompanion' -ErrorAction SilentlyContinue
-    if ($task) {
-        Start-ScheduledTask -TaskName 'FlippingFriendCompanion'
-    } else {
-        Start-Process -FilePath $java `
-            -ArgumentList '-jar', "`"$(Join-Path $root 'companion\build\libs\flipping-friend-companion.jar')`"" `
-            -WindowStyle Hidden `
-            -RedirectStandardOutput (Join-Path $logDir 'companion.log') `
-            -RedirectStandardError (Join-Path $logDir 'companion.log.err')
-    }
-}
-
-if ($hadDaemon) {
-    Write-Host 'Starting learning daemon...'
-    $task = Get-ScheduledTask -TaskName 'FlippingFriendLearning' -ErrorAction SilentlyContinue
-    if ($task) { Start-ScheduledTask -TaskName 'FlippingFriendLearning' }
-    else {
-        Start-Process -FilePath $java `
-            -ArgumentList '-jar', "`"$(Join-Path $root 'build\libs\flipping-friend-daemon.jar')`"" `
-            -WindowStyle Hidden
-    }
+Write-Host ''
+Write-Host 'Starting companion...'
+# Through the scheduled task where there is one, so the thing that owns the companion the
+# rest of the time is the thing that started it. A bare process here is restarted by the
+# task's hourly watchdog anyway, and then there are two of them racing for the port.
+$task = Get-ScheduledTask -TaskName 'FlippingFriendCompanion' -ErrorAction SilentlyContinue
+if ($task) {
+    Start-ScheduledTask -TaskName 'FlippingFriendCompanion'
+} else {
+    Start-Process -FilePath $java `
+        -ArgumentList '-jar', "`"$(Join-Path $root 'companion\build\libs\flipping-friend-companion.jar')`"" `
+        -WindowStyle Hidden `
+        -RedirectStandardOutput (Join-Path $logDir 'companion.log') `
+        -RedirectStandardError (Join-Path $logDir 'companion.log.err')
 }
 
 # 5. Do not report success until it answers. A process that started is not a process that works.

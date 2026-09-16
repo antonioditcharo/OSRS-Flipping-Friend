@@ -68,15 +68,6 @@ flips that sit completed while you are away.
 - *Free-to-play* — pick this if you have no membership. It then only suggests buying items you can
   actually trade, and plans around 3 Grand Exchange slots instead of 8.
 
-**Want it learning even when you are not playing?** Double-click `3 - Background Learning`. It
-installs a small program that studies the market all day and starts with Windows. It never
-touches the game or your account — it reads public prices and does maths. Remove it any time
-with `tools\uninstall-daemon.ps1`. The Learning panel shows whether it is running.
-
-**Keep learning in the background** — on. The plugin quietly tracks trades it *didn't* place, to see
-how they would have turned out, and gets better at judging them. Nothing is placed in game and no
-coins move. The **Learning** section at the bottom of the panel shows what it has worked out.
-
 **Also sell items I already own** — off, and you probably want it left off. Your bank is gear and
 supplies, not flipping stock, so the plugin ignores it. Anything it buys for you is always tracked.
 

@@ -21,7 +21,6 @@ param(
 $ErrorActionPreference = 'Continue'
 $root = Split-Path -Parent $PSScriptRoot
 $dataRoot = Join-Path $env:USERPROFILE '.runelite\osrs-flipping-friend'
-$learning = Join-Path $dataRoot 'market-cache\learning'
 $companionDir = Join-Path $dataRoot 'companion'
 
 $script:pass = 0
@@ -92,7 +91,7 @@ else { Report 'Unit suite' 'FAIL' "$total tests, $failed failing" }
 # ---------------------------------------------------------------- hygiene
 
 $strays = @()
-foreach ($dir in @($learning, $companionDir)) {
+foreach ($dir in @($companionDir)) {
     if (Test-Path $dir) {
         $strays += Get-ChildItem -Path $dir -Filter '*.tmp' -ErrorAction SilentlyContinue
     }
@@ -101,128 +100,8 @@ if ($strays.Count -eq 0) {
     Report 'Hygiene' 'PASS' 'no stray .tmp beside any data file'
 } else {
     # A .tmp left behind means an atomic replace failed and the real file is stale. That is the exact
-    # shape of the bug that cost fourteen hours of learner data.
+    # shape of a failed atomic save that can leave supported companion data stale.
     Report 'Hygiene' 'FAIL' ("stale temp files, so a save is failing: " + ($strays.Name -join ', '))
-}
-
-$daemonLog = Join-Path $dataRoot 'market-cache\daemon.log'
-if (Test-Path $daemonLog) {
-    # All three ways a save can fail, because the first hunt for this missed one of them and the
-    # answer was sitting in the log the whole time: a single unserialisable value ("Infinity is not a
-    # valid double") aborted the write before the rename was ever reached, so neither of the other two
-    # messages appeared and the file simply stopped changing.
-    # Only this run. The log is appended across restarts, so a fault that has since been fixed would
-    # otherwise fail this check for ever and teach you to ignore it.
-    $lines = Get-Content $daemonLog
-    $lastStart = 0
-    for ($i = 0; $i -lt $lines.Count; $i++) {
-        if ($lines[$i] -like '*Flipping Friend learning daemon*') { $lastStart = $i }
-    }
-    $current = $lines[$lastStart..($lines.Count - 1)]
-    $saveFailures = @($current | Where-Object {
-        $_ -like '*SAVE FAILED*' -or $_ -like '*could not write*' -or $_ -like '*could not be replaced*' })
-    if ($saveFailures.Count -eq 0) {
-        Report 'Daemon saves' 'PASS' 'no save failures logged'
-    } else {
-        $last = "$($saveFailures[-1])".Trim()
-        Report 'Daemon saves' 'FAIL' "$($saveFailures.Count) this run, last: $last"
-    }
-} else {
-    Report 'Daemon saves' 'FAIL' 'no daemon log at all - it is running blind again'
-}
-
-# ---------------------------------------------------------------- daemon
-
-$daemon = Get-CimInstance Win32_Process -Filter "Name='java.exe' or Name='javaw.exe'" -ErrorAction SilentlyContinue |
-    Where-Object { $_.CommandLine -like '*flipping-friend-daemon*' }
-if ($daemon) { Report 'Daemon process' 'PASS' ("running, pid " + $daemon.ProcessId) }
-else { Report 'Daemon process' 'FAIL' 'not running' }
-
-if (Test-Path $daemonLog) {
-    $cycles = Select-String -Path $daemonLog -Pattern 'watching (\d+), resolved (\d+), opened (\d+), dropped (\d+)'
-    if ($cycles.Count -gt 0) {
-        $last = $cycles[-1]
-        $age = [int]((Get-Date) - (Get-Item $daemonLog).LastWriteTime).TotalMinutes
-        $detail = "last cycle {0} min ago: {1}" -f $age, $last.Matches[0].Value
-        # A cycle is ~5.5 minutes; twice that means it has stopped.
-        if ($age -le 12) { Report 'Daemon cycling' 'PASS' $detail }
-        else { Report 'Daemon cycling' 'FAIL' $detail }
-
-        # Drops are trades discarded unjudged. They are not random -- only a trade that failed ever
-        # reaches its deadline -- so a climbing count means failures are being deleted from the
-        # training set, which is what made everything look 100% successful.
-        $recent = $cycles | Select-Object -Last 6
-        $counts = @($recent | ForEach-Object { [int]$_.Matches[0].Groups[4].Value })
-        # The counter is per-process, so a restart resets it to zero. Comparing first to last across a
-        # restart reads as a large fall and would hide a genuine climb after it, so only the run since
-        # the last reset counts.
-        $start = 0
-        for ($i = 1; $i -lt $counts.Count; $i++) { if ($counts[$i] -lt $counts[$i - 1]) { $start = $i } }
-        $window = $counts[$start..($counts.Count - 1)]
-        $climb = $window[-1] - $window[0]
-        $span = $window.Count
-        if ($span -lt 2) { Report 'Daemon drops' 'INFO' "only $span cycle since the last restart - not enough to judge" }
-        elseif ($climb -le 2) { Report 'Daemon drops' 'PASS' "stable over $span cycles since restart (+$climb)" }
-        else { Report 'Daemon drops' 'FAIL' "climbing +$climb over $span cycles - failures are being discarded" }
-    } else {
-        Report 'Daemon cycling' 'FAIL' 'no cycle lines in the log'
-    }
-}
-
-foreach ($name in @('daemon-open.json', 'daemon-series.json', 'daemon-settled.json')) {
-    $file = Join-Path $learning $name
-    if (-not (Test-Path $file)) { Report "File $name" 'FAIL' 'missing'; continue }
-    $age = [int]((Get-Date) - (Get-Item $file).LastWriteTime).TotalMinutes
-    $size = '{0:N1} MB' -f ((Get-Item $file).Length / 1MB)
-    if ($age -le 12) { Report "File $name" 'PASS' "$size, written $age min ago" }
-    else { Report "File $name" 'FAIL' "$size, but $age min stale - the save is not landing" }
-}
-
-# ---------------------------------------------------------------- learner data
-
-$java = Find-Java
-$settled = Join-Path $learning 'daemon-settled.json'
-if ((Test-Path $settled) -and (Get-Command python -ErrorAction SilentlyContinue)) {
-    $probe = @'
-import json, sys, time, collections
-path, = sys.argv[1:]
-now = int(time.time())
-try:
-    rows = json.load(open(path, encoding="utf-8"))
-except Exception as ex:
-    print("PARSE_FAIL", ex); raise SystemExit
-# Only cohorts older than the four-hour watch window have finished answering. Grading anything
-# younger counts the winners and none of the losers, because a trade that fills resolves early and
-# one that fails resolves exactly at its deadline.
-closed = [r for r in rows if 0 < r.get("openedAt", 0) <= now - 4*3600]
-recent = [r for r in closed if r.get("openedAt", 0) >= now - 24*3600]
-pool = recent if len(recent) >= 20 else closed[-500:]
-c = collections.Counter(r.get("outcome") for r in pool)
-bought = c.get("COMPLETED", 0) + c.get("STUCK", 0)
-rate = (100.0 * c.get("COMPLETED", 0) / bought) if bought else -1
-failures = c.get("STUCK", 0) + c.get("NEVER_BOUGHT", 0)
-print("OK|%d|%d|%d|%d|%.1f" % (len(rows), len(pool), failures, bought, rate))
-'@
-    $probeFile = Join-Path $env:TEMP 'ff-settled-probe.py'
-    Set-Content -Path $probeFile -Value $probe -Encoding utf8
-    $out = & python $probeFile $settled 2>&1
-    if ($out -like 'OK|*') {
-        $parts = ($out -split '\|')
-        $records = [int]$parts[1]; $graded = [int]$parts[2]
-        $failures = [int]$parts[3]; $rate = [double]$parts[5]
-        Report 'Learner data' 'PASS' "$records records parse, $graded in the closed cohort"
-        # The canary. A closed cohort with no failures at all is not a good result, it is the
-        # corruption returning: every trade that did not fill has been discarded.
-        if ($failures -gt 0) {
-            Report 'Learner failures' 'PASS' "$failures failures present, completion $rate%"
-        } else {
-            Report 'Learner failures' 'FAIL' 'a closed cohort with zero failures - drops are eating them again'
-        }
-    } else {
-        Report 'Learner data' 'FAIL' "could not parse: $out"
-    }
-} else {
-    Report 'Learner data' 'WARN' 'skipped (needs python and the settled file)'
 }
 
 # ---------------------------------------------------------------- companion
