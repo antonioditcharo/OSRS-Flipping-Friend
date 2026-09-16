@@ -14,6 +14,15 @@ bin/
 .idea/
 .vscode/
 
+# ---- Node / dashboard ----
+node_modules/
+.next/
+npm-debug.log*
+yarn-error.log*
+# dashboard-api/public is a copy of dashboard-ui/out made by tools/monitor.ps1,
+# not source. See audit item 81: the copy is conditional, so the committed copy
+# would go stale the moment the UI is rebuilt.
+dashboard-api/public/
 
 # ---- Python / ml-forecaster ----
 venv/

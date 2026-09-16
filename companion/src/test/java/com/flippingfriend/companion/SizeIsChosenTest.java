@@ -73,6 +73,8 @@ public class SizeIsChosenTest
 			(id, step) -> "5m".equals(step) ? bars(300, 300, 1_200) : bars(400, 3_600, 14_400),
 			new TaxCalculator(), "5m", "1h", 300);
 		factory.setRiskAppetite(RiskAppetite.BALANCED);
+		assertFalse("the placeholder classifier must not be in the path",
+			factory.isOnnxOverridingFillModel());
 
 		MarketIngestionService.Item item =
 			new MarketIngestionService.Item(ITEM, "Adamant bar", BUY_LIMIT);
