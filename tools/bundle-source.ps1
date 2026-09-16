@@ -29,7 +29,7 @@ Set-Location $root
 
 # Binary, generated, or bulk data. Anything here is excluded from the bundle.
 $skip = '\.(jar|png|jpg|jpeg|gif|svg|ico|gz|zip|onnx|db|db-wal|db-shm|bin|class|exe)$'
-$skipPath = '^ml-forecaster/cache/'
+$skipPath = '^(ml-forecaster/cache/|dashboard-ui/(node_modules|package-lock\.json))'
 
 $files = git ls-files -co --exclude-standard |
     Where-Object { $_ -notmatch $skip -and $_ -notmatch $skipPath -and (Test-Path -LiteralPath $_) } |

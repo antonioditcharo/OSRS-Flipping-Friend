@@ -3,6 +3,7 @@ package com.flippingfriend.companion;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 /**
@@ -29,6 +30,22 @@ public class OrderSizingTest
 		return new CandidateFactory(null);
 	}
 
+	@Test
+	public void aMeasuredFillModelIsWhatSizesOrders()
+	{
+		assertFalse("a classifier fitted to random numbers must not outrank a measurement",
+			factory().isOnnxOverridingFillModel());
+	}
+
+	@Test
+	public void theGateIsStillThereForARealModel()
+	{
+		// Kept switchable rather than deleted: a classifier trained on the execution recorder's own
+		// observations is a reasonable thing to want here.
+		CandidateFactory factory = factory();
+		factory.setOnnxOverridesFillModel(true);
+		assertTrue(factory.isOnnxOverridingFillModel());
+	}
 
 	@Test
 	public void aConfidentFlipIsOrderedInSize()

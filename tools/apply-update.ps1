@@ -104,7 +104,7 @@ if (-not $SkipBuild) {
     Write-Host 'Building...'
     Push-Location $root
     try {
-        & .\gradlew.bat jar :companion:shadowJar --console=plain -q
+        & .\gradlew.bat jar daemonJar :companion:shadowJar :companion:monitorJar :companion:replayJar --console=plain -q
         if ($LASTEXITCODE -ne 0) { throw "Build failed with exit code $LASTEXITCODE." }
     }
     finally { Pop-Location }

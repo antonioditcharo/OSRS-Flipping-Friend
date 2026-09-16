@@ -7,6 +7,7 @@ import net.runelite.client.config.ConfigSection;
 import net.runelite.client.config.Notification;
 import net.runelite.client.config.Range;
 import net.runelite.client.config.Units;
+import net.runelite.client.config.Keybind;
 
 @ConfigGroup(FlippingFriendConfig.GROUP)
 public interface FlippingFriendConfig extends Config
@@ -243,7 +244,20 @@ public interface FlippingFriendConfig extends Config
 		return true;
 	}
 
+	@ConfigItem(
+		keyName = "autoPopulateHotkey",
+		name = "Auto-populate Hotkey",
+		description = "Press this hotkey while in the GE to automatically fill the current suggestion's price and quantity.",
+		position = 5,
+		section = guidanceSection
+	)
+	default Keybind autoPopulateHotkey()
+	{
+		return Keybind.NOT_SET;
+	}
+
 	// ------------------------------------------------------------ notifications
+
 	@ConfigItem(
 		keyName = "notifyOnFill",
 		name = "Offer completed",

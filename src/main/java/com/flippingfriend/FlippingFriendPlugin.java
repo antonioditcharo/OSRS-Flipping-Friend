@@ -33,6 +33,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import javax.inject.Inject;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
+import net.runelite.api.VarClientInt;
+import net.runelite.api.VarClientStr;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GrandExchangeOfferChanged;
 import net.runelite.api.events.ItemContainerChanged;
@@ -55,6 +57,9 @@ import net.runelite.client.ui.overlay.OverlayManager;
 import net.runelite.client.util.ImageUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import net.runelite.client.input.KeyManager;
+import net.runelite.client.input.KeyListener;
+import java.awt.event.KeyEvent;
 
 /**
  * Wires the plugin together and owns its lifecycle.
@@ -178,6 +183,7 @@ public class FlippingFriendPlugin extends Plugin
 	private FlippingFriendPanel panel;
 
 	@Inject
+	private KeyManager keyManager;
 
 	private NavigationButton navigationButton;
 	private ExecutorService worker;
@@ -223,6 +229,7 @@ public class FlippingFriendPlugin extends Plugin
 
 		// Skipping or blocking has to reach the walkthrough, and only this loop writes to it.
 		panel.setOnRejection(this::requestEngineRefresh);
+		panel.setOnCardClicked(this::populateInputFromCard);
 
 		// Before start(), so the very first thing the market service does is ask next door for a feed
 		// rather than the internet for one. The companion runs whether or not the game is open and
@@ -237,6 +244,7 @@ public class FlippingFriendPlugin extends Plugin
 
 		journal.startSession();
 
+		keyManager.registerKeyListener(hotkeyListener);
 
 		log.debug("Flipping Friend started");
 	}
@@ -255,6 +263,7 @@ public class FlippingFriendPlugin extends Plugin
 		clientToolbar.removeNavigation(navigationButton);
 		navigationButton = null;
 
+		keyManager.unregisterKeyListener(hotkeyListener);
 
 		persist();
 
@@ -629,6 +638,68 @@ public class FlippingFriendPlugin extends Plugin
 	{
 		calibrator.rebuild(journal.getHistory());
 		panel.refresh();
+	}
+
+	private final KeyListener hotkeyListener = new KeyListener()
+	{
+		@Override
+		public void keyTyped(KeyEvent e) {}
+
+		@Override
+		public void keyPressed(KeyEvent e)
+		{
+			if (config.autoPopulateHotkey().matches(e))
+			{
+				clientThread.invokeLater(() ->
+				{
+					if (!widgetResolver.isSetupOpen()) return;
+					
+					boolean isTyping = client.getVarcIntValue(VarClientInt.INPUT_TYPE) != 0;
+					if (!isTyping) return;
+
+					Suggestion suggestion = stepGuide.getSuggestion();
+					if (suggestion == null || !suggestion.isActionable()) return;
+
+					// The walkthrough tells us what the player is currently typing
+					if (!stepGuide.isQuantityDone() && suggestion.getQuantity() > 0)
+					{
+						client.setVarcStrValue(VarClientStr.INPUT_TEXT, String.valueOf(suggestion.getQuantity()));
+					}
+					else if (!stepGuide.isPriceDone() && suggestion.getPrice() > 0)
+					{
+						client.setVarcStrValue(VarClientStr.INPUT_TEXT, String.valueOf(suggestion.getPrice()));
+					}
+				});
+				e.consume();
+			}
+		}
+
+		@Override
+		public void keyReleased(KeyEvent e) {}
+	};
+
+	private void populateInputFromCard()
+	{
+		clientThread.invokeLater(() ->
+		{
+			if (!widgetResolver.isSetupOpen()) return;
+			
+			boolean isTyping = client.getVarcIntValue(VarClientInt.INPUT_TYPE) != 0;
+			if (!isTyping) return;
+
+			Suggestion suggestion = stepGuide.getSuggestion();
+			if (suggestion == null || !suggestion.isActionable()) return;
+
+			// The walkthrough tells us what the player is currently typing
+			if (!stepGuide.isQuantityDone() && suggestion.getQuantity() > 0)
+			{
+				client.setVarcStrValue(VarClientStr.INPUT_TEXT, String.valueOf(suggestion.getQuantity()));
+			}
+			else if (!stepGuide.isPriceDone() && suggestion.getPrice() > 0)
+			{
+				client.setVarcStrValue(VarClientStr.INPUT_TEXT, String.valueOf(suggestion.getPrice()));
+			}
+		});
 	}
 
 	private void requestEngineRefresh()

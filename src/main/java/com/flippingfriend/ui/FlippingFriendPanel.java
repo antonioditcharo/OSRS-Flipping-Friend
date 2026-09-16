@@ -478,4 +478,9 @@ public class FlippingFriendPanel extends PluginPanel
 	{
 		this.onRejection = onRejection == null ? () -> { } : onRejection;
 	}
+
+	public void setOnCardClicked(Runnable onCardClicked)
+	{
+		suggestionCard.setOnCardClicked(onCardClicked);
+	}
 }
