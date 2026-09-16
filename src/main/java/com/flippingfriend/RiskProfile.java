@@ -13,7 +13,7 @@ package com.flippingfriend;
  * Every threshold the engine uses lives here rather than being scattered as magic numbers, so the
  * backtester can sweep them and so a change of risk level genuinely changes behaviour everywhere at
  * once. The starting values were chosen to be defensible from first principles and are refined by
- * {@code com.flippingfriend.backtest.Backtester}.
+ * {@code com.flippingfriend.companion.Backtester}.
  */
 public enum RiskProfile
 {

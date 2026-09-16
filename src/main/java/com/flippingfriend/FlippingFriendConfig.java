@@ -308,20 +308,6 @@ public interface FlippingFriendConfig extends Config
 		return 30;
 	}
 
-	@ConfigItem(
-		keyName = "shadowTrading",
-		name = "Keep learning in the background",
-		description = "Continuously tracks trades it did not place — including ones it decided "
-			+ "against — against the real market, to see how they would have turned out. No coins "
-			+ "move and nothing is placed in game. It is how the plugin gets smarter between your "
-			+ "actual flips, and how it finds out whether its own filters are any good.",
-		position = 3,
-		section = advancedSection
-	)
-	default boolean shadowTrading()
-	{
-		return true;
-	}
 
 	@ConfigItem(
 		keyName = "useCalibration",
