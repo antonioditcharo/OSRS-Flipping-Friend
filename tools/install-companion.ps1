@@ -7,12 +7,12 @@
 # milliseconds. A companion that is already up is the difference between advising in seconds and
 # advising in minutes.
 #
-# So it gets the same treatment as the learning daemon: a logon trigger, an hourly watchdog, and a
-# startup trigger when this is run with administrator rights. Restart-on-failure alone gives up once
-# its attempts are spent, and a repeating trigger cannot give up — if the process has died the next
-# fire restarts it, and if it is alive MultipleInstances=IgnoreNew discards the duplicate.
+# It uses a logon trigger, an hourly watchdog, and a startup trigger when this is run with administrator
+# rights. Restart-on-failure alone gives up once its attempts are spent, but a repeating trigger
+# cannot give up. If the process has died, the next trigger restarts it; if it is alive,
+# MultipleInstances=IgnoreNew discards the duplicate.
 #
-# It can be removed by deleting the scheduled task named FlippingFriendCompanion; no credentials or
+# It can be removed with tools\uninstall-companion.ps1; no credentials or
 # account data are passed to the task.
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot

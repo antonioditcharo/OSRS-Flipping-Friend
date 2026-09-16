@@ -19,7 +19,7 @@ public class ScratchArtifactBoundaryTest
                 Assert.assertFalse(Files.exists(root.resolve("dashboard.html")));
                 Assert.assertFalse(Files.exists(root.resolve("scratch")));
                 Assert.assertTrue(Files.exists(root.resolve("tools/bundle-source.ps1")));
-                Assert.assertTrue(Files.exists(root.resolve("3 - Background Learning.bat")));
-                Assert.assertTrue(Files.exists(root.resolve("tools/install-daemon.ps1")));
+                Assert.assertFalse(Files.exists(root.resolve("3 - Background Learning.bat")));
+                Assert.assertFalse(Files.exists(root.resolve("tools/install-daemon.ps1")));
         }
 }

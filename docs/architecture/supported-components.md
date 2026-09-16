@@ -42,7 +42,7 @@ The following Gradle tasks referred to classes absent from the current source tr
 - `:companion:trainerJar` -> `com.flippingfriend.companion.ModelTrainer`
 - `:companion:monitorJar` -> `com.flippingfriend.companion.LearningMonitor`
 
-The build invocations in `tools/apply-update.ps1` and `tools/pipeline-check.ps1` now request only supported artifacts. The Python ML launcher was retired in Package 1.4, and this package retires the unsupported dashboard launcher.
+The build invocations in `tools/apply-update.ps1` and `tools/pipeline-check.ps1` now request only supported artifacts. The Python ML launcher was retired in Package 1.4, the unsupported dashboard launcher in Package 1.5, and the obsolete background-learning launcher in Package 1.8.
 
 ## Non-production or pending classification
 

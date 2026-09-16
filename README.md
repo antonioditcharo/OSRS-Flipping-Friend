@@ -107,26 +107,6 @@ most of what extra depth would.
 The **Learning** panel shows how many trades it has trained on, what influence it has earned, and
 which factors it now weights most.
 
-### The always-on learner
-
-`3 - Background Learning` installs a headless process that runs at login and studies the market
-continuously. It closes two holes the in-game learner cannot:
-
-- **Volume.** A session yields a few dozen resolved observations. This yields thousands.
-- **Bias.** The plugin only observes the hours you play, which is a poor sample for a model whose
-  job includes working out *what time of day an item trades*.
-
-It runs the shipping model — the same `Scorer`, `ManipulationFilter`, `FeatureEngine` and
-`FillModel` — not a copy. A learner trained on a different model than the one that ships would
-produce corrections that are worse than useless.
-
-It learns **market behaviour only**, written to a shared store every account can read. How fast your
-offers fill is a property of you, and a daemon has no queue to wait in, so execution stays with the
-plugin and is informed only by real flips.
-
-Footprint: under 100 MB, a few requests a minute to the same public API, a few MB on disk. Nothing
-touches the game or the account. `tools\uninstall-daemon.ps1` removes it.
-
 ### Sizing at scale
 
 Measured against the live market at a 100M bankroll, capital is the binding constraint on only about
