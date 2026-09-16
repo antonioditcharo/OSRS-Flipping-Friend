@@ -102,7 +102,6 @@ public class SuggestionEngine
 	private final SellTimingEngine sellTiming;
 	private final TradePlans tradePlans;
 	private final FlippingFriendConfig config;
-	private final LstmForecasterClient lstmClient;
 	private final com.flippingfriend.model.arbitrage.ArbitrageRegistry arbitrageRegistry;
 
 	private final AtomicReference<Suggestion> current = new AtomicReference<>(Suggestion.idle());
@@ -172,7 +171,7 @@ public class SuggestionEngine
 		TaxCalculator taxCalculator, AccountMonitor accountMonitor, BuyLimitTracker buyLimits,
 		PositionBook positions, OfferTracker offers, SellTimingEngine sellTiming, TradePlans tradePlans,
 		FlippingFriendConfig config, SkipList skipped,
-		LstmForecasterClient lstmClient, com.flippingfriend.model.arbitrage.ArbitrageRegistry arbitrageRegistry)
+		com.flippingfriend.model.arbitrage.ArbitrageRegistry arbitrageRegistry)
 	{
 		this.skipped = skipped;
 		this.marketData = marketData;
@@ -189,7 +188,6 @@ public class SuggestionEngine
 		this.sellTiming = sellTiming;
 		this.tradePlans = tradePlans;
 		this.config = config;
-		this.lstmClient = lstmClient;
 		this.arbitrageRegistry = arbitrageRegistry;
 	}
 
@@ -1729,27 +1727,6 @@ public class SuggestionEngine
 		marketData.prefetchSeries(ids, TIMESTEP);
 		marketData.prefetchSeries(ids, LONG_TIMESTEP);
 
-		// Ask the LSTM forecaster for momentum predictions on every shortlisted item.
-		// The call is best-effort: if the server is down, predictions will be empty and
-		// the engine runs exactly as before.
-		Map<Integer, List<Double>> histories = new HashMap<>();
-		for (Screened screened : shortlist)
-		{
-			int itemId = screened.metadata.getId();
-			List<Candle> series = marketData.getSeries(itemId, TIMESTEP);
-			// dataset.py requires at least window_size (30) + 2 samples to train.
-			if (series.size() >= 32)
-			{
-				List<Double> prices = new ArrayList<>(series.size());
-				for (Candle c : series)
-				{
-					prices.add((double) c.getAvgHighPrice());
-				}
-				histories.put(itemId, prices);
-			}
-		}
-		Map<Integer, Double> predictions = lstmClient.predictBulk(histories);
-		featureEngine.setPredictedMomentums(predictions);
 
 		LatestPrice natureRuneLatest = market.latest(561);
 		int natureRunePrice = natureRuneLatest != null && natureRuneLatest.getHigh() > 0 ? natureRuneLatest.getHigh() : 200;

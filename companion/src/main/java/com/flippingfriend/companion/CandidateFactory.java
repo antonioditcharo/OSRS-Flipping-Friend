@@ -32,7 +32,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.List;
 import java.util.Map;
-import com.flippingfriend.companion.ai.OnnxInferenceEngine;
 
 /**
  * Turns raw market data into vetted, fully priced tactics for the optimizer to choose between.
@@ -199,7 +198,6 @@ final class CandidateFactory
 	private final FillModel fillModel;
 	private final ManipulationFilter filter = new ManipulationFilter();
 	private final SeriesSource series;
-	private final OnnxInferenceEngine aiEngine = new OnnxInferenceEngine();
 
 	/**
 	 * Everything learned so far; never null, and neutral until something has been learned.
@@ -255,36 +253,6 @@ final class CandidateFactory
 	 * Kept switchable so the comparison can be repeated rather than re-argued.
 	 */
 	private boolean waitAwareSizing = false;
-
-	/**
-	 * Whether the ONNX fill classifier is allowed to override the measured fill model.
-	 * <p>
-	 * <b>Off, because the model that ships in this repository is fitted to random numbers.</b>
-	 * {@code ml-forecaster/train_models.py} builds {@code fill_prob_v1.onnx} from
-	 * {@code X = np.random.rand(100, 4)} against {@code y = np.random.randint(0, 2, 100)} -- a
-	 * hundred rows of noise and ten trees, exported so the loading path could be written before
-	 * there was anything real to load. It is a placeholder, and it was wired in live.
-	 * <p>
-	 * What it was doing while it was on: the classifier returns something near 0.5 for any input,
-	 * which is greater than zero, so the {@code > 0} guard beneath it meant the measured
-	 * {@link FillModel} estimate was never consulted for either leg. Both fill probabilities, the
-	 * completion figure drawn as the confidence bar, {@code expectedProfit()} and therefore
-	 * {@code expectedGpPerSlotHour()} -- the number the whole plan is ranked by -- came from noise.
-	 * And with a completion probability near 0.25 the Kelly fraction below always landed on its 0.1
-	 * floor, so every order was sized at a tenth of what the market could absorb, on every item, on
-	 * every cycle. That is the shape of the complaint that the trades suggested are not worth
-	 * enough.
-	 * <p>
-	 * The features were never going to work either: four raw unnormalised numbers -- price,
-	 * quantity, an hour-of-day multiplier and a literal zero -- fed to a model whose inputs were
-	 * uniform on [0, 1).
-	 * <p>
-	 * Left switchable rather than deleted. A real classifier trained on the execution recorder's own
-	 * observations is a reasonable thing to want here; what is not reasonable is a placeholder
-	 * silently outranking a measurement. Turning this on needs a model trained on real fills and
-	 * features built to match it.
-	 */
-	private boolean onnxOverridesFillModel = false;
 
 	/** Whether the account may trade members-only items; false for free-to-play. */
 	private volatile boolean membersAccount = true;
@@ -424,15 +392,6 @@ final class CandidateFactory
 		}
 		shortlistIds = ids;
 
-		// A momentum pass used to run here and has been removed. It allocated
-		// `new float[shortlist.size()][12][4]` -- every element zero -- handed that to the ONNX
-		// session as though it were twelve buckets of features per item, and stored whatever the
-		// model maps all-zeros to against every item on the shortlist. That is one constant, not a
-		// prediction. Nothing in this module reads ItemFeatures.getPredictedMomentum, so the only
-		// thing it changed was the cost of a model run per planning cycle -- but a constant sitting
-		// in a field that looks like a forecast is exactly the shape of the last bug in this layer,
-		// where a fixed value reached live position sizing. If the forecast is wanted here, the
-		// tensor has to be filled from the series first.
 
 		itemsAnalysed.set(shortlist.size());
 		List<PortfolioCandidate> candidates = shortlist.parallelStream()
@@ -464,19 +423,6 @@ final class CandidateFactory
 	{
 		this.waitAwareSizing = enabled;
 	}
-
-	/** See the field: off unless a fill classifier trained on real observations is actually loaded. */
-	boolean isOnnxOverridingFillModel()
-	{
-		return onnxOverridesFillModel;
-	}
-
-	void setOnnxOverridesFillModel(boolean enabled)
-	{
-		this.onnxOverridesFillModel = enabled;
-	}
-
-
 
 	/** What the screen would like history for, most promising first. */
 	List<Integer> shortlistIds()
@@ -735,20 +681,6 @@ final class CandidateFactory
 					.getProbability();
 				double pSell = fillModel().estimateSell(curve, sellPrice, fillable, horizonHours, season)
 					.getProbability();
-				if (onnxOverridesFillModel)
-				{
-					// See the field. The guard here used to be `prob > 0`, which any classifier
-					// satisfies, so this was never a fallback -- it was a replacement.
-					float[] buyProbs = aiEngine.predictFillProbabilities(
-						new float[][]{ { buyPrice, fillable, (float) season, 0f } });
-					float[] sellProbs = aiEngine.predictFillProbabilities(
-						new float[][]{ { sellPrice, fillable, (float) season, 0f } });
-					if (buyProbs[0] > 0 && sellProbs[0] > 0)
-					{
-						pBuy = buyProbs[0];
-						pSell = sellProbs[0];
-					}
-				}
 				double p = pBuy * pSell;
 				
 				double b = unwindLossFull > 0 ? (double) netProfitFull / unwindLossFull : netProfitFull;
@@ -798,50 +730,6 @@ final class CandidateFactory
 				FillEstimate sellFill = fillModel().estimateSell(curve, sellPrice, quantity,
 					horizonHours, season);
 					
-				if (onnxOverridesFillModel)
-				{
-					// The second override, and the one that actually decided whether anything was ever
-					// recommended.
-					//
-					// The gate went on the Kelly-sizing call above and this one was missed, which made
-					// the gate worthless: these four lines replace the *measured* fill estimates with
-					// the placeholder model's output, and it is these that are stored on the candidate.
-					// From there they set getCompletionProbability(), expectedProfit() and
-					// expectedGpPerSlotHour() -- the number the optimizer ranks on and requires to be
-					// positive before it will select anything at all.
-					//
-					// Measured on a deliberately healthy item -- a six percent spread, four thousand
-					// units crossing each side every five minutes, ordering three thousand over two and
-					// a half hours -- the fill model says 0.999 and this said 0.397. At 0.397 per leg
-					// the expected profit of a 234,000 gp flip is *negative* once the cost of a
-					// position that does not sell is weighted in, so the optimizer selected nothing,
-					// at every risk level and every horizon, on a live 128m account with eight free
-					// slots. The plan reported "No candidate clears portfolio safety constraints" and
-					// the player saw no buy recommendations at all.
-					//
-					// The wait-time model is the same placeholder and was overwriting the expected
-					// duration too, so the minutes on the card were noise as well.
-					float[][] buyFeatures = new float[][]{ { buyPrice, quantity, (float) season, 0f } };
-					float[][] sellFeatures = new float[][]{ { sellPrice, quantity, (float) season, 0f } };
-
-					float[] buyProbs = aiEngine.predictFillProbabilities(buyFeatures);
-					float[] sellProbs = aiEngine.predictFillProbabilities(sellFeatures);
-					float[] buyWaits = aiEngine.predictWaitTimes(buyFeatures);
-					float[] sellWaits = aiEngine.predictWaitTimes(sellFeatures);
-
-					if (buyProbs[0] > 0)
-					{
-						buyFill = new FillEstimate(buyProbs[0],
-							Math.max(0.016, buyWaits[0] / 60.0 + quantity / buyFill.getUnitsPerHour()),
-							buyFill.getUnitsPerHour(), buyWaits[0] / 60.0);
-					}
-					if (sellProbs[0] > 0)
-					{
-						sellFill = new FillEstimate(sellProbs[0],
-							Math.max(0.016, sellWaits[0] / 60.0 + quantity / sellFill.getUnitsPerHour()),
-							sellFill.getUnitsPerHour(), sellWaits[0] / 60.0);
-					}
-				}
 
 				if (!buyFill.isPlausible() || !sellFill.isPlausible())
 				{
@@ -948,12 +836,6 @@ final class CandidateFactory
 	 * Fractional Kelly: the full stake maximises long-run growth only if the probabilities are
 	 * right, and these are estimates from noisy data, so a third of it is taken.
 	 * <p>
-	 * Worth reading with {@code onnxOverridesFillModel} in mind, because this is where that bug did
-	 * its damage. The fraction is acutely sensitive to the completion probability -- on a typical
-	 * flip, where the profit is around one and a half times the cost of unwinding, it sits on its
-	 * floor below about a 0.45 chance of completing and climbs steeply above it. The placeholder
-	 * classifier reported roughly 0.25 for everything, so every order on every item was floored at a
-	 * tenth of what the market could take.
 	 *
 	 * @param p the chance both legs complete
 	 * @param b what the trade makes against what unwinding it would cost

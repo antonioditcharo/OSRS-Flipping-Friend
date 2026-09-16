@@ -66,8 +66,7 @@ if ($SkipBuild) {
     Report 'Build' 'SKIP' 'skipped by request'
 } else {
     Push-Location $root
-    & .\gradlew.bat jar daemonJar :companion:shadowJar :companion:monitorJar `
-        :companion:replayJar :companion:trainerJar --console=plain -q 2>&1 | Out-Null
+    & .\gradlew.bat jar :companion:shadowJar --console=plain -q 2>&1 | Out-Null
     $built = $LASTEXITCODE -eq 0
     Pop-Location
     if ($built) { Report 'Build' 'PASS' 'every jar task succeeded' }
@@ -421,24 +420,7 @@ foreach ($line in $dbOut) {
 
 # ---------------------------------------------------------------- walk-forward
 
-if ($SkipWalkForward) {
-    Report 'Walk-forward' 'SKIP' 'skipped by request'
-} elseif ($java) {
-    $replayJar = Join-Path $root 'companion\build\libs\flipping-friend-replay.jar'
-    if (Test-Path $replayJar) {
-        $replay = & $java -jar $replayJar 90 40000000 5m 2>&1
-        $summary = ($replay | Select-String 'gates passed') -join ''
-        $gateFails = ($replay | Select-String '^FAIL').Count
-        # Reported, never enforced. The same code gave 1 of 3 folds and 3 of 3 on consecutive runs;
-        # a pass/fail verdict on one run would teach you to ignore this whole report.
-        if ($gateFails -eq 0) { Report 'Walk-forward' 'PASS' $summary.Trim() }
-        else { Report 'Walk-forward' 'WARN' ($summary.Trim() + ' - one run settles nothing, variance here is large') }
-    } else {
-        Report 'Walk-forward' 'WARN' 'replay jar not built'
-    }
-} else {
-    Report 'Walk-forward' 'WARN' 'no java found'
-}
+Report 'Walk-forward' 'SKIP' 'retired replay artifact is not part of the supported build'
 
 # ---------------------------------------------------------------- the plugin leg
 
