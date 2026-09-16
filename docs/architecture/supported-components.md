@@ -9,7 +9,7 @@
 - Java target: 11
 - Gradle wrapper distribution: 8.14
 
-The supplied source bundle identifies branch `claude/plugin-trade-recommendations-profit-a27519` at commit `5ff3fa8`. The current snapshot is therefore a different revision. The current snapshot still embeds that older bundle as `codebase-review.txt`; it is reference material, not current source.
+The supplied source bundle identifies branch `claude/plugin-trade-recommendations-profit-a27519` at commit `5ff3fa8`. The current snapshot is therefore a different revision. Package 1.7 removes that embedded source dump because it is generated reference material, not current source.
 
 ## Supported production components
 
@@ -49,10 +49,9 @@ The build invocations in `tools/apply-update.ps1` and `tools/pipeline-check.ps1`
 The following remain in the repository but are not declared supported production artifacts by this package:
 
 - `ml-forecaster`
-- root scratch utilities and `WSTest.java`
 - the `backtest` Gradle task, which points to the existing `Backtester` class and is a developer verification tool, not a production artifact
 
-These paths require evidence-driven retirement or containment in later Phase 1 packages. Package 1.1 does not change their runtime behavior.
+These remaining paths require evidence-driven retirement or containment in later Phase 1 packages.
 
 ## Ports found during inventory
 

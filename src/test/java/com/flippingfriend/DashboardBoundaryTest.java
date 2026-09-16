@@ -17,6 +17,6 @@ public class DashboardBoundaryTest
                 Assert.assertFalse(Files.exists(root.resolve("dashboard-api")));
                 Assert.assertFalse(Files.exists(root.resolve("dashboard-desktop")));
                 Assert.assertFalse(Files.exists(root.resolve("dashboard-ui")));
-                Assert.assertTrue(Files.exists(root.resolve("dashboard.html")));
+                Assert.assertFalse(Files.exists(root.resolve("dashboard.html")));
         }
 }
