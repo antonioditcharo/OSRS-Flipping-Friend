@@ -140,12 +140,6 @@ public class FlippingFriendPlugin extends Plugin
 	private BuyLimitTracker buyLimits;
 
 	@Inject
-	private com.flippingfriend.ui.AlertManager alertManager;
-
-	@Inject
-	private com.flippingfriend.ui.AlertOverlay alertOverlay;
-
-	@Inject
 	private com.flippingfriend.session.SkipList skipList;
 
 	@Inject
@@ -210,7 +204,6 @@ public class FlippingFriendPlugin extends Plugin
 
 		overlayManager.add(grandExchangeOverlay);
 		overlayManager.add(offerEditorOverlay);
-		overlayManager.add(alertOverlay);
 
 		BufferedImage icon = ImageUtil.loadImageResource(getClass(), "/com/flippingfriend/icon.png");
 		navigationButton = NavigationButton.builder()
@@ -251,7 +244,6 @@ public class FlippingFriendPlugin extends Plugin
 
 		overlayManager.remove(grandExchangeOverlay);
 		overlayManager.remove(offerEditorOverlay);
-		overlayManager.remove(alertOverlay);
 		clientToolbar.removeNavigation(navigationButton);
 		navigationButton = null;
 
