@@ -4,6 +4,7 @@ import com.flippingfriend.FlippingFriendConfig;
 import com.flippingfriend.core.AccountSnapshot;
 import com.flippingfriend.core.CompanionHealth;
 import com.flippingfriend.core.OfferEvent;
+import com.flippingfriend.core.PositionSnapshot;
 import com.flippingfriend.core.PortfolioAllocation;
 import com.flippingfriend.core.PortfolioPlan;
 import com.flippingfriend.data.PluginStorage;
@@ -12,6 +13,7 @@ import com.flippingfriend.model.Explainer;
 import com.flippingfriend.model.Suggestion;
 import com.flippingfriend.model.SuggestionType;
 import com.flippingfriend.session.AccountState;
+import com.flippingfriend.session.Position;
 import com.flippingfriend.session.TrackedOffer;
 import com.google.gson.Gson;
 import java.io.InputStream;
@@ -108,10 +110,20 @@ public class CompanionClient
 	public void publishAccount(AccountState state, FlippingFriendConfig config, long markedDrawdown,
 		java.util.Map<Integer, Long> committedByItem, java.util.Map<Integer, Integer> buyLimitUsed,
 		java.util.Set<String> blocked, java.util.Set<Integer> skipped, java.util.Set<Integer> onOffer,
-		boolean sellOnly)
+		boolean sellOnly, java.util.Collection<Position> positions)
 	{
 		if (!state.isLoggedIn()) return;
 		long now = Instant.now().getEpochSecond();
+                java.util.List<PositionSnapshot> positionSnapshots = new java.util.ArrayList<>();
+		for (Position position : positions == null
+				? java.util.Collections.<Position>emptyList()
+				: new java.util.ArrayList<>(positions))
+                {
+                        positionSnapshots.add(new PositionSnapshot(position.getItemId(), position.getItemName(),
+                                position.getQuantity(), position.getTotalCost(), position.isCostKnown(),
+                                position.getOpenedAt(), position.getTargetSellPrice(), position.getStopPrice(),
+                                position.getPredictedSellMinutes()));
+                }
 		// What is already held goes with it. The companion's exposure ceilings were seeded empty on
 		// every plan, so they limited a plan against itself and never against the book -- which is how
 		// the same item could be recommended again the moment its buy was collected. The profit floor
@@ -128,7 +140,7 @@ public class CompanionClient
 			// How long a flip should take. The companion is what actually chooses the trade, and
 			// until this travelled it planned every leg at the risk appetite's own horizon however
 			// short or long a flip the player had asked for.
-			config.targetHoldMinutes());
+			config.targetHoldMinutes(), positionSnapshots);
 		post("events/account-state", snapshot);
 	}
 
