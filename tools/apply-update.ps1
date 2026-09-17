@@ -106,11 +106,13 @@ if (-not $SkipBuild) {
 # 3. Install the plugin where RuneLite will look for it.
 $built = Join-Path $root 'build\libs\osrs-flipping-friend.jar'
 $installed = Join-Path $env:USERPROFILE '.runelite\sideloaded-plugins\osrs-flipping-friend.jar'
-if (Test-Path $built) {
-    New-Item -ItemType Directory -Force -Path (Split-Path $installed) | Out-Null
-    Copy-Item $built $installed -Force
-    Write-Host "  plugin installed ($((Get-Item $installed).Length) bytes)"
-}
+if (-not (Test-Path $built)) { throw "Plugin jar not found at $built" }
+New-Item -ItemType Directory -Force -Path (Split-Path $installed) | Out-Null
+Copy-Item $built $installed -Force
+Write-Host "  plugin installed ($((Get-Item $installed).Length) bytes)"
+
+$companionBuilt = Join-Path $root 'companion\build\libs\flipping-friend-companion.jar'
+if (-not (Test-Path $companionBuilt)) { throw "Companion jar not found at $companionBuilt" }
 
 # 4. Start the companion on the new build.
 $logDir = Join-Path $env:USERPROFILE '.runelite\osrs-flipping-friend\companion'

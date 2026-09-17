@@ -186,6 +186,7 @@ If you log in with an old-style username and password, none of this applies.
 | `1 - First Time Setup.bat` | Sets up login, builds and installs the plugin and companion, and adds a desktop shortcut |
 | `2 - Start Flipping Friend.bat` | Updates the supported artifacts, ensures the companion is running, and launches RuneLite |
 | `3 - Status.bat` | Read-only check of plugin installation, companion task, port, credential, and health |
+| `4 - Update.bat` | Safely rebuild, reinstall, restart, and health-check the supported components |
 | `tools\install.ps1` | Build and copy the jar to `sideloaded-plugins` |
 | `tools\install-companion.ps1` | Install and start the supported local companion task |
 | `tools\uninstall-companion.ps1` | Stop and remove the companion task while preserving its data |

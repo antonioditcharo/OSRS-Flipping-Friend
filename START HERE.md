@@ -92,8 +92,8 @@ The Jagex login step did not complete. Run `1 - First Time Setup` again.
 That is normal, especially on Low risk. Give it a few minutes, or switch to Moderate.
 
 **"RuneLite updated and now something is broken."**
-Open `build.gradle`, change the version on the `ext.runeLiteVersion` line to match, then start it
-again as usual.
+Open `build.gradle` and change the version on the `ext.runeLiteVersion` line to match.
+Then double-click `4 - Update`. The update stops the companion safely, rebuilds both supported artifacts, restarts the companion, and verifies its health. Restart RuneLite afterward.
 **Getting rid of it.**
 Run `tools\uninstall-companion.ps1` to stop and remove the companion task.
 Run `tools\cleanup.ps1` separately to remove the saved login. Local companion data is preserved.
