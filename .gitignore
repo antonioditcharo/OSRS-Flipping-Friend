@@ -15,15 +15,12 @@ bin/
 .vscode/
 
 
-# ---- Python / ml-forecaster ----
+# ---- Python ----
 venv/
 .venv/
 __pycache__/
 *.py[cod]
 .pytest_cache/
-# Trained weights and scalers are build artefacts, not source. A model whose
-# scaler is lost cannot be served, so both are produced by the trainer, never committed.
-ml-forecaster/models/
 
 # ---- local databases and generated dumps ----
 codebase-review.txt

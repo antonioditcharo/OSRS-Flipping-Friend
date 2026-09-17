@@ -14,10 +14,9 @@ import static org.junit.Assert.assertTrue;
  * every item, and every order on the board was pinned to the Kelly floor — a tenth of what the
  * market could actually absorb.
  * <p>
- * The classifier that shipped is {@code fill_prob_v1.onnx}, and
- * {@code ml-forecaster/train_models.py} fits it to {@code np.random.rand(100, 4)} against
- * {@code np.random.randint(0, 2, 100)}. It is a placeholder written so the loading path could be
- * tested before there was a model; it was never something to size real orders with.
+ * The retired placeholder classifier was fitted to random features and random labels. It existed
+ * only to exercise the model-loading path before a real model was available; it was never suitable
+ * for sizing real orders.
  */
 public class OrderSizingTest
 {

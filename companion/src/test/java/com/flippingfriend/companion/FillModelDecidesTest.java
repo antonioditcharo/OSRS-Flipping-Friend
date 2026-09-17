@@ -24,9 +24,8 @@ import static org.junit.Assert.assertTrue;
  * <p>
  * This is the fault that produced no buy recommendations at all on a live 128m account with eight
  * free slots. A second ONNX override sat below the sizing step, ungated, and replaced the measured
- * {@code buyFill} and {@code sellFill} with the placeholder classifier's output — the one
- * {@code ml-forecaster/train_models.py} fits to {@code np.random.rand(100, 4)} against random
- * labels. Those are the estimates stored on the candidate, so they set
+ * {@code buyFill} and {@code sellFill} with output from a placeholder classifier trained on
+ * random features and random labels. Those are the estimates stored on the candidate, so they set
  * {@code getCompletionProbability()}, {@code expectedProfit()} and {@code expectedGpPerSlotHour()},
  * and the optimizer will not select anything whose expected value is not positive.
  * <p>

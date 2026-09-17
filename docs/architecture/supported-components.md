@@ -42,16 +42,15 @@ The following Gradle tasks referred to classes absent from the current source tr
 - `:companion:trainerJar` -> `com.flippingfriend.companion.ModelTrainer`
 - `:companion:monitorJar` -> `com.flippingfriend.companion.LearningMonitor`
 
-The build invocations in `tools/apply-update.ps1` and `tools/pipeline-check.ps1` now request only supported artifacts. The Python ML launcher was retired in Package 1.4, the unsupported dashboard launcher in Package 1.5, and the obsolete background-learning launcher in Package 1.8.
+The build invocations in `tools/apply-update.ps1` and `tools/pipeline-check.ps1` now request only supported artifacts. The Python ML launcher was retired in Package 1.4, the unsupported dashboard launcher in Package 1.5, the obsolete background-learning launcher in Package 1.8, and the retired Python forecaster in Package 1.13.
 
-## Non-production or pending classification
+## Developer-only tooling
 
-The following remain in the repository but are not declared supported production artifacts by this package:
+The following remains intentionally available for developer verification and is not a production artifact:
 
-- `ml-forecaster`
 - the `backtest` Gradle task, which points to the existing `Backtester` class and is a developer verification tool, not a production artifact
 
-These remaining paths require evidence-driven retirement or containment in later Phase 1 packages.
+The backtester is intentionally retained and does not add a production service, port, or lifecycle entry point.
 
 ## Ports found during inventory
 
