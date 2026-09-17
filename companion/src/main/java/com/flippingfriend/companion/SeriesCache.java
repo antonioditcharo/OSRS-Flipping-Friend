@@ -51,8 +51,6 @@ import okhttp3.Response;
 final class SeriesCache implements SeriesSource
 {
 	private static final String BASE = "https://prices.runescape.wiki/api/v1/osrs/timeseries";
-	private static final String USER_AGENT =
-		"FlippingFriend local companion - contact local user";
 
 	private static final Logger log = LoggerFactory.getLogger(SeriesCache.class);
 
@@ -72,7 +70,7 @@ final class SeriesCache implements SeriesSource
 	/** Spacing between per-item requests, so a planning cycle stays a polite trickle. */
 	private static final long SPACING_MILLIS = 220;
 
-	private final OkHttpClient client = new OkHttpClient();
+	private final OkHttpClient client;
 
 	/** Access-ordered, so eviction drops whatever the planner has stopped looking at. */
 	private final Map<String, Cached> cache =
@@ -94,12 +92,18 @@ final class SeriesCache implements SeriesSource
 	/** In-memory only. Used by the replay and test harnesses, which must not touch a real cache. */
 	SeriesCache()
 	{
-		this(null);
+		this(null, CompanionHttp.CLIENT);
 	}
 
 	SeriesCache(Path file)
 	{
+		this(file, CompanionHttp.CLIENT);
+	}
+
+	SeriesCache(Path file, OkHttpClient client)
+	{
 		this.file = file;
+		this.client = client;
 		load();
 	}
 
@@ -387,7 +391,7 @@ final class SeriesCache implements SeriesSource
 	{
 		Request request = new Request.Builder()
 			.url(BASE + "?id=" + itemId + "&timestep=" + timestep)
-			.header("User-Agent", USER_AGENT)
+			.header("User-Agent", CompanionHttp.USER_AGENT)
 			.build();
 
 		try (Response response = client.newCall(request).execute())
