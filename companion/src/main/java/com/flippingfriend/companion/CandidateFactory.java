@@ -108,29 +108,16 @@ final class CandidateFactory
 	 */
 	private volatile RiskAppetite appetite = RiskAppetite.BALANCED;
 	/**
-	 * "Conservative pricing": place offers one step further inside the spread, filling sooner for
-	 * slightly less. The built-in engine has always honoured this by widening its price grid; on this
-	 * path the setting did nothing at all, because prices come from the appetite's own offsets.
-	 */
-	private volatile boolean conservativePricing;
-	/**
 	 * "Learn from my trades", inverted. Turning it off left the companion learning regardless, which
 	 * made the setting a statement about the engine that no longer chooses anything.
 	 */
 	private volatile boolean learningDisabled;
-
-	void setConservativePricing(boolean conservative)
-	{
-		this.conservativePricing = conservative;
-	}
 
 	void setLearningDisabled(boolean disabled)
 	{
 		this.learningDisabled = disabled;
 	}
 
-	/** The same step the built-in engine takes when the setting is on. */
-	private static final double CONSERVATIVE_STEP = 1.6;
 	/** Tactics kept per item; more than this floods the optimizer with near-duplicates. */
 	private static final int TACTICS_PER_ITEM = 3;
 
@@ -236,23 +223,6 @@ final class CandidateFactory
 	private final String shortStep;
 	private final String longStep;
 	private final int bucketSeconds;
-	/**
-	 * Whether order size is reduced by the expected counterparty wait.
-	 * <p>
-	 * <b>Off, because it was measured and it lost money.</b> The argument for it looked airtight:
-	 * duration is the wait plus quantity over rate, so sizing at rate times the whole horizon yields
-	 * an order whose own predicted duration exceeds the horizon — guaranteed to be cut short and
-	 * unwound. Run against its absence on identical folds it cost 13.8%, and left the profit and time
-	 * estimates no better calibrated than before.
-	 * <p>
-	 * The flaw was in what a partial fill is worth. Being cut short is not the disaster the reasoning
-	 * assumed: a partially filled position still sells, and the profit given up by ordering small
-	 * every time is larger than the occasional cost of unwinding a remainder. Ordering into the whole
-	 * horizon is a bet that the market will be generous, and it pays more often than not.
-	 * <p>
-	 * Kept switchable so the comparison can be repeated rather than re-argued.
-	 */
-	private boolean waitAwareSizing = false;
 
 	/** Whether the account may trade members-only items; false for free-to-play. */
 	private volatile boolean membersAccount = true;
@@ -419,10 +389,6 @@ final class CandidateFactory
 		return universe;
 	}
 
-	void setWaitAwareSizing(boolean enabled)
-	{
-		this.waitAwareSizing = enabled;
-	}
 
 	/** What the screen would like history for, most promising first. */
 	List<Integer> shortlistIds()
@@ -796,20 +762,12 @@ final class CandidateFactory
 		FillEstimate buySide = fillModel().estimateBuy(curve, buyPrice, 1, horizonHours, season);
 		FillEstimate sellSide = fillModel().estimateSell(curve, sellPrice, 1, horizonHours, season);
 
-		// Size against the time left after the wait, not against the whole horizon.
-		//
-		// The two have to agree or the order is doomed by arithmetic before the market gets a vote.
-		// Duration is the wait plus quantity divided by rate; sizing at rate times the full horizon
-		// therefore produces an order whose own predicted duration is the horizon *plus* the wait —
-		// always too long, always partially filled, always unwinding the remainder at a loss. The
-		// wait was added to the duration model without being carried through to here, and the visible
-		// symptom was profit coming in around three quarters of what was promised.
-		double buyTrading = waitAwareSizing ? buySide.tradingHoursWithin(horizonHours) : horizonHours;
-		double sellTrading = waitAwareSizing ? sellSide.tradingHoursWithin(horizonHours) : horizonHours;
-		double buyReach = buySide.getUnitsPerHour() * buyTrading;
-		double sellReach = sellSide.getUnitsPerHour() * sellTrading;
+		// Size against the complete horizon. Reducing the horizon by expected counterparty wait
+		// was measured on identical folds and reduced returns by 13.8%, because partial fills still
+		// sell while consistently smaller orders give up more profit than occasional unwinds cost.
+		double buyReach = buySide.getUnitsPerHour() * horizonHours;
+		double sellReach = sellSide.getUnitsPerHour() * horizonHours;
 		double reachable = Math.min(buyReach, sellReach);
-
 		long affordable = spendableCoins / Math.max(1, buyPrice);
 		long fullLimitCost = (long) buyPrice * screened.buyLimitRemaining;
 		boolean capitalAbundant = spendableCoins >= fullLimitCost * 4.0;
