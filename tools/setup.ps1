@@ -25,7 +25,7 @@ Write-Host ''
 
 # ---------------------------------------------------------------- step 1: login
 
-Heading 'STEP 1 of 3   How do you log in?'
+Heading 'STEP 1 of 4   How do you log in?'
 
 Write-Host '  Most people these days use the Jagex Launcher - the app with the account'
 Write-Host '  picker where you choose a character before playing.'
@@ -93,7 +93,7 @@ else {
 
 # --------------------------------------------------------------- step 2: build
 
-Heading 'STEP 2 of 3   Building the plugin'
+Heading 'STEP 2 of 4   Building Flipping Friend'
 
 & "$PSScriptRoot\install.ps1"
 if ($LASTEXITCODE -ne 0) {
@@ -103,9 +103,20 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
-# ------------------------------------------------------------ step 3: shortcut
+# ---------------------------------------------------------- step 3: companion
 
-Heading 'STEP 3 of 3   Desktop shortcut'
+Heading 'STEP 3 of 4   Installing the companion'
+
+& "$PSScriptRoot\install-companion.ps1" -SkipBuild
+if ($LASTEXITCODE -ne 0) {
+    Write-Host '  The companion could not be installed.' -ForegroundColor Red
+    Read-Host '  Press Enter to close'
+    exit 1
+}
+
+# ------------------------------------------------------------ step 4: shortcut
+
+Heading 'STEP 4 of 4   Desktop shortcut'
 
 $shortcut = Join-Path ([Environment]::GetFolderPath('Desktop')) 'Flipping Friend.lnk'
 $launcher = Join-Path $root '2 - Start Flipping Friend.bat'

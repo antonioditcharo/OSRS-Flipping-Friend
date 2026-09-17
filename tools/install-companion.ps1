@@ -14,6 +14,8 @@
 #
 # It can be removed with tools\uninstall-companion.ps1; no credentials or
 # account data are passed to the task.
+param([switch] $SkipBuild)
+
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
@@ -22,8 +24,10 @@ $taskName = 'FlippingFriendCompanion'
 Write-Host 'Flipping Friend - installing the companion'
 Write-Host ''
 
-& "$root\gradlew.bat" :companion:shadowJar --console=plain
-if ($LASTEXITCODE -ne 0) { throw 'Could not build the companion.' }
+if (-not $SkipBuild) {
+    & "$root\gradlew.bat" :companion:shadowJar --console=plain
+    if ($LASTEXITCODE -ne 0) { throw 'Could not build the companion.' }
+}
 
 $jar = Join-Path $root 'companion\build\libs\flipping-friend-companion.jar'
 if (-not (Test-Path $jar)) { throw "Companion jar was not created at $jar" }

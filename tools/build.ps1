@@ -9,7 +9,7 @@ $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
 
 Write-Host 'Building Flipping Friend...' -ForegroundColor Cyan
-& "$root\gradlew.bat" jar --console=plain
+& "$root\gradlew.bat" jar :companion:shadowJar --console=plain
 if ($LASTEXITCODE -ne 0) {
     Write-Host 'Build failed.' -ForegroundColor Red
     exit 1

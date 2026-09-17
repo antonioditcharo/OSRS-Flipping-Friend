@@ -183,9 +183,11 @@ If you log in with an old-style username and password, none of this applies.
 
 | Script | What it does |
 |---|---|
-| `1 - First Time Setup.bat` | The login step, builds and installs, adds a desktop shortcut |
-| `2 - Start Flipping Friend.bat` | Rebuilds, reinstalls and launches — the everyday one |
+| `1 - First Time Setup.bat` | Sets up login, builds and installs the plugin and companion, and adds a desktop shortcut |
+| `2 - Start Flipping Friend.bat` | Updates the supported artifacts, ensures the companion is running, and launches RuneLite |
 | `tools\install.ps1` | Build and copy the jar to `sideloaded-plugins` |
+| `tools\install-companion.ps1` | Install and start the supported local companion task |
+| `tools\uninstall-companion.ps1` | Stop and remove the companion task while preserving its data |
 | `tools\run-dev.ps1` | Launch the client in developer mode |
 | `tools\cleanup.ps1` | Remove the saved login |
 

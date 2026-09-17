@@ -71,8 +71,7 @@ tasks.register('backtest', JavaExec) {
     systemProperty 'flipping.backtest.noContext', (findProperty('noContext') ?: 'false')
 }
 
-// Convenience entry point for the new companion service. The legacy daemon
-// remains available only as a comparison baseline during migration.
+// Convenience entry point for the supported local companion service.
 tasks.register('companionJar') {
     group = 'application'
     description = 'Builds the local portfolio companion service.'
