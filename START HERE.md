@@ -80,6 +80,8 @@ is often the first thing you should do.
 
 ## If something goes wrong
 
+Before changing anything, double-click `3 - Status`. It performs a read-only check of the plugin, companion task, port, credential, and authenticated health response.
+
 **"I don't see the gold coin icon."**
 Click the wrench icon, search for *Flipping Friend*, and make sure it is switched on.
 
