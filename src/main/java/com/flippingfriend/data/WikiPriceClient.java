@@ -37,7 +37,8 @@ public class WikiPriceClient
 
 	private static final HttpUrl BASE = HttpUrl.get("https://prices.runescape.wiki/api/v1/osrs");
 	private static final String USER_AGENT =
-		"OSRS-Flipping-Friend/1.0.0 - RuneLite plugin - github.com/osrs-flipping-friend";
+		"OSRS-Flipping-Friend/1.0.0 - RuneLite plugin - https:" +
+		"//github.com/antonioditcharo/OSRS-Flipping-Friend";
 
 	private static final Type LATEST_MAP = new TypeToken<Map<String, LatestPrice>>()
 	{
