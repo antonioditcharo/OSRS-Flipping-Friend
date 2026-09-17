@@ -330,6 +330,10 @@ final class CompanionService implements AutoCloseable
 			gson.toJson(snapshot));
 		requestPlan();
 	}
+	PositionStateView positions()
+	{
+		return PositionStateView.from(account);
+	}
 
 	void offer(OfferEvent event) throws Exception
 	{
