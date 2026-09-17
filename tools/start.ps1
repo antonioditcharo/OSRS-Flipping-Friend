@@ -32,9 +32,9 @@ if ($LASTEXITCODE -ne 0) {
 }
 Write-Host '  Plugin up to date.' -ForegroundColor Green
 
-# The companion decides every buy. Without it the plugin falls back to the older built-in engine and
-# quietly does worse, with nothing on screen to say why — so it is started here rather than being
-# left as a separate thing to remember.
+# The companion owns new-buy portfolio planning. If the companion is temporarily unavailable, the
+# plugin retains a limited built-in recovery path, but new-buy planning is less capable. Start the
+# companion here so the supported planner is normally available before RuneLite opens.
 # By the port, not the command line. The companion normally runs from its scheduled task under an
 # S4U token in session 0, where an ordinary Win32_Process query gets a NULL CommandLine back -- so
 # this scan reported "not running" about a companion that was serving perfectly well, and the branch
@@ -67,11 +67,11 @@ else {
         }
         else {
             Write-Host '  Could not find Java, so the companion did not start.' -ForegroundColor Yellow
-            Write-Host '  The plugin will still work but will use its older, weaker engine.' -ForegroundColor Yellow
+            Write-Host '  The plugin will open in limited recovery mode without companion planning.' -ForegroundColor Yellow
         }
     }
     else {
-        Write-Host '  Companion build failed; the plugin will use its older engine.' -ForegroundColor Yellow
+        Write-Host '  Companion build not found; starting RuneLite in limited recovery mode.' -ForegroundColor Yellow
     }
 }
 

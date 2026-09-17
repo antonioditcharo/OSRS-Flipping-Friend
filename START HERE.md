@@ -9,9 +9,10 @@ Two files. Run them in order. That is the whole thing.
 **Double-click `1 - First Time Setup`**
 
 It asks one question — whether you use the Jagex Launcher — and then walks you through the rest,
-opening the windows you need and checking each step worked. It takes a couple of minutes.
+opening the windows you need, building the plugin and companion, and checking each step worked.
 
 At the end it puts a **Flipping Friend** shortcut on your desktop.
+Setup also installs the local companion that provides the supported new-buy portfolio planning.
 
 ---
 
@@ -91,9 +92,9 @@ That is normal, especially on Low risk. Give it a few minutes, or switch to Mode
 **"RuneLite updated and now something is broken."**
 Open `build.gradle`, change the version on the `ext.runeLiteVersion` line to match, then start it
 again as usual.
-
 **Getting rid of it.**
-Run `tools\cleanup.ps1`. That removes the saved login and tells you how to remove the plugin file.
+Run `tools\uninstall-companion.ps1` to stop and remove the companion task.
+Run `tools\cleanup.ps1` separately to remove the saved login. Local companion data is preserved.
 
 ---
 
