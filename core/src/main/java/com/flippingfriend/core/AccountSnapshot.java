@@ -87,6 +87,8 @@ public final class AccountSnapshot
 	private final java.util.Set<Integer> skippedItems;
 	/** Items with a live offer: suggesting one again is telling the player to buy what they just bought. */
 	private final java.util.Set<Integer> itemsOnOffer;
+        /** Durable positions published for future companion-owned sell, collect, and reprice decisions. */
+        private final java.util.List<PositionSnapshot> positions;
 
 	public AccountSnapshot(String correlationId, long observedAt, long spendableCoins, long committedCoins,
 		int freeSlots, int totalSlots, boolean members, boolean bankSeen, double markedSessionDrawdown)
@@ -177,7 +179,25 @@ public final class AccountSnapshot
 		int checkIntervalMinutes, java.util.Set<String> blockedItems,
 		java.util.Set<Integer> skippedItems, java.util.Set<Integer> itemsOnOffer, boolean sellOnly,
 		int targetHoldMinutes)
-	{
+        {
+                this(correlationId, observedAt, spendableCoins, committedCoins, freeSlots, totalSlots, members,
+                        bankSeen, markedSessionDrawdown, riskAppetite, committedByItem, minProfitPerFlip,
+                        buyLimitUsed, learningDisabled, checkIntervalMinutes, blockedItems, skippedItems,
+                        itemsOnOffer, sellOnly, targetHoldMinutes, java.util.Collections.emptyList());
+        }
+
+        public AccountSnapshot(String correlationId, long observedAt, long spendableCoins,
+                long committedCoins, int freeSlots, int totalSlots, boolean members, boolean bankSeen,
+                double markedSessionDrawdown,
+                String riskAppetite, Map<Integer, Long> committedByItem, long minProfitPerFlip,
+                Map<Integer, Integer> buyLimitUsed, boolean learningDisabled,
+                int checkIntervalMinutes, java.util.Set<String> blockedItems,
+                java.util.Set<Integer> skippedItems, java.util.Set<Integer> itemsOnOffer, boolean sellOnly,
+                int targetHoldMinutes, java.util.List<PositionSnapshot> positions)
+        {
+                this.positions = positions == null
+                        ? java.util.Collections.emptyList()
+                        : java.util.Collections.unmodifiableList(new java.util.ArrayList<>(positions));
 		this.targetHoldMinutes = Math.max(0, targetHoldMinutes);
 		this.sellOnly = sellOnly;
 		this.blockedItems = blockedItems == null
@@ -250,6 +270,12 @@ public final class AccountSnapshot
 	}
 
 
+
+        /** Durable position state. Never null, including after Gson deserialization. */
+        public java.util.List<PositionSnapshot> getPositions()
+        {
+                return positions == null ? java.util.Collections.emptyList() : positions;
+        }
 
 	/** True when the player has asked the system not to learn from their own trades. */
 	public boolean isLearningDisabled() { return learningDisabled; }
