@@ -95,8 +95,8 @@ That is normal, especially on Low risk. Give it a few minutes, or switch to Mode
 Open `build.gradle` and change the version on the `ext.runeLiteVersion` line to match.
 Then double-click `4 - Update`. The update stops the companion safely, rebuilds both supported artifacts, restarts the companion, and verifies its health. Restart RuneLite afterward.
 **Getting rid of it.**
-Run `tools\uninstall-companion.ps1` to stop and remove the companion task.
-Run `tools\cleanup.ps1` separately to remove the saved login. Local companion data is preserved.
+Double-click `5 - Uninstall` to remove the installed plugin, companion task and process, and desktop shortcut.
+Companion data and saved login credentials are preserved. Run `tools\cleanup.ps1` separately if you also want to remove the saved login.
 
 ---
 
