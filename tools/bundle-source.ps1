@@ -10,9 +10,6 @@
 #     including FillCalibration and six test classes written that day. A review missing exactly the
 #     work under review is worse than no review.
 #   * Deleted-but-still-tracked files are skipped. They appear in `git ls-files` and are not on disk.
-#   * The cached market data is left out. `ml-forecaster/cache/series_*.json` is 200 files of
-#     downloaded price history, 8.4 MB of the 10.6 MB total, and not code. Excluding it and
-#     package-lock.json takes the bundle from 10.6 MB to about 1.7 MB of actual source.
 #
 # Nothing is redacted. There are no credentials in this tree -- the companion token lives in
 # ~/.runelite/osrs-flipping-friend/companion/companion.properties, which is outside it -- but if that
@@ -29,10 +26,9 @@ Set-Location $root
 
 # Binary, generated, or bulk data. Anything here is excluded from the bundle.
 $skip = '\.(jar|png|jpg|jpeg|gif|svg|ico|gz|zip|onnx|db|db-wal|db-shm|bin|class|exe)$'
-$skipPath = '^ml-forecaster/cache/'
 
 $files = git ls-files -co --exclude-standard |
-    Where-Object { $_ -notmatch $skip -and $_ -notmatch $skipPath -and (Test-Path -LiteralPath $_) } |
+    Where-Object { $_ -notmatch $skip -and (Test-Path -LiteralPath $_) } |
     Sort-Object
 
 $writer = [System.IO.StreamWriter]::new((Join-Path $root $Out), $false, [System.Text.UTF8Encoding]::new($false))

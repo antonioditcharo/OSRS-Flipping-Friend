@@ -21,15 +21,11 @@ public class PlaceholderModelBoundaryTest
                         "companion/src/main/resources/models/momentum_v1.onnx")));
                 Assert.assertFalse(Files.exists(root.resolve(
                         "companion/src/main/resources/models/queue_wait_v1.onnx")));
-                Assert.assertFalse(Files.exists(root.resolve(
-                        "ml-forecaster/train_models.py")));
+                Assert.assertFalse(Files.exists(root.resolve("ml-forecaster")));
 
                 String build = read(root.resolve("companion/build.gradle"));
-                String requirements = read(root.resolve("ml-forecaster/requirements.txt"));
 
                 Assert.assertFalse(build.contains("onnxruntime"));
-                Assert.assertFalse(requirements.contains("onnx"));
-                Assert.assertFalse(requirements.contains("lightgbm"));
         }
 
         private static Path repositoryRoot()
