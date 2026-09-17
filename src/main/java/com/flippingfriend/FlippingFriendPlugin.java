@@ -316,7 +316,14 @@ public class FlippingFriendPlugin extends Plugin
 		offerTracker.setMarket(marketData.getSnapshot());
 		drainPendingOffers();
 		offerTracker.onOfferChanged(event.getSlot(), event.getOffer());
-		publishOfferToCompanion(offerTracker.getOffer(event.getSlot()));
+		if (event.getOffer().getState() == net.runelite.api.GrandExchangeOfferState.EMPTY)
+		{
+			publishOfferClearedToCompanion(event.getSlot());
+		}
+		else
+		{
+			publishOfferToCompanion(offerTracker.getOffer(event.getSlot()));
+		}
 		persist();
 
 		// The account refresh runs on the client thread, so it has to complete before the engine
@@ -823,6 +830,16 @@ public class FlippingFriendPlugin extends Plugin
 			return;
 		}
 		executor.execute(() -> companion.publishOffer(offer));
+	}
+
+	private void publishOfferClearedToCompanion(int slot)
+	{
+		ExecutorService executor = worker;
+		if (executor == null || executor.isShutdown())
+		{
+			return;
+		}
+		executor.execute(() -> companion.publishOfferCleared(slot));
 	}
 
 	private void notifyIfNeeded(Suggestion suggestion)

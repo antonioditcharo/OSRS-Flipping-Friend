@@ -21,8 +21,7 @@ public class ActiveOfferTracker
 		}
 
 		String state = event.getEventType();
-		if ("EMPTY".equals(state) || "CANCELLED_BUY".equals(state) || "CANCELLED_SELL".equals(state)
-			|| "BOUGHT".equals(state) || "SOLD".equals(state))
+		if ("EMPTY".equals(state))
 		{
 			activeOffers.remove(event.getSlot());
 		}
