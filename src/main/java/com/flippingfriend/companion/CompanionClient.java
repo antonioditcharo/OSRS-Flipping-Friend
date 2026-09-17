@@ -169,6 +169,20 @@ public class CompanionClient
 		post("events/ge-offer", event.build());
 	}
 
+	public void publishOfferCleared(int slot)
+	{
+		if (slot < 0)
+		{
+			return;
+		}
+		long now = Instant.now().getEpochSecond();
+		OfferEvent event = OfferEvent.builder(UUID.randomUUID().toString(), now, "EMPTY")
+				.slot(slot)
+				.sequence(ledger.nextSequence())
+				.build();
+		post("events/ge-offer", event);
+	}
+
 	/**
 	 * Fetches the current plan and remembers it, whatever else happens this cycle.
 	 * <p>
