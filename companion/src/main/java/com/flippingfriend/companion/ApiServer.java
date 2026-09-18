@@ -27,6 +27,7 @@ final class ApiServer implements AutoCloseable
 		server = HttpServer.create(new InetSocketAddress("127.0.0.1", PORT), 0);
 		server.createContext("/v1/health", this::health);
 		server.createContext("/v1/portfolio/current", this::portfolio);
+		server.createContext("/v1/action", this::action);
 		// Read-only, and serving nothing this process did not already fetch for itself. They exist so
 		// the plugin can start from a warm feed instead of rebuilding one from the internet on every
 		// launch.
@@ -49,6 +50,13 @@ final class ApiServer implements AutoCloseable
 		if (!authorized(exchange)) return;
 		respond(exchange, 200, gson.toJson(service.plan()));
 	}
+
+	private void action(HttpExchange exchange) throws IOException
+	{
+		if (!authorized(exchange)) return;
+		respond(exchange, 200, gson.toJson(service.action()));
+	}
+
 	private void marketSnapshot(HttpExchange exchange) throws IOException
 	{
 		if (!authorized(exchange)) return;

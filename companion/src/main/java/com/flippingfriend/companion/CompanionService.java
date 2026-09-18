@@ -2,6 +2,7 @@ package com.flippingfriend.companion;
 
 import com.flippingfriend.data.Candle;
 import com.flippingfriend.core.AccountSnapshot;
+import com.flippingfriend.core.CompanionAction;
 import com.flippingfriend.core.CompanionHealth;
 import com.flippingfriend.core.OfferEvent;
 import com.flippingfriend.core.PortfolioPlan;
@@ -39,6 +40,7 @@ final class CompanionService implements AutoCloseable
 	private final SeriesCache series;
 	private final PortfolioPlanner planner;
 	private final ActiveOfferTracker activeOffers;
+	private final CompanionActionSelector actionSelector = new CompanionActionSelector();
 	/** Buy-limit windows are per account and reset four hours after the first purchase in them. */
 	private final BuyLimitLedger buyLimits = new BuyLimitLedger();
 	private final ExecutionRecorder executions;
@@ -386,6 +388,11 @@ final class CompanionService implements AutoCloseable
 				: "Working out the best use of your slots.", now);
 		}
 		return current;
+	}
+
+	CompanionAction action()
+	{
+		return actionSelector.select(activeOffers.getActiveOffers());
 	}
 
 	CompanionHealth health()
