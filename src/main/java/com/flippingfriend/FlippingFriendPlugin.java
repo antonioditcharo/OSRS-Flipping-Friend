@@ -696,17 +696,21 @@ public class FlippingFriendPlugin extends Plugin
 						com.flippingfriend.model.SuggestionEngine.parseBlocked(config.blockedItems()),
 						engine.skippedItems(), offerTracker.itemsWithOpenOffers(), engine.isSellOnly(), positions.all());
 
-					// The companion owns which new position to open. Selling and collecting still come
-					// from the built-in engine, which is where the position book lives.
+					// The companion owns new-position selection and gets first chance to supply collect advice.
+					// The built-in engine remains as the collect fallback and still owns reprice and sell decisions.
 					// Always refresh the plan, even on a cycle where the built-in engine has something to
 					// sell or collect. It used to be fetched only inside the buy branch, so on any other
 					// cycle the portfolio list kept rendering an ever-older plan with nothing to say it
 					// was stale.
 					companion.refreshPlan();
 
-					// The local decision chain: collect, then reprice, then sell, then -- only if asked -- buy.
+					// The decision chain: companion collect, then built-in recovery, then companion buy, then fallback buy.
 
-				Suggestion suggestion = engine.refresh(false);
+				Suggestion suggestion = companion.nextAction();
+				if (suggestion == null)
+				{
+					suggestion = engine.refresh(false);
+				}
 				if (suggestion == null)
 				{
 					// The two rejection controls the player actually has. These were honoured only by

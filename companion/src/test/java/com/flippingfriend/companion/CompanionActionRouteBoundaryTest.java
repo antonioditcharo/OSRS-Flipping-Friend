@@ -5,7 +5,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import org.junit.Test;
 
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 public class CompanionActionRouteBoundaryTest
@@ -37,7 +36,7 @@ public class CompanionActionRouteBoundaryTest
                 assertTrue(service.contains(
                         "actionSelector.select(activeOffers.getActiveOffers())"));
 
-                assertFalse(client.contains(
+                assertTrue(client.contains(
                         "get(\"action\", CompanionAction.class)"));
                 assertTrue(plugin.contains(
                         "engine.refresh(false)"));

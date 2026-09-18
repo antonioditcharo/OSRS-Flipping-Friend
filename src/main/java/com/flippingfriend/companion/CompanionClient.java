@@ -2,6 +2,8 @@ package com.flippingfriend.companion;
 
 import com.flippingfriend.FlippingFriendConfig;
 import com.flippingfriend.core.AccountSnapshot;
+import com.flippingfriend.core.CompanionAction;
+import com.flippingfriend.core.CompanionActionType;
 import com.flippingfriend.core.CompanionHealth;
 import com.flippingfriend.core.OfferEvent;
 import com.flippingfriend.core.PositionSnapshot;
@@ -398,6 +400,35 @@ public class CompanionClient
 		String name = candidate.getItemName();
 		return blocked == null || name == null
 			|| !blocked.contains(name.toLowerCase(java.util.Locale.ROOT));
+	}
+
+	public Suggestion nextAction()
+	{
+		try
+		{
+			return toSuggestion(get("action", CompanionAction.class));
+		}
+		catch (Exception ex)
+		{
+			lastError = ex.getMessage();
+			return null;
+		}
+	}
+
+	static Suggestion toSuggestion(CompanionAction action)
+	{
+		if (action == null || action.getType() != CompanionActionType.COLLECT
+				|| action.getItemId() <= 0 || action.getSlot() < 0)
+		{
+			return null;
+		}
+		return Suggestion.builder(SuggestionType.COLLECT)
+				.item(action.getItemId(), action.getItemName())
+				.slot(action.getSlot())
+				.quantity(action.getQuantity())
+				.headline(action.getHeadline())
+				.detail(action.getDetail())
+				.build();
 	}
 
 	public String lastError() { return lastError; }

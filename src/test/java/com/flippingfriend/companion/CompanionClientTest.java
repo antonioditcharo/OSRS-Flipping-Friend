@@ -1,5 +1,6 @@
 package com.flippingfriend.companion;
 
+import com.flippingfriend.core.CompanionAction;
 import com.flippingfriend.core.PortfolioAllocation;
 import com.flippingfriend.data.PluginStorage;
 import com.flippingfriend.core.PortfolioCandidate;
@@ -232,4 +233,45 @@ public class CompanionClientTest
 
 		assertNull(after);
 	}
+
+	@Test
+	public void companionCollectActionBecomesACollectSuggestion()
+	{
+		com.flippingfriend.model.Suggestion suggestion = CompanionClient.toSuggestion(
+				CompanionAction.collect(4151, "Abyssal whip", 3, 2,
+						"Collect your Abyssal whip", "Your buy offer has finished."));
+
+		assertEquals(com.flippingfriend.model.SuggestionType.COLLECT, suggestion.getType());
+		assertEquals(4151, suggestion.getItemId());
+		assertEquals("Abyssal whip", suggestion.getItemName());
+		assertEquals(3, suggestion.getSlot());
+		assertEquals(2, suggestion.getQuantity());
+		assertEquals("Collect your Abyssal whip", suggestion.getHeadline());
+		assertEquals("Your buy offer has finished.", suggestion.getDetail());
+	}
+
+	@Test
+	public void waitingAndMalformedActionsFallBackToTheBuiltInEngine()
+	{
+		assertNull(CompanionClient.toSuggestion(null));
+		assertNull(CompanionClient.toSuggestion(
+				CompanionAction.waiting("Nothing to do", "No collectable offer.")));
+		assertNull(CompanionClient.toSuggestion(
+				CompanionAction.collect(0, "Invalid", 3, 1, "Collect", "Invalid item.")));
+		assertNull(CompanionClient.toSuggestion(
+				CompanionAction.collect(4151, "Abyssal whip", -1, 1, "Collect", "Invalid slot.")));
+	}
+
+	@Test
+	public void zeroQuantityCollectActionRemainsValid()
+	{
+		com.flippingfriend.model.Suggestion suggestion = CompanionClient.toSuggestion(
+				CompanionAction.collect(561, "Nature rune", 4, 0,
+						"Collect your Nature rune", "Collect your returned coins."));
+
+		assertEquals(com.flippingfriend.model.SuggestionType.COLLECT, suggestion.getType());
+		assertEquals(0, suggestion.getQuantity());
+		assertEquals(4, suggestion.getSlot());
+	}
+
 }
