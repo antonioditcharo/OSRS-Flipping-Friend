@@ -50,6 +50,13 @@ public class SuggestionLedger
 	public synchronized void recorded(String recommendationId, int itemId, boolean buying, int price,
 		int quantity, long quoteAgeSeconds, double predictedMinutes)
 	{
+		recorded(recommendationId, itemId, buying, price, quantity, quoteAgeSeconds,
+			predictedMinutes, 0);
+	}
+
+	public synchronized void recorded(String recommendationId, int itemId, boolean buying, int price,
+		int quantity, long quoteAgeSeconds, double predictedMinutes, double predictedCompletion)
+	{
 		if (recommendationId == null || recommendationId.isEmpty() || itemId <= 0)
 		{
 			return;
@@ -74,7 +81,7 @@ public class SuggestionLedger
 			? previous.suggestedAt
 			: now;
 		outstanding.put(key, new Advice(recommendationId, price, quantity,
-			quoteAgeSeconds, predictedMinutes, since));
+			quoteAgeSeconds, predictedMinutes, predictedCompletion, since));
 	}
 
 	/** The advice this offer most plausibly acts on, or null when the player acted unprompted. */
@@ -117,15 +124,17 @@ public class SuggestionLedger
 		private final int quantity;
 		private final long quoteAgeSeconds;
 		private final double predictedMinutes;
+		private final double predictedCompletion;
 		private final long suggestedAt;
 		Advice(String recommendationId, int price, int quantity, long quoteAgeSeconds,
-			double predictedMinutes, long suggestedAt)
+			double predictedMinutes, double predictedCompletion, long suggestedAt)
 		{
 			this.recommendationId = recommendationId;
 			this.price = price;
 			this.quantity = quantity;
 			this.quoteAgeSeconds = quoteAgeSeconds;
 			this.predictedMinutes = predictedMinutes;
+			this.predictedCompletion = predictedCompletion;
 			this.suggestedAt = suggestedAt;
 		}
 
@@ -140,6 +149,7 @@ public class SuggestionLedger
 		public int getQuantity() { return quantity; }
 		public long getQuoteAgeSeconds() { return quoteAgeSeconds; }
 		public double getPredictedMinutes() { return predictedMinutes; }
+		public double getPredictedCompletion() { return predictedCompletion; }
 		public long getSuggestedAt() { return suggestedAt; }
 	}
 }

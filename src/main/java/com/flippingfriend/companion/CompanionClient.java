@@ -166,7 +166,8 @@ public class CompanionClient
 		if (advice != null)
 		{
 			event.recommendation(advice.getRecommendationId(), advice.getPrice(), advice.getQuantity(),
-				advice.getQuoteAgeSeconds(), advice.getPredictedMinutes(), 0.0);
+				advice.getQuoteAgeSeconds(), advice.getPredictedMinutes(),
+				advice.getPredictedCompletion());
 		}
 		post("events/ge-offer", event.build());
 	}
@@ -264,7 +265,8 @@ public class CompanionClient
 			long quoteAge = Math.max(0, Instant.now().getEpochSecond() - plan.getCreatedAt());
 			ledger.recorded(plan.getCorrelationId(), candidate.getItemId(), true,
 				candidate.getBuyPrice(), candidate.getQuantity(), quoteAge,
-				candidate.getBuyHours() * 60);
+				candidate.getBuyHours() * 60,
+				candidate.getDisplayCompletionProbability());
 
 			Suggestion suggestion = Suggestion.builder(SuggestionType.BUY)
 				.item(candidate.getItemId(), candidate.getItemName())
