@@ -171,8 +171,6 @@ public class FlippingFriendPlugin extends Plugin
 	@Inject
 	private FlippingFriendPanel panel;
 
-	@Inject
-
 	private NavigationButton navigationButton;
 	private ExecutorService worker;
 	private boolean drawdownAlerted = false;
