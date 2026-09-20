@@ -33,7 +33,7 @@ public class SuggestionLedgerTest
 	@Test
 	public void attributesAnOfferToTheAdviceThatPromptedIt()
 	{
-		ledger.recorded("plan-7", 4151, true, 1_000_000, 5, 12, 12.0);
+		ledger.recorded("plan-7", 4151, true, 1_000_000, 5, 12, 12.0, 0.71);
 
 		SuggestionLedger.Advice advice = ledger.attribute(4151, true, now());
 		assertNotNull(advice);
@@ -43,6 +43,8 @@ public class SuggestionLedgerTest
 		assertEquals(12, advice.getQuoteAgeSeconds());
 		assertEquals("the prediction must survive, or the outcome cannot be scored against it",
 			12.0, advice.getPredictedMinutes(), 1e-9);
+		assertEquals("the completion claim must survive with the duration",
+			0.71, advice.getPredictedCompletion(), 1e-9);
 	}
 
 	@Test
