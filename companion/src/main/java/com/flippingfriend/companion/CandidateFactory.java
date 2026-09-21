@@ -324,6 +324,20 @@ final class CandidateFactory
 	}
 
 	/**
+	 * Runs the production generation path without the final per-item trim. Diagnostics only.
+	 * Production callers must continue through {@link #build(MarketIngestionService.MarketState,
+	 * double, Map, long, boolean, Instant)}.
+	 */
+	List<PortfolioCandidate> buildForDiagnostics(MarketIngestionService.MarketState market,
+		double horizonHours, Map<Integer, Integer> buyLimitRemaining, long spendableCoins,
+		boolean members, Instant now)
+	{
+		resolveExemptions(market.mapping.values());
+		return build(quotedUniverse(market), horizonHours, buyLimitRemaining, spendableCoins,
+			members, now, Integer.MAX_VALUE);
+	}
+
+	/**
 	 * The shared decision path, over a universe of items that already have quotes attached.
 	 * <p>
 	 * Live planning reaches this by unpacking the wiki's JSON; replay reaches it by reading bars out
@@ -342,6 +356,22 @@ final class CandidateFactory
 	 */
 	List<PortfolioCandidate> build(Collection<QuotedItem> universe, double horizonHours,
 		Map<Integer, Integer> buyLimitRemaining, long spendableCoins, boolean members, Instant now)
+	{
+		return build(universe, horizonHours, buyLimitRemaining, spendableCoins, members, now,
+			TACTICS_PER_ITEM);
+	}
+
+	/** Runs the shared production generation path without the final per-item trim. Diagnostics only. */
+	List<PortfolioCandidate> buildForDiagnostics(Collection<QuotedItem> universe, double horizonHours,
+		Map<Integer, Integer> buyLimitRemaining, long spendableCoins, boolean members, Instant now)
+	{
+		return build(universe, horizonHours, buyLimitRemaining, spendableCoins, members, now,
+			Integer.MAX_VALUE);
+	}
+
+	private List<PortfolioCandidate> build(Collection<QuotedItem> universe, double horizonHours,
+		Map<Integer, Integer> buyLimitRemaining, long spendableCoins, boolean members, Instant now,
+		int tacticsPerItem)
 	{
 		this.membersAccount = members;
 		lastVeto.clear();
@@ -365,7 +395,8 @@ final class CandidateFactory
 
 		itemsAnalysed.set(shortlist.size());
 		List<PortfolioCandidate> candidates = shortlist.parallelStream()
-			.flatMap(screened -> tacticsFor(screened, horizonHours, spendableCoins, now).stream())
+			.flatMap(screened -> tacticsFor(screened, horizonHours, spendableCoins, now,
+				tacticsPerItem).stream())
 			.collect(java.util.stream.Collectors.toList());
 
 		return candidates;
@@ -561,7 +592,7 @@ final class CandidateFactory
 
 	/** The expensive pass: real history, real vetoes, real fill estimates. */
 	private List<PortfolioCandidate> tacticsFor(Screened screened, double horizonHours,
-		long spendableCoins, Instant now)
+		long spendableCoins, Instant now, int tacticsPerItem)
 	{
 		int itemId = screened.item.id;
 		List<Candle> shortSeries = series.series(itemId, shortStep);
@@ -746,7 +777,8 @@ final class CandidateFactory
 					+ "given. A longer \"how long a flip should take\" would let it through."
 				: "No price and size combination is expected to profit.");
 		}
-		return tactics.size() > TACTICS_PER_ITEM ? tactics.subList(0, TACTICS_PER_ITEM) : tactics;
+		return tactics.size() > tacticsPerItem
+			? tactics.subList(0, tacticsPerItem) : tactics;
 	}
 
 	/**
