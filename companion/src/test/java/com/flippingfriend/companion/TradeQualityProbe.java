@@ -54,7 +54,7 @@ public class TradeQualityProbe
 			snap.getAsJsonObject("latest"), snap.getAsJsonObject("fiveMinute"),
 			snap.getAsJsonObject("hourly"), snap.get("observedAt").getAsLong());
 
-		SeriesCache series = new SeriesCache(root.resolve("series-cache.json.gz"));
+		SeriesSource series = capturedSeries(root.resolve("series-cache.json.gz"));
 		CandidateFactory factory = new CandidateFactory(series);
 		// Match the live account, which runs at the boldest level: capture share 0.85, four-hour
 		// horizon. The default is BALANCED, and measuring sizing against a different appetite than
@@ -63,6 +63,27 @@ public class TradeQualityProbe
 
 		List<PortfolioCandidate> tactics = factory.build(market, HORIZON, new HashMap<>(), COINS,
 			true, Instant.ofEpochSecond(snap.get("observedAt").getAsLong()));
+
+		Path evidence = root.resolve("flipping-friend-evidence.db");
+		if (Files.isRegularFile(evidence))
+		{
+			FillCalibration calibration;
+			try (SqliteStore store = SqliteStore.openReadOnly(evidence))
+			{
+				calibration = FillCalibration.from(store.executionStats());
+			}
+
+			CandidateFactory calibratedFactory = new CandidateFactory(series);
+			calibratedFactory.setRiskAppetite(
+					com.flippingfriend.model.RiskAppetite.AGGRESSIVE);
+			calibratedFactory.setCalibration(calibration);
+
+			List<PortfolioCandidate> calibrated = calibratedFactory.build(
+					market, HORIZON, new HashMap<>(), COINS, true,
+					Instant.ofEpochSecond(snap.get("observedAt").getAsLong()));
+
+			printCalibrationComparison(tactics, calibrated, calibration);
+		}
 
 		System.out.println("=== funnel ===");
 		PlanDiagnostics funnel = factory.lastFunnel(tactics.size(), COINS);
@@ -284,6 +305,110 @@ public class TradeQualityProbe
 			}
 		}
 		System.out.println(distinct.size() + " items, " + tactics.size() + " tactics");
+	}
+
+	/** Captured histories as they existed at capture time, without live cache expiry. */
+	private static SeriesSource capturedSeries(Path path) throws Exception
+	{
+		Map<String, List<com.flippingfriend.data.Candle>> captured = new HashMap<>();
+		try (java.io.Reader reader = new java.io.InputStreamReader(
+				new java.util.zip.GZIPInputStream(Files.newInputStream(path)),
+				StandardCharsets.UTF_8))
+		{
+			JsonObject root = JsonParser.parseReader(reader).getAsJsonObject();
+			for (com.google.gson.JsonElement element : root.getAsJsonArray("entries"))
+			{
+				JsonObject stored = element.getAsJsonObject();
+				String key = stored.get("key").getAsString();
+				List<com.flippingfriend.data.Candle> candles = new ArrayList<>();
+				for (com.google.gson.JsonElement barElement : stored.getAsJsonArray("data"))
+				{
+					JsonObject bar = barElement.getAsJsonObject();
+					candles.add(new com.flippingfriend.data.Candle(
+							bar.get("timestamp").getAsLong(),
+							nullableInt(bar, "avgHighPrice"),
+							nullableInt(bar, "avgLowPrice"),
+							num(bar, "highPriceVolume"),
+							num(bar, "lowPriceVolume")));
+				}
+				captured.put(key, java.util.Collections.unmodifiableList(candles));
+			}
+		}
+
+		return (itemId, timestep) -> captured.getOrDefault(
+				itemId + "@" + timestep, java.util.Collections.emptyList());
+	}
+
+	private static Integer nullableInt(JsonObject object, String field)
+	{
+		return object.has(field) && !object.get(field).isJsonNull()
+				? object.get(field).getAsInt() : null;
+	}
+
+	private static void printCalibrationComparison(
+			List<PortfolioCandidate> neutral,
+			List<PortfolioCandidate> calibrated,
+			FillCalibration calibration)
+	{
+		List<PortfolioCandidate> neutralRanked = new ArrayList<>(neutral);
+		List<PortfolioCandidate> calibratedRanked = new ArrayList<>(calibrated);
+		Comparator<PortfolioCandidate> rank = Comparator
+				.comparingDouble(PortfolioCandidate::expectedGpPerSlotHour)
+				.reversed();
+		neutralRanked.sort(rank);
+		calibratedRanked.sort(rank);
+
+		Map<String, PortfolioCandidate> neutralByTactic = new HashMap<>();
+		Map<String, Integer> neutralRanks = new HashMap<>();
+		for (int i = 0; i < neutralRanked.size(); i++)
+		{
+			PortfolioCandidate candidate = neutralRanked.get(i);
+			String key = tacticKey(candidate);
+			neutralByTactic.put(key, candidate);
+			neutralRanks.put(key, i + 1);
+		}
+
+		System.out.println();
+		System.out.println(
+				"=== neutral versus production-calibrated ranking ===");
+		System.out.printf(
+				"production calibration: %.2fx overall, %d item corrections%n",
+				calibration.overall(), calibration.itemsLearned());
+		System.out.printf(
+				"%-4s %-4s %-26s %6s %8s %8s %10s %10s%n",
+				"cal", "raw", "item", "qty", "rawSlot", "calSlot",
+				"raw GP/h", "cal GP/h");
+
+		int shown = Math.min(20, calibratedRanked.size());
+		for (int i = 0; i < shown; i++)
+		{
+			PortfolioCandidate adjusted = calibratedRanked.get(i);
+			String key = tacticKey(adjusted);
+			PortfolioCandidate raw = neutralByTactic.get(key);
+			Integer rawRank = neutralRanks.get(key);
+
+			System.out.printf(
+					"%4d %4s %-26s %6d %8s %8.2f %10s %10.0f%n",
+					i + 1,
+					rawRank == null ? "-" : rawRank.toString(),
+					trim(adjusted.getItemName()),
+					adjusted.getQuantity(),
+					raw == null
+							? "-"
+							: String.format("%.2f", raw.expectedSlotHours()),
+					adjusted.expectedSlotHours(),
+					raw == null
+							? "-"
+							: String.format(
+									"%.0f", raw.expectedGpPerSlotHour()),
+					adjusted.expectedGpPerSlotHour());
+		}
+	}
+
+	private static String tacticKey(PortfolioCandidate candidate)
+	{
+		return candidate.getItemId() + ":" + candidate.getBuyPrice() + ":"
+				+ candidate.getSellPrice() + ":" + candidate.getQuantity();
 	}
 
 	private static String trim(String s)
