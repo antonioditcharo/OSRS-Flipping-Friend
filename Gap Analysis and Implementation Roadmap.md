@@ -1,5 +1,7 @@
 An analysis of your codebase reveals an exceptionally well-engineered foundation. Unlike amateur flipping scripts that merely sort by spread, your architecture features an isolated microservice architecture (\`ApiServer\` loopback daemon), robust statistics (MAD, log-return volatility, linear slope), authentic Grand Exchange mechanics (anchored 4-hour buy-limit tracking, 2% tax rounding with floors/caps and exemption registries), and a combinatorial branch-and-bound knapsack optimizer targeting net GP per slot-hour.
 
+> **Historical document, retained for evidence only.** This file records an earlier audit or planning state. It is not current implementation authority. Current supported components are documented in [`docs/architecture/supported-components.md`](docs/architecture/supported-components.md), and architectural sequencing is governed by the approved Copilot rebuild roadmap. Proposals here for game-input automation, placeholder ONNX models, Python network services, separate dashboard services, or retired daemon, trainer, replay, and monitor entry points must not be treated as active instructions.
+
 However, a significant gap separates this solid analytical core from an autonomous, market-dominating tool that outperforms platforms like Co-Flipper, GE-Tracker, and Flipping Utilities.
 
 \---

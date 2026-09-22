@@ -1,5 +1,7 @@
 # Gap Analysis — 2 September 2026
 
+> **Historical document, retained for evidence only.** This file records an earlier audit or planning state. It is not current implementation authority. Current supported components are documented in [`docs/architecture/supported-components.md`](docs/architecture/supported-components.md), and architectural sequencing is governed by the approved Copilot rebuild roadmap. Proposals here for game-input automation, placeholder ONNX models, Python network services, separate dashboard services, or retired daemon, trainer, replay, and monitor entry points must not be treated as active instructions.
+
 Working checklist. Full reasoning, evidence and reference tables are in the published
 audit page (see the Claude conversation for the link).
 

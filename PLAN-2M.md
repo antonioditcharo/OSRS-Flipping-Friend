@@ -1,5 +1,7 @@
 # Plan: 2M gp/hour on a 100M bankroll
 
+> **Historical document, retained for evidence only.** This file records an earlier audit or planning state. It is not current implementation authority. Current supported components are documented in [`docs/architecture/supported-components.md`](docs/architecture/supported-components.md), and architectural sequencing is governed by the approved Copilot rebuild roadmap. Proposals here for game-input automation, placeholder ONNX models, Python network services, separate dashboard services, or retired daemon, trainer, replay, and monitor entry points must not be treated as active instructions.
+
 ## The finding that reframes everything
 
 I measured what actually limits trade size at a 100M bank, across every liquid item
