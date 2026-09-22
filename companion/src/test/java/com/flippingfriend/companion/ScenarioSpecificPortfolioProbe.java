@@ -65,16 +65,16 @@ public class ScenarioSpecificPortfolioProbe
     {
         String dir = System.getProperty("probe.dir");
         Assume.assumeTrue("set -Dprobe.dir to run this probe", dir != null);
-        Path root = Paths.get(dir);
-        Path evidence = root.resolve("flipping-friend-evidence.db");
-        Assume.assumeTrue("evidence database is required", Files.isRegularFile(evidence));
+        DiagnosticCapturePreflight.Capture capture =
+                DiagnosticCapturePreflight.requireAuthoritative(Paths.get(dir));
+        Path evidence = capture.evidence();
 
-        JsonObject snap = read(root.resolve("snap.json"));
-        Map<Integer, MarketIngestionService.Item> mapping = mapping(root.resolve("mapping.json"));
+        JsonObject snap = read(capture.snap());
+        Map<Integer, MarketIngestionService.Item> mapping = mapping(capture.mapping());
         MarketIngestionService.MarketState market = new MarketIngestionService.MarketState(mapping,
                 snap.getAsJsonObject("latest"), snap.getAsJsonObject("fiveMinute"),
                 snap.getAsJsonObject("hourly"), snap.get("observedAt").getAsLong());
-        SeriesSource series = capturedSeries(root.resolve("series-cache.json.gz"));
+        SeriesSource series = capturedSeries(capture.seriesCache());
         Instant observedAt = Instant.ofEpochSecond(snap.get("observedAt").getAsLong());
 
         Map<Integer, SqliteStore.ExecutionStat> productionStats;
