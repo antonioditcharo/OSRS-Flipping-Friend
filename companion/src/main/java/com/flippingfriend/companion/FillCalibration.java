@@ -69,11 +69,55 @@ final class FillCalibration
 
 	private final Map<Integer, Double> byItem;
 	private final double global;
+	private final double minimum;
+	private final double maximum;
 
 	private FillCalibration(Map<Integer, Double> byItem, double global)
 	{
+		this(byItem, global, MIN_MULTIPLIER, MAX_MULTIPLIER);
+	}
+
+	private FillCalibration(Map<Integer, Double> byItem, double global,
+			double minimum, double maximum)
+	{
 		this.byItem = byItem;
 		this.global = global;
+		this.minimum = minimum;
+		this.maximum = maximum;
+	}
+
+	/**
+	 * Constructs an explicitly bounded calibration for diagnostic generation only.
+	 *
+	 * <p>This does not alter the production bounds used by {@link #from(Map)}. It exists so
+	 * package-local probes can pass a named scenario through the real candidate-generation path
+	 * instead of duplicating that path or mutating production constants.
+	 */
+	static FillCalibration forDiagnostics(Map<Integer, Double> byItem, double global,
+			double minimum, double maximum)
+	{
+		if (!Double.isFinite(global) || Double.isNaN(minimum) || Double.isNaN(maximum)
+				|| minimum < 0 || maximum < minimum)
+		{
+			throw new IllegalArgumentException("invalid diagnostic calibration bounds");
+		}
+
+		Map<Integer, Double> copy = new HashMap<>();
+		if (byItem != null)
+		{
+			for (Map.Entry<Integer, Double> entry : byItem.entrySet())
+			{
+				if (entry.getKey() == null || entry.getValue() == null
+						|| !Double.isFinite(entry.getValue()))
+				{
+					throw new IllegalArgumentException(
+							"diagnostic calibration entries must be finite");
+				}
+				copy.put(entry.getKey(), entry.getValue());
+			}
+		}
+
+		return new FillCalibration(Collections.unmodifiableMap(copy), global, minimum, maximum);
 	}
 
 	/**
@@ -136,7 +180,7 @@ final class FillCalibration
 	double waitMultiplier(int itemId)
 	{
 		Double own = byItem.get(itemId);
-		return clamp(own != null ? own : global);
+		return bounded(own != null ? own : global);
 	}
 
 	/** How many items carry a correction of their own, for reporting. */
@@ -148,7 +192,13 @@ final class FillCalibration
 	/** The account-wide bias, for reporting. */
 	double overall()
 	{
-		return clamp(global);
+		return bounded(global);
+	}
+
+	private double bounded(double multiplier)
+	{
+		return multiplier < minimum ? minimum
+				: multiplier > maximum ? maximum : multiplier;
 	}
 
 	/**
