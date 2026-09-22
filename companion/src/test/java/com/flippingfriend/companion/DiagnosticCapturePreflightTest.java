@@ -1,5 +1,6 @@
 package com.flippingfriend.companion;
 
+import com.google.gson.JsonObject;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
@@ -18,6 +19,52 @@ public class DiagnosticCapturePreflightTest
 {
     @Rule
     public final TemporaryFolder temporary = new TemporaryFolder();
+
+    @Test
+    public void validatesEveryFileIdentityFromTheManifest() throws Exception
+    {
+        Fixture fixture = fixture();
+        DiagnosticCaptureManifest manifest = writeManifest(fixture, null, null);
+
+        DiagnosticCapturePreflight.Capture capture =
+                DiagnosticCapturePreflight.validate(fixture.root, manifest);
+
+        assertEquals(fixture.evidence, capture.evidence());
+        assertEquals(fixture.root.resolve("snap.json"), capture.snap());
+        assertEquals(fixture.root.resolve("mapping.json"), capture.mapping());
+        assertEquals(fixture.root.resolve("series-cache.json.gz"), capture.seriesCache());
+    }
+
+    @Test
+    public void rejectsAManifestWithTheWrongSupportingFileIdentity() throws Exception
+    {
+        Fixture fixture = fixture();
+        DiagnosticCaptureManifest manifest = writeManifest(
+                fixture, DiagnosticCaptureManifest.SNAP_NAME,
+                "0000000000000000000000000000000000000000000000000000000000000000");
+
+        expectFailure("snap.json SHA-256 mismatch", () ->
+                DiagnosticCapturePreflight.validate(fixture.root, manifest));
+    }
+
+    @Test
+    public void authoritativeEntryPointRequiresTheManifest() throws Exception
+    {
+        Fixture fixture = fixture();
+
+        expectFailure("manifest is not a regular file", () ->
+                DiagnosticCapturePreflight.requireAuthoritative(fixture.root));
+    }
+
+    @Test
+    public void authoritativeEntryPointRejectsAnotherDatabaseIdentity() throws Exception
+    {
+        Fixture fixture = fixture();
+        writeManifest(fixture, null, null);
+
+        expectFailure("manifest does not identify the authoritative evidence database", () ->
+                DiagnosticCapturePreflight.requireAuthoritative(fixture.root));
+    }
 
     @Test
     public void acceptsACompleteReadOnlyCaptureContract() throws Exception
@@ -153,6 +200,40 @@ public class DiagnosticCapturePreflightTest
                 evidence,
                 Files.size(evidence),
                 DiagnosticCapturePreflight.sha256(evidence));
+    }
+
+    private static DiagnosticCaptureManifest writeManifest(Fixture fixture,
+            String replacedHashName, String replacementHash) throws Exception
+    {
+        JsonObject root = new JsonObject();
+        root.addProperty("formatVersion", 1);
+        root.addProperty("captureId", "fixture-capture");
+        root.addProperty("requireSidecarsAbsent", true);
+
+        JsonObject files = new JsonObject();
+        addIdentity(files, fixture.evidence, DiagnosticCaptureManifest.DATABASE_NAME,
+                replacedHashName, replacementHash);
+        addIdentity(files, fixture.root.resolve(DiagnosticCaptureManifest.SNAP_NAME),
+                DiagnosticCaptureManifest.SNAP_NAME, replacedHashName, replacementHash);
+        addIdentity(files, fixture.root.resolve(DiagnosticCaptureManifest.MAPPING_NAME),
+                DiagnosticCaptureManifest.MAPPING_NAME, replacedHashName, replacementHash);
+        addIdentity(files, fixture.root.resolve(DiagnosticCaptureManifest.SERIES_NAME),
+                DiagnosticCaptureManifest.SERIES_NAME, replacedHashName, replacementHash);
+        root.add("files", files);
+
+        Path path = fixture.root.resolve(DiagnosticCaptureManifest.MANIFEST_NAME);
+        Files.write(path, root.toString().getBytes(StandardCharsets.UTF_8));
+        return DiagnosticCaptureManifest.read(path);
+    }
+
+    private static void addIdentity(JsonObject files, Path path, String name,
+            String replacedHashName, String replacementHash) throws Exception
+    {
+        JsonObject identity = new JsonObject();
+        identity.addProperty("size", Files.size(path));
+        identity.addProperty("sha256", name.equals(replacedHashName)
+                ? replacementHash : DiagnosticCapturePreflight.sha256(path));
+        files.add(name, identity);
     }
 
     private static void writeGzip(Path path, String text) throws Exception
