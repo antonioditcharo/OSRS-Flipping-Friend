@@ -11,6 +11,12 @@
 
 The supplied source bundle identifies branch `claude/plugin-trade-recommendations-profit-a27519` at commit `5ff3fa8`. The current snapshot is therefore a different revision. Package 1.7 removes that embedded source dump because it is generated reference material, not current source.
 
+## Phase 1 closure audit status
+
+The baseline section below records the original inventory point and is retained as history. The Phase 1 closure audit baseline is `CoPilot's-Rebuild-from-Main` at `356614f23810d61be3e39400e545e6ec9cb7ab62`. The supported clean build has passed 109 suites and 564 tests with 0 failures, 0 errors, and 6 expected capture-dependent skips. The supported production artifact surface remains the RuneLite plugin JAR and Java companion JAR listed below.
+
+Phase 1 closure auditing found no active game-input automation, no application listener beyond loopback, no production path for the retired placeholder ONNX or Python-forecaster surfaces, and no operational launcher targeting a missing component. The `backtest` task remains developer-only candidate-level historical replay and is not a production artifact or full final-portfolio evaluation.
+
 ## Supported production components
 
 1. **RuneLite plugin**: root project. Observes game state and presents guidance.

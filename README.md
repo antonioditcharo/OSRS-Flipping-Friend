@@ -135,11 +135,11 @@ uses two of them:
 | `6h` | ~91 days | *available, not yet used* |
 | `24h` | ~364 days | *available, not yet used* |
 
-Run `gradlew backtest` to replay real price history through the same decision code and see how the
-profiles compare. Its numbers are optimistic — it can see which prices traded but not the queue
-behind them — so use it to compare settings, not to predict profit. `gradlew backtest -PnoContext=true`
-re-runs it with the fortnight model switched off, against the same cached data, to measure what that
-model is actually contributing.
+Run `gradlew backtest` for developer-only, candidate-level historical replay through the companion's
+`CandidateFactory`. It does not reproduce final portfolio selection or live queue position. Its numbers
+are optimistic because it can see which prices traded but not the queue behind them, so use it to compare
+candidate-generation settings rather than to predict profit. `gradlew backtest -PnoContext=true` re-runs
+the replay with the fortnight context model switched off against the same cached data.
 
 ---
 
