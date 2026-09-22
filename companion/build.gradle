@@ -93,3 +93,25 @@ tasks.register('writeDiagnosticCaptureManifest', JavaExec) {
         args captureDir, captureId
     }
 }
+
+/**
+ * Explicitly verifies an authoritative manifest-backed diagnostic capture.
+ * This task is never attached to the normal build or test lifecycle.
+ */
+tasks.register('verifyDiagnosticCapture', JavaExec) {
+    group = 'verification'
+    description = 'Verifies an authoritative manifest-backed diagnostic capture.'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.flippingfriend.companion.DiagnosticCaptureVerifier'
+
+    doFirst {
+        String captureDir = System.getProperty('capture.dir')
+
+        if (captureDir == null || captureDir.trim().isEmpty()) {
+            throw new GradleException('capture.dir is required')
+        }
+
+        args captureDir
+    }
+}
