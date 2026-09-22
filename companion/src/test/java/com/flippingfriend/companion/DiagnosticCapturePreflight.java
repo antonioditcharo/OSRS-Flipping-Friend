@@ -35,7 +35,64 @@ final class DiagnosticCapturePreflight
 
     static Capture requireAuthoritative(Path root) throws Exception
     {
-        return validate(root, AUTHORITATIVE_DATABASE_SIZE, AUTHORITATIVE_DATABASE_SHA256);
+        if (root == null)
+        {
+            throw new IllegalArgumentException("capture directory is required");
+        }
+        Path normalized = root.toAbsolutePath().normalize();
+        if (!Files.isDirectory(normalized))
+        {
+            throw new IllegalArgumentException("capture directory is not a directory: " + root);
+        }
+
+        DiagnosticCaptureManifest manifest = DiagnosticCaptureManifest.read(
+                normalized.resolve(DiagnosticCaptureManifest.MANIFEST_NAME));
+        DiagnosticCaptureManifest.FileIdentity database =
+                manifest.file(DiagnosticCaptureManifest.DATABASE_NAME);
+        if (database.size() != AUTHORITATIVE_DATABASE_SIZE
+                || !database.sha256().equals(AUTHORITATIVE_DATABASE_SHA256))
+        {
+            throw new IllegalArgumentException(
+                    "manifest does not identify the authoritative evidence database");
+        }
+        return validate(normalized, manifest);
+    }
+
+    static Capture validate(Path root, DiagnosticCaptureManifest manifest) throws Exception
+    {
+        if (root == null)
+        {
+            throw new IllegalArgumentException("capture directory is required");
+        }
+        if (manifest == null)
+        {
+            throw new IllegalArgumentException("capture manifest is required");
+        }
+        if (!Files.isDirectory(root))
+        {
+            throw new IllegalArgumentException("capture directory is not a directory: " + root);
+        }
+
+        Path normalized = root.toAbsolutePath().normalize();
+        Path evidence = validateIdentity(normalized,
+                manifest.file(DiagnosticCaptureManifest.DATABASE_NAME));
+        Path snap = validateIdentity(normalized,
+                manifest.file(DiagnosticCaptureManifest.SNAP_NAME));
+        Path mapping = validateIdentity(normalized,
+                manifest.file(DiagnosticCaptureManifest.MAPPING_NAME));
+        Path series = validateIdentity(normalized,
+                manifest.file(DiagnosticCaptureManifest.SERIES_NAME));
+
+        rejectSidecar(evidence.resolveSibling(evidence.getFileName() + "-wal"), "WAL");
+        rejectSidecar(evidence.resolveSibling(evidence.getFileName() + "-shm"), "SHM");
+        rejectSidecar(evidence.resolveSibling(evidence.getFileName() + "-journal"), "journal");
+
+        validateSnapshot(snap);
+        validateMapping(mapping);
+        validateSeries(series);
+
+        return new Capture(normalized, evidence, snap, mapping, series,
+                Files.size(evidence), sha256(evidence));
     }
 
     static Capture validate(Path root, long expectedDatabaseSize, String expectedDatabaseSha256)
@@ -113,6 +170,31 @@ final class DiagnosticCapturePreflight
             hex.append(String.format(Locale.ROOT, "%02X", value & 0xff));
         }
         return hex.toString();
+    }
+
+    private static Path validateIdentity(Path root,
+            DiagnosticCaptureManifest.FileIdentity identity) throws Exception
+    {
+        Path path = requiredRegularFile(root.resolve(identity.name()).normalize());
+        if (!path.getParent().equals(root))
+        {
+            throw new IllegalStateException("capture file escapes its root: " + identity.name());
+        }
+
+        long actualSize = Files.size(path);
+        if (actualSize != identity.size())
+        {
+            throw new IllegalStateException(identity.name() + " size mismatch: expected "
+                    + identity.size() + " bytes but found " + actualSize);
+        }
+
+        String actualSha256 = sha256(path);
+        if (!actualSha256.equals(identity.sha256()))
+        {
+            throw new IllegalStateException(identity.name() + " SHA-256 mismatch: expected "
+                    + identity.sha256() + " but found " + actualSha256);
+        }
+        return path;
     }
 
     private static Path requiredRegularFile(Path path) throws Exception
