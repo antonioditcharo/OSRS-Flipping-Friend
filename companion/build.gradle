@@ -66,3 +66,30 @@ tasks.named('test') {
         testLogging { showStandardStreams = true }
     }
 }
+
+
+/**
+ * Explicitly writes a new version-one manifest beside an existing diagnostic capture.
+ * This task is never attached to the normal build or test lifecycle.
+ */
+tasks.register('writeDiagnosticCaptureManifest', JavaExec) {
+    group = 'verification'
+    description = 'Writes a new diagnostic capture manifest after validating fixed capture files.'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.flippingfriend.companion.DiagnosticCaptureManifestWriter'
+
+    doFirst {
+        String captureDir = System.getProperty('capture.dir')
+        String captureId = System.getProperty('capture.id')
+
+        if (captureDir == null || captureDir.trim().isEmpty()) {
+            throw new GradleException('capture.dir is required')
+        }
+        if (captureId == null || captureId.trim().isEmpty()) {
+            throw new GradleException('capture.id is required')
+        }
+
+        args captureDir, captureId
+    }
+}
