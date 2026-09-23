@@ -17,6 +17,7 @@ import java.util.Map;
 /** The companion is the sole writer of durable portfolio and telemetry state. */
 final class SqliteStore implements AutoCloseable
 {
+	enum EventAcceptance { NEW, DUPLICATE }
 	/**
 	 * How much of a model payload to read back when only its name is wanted.
 	 * <p>
@@ -61,7 +62,7 @@ final class SqliteStore implements AutoCloseable
 		{
 			statement.execute("PRAGMA journal_mode=WAL");
 			statement.execute("PRAGMA foreign_keys=ON");
-			statement.execute("CREATE TABLE IF NOT EXISTS event_log (id INTEGER PRIMARY KEY, observed_at INTEGER NOT NULL, correlation_id TEXT NOT NULL, event_type TEXT NOT NULL, payload TEXT NOT NULL)");
+			statement.execute("CREATE TABLE IF NOT EXISTS event_log (id INTEGER PRIMARY KEY, observed_at INTEGER NOT NULL, correlation_id TEXT NOT NULL, event_id TEXT, event_type TEXT NOT NULL, payload TEXT NOT NULL)");
 			// market_observation is not created any more, and is dropped below if an older database
 			// still has it. Nothing ever read a row from it: every SELECT in all three modules is
 			// nine queries and none name the table.
@@ -73,6 +74,18 @@ final class SqliteStore implements AutoCloseable
 			statement.execute("CREATE TABLE IF NOT EXISTS counted_offer (identity TEXT PRIMARY KEY, counted_at INTEGER NOT NULL)");
 		}
 
+		if (!hasColumn("event_log", "event_id"))
+		{
+			try (Statement statement = connection.createStatement())
+			{
+				statement.execute("ALTER TABLE event_log ADD COLUMN event_id TEXT");
+			}
+		}
+		try (Statement statement = connection.createStatement())
+		{
+			statement.execute("CREATE UNIQUE INDEX IF NOT EXISTS event_log_event_id_unique "
+				+ "ON event_log(event_id) WHERE event_id IS NOT NULL AND event_id <> ''");
+		}
 		// predicted_minutes arrived after the table had already shipped, so databases created by an
 		// earlier build need it bolting on. SQLite has no "add column if missing", and the failure on
 		// a database that already has it is both expected and harmless.
@@ -121,15 +134,34 @@ final class SqliteStore implements AutoCloseable
 		}
 	}
 
+	private boolean hasColumn(String table, String column) throws Exception
+	{
+		try (Statement statement = connection.createStatement();
+			ResultSet rows = statement.executeQuery("PRAGMA table_info(" + table + ")"))
+		{
+			while (rows.next())
+			{
+				if (column.equals(rows.getString("name"))) return true;
+			}
+		}
+		return false;
+	}
 	synchronized void recordEvent(long observedAt, String correlationId, String eventType, String payload) throws Exception
 	{
-		try (PreparedStatement statement = connection.prepareStatement("INSERT INTO event_log(observed_at, correlation_id, event_type, payload) VALUES(?,?,?,?)"))
+		recordEvent(observedAt, correlationId, null, eventType, payload);
+	}
+	synchronized EventAcceptance recordEvent(long observedAt, String correlationId, String eventId,
+		String eventType, String payload) throws Exception
+	{
+		String canonicalId = eventId == null || eventId.trim().isEmpty() ? null : eventId;
+		String sql = canonicalId == null
+			? "INSERT INTO event_log(observed_at, correlation_id, event_id, event_type, payload) VALUES(?,?,?,?,?)"
+			: "INSERT INTO event_log(observed_at, correlation_id, event_id, event_type, payload) VALUES(?,?,?,?,?) ON CONFLICT(event_id) WHERE event_id IS NOT NULL AND event_id <> '' DO NOTHING";
+		try (PreparedStatement statement = connection.prepareStatement(sql))
 		{
-			statement.setLong(1, observedAt);
-			statement.setString(2, correlationId);
-			statement.setString(3, eventType);
-			statement.setString(4, payload);
-			statement.executeUpdate();
+			statement.setLong(1, observedAt); statement.setString(2, correlationId);
+			statement.setString(3, canonicalId); statement.setString(4, eventType); statement.setString(5, payload);
+			return statement.executeUpdate() > 0 ? EventAcceptance.NEW : EventAcceptance.DUPLICATE;
 		}
 	}
 

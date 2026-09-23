@@ -2,6 +2,10 @@ package com.flippingfriend.companion;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.Statement;
 import java.util.Arrays;
 import java.util.List;
 import org.junit.Test;
@@ -105,6 +109,57 @@ public class SqliteStoreTest
 			assertEquals(8, store.modelVersionCount());
 			// Idempotent, so the hourly sweep does no work once it has caught up.
 			assertEquals(0, store.pruneModels(1));
+		}
+	}
+
+	@Test
+	public void canonicalEventsAreAcceptedOnlyOnceAcrossReopen() throws Exception
+	{
+		Path path = database();
+		try (SqliteStore store = new SqliteStore(path))
+		{
+			assertEquals(SqliteStore.EventAcceptance.NEW, store.recordEvent(1, "trace", "event-1", "BOUGHT", "first"));
+			assertEquals(SqliteStore.EventAcceptance.DUPLICATE, store.recordEvent(2, "trace", "event-1", "BOUGHT", "second"));
+			assertEquals(SqliteStore.EventAcceptance.NEW, store.recordEvent(3, "trace", "event-2", "BOUGHT", "third"));
+			assertEquals(Arrays.asList("first", "third"), store.recentOfferEvents(0));
+		}
+		try (SqliteStore reopened = new SqliteStore(path))
+		{
+			assertEquals(SqliteStore.EventAcceptance.DUPLICATE, reopened.recordEvent(4, "trace", "event-1", "BOUGHT", "later"));
+			assertEquals(Arrays.asList("first", "third"), reopened.recentOfferEvents(0));
+		}
+	}
+
+	@Test
+	public void legacyAndBlankEventIdsRemainAppendOnly() throws Exception
+	{
+		try (SqliteStore store = new SqliteStore(database()))
+		{
+			store.recordEvent(1, "legacy", "BOUGHT", "legacy-one"); store.recordEvent(2, "legacy", "BOUGHT", "legacy-two");
+			assertEquals(SqliteStore.EventAcceptance.NEW, store.recordEvent(3, "blank", "   ", "BOUGHT", "blank-one"));
+			assertEquals(SqliteStore.EventAcceptance.NEW, store.recordEvent(4, "blank", "   ", "BOUGHT", "blank-two"));
+			assertEquals(4, store.recentOfferEvents(0).size());
+		}
+	}
+
+	@Test
+	public void legacyDatabaseIsWidenedForCanonicalEventIds() throws Exception
+	{
+		Path path = database(); Files.createDirectories(path.getParent());
+		try (Connection c = DriverManager.getConnection("jdbc:sqlite:" + path.toAbsolutePath()); Statement s = c.createStatement())
+		{
+			s.execute("CREATE TABLE event_log (id INTEGER PRIMARY KEY, observed_at INTEGER NOT NULL, correlation_id TEXT NOT NULL, event_type TEXT NOT NULL, payload TEXT NOT NULL)");
+			s.execute("INSERT INTO event_log(observed_at, correlation_id, event_type, payload) VALUES(1, 'legacy', 'BOUGHT', 'legacy')");
+		}
+		try (SqliteStore store = new SqliteStore(path))
+		{
+			assertEquals(SqliteStore.EventAcceptance.NEW, store.recordEvent(2, "trace", "event-1", "BOUGHT", "canonical"));
+			assertEquals(SqliteStore.EventAcceptance.DUPLICATE, store.recordEvent(3, "trace", "event-1", "BOUGHT", "duplicate"));
+			assertEquals(Arrays.asList("legacy", "canonical"), store.recentOfferEvents(0));
+		}
+		try (Connection c = DriverManager.getConnection("jdbc:sqlite:" + path.toAbsolutePath()); Statement s = c.createStatement(); ResultSet r = s.executeQuery("SELECT event_id FROM event_log WHERE payload='canonical'"))
+		{
+			assertTrue(r.next()); assertEquals("event-1", r.getString(1));
 		}
 	}
 

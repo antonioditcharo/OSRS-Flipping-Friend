@@ -339,8 +339,12 @@ final class CompanionService implements AutoCloseable
 
 	void offer(OfferEvent event) throws Exception
 	{
-		store.recordEvent(event.getObservedAt(), event.getCorrelationId(), event.getEventType(),
-			gson.toJson(event));
+		SqliteStore.EventAcceptance acceptance = store.recordEvent(event.getObservedAt(),
+			event.getCorrelationId(), event.getEventId(), event.getEventType(), gson.toJson(event));
+		if (acceptance == SqliteStore.EventAcceptance.DUPLICATE)
+		{
+			return;
+		}
 		buyLimits.apply(event);
 		activeOffers.apply(event);
 		// Settled offers are the only direct evidence of how our own orders behave in the queue,
