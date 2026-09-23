@@ -18,6 +18,12 @@ public final class OfferEvent
 {
 	private final String schemaVersion;
 	private final String correlationId;
+	/** Stable identity of one logical delivery event, or null for legacy version-one payloads. */
+	private final String eventId;
+	/** Durable ordering scope for event delivery, or null for legacy version-one payloads. */
+	private final String sessionId;
+	/** Stable identity of the observed offer instance, or null when not yet supplied. */
+	private final String offerIdentity;
 	private final long observedAt;
 	private final String eventType;
 	private final int slot;
@@ -56,6 +62,9 @@ public final class OfferEvent
 	{
 		this.schemaVersion = builder.schemaVersion;
 		this.correlationId = builder.correlationId;
+		this.eventId = builder.eventId;
+		this.sessionId = builder.sessionId;
+		this.offerIdentity = builder.offerIdentity;
 		this.observedAt = builder.observedAt;
 		this.eventType = builder.eventType;
 		this.slot = builder.slot;
@@ -83,6 +92,9 @@ public final class OfferEvent
 
 	public String getSchemaVersion() { return schemaVersion; }
 	public String getCorrelationId() { return correlationId; }
+	public String getEventId() { return eventId; }
+	public String getSessionId() { return sessionId; }
+	public String getOfferIdentity() { return offerIdentity; }
 	public long getObservedAt() { return observedAt; }
 	public String getEventType() { return eventType; }
 	public int getSlot() { return slot; }
@@ -135,6 +147,9 @@ public final class OfferEvent
 	{
 		private final String schemaVersion = "1";
 		private final String correlationId;
+		private String eventId;
+		private String sessionId;
+		private String offerIdentity;
 		private final long observedAt;
 		private final String eventType;
 		private int slot;
@@ -161,6 +176,16 @@ public final class OfferEvent
 			this.eventType = eventType;
 		}
 
+		public Builder eventId(String value) { this.eventId = value; return this; }
+		public Builder sessionId(String value) { this.sessionId = value; return this; }
+		public Builder offerIdentity(String value) { this.offerIdentity = value; return this; }
+		public Builder eventIdentity(String eventId, String sessionId, String offerIdentity)
+		{
+			this.eventId = eventId;
+			this.sessionId = sessionId;
+			this.offerIdentity = offerIdentity;
+			return this;
+		}
 		public Builder slot(int value) { this.slot = value; return this; }
 		public Builder item(int id, String name) { this.itemId = id; this.itemName = name; return this; }
 		public Builder buying(boolean value) { this.buying = value; return this; }
