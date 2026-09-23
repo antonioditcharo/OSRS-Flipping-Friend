@@ -86,6 +86,32 @@ public class OfferEventOutboxTest
 		catch (Exception expected) { assertTrue(Files.exists(file)); }
 	}
 
+
+        @Test public void exactAcknowledgementRemovesOnlyTheMatchAcrossRestart() throws Exception
+        {
+                Path root = folder.newFolder("ack").toPath();
+                OfferEventOutbox outbox = new OfferEventOutbox(TestStorage.rootedAt(root, "player"));
+                OfferEvent first = outbox.enqueue((e, s, q) -> event(e, s, q, 561));
+                OfferEvent second = outbox.enqueue((e, s, q) -> event(e, s, q, 4151));
+                assertTrue(outbox.acknowledge(first.getEventId(), first.getSessionId(), first.getSequence()));
+                assertEquals(second.getEventId(), outbox.pending().get(0).getEventId());
+                OfferEventOutbox restarted = new OfferEventOutbox(TestStorage.rootedAt(root, "player"));
+                assertEquals(1, restarted.pending().size());
+                assertEquals(3, restarted.enqueue((e, s, q) -> event(e, s, q, 1603)).getSequence());
+        }
+
+        @Test public void mismatchesAndRepeatedAcknowledgementRemoveNothing() throws Exception
+        {
+                OfferEventOutbox outbox = new OfferEventOutbox(TestStorage.rootedAt(folder.newFolder("mismatch").toPath(), "player"));
+                OfferEvent event = outbox.enqueue((e, s, q) -> event(e, s, q, 561));
+                assertFalse(outbox.acknowledge("wrong", event.getSessionId(), event.getSequence()));
+                assertFalse(outbox.acknowledge(event.getEventId(), "wrong", event.getSequence()));
+                assertFalse(outbox.acknowledge(event.getEventId(), event.getSessionId(), event.getSequence() + 1));
+                assertEquals(1, outbox.pending().size());
+                assertTrue(outbox.acknowledge(event.getEventId(), event.getSessionId(), event.getSequence()));
+                assertFalse(outbox.acknowledge(event.getEventId(), event.getSessionId(), event.getSequence()));
+        }
+
 	private static OfferEvent event(String eventId, String sessionId, long sequence, int itemId)
 	{
 		return OfferEvent.builder("trace", 100 + sequence, "OBSERVED")
