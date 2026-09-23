@@ -180,7 +180,7 @@ public class CompanionClient
                                 }
                                 return builder.build();
                         });
-                        postOffer(event);
+                        replayPendingOffers();
                 }
                 catch (Exception ex)
                 {
@@ -198,7 +198,7 @@ public class CompanionClient
                                 OfferEvent.builder(UUID.randomUUID().toString(), now, "EMPTY")
                                         .eventIdentity(eventId, sessionId, null).slot(slot)
                                         .sequence(sequence).build());
-                        postOffer(event);
+                        replayPendingOffers();
                 }
                 catch (Exception ex)
                 {
@@ -492,14 +492,46 @@ public class CompanionClient
 		return Suggestion.waiting("Companion unavailable", "No new buy will be suggested until the local portfolio companion has fresh market data. " + detail);
 	}
 
-        private void postOffer(OfferEvent event)
+        private void replayPendingOffers()
+        {
+                replayPendingOffers(event -> request("events/ge-offer", "POST", gson.toJson(event)));
+        }
+
+        boolean replayPendingOffers(OfferEventSender sender)
         {
                 try
                 {
-                        String response = request("events/ge-offer", "POST", gson.toJson(event));
-                        if (!consumeAcknowledgement(event, response)) lastError = "Companion returned an invalid offer acknowledgement.";
+                        for (OfferEvent event : outbox.pending())
+                        {
+                                String response;
+                                try
+                                {
+                                        response = sender.send(event);
+                                }
+                                catch (Exception failure)
+                                {
+                                        lastError = failure.getMessage();
+                                        return false;
+                                }
+                                if (!consumeAcknowledgement(event, response))
+                                {
+                                        lastError = "Companion returned an invalid offer acknowledgement.";
+                                        return false;
+                                }
+                        }
+                        return true;
                 }
-                catch (Exception ex) { lastError = ex.getMessage(); }
+                catch (Exception failure)
+                {
+                        lastError = failure.getMessage();
+                        return false;
+                }
+        }
+
+        @FunctionalInterface
+        interface OfferEventSender
+        {
+                String send(OfferEvent event) throws Exception;
         }
 
         boolean consumeAcknowledgement(OfferEvent event, String response) throws Exception
