@@ -32,10 +32,11 @@ public class OfferClearedPublicationBoundaryTest
                 Assert.assertTrue(client.contains(
                         "public void publishOfferCleared(int slot)"));
                 Assert.assertTrue(client.contains(
-                        "OfferEvent.builder(UUID.randomUUID().toString(), now, \"EMPTY\")"));
+                        "outbox.enqueue((eventId, sessionId, sequence) ->"));
                 Assert.assertTrue(client.contains(".slot(slot)"));
                 Assert.assertTrue(client.contains(
-                        ".sequence(ledger.nextSequence())"));
+                        ".eventIdentity(eventId, sessionId, null)"));
+                Assert.assertTrue(client.contains(".sequence(sequence)"));
                 Assert.assertTrue(client.contains(
                         "post(\"events/ge-offer\", event)"));
 

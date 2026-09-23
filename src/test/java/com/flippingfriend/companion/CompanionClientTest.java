@@ -3,6 +3,11 @@ package com.flippingfriend.companion;
 import com.flippingfriend.core.CompanionAction;
 import com.flippingfriend.core.PortfolioAllocation;
 import com.flippingfriend.data.PluginStorage;
+import com.flippingfriend.data.TestStorage;
+import com.flippingfriend.core.OfferEvent;
+import java.nio.file.Path;
+import org.junit.Rule;
+import org.junit.rules.TemporaryFolder;
 import com.flippingfriend.core.PortfolioCandidate;
 import com.flippingfriend.core.PortfolioPlan;
 import com.google.gson.Gson;
@@ -32,6 +37,7 @@ public class CompanionClientTest
 	private static final int RUBY = 1603;
 
 	private CompanionClient client;
+	@Rule public final TemporaryFolder folder = new TemporaryFolder();
 
 	@Before
 	public void setUp()
@@ -261,6 +267,35 @@ public class CompanionClientTest
 		assertNull(CompanionClient.toSuggestion(
 				CompanionAction.collect(4151, "Abyssal whip", -1, 1, "Collect", "Invalid slot.")));
 	}
+
+        @Test
+        public void clearedOfferIsPersistedBeforeTheHttpAttempt() throws Exception
+        {
+                Path root = folder.newFolder("outbox-success").toPath();
+                PluginStorage storage = TestStorage.rootedAt(root, "player");
+                OfferEventOutbox outbox = new OfferEventOutbox(storage);
+                CompanionClient publishing = new CompanionClient(storage, new Gson(), new SuggestionLedger(), outbox);
+                publishing.publishOfferCleared(3);
+                List<OfferEvent> pending = outbox.pending();
+                assertEquals(1, pending.size());
+                assertEquals("EMPTY", pending.get(0).getEventType());
+                assertEquals(3, pending.get(0).getSlot());
+                assertEquals(1, pending.get(0).getSequence());
+                org.junit.Assert.assertNotNull(pending.get(0).getEventId());
+                org.junit.Assert.assertNotNull(pending.get(0).getSessionId());
+        }
+
+        @Test
+        public void missingAccountPreventsPublicationBeforeHttp() throws Exception
+        {
+                Path root = folder.newFolder("outbox-failure").toPath();
+                PluginStorage storage = TestStorage.rootedAt(root, null);
+                CompanionClient publishing = new CompanionClient(storage, new Gson(), new SuggestionLedger(), new OfferEventOutbox(storage));
+                publishing.publishOfferCleared(2);
+                org.junit.Assert.assertTrue(publishing.lastError().contains("Could not persist offer event"));
+                org.junit.Assert.assertTrue(publishing.lastError().contains("account"));
+        }
+
 
 	@Test
 	public void zeroQuantityCollectActionRemainsValid()
