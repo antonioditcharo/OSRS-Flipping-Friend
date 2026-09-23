@@ -16,6 +16,8 @@ public class OfferRetryLifecycleBoundaryTest
                 Assert.assertTrue(plugin.contains("companion.requestPendingOfferReplay(executor)"));
                 Assert.assertTrue(plugin.contains("companion.resumeOfferReplay()"));
                 Assert.assertTrue(plugin.contains("companion.pauseOfferReplay()"));
+                Assert.assertTrue(client.contains("replayGeneration.incrementAndGet()"));
+                Assert.assertTrue(client.contains("generation == replayGeneration.get()"));
                 Assert.assertFalse(client.contains("ScheduledExecutorService"));
                 Assert.assertFalse(client.contains("newScheduledThreadPool"));
                 Assert.assertFalse(client.contains("scheduleAtFixedRate"));

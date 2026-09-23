@@ -402,6 +402,7 @@ public class CompanionClientTest
                 java.util.concurrent.atomic.AtomicLong now = new java.util.concurrent.atomic.AtomicLong(1_000);
                 CompanionClient publishing = new CompanionClient(storage, new Gson(), new SuggestionLedger(), outbox, now::get);
                 outbox.enqueue((e, s, q) -> replayEvent(e, s, q));
+                publishing.resumeOfferReplay();
                 assertFalse(publishing.replayPendingOffers(event -> { throw new java.io.IOException("offline"); }));
                 assertEquals(3_000, publishing.nextRetryAtMillis());
                 assertEquals(4_000, publishing.retryDelayMillis());
@@ -428,6 +429,43 @@ public class CompanionClientTest
                 queued.get(0).run();
                 publishing.resumeOfferReplay();
                 assertTrue(publishing.requestPendingOfferReplay(Runnable::run));
+        }
+
+        @Test public void pausedLifecycleInvalidatesQueuedRetryWithoutTouchingTheOutbox() throws Exception
+        {
+                Path root = folder.newFolder("retry-fence").toPath();
+                PluginStorage storage = TestStorage.rootedAt(root, "player");
+                OfferEventOutbox outbox = new OfferEventOutbox(storage);
+                CompanionClient publishing = new CompanionClient(storage, new Gson(), new SuggestionLedger(), outbox, () -> 5_000);
+                outbox.enqueue((e, s, q) -> replayEvent(e, s, q));
+                publishing.resumeOfferReplay();
+                java.util.List<Runnable> queued = new java.util.ArrayList<>();
+                assertTrue(publishing.requestPendingOfferReplay(queued::add));
+                publishing.pauseOfferReplay();
+                queued.get(0).run();
+                assertEquals(1, outbox.pending().size());
+                assertEquals(Long.MAX_VALUE, publishing.nextRetryAtMillis());
+                assertEquals(2_000, publishing.retryDelayMillis());
+        }
+
+        @Test public void staleLifecycleCannotClearFreshQueuedRequest() throws Exception
+        {
+                Path root = folder.newFolder("retry-generation").toPath();
+                PluginStorage storage = TestStorage.rootedAt(root, "player");
+                OfferEventOutbox outbox = new OfferEventOutbox(storage);
+                CompanionClient publishing = new CompanionClient(storage, new Gson(), new SuggestionLedger(), outbox, () -> 5_000);
+                publishing.resumeOfferReplay();
+                java.util.List<Runnable> oldQueue = new java.util.ArrayList<>();
+                assertTrue(publishing.requestPendingOfferReplay(oldQueue::add));
+                publishing.pauseOfferReplay();
+                assertFalse(publishing.requestPendingOfferReplay(Runnable::run));
+                publishing.resumeOfferReplay();
+                java.util.List<Runnable> freshQueue = new java.util.ArrayList<>();
+                assertTrue(publishing.requestPendingOfferReplay(freshQueue::add));
+                oldQueue.get(0).run();
+                assertFalse(publishing.requestPendingOfferReplay(freshQueue::add));
+                assertEquals(1, freshQueue.size());
+                freshQueue.get(0).run();
         }
 
 	@Test
