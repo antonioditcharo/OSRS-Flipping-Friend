@@ -38,7 +38,7 @@ public class OfferClearedPublicationBoundaryTest
                         ".eventIdentity(eventId, sessionId, null)"));
                 Assert.assertTrue(client.contains(".sequence(sequence)"));
                 Assert.assertTrue(client.contains(
-                        "post(\"events/ge-offer\", event)"));
+                        "postOffer(event)"));
 
                 Assert.assertTrue(tracker.contains(
                         "if (\"EMPTY\".equals(state))"));

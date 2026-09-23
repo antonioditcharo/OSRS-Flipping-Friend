@@ -180,7 +180,7 @@ public class CompanionClient
                                 }
                                 return builder.build();
                         });
-                        post("events/ge-offer", event);
+                        postOffer(event);
                 }
                 catch (Exception ex)
                 {
@@ -198,7 +198,7 @@ public class CompanionClient
                                 OfferEvent.builder(UUID.randomUUID().toString(), now, "EMPTY")
                                         .eventIdentity(eventId, sessionId, null).slot(slot)
                                         .sequence(sequence).build());
-                        post("events/ge-offer", event);
+                        postOffer(event);
                 }
                 catch (Exception ex)
                 {
@@ -491,6 +491,30 @@ public class CompanionClient
 	{
 		return Suggestion.waiting("Companion unavailable", "No new buy will be suggested until the local portfolio companion has fresh market data. " + detail);
 	}
+
+        private void postOffer(OfferEvent event)
+        {
+                try
+                {
+                        String response = request("events/ge-offer", "POST", gson.toJson(event));
+                        if (!consumeAcknowledgement(event, response)) lastError = "Companion returned an invalid offer acknowledgement.";
+                }
+                catch (Exception ex) { lastError = ex.getMessage(); }
+        }
+
+        boolean consumeAcknowledgement(OfferEvent event, String response) throws Exception
+        {
+                OfferEventAcknowledgementResponse ack;
+                try { ack = gson.fromJson(response, OfferEventAcknowledgementResponse.class); }
+                catch (RuntimeException malformed) { return false; }
+                if (event == null || ack == null || !ack.isAccepted()
+                        || !same(event.getEventId(), ack.getEventId())
+                        || !same(event.getSessionId(), ack.getSessionId())
+                        || event.getSequence() != ack.getSequence()) return false;
+                return outbox.acknowledge(event.getEventId(), event.getSessionId(), event.getSequence());
+        }
+
+        private static boolean same(String left, String right) { return left != null && left.equals(right); }
 
 	private void post(String path, Object body)
 	{

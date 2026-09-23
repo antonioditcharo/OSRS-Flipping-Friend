@@ -20,6 +20,8 @@ import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
 
 /**
@@ -296,6 +298,21 @@ public class CompanionClientTest
                 org.junit.Assert.assertTrue(publishing.lastError().contains("account"));
         }
 
+
+        @Test public void acknowledgementsPruneOnlyWhenValid() throws Exception
+        {
+                Path root = folder.newFolder("acks").toPath();
+                PluginStorage storage = TestStorage.rootedAt(root, "player");
+                OfferEventOutbox outbox = new OfferEventOutbox(storage);
+                CompanionClient publishing = new CompanionClient(storage, new Gson(), new SuggestionLedger(), outbox);
+                OfferEvent event = outbox.enqueue((e, s, q) -> OfferEvent.builder("trace", 1, "EMPTY").eventIdentity(e, s, null).sequence(q).build());
+                assertFalse(publishing.consumeAcknowledgement(event, "not-json"));
+                assertFalse(publishing.consumeAcknowledgement(event, "{\"accepted\":false}"));
+                assertEquals(1, outbox.pending().size());
+                String valid = "{\"accepted\":true,\"duplicate\":true,\"eventId\":\"" + event.getEventId() + "\",\"sessionId\":\"" + event.getSessionId() + "\",\"sequence\":" + event.getSequence() + "}";
+                assertTrue(publishing.consumeAcknowledgement(event, valid));
+                assertTrue(outbox.pending().isEmpty());
+        }
 
 	@Test
 	public void zeroQuantityCollectActionRemainsValid()

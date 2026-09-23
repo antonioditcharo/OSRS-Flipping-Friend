@@ -56,6 +56,20 @@ public final class OfferEventOutbox
 		return Collections.unmodifiableList(result);
 	}
 
+        public synchronized boolean acknowledge(String eventId, String sessionId, long sequence) throws Exception
+        {
+                State state = loadRequired();
+                for (int i = 0; i < state.pending.size(); i++)
+                {
+                        OfferEvent event = state.pending.get(i);
+                        if (same(eventId, event.getEventId()) && same(sessionId, event.getSessionId()) && sequence == event.getSequence())
+                        {
+                                State updated = state.copy(); updated.pending.remove(i); write(updated); return true;
+                        }
+                }
+                return false;
+        }
+
 	public synchronized String sessionId() throws Exception
 	{
 		return loadRequired().sessionId;
@@ -107,6 +121,8 @@ public final class OfferEventOutbox
 			throw new IllegalArgumentException("factory changed canonical event identity");
 		}
 	}
+
+        private static boolean same(String left, String right) { return left != null && left.equals(right); }
 
 	private static boolean blank(String value) { return value == null || value.trim().isEmpty(); }
 
