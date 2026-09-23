@@ -394,6 +394,42 @@ public class CompanionClientTest
         }
 
 
+        @Test public void retryBackoffIsBoundedAndSuccessResetsIt() throws Exception
+        {
+                Path root = folder.newFolder("retry-backoff").toPath();
+                PluginStorage storage = TestStorage.rootedAt(root, "player");
+                OfferEventOutbox outbox = new OfferEventOutbox(storage);
+                java.util.concurrent.atomic.AtomicLong now = new java.util.concurrent.atomic.AtomicLong(1_000);
+                CompanionClient publishing = new CompanionClient(storage, new Gson(), new SuggestionLedger(), outbox, now::get);
+                outbox.enqueue((e, s, q) -> replayEvent(e, s, q));
+                assertFalse(publishing.replayPendingOffers(event -> { throw new java.io.IOException("offline"); }));
+                assertEquals(3_000, publishing.nextRetryAtMillis());
+                assertEquals(4_000, publishing.retryDelayMillis());
+                assertFalse(publishing.requestPendingOfferReplay(Runnable::run));
+                OfferEvent pending = outbox.pending().get(0);
+                assertTrue(outbox.acknowledge(pending.getEventId(), pending.getSessionId(), pending.getSequence()));
+                now.set(3_000);
+                assertTrue(publishing.requestPendingOfferReplay(command -> command.run()));
+                assertEquals(Long.MAX_VALUE, publishing.nextRetryAtMillis());
+                assertEquals(2_000, publishing.retryDelayMillis());
+        }
+
+        @Test public void retryRequestCannotBeQueuedTwice() throws Exception
+        {
+                Path root = folder.newFolder("retry-overlap").toPath();
+                PluginStorage storage = TestStorage.rootedAt(root, "player");
+                OfferEventOutbox outbox = new OfferEventOutbox(storage);
+                CompanionClient publishing = new CompanionClient(storage, new Gson(), new SuggestionLedger(), outbox, () -> 5_000);
+                publishing.resumeOfferReplay();
+                java.util.List<Runnable> queued = new java.util.ArrayList<>();
+                assertTrue(publishing.requestPendingOfferReplay(queued::add));
+                assertFalse(publishing.requestPendingOfferReplay(queued::add));
+                assertEquals(1, queued.size());
+                queued.get(0).run();
+                publishing.resumeOfferReplay();
+                assertTrue(publishing.requestPendingOfferReplay(Runnable::run));
+        }
+
 	@Test
 	public void zeroQuantityCollectActionRemainsValid()
 	{

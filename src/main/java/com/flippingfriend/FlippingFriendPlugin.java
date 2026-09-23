@@ -235,6 +235,7 @@ public class FlippingFriendPlugin extends Plugin
 	@Override
 	protected void shutDown()
 	{
+		companion.pauseOfferReplay();
 		marketData.setUpdateListener(null);
 		offerTracker.setChangeListener(null);
 		offerTracker.setAbandonedBuyListener(null);
@@ -281,6 +282,7 @@ public class FlippingFriendPlugin extends Plugin
 		}
 		else if (state == GameState.LOGIN_SCREEN || state == GameState.HOPPING)
 		{
+			companion.pauseOfferReplay();
 			persist();
 			accountMonitor.reset();
 			accountDataLoaded.set(false);
@@ -385,6 +387,7 @@ public class FlippingFriendPlugin extends Plugin
 		}
 
 		loadAccountDataIfNeeded();
+		requestPendingOfferReplay();
 		resolveTaxExemptionsIfNeeded();
 
 		long now = System.currentTimeMillis();
@@ -407,6 +410,15 @@ public class FlippingFriendPlugin extends Plugin
 	}
 
 	// ------------------------------------------------------------------ helpers
+
+
+        private void requestPendingOfferReplay()
+        {
+                if (!accountDataLoaded.get()) return;
+                ExecutorService executor = worker;
+                if (executor == null || executor.isShutdown()) return;
+                companion.requestPendingOfferReplay(executor);
+        }
 
 	private void refreshAccountState()
 	{
@@ -532,6 +544,7 @@ public class FlippingFriendPlugin extends Plugin
 			journal.load();
 			calibrator.rebuild(journal.getHistory());
 			accountDataLoaded.set(true);
+			companion.resumeOfferReplay();
 			log.debug("loaded account data ({} journal entries)", journal.getHistory().size());
 			
 			// Flush any pending offers that were buffered during login replay before data as loaded

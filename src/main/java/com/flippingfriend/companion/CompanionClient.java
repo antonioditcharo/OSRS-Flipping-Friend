@@ -29,6 +29,9 @@ import java.time.Instant;
 import java.util.Properties;
 import java.util.UUID;
 import java.util.Set;
+import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.LongSupplier;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 
@@ -43,10 +46,17 @@ public class CompanionClient
 	private static final int TIMEOUT_MILLIS = 750;
 	/** The market feed is megabytes rather than a plan, so it gets its own budget. */
 	private static final int FEED_TIMEOUT_MILLIS = 5_000;
+        private static final long INITIAL_RETRY_DELAY_MILLIS = 2_000;
+        private static final long MAX_RETRY_DELAY_MILLIS = 60_000;
 	private final PluginStorage storage;
 	private final Gson gson;
 	private final SuggestionLedger ledger;
         private final OfferEventOutbox outbox;
+        private final LongSupplier retryClock;
+        private final AtomicBoolean replayRunning = new AtomicBoolean();
+        private final AtomicBoolean retryRequested = new AtomicBoolean();
+        private volatile long nextRetryAtMillis = Long.MAX_VALUE;
+        private volatile long retryDelayMillis = INITIAL_RETRY_DELAY_MILLIS;
 
 	/** The item currently being recommended, kept so a re-plan does not move it. */
 	private volatile int incumbentItemId;
@@ -105,10 +115,17 @@ public class CompanionClient
         public CompanionClient(PluginStorage storage, Gson gson, SuggestionLedger ledger,
                 OfferEventOutbox outbox)
         {
+                this(storage, gson, ledger, outbox, System::currentTimeMillis);
+        }
+
+        CompanionClient(PluginStorage storage, Gson gson, SuggestionLedger ledger,
+                OfferEventOutbox outbox, LongSupplier retryClock)
+        {
                 this.storage = storage;
                 this.gson = gson;
                 this.ledger = ledger;
                 this.outbox = outbox;
+                this.retryClock = retryClock;
         }
 
 	/**
@@ -499,15 +516,14 @@ public class CompanionClient
 
         boolean replayPendingOffers(OfferEventSender sender)
         {
+                if (!replayRunning.compareAndSet(false, true)) return false;
+                boolean succeeded = false;
                 try
                 {
                         for (OfferEvent event : outbox.pending())
                         {
                                 String response;
-                                try
-                                {
-                                        response = sender.send(event);
-                                }
+                                try { response = sender.send(event); }
                                 catch (Exception failure)
                                 {
                                         lastError = failure.getMessage();
@@ -519,6 +535,7 @@ public class CompanionClient
                                         return false;
                                 }
                         }
+                        succeeded = true;
                         return true;
                 }
                 catch (Exception failure)
@@ -526,7 +543,58 @@ public class CompanionClient
                         lastError = failure.getMessage();
                         return false;
                 }
+                finally
+                {
+                        long now = retryClock.getAsLong();
+                        if (succeeded)
+                        {
+                                retryDelayMillis = INITIAL_RETRY_DELAY_MILLIS;
+                                nextRetryAtMillis = Long.MAX_VALUE;
+                        }
+                        else
+                        {
+                                nextRetryAtMillis = now + retryDelayMillis;
+                                retryDelayMillis = Math.min(MAX_RETRY_DELAY_MILLIS, retryDelayMillis * 2);
+                        }
+                        replayRunning.set(false);
+                }
         }
+
+        public boolean requestPendingOfferReplay(Executor executor)
+        {
+                if (executor == null || retryClock.getAsLong() < nextRetryAtMillis
+                        || !retryRequested.compareAndSet(false, true)) return false;
+                try
+                {
+                        executor.execute(() ->
+                        {
+                                try { replayPendingOffers(); }
+                                finally { retryRequested.set(false); }
+                        });
+                        return true;
+                }
+                catch (RuntimeException rejected)
+                {
+                        retryRequested.set(false);
+                        return false;
+                }
+        }
+
+        public void resumeOfferReplay()
+        {
+                retryDelayMillis = INITIAL_RETRY_DELAY_MILLIS;
+                nextRetryAtMillis = 0;
+        }
+
+        public void pauseOfferReplay()
+        {
+                nextRetryAtMillis = Long.MAX_VALUE;
+                retryDelayMillis = INITIAL_RETRY_DELAY_MILLIS;
+                retryRequested.set(false);
+        }
+
+        long nextRetryAtMillis() { return nextRetryAtMillis; }
+        long retryDelayMillis() { return retryDelayMillis; }
 
         @FunctionalInterface
         interface OfferEventSender
