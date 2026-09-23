@@ -46,6 +46,7 @@ public class CompanionClient
 	private final PluginStorage storage;
 	private final Gson gson;
 	private final SuggestionLedger ledger;
+        private final OfferEventOutbox outbox;
 
 	/** The item currently being recommended, kept so a re-plan does not move it. */
 	private volatile int incumbentItemId;
@@ -95,13 +96,20 @@ public class CompanionClient
 	private volatile PortfolioPlan lastPlan;
 	private volatile CompanionHealth lastHealth;
 
-	@Inject
-	public CompanionClient(PluginStorage storage, Gson gson, SuggestionLedger ledger)
-	{
-		this.storage = storage;
-		this.gson = gson;
-		this.ledger = ledger;
-	}
+        public CompanionClient(PluginStorage storage, Gson gson, SuggestionLedger ledger)
+        {
+                this(storage, gson, ledger, new OfferEventOutbox(storage));
+        }
+
+        @Inject
+        public CompanionClient(PluginStorage storage, Gson gson, SuggestionLedger ledger,
+                OfferEventOutbox outbox)
+        {
+                this.storage = storage;
+                this.gson = gson;
+                this.ledger = ledger;
+                this.outbox = outbox;
+        }
 
 	/**
 	 * @param markedDrawdown coins the session is currently down, closed trades and open positions
@@ -146,45 +154,57 @@ public class CompanionClient
 		post("events/account-state", snapshot);
 	}
 
-	public void publishOffer(TrackedOffer offer)
-	{
-		if (offer == null) return;
-		long now = Instant.now().getEpochSecond();
-		String state = offer.getState() == null ? "OBSERVED" : offer.getState();
+        public void publishOffer(TrackedOffer offer)
+        {
+                if (offer == null) return;
+                long now = Instant.now().getEpochSecond();
+                String state = offer.getState() == null ? "OBSERVED" : offer.getState();
+                SuggestionLedger.Advice advice = ledger.attribute(offer.getItemId(), offer.isBuying(), now);
+                try
+                {
+                        OfferEvent event = outbox.enqueue((eventId, sessionId, sequence) ->
+                        {
+                                long start = offer.getFirstSeen() > 0 ? offer.getFirstSeen() : now;
+                                OfferEvent.Builder builder = OfferEvent.builder(UUID.randomUUID().toString(), now, state)
+                                        .eventIdentity(eventId, sessionId,
+                                                offer.getSlot() + "@" + start + ":" + offer.getItemId())
+                                        .slot(offer.getSlot()).item(offer.getItemId(), offer.getItemName())
+                                        .buying(offer.isBuying()).price(offer.getPrice())
+                                        .quantities(offer.getTotalQuantity(), offer.getQuantityFilled())
+                                        .spent(offer.getSpent()).sequence(sequence).firstSeenAt(offer.getFirstSeen());
+                                if (advice != null)
+                                {
+                                        builder.recommendation(advice.getRecommendationId(), advice.getPrice(),
+                                                advice.getQuantity(), advice.getQuoteAgeSeconds(),
+                                                advice.getPredictedMinutes(), advice.getPredictedCompletion());
+                                }
+                                return builder.build();
+                        });
+                        post("events/ge-offer", event);
+                }
+                catch (Exception ex)
+                {
+                        lastError = "Could not persist offer event: " + ex.getMessage();
+                }
+        }
 
-		OfferEvent.Builder event = OfferEvent.builder(UUID.randomUUID().toString(), now, state)
-			.slot(offer.getSlot())
-			.item(offer.getItemId(), offer.getItemName())
-			.buying(offer.isBuying())
-			.price(offer.getPrice())
-			.quantities(offer.getTotalQuantity(), offer.getQuantityFilled())
-			.spent(offer.getSpent())
-			.sequence(ledger.nextSequence())
-			.firstSeenAt(offer.getFirstSeen());
-
-		SuggestionLedger.Advice advice = ledger.attribute(offer.getItemId(), offer.isBuying(), now);
-		if (advice != null)
-		{
-			event.recommendation(advice.getRecommendationId(), advice.getPrice(), advice.getQuantity(),
-				advice.getQuoteAgeSeconds(), advice.getPredictedMinutes(),
-				advice.getPredictedCompletion());
-		}
-		post("events/ge-offer", event.build());
-	}
-
-	public void publishOfferCleared(int slot)
-	{
-		if (slot < 0)
-		{
-			return;
-		}
-		long now = Instant.now().getEpochSecond();
-		OfferEvent event = OfferEvent.builder(UUID.randomUUID().toString(), now, "EMPTY")
-				.slot(slot)
-				.sequence(ledger.nextSequence())
-				.build();
-		post("events/ge-offer", event);
-	}
+        public void publishOfferCleared(int slot)
+        {
+                if (slot < 0) return;
+                long now = Instant.now().getEpochSecond();
+                try
+                {
+                        OfferEvent event = outbox.enqueue((eventId, sessionId, sequence) ->
+                                OfferEvent.builder(UUID.randomUUID().toString(), now, "EMPTY")
+                                        .eventIdentity(eventId, sessionId, null).slot(slot)
+                                        .sequence(sequence).build());
+                        post("events/ge-offer", event);
+                }
+                catch (Exception ex)
+                {
+                        lastError = "Could not persist offer event: " + ex.getMessage();
+                }
+        }
 
 	/**
 	 * Fetches the current plan and remembers it, whatever else happens this cycle.
