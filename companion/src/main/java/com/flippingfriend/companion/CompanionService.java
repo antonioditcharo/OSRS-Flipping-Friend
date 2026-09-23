@@ -337,13 +337,13 @@ final class CompanionService implements AutoCloseable
 		return PositionStateView.from(account);
 	}
 
-	void offer(OfferEvent event) throws Exception
+	SqliteStore.EventAcceptance offer(OfferEvent event) throws Exception
 	{
 		SqliteStore.EventAcceptance acceptance = store.recordEvent(event.getObservedAt(),
 			event.getCorrelationId(), event.getEventId(), event.getEventType(), gson.toJson(event));
 		if (acceptance == SqliteStore.EventAcceptance.DUPLICATE)
 		{
-			return;
+			return acceptance;
 		}
 		buyLimits.apply(event);
 		activeOffers.apply(event);
@@ -356,6 +356,7 @@ final class CompanionService implements AutoCloseable
 		// or closed, capital has moved, and a buy limit may have been consumed. Waiting for the next
 		// market poll would leave the panel telling the player to do something they have just done.
 		requestPlan();
+		return acceptance;
 	}
 
 	/**
