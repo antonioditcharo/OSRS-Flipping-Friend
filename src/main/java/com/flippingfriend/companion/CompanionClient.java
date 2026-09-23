@@ -31,6 +31,7 @@ import java.util.UUID;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.LongSupplier;
 import javax.inject.Inject;
 import javax.inject.Singleton;
@@ -54,7 +55,9 @@ public class CompanionClient
         private final OfferEventOutbox outbox;
         private final LongSupplier retryClock;
         private final AtomicBoolean replayRunning = new AtomicBoolean();
-        private final AtomicBoolean retryRequested = new AtomicBoolean();
+        private final AtomicLong replayGeneration = new AtomicLong();
+        private final AtomicLong retryRequestGeneration = new AtomicLong(-1);
+        private volatile boolean replayEnabled;
         private volatile long nextRetryAtMillis = Long.MAX_VALUE;
         private volatile long retryDelayMillis = INITIAL_RETRY_DELAY_MILLIS;
 
@@ -562,35 +565,49 @@ public class CompanionClient
 
         public boolean requestPendingOfferReplay(Executor executor)
         {
-                if (executor == null || retryClock.getAsLong() < nextRetryAtMillis
-                        || !retryRequested.compareAndSet(false, true)) return false;
+                long generation = replayGeneration.get();
+                if (executor == null || !replayEnabled || retryClock.getAsLong() < nextRetryAtMillis
+                        || !retryRequestGeneration.compareAndSet(-1, generation)) return false;
                 try
                 {
                         executor.execute(() ->
                         {
-                                try { replayPendingOffers(); }
-                                finally { retryRequested.set(false); }
+                                try
+                                {
+                                        if (replayEnabled && generation == replayGeneration.get())
+                                        {
+                                                replayPendingOffers();
+                                        }
+                                }
+                                finally
+                                {
+                                        retryRequestGeneration.compareAndSet(generation, -1);
+                                }
                         });
                         return true;
                 }
                 catch (RuntimeException rejected)
                 {
-                        retryRequested.set(false);
+                        retryRequestGeneration.compareAndSet(generation, -1);
                         return false;
                 }
         }
 
         public void resumeOfferReplay()
         {
+                replayGeneration.incrementAndGet();
+                replayEnabled = true;
                 retryDelayMillis = INITIAL_RETRY_DELAY_MILLIS;
                 nextRetryAtMillis = 0;
         }
 
         public void pauseOfferReplay()
         {
+                replayEnabled = false;
+                replayGeneration.incrementAndGet();
                 nextRetryAtMillis = Long.MAX_VALUE;
                 retryDelayMillis = INITIAL_RETRY_DELAY_MILLIS;
-                retryRequested.set(false);
+                retryRequestGeneration.set(-1);
         }
 
         long nextRetryAtMillis() { return nextRetryAtMillis; }
