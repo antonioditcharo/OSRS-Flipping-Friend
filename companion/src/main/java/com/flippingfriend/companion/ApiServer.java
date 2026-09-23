@@ -122,8 +122,9 @@ final class ApiServer implements AutoCloseable
 		if (!authorized(exchange)) return;
 		try
 		{
-			service.offer(gson.fromJson(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8), OfferEvent.class));
-			respond(exchange, 202, "{\"accepted\":true}");
+			OfferEvent event = gson.fromJson(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8), OfferEvent.class);
+			SqliteStore.EventAcceptance acceptance = service.offer(event);
+			respond(exchange, 202, gson.toJson(OfferEventAcknowledgement.of(event, acceptance)));
 		}
 		catch (Exception ex) { respond(exchange, 400, error(ex)); }
 	}

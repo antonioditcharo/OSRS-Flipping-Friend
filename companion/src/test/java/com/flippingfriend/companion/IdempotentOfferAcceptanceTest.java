@@ -17,7 +17,9 @@ public class IdempotentOfferAcceptanceTest
 		Path db = Files.createTempDirectory("idempotent-offer").resolve("companion.db");
 		try (SqliteStore store = new SqliteStore(db); CompanionService service = new CompanionService(new Gson(), store))
 		{
-			OfferEvent event = settledBuy("event-1"); service.offer(event); service.offer(event);
+			OfferEvent event = settledBuy("event-1");
+			assertEquals(SqliteStore.EventAcceptance.NEW, service.offer(event));
+			assertEquals(SqliteStore.EventAcceptance.DUPLICATE, service.offer(event));
 			assertEquals(1, store.recentOfferEvents(0).size()); assertEquals(1, store.executionStats().get(ITEM).observed);
 			assertEquals(Integer.valueOf(LIMIT - 9_000), remaining(service));
 		}
@@ -27,7 +29,9 @@ public class IdempotentOfferAcceptanceTest
 		Path db = Files.createTempDirectory("legacy-offer").resolve("companion.db");
 		try (SqliteStore store = new SqliteStore(db); CompanionService service = new CompanionService(new Gson(), store))
 		{
-			OfferEvent event = settledBuy(null); service.offer(event); service.offer(event);
+			OfferEvent event = settledBuy(null);
+			assertEquals(SqliteStore.EventAcceptance.NEW, service.offer(event));
+			assertEquals(SqliteStore.EventAcceptance.NEW, service.offer(event));
 			assertEquals(2, store.recentOfferEvents(0).size());
 		}
 	}
