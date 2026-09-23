@@ -314,6 +314,86 @@ public class CompanionClientTest
                 assertTrue(outbox.pending().isEmpty());
         }
 
+        @Test public void replaySendsPendingEventsInSequenceOrder() throws Exception
+        {
+                Path root = folder.newFolder("replay-order").toPath();
+                PluginStorage storage = TestStorage.rootedAt(root, "player");
+                OfferEventOutbox outbox = new OfferEventOutbox(storage);
+                CompanionClient publishing = new CompanionClient(storage, new Gson(), new SuggestionLedger(), outbox);
+                outbox.enqueue((e, s, q) -> replayEvent(e, s, q));
+                outbox.enqueue((e, s, q) -> replayEvent(e, s, q));
+                outbox.enqueue((e, s, q) -> replayEvent(e, s, q));
+                List<Long> sent = new java.util.ArrayList<>();
+                assertTrue(publishing.replayPendingOffers(event ->
+                {
+                        sent.add(event.getSequence());
+                        return replayAcknowledgement(event, false);
+                }));
+                assertEquals(Arrays.asList(1L, 2L, 3L), sent);
+                assertTrue(outbox.pending().isEmpty());
+        }
+
+        @Test public void replayStopsAtFirstFailureAndPreservesTheTailAcrossRestart() throws Exception
+        {
+                Path root = folder.newFolder("replay-stop").toPath();
+                PluginStorage storage = TestStorage.rootedAt(root, "player");
+                OfferEventOutbox outbox = new OfferEventOutbox(storage);
+                CompanionClient publishing = new CompanionClient(storage, new Gson(), new SuggestionLedger(), outbox);
+                outbox.enqueue((e, s, q) -> replayEvent(e, s, q));
+                outbox.enqueue((e, s, q) -> replayEvent(e, s, q));
+                outbox.enqueue((e, s, q) -> replayEvent(e, s, q));
+                List<Long> sent = new java.util.ArrayList<>();
+                assertFalse(publishing.replayPendingOffers(event ->
+                {
+                        sent.add(event.getSequence());
+                        if (event.getSequence() == 2) throw new java.io.IOException("offline");
+                        return replayAcknowledgement(event, false);
+                }));
+                assertEquals(Arrays.asList(1L, 2L), sent);
+                OfferEventOutbox restarted = new OfferEventOutbox(TestStorage.rootedAt(root, "player"));
+                assertEquals(Arrays.asList(2L, 3L), sequences(restarted.pending()));
+                assertEquals(4, restarted.enqueue((e, s, q) -> replayEvent(e, s, q)).getSequence());
+        }
+
+        @Test public void invalidAcknowledgementStopsBeforeLaterEvents() throws Exception
+        {
+                Path root = folder.newFolder("replay-invalid").toPath();
+                PluginStorage storage = TestStorage.rootedAt(root, "player");
+                OfferEventOutbox outbox = new OfferEventOutbox(storage);
+                CompanionClient publishing = new CompanionClient(storage, new Gson(), new SuggestionLedger(), outbox);
+                outbox.enqueue((e, s, q) -> replayEvent(e, s, q));
+                outbox.enqueue((e, s, q) -> replayEvent(e, s, q));
+                List<Long> sent = new java.util.ArrayList<>();
+                assertFalse(publishing.replayPendingOffers(event ->
+                {
+                        sent.add(event.getSequence());
+                        return event.getSequence() == 1 ? "not-json" : replayAcknowledgement(event, true);
+                }));
+                assertEquals(Collections.singletonList(1L), sent);
+                assertEquals(Arrays.asList(1L, 2L), sequences(outbox.pending()));
+        }
+
+        private static OfferEvent replayEvent(String eventId, String sessionId, long sequence)
+        {
+                return OfferEvent.builder("trace-" + sequence, sequence, "EMPTY")
+                        .eventIdentity(eventId, sessionId, null).sequence(sequence).build();
+        }
+
+        private static String replayAcknowledgement(OfferEvent event, boolean duplicate)
+        {
+                return "{\"accepted\":true,\"duplicate\":" + duplicate
+                        + ",\"eventId\":\"" + event.getEventId() + "\",\"sessionId\":\""
+                        + event.getSessionId() + "\",\"sequence\":" + event.getSequence() + "}";
+        }
+
+        private static List<Long> sequences(List<OfferEvent> events)
+        {
+                List<Long> result = new java.util.ArrayList<>();
+                for (OfferEvent event : events) result.add(event.getSequence());
+                return result;
+        }
+
+
 	@Test
 	public void zeroQuantityCollectActionRemainsValid()
 	{
