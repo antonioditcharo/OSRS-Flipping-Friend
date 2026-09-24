@@ -15,23 +15,23 @@ public final class OfferLifecycleReducer
         }
         if (previous == null)
         {
-            return accepted(null, projection(incoming, event), event, false);
+            return accepted(null, projection(incoming, event), event, false, true);
         }
         if (incoming == OfferLifecycleState.EMPTY)
         {
             if (before == OfferLifecycleState.EMPTY)
             {
-                return accepted(before, empty(event), event, sameEmpty(previous, event));
+                return accepted(previous, empty(event), event, sameEmpty(previous, event), false);
             }
             if (isTerminal(before))
             {
-                return accepted(before, empty(event), event, false);
+                return accepted(previous, empty(event), event, false, false);
             }
             return rejected(previous, event, "offer cleared before a terminal observation");
         }
         if (before == OfferLifecycleState.EMPTY)
         {
-            return accepted(before, projection(incoming, event), event, false);
+            return accepted(previous, projection(incoming, event), event, false, false);
         }
         String incompatibility = incompatible(previous, event);
         if (incompatibility != null)
@@ -51,7 +51,7 @@ public final class OfferLifecycleReducer
             return rejected(previous, event, "spent amount regressed");
         }
         OfferLifecycleProjection next = projection(incoming, event);
-        return accepted(before, next, event, same(previous, next));
+        return accepted(previous, next, event, same(previous, next), false);
     }
 
     private static String incompatible(OfferLifecycleProjection previous, OfferEvent event)
@@ -96,11 +96,16 @@ public final class OfferLifecycleReducer
             || state == OfferLifecycleState.SELL_CANCELLED_UNCOLLECTED;
     }
 
-    private static OfferLifecycleTransition accepted(OfferLifecycleState before,
-        OfferLifecycleProjection projection, OfferEvent event, boolean idempotent)
+    private static OfferLifecycleTransition accepted(OfferLifecycleProjection previous,
+        OfferLifecycleProjection projection, OfferEvent event, boolean idempotent, boolean initial)
     {
+        PositionAccountingEffect effect = initial
+            ? initialEffect(projection, event)
+            : acceptedEffect(previous, projection, event, idempotent);
+        OfferLifecycleState before = previous == null ? null : previous.getState();
         return new OfferLifecycleTransition(before, projection.getState(), action(projection.getState()),
-            projection, event, true, idempotent, idempotent ? "observation already projected" : "accepted");
+            projection, event, true, idempotent,
+            idempotent ? "observation already projected" : "accepted", effect);
     }
 
     private static OfferLifecycleTransition rejected(OfferLifecycleProjection previous,
@@ -117,7 +122,7 @@ public final class OfferLifecycleReducer
                 previous.getRecommendationId());
         return new OfferLifecycleTransition(previous == null ? null : previous.getState(),
             OfferLifecycleState.ERROR_RECONCILIATION, OfferLifecycleAction.RECONCILE,
-            error, event, false, false, reason);
+            error, event, false, false, reason, PositionAccountingEffect.reconcile(event, reason));
     }
 
     private static OfferLifecycleProjection projection(OfferLifecycleState state, OfferEvent event)
@@ -133,6 +138,47 @@ public final class OfferLifecycleReducer
         return new OfferLifecycleProjection(OfferLifecycleState.EMPTY, event.getSlot(), null,
             event.getSessionId(), event.getSequence(), event.getObservedAt(), 0, null, false,
             0, 0, 0, 0, null);
+    }
+
+    private static PositionAccountingEffect initialEffect(OfferLifecycleProjection projection,
+        OfferEvent event)
+    {
+        if (projection.getState() == OfferLifecycleState.EMPTY || projection.getFilledQuantity() == 0)
+        {
+            return PositionAccountingEffect.none(event);
+        }
+        return PositionAccountingEffect.reconcile(event,
+            "initial observation contains fills that require snapshot reconciliation");
+    }
+
+    private static PositionAccountingEffect acceptedEffect(OfferLifecycleProjection previous,
+        OfferLifecycleProjection next, OfferEvent event, boolean idempotent)
+    {
+        if (idempotent || next.getState() == OfferLifecycleState.EMPTY || previous == null)
+        {
+            return PositionAccountingEffect.none(event);
+        }
+        int quantityDelta = event.getFilledQuantity() - previous.getFilledQuantity();
+        long spentDelta = event.getSpent() - previous.getSpent();
+        if (quantityDelta == 0 && spentDelta == 0)
+        {
+            return PositionAccountingEffect.none(event);
+        }
+        if (next.isBuying())
+        {
+            if (quantityDelta > 0 && spentDelta > 0)
+            {
+                return PositionAccountingEffect.acquire(event, quantityDelta, spentDelta);
+            }
+            return PositionAccountingEffect.reconcile(event,
+                "buy quantity and spend deltas disagree");
+        }
+        if (quantityDelta > 0)
+        {
+            return PositionAccountingEffect.dispose(event, quantityDelta);
+        }
+        return PositionAccountingEffect.reconcile(event,
+            "sell proceeds changed without a fill increase");
     }
 
     private static OfferLifecycleAction action(OfferLifecycleState state)

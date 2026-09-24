@@ -11,10 +11,12 @@ public final class OfferLifecycleTransition
     private final boolean accepted;
     private final boolean idempotent;
     private final String reason;
+    private final PositionAccountingEffect accountingEffect;
 
     OfferLifecycleTransition(OfferLifecycleState previousState, OfferLifecycleState newState,
         OfferLifecycleAction action, OfferLifecycleProjection projection, OfferEvent sourceEvent,
-        boolean accepted, boolean idempotent, String reason)
+        boolean accepted, boolean idempotent, String reason,
+        PositionAccountingEffect accountingEffect)
     {
         this.previousState = previousState;
         this.newState = newState;
@@ -24,6 +26,7 @@ public final class OfferLifecycleTransition
         this.accepted = accepted;
         this.idempotent = idempotent;
         this.reason = reason;
+        this.accountingEffect = accountingEffect;
     }
 
     public OfferLifecycleState getPreviousState() { return previousState; }
@@ -34,4 +37,5 @@ public final class OfferLifecycleTransition
     public boolean isAccepted() { return accepted; }
     public boolean isIdempotent() { return idempotent; }
     public String getReason() { return reason; }
+    public PositionAccountingEffect getAccountingEffect() { return accountingEffect; }
 }
