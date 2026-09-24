@@ -43,6 +43,7 @@ public class OfferLifecycleReducerTest
         OfferLifecycleTransition replay = apply(projection, observation);
         assertTrue(replay.isAccepted());
         assertTrue(replay.isIdempotent());
+        assertEquals(PositionAccountingEffectType.NONE, replay.getAccountingEffect().getType());
     }
 
     @Test public void terminalClearsButOpenDoesNot()
@@ -123,6 +124,7 @@ public class OfferLifecycleReducerTest
         assertFalse(result.isAccepted());
         assertEquals(OfferLifecycleState.ERROR_RECONCILIATION, result.getNewState());
         assertEquals(OfferLifecycleAction.RECONCILE, result.getAction());
+        assertEquals(PositionAccountingEffectType.RECONCILE, result.getAccountingEffect().getType());
     }
     private static OfferEvent event(String state, boolean buying, int total, int filled, long spent, String identity)
     {
