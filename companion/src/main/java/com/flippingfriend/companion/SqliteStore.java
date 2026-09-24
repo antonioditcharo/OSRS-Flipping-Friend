@@ -4,6 +4,10 @@ import com.flippingfriend.core.OfferLifecycleProjection;
 import com.flippingfriend.core.OfferLifecycleReducer;
 import com.flippingfriend.core.OfferLifecycleState;
 import com.flippingfriend.core.OfferLifecycleTransition;
+import com.flippingfriend.core.PositionAccountingEffect;
+import com.flippingfriend.core.PositionAccountingEffectType;
+import com.flippingfriend.core.PositionConsistencyState;
+import com.flippingfriend.core.PositionProjection;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -27,10 +31,13 @@ final class SqliteStore implements AutoCloseable
 	{
 		final EventAcceptance acceptance;
 		final OfferLifecycleTransition transition;
-		ProjectedEventAcceptance(EventAcceptance acceptance, OfferLifecycleTransition transition)
+		final PositionProjection positionProjection;
+		ProjectedEventAcceptance(EventAcceptance acceptance, OfferLifecycleTransition transition,
+			PositionProjection positionProjection)
 		{
 			this.acceptance = acceptance;
 			this.transition = transition;
+			this.positionProjection = positionProjection;
 		}
 	}
 	/**
@@ -88,6 +95,9 @@ final class SqliteStore implements AutoCloseable
 			statement.execute("CREATE TABLE IF NOT EXISTS execution_stat (item_id INTEGER PRIMARY KEY, completed INTEGER NOT NULL DEFAULT 0, observed INTEGER NOT NULL DEFAULT 0, fill_minutes REAL NOT NULL DEFAULT 0, predicted_minutes REAL NOT NULL DEFAULT 0)");
 			statement.execute("CREATE TABLE IF NOT EXISTS counted_offer (identity TEXT PRIMARY KEY, counted_at INTEGER NOT NULL)");
 			statement.execute("CREATE TABLE IF NOT EXISTS offer_projection (slot INTEGER PRIMARY KEY, lifecycle_state TEXT NOT NULL, offer_identity TEXT, session_id TEXT, last_sequence INTEGER NOT NULL, last_observed_at INTEGER NOT NULL, item_id INTEGER NOT NULL, item_name TEXT, buying INTEGER NOT NULL, price INTEGER NOT NULL, total_quantity INTEGER NOT NULL, filled_quantity INTEGER NOT NULL, spent INTEGER NOT NULL, recommendation_id TEXT, source_event_id TEXT, transition_reason TEXT NOT NULL, updated_at INTEGER NOT NULL)");
+			statement.execute("CREATE TABLE IF NOT EXISTS position_projection (item_id INTEGER PRIMARY KEY, item_name TEXT, quantity INTEGER NOT NULL, total_cost INTEGER NOT NULL, cost_known INTEGER NOT NULL, opened_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, source_event_id TEXT, source_offer_identity TEXT, consistency_state TEXT NOT NULL, consistency_reason TEXT)");
+			statement.execute("CREATE TABLE IF NOT EXISTS position_event (id INTEGER PRIMARY KEY AUTOINCREMENT, source_event_id TEXT, source_offer_identity TEXT, observed_at INTEGER NOT NULL, effect_type TEXT NOT NULL, item_id INTEGER NOT NULL, item_name TEXT, quantity INTEGER NOT NULL, acquisition_cost INTEGER NOT NULL, applied_cost_basis INTEGER NOT NULL DEFAULT 0, transition_reason TEXT, created_at INTEGER NOT NULL)");
+			statement.execute("CREATE UNIQUE INDEX IF NOT EXISTS position_event_source_unique ON position_event(source_event_id) WHERE source_event_id IS NOT NULL AND source_event_id <> ''");
 		}
 
 		if (!hasColumn("event_log", "event_id"))
@@ -175,13 +185,14 @@ final class SqliteStore implements AutoCloseable
 			if (acceptance == EventAcceptance.DUPLICATE)
 			{
 				connection.commit();
-				return new ProjectedEventAcceptance(acceptance, null);
+				return new ProjectedEventAcceptance(acceptance, null, null);
 			}
 			OfferLifecycleProjection previous = offerProjection(event.getSlot());
 			OfferLifecycleTransition transition = OfferLifecycleReducer.apply(previous, event);
 			writeProjection(transition.getProjection(), event.getEventId(), transition.getReason());
+			PositionProjection position = applyPositionEffect(transition.getAccountingEffect());
 			connection.commit();
-			return new ProjectedEventAcceptance(acceptance, transition);
+			return new ProjectedEventAcceptance(acceptance, transition, position);
 		}
 		catch (Exception failure)
 		{
@@ -235,6 +246,102 @@ final class SqliteStore implements AutoCloseable
 			s.setInt(10,p.getPrice()); s.setInt(11,p.getTotalQuantity()); s.setInt(12,p.getFilledQuantity());
 			s.setLong(13,p.getSpent()); s.setString(14,p.getRecommendationId()); s.setString(15,eventId);
 			s.setString(16,reason); s.setLong(17,Instant.now().getEpochSecond()); s.executeUpdate();
+		}
+	}
+
+	synchronized List<PositionProjection> positionProjections() throws Exception
+	{
+		List<PositionProjection> result = new ArrayList<>();
+		try (PreparedStatement s = connection.prepareStatement("SELECT item_id,item_name,quantity,total_cost,cost_known,opened_at,updated_at,source_event_id,source_offer_identity,consistency_state,consistency_reason FROM position_projection ORDER BY item_id"); ResultSet rows = s.executeQuery())
+		{
+			while (rows.next()) result.add(readPosition(rows));
+		}
+		return result;
+	}
+
+	synchronized int positionEventCount() throws Exception
+	{
+		try (Statement s = connection.createStatement(); ResultSet r = s.executeQuery("SELECT COUNT(*) FROM position_event"))
+		{ return r.next() ? r.getInt(1) : 0; }
+	}
+
+	private PositionProjection applyPositionEffect(PositionAccountingEffect effect) throws Exception
+	{
+		if (effect == null || effect.getType() == PositionAccountingEffectType.NONE) return null;
+		PositionProjection current = effect.getItemId() > 0 ? positionProjection(effect.getItemId()) : null;
+		long appliedCost = 0;
+		PositionProjection result = current;
+		String reason = effect.getReason();
+		switch (effect.getType())
+		{
+			case ACQUIRE:
+				if (current == null)
+				{
+					result = PositionProjection.ready(effect.getItemId(), effect.getItemName(), effect.getQuantity(), effect.getAcquisitionCost(), effect.getObservedAt(), effect.getSourceEventId(), effect.getOfferIdentity());
+				}
+				else if (current.getConsistencyState() == PositionConsistencyState.READY && current.isCostKnown())
+				{
+					result = PositionProjection.ready(current.getItemId(), effect.getItemName() == null ? current.getItemName() : effect.getItemName(), current.getQuantity() + effect.getQuantity(), current.getTotalCost() + effect.getAcquisitionCost(), current.getOpenedAt(), effect.getObservedAt(), effect.getSourceEventId(), effect.getOfferIdentity());
+				}
+				else reason = "acquisition encountered a position requiring reconciliation";
+				break;
+			case DISPOSE:
+				if (current == null) reason = "disposal has no durable position";
+				else if (current.getConsistencyState() != PositionConsistencyState.READY) reason = current.getConsistencyReason();
+				else if (effect.getQuantity() > current.getQuantity()) reason = "disposal exceeds durable position quantity";
+				else
+				{
+					appliedCost = current.getTotalCost() * effect.getQuantity() / current.getQuantity();
+					if (effect.getQuantity() == current.getQuantity()) result = null;
+					else result = PositionProjection.ready(current.getItemId(), current.getItemName(), current.getQuantity() - effect.getQuantity(), current.getTotalCost() - appliedCost, current.getOpenedAt(), effect.getObservedAt(), effect.getSourceEventId(), effect.getOfferIdentity());
+				}
+				break;
+			case RECONCILE:
+				reason = effect.getReason();
+				break;
+			default: break;
+		}
+		appendPositionEvent(effect, appliedCost, reason);
+		if (effect.getType() == PositionAccountingEffectType.RECONCILE || reason != null)
+		{
+			if (effect.getItemId() <= 0) return null;
+			result = PositionProjection.reconcile(effect.getItemId(), effect.getItemName(), current == null ? 0 : current.getQuantity(), current == null ? 0 : current.getTotalCost(), current != null && current.isCostKnown(), current == null ? effect.getObservedAt() : current.getOpenedAt(), effect.getObservedAt(), effect.getSourceEventId(), effect.getOfferIdentity(), reason == null ? "accounting reconciliation required" : reason);
+		}
+		if (result == null)
+		{
+			if (current != null) deletePosition(current.getItemId());
+		}
+		else writePosition(result);
+		return result;
+	}
+
+	private PositionProjection positionProjection(int itemId) throws Exception
+	{
+		try (PreparedStatement s = connection.prepareStatement("SELECT item_id,item_name,quantity,total_cost,cost_known,opened_at,updated_at,source_event_id,source_offer_identity,consistency_state,consistency_reason FROM position_projection WHERE item_id=?"))
+		{
+			s.setInt(1,itemId); try (ResultSet r=s.executeQuery()) { return r.next()?readPosition(r):null; }
+		}
+	}
+	private static PositionProjection readPosition(ResultSet r) throws Exception
+	{
+		return PositionProjection.restore(r.getInt(1),r.getString(2),r.getInt(3),r.getLong(4),r.getInt(5)!=0,r.getLong(6),r.getLong(7),r.getString(8),r.getString(9),PositionConsistencyState.valueOf(r.getString(10)),r.getString(11));
+	}
+	private void writePosition(PositionProjection p) throws Exception
+	{
+		try (PreparedStatement s=connection.prepareStatement("INSERT INTO position_projection(item_id,item_name,quantity,total_cost,cost_known,opened_at,updated_at,source_event_id,source_offer_identity,consistency_state,consistency_reason) VALUES(?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(item_id) DO UPDATE SET item_name=excluded.item_name,quantity=excluded.quantity,total_cost=excluded.total_cost,cost_known=excluded.cost_known,opened_at=excluded.opened_at,updated_at=excluded.updated_at,source_event_id=excluded.source_event_id,source_offer_identity=excluded.source_offer_identity,consistency_state=excluded.consistency_state,consistency_reason=excluded.consistency_reason"))
+		{
+			s.setInt(1,p.getItemId());s.setString(2,p.getItemName());s.setInt(3,p.getQuantity());s.setLong(4,p.getTotalCost());s.setInt(5,p.isCostKnown()?1:0);s.setLong(6,p.getOpenedAt());s.setLong(7,p.getUpdatedAt());s.setString(8,p.getSourceEventId());s.setString(9,p.getSourceOfferIdentity());s.setString(10,p.getConsistencyState().name());s.setString(11,p.getConsistencyReason());s.executeUpdate();
+		}
+	}
+	private void deletePosition(int itemId) throws Exception
+	{
+		try (PreparedStatement s=connection.prepareStatement("DELETE FROM position_projection WHERE item_id=?")){s.setInt(1,itemId);s.executeUpdate();}
+	}
+	private void appendPositionEvent(PositionAccountingEffect e,long appliedCost,String reason) throws Exception
+	{
+		try (PreparedStatement s=connection.prepareStatement("INSERT OR IGNORE INTO position_event(source_event_id,source_offer_identity,observed_at,effect_type,item_id,item_name,quantity,acquisition_cost,applied_cost_basis,transition_reason,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)"))
+		{
+			s.setString(1,e.getSourceEventId());s.setString(2,e.getOfferIdentity());s.setLong(3,e.getObservedAt());s.setString(4,e.getType().name());s.setInt(5,e.getItemId());s.setString(6,e.getItemName());s.setInt(7,e.getQuantity());s.setLong(8,e.getAcquisitionCost());s.setLong(9,appliedCost);s.setString(10,reason);s.setLong(11,Instant.now().getEpochSecond());s.executeUpdate();
 		}
 	}
 

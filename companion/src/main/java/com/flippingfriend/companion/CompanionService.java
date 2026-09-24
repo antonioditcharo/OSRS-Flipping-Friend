@@ -353,6 +353,15 @@ final class CompanionService implements AutoCloseable
 			return projected.acceptance;
 		}
 		resolved("Offer projection slot " + event.getSlot());
+		if (projected.positionProjection != null
+			&& projected.positionProjection.getConsistencyState() == com.flippingfriend.core.PositionConsistencyState.RECONCILE)
+		{
+			fault("Position projection item " + projected.positionProjection.getItemId(), projected.positionProjection.getConsistencyReason(), null);
+		}
+		else if (projected.positionProjection != null)
+		{
+			resolved("Position projection item " + projected.positionProjection.getItemId());
+		}
 		buyLimits.apply(event);
 		activeOffers.apply(event);
 		// Settled offers are the only direct evidence of how our own orders behave in the queue,
