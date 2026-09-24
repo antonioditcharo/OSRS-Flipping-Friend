@@ -5,6 +5,7 @@ import com.flippingfriend.core.AccountSnapshot;
 import com.flippingfriend.core.CompanionAction;
 import com.flippingfriend.core.CompanionHealth;
 import com.flippingfriend.core.OfferEvent;
+import com.flippingfriend.core.OfferLifecycleTransition;
 import com.flippingfriend.core.PortfolioPlan;
 import com.google.gson.Gson;
 import java.time.Instant;
@@ -339,12 +340,19 @@ final class CompanionService implements AutoCloseable
 
 	SqliteStore.EventAcceptance offer(OfferEvent event) throws Exception
 	{
-		SqliteStore.EventAcceptance acceptance = store.recordEvent(event.getObservedAt(),
-			event.getCorrelationId(), event.getEventId(), event.getEventType(), gson.toJson(event));
-		if (acceptance == SqliteStore.EventAcceptance.DUPLICATE)
+		SqliteStore.ProjectedEventAcceptance projected =
+			store.recordAndProjectOffer(event, gson.toJson(event));
+		if (projected.acceptance == SqliteStore.EventAcceptance.DUPLICATE)
 		{
-			return acceptance;
+			return projected.acceptance;
 		}
+		OfferLifecycleTransition transition = projected.transition;
+		if (!transition.isAccepted())
+		{
+			fault("Offer projection slot " + event.getSlot(), transition.getReason(), null);
+			return projected.acceptance;
+		}
+		resolved("Offer projection slot " + event.getSlot());
 		buyLimits.apply(event);
 		activeOffers.apply(event);
 		// Settled offers are the only direct evidence of how our own orders behave in the queue,
@@ -356,7 +364,7 @@ final class CompanionService implements AutoCloseable
 		// or closed, capital has moved, and a buy limit may have been consumed. Waiting for the next
 		// market poll would leave the panel telling the player to do something they have just done.
 		requestPlan();
-		return acceptance;
+		return projected.acceptance;
 	}
 
 	/**

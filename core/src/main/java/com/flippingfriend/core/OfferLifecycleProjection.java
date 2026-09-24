@@ -39,6 +39,23 @@ public final class OfferLifecycleProjection
         this.recommendationId = recommendationId;
     }
 
+    /** Restores one normalized durable projection row without replaying a transition. */
+    public static OfferLifecycleProjection restore(OfferLifecycleState state, int slot,
+        String offerIdentity, String sessionId, long lastSequence, long lastObservedAt,
+        int itemId, String itemName, boolean buying, int price, int totalQuantity,
+        int filledQuantity, long spent, String recommendationId)
+    {
+        if (state == null || slot < 0 || lastSequence < 0 || lastObservedAt < 0
+            || itemId < 0 || price < 0 || totalQuantity < 0 || filledQuantity < 0
+            || filledQuantity > totalQuantity || spent < 0)
+        {
+            throw new IllegalArgumentException("invalid durable offer projection");
+        }
+        return new OfferLifecycleProjection(state, slot, offerIdentity, sessionId, lastSequence,
+            lastObservedAt, itemId, itemName, buying, price, totalQuantity, filledQuantity,
+            spent, recommendationId);
+    }
+
     public OfferLifecycleState getState() { return state; }
     public int getSlot() { return slot; }
     public String getOfferIdentity() { return offerIdentity; }
