@@ -320,6 +320,7 @@ public class CompanionClientTest
                 PluginStorage storage = TestStorage.rootedAt(root, "player");
                 OfferEventOutbox outbox = new OfferEventOutbox(storage);
                 CompanionClient publishing = new CompanionClient(storage, new Gson(), new SuggestionLedger(), outbox);
+                publishing.resumeOfferReplay();
                 outbox.enqueue((e, s, q) -> replayEvent(e, s, q));
                 outbox.enqueue((e, s, q) -> replayEvent(e, s, q));
                 outbox.enqueue((e, s, q) -> replayEvent(e, s, q));
@@ -339,6 +340,7 @@ public class CompanionClientTest
                 PluginStorage storage = TestStorage.rootedAt(root, "player");
                 OfferEventOutbox outbox = new OfferEventOutbox(storage);
                 CompanionClient publishing = new CompanionClient(storage, new Gson(), new SuggestionLedger(), outbox);
+                publishing.resumeOfferReplay();
                 outbox.enqueue((e, s, q) -> replayEvent(e, s, q));
                 outbox.enqueue((e, s, q) -> replayEvent(e, s, q));
                 outbox.enqueue((e, s, q) -> replayEvent(e, s, q));
@@ -361,6 +363,7 @@ public class CompanionClientTest
                 PluginStorage storage = TestStorage.rootedAt(root, "player");
                 OfferEventOutbox outbox = new OfferEventOutbox(storage);
                 CompanionClient publishing = new CompanionClient(storage, new Gson(), new SuggestionLedger(), outbox);
+                publishing.resumeOfferReplay();
                 outbox.enqueue((e, s, q) -> replayEvent(e, s, q));
                 outbox.enqueue((e, s, q) -> replayEvent(e, s, q));
                 List<Long> sent = new java.util.ArrayList<>();
@@ -466,6 +469,50 @@ public class CompanionClientTest
                 assertFalse(publishing.requestPendingOfferReplay(freshQueue::add));
                 assertEquals(1, freshQueue.size());
                 freshQueue.get(0).run();
+        }
+
+        @Test public void pauseDuringTransportDiscardsAcknowledgementAndStopsTheTail() throws Exception
+        {
+                Path root = folder.newFolder("active-fence").toPath();
+                PluginStorage storage = TestStorage.rootedAt(root, "player");
+                OfferEventOutbox outbox = new OfferEventOutbox(storage);
+                CompanionClient publishing = new CompanionClient(storage, new Gson(), new SuggestionLedger(), outbox, () -> 5_000);
+                publishing.resumeOfferReplay();
+                outbox.enqueue((e, s, q) -> replayEvent(e, s, q));
+                outbox.enqueue((e, s, q) -> replayEvent(e, s, q));
+                List<Long> sent = new java.util.ArrayList<>();
+                assertFalse(publishing.replayPendingOffers(event ->
+                {
+                        sent.add(event.getSequence());
+                        publishing.pauseOfferReplay();
+                        return replayAcknowledgement(event, false);
+                }));
+                assertEquals(Collections.singletonList(1L), sent);
+                assertEquals(Arrays.asList(1L, 2L), sequences(outbox.pending()));
+                assertEquals(Long.MAX_VALUE, publishing.nextRetryAtMillis());
+                assertEquals(2_000, publishing.retryDelayMillis());
+        }
+
+        @Test public void staleActiveReplayCannotAlterFreshLifecycle() throws Exception
+        {
+                Path root = folder.newFolder("active-resume-fence").toPath();
+                PluginStorage storage = TestStorage.rootedAt(root, "player");
+                OfferEventOutbox outbox = new OfferEventOutbox(storage);
+                CompanionClient publishing = new CompanionClient(storage, new Gson(), new SuggestionLedger(), outbox, () -> 5_000);
+                publishing.resumeOfferReplay();
+                outbox.enqueue((e, s, q) -> replayEvent(e, s, q));
+                assertFalse(publishing.replayPendingOffers(event ->
+                {
+                        publishing.pauseOfferReplay();
+                        publishing.resumeOfferReplay();
+                        return replayAcknowledgement(event, false);
+                }));
+                assertEquals(1, outbox.pending().size());
+                assertEquals(0, publishing.nextRetryAtMillis());
+                assertEquals(2_000, publishing.retryDelayMillis());
+                java.util.List<Runnable> fresh = new java.util.ArrayList<>();
+                assertTrue(publishing.requestPendingOfferReplay(fresh::add));
+                assertEquals(1, fresh.size());
         }
 
 	@Test
