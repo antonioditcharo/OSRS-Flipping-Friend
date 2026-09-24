@@ -1,4 +1,9 @@
 package com.flippingfriend.companion;
+import com.flippingfriend.core.OfferEvent;
+import com.flippingfriend.core.OfferLifecycleProjection;
+import com.flippingfriend.core.OfferLifecycleReducer;
+import com.flippingfriend.core.OfferLifecycleState;
+import com.flippingfriend.core.OfferLifecycleTransition;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -18,6 +23,16 @@ import java.util.Map;
 final class SqliteStore implements AutoCloseable
 {
 	enum EventAcceptance { NEW, DUPLICATE }
+	static final class ProjectedEventAcceptance
+	{
+		final EventAcceptance acceptance;
+		final OfferLifecycleTransition transition;
+		ProjectedEventAcceptance(EventAcceptance acceptance, OfferLifecycleTransition transition)
+		{
+			this.acceptance = acceptance;
+			this.transition = transition;
+		}
+	}
 	/**
 	 * How much of a model payload to read back when only its name is wanted.
 	 * <p>
@@ -72,6 +87,7 @@ final class SqliteStore implements AutoCloseable
 			statement.execute("CREATE TABLE IF NOT EXISTS gate_result (id INTEGER PRIMARY KEY, evaluated_at INTEGER NOT NULL, resolution TEXT NOT NULL, gate TEXT NOT NULL, passed INTEGER NOT NULL, measured TEXT NOT NULL, payload TEXT NOT NULL)");
 			statement.execute("CREATE TABLE IF NOT EXISTS execution_stat (item_id INTEGER PRIMARY KEY, completed INTEGER NOT NULL DEFAULT 0, observed INTEGER NOT NULL DEFAULT 0, fill_minutes REAL NOT NULL DEFAULT 0, predicted_minutes REAL NOT NULL DEFAULT 0)");
 			statement.execute("CREATE TABLE IF NOT EXISTS counted_offer (identity TEXT PRIMARY KEY, counted_at INTEGER NOT NULL)");
+			statement.execute("CREATE TABLE IF NOT EXISTS offer_projection (slot INTEGER PRIMARY KEY, lifecycle_state TEXT NOT NULL, offer_identity TEXT, session_id TEXT, last_sequence INTEGER NOT NULL, last_observed_at INTEGER NOT NULL, item_id INTEGER NOT NULL, item_name TEXT, buying INTEGER NOT NULL, price INTEGER NOT NULL, total_quantity INTEGER NOT NULL, filled_quantity INTEGER NOT NULL, spent INTEGER NOT NULL, recommendation_id TEXT, source_event_id TEXT, transition_reason TEXT NOT NULL, updated_at INTEGER NOT NULL)");
 		}
 
 		if (!hasColumn("event_log", "event_id"))
@@ -146,6 +162,82 @@ final class SqliteStore implements AutoCloseable
 		}
 		return false;
 	}
+	/** Atomically accepts one canonical offer event and advances its current slot projection. */
+	synchronized ProjectedEventAcceptance recordAndProjectOffer(OfferEvent event, String payload) throws Exception
+	{
+		if (event == null) throw new IllegalArgumentException("event is required");
+		boolean autoCommit = connection.getAutoCommit();
+		connection.setAutoCommit(false);
+		try
+		{
+			EventAcceptance acceptance = recordEvent(event.getObservedAt(), event.getCorrelationId(),
+				event.getEventId(), event.getEventType(), payload);
+			if (acceptance == EventAcceptance.DUPLICATE)
+			{
+				connection.commit();
+				return new ProjectedEventAcceptance(acceptance, null);
+			}
+			OfferLifecycleProjection previous = offerProjection(event.getSlot());
+			OfferLifecycleTransition transition = OfferLifecycleReducer.apply(previous, event);
+			writeProjection(transition.getProjection(), event.getEventId(), transition.getReason());
+			connection.commit();
+			return new ProjectedEventAcceptance(acceptance, transition);
+		}
+		catch (Exception failure)
+		{
+			connection.rollback();
+			throw failure;
+		}
+		finally
+		{
+			connection.setAutoCommit(autoCommit);
+		}
+	}
+
+	synchronized List<OfferLifecycleProjection> offerProjections() throws Exception
+	{
+		List<OfferLifecycleProjection> result = new ArrayList<>();
+		try (PreparedStatement statement = connection.prepareStatement(
+			"SELECT lifecycle_state, slot, offer_identity, session_id, last_sequence, last_observed_at, item_id, item_name, buying, price, total_quantity, filled_quantity, spent, recommendation_id FROM offer_projection ORDER BY slot");
+			ResultSet rows = statement.executeQuery())
+		{
+			while (rows.next()) result.add(readProjection(rows));
+		}
+		return result;
+	}
+
+	private OfferLifecycleProjection offerProjection(int slot) throws Exception
+	{
+		try (PreparedStatement statement = connection.prepareStatement(
+			"SELECT lifecycle_state, slot, offer_identity, session_id, last_sequence, last_observed_at, item_id, item_name, buying, price, total_quantity, filled_quantity, spent, recommendation_id FROM offer_projection WHERE slot=?"))
+		{
+			statement.setInt(1, slot);
+			try (ResultSet row = statement.executeQuery()) { return row.next() ? readProjection(row) : null; }
+		}
+	}
+
+	private static OfferLifecycleProjection readProjection(ResultSet row) throws Exception
+	{
+		return OfferLifecycleProjection.restore(OfferLifecycleState.valueOf(row.getString(1)),
+			row.getInt(2), row.getString(3), row.getString(4), row.getLong(5), row.getLong(6),
+			row.getInt(7), row.getString(8), row.getInt(9) != 0, row.getInt(10), row.getInt(11),
+			row.getInt(12), row.getLong(13), row.getString(14));
+	}
+
+	private void writeProjection(OfferLifecycleProjection p, String eventId, String reason) throws Exception
+	{
+		try (PreparedStatement s = connection.prepareStatement(
+			"INSERT INTO offer_projection(slot,lifecycle_state,offer_identity,session_id,last_sequence,last_observed_at,item_id,item_name,buying,price,total_quantity,filled_quantity,spent,recommendation_id,source_event_id,transition_reason,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(slot) DO UPDATE SET lifecycle_state=excluded.lifecycle_state,offer_identity=excluded.offer_identity,session_id=excluded.session_id,last_sequence=excluded.last_sequence,last_observed_at=excluded.last_observed_at,item_id=excluded.item_id,item_name=excluded.item_name,buying=excluded.buying,price=excluded.price,total_quantity=excluded.total_quantity,filled_quantity=excluded.filled_quantity,spent=excluded.spent,recommendation_id=excluded.recommendation_id,source_event_id=excluded.source_event_id,transition_reason=excluded.transition_reason,updated_at=excluded.updated_at"))
+		{
+			s.setInt(1,p.getSlot()); s.setString(2,p.getState().name()); s.setString(3,p.getOfferIdentity());
+			s.setString(4,p.getSessionId()); s.setLong(5,p.getLastSequence()); s.setLong(6,p.getLastObservedAt());
+			s.setInt(7,p.getItemId()); s.setString(8,p.getItemName()); s.setInt(9,p.isBuying()?1:0);
+			s.setInt(10,p.getPrice()); s.setInt(11,p.getTotalQuantity()); s.setInt(12,p.getFilledQuantity());
+			s.setLong(13,p.getSpent()); s.setString(14,p.getRecommendationId()); s.setString(15,eventId);
+			s.setString(16,reason); s.setLong(17,Instant.now().getEpochSecond()); s.executeUpdate();
+		}
+	}
+
 	synchronized void recordEvent(long observedAt, String correlationId, String eventType, String payload) throws Exception
 	{
 		recordEvent(observedAt, correlationId, null, eventType, payload);
