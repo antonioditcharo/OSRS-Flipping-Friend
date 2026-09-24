@@ -514,54 +514,77 @@ public class CompanionClient
 
         private void replayPendingOffers()
         {
-                replayPendingOffers(event -> request("events/ge-offer", "POST", gson.toJson(event)));
+                long generation = replayGeneration.get();
+                replayPendingOffers(event -> request("events/ge-offer", "POST", gson.toJson(event)), generation);
         }
 
         boolean replayPendingOffers(OfferEventSender sender)
         {
-                if (!replayRunning.compareAndSet(false, true)) return false;
-                boolean succeeded = false;
+                return replayPendingOffers(sender, replayGeneration.get()) == ReplayResult.DRAINED;
+        }
+
+        private ReplayResult replayPendingOffers(OfferEventSender sender, long generation)
+        {
+                if (!replayRunning.compareAndSet(false, true)) return ReplayResult.BUSY;
+                ReplayResult result = ReplayResult.FAILED;
                 try
                 {
+                        if (!replayLifecycleIsCurrent(generation)) return ReplayResult.STALE;
                         for (OfferEvent event : outbox.pending())
                         {
+                                if (!replayLifecycleIsCurrent(generation)) return ReplayResult.STALE;
                                 String response;
                                 try { response = sender.send(event); }
                                 catch (Exception failure)
                                 {
+                                        if (!replayLifecycleIsCurrent(generation)) return ReplayResult.STALE;
                                         lastError = failure.getMessage();
-                                        return false;
+                                        return ReplayResult.FAILED;
                                 }
+                                if (!replayLifecycleIsCurrent(generation)) return ReplayResult.STALE;
                                 if (!consumeAcknowledgement(event, response))
                                 {
+                                        if (!replayLifecycleIsCurrent(generation)) return ReplayResult.STALE;
                                         lastError = "Companion returned an invalid offer acknowledgement.";
-                                        return false;
+                                        return ReplayResult.FAILED;
                                 }
+                                if (!replayLifecycleIsCurrent(generation)) return ReplayResult.STALE;
                         }
-                        succeeded = true;
-                        return true;
+                        result = ReplayResult.DRAINED;
+                        return result;
                 }
                 catch (Exception failure)
                 {
+                        if (!replayLifecycleIsCurrent(generation)) return ReplayResult.STALE;
                         lastError = failure.getMessage();
-                        return false;
+                        return ReplayResult.FAILED;
                 }
                 finally
                 {
-                        long now = retryClock.getAsLong();
-                        if (succeeded)
+                        if (replayLifecycleIsCurrent(generation))
                         {
-                                retryDelayMillis = INITIAL_RETRY_DELAY_MILLIS;
-                                nextRetryAtMillis = Long.MAX_VALUE;
-                        }
-                        else
-                        {
-                                nextRetryAtMillis = now + retryDelayMillis;
-                                retryDelayMillis = Math.min(MAX_RETRY_DELAY_MILLIS, retryDelayMillis * 2);
+                                long now = retryClock.getAsLong();
+                                if (result == ReplayResult.DRAINED)
+                                {
+                                        retryDelayMillis = INITIAL_RETRY_DELAY_MILLIS;
+                                        nextRetryAtMillis = Long.MAX_VALUE;
+                                }
+                                else if (result == ReplayResult.FAILED)
+                                {
+                                        nextRetryAtMillis = now + retryDelayMillis;
+                                        retryDelayMillis = Math.min(MAX_RETRY_DELAY_MILLIS, retryDelayMillis * 2);
+                                }
                         }
                         replayRunning.set(false);
                 }
         }
+
+        private boolean replayLifecycleIsCurrent(long generation)
+        {
+                return replayEnabled && generation == replayGeneration.get();
+        }
+
+        private enum ReplayResult { DRAINED, FAILED, STALE, BUSY }
 
         public boolean requestPendingOfferReplay(Executor executor)
         {
@@ -576,7 +599,7 @@ public class CompanionClient
                                 {
                                         if (replayEnabled && generation == replayGeneration.get())
                                         {
-                                                replayPendingOffers();
+                                                replayPendingOffers(event -> request("events/ge-offer", "POST", gson.toJson(event)), generation);
                                         }
                                 }
                                 finally
