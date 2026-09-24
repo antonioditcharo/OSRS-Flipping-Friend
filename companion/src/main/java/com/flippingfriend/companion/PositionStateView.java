@@ -59,6 +59,10 @@ final class PositionStateView
                 return new PositionStateView(positions);
         }
 
+        Map<Integer, PositionSnapshot> byItem()
+        {
+                return byItem;
+        }
         PositionSnapshot get(int itemId)
         {
                 return byItem.get(itemId);

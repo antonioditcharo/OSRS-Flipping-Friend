@@ -325,12 +325,19 @@ final class CompanionService implements AutoCloseable
 
 	void account(AccountSnapshot snapshot) throws Exception
 	{
+		PositionStateView view = PositionStateView.from(snapshot);
+		SnapshotReconciliationResult reconciliation =
+			store.recordAndReconcileAccount(snapshot, view, gson.toJson(snapshot));
 		account = snapshot;
 		// The plugin's ledger is durable; this one is rebuilt from events that can go missing. Take
 		// the higher of the two so a dropped fill is corrected on the next cycle rather than never.
 		buyLimits.reconcile(snapshot.getBuyLimitUsed());
-		store.recordEvent(snapshot.getObservedAt(), snapshot.getCorrelationId(), "ACCOUNT_STATE",
-			gson.toJson(snapshot));
+		if (reconciliation.reconciliationRequired() > 0)
+		{
+			fault("Snapshot reconciliation", reconciliation.reconciliationRequired()
+				+ " position(s) require reconciliation", null);
+		}
+		else resolved("Snapshot reconciliation");
 		requestPlan();
 	}
 	PositionStateView positions()
