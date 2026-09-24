@@ -8,6 +8,8 @@ import com.flippingfriend.core.PositionAccountingEffect;
 import com.flippingfriend.core.PositionAccountingEffectType;
 import com.flippingfriend.core.PositionConsistencyState;
 import com.flippingfriend.core.PositionProjection;
+import com.flippingfriend.core.AccountSnapshot;
+import com.flippingfriend.core.PositionSnapshot;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -98,6 +100,7 @@ final class SqliteStore implements AutoCloseable
 			statement.execute("CREATE TABLE IF NOT EXISTS position_projection (item_id INTEGER PRIMARY KEY, item_name TEXT, quantity INTEGER NOT NULL, total_cost INTEGER NOT NULL, cost_known INTEGER NOT NULL, opened_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, source_event_id TEXT, source_offer_identity TEXT, consistency_state TEXT NOT NULL, consistency_reason TEXT)");
 			statement.execute("CREATE TABLE IF NOT EXISTS position_event (id INTEGER PRIMARY KEY AUTOINCREMENT, source_event_id TEXT, source_offer_identity TEXT, observed_at INTEGER NOT NULL, effect_type TEXT NOT NULL, item_id INTEGER NOT NULL, item_name TEXT, quantity INTEGER NOT NULL, acquisition_cost INTEGER NOT NULL, applied_cost_basis INTEGER NOT NULL DEFAULT 0, transition_reason TEXT, created_at INTEGER NOT NULL)");
 			statement.execute("CREATE UNIQUE INDEX IF NOT EXISTS position_event_source_unique ON position_event(source_event_id) WHERE source_event_id IS NOT NULL AND source_event_id <> ''");
+			statement.execute("CREATE TABLE IF NOT EXISTS reconciliation_event (id INTEGER PRIMARY KEY AUTOINCREMENT, snapshot_correlation_id TEXT, snapshot_observed_at INTEGER NOT NULL, subject_type TEXT NOT NULL, subject_id TEXT NOT NULL, outcome TEXT NOT NULL, previous_state TEXT, resulting_state TEXT, reason TEXT NOT NULL, created_at INTEGER NOT NULL)");
 		}
 
 		if (!hasColumn("event_log", "event_id"))
@@ -343,6 +346,106 @@ final class SqliteStore implements AutoCloseable
 		{
 			s.setString(1,e.getSourceEventId());s.setString(2,e.getOfferIdentity());s.setLong(3,e.getObservedAt());s.setString(4,e.getType().name());s.setInt(5,e.getItemId());s.setString(6,e.getItemName());s.setInt(7,e.getQuantity());s.setLong(8,e.getAcquisitionCost());s.setLong(9,appliedCost);s.setString(10,reason);s.setLong(11,Instant.now().getEpochSecond());s.executeUpdate();
 		}
+	}
+
+	synchronized SnapshotReconciliationResult recordAndReconcileAccount(AccountSnapshot snapshot,
+		PositionStateView view, String payload) throws Exception
+	{
+		if (snapshot == null || view == null) throw new IllegalArgumentException("snapshot and view are required");
+		boolean autoCommit = connection.getAutoCommit();
+		connection.setAutoCommit(false);
+		try
+		{
+			recordEvent(snapshot.getObservedAt(), snapshot.getCorrelationId(), "ACCOUNT_STATE", payload);
+			SnapshotReconciliationResult result = new SnapshotReconciliationResult();
+			Map<Integer, PositionSnapshot> seen = view.byItem();
+			for (PositionSnapshot incoming : seen.values()) reconcileSnapshotPosition(snapshot, incoming, result);
+			for (PositionProjection existing : positionProjections())
+			{
+				if (!seen.containsKey(existing.getItemId()))
+				{
+					audit(snapshot, existing.getItemId(), "UNCHANGED", existing.getConsistencyState().name(), existing.getConsistencyState().name(), "snapshot absence is not authoritative disposal evidence");
+					result.unchanged(existing);
+				}
+			}
+			connection.commit();
+			return result;
+		}
+		catch (Exception failure)
+		{
+			connection.rollback();
+			throw failure;
+		}
+		finally { connection.setAutoCommit(autoCommit); }
+	}
+
+	private void reconcileSnapshotPosition(AccountSnapshot snapshot, PositionSnapshot incoming,
+		SnapshotReconciliationResult result) throws Exception
+	{
+		PositionProjection current = positionProjection(incoming.getItemId());
+		PositionProjection next = current;
+		String outcome;
+		String reason;
+		if (current == null)
+		{
+			if (incoming.isCostKnown())
+			{
+				next = PositionProjection.ready(incoming.getItemId(), incoming.getItemName(), incoming.getQuantity(), incoming.getTotalCost(), incoming.getOpenedAt(), snapshot.getObservedAt(), null, null);
+				outcome = "ADOPTED"; reason = "snapshot supplied positive known-cost position evidence";
+				result.adopted(next);
+			}
+			else
+			{
+				next = PositionProjection.reconcile(incoming.getItemId(), incoming.getItemName(), incoming.getQuantity(), 0, false, incoming.getOpenedAt(), snapshot.getObservedAt(), null, null, "snapshot position has unknown cost basis");
+				outcome = "RECONCILE_REQUIRED"; reason = next.getConsistencyReason(); result.reconcile(next);
+			}
+		}
+		else if (incoming.getQuantity() < current.getQuantity())
+		{
+			outcome = "UNCHANGED"; reason = "snapshot quantity is lower; absence is not authoritative disposal evidence"; result.unchanged(current);
+		}
+		else if (incoming.getQuantity() == current.getQuantity() && incoming.isCostKnown()
+			&& incoming.getTotalCost() == current.getTotalCost())
+		{
+			if (current.getConsistencyState() == PositionConsistencyState.RECONCILE)
+			{
+				next = PositionProjection.ready(current.getItemId(), incoming.getItemName(), incoming.getQuantity(), incoming.getTotalCost(), current.getOpenedAt(), snapshot.getObservedAt(), current.getSourceEventId(), current.getSourceOfferIdentity());
+				outcome = "REPAIRED"; reason = "snapshot confirmed durable quantity and cost basis"; result.repaired(next);
+			}
+			else { outcome = "CONFIRMED"; reason = "snapshot matches durable quantity and cost basis"; result.confirmed(current); }
+		}
+		else if (incoming.getQuantity() > current.getQuantity() && incoming.isCostKnown())
+		{
+			next = PositionProjection.ready(current.getItemId(), incoming.getItemName(), incoming.getQuantity(), incoming.getTotalCost(), current.getOpenedAt(), snapshot.getObservedAt(), current.getSourceEventId(), current.getSourceOfferIdentity());
+			outcome = "REPAIRED"; reason = "snapshot supplied complete cost evidence for additional quantity"; result.repaired(next);
+		}
+		else
+		{
+			String conflict = incoming.getQuantity() > current.getQuantity()
+				? "snapshot contains additional quantity without known cost basis"
+				: "snapshot and durable cost basis disagree";
+			next = PositionProjection.reconcile(current.getItemId(), current.getItemName(), current.getQuantity(), current.getTotalCost(), current.isCostKnown(), current.getOpenedAt(), snapshot.getObservedAt(), current.getSourceEventId(), current.getSourceOfferIdentity(), conflict);
+			outcome = "RECONCILE_REQUIRED"; reason = conflict; result.reconcile(next);
+		}
+		if (next != current) writePosition(next);
+		audit(snapshot, incoming.getItemId(), outcome, current == null ? null : current.getConsistencyState().name(), next.getConsistencyState().name(), reason);
+	}
+
+	private void audit(AccountSnapshot snapshot, int itemId, String outcome, String before,
+		String after, String reason) throws Exception
+	{
+		try (PreparedStatement s = connection.prepareStatement("INSERT INTO reconciliation_event(snapshot_correlation_id,snapshot_observed_at,subject_type,subject_id,outcome,previous_state,resulting_state,reason,created_at) VALUES(?,?,?,?,?,?,?,?,?)"))
+		{
+			s.setString(1,snapshot.getCorrelationId()); s.setLong(2,snapshot.getObservedAt());
+			s.setString(3,"POSITION"); s.setString(4,String.valueOf(itemId)); s.setString(5,outcome);
+			s.setString(6,before); s.setString(7,after); s.setString(8,reason);
+			s.setLong(9,Instant.now().getEpochSecond()); s.executeUpdate();
+		}
+	}
+
+	synchronized int reconciliationEventCount() throws Exception
+	{
+		try (Statement s=connection.createStatement(); ResultSet r=s.executeQuery("SELECT COUNT(*) FROM reconciliation_event")) { return r.next()?r.getInt(1):0; }
 	}
 
 	synchronized void recordEvent(long observedAt, String correlationId, String eventType, String payload) throws Exception
