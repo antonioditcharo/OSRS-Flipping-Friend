@@ -34,12 +34,14 @@ final class SqliteStore implements AutoCloseable
 		final EventAcceptance acceptance;
 		final OfferLifecycleTransition transition;
 		final PositionProjection positionProjection;
+		final BuyLimitProjection buyLimitProjection;
 		ProjectedEventAcceptance(EventAcceptance acceptance, OfferLifecycleTransition transition,
-			PositionProjection positionProjection)
+			PositionProjection positionProjection, BuyLimitProjection buyLimitProjection)
 		{
 			this.acceptance = acceptance;
 			this.transition = transition;
 			this.positionProjection = positionProjection;
+			this.buyLimitProjection = buyLimitProjection;
 		}
 	}
 	/**
@@ -101,6 +103,8 @@ final class SqliteStore implements AutoCloseable
 			statement.execute("CREATE TABLE IF NOT EXISTS position_event (id INTEGER PRIMARY KEY AUTOINCREMENT, source_event_id TEXT, source_offer_identity TEXT, observed_at INTEGER NOT NULL, effect_type TEXT NOT NULL, item_id INTEGER NOT NULL, item_name TEXT, quantity INTEGER NOT NULL, acquisition_cost INTEGER NOT NULL, applied_cost_basis INTEGER NOT NULL DEFAULT 0, transition_reason TEXT, created_at INTEGER NOT NULL)");
 			statement.execute("CREATE UNIQUE INDEX IF NOT EXISTS position_event_source_unique ON position_event(source_event_id) WHERE source_event_id IS NOT NULL AND source_event_id <> ''");
 			statement.execute("CREATE TABLE IF NOT EXISTS reconciliation_event (id INTEGER PRIMARY KEY AUTOINCREMENT, snapshot_correlation_id TEXT, snapshot_observed_at INTEGER NOT NULL, subject_type TEXT NOT NULL, subject_id TEXT NOT NULL, outcome TEXT NOT NULL, previous_state TEXT, resulting_state TEXT, reason TEXT NOT NULL, created_at INTEGER NOT NULL)");
+			statement.execute("CREATE TABLE IF NOT EXISTS buy_limit_projection (item_id INTEGER PRIMARY KEY, started_at INTEGER NOT NULL, used_quantity INTEGER NOT NULL, updated_at INTEGER NOT NULL, source_event_id TEXT, source_snapshot_correlation_id TEXT)");
+			statement.execute("CREATE TABLE IF NOT EXISTS buy_limit_event (id INTEGER PRIMARY KEY AUTOINCREMENT, item_id INTEGER NOT NULL, started_at INTEGER NOT NULL, quantity_delta INTEGER NOT NULL, resulting_used_quantity INTEGER NOT NULL, source_type TEXT NOT NULL, source_event_id TEXT, source_snapshot_correlation_id TEXT, observed_at INTEGER NOT NULL, created_at INTEGER NOT NULL)");
 		}
 
 		if (!hasColumn("event_log", "event_id"))
@@ -188,14 +192,15 @@ final class SqliteStore implements AutoCloseable
 			if (acceptance == EventAcceptance.DUPLICATE)
 			{
 				connection.commit();
-				return new ProjectedEventAcceptance(acceptance, null, null);
+				return new ProjectedEventAcceptance(acceptance, null, null, null);
 			}
 			OfferLifecycleProjection previous = offerProjection(event.getSlot());
 			OfferLifecycleTransition transition = OfferLifecycleReducer.apply(previous, event);
 			writeProjection(transition.getProjection(), event.getEventId(), transition.getReason());
 			PositionProjection position = applyPositionEffect(transition.getAccountingEffect());
+			BuyLimitProjection buyLimit = applyBuyLimitEffect(event, transition);
 			connection.commit();
-			return new ProjectedEventAcceptance(acceptance, transition, position);
+			return new ProjectedEventAcceptance(acceptance, transition, position, buyLimit);
 		}
 		catch (Exception failure)
 		{
@@ -368,6 +373,7 @@ final class SqliteStore implements AutoCloseable
 					result.unchanged(existing);
 				}
 			}
+			reconcileBuyLimits(snapshot, result);
 			connection.commit();
 			return result;
 		}
@@ -447,6 +453,67 @@ final class SqliteStore implements AutoCloseable
 	{
 		try (Statement s=connection.createStatement(); ResultSet r=s.executeQuery("SELECT COUNT(*) FROM reconciliation_event")) { return r.next()?r.getInt(1):0; }
 	}
+
+	private BuyLimitProjection applyBuyLimitEffect(OfferEvent event,
+		OfferLifecycleTransition transition) throws Exception
+	{
+		if (event == null || transition == null || !transition.isAccepted()
+			|| !event.isBuying() || event.getFilledQuantity() <= 0) return null;
+		PositionAccountingEffect effect = transition.getAccountingEffect();
+		int quantity = effect != null && effect.getType() == PositionAccountingEffectType.ACQUIRE
+			? effect.getQuantity() : event.getFilledQuantity();
+		if (quantity <= 0) return null;
+		BuyLimitProjection current = buyLimitProjection(event.getItemId());
+		long started = current == null || current.hasExpired(event.getObservedAt())
+			? event.getObservedAt() : current.getStartedAt();
+		int prior = current == null || current.hasExpired(event.getObservedAt())
+			? 0 : current.getUsedQuantity();
+		BuyLimitProjection next = new BuyLimitProjection(event.getItemId(), started,
+			prior + quantity, event.getObservedAt(), event.getEventId(), null);
+		writeBuyLimit(next);
+		appendBuyLimitEvent(next, quantity, "CANONICAL_ACQUIRE", event.getEventId(),
+			null, event.getObservedAt());
+		return next;
+	}
+
+	private void reconcileBuyLimits(AccountSnapshot snapshot, SnapshotReconciliationResult result) throws Exception
+	{
+		for (Map.Entry<Integer,Integer> entry : snapshot.getBuyLimitUsed().entrySet())
+		{
+			int reported = entry.getValue() == null ? 0 : entry.getValue();
+			if (entry.getKey() == null || entry.getKey() <= 0 || reported <= 0) continue;
+			BuyLimitProjection current = buyLimitProjection(entry.getKey());
+			long started = current == null || current.hasExpired(snapshot.getObservedAt()) ? snapshot.getObservedAt() : current.getStartedAt();
+			int prior = current == null || current.hasExpired(snapshot.getObservedAt()) ? 0 : current.getUsedQuantity();
+			if (reported > prior)
+			{
+				BuyLimitProjection next = new BuyLimitProjection(entry.getKey(), started, reported, snapshot.getObservedAt(), current == null ? null : current.getSourceEventId(), snapshot.getCorrelationId());
+				writeBuyLimit(next); appendBuyLimitEvent(next, reported-prior, "SNAPSHOT_FLOOR", null, snapshot.getCorrelationId(), snapshot.getObservedAt()); result.buyLimitRaised();
+			}
+			else result.buyLimitUnchanged();
+		}
+	}
+
+	synchronized List<BuyLimitProjection> buyLimitProjections() throws Exception
+	{
+		List<BuyLimitProjection> rows=new ArrayList<>();
+		try(PreparedStatement s=connection.prepareStatement("SELECT item_id,started_at,used_quantity,updated_at,source_event_id,source_snapshot_correlation_id FROM buy_limit_projection ORDER BY item_id");ResultSet r=s.executeQuery())
+		{while(r.next()) rows.add(new BuyLimitProjection(r.getInt(1),r.getLong(2),r.getInt(3),r.getLong(4),r.getString(5),r.getString(6)));}
+		return rows;
+	}
+	private BuyLimitProjection buyLimitProjection(int itemId) throws Exception
+	{
+		try(PreparedStatement s=connection.prepareStatement("SELECT item_id,started_at,used_quantity,updated_at,source_event_id,source_snapshot_correlation_id FROM buy_limit_projection WHERE item_id=?")){s.setInt(1,itemId);try(ResultSet r=s.executeQuery()){return r.next()?new BuyLimitProjection(r.getInt(1),r.getLong(2),r.getInt(3),r.getLong(4),r.getString(5),r.getString(6)):null;}}
+	}
+	private void writeBuyLimit(BuyLimitProjection p) throws Exception
+	{
+		try(PreparedStatement s=connection.prepareStatement("INSERT INTO buy_limit_projection(item_id,started_at,used_quantity,updated_at,source_event_id,source_snapshot_correlation_id) VALUES(?,?,?,?,?,?) ON CONFLICT(item_id) DO UPDATE SET started_at=excluded.started_at,used_quantity=excluded.used_quantity,updated_at=excluded.updated_at,source_event_id=excluded.source_event_id,source_snapshot_correlation_id=excluded.source_snapshot_correlation_id")){s.setInt(1,p.getItemId());s.setLong(2,p.getStartedAt());s.setInt(3,p.getUsedQuantity());s.setLong(4,p.getUpdatedAt());s.setString(5,p.getSourceEventId());s.setString(6,p.getSourceSnapshotCorrelationId());s.executeUpdate();}
+	}
+	private void appendBuyLimitEvent(BuyLimitProjection p,int delta,String type,String eventId,String snapshotId,long observedAt) throws Exception
+	{
+		try(PreparedStatement s=connection.prepareStatement("INSERT INTO buy_limit_event(item_id,started_at,quantity_delta,resulting_used_quantity,source_type,source_event_id,source_snapshot_correlation_id,observed_at,created_at) VALUES(?,?,?,?,?,?,?,?,?)")){s.setInt(1,p.getItemId());s.setLong(2,p.getStartedAt());s.setInt(3,delta);s.setInt(4,p.getUsedQuantity());s.setString(5,type);s.setString(6,eventId);s.setString(7,snapshotId);s.setLong(8,observedAt);s.setLong(9,Instant.now().getEpochSecond());s.executeUpdate();}
+	}
+	synchronized int buyLimitEventCount() throws Exception{try(Statement s=connection.createStatement();ResultSet r=s.executeQuery("SELECT COUNT(*) FROM buy_limit_event")){return r.next()?r.getInt(1):0;}}
 
 	synchronized void recordEvent(long observedAt, String correlationId, String eventType, String payload) throws Exception
 	{

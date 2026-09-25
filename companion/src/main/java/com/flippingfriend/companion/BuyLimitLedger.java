@@ -136,6 +136,20 @@ final class BuyLimitLedger
 	{
 		return windows.size();
 	}
+	synchronized void restore(java.util.Collection<BuyLimitProjection> projections)
+	{
+		windows.clear();
+		if (projections == null) return;
+		Instant now = Instant.now();
+		for (BuyLimitProjection projection : projections)
+		{
+			Instant started = Instant.ofEpochSecond(projection.getStartedAt());
+			if (started.plus(WINDOW).isBefore(now)) continue;
+			Window window = new Window(started);
+			window.floorAt(projection.getUsedQuantity());
+			windows.put(projection.getItemId(), window);
+		}
+	}
 
 	private static final class Window
 	{
