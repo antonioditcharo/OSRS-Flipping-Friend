@@ -169,6 +169,9 @@ final class CompanionService implements AutoCloseable
 	 */
 	void rehydrate() throws Exception
 	{
+		java.util.List<BuyLimitProjection> durableBuyLimits = store.buyLimitProjections();
+		buyLimits.restore(durableBuyLimits);
+		boolean restoreBuyLimitsFromEvents = durableBuyLimits.isEmpty();
 		long since = Instant.now().minus(BuyLimitLedger.WINDOW).getEpochSecond();
 		int replayed = 0;
 		for (String payload : store.recentOfferEvents(since))
@@ -176,7 +179,7 @@ final class CompanionService implements AutoCloseable
 			OfferEvent event = gson.fromJson(payload, OfferEvent.class);
 			if (event != null)
 			{
-				buyLimits.apply(event);
+				if (restoreBuyLimitsFromEvents) buyLimits.apply(event);
 				activeOffers.apply(event);
 				replayed++;
 			}
@@ -331,7 +334,7 @@ final class CompanionService implements AutoCloseable
 		account = snapshot;
 		// The plugin's ledger is durable; this one is rebuilt from events that can go missing. Take
 		// the higher of the two so a dropped fill is corrected on the next cycle rather than never.
-		buyLimits.reconcile(snapshot.getBuyLimitUsed());
+		buyLimits.restore(store.buyLimitProjections());
 		if (reconciliation.reconciliationRequired() > 0)
 		{
 			fault("Snapshot reconciliation", reconciliation.reconciliationRequired()
@@ -369,7 +372,7 @@ final class CompanionService implements AutoCloseable
 		{
 			resolved("Position projection item " + projected.positionProjection.getItemId());
 		}
-		buyLimits.apply(event);
+		buyLimits.restore(store.buyLimitProjections());
 		activeOffers.apply(event);
 		// Settled offers are the only direct evidence of how our own orders behave in the queue,
 		// as opposed to what the public price history says the market did.
