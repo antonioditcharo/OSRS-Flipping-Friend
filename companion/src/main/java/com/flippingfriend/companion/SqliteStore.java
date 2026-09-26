@@ -52,7 +52,14 @@ final class SqliteStore implements AutoCloseable
 	 */
 	private static final int MODEL_NAME_LIMIT = 64;
 
+	@FunctionalInterface
+	interface TransactionCheckpoint
+	{
+		void reached(String checkpoint) throws Exception;
+	}
+	private static final TransactionCheckpoint NO_CHECKPOINT = checkpoint -> { };
 	private final Connection connection;
+	private final TransactionCheckpoint checkpoint;
 
 	/**
 	 * Opens an existing database for reading only, creating and altering nothing.
@@ -68,11 +75,23 @@ final class SqliteStore implements AutoCloseable
 
 	SqliteStore(Path database) throws Exception
 	{
-		this(database, false);
+	        this(database, false, NO_CHECKPOINT);
+	}
+
+	SqliteStore(Path database, TransactionCheckpoint checkpoint) throws Exception
+	{
+	        this(database, false, checkpoint);
 	}
 
 	private SqliteStore(Path database, boolean readOnly) throws Exception
 	{
+	        this(database, readOnly, NO_CHECKPOINT);
+	}
+
+	private SqliteStore(Path database, boolean readOnly, TransactionCheckpoint checkpoint) throws Exception
+	{
+	        if (checkpoint == null) throw new IllegalArgumentException("checkpoint is required");
+	        this.checkpoint = checkpoint;
 		if (readOnly)
 		{
 			// The driver rejects the extra immutable/nolock parameters that look like they belong
@@ -189,6 +208,7 @@ final class SqliteStore implements AutoCloseable
 		{
 			EventAcceptance acceptance = recordEvent(event.getObservedAt(), event.getCorrelationId(),
 				event.getEventId(), event.getEventType(), payload);
+			checkpoint.reached("OFFER_EVENT_RECORDED");
 			if (acceptance == EventAcceptance.DUPLICATE)
 			{
 				connection.commit();
@@ -197,8 +217,11 @@ final class SqliteStore implements AutoCloseable
 			OfferLifecycleProjection previous = offerProjection(event.getSlot());
 			OfferLifecycleTransition transition = OfferLifecycleReducer.apply(previous, event);
 			writeProjection(transition.getProjection(), event.getEventId(), transition.getReason());
+			checkpoint.reached("OFFER_PROJECTION_WRITTEN");
 			PositionProjection position = applyPositionEffect(transition.getAccountingEffect());
+			checkpoint.reached("POSITION_ACCOUNTING_APPLIED");
 			BuyLimitProjection buyLimit = applyBuyLimitEffect(event, transition);
+			checkpoint.reached("BUY_LIMIT_ACCOUNTING_APPLIED");
 			connection.commit();
 			return new ProjectedEventAcceptance(acceptance, transition, position, buyLimit);
 		}
@@ -362,6 +385,7 @@ final class SqliteStore implements AutoCloseable
 		try
 		{
 			recordEvent(snapshot.getObservedAt(), snapshot.getCorrelationId(), "ACCOUNT_STATE", payload);
+			checkpoint.reached("ACCOUNT_EVENT_RECORDED");
 			SnapshotReconciliationResult result = new SnapshotReconciliationResult();
 			Map<Integer, PositionSnapshot> seen = view.byItem();
 			for (PositionSnapshot incoming : seen.values()) reconcileSnapshotPosition(snapshot, incoming, result);
@@ -373,7 +397,9 @@ final class SqliteStore implements AutoCloseable
 					result.unchanged(existing);
 				}
 			}
+			checkpoint.reached("SNAPSHOT_POSITIONS_RECONCILED");
 			reconcileBuyLimits(snapshot, result);
+			checkpoint.reached("SNAPSHOT_BUY_LIMITS_RECONCILED");
 			connection.commit();
 			return result;
 		}
@@ -514,6 +540,18 @@ final class SqliteStore implements AutoCloseable
 		try(PreparedStatement s=connection.prepareStatement("INSERT INTO buy_limit_event(item_id,started_at,quantity_delta,resulting_used_quantity,source_type,source_event_id,source_snapshot_correlation_id,observed_at,created_at) VALUES(?,?,?,?,?,?,?,?,?)")){s.setInt(1,p.getItemId());s.setLong(2,p.getStartedAt());s.setInt(3,delta);s.setInt(4,p.getUsedQuantity());s.setString(5,type);s.setString(6,eventId);s.setString(7,snapshotId);s.setLong(8,observedAt);s.setLong(9,Instant.now().getEpochSecond());s.executeUpdate();}
 	}
 	synchronized int buyLimitEventCount() throws Exception{try(Statement s=connection.createStatement();ResultSet r=s.executeQuery("SELECT COUNT(*) FROM buy_limit_event")){return r.next()?r.getInt(1):0;}}
+	synchronized int eventCount(String eventType) throws Exception
+	{
+		try (PreparedStatement s=connection.prepareStatement("SELECT COUNT(*) FROM event_log WHERE event_type=?"))
+		{ s.setString(1,eventType); try(ResultSet r=s.executeQuery()){return r.next()?r.getInt(1):0;} }
+	}
+	synchronized long[] positionEventTotals() throws Exception
+	{
+		try (Statement s=connection.createStatement(); ResultSet r=s.executeQuery(
+			"SELECT COALESCE(SUM(CASE WHEN effect_type='ACQUIRE' THEN quantity ELSE 0 END),0)," +
+			"COALESCE(SUM(acquisition_cost),0),COALESCE(SUM(CASE WHEN effect_type='DISPOSE' THEN quantity ELSE 0 END),0),COALESCE(SUM(applied_cost_basis),0) FROM position_event"))
+		{ return r.next()?new long[]{r.getLong(1),r.getLong(2),r.getLong(3),r.getLong(4)}:new long[4]; }
+	}
 
 	synchronized void recordEvent(long observedAt, String correlationId, String eventType, String payload) throws Exception
 	{
