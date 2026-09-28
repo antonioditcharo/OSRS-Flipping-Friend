@@ -143,6 +143,12 @@ the replay with the fortnight context model switched off against the same cached
 
 ---
 
+## Architecture status
+
+Phase 2 of the Copilot rebuild is closed at commit `207a312cca5b91f86fcd048c63145a9f2d652c9a`. Canonical delivery, lifecycle projection, position and cost-basis accounting, snapshot reconciliation, durable buy limits, restart reconstruction, and rollback evidence are documented in [`docs/architecture/phase-2-closure-audit.md`](docs/architecture/phase-2-closure-audit.md).
+
+Recommendation-authority consolidation remains Phase 3 work. The repository still contains both the companion planning path and legacy plugin-side `SuggestionEngine` responsibilities.
+
 ## Installing
 
 **If you just want to use it, open [START HERE.md](START%20HERE.md) instead — two double-clicks and
