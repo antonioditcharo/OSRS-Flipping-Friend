@@ -69,3 +69,13 @@ The agent attempted `gradlew tasks --all`, `gradlew test`, and `gradlew clean ja
 ## Preserved data
 
 This package does not change schemas, databases, credentials, caches, journals, positions, model history, or local configuration.
+
+## Phase 2 closure audit status
+
+Phase 2 closure baseline is `CoPilot's-Rebuild-from-Main` at `207a312cca5b91f86fcd048c63145a9f2d652c9a`.
+
+The canonical event and state model now includes the account-scoped durable plugin outbox, companion event deduplication and typed acknowledgement, shared-core offer lifecycle reduction, durable offer, position, and buy-limit projections, conservative snapshot reconciliation, lifecycle-generation retry fencing, and deterministic transaction rollback checkpoints.
+
+Closure verification passed the focused recovery suite with 20 selected tests and 11 executed tasks, the supported clean build with 18 executed tasks, and the post-merge root suite with 13 executed tasks. The detailed matrix is in `docs/architecture/phase-2-closure-audit.md`.
+
+Recommendation-authority consolidation, policy interfaces, versioned recommendation lineage, and explicit abstention reasons remain Phase 3 work.
