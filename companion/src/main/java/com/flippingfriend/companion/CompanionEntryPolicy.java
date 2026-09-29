@@ -8,6 +8,7 @@ import com.flippingfriend.core.PolicyDecisionType;
 import com.flippingfriend.core.PortfolioAllocation;
 import com.flippingfriend.core.PortfolioCandidate;
 import com.flippingfriend.core.PortfolioPlan;
+import com.flippingfriend.core.PortfolioPlanOutcome;
 
 /** Pure migration adapter from the current portfolio-plan result to the shared entry-policy contract. */
 final class CompanionEntryPolicy implements EntryPolicy<EntryPolicyContext>
@@ -30,7 +31,7 @@ final class CompanionEntryPolicy implements EntryPolicy<EntryPolicyContext>
             return abstain(recommendationId, now, observedAt,
                 PolicyAbstentionReason.COMPANION_UNAVAILABLE, "COMPANION_PLAN_EXPIRED");
         if (!"READY".equals(plan.getStatus()))
-            return unavailable(plan.getReason(), recommendationId, now, observedAt);
+            return unavailable(plan.getOutcome(), recommendationId, now, observedAt);
         if (plan.getAllocations().isEmpty())
             return abstain(recommendationId, now, observedAt,
                 PolicyAbstentionReason.NO_ELIGIBLE_CANDIDATE, "NO_ELIGIBLE_CANDIDATE");
@@ -51,24 +52,22 @@ final class CompanionEntryPolicy implements EntryPolicy<EntryPolicyContext>
             "ENTRY_CANDIDATE_SELECTED", now, observedAt, candidateId, recommendationId);
     }
 
-    private static PolicyDecision unavailable(String reason, String recommendationId, long now,
-        long observedAt)
+    private static PolicyDecision unavailable(PortfolioPlanOutcome outcome,
+        String recommendationId, long now, long observedAt)
     {
-        String text = reason == null ? "" : reason;
-        if (text.equals("Market data is stale, so no buy will be suggested until a fresh snapshot arrives."))
-            return abstain(recommendationId, now, observedAt,
-                PolicyAbstentionReason.MARKET_DATA_STALE, "MARKET_DATA_STALE");
-        if (text.startsWith("Session drawdown has reached 15%."))
-            return abstain(recommendationId, now, observedAt,
-                PolicyAbstentionReason.DRAWDOWN_LIMIT_REACHED, "DRAWDOWN_LIMIT_REACHED");
-        if (text.startsWith("Sell-only mode:"))
-            return abstain(recommendationId, now, observedAt,
-                PolicyAbstentionReason.SELL_ONLY_MODE, "SELL_ONLY_MODE");
-        if (text.equals("Every Grand Exchange slot is occupied."))
-            return abstain(recommendationId, now, observedAt,
-                PolicyAbstentionReason.NO_FREE_SLOT, "NO_FREE_SLOT");
-        return abstain(recommendationId, now, observedAt,
-            PolicyAbstentionReason.NO_ELIGIBLE_CANDIDATE, "NO_ELIGIBLE_CANDIDATE");
+        PolicyAbstentionReason abstention;
+        String code;
+        switch (outcome)
+        {
+            case MARKET_DATA_STALE: abstention = PolicyAbstentionReason.MARKET_DATA_STALE; code = "MARKET_DATA_STALE"; break;
+            case DRAWDOWN_LIMIT_REACHED: abstention = PolicyAbstentionReason.DRAWDOWN_LIMIT_REACHED; code = "DRAWDOWN_LIMIT_REACHED"; break;
+            case SELL_ONLY_MODE: abstention = PolicyAbstentionReason.SELL_ONLY_MODE; code = "SELL_ONLY_MODE"; break;
+            case NO_FREE_SLOT: abstention = PolicyAbstentionReason.NO_FREE_SLOT; code = "NO_FREE_SLOT"; break;
+            case PORTFOLIO_CONSTRAINT: abstention = PolicyAbstentionReason.RISK_CONSTRAINT; code = "PORTFOLIO_CONSTRAINT"; break;
+            case COMPANION_STATE_UNAVAILABLE: abstention = PolicyAbstentionReason.ACCOUNT_STATE_UNAVAILABLE; code = "COMPANION_STATE_UNAVAILABLE"; break;
+            default: abstention = PolicyAbstentionReason.NO_ELIGIBLE_CANDIDATE; code = "NO_ELIGIBLE_CANDIDATE"; break;
+        }
+        return abstain(recommendationId, now, observedAt, abstention, code);
     }
 
     private static PolicyDecision abstain(String recommendationId, long now, long observedAt,

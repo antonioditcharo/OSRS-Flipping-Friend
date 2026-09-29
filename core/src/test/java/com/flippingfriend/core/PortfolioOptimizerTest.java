@@ -109,6 +109,7 @@ public class PortfolioOptimizerTest
 			new PortfolioConstraints(1, 20_000, 1_000, 20_000, 20_000), "test", 100);
 
 		assertEquals("UNAVAILABLE", plan.getStatus());
+		assertEquals(PortfolioPlanOutcome.PORTFOLIO_CONSTRAINT, plan.getOutcome());
 	}
 
 	@Test
@@ -170,6 +171,7 @@ public class PortfolioOptimizerTest
 			new PortfolioConstraints(8, 1_000_000, 1_000_000, 1_000_000, 1_000_000), "test", NOW);
 
 		assertEquals("UNAVAILABLE", plan.getStatus());
+		assertEquals(PortfolioPlanOutcome.NO_ELIGIBLE_CANDIDATE, plan.getOutcome());
 		assertTrue("an empty plan must explain itself", plan.getReason() != null
 			&& !plan.getReason().isEmpty());
 	}
@@ -266,5 +268,6 @@ public class PortfolioOptimizerTest
 			new PortfolioConstraints(8, 1_000_000, 1_000_000, 1_000_000, 1_000_000), "test", NOW);
 
 		assertEquals("prices that have expired must not be acted on", "UNAVAILABLE", plan.getStatus());
+		assertEquals(PortfolioPlanOutcome.NO_ELIGIBLE_CANDIDATE, plan.getOutcome());
 	}
 }

@@ -9,6 +9,7 @@ import com.flippingfriend.core.PortfolioCandidate;
 import com.flippingfriend.core.PortfolioConstraints;
 import com.flippingfriend.core.PortfolioOptimizer;
 import com.flippingfriend.core.PortfolioPlan;
+import com.flippingfriend.core.PortfolioPlanOutcome;
 import com.flippingfriend.model.RiskAppetite;
 import java.time.Instant;
 import java.util.Collection;
@@ -77,7 +78,7 @@ final class PortfolioPlanner
 
 		if (market.observedAt == 0 || nowSeconds - market.observedAt > MAX_MARKET_AGE_SECONDS)
 		{
-			return describing(PortfolioPlan.unavailable(correlationId,
+			return describing(PortfolioPlan.unavailable(correlationId, PortfolioPlanOutcome.MARKET_DATA_STALE,
 				"Market data is stale, so no buy will be suggested until a fresh snapshot arrives.",
 				nowSeconds), account);
 		}
@@ -86,7 +87,7 @@ final class PortfolioPlanner
 		long lossBudget = (long) (equity * DRAWDOWN_LIMIT) - (long) account.getMarkedSessionDrawdown();
 		if (lossBudget <= 0)
 		{
-			return describing(PortfolioPlan.unavailable(correlationId,
+			return describing(PortfolioPlan.unavailable(correlationId, PortfolioPlanOutcome.DRAWDOWN_LIMIT_REACHED,
 				"Session drawdown has reached 15%. New buys are frozen; selling and collecting are "
 					+ "unaffected. The freeze clears when a new session starts.",
 				nowSeconds), account);
@@ -96,7 +97,7 @@ final class PortfolioPlanner
 		{
 			// Before the slot check, because sell-only is the player's own decision and should be
 			// reported as such rather than hidden behind whatever else happens to be true.
-			return describing(PortfolioPlan.unavailable(correlationId,
+			return describing(PortfolioPlan.unavailable(correlationId, PortfolioPlanOutcome.SELL_ONLY_MODE,
 				"Sell-only mode: no new positions while you are winding the session down.",
 				nowSeconds), account);
 		}
@@ -209,7 +210,7 @@ final class PortfolioPlanner
 
 		plan = new PortfolioPlan(plan.getCorrelationId(), plan.getCreatedAt(), plan.getExpiresAt(),
 			plan.getStatus(), plan.getReason(), plan.getExpectedGpPerSlotHour(), plan.getAllocations(),
-			alerts, null);
+			alerts, null).withOutcome(plan.getOutcome());
 
 		// Attach the funnel to every plan, not just empty ones: a plan that filled three of eight
 		// slots owes the same explanation for the other five as one that filled none.

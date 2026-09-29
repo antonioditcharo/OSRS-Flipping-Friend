@@ -17,6 +17,7 @@ public final class PortfolioPlan
 	private final long expiresAt;
 	private final String status;
 	private final String reason;
+	private PortfolioPlanOutcome outcome;
 	private final double expectedGpPerSlotHour;
 	private final List<PortfolioAllocation> allocations;
 	private final List<PortfolioAlert> alerts;
@@ -84,6 +85,7 @@ public final class PortfolioPlan
 		copy.boardGpPerSlotHour = boardGpPerSlotHour;
 		copy.boardSize = boardSize;
 		copy.bench = bench;
+		copy.outcome = getOutcome();
 		return copy;
 	}
 
@@ -110,6 +112,7 @@ public final class PortfolioPlan
 		copy.boardGpPerSlotHour = Math.max(0, boardRate);
 		copy.boardSize = Math.max(0, size);
 		copy.bench = queue == null ? bench : Collections.unmodifiableList(queue);
+		copy.outcome = getOutcome();
 		return copy;
 	}
 
@@ -124,8 +127,19 @@ public final class PortfolioPlan
 	 */
 	public static PortfolioPlan unavailable(String correlationId, String reason, long now)
 	{
+		return unavailable(correlationId, PortfolioPlanOutcome.UNKNOWN, reason, now);
+	}
+	public static PortfolioPlan unavailable(String correlationId, PortfolioPlanOutcome outcome,
+		String reason, long now)
+	{
 		return new PortfolioPlan(correlationId, now, now + TTL_SECONDS, "UNAVAILABLE", reason, 0,
-			Collections.emptyList(), Collections.emptyList(), null);
+			Collections.emptyList(), Collections.emptyList(), null).withOutcome(outcome);
+	}
+	public PortfolioPlan withOutcome(PortfolioPlanOutcome attached)
+	{
+		if (attached == null) throw new IllegalArgumentException("outcome is required");
+		this.outcome = attached;
+		return this;
 	}
 
 	public String getCorrelationId() { return correlationId; }
@@ -133,6 +147,12 @@ public final class PortfolioPlan
 	public long getExpiresAt() { return expiresAt; }
 	public String getStatus() { return status; }
 	public String getReason() { return reason; }
+	public PortfolioPlanOutcome getOutcome()
+	{
+		if (outcome != null) return outcome;
+		return "READY".equals(status) && !getAllocations().isEmpty()
+			? PortfolioPlanOutcome.READY : PortfolioPlanOutcome.UNKNOWN;
+	}
 	public double getExpectedGpPerSlotHour() { return expectedGpPerSlotHour; }
 
 	/** What a full board of the best available trades would earn, placeable or not. */
