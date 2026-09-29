@@ -91,3 +91,13 @@ market input and an authoritative remaining buy-limit value, composes the Packag
 invokes the Package 3.10 policy. Missing or mismatched inputs return no decision. This establishes the
 companion-domain orchestration seam without adding an API route, `CompanionService` call, plugin
 retrieval, presentation, parity path, persistence, or live authority change.
+
+## PACKAGE 3.13 BUY-MAINTENANCE SERVICE INTEGRATION
+
+Status: NON-ROUTED, NON-ACTIVATED FOUNDATION.
+
+`CompanionService` now has an internal read-only buy-maintenance decision seam. A service adapter
+extracts complete current quotes from the actual companion market state, obtains authoritative
+remaining limits from `BuyLimitLedger`, preserves canonical active-offer lineage, and invokes the
+Package 3.12 orchestrator. Missing or malformed state fails closed. No HTTP route, client retrieval,
+presentation, parity, persistence, plugin call, or production authority changed.

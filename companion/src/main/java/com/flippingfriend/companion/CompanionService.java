@@ -463,6 +463,12 @@ final class CompanionService implements AutoCloseable
 				com.flippingfriend.core.PolicyAbstentionReason.NO_ELIGIBLE_CANDIDATE, "ALLOCATION_NOT_FOUND");
 		return entryPolicy.decide(new EntryPolicyContext(current, selected, decidedAt));
 	}
+	PolicyDecision buyMaintenanceDecision(long decidedAt)
+	{
+		return new BuyMaintenanceServiceAdapter().decide(activeOffers.getActiveOffers(),
+			market.state(), buyLimits, decidedAt);
+	}
+
 	CompanionAction action()
 	{
 		return actionSelector.select(activeOffers.getActiveOffers());
