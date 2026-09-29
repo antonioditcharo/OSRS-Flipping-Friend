@@ -1,0 +1,3 @@
+package com.flippingfriend;
+import java.nio.file.*; import java.nio.charset.StandardCharsets; import org.junit.*;
+public class EntryDecisionNonActivationBoundaryTest { @Test public void visiblePathIsUnchanged() throws Exception { Path r=root(); String p=Files.readString(r.resolve("src/main/java/com/flippingfriend/FlippingFriendPlugin.java"),StandardCharsets.UTF_8); Assert.assertTrue(p.contains("companion.nextBuySuggestion(")); Assert.assertTrue(p.contains("engine.buyFallback()")); Assert.assertFalse(p.contains("fetchEntryDecision(")); } private static Path root(){Path p=Path.of("").toAbsolutePath();while(p!=null&&!Files.exists(p.resolve("settings.gradle")))p=p.getParent();return p;} }

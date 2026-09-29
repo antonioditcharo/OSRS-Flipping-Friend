@@ -426,17 +426,42 @@ final class CompanionService implements AutoCloseable
 		return current;
 	}
 
-	PolicyDecision entryDecision(PortfolioAllocation selectedAllocation, long decidedAt)
+	PolicyDecision entryDecision(String planId, int allocationRank, long decidedAt)
 	{
 		PortfolioPlan current = plan;
 		if (current == null || current.getExpiresAt() <= decidedAt)
 		{
-			current = PortfolioPlan.unavailable("none",
+			PortfolioPlan unavailable = PortfolioPlan.unavailable("none",
 				PortfolioPlanOutcome.COMPANION_STATE_UNAVAILABLE,
 				account == null ? "Waiting for the game client to report your coins and free slots."
 					: "Working out the best use of your slots.", decidedAt);
+			return entryPolicy.decide(new EntryPolicyContext(unavailable, null, decidedAt));
 		}
-		return entryPolicy.decide(new EntryPolicyContext(current, selectedAllocation, decidedAt));
+		long observedAt = Math.max(0, Math.min(decidedAt, current.getCreatedAt()));
+		String recommendationId = current.getCorrelationId() == null ? "none" : current.getCorrelationId();
+		if (planId == null || planId.isBlank() || !planId.equals(current.getCorrelationId()))
+			return CompanionEntryPolicy.abstain(recommendationId, decidedAt, observedAt,
+				com.flippingfriend.core.PolicyAbstentionReason.ACCOUNT_STATE_INCONSISTENT, "PLAN_IDENTITY_MISMATCH");
+		if (!"READY".equals(current.getStatus()))
+			return entryPolicy.decide(new EntryPolicyContext(current, null, decidedAt));
+		if (allocationRank <= 0)
+			return CompanionEntryPolicy.abstain(recommendationId, decidedAt, observedAt,
+				com.flippingfriend.core.PolicyAbstentionReason.ACCOUNT_STATE_INCONSISTENT, "INVALID_ALLOCATION_RANK");
+		PortfolioAllocation selected = null;
+		for (PortfolioAllocation allocation : current.getAllocations())
+		{
+			if (allocation != null && allocation.getRank() == allocationRank)
+			{
+				if (selected != null)
+					return CompanionEntryPolicy.abstain(recommendationId, decidedAt, observedAt,
+						com.flippingfriend.core.PolicyAbstentionReason.ACCOUNT_STATE_INCONSISTENT, "AMBIGUOUS_ALLOCATION_RANK");
+				selected = allocation;
+			}
+		}
+		if (selected == null)
+			return CompanionEntryPolicy.abstain(recommendationId, decidedAt, observedAt,
+				com.flippingfriend.core.PolicyAbstentionReason.NO_ELIGIBLE_CANDIDATE, "ALLOCATION_NOT_FOUND");
+		return entryPolicy.decide(new EntryPolicyContext(current, selected, decidedAt));
 	}
 	CompanionAction action()
 	{
