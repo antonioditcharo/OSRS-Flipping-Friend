@@ -727,7 +727,7 @@ public class FlippingFriendPlugin extends Plugin
 					// The two rejection controls the player actually has. These were honoured only by
 					// the built-in engine, whose buy suggestion the companion then replaced -- so
 					// pressing Skip or "Never trade this" changed nothing that appeared on screen.
-					Suggestion planned = companion.nextBuySuggestion(
+					Suggestion planned = companion.nextEntrySuggestion(
 						new com.flippingfriend.model.Explainer(),
 						com.flippingfriend.model.SuggestionEngine.parseBlocked(config.blockedItems()),
 						engine.skippedItems(),
@@ -748,7 +748,8 @@ public class FlippingFriendPlugin extends Plugin
 					}
 					else
 					{
-						suggestion = engine.buyFallback();
+						suggestion = Suggestion.waiting("Companion entry decision unavailable",
+				"No new buy will be suggested until the companion returns a current, valid entry decision.");
 					}
 
 					if (suggestion == planned)

@@ -456,6 +456,24 @@ public class CompanionClient
 			this::fetchEntryDecision);
 	}
 
+
+	/**
+	 * Production entry authority. A missing, stale, malformed, unavailable, or mismatched companion
+	 * decision freezes new buying instead of activating the plugin's independent ranker.
+	 */
+	public Suggestion nextEntrySuggestion(Explainer explainer, Set<String> blocked,
+		Set<Integer> skipped, Set<Integer> onOffer)
+	{
+		PresentedEntryDecision presented = nextEntryDecisionPresentation(
+			explainer, blocked, skipped, onOffer);
+		if (presented != null)
+		{
+			return presented.getSuggestion();
+		}
+		return Suggestion.waiting("Companion entry decision unavailable",
+			"No new buy will be suggested until the companion returns a current, valid entry decision.");
+	}
+
 	PresentedEntryDecision nextEntryDecisionPresentation(Explainer explainer,
 		Set<String> blocked, Set<Integer> skipped, Set<Integer> onOffer,
 		EntryDecisionFetcher fetcher)

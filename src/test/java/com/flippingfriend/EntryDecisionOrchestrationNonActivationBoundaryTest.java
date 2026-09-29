@@ -20,8 +20,8 @@ public class EntryDecisionOrchestrationNonActivationBoundaryTest
         Assert.assertTrue(client.contains("EntryDecisionPresenter.present(decision, plan, explainer)"));
         Assert.assertFalse(plugin.contains("nextEntryDecisionPresentation("));
         Assert.assertFalse(plugin.contains("fetchEntryDecision("));
-        Assert.assertTrue(plugin.contains("companion.nextBuySuggestion("));
-        Assert.assertTrue(plugin.contains("engine.buyFallback()"));
+        Assert.assertFalse(plugin.contains("companion.nextBuySuggestion("));
+        Assert.assertFalse(plugin.contains("engine.buyFallback()"));
     }
 
     private static Path root()

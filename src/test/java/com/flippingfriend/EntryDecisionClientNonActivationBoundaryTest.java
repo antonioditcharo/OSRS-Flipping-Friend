@@ -17,8 +17,8 @@ public class EntryDecisionClientNonActivationBoundaryTest
         Assert.assertTrue(client.contains("policy/entry?planId="));
         Assert.assertTrue(client.contains("URLEncoder.encode"));
         Assert.assertFalse(plugin.contains("fetchEntryDecision("));
-        Assert.assertTrue(plugin.contains("companion.nextBuySuggestion("));
-        Assert.assertTrue(plugin.contains("engine.buyFallback()"));
+        Assert.assertFalse(plugin.contains("companion.nextBuySuggestion("));
+        Assert.assertFalse(plugin.contains("engine.buyFallback()"));
     }
 
     private static String read(Path file) throws Exception

@@ -39,7 +39,7 @@ public class PositionStatePublicationBoundaryTest
 
                 Assert.assertTrue(plugin.contains("engine.isSellOnly(), positions.all()"));
                 Assert.assertTrue(plugin.contains("engine.refresh(false)"));
-                Assert.assertTrue(plugin.contains("engine.buyFallback()"));
+                Assert.assertFalse(plugin.contains("engine.buyFallback()"));
         }
 
         private static String read(Path path) throws Exception
