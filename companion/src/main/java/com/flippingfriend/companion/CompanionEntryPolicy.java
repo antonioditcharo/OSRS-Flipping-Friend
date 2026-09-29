@@ -70,7 +70,7 @@ final class CompanionEntryPolicy implements EntryPolicy<EntryPolicyContext>
         return abstain(recommendationId, now, observedAt, abstention, code);
     }
 
-    private static PolicyDecision abstain(String recommendationId, long now, long observedAt,
+    static PolicyDecision abstain(String recommendationId, long now, long observedAt,
         PolicyAbstentionReason reason, String code)
     {
         return PolicyDecision.abstain(SCHEMA_VERSION, POLICY_VERSION,

@@ -28,6 +28,7 @@ final class ApiServer implements AutoCloseable
 		server.createContext("/v1/health", this::health);
 		server.createContext("/v1/portfolio/current", this::portfolio);
 		server.createContext("/v1/action", this::action);
+		server.createContext("/v1/policy/entry", this::entryDecision);
 		// Read-only, and serving nothing this process did not already fetch for itself. They exist so
 		// the plugin can start from a warm feed instead of rebuilding one from the internet on every
 		// launch.
@@ -57,6 +58,27 @@ final class ApiServer implements AutoCloseable
 		respond(exchange, 200, gson.toJson(service.action()));
 	}
 
+	private void entryDecision(HttpExchange exchange) throws IOException
+	{
+		if (!authorized(exchange)) return;
+		java.util.Map<String, String> query = queryOf(exchange);
+		String planId = query.get("planId");
+		String rank = query.get("rank");
+		if (planId == null || planId.isBlank() || rank == null)
+		{
+			respond(exchange, 400, "{\"error\":\"planId and rank are required\"}");
+			return;
+		}
+		try
+		{
+			respond(exchange, 200, gson.toJson(service.entryDecision(planId,
+				Integer.parseInt(rank), java.time.Instant.now().getEpochSecond())));
+		}
+		catch (NumberFormatException ex)
+		{
+			respond(exchange, 400, "{\"error\":\"rank must be a number\"}");
+		}
+	}
 	private void marketSnapshot(HttpExchange exchange) throws IOException
 	{
 		if (!authorized(exchange)) return;

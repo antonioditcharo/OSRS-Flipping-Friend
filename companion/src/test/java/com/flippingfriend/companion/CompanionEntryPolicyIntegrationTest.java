@@ -23,7 +23,7 @@ public class CompanionEntryPolicyIntegrationTest
             Field field = CompanionService.class.getDeclaredField("plan");
             field.setAccessible(true);
             field.set(service, plan);
-            PolicyDecision decision = service.entryDecision(null, 1_000);
+            PolicyDecision decision = service.entryDecision("plan", 1, 1_000);
             Assert.assertEquals(PolicyAbstentionReason.NO_FREE_SLOT,
                 decision.getAbstentionReason());
             Assert.assertEquals("NO_FREE_SLOT", decision.getReasonCode());
