@@ -449,6 +449,46 @@ public class CompanionClient
 			|| !blocked.contains(name.toLowerCase(java.util.Locale.ROOT));
 	}
 
+	public PresentedEntryDecision nextEntryDecisionPresentation(Explainer explainer,
+		Set<String> blocked, Set<Integer> skipped, Set<Integer> onOffer)
+	{
+		return nextEntryDecisionPresentation(explainer, blocked, skipped, onOffer,
+			this::fetchEntryDecision);
+	}
+
+	PresentedEntryDecision nextEntryDecisionPresentation(Explainer explainer,
+		Set<String> blocked, Set<Integer> skipped, Set<Integer> onOffer,
+		EntryDecisionFetcher fetcher)
+	{
+		PortfolioPlan plan = lastPlan;
+		if (plan == null || plan.getExpiresAt() <= Instant.now().getEpochSecond()
+			|| fetcher == null)
+		{
+			return null;
+		}
+		int rank = 1;
+		if ("READY".equals(plan.getStatus()))
+		{
+			PortfolioAllocation allocation = select(plan, blocked, skipped, onOffer);
+			if (allocation == null) return null;
+			rank = allocation.getRank();
+		}
+		PolicyDecision decision = fetcher.fetch(plan.getCorrelationId(), rank);
+		if (decision == null) return null;
+		PresentedEntryDecision presented = EntryDecisionPresenter.present(decision, plan, explainer);
+		if (presented == null)
+		{
+			lastError = "Companion entry decision did not match the current plan.";
+		}
+		return presented;
+	}
+
+	@FunctionalInterface
+	interface EntryDecisionFetcher
+	{
+		PolicyDecision fetch(String planId, int allocationRank);
+	}
+
 	public PolicyDecision fetchEntryDecision(String planId, int allocationRank)
 	{
 		if (planId == null || planId.trim().isEmpty())
