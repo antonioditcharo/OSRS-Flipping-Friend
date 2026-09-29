@@ -71,3 +71,13 @@ the authoritative remaining buy limit is exhausted, and explicitly abstains on s
 inputs. No API route, client retrieval, presentation adapter, parity path, or live orchestration calls
 this policy yet. `engine.refresh(false)` remains the production owner of buy maintenance, repricing,
 and replacement intent. Package 3.9 entry authority remains production-active.
+
+## PACKAGE 3.11 BUY-MAINTENANCE CONTEXT COMPOSITION
+
+Status: NON-ACTIVATED FOUNDATION.
+
+A pure fail-closed composer now maps an open canonical `OfferEvent`, matching current market input,
+authoritative remaining buy limit, recommendation lineage, and decision time into the Package 3.10
+`BuyMaintenancePolicyContext`. Missing offer identity, mismatched item or recommendation lineage,
+non-open lifecycle state, malformed quantities, and future timestamps produce no context. No API route,
+service call, plugin retrieval, presentation, parity, or live maintenance behavior changed.
