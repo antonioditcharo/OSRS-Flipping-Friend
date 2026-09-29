@@ -60,3 +60,14 @@ This package does not complete Phase 3. Local collect, maintenance, reprice, sel
 partial-position protection responsibilities remain to be migrated. `SuggestionEngine` source is
 retained for those responsibilities, while its independent buy ranker is production-unreachable.
 Package 3.8 parity evidence remains pure and retained.
+
+## PACKAGE 3.10 BUY-MAINTENANCE FOUNDATION
+
+Status: NON-ACTIVATED FOUNDATION.
+
+The companion now has an immutable identity-carrying buy-maintenance context and a pure versioned
+`CompanionBuyMaintenancePolicy`. It deterministically HOLDs a current open buy, CANCEL_BUYs when
+the authoritative remaining buy limit is exhausted, and explicitly abstains on stale or inconsistent
+inputs. No API route, client retrieval, presentation adapter, parity path, or live orchestration calls
+this policy yet. `engine.refresh(false)` remains the production owner of buy maintenance, repricing,
+and replacement intent. Package 3.9 entry authority remains production-active.
