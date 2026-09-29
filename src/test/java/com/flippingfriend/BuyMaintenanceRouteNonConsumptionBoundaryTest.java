@@ -6,21 +6,20 @@ import java.nio.file.Path;
 import org.junit.Assert;
 import org.junit.Test;
 
-public class BuyMaintenanceServiceIntegrationNonActivationBoundaryTest
+public class BuyMaintenanceRouteNonConsumptionBoundaryTest
 {
-    @Test public void serviceIntegrationIsInternalAndNotRoutedOrRetrieved() throws Exception
+    @Test public void authenticatedRouteIsNotConsumedByPlugin() throws Exception
     {
         Path root = root();
-        String service = read(root, "companion/src/main/java/com/flippingfriend/companion/CompanionService.java");
         String api = read(root, "companion/src/main/java/com/flippingfriend/companion/ApiServer.java");
         String client = read(root, "src/main/java/com/flippingfriend/companion/CompanionClient.java");
         String plugin = read(root, "src/main/java/com/flippingfriend/FlippingFriendPlugin.java");
-        Assert.assertTrue(service.contains("PolicyDecision buyMaintenanceDecision(long decidedAt)"));
-        Assert.assertTrue(service.contains("new BuyMaintenanceServiceAdapter().decide("));
-        Assert.assertTrue(api.contains("policy/buy-maintenance"));
+        Assert.assertTrue(api.contains("/v1/policy/buy-maintenance"));
+        Assert.assertFalse(client.contains("policy/buy-maintenance"));
         Assert.assertFalse(client.contains("fetchBuyMaintenanceDecision"));
         Assert.assertFalse(plugin.contains("buyMaintenanceDecision"));
         Assert.assertTrue(plugin.contains("engine.refresh(false)"));
+        Assert.assertTrue(plugin.contains("companion.nextEntrySuggestion("));
     }
     private static String read(Path root, String file) throws Exception
     {

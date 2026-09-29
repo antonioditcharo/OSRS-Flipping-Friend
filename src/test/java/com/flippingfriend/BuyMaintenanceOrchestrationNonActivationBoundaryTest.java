@@ -17,7 +17,7 @@ public class BuyMaintenanceOrchestrationNonActivationBoundaryTest
         Assert.assertTrue(plugin.contains("engine.refresh(false)"));
         Assert.assertTrue(plugin.contains("companion.nextEntrySuggestion("));
         Assert.assertFalse(plugin.contains("BuyMaintenanceDecisionOrchestrator"));
-        Assert.assertFalse(api.contains("policy/buy-maintenance"));
+        Assert.assertTrue(api.contains("policy/buy-maintenance"));
         Assert.assertFalse(service.contains("BuyMaintenanceDecisionOrchestrator"));
     }
     private static String read(Path root, String file) throws Exception

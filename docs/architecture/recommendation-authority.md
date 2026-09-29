@@ -101,3 +101,13 @@ extracts complete current quotes from the actual companion market state, obtains
 remaining limits from `BuyLimitLedger`, preserves canonical active-offer lineage, and invokes the
 Package 3.12 orchestrator. Missing or malformed state fails closed. No HTTP route, client retrieval,
 presentation, parity, persistence, plugin call, or production authority changed.
+
+## PACKAGE 3.14 AUTHENTICATED BUY-MAINTENANCE ROUTE
+
+Status: ROUTED, NON-CONSUMED, NON-ACTIVATED FOUNDATION.
+
+The authenticated loopback API now exposes `GET /v1/policy/buy-maintenance`. The handler uses the
+existing token guard, captures the decision time at the service boundary, delegates only to the
+Package 3.13 internal service seam, and serializes the typed `PolicyDecision` or `null` when the
+companion cannot establish authoritative inputs. `CompanionClient` does not retrieve the route, the
+plugin does not consume it, and local `engine.refresh(false)` maintenance remains production-active.

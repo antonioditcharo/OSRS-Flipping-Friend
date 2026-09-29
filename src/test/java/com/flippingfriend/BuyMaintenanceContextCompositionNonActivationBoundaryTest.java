@@ -17,7 +17,7 @@ public class BuyMaintenanceContextCompositionNonActivationBoundaryTest
         Assert.assertTrue(plugin.contains("engine.refresh(false)"));
         Assert.assertTrue(plugin.contains("companion.nextEntrySuggestion("));
         Assert.assertFalse(plugin.contains("BuyMaintenanceContextComposer"));
-        Assert.assertFalse(api.contains("policy/buy-maintenance"));
+        Assert.assertTrue(api.contains("policy/buy-maintenance"));
         Assert.assertFalse(service.contains("BuyMaintenanceContextComposer"));
     }
     private static String read(Path root, String file) throws Exception
