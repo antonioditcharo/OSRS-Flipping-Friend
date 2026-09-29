@@ -40,3 +40,7 @@ The four policy responsibilities are:
 ## Package 3.1 non-activation boundary
 
 Package 3.1 does not change `CandidateFactory`, `PortfolioPlanner`, `CompanionService`, `CompanionClient`, `SuggestionEngine`, `FlippingFriendPlugin`, HTTP contracts, persistence, visible recommendations, or schedulers.
+
+## Structured companion planning
+
+Package 3.3 assigns every newly produced companion plan a machine-readable `PortfolioPlanOutcome`. Entry policy maps that outcome rather than display prose. Legacy plans without the field remain readable and map conservatively. The companion can evaluate the policy internally, but no policy endpoint, persistence, plugin cutover, or visible recommendation change is introduced.

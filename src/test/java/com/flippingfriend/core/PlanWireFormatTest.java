@@ -60,6 +60,7 @@ public class PlanWireFormatTest
 		assertNotNull(plan);
 		assertNotNull("a missing array must not become a null list", plan.getAllocations());
 		assertTrue(plan.getAllocations().isEmpty());
+		assertEquals(PortfolioPlanOutcome.UNKNOWN, plan.getOutcome());
 	}
 
 	@Test
@@ -112,7 +113,8 @@ public class PlanWireFormatTest
 			Long.MAX_VALUE);
 		PortfolioPlan original = new PortfolioPlan("c", 1, Long.MAX_VALUE, "READY", "ok", 1234.5,
 			java.util.Collections.singletonList(
-				new PortfolioAllocation(1, candidate, "PLACE_BUY")));
+				new PortfolioAllocation(1, candidate, "PLACE_BUY")))
+			.withOutcome(PortfolioPlanOutcome.READY);
 
 		PortfolioPlan parsed = gson.fromJson(gson.toJson(original), PortfolioPlan.class);
 
@@ -122,6 +124,7 @@ public class PlanWireFormatTest
 		assertEquals(1_000_000, landed.getTargetBuyPrice());
 		assertEquals(5, landed.getQuantity());
 		assertEquals(original.getExpectedGpPerSlotHour(), parsed.getExpectedGpPerSlotHour(), 1e-9);
+		assertEquals(PortfolioPlanOutcome.READY, parsed.getOutcome());
 		assertEquals(candidate.expectedProfit(), landed.expectedProfit(), 1e-6);
 	}
 }

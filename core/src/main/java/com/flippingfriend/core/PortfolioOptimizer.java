@@ -21,7 +21,7 @@ public final class PortfolioOptimizer
 		{
 			// Worded to match what the planner said before this check became the one that answers, so
 			// the message the player reads does not change under them.
-			return PortfolioPlan.unavailable(correlationId,
+			return PortfolioPlan.unavailable(correlationId, PortfolioPlanOutcome.NO_FREE_SLOT,
 				"Every Grand Exchange slot is occupied.", now);
 		}
 		// Counted, not just filtered.
@@ -85,10 +85,12 @@ public final class PortfolioOptimizer
 			new HashSet<>(), 0, 0, 0, best);
 		if (best.selected.isEmpty())
 		{
-			return PortfolioPlan.unavailable(correlationId,
+			PortfolioPlanOutcome outcome = candidates.isEmpty() || notWorthDoing == candidates.size()
+				? PortfolioPlanOutcome.NO_ELIGIBLE_CANDIDATE
+				: PortfolioPlanOutcome.PORTFOLIO_CONSTRAINT;
+			return PortfolioPlan.unavailable(correlationId, outcome,
 				whyNothingWasChosen(raw.size(), candidates.size(), belowMinimum, noCapital, expired,
-					cannotComplete, notWorthDoing, constraints),
-				now);
+					cannotComplete, notWorthDoing, constraints), now);
 		}
 		List<PortfolioAllocation> allocations = new ArrayList<>();
 		for (int i = 0; i < best.selected.size(); i++)
@@ -97,7 +99,7 @@ public final class PortfolioOptimizer
 		}
 		return new PortfolioPlan(correlationId, now, now + PortfolioPlan.TTL_SECONDS, "READY",
 			"Portfolio optimized for net GP per slot-hour.",
-			best.score, allocations);
+			best.score, allocations).withOutcome(PortfolioPlanOutcome.READY);
 	}
 
 	/**

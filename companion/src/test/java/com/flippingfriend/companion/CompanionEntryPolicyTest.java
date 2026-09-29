@@ -7,6 +7,7 @@ import com.flippingfriend.core.PolicyDecisionType;
 import com.flippingfriend.core.PortfolioAllocation;
 import com.flippingfriend.core.PortfolioCandidate;
 import com.flippingfriend.core.PortfolioPlan;
+import com.flippingfriend.core.PortfolioPlanOutcome;
 import java.util.Arrays;
 import java.util.Collections;
 import org.junit.Assert;
@@ -66,16 +67,20 @@ public class CompanionEntryPolicyTest
             "COMPANION_PLAN_EXPIRED");
     }
 
-    @Test public void currentPlannerRefusalsMapExactly()
+    @Test public void structuredOutcomesIgnoreDisplayProse()
     {
-        assertReason("Market data is stale, so no buy will be suggested until a fresh snapshot arrives.",
+        assertOutcome(PortfolioPlanOutcome.MARKET_DATA_STALE,
             PolicyAbstentionReason.MARKET_DATA_STALE, "MARKET_DATA_STALE");
-        assertReason("Session drawdown has reached 15%. New buys are frozen; selling and collecting are unaffected.",
+        assertOutcome(PortfolioPlanOutcome.DRAWDOWN_LIMIT_REACHED,
             PolicyAbstentionReason.DRAWDOWN_LIMIT_REACHED, "DRAWDOWN_LIMIT_REACHED");
-        assertReason("Sell-only mode: no new positions while you are winding the session down.",
+        assertOutcome(PortfolioPlanOutcome.SELL_ONLY_MODE,
             PolicyAbstentionReason.SELL_ONLY_MODE, "SELL_ONLY_MODE");
-        assertReason("Every Grand Exchange slot is occupied.", PolicyAbstentionReason.NO_FREE_SLOT,
-            "NO_FREE_SLOT");
+        assertOutcome(PortfolioPlanOutcome.NO_FREE_SLOT,
+            PolicyAbstentionReason.NO_FREE_SLOT, "NO_FREE_SLOT");
+        assertOutcome(PortfolioPlanOutcome.PORTFOLIO_CONSTRAINT,
+            PolicyAbstentionReason.RISK_CONSTRAINT, "PORTFOLIO_CONSTRAINT");
+        assertOutcome(PortfolioPlanOutcome.COMPANION_STATE_UNAVAILABLE,
+            PolicyAbstentionReason.ACCOUNT_STATE_UNAVAILABLE, "COMPANION_STATE_UNAVAILABLE");
     }
 
     @Test public void emptyAndUnselectablePlansAbstain()
@@ -95,9 +100,15 @@ public class CompanionEntryPolicyTest
             PolicyAbstentionReason.ACCOUNT_STATE_INCONSISTENT, "INVALID_SELECTED_ALLOCATION");
     }
 
-    private void assertReason(String reason, PolicyAbstentionReason expected, String code)
+    private void assertOutcome(PortfolioPlanOutcome outcome,
+        PolicyAbstentionReason expected, String code)
     {
-        PortfolioPlan plan = PortfolioPlan.unavailable("p", reason, 950);
-        assertAbstention(decide(plan, null), expected, code);
+        PortfolioPlan first = PortfolioPlan.unavailable("p", outcome, "first display text", 950);
+        PortfolioPlan second = PortfolioPlan.unavailable("p", outcome, "entirely different text", 950);
+        PolicyDecision one = decide(first, null);
+        PolicyDecision two = decide(second, null);
+        assertAbstention(one, expected, code);
+        assertAbstention(two, expected, code);
+        Assert.assertEquals(one.getDecisionId(), two.getDecisionId());
     }
 }

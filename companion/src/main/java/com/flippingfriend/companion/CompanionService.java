@@ -6,7 +6,10 @@ import com.flippingfriend.core.CompanionAction;
 import com.flippingfriend.core.CompanionHealth;
 import com.flippingfriend.core.OfferEvent;
 import com.flippingfriend.core.OfferLifecycleTransition;
+import com.flippingfriend.core.PolicyDecision;
+import com.flippingfriend.core.PortfolioAllocation;
 import com.flippingfriend.core.PortfolioPlan;
+import com.flippingfriend.core.PortfolioPlanOutcome;
 import com.google.gson.Gson;
 import java.time.Instant;
 import org.slf4j.Logger;
@@ -42,6 +45,7 @@ final class CompanionService implements AutoCloseable
 	private final PortfolioPlanner planner;
 	private final ActiveOfferTracker activeOffers;
 	private final CompanionActionSelector actionSelector = new CompanionActionSelector();
+	private final CompanionEntryPolicy entryPolicy = new CompanionEntryPolicy();
 	/** Buy-limit windows are per account and reset four hours after the first purchase in them. */
 	private final BuyLimitLedger buyLimits = new BuyLimitLedger();
 	private final ExecutionRecorder executions;
@@ -415,13 +419,25 @@ final class CompanionService implements AutoCloseable
 		long now = Instant.now().getEpochSecond();
 		if (current == null || current.getExpiresAt() <= now)
 		{
-			return PortfolioPlan.unavailable("none", account == null
-				? "Waiting for the game client to report your coins and free slots."
+			return PortfolioPlan.unavailable("none", PortfolioPlanOutcome.COMPANION_STATE_UNAVAILABLE,
+				account == null ? "Waiting for the game client to report your coins and free slots."
 				: "Working out the best use of your slots.", now);
 		}
 		return current;
 	}
 
+	PolicyDecision entryDecision(PortfolioAllocation selectedAllocation, long decidedAt)
+	{
+		PortfolioPlan current = plan;
+		if (current == null || current.getExpiresAt() <= decidedAt)
+		{
+			current = PortfolioPlan.unavailable("none",
+				PortfolioPlanOutcome.COMPANION_STATE_UNAVAILABLE,
+				account == null ? "Waiting for the game client to report your coins and free slots."
+					: "Working out the best use of your slots.", decidedAt);
+		}
+		return entryPolicy.decide(new EntryPolicyContext(current, selectedAllocation, decidedAt));
+	}
 	CompanionAction action()
 	{
 		return actionSelector.select(activeOffers.getActiveOffers());
