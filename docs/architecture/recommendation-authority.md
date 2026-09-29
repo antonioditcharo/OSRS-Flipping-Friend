@@ -81,3 +81,13 @@ authoritative remaining buy limit, recommendation lineage, and decision time int
 `BuyMaintenancePolicyContext`. Missing offer identity, mismatched item or recommendation lineage,
 non-open lifecycle state, malformed quantities, and future timestamps produce no context. No API route,
 service call, plugin retrieval, presentation, parity, or live maintenance behavior changed.
+
+## PACKAGE 3.12 BUY-MAINTENANCE ORCHESTRATION
+
+Status: NON-ACTIVATED FOUNDATION.
+
+A pure internal orchestrator now selects the lowest-slot canonical open buy, requires matching current
+market input and an authoritative remaining buy-limit value, composes the Package 3.11 context, and
+invokes the Package 3.10 policy. Missing or mismatched inputs return no decision. This establishes the
+companion-domain orchestration seam without adding an API route, `CompanionService` call, plugin
+retrieval, presentation, parity path, persistence, or live authority change.
