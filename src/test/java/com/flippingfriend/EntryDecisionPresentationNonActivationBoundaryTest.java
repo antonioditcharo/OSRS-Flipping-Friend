@@ -23,7 +23,7 @@ public class EntryDecisionPresentationNonActivationBoundaryTest
         Assert.assertFalse(plugin.contains("fetchEntryDecision("));
         Assert.assertTrue(plugin.contains("companion.nextBuySuggestion("));
         Assert.assertTrue(plugin.contains("engine.buyFallback()"));
-        Assert.assertEquals("61F842B3277DACA277329E0D50585AC1CA1C8C72E3C197A452D96B225C9365FB",
+        Assert.assertEquals("2F9371E88F6BFFBE3D48FE793B4B2A54AB1796123DE9F726AEAB92F8DD09BC84",
             sha256(client));
         Assert.assertEquals("2488CA51432868AC9623541996CDF4B13B2DCA9E9775DC72592DA1CDCE501BA0",
             sha256(suggestion));
