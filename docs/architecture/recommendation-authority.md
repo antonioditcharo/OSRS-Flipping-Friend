@@ -111,3 +111,13 @@ existing token guard, captures the decision time at the service boundary, delega
 Package 3.13 internal service seam, and serializes the typed `PolicyDecision` or `null` when the
 companion cannot establish authoritative inputs. `CompanionClient` does not retrieve the route, the
 plugin does not consume it, and local `engine.refresh(false)` maintenance remains production-active.
+
+## PACKAGE 3.15 BUY-MAINTENANCE CLIENT RETRIEVAL
+
+Status: RETRIEVABLE, NON-CONSUMED, NON-ACTIVATED FOUNDATION.
+
+`CompanionClient` now has package-private authenticated retrieval for the buy-maintenance route and
+strictly validates schema, type, action, abstention shape, timestamps, offer identity, and recommendation
+lineage. `HOLD`, `CANCEL_BUY`, and explicit `WAIT` are the only accepted actions. Null, malformed,
+mismatched, or incompatible decisions fail closed. The plugin does not call this method and local
+`engine.refresh(false)` maintenance remains production-active.

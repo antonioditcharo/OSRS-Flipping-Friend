@@ -18,7 +18,7 @@ public class BuyMaintenanceServiceIntegrationNonActivationBoundaryTest
         Assert.assertTrue(service.contains("PolicyDecision buyMaintenanceDecision(long decidedAt)"));
         Assert.assertTrue(service.contains("new BuyMaintenanceServiceAdapter().decide("));
         Assert.assertTrue(api.contains("policy/buy-maintenance"));
-        Assert.assertFalse(client.contains("fetchBuyMaintenanceDecision"));
+        Assert.assertTrue(client.contains("fetchBuyMaintenanceDecision"));
         Assert.assertFalse(plugin.contains("buyMaintenanceDecision"));
         Assert.assertTrue(plugin.contains("engine.refresh(false)"));
     }

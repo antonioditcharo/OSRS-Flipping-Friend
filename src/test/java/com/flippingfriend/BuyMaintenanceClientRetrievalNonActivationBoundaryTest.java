@@ -6,18 +6,18 @@ import java.nio.file.Path;
 import org.junit.Assert;
 import org.junit.Test;
 
-public class BuyMaintenanceRouteNonConsumptionBoundaryTest
+public class BuyMaintenanceClientRetrievalNonActivationBoundaryTest
 {
-    @Test public void authenticatedRouteIsNotConsumedByPlugin() throws Exception
+    @Test public void clientRetrievalExistsButPluginDoesNotConsumeIt() throws Exception
     {
         Path root = root();
-        String api = read(root, "companion/src/main/java/com/flippingfriend/companion/ApiServer.java");
         String client = read(root, "src/main/java/com/flippingfriend/companion/CompanionClient.java");
         String plugin = read(root, "src/main/java/com/flippingfriend/FlippingFriendPlugin.java");
-        Assert.assertTrue(api.contains("/v1/policy/buy-maintenance"));
-        Assert.assertTrue(client.contains("policy/buy-maintenance"));
-        Assert.assertTrue(client.contains("fetchBuyMaintenanceDecision"));
-        Assert.assertFalse(plugin.contains("buyMaintenanceDecision"));
+        Assert.assertTrue(client.contains("fetchBuyMaintenanceDecision(String offerIdentity, String recommendationId)"));
+        Assert.assertTrue(client.contains("get(\"policy/buy-maintenance\", PolicyDecision.class)"));
+        Assert.assertTrue(client.contains("validBuyMaintenanceDecision(decision, offerIdentity, recommendationId)"));
+        Assert.assertFalse(plugin.contains("fetchBuyMaintenanceDecision"));
+        Assert.assertFalse(plugin.contains("validBuyMaintenanceDecision"));
         Assert.assertTrue(plugin.contains("engine.refresh(false)"));
         Assert.assertTrue(plugin.contains("companion.nextEntrySuggestion("));
     }

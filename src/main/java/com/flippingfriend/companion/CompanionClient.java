@@ -553,6 +553,42 @@ public class CompanionClient
 		return decision;
 	}
 
+	PolicyDecision fetchBuyMaintenanceDecision(String offerIdentity, String recommendationId)
+	{
+		if (blank(offerIdentity) || blank(recommendationId)) return null;
+		try
+		{
+			PolicyDecision decision = get("policy/buy-maintenance", PolicyDecision.class);
+			return validBuyMaintenanceDecision(decision, offerIdentity, recommendationId)
+				? decision : null;
+		}
+		catch (Exception ex)
+		{
+			lastError = ex.getMessage();
+			return null;
+		}
+	}
+
+	static boolean validBuyMaintenanceDecision(PolicyDecision decision, String offerIdentity,
+		String recommendationId)
+	{
+		if (decision == null || !"1".equals(decision.getSchemaVersion())
+			|| blank(decision.getPolicyVersion()) || blank(decision.getDecisionId())
+			|| decision.getDecisionType() != PolicyDecisionType.BUY_MAINTENANCE
+			|| decision.getAction() == null || decision.getAbstentionReason() == null
+			|| blank(decision.getReasonCode()) || blank(decision.getCandidateId())
+			|| blank(decision.getRecommendationId())
+			|| !decision.getCandidateId().equals(offerIdentity)
+			|| !decision.getRecommendationId().equals(recommendationId)
+			|| decision.getDecidedAt() < 0 || decision.getInputObservedAt() < 0
+			|| decision.getInputObservedAt() > decision.getDecidedAt()) return false;
+		if (decision.getAction() == OfferLifecycleAction.WAIT)
+			return decision.getAbstentionReason() != PolicyAbstentionReason.NONE;
+		return (decision.getAction() == OfferLifecycleAction.HOLD
+			|| decision.getAction() == OfferLifecycleAction.CANCEL_BUY)
+			&& decision.getAbstentionReason() == PolicyAbstentionReason.NONE;
+	}
+
 	static boolean validEntryDecision(PolicyDecision decision)
 	{
 		if (decision == null || !"1".equals(decision.getSchemaVersion())
