@@ -6,6 +6,10 @@ import com.flippingfriend.core.CompanionAction;
 import com.flippingfriend.core.CompanionActionType;
 import com.flippingfriend.core.CompanionHealth;
 import com.flippingfriend.core.OfferEvent;
+import com.flippingfriend.core.OfferLifecycleAction;
+import com.flippingfriend.core.PolicyAbstentionReason;
+import com.flippingfriend.core.PolicyDecision;
+import com.flippingfriend.core.PolicyDecisionType;
 import com.flippingfriend.core.PositionSnapshot;
 import com.flippingfriend.core.PortfolioAllocation;
 import com.flippingfriend.core.PortfolioPlan;
@@ -22,6 +26,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -442,6 +447,78 @@ public class CompanionClient
 		String name = candidate.getItemName();
 		return blocked == null || name == null
 			|| !blocked.contains(name.toLowerCase(java.util.Locale.ROOT));
+	}
+
+	public PolicyDecision fetchEntryDecision(String planId, int allocationRank)
+	{
+		if (planId == null || planId.trim().isEmpty())
+		{
+			lastError = "Entry decision plan identity is missing.";
+			return null;
+		}
+		if (allocationRank <= 0)
+		{
+			lastError = "Entry decision allocation rank is invalid.";
+			return null;
+		}
+		try
+		{
+			String encoded = URLEncoder.encode(planId, StandardCharsets.UTF_8.name());
+			return consumeEntryDecision(request("policy/entry?planId=" + encoded
+				+ "&rank=" + allocationRank, "GET", null));
+		}
+		catch (Exception ex)
+		{
+			lastError = ex.getMessage();
+			return null;
+		}
+	}
+
+	PolicyDecision consumeEntryDecision(String response)
+	{
+		PolicyDecision decision;
+		try
+		{
+			decision = response == null || response.trim().isEmpty()
+				? null : gson.fromJson(response, PolicyDecision.class);
+		}
+		catch (RuntimeException malformed)
+		{
+			decision = null;
+		}
+		if (!validEntryDecision(decision))
+		{
+			lastError = "Companion returned an invalid entry decision.";
+			return null;
+		}
+		lastError = "";
+		return decision;
+	}
+
+	static boolean validEntryDecision(PolicyDecision decision)
+	{
+		if (decision == null || !"1".equals(decision.getSchemaVersion())
+			|| blank(decision.getPolicyVersion()) || blank(decision.getDecisionId())
+			|| decision.getDecisionType() != PolicyDecisionType.ENTRY
+			|| decision.getAction() == null || decision.getAbstentionReason() == null
+			|| blank(decision.getReasonCode()) || blank(decision.getRecommendationId())
+			|| decision.getDecidedAt() < 0 || decision.getInputObservedAt() < 0
+			|| decision.getInputObservedAt() > decision.getDecidedAt())
+		{
+			return false;
+		}
+		if (decision.getAction() == OfferLifecycleAction.WAIT)
+		{
+			return decision.getAbstentionReason() != PolicyAbstentionReason.NONE;
+		}
+		return decision.getAction() == OfferLifecycleAction.PLACE_BUY
+			&& decision.getAbstentionReason() == PolicyAbstentionReason.NONE
+			&& !blank(decision.getCandidateId());
+	}
+
+	private static boolean blank(String value)
+	{
+		return value == null || value.trim().isEmpty();
 	}
 
 	public Suggestion nextAction()
