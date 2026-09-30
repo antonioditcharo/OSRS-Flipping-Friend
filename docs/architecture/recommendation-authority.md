@@ -191,3 +191,16 @@ price, and remaining quantity. Every other local responsibility, companion `HOLD
 all missing or mismatched inputs preserve the existing local result. The plugin does not consume the
 selector, `engine.refresh(false)` remains production-active, and no replacement, HTTP, persistence,
 shared-core, SQLite, or Phase 2 behavior changes.
+
+## PACKAGE 3.22 BUY-MAINTENANCE CANCELLATION COMPOSITION
+
+Status: COMPOSITION FOUNDATION, NON-CONSUMED, NON-ACTIVATED.
+
+`CompanionClient` now composes the Package 3.20 canonical open-buy lookup, the Package 3.17
+validated retrieval and presentation seam, and the Package 3.21 pure cancellation selector behind a
+package-private method. Missing canonical authority, unavailable or invalid companion evidence,
+`HOLD`, explicit `WAIT`, ineligible local responsibilities, and all identity, lineage, or economics
+mismatches preserve the exact existing local result. An exact companion-authored cancellation is
+returned only when the Package 3.21 selector accepts it. The plugin does not call this method,
+`engine.refresh(false)` remains production-active, and no priority, replacement, background request,
+logging, persistence, API, service, SQLite, shared-core, or Phase 2 behavior changes.

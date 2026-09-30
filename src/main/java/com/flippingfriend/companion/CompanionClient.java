@@ -576,6 +576,20 @@ public class CompanionClient
 		else canonicalOffers.remove(event.getSlot());
 	}
 
+	Suggestion selectBuyMaintenanceCancellation(Suggestion existing)
+	{
+		OfferEvent canonicalOpenBuy = currentCanonicalOpenBuy();
+		return selectBuyMaintenanceCancellation(existing, canonicalOpenBuy,
+			this::fetchBuyMaintenanceDecision);
+	}
+	Suggestion selectBuyMaintenanceCancellation(Suggestion existing, OfferEvent canonicalOpenBuy,
+		BuyMaintenanceDecisionFetcher fetcher)
+	{
+		PresentedBuyMaintenanceDecision companion =
+			nextBuyMaintenancePresentation(canonicalOpenBuy, fetcher);
+		return BuyMaintenanceCancellationSelector.select(existing, canonicalOpenBuy, companion);
+	}
+
 	BuyMaintenanceParityResult compareBuyMaintenancePresentation(Suggestion existing,
 		OfferEvent currentOpenBuy)
 	{
