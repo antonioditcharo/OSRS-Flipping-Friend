@@ -143,3 +143,15 @@ presentation. Missing, terminal, malformed, unavailable, or mismatched inputs fa
 not call this method, no parity path exists yet, and local `engine.refresh(false)` buy maintenance remains
 production-active. No replacement behavior, persistence, shared-core contract, API, service, or Phase 2
 guarantee changes.
+
+## PACKAGE 3.18 BUY-MAINTENANCE PARITY EVIDENCE
+
+Status: PARITY-ONLY, NON-CONSUMED, NON-ACTIVATED FOUNDATION.
+
+A pure comparison contract now records whether an existing local buy-maintenance presentation and a
+Package 3.17 companion presentation match in action, item identity, source slot, source price, exact
+remaining quantity, and presentation text. Results retain companion decision, policy, offer, and
+recommendation lineage and classify missing or invalid evidence explicitly. Neither `CompanionClient` nor
+the plugin invokes parity comparison. No shadow execution, production cutover, replacement behavior,
+persistence, shared-core contract, API, service, or Phase 2 guarantee changes. Local
+`engine.refresh(false)` buy maintenance remains production-active.
