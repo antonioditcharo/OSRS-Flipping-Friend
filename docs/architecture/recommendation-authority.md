@@ -167,3 +167,15 @@ Missing or invalid shadow evidence remains explicitly classified by the comparat
 call this method, no background shadow request, logging, persistence, winner selection, or production
 cutover exists, and local `engine.refresh(false)` buy maintenance remains production-active. No
 replacement behavior, shared-core contract, API, service, SQLite, or Phase 2 guarantee changes.
+
+## PACKAGE 3.20 CANONICAL BUY-MAINTENANCE OFFER CACHE
+
+Status: IDENTITY FOUNDATION, NON-CONSUMED, NON-ACTIVATED.
+
+Research for production activation established that live `TrackedOffer` data does not carry canonical
+outbox offer identity or recommendation lineage. `CompanionClient` now retains the latest durably
+published canonical open-buy `OfferEvent` by slot after acknowledgement and exposes the deterministic
+lowest-slot valid open buy to package-level orchestration. Terminal and cleared events remove cached
+authority, and unattributed offers remain ineligible. The plugin does not consume this seam; no HTTP
+request, winner selection, displayed suggestion, policy behavior, persistence schema, or Phase 2
+guarantee changes. Local `engine.refresh(false)` maintenance remains production-active.

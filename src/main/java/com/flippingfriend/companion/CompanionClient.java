@@ -113,6 +113,9 @@ public class CompanionClient
 	private volatile String lastError = "Companion has not been contacted.";
 	private volatile PortfolioPlan lastPlan;
 	private volatile CompanionHealth lastHealth;
+	/** Latest durably published canonical offer event by slot, retained after acknowledgement. */
+	private final java.util.concurrent.ConcurrentMap<Integer, OfferEvent> canonicalOffers =
+		new java.util.concurrent.ConcurrentHashMap<>();
 
         public CompanionClient(PluginStorage storage, Gson gson, SuggestionLedger ledger)
         {
@@ -205,6 +208,7 @@ public class CompanionClient
                                 }
                                 return builder.build();
                         });
+                        rememberCanonicalOffer(event);
                         replayPendingOffers();
                 }
                 catch (Exception ex)
@@ -223,6 +227,7 @@ public class CompanionClient
                                 OfferEvent.builder(UUID.randomUUID().toString(), now, "EMPTY")
                                         .eventIdentity(eventId, sessionId, null).slot(slot)
                                         .sequence(sequence).build());
+                        canonicalOffers.remove(slot);
                         replayPendingOffers();
                 }
                 catch (Exception ex)
@@ -551,6 +556,24 @@ public class CompanionClient
 		}
 		lastError = "";
 		return decision;
+	}
+
+	OfferEvent currentCanonicalOpenBuy()
+	{
+		OfferEvent selected = null;
+		for (OfferEvent event : canonicalOffers.values())
+		{
+			if (!validOpenBuyForMaintenance(event)) continue;
+			if (selected == null || event.getSlot() < selected.getSlot()) selected = event;
+		}
+		return selected;
+	}
+
+	private void rememberCanonicalOffer(OfferEvent event)
+	{
+		if (event == null || event.getSlot() < 0) return;
+		if (validOpenBuyForMaintenance(event)) canonicalOffers.put(event.getSlot(), event);
+		else canonicalOffers.remove(event.getSlot());
 	}
 
 	BuyMaintenanceParityResult compareBuyMaintenancePresentation(Suggestion existing,

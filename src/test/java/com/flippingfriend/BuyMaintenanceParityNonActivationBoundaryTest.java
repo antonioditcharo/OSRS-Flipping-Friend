@@ -17,6 +17,7 @@ public class BuyMaintenanceParityNonActivationBoundaryTest
         Assert.assertTrue(parity.contains("static BuyMaintenanceParityResult compare("));
         Assert.assertTrue(client.contains("compareBuyMaintenancePresentation(Suggestion existing,"));
         Assert.assertTrue(client.contains("BuyMaintenanceParity.compare(existing, shadow)"));
+        Assert.assertTrue(client.contains("OfferEvent currentCanonicalOpenBuy()"));
         Assert.assertFalse(plugin.contains("BuyMaintenanceParity"));
         Assert.assertFalse(plugin.contains("compareBuyMaintenancePresentation"));
         Assert.assertFalse(plugin.contains("nextBuyMaintenancePresentation"));
