@@ -179,3 +179,15 @@ lowest-slot valid open buy to package-level orchestration. Terminal and cleared 
 authority, and unattributed offers remain ineligible. The plugin does not consume this seam; no HTTP
 request, winner selection, displayed suggestion, policy behavior, persistence schema, or Phase 2
 guarantee changes. Local `engine.refresh(false)` maintenance remains production-active.
+
+## PACKAGE 3.21 BUY-MAINTENANCE CANCELLATION SELECTOR
+
+Status: SELECTION FOUNDATION, NON-CONSUMED, NON-ACTIVATED.
+
+A pure package-private selector can now choose an exact companion-authored `CANCEL_BUY` presentation
+only over a same-offer local `MODIFY_BUY` or `CANCEL` result. It requires supported schema and policy
+metadata, no abstention, exact canonical offer and recommendation lineage, and matching item, name, slot,
+price, and remaining quantity. Every other local responsibility, companion `HOLD`, explicit `WAIT`, and
+all missing or mismatched inputs preserve the existing local result. The plugin does not consume the
+selector, `engine.refresh(false)` remains production-active, and no replacement, HTTP, persistence,
+shared-core, SQLite, or Phase 2 behavior changes.
