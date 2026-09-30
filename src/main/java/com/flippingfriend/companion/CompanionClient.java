@@ -553,6 +553,40 @@ public class CompanionClient
 		return decision;
 	}
 
+	PresentedBuyMaintenanceDecision nextBuyMaintenancePresentation(OfferEvent currentOpenBuy)
+	{
+		return nextBuyMaintenancePresentation(currentOpenBuy, this::fetchBuyMaintenanceDecision);
+	}
+
+	PresentedBuyMaintenanceDecision nextBuyMaintenancePresentation(OfferEvent currentOpenBuy,
+		BuyMaintenanceDecisionFetcher fetcher)
+	{
+		if (!validOpenBuyForMaintenance(currentOpenBuy) || fetcher == null) return null;
+		PolicyDecision decision = fetcher.fetch(currentOpenBuy.getOfferIdentity(),
+			currentOpenBuy.getRecommendationId());
+		if (decision == null) return null;
+		PresentedBuyMaintenanceDecision presented =
+			BuyMaintenanceDecisionPresenter.present(decision, currentOpenBuy);
+		if (presented == null)
+		{
+			lastError = "Companion buy maintenance decision did not match the current offer.";
+		}
+		return presented;
+	}
+
+	@FunctionalInterface
+	interface BuyMaintenanceDecisionFetcher
+	{
+		PolicyDecision fetch(String offerIdentity, String recommendationId);
+	}
+
+	private static boolean validOpenBuyForMaintenance(OfferEvent offer)
+	{
+		return offer != null && offer.isBuying() && "BUYING".equals(offer.getEventType())
+			&& offer.getTotalQuantity() > offer.getFilledQuantity()
+			&& !blank(offer.getOfferIdentity()) && !blank(offer.getRecommendationId());
+	}
+
 	PolicyDecision fetchBuyMaintenanceDecision(String offerIdentity, String recommendationId)
 	{
 		if (blank(offerIdentity) || blank(recommendationId)) return null;

@@ -8,14 +8,16 @@ import org.junit.Test;
 
 public class BuyMaintenancePresentationNonActivationBoundaryTest
 {
-    @Test public void purePresenterIsNotActivatedInPluginOrClientOrchestration() throws Exception
+    @Test public void clientPresentationOrchestrationExistsButPluginDoesNotConsumeIt() throws Exception
     {
         Path root = root();
         String plugin = read(root, "src/main/java/com/flippingfriend/FlippingFriendPlugin.java");
         String client = read(root, "src/main/java/com/flippingfriend/companion/CompanionClient.java");
+        Assert.assertTrue(client.contains("nextBuyMaintenancePresentation(OfferEvent currentOpenBuy)"));
+        Assert.assertTrue(client.contains("BuyMaintenanceDecisionPresenter.present(decision, currentOpenBuy)"));
+        Assert.assertFalse(plugin.contains("nextBuyMaintenancePresentation"));
         Assert.assertFalse(plugin.contains("BuyMaintenanceDecisionPresenter"));
         Assert.assertFalse(plugin.contains("PresentedBuyMaintenanceDecision"));
-        Assert.assertFalse(client.contains("BuyMaintenanceDecisionPresenter.present("));
         Assert.assertTrue(plugin.contains("engine.refresh(false)"));
         Assert.assertTrue(plugin.contains("companion.nextEntrySuggestion("));
     }

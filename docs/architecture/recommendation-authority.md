@@ -131,3 +131,15 @@ open offer into existing manual `Suggestion` objects while retaining the typed d
 becomes a cancel instruction for the exact remaining quantity without inventing a replacement; `HOLD`
 and explicit `WAIT` become visible wait cards. Missing or mismatched lineage, unsupported actions, and
 non-open offers fail closed. The presenter is not called by `CompanionClient` or the plugin.
+
+## PACKAGE 3.17 BUY-MAINTENANCE CLIENT PRESENTATION ORCHESTRATION
+
+Status: PRESENTABLE, NON-CONSUMED, NON-ACTIVATED FOUNDATION.
+
+`CompanionClient` now composes the Package 3.15 validated retrieval seam with the Package 3.16
+identity-safe presenter behind a package-private method. The same canonical open `BUYING` offer supplies
+the exact offer identity and recommendation lineage used for retrieval and is then passed unchanged to
+presentation. Missing, terminal, malformed, unavailable, or mismatched inputs fail closed. The plugin does
+not call this method, no parity path exists yet, and local `engine.refresh(false)` buy maintenance remains
+production-active. No replacement behavior, persistence, shared-core contract, API, service, or Phase 2
+guarantee changes.
