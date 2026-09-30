@@ -553,6 +553,21 @@ public class CompanionClient
 		return decision;
 	}
 
+	BuyMaintenanceParityResult compareBuyMaintenancePresentation(Suggestion existing,
+		OfferEvent currentOpenBuy)
+	{
+		return compareBuyMaintenancePresentation(existing, currentOpenBuy,
+			this::fetchBuyMaintenanceDecision);
+	}
+
+	BuyMaintenanceParityResult compareBuyMaintenancePresentation(Suggestion existing,
+		OfferEvent currentOpenBuy, BuyMaintenanceDecisionFetcher fetcher)
+	{
+		PresentedBuyMaintenanceDecision shadow =
+			nextBuyMaintenancePresentation(currentOpenBuy, fetcher);
+		return BuyMaintenanceParity.compare(existing, shadow);
+	}
+
 	PresentedBuyMaintenanceDecision nextBuyMaintenancePresentation(OfferEvent currentOpenBuy)
 	{
 		return nextBuyMaintenancePresentation(currentOpenBuy, this::fetchBuyMaintenanceDecision);

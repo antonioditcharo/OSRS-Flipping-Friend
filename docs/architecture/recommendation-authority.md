@@ -155,3 +155,15 @@ recommendation lineage and classify missing or invalid evidence explicitly. Neit
 the plugin invokes parity comparison. No shadow execution, production cutover, replacement behavior,
 persistence, shared-core contract, API, service, or Phase 2 guarantee changes. Local
 `engine.refresh(false)` buy maintenance remains production-active.
+
+## PACKAGE 3.19 BUY-MAINTENANCE PARITY ORCHESTRATION
+
+Status: PARITY-ONLY, NON-CONSUMED, NON-ACTIVATED FOUNDATION.
+
+`CompanionClient` now composes the Package 3.17 presentation seam with the Package 3.18 pure parity
+comparator behind a package-private method. The caller supplies the existing local maintenance suggestion
+and the canonical open buy; the canonical offer alone supplies companion retrieval identity and lineage.
+Missing or invalid shadow evidence remains explicitly classified by the comparator. The plugin does not
+call this method, no background shadow request, logging, persistence, winner selection, or production
+cutover exists, and local `engine.refresh(false)` buy maintenance remains production-active. No
+replacement behavior, shared-core contract, API, service, SQLite, or Phase 2 guarantee changes.
