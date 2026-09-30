@@ -121,3 +121,13 @@ strictly validates schema, type, action, abstention shape, timestamps, offer ide
 lineage. `HOLD`, `CANCEL_BUY`, and explicit `WAIT` are the only accepted actions. Null, malformed,
 mismatched, or incompatible decisions fail closed. The plugin does not call this method and local
 `engine.refresh(false)` maintenance remains production-active.
+
+## PACKAGE 3.16 BUY-MAINTENANCE PRESENTATION
+
+Status: PRESENTABLE, NON-CONSUMED, NON-ACTIVATED FOUNDATION.
+
+A pure identity-safe presenter now maps validated buy-maintenance decisions and the matching canonical
+open offer into existing manual `Suggestion` objects while retaining the typed decision. `CANCEL_BUY`
+becomes a cancel instruction for the exact remaining quantity without inventing a replacement; `HOLD`
+and explicit `WAIT` become visible wait cards. Missing or mismatched lineage, unsupported actions, and
+non-open offers fail closed. The presenter is not called by `CompanionClient` or the plugin.
