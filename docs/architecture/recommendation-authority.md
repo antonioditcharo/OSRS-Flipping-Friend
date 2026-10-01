@@ -225,3 +225,8 @@ A versioned immutable shared-core contract now separates cancellation authorizat
 ## PACKAGE 3.25 BUY-REPLACEMENT INTENT PERSISTENCE
 Status: NON-ROUTED, NON-ACTIVATED DURABLE PROJECTION FOUNDATION.
 SQLite now stores the Package 3.24 immutable replacement-intent state in an additive current-state projection. Strict restoration validates schema and remainder arithmetic; writes preserve immutable offer identity, recommendation lineage, and economics, are idempotent for exact replay, and roll back atomically at the injected checkpoint. The persistence seam is package-private and is not consumed by CompanionService, CompanionMain rehydration, any API route, CompanionClient, the plugin, or SuggestionEngine. No runtime replacement intent is created or advanced, and production behavior remains unchanged.
+
+
+## PACKAGE 3.26 BUY-REPLACEMENT WORKFLOW FOUNDATION
+Status: NON-ACTIVATED FOUNDATION.
+A package-private companion workflow now binds an exact companion-authored `CANCEL_BUY` decision to the matching canonical open-buy identity and recommendation lineage, creates a deterministic short-lived Package 3.24 replacement intent, and stores it through the Package 3.25 durable projection. Exact replay is idempotent. HOLD, malformed offers, and identity or lineage mismatches fail closed without writing. CompanionService, CompanionMain rehydration, API routes, CompanionClient, the plugin, and SuggestionEngine do not consume the workflow, so runtime replacement behavior and production authority remain unchanged.
