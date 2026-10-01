@@ -10,6 +10,8 @@ import com.flippingfriend.core.PositionConsistencyState;
 import com.flippingfriend.core.PositionProjection;
 import com.flippingfriend.core.AccountSnapshot;
 import com.flippingfriend.core.PositionSnapshot;
+import com.flippingfriend.core.BuyReplacementIntent;
+import com.flippingfriend.core.BuyReplacementIntentState;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -124,6 +126,7 @@ final class SqliteStore implements AutoCloseable
 			statement.execute("CREATE TABLE IF NOT EXISTS reconciliation_event (id INTEGER PRIMARY KEY AUTOINCREMENT, snapshot_correlation_id TEXT, snapshot_observed_at INTEGER NOT NULL, subject_type TEXT NOT NULL, subject_id TEXT NOT NULL, outcome TEXT NOT NULL, previous_state TEXT, resulting_state TEXT, reason TEXT NOT NULL, created_at INTEGER NOT NULL)");
 			statement.execute("CREATE TABLE IF NOT EXISTS buy_limit_projection (item_id INTEGER PRIMARY KEY, started_at INTEGER NOT NULL, used_quantity INTEGER NOT NULL, updated_at INTEGER NOT NULL, source_event_id TEXT, source_snapshot_correlation_id TEXT)");
 			statement.execute("CREATE TABLE IF NOT EXISTS buy_limit_event (id INTEGER PRIMARY KEY AUTOINCREMENT, item_id INTEGER NOT NULL, started_at INTEGER NOT NULL, quantity_delta INTEGER NOT NULL, resulting_used_quantity INTEGER NOT NULL, source_type TEXT NOT NULL, source_event_id TEXT, source_snapshot_correlation_id TEXT, observed_at INTEGER NOT NULL, created_at INTEGER NOT NULL)");
+			statement.execute("CREATE TABLE IF NOT EXISTS buy_replacement_intent_projection (intent_id TEXT PRIMARY KEY, schema_version TEXT NOT NULL, original_offer_identity TEXT NOT NULL, recommendation_id TEXT NOT NULL, slot INTEGER NOT NULL, item_id INTEGER NOT NULL, item_name TEXT NOT NULL, original_price INTEGER NOT NULL, original_quantity INTEGER NOT NULL, filled_quantity INTEGER NOT NULL, remainder_quantity INTEGER NOT NULL, created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL, state TEXT NOT NULL, reason_code TEXT NOT NULL, updated_at INTEGER NOT NULL)");
 		}
 
 		if (!hasColumn("event_log", "event_id"))
@@ -279,6 +282,13 @@ final class SqliteStore implements AutoCloseable
 			s.setString(16,reason); s.setLong(17,Instant.now().getEpochSecond()); s.executeUpdate();
 		}
 	}
+
+	synchronized void saveBuyReplacementIntent(BuyReplacementIntent i) throws Exception
+	{ if(i==null)throw new IllegalArgumentException("intent is required"); BuyReplacementIntent old=buyReplacementIntent(i.getIntentId()); if(old!=null&&!sameReplacementIdentity(old,i))throw new IllegalArgumentException("replacement intent identity mismatch"); boolean ac=connection.getAutoCommit();connection.setAutoCommit(false);try{try(PreparedStatement s=connection.prepareStatement("INSERT INTO buy_replacement_intent_projection(intent_id,schema_version,original_offer_identity,recommendation_id,slot,item_id,item_name,original_price,original_quantity,filled_quantity,remainder_quantity,created_at,expires_at,state,reason_code,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(intent_id) DO UPDATE SET state=excluded.state,reason_code=excluded.reason_code,updated_at=excluded.updated_at")){s.setString(1,i.getIntentId());s.setString(2,i.getSchemaVersion());s.setString(3,i.getOriginalOfferIdentity());s.setString(4,i.getRecommendationId());s.setInt(5,i.getSlot());s.setInt(6,i.getItemId());s.setString(7,i.getItemName());s.setInt(8,i.getOriginalPrice());s.setInt(9,i.getOriginalQuantity());s.setInt(10,i.getFilledQuantity());s.setInt(11,i.getRemainderQuantity());s.setLong(12,i.getCreatedAt());s.setLong(13,i.getExpiresAt());s.setString(14,i.getState().name());s.setString(15,i.getReasonCode());s.setLong(16,Instant.now().getEpochSecond());s.executeUpdate();}checkpoint.reached("BUY_REPLACEMENT_INTENT_WRITTEN");connection.commit();}catch(Exception e){connection.rollback();throw e;}finally{connection.setAutoCommit(ac);} }
+	private static boolean sameReplacementIdentity(BuyReplacementIntent a,BuyReplacementIntent b){return a.getIntentId().equals(b.getIntentId())&&a.getOriginalOfferIdentity().equals(b.getOriginalOfferIdentity())&&a.getRecommendationId().equals(b.getRecommendationId())&&a.getSlot()==b.getSlot()&&a.getItemId()==b.getItemId()&&a.getItemName().equals(b.getItemName())&&a.getOriginalPrice()==b.getOriginalPrice()&&a.getOriginalQuantity()==b.getOriginalQuantity()&&a.getFilledQuantity()==b.getFilledQuantity()&&a.getCreatedAt()==b.getCreatedAt()&&a.getExpiresAt()==b.getExpiresAt();}
+	synchronized List<BuyReplacementIntent> buyReplacementIntents() throws Exception{List<BuyReplacementIntent> x=new ArrayList<>();try(PreparedStatement s=connection.prepareStatement("SELECT schema_version,intent_id,original_offer_identity,recommendation_id,slot,item_id,item_name,original_price,original_quantity,filled_quantity,remainder_quantity,created_at,expires_at,state,reason_code FROM buy_replacement_intent_projection ORDER BY intent_id");ResultSet r=s.executeQuery()){while(r.next())x.add(readBuyReplacementIntent(r));}return x;}
+	private BuyReplacementIntent buyReplacementIntent(String id)throws Exception{try(PreparedStatement s=connection.prepareStatement("SELECT schema_version,intent_id,original_offer_identity,recommendation_id,slot,item_id,item_name,original_price,original_quantity,filled_quantity,remainder_quantity,created_at,expires_at,state,reason_code FROM buy_replacement_intent_projection WHERE intent_id=?")){s.setString(1,id);try(ResultSet r=s.executeQuery()){return r.next()?readBuyReplacementIntent(r):null;}}}
+	private static BuyReplacementIntent readBuyReplacementIntent(ResultSet r)throws Exception{return BuyReplacementIntent.restore(r.getString(1),r.getString(2),r.getString(3),r.getString(4),r.getInt(5),r.getInt(6),r.getString(7),r.getInt(8),r.getInt(9),r.getInt(10),r.getInt(11),r.getLong(12),r.getLong(13),BuyReplacementIntentState.valueOf(r.getString(14)),r.getString(15));}
 
 	synchronized List<PositionProjection> positionProjections() throws Exception
 	{

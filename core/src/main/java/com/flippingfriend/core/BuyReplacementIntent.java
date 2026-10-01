@@ -61,6 +61,17 @@ public final class BuyReplacementIntent
             expiresAt, next, reason);
     }
 
+    public static BuyReplacementIntent restore(String schemaVersion, String intentId, String offerIdentity,
+        String recommendationId, int slot, int itemId, String itemName, int originalPrice,
+        int originalQuantity, int filledQuantity, int remainderQuantity, long createdAt,
+        long expiresAt, BuyReplacementIntentState state, String reasonCode)
+    {
+        if (!SCHEMA_VERSION.equals(schemaVersion) || remainderQuantity != originalQuantity - filledQuantity)
+            throw new IllegalArgumentException("invalid persisted buy replacement intent");
+        return new BuyReplacementIntent(intentId, offerIdentity, recommendationId, slot, itemId, itemName,
+            originalPrice, originalQuantity, filledQuantity, createdAt, expiresAt, state, reasonCode);
+    }
+
     private static boolean blank(String value) { return value == null || value.trim().isEmpty(); }
     public String getSchemaVersion() { return SCHEMA_VERSION; }
     public String getIntentId() { return intentId; }
