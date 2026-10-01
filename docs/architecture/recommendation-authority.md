@@ -217,3 +217,7 @@ missing authority, transport failure, malformed evidence, and every identity, li
 mismatch preserve the exact existing local object. The companion cancellation does not authorize a
 replacement. No background request, scheduler, persistence, logging, metrics, API, service, SQLite,
 shared-core, or automatic Grand Exchange interaction is introduced.
+
+## PACKAGE 3.24 BUY-REPLACEMENT INTENT FOUNDATION
+Status: NON-ACTIVATED FOUNDATION.
+A versioned immutable shared-core contract now separates cancellation authorization from later replacement authorization. Pure fail-closed transitions require matching original offer identity and recommendation lineage, terminal cancellation observation, collection observation, and a fresh eligibility decision before replacement can become authorized. Partial-fill remainder is preserved exactly. Expiry, invalid ordering, and mismatched identity or lineage abandon or reconcile rather than authorize replacement. The plugin and CompanionClient do not consume this contract; transient SuggestionEngine replacement behavior remains production-active and unchanged. No persistence, route, service orchestration, client retrieval, presentation, selection, scheduler, automatic interaction, or Phase 2 behavior changes.
