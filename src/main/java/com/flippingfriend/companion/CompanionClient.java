@@ -576,7 +576,7 @@ public class CompanionClient
 		else canonicalOffers.remove(event.getSlot());
 	}
 
-	Suggestion selectBuyMaintenanceCancellation(Suggestion existing)
+	public Suggestion selectBuyMaintenanceCancellation(Suggestion existing)
 	{
 		OfferEvent canonicalOpenBuy = currentCanonicalOpenBuy();
 		return selectBuyMaintenanceCancellation(existing, canonicalOpenBuy,

@@ -204,3 +204,16 @@ mismatches preserve the exact existing local result. An exact companion-authored
 returned only when the Package 3.21 selector accepts it. The plugin does not call this method,
 `engine.refresh(false)` remains production-active, and no priority, replacement, background request,
 logging, persistence, API, service, SQLite, shared-core, or Phase 2 behavior changes.
+
+## PACKAGE 3.23 BUY-MAINTENANCE CANCELLATION ACTIVATION
+Status: NARROW PRODUCTION ACTIVATION.
+The live plugin now invokes `CompanionClient.selectBuyMaintenanceCancellation(...)` only after
+companion collection has returned no action and local `engine.refresh(false)` has produced an existing
+`MODIFY_BUY` or `CANCEL` result. The Package 3.21 selector therefore remains the final authority gate:
+only an exact companion-authored `CANCEL_BUY` for the same canonical offer and recommendation lineage
+can replace that local result. Collection, recovery, `SELL`, `MODIFY_SELL`, `WAIT`, partial-position
+protection, unrelated maintenance, and entry remain undisplaced. `HOLD`, explicit companion `WAIT`,
+missing authority, transport failure, malformed evidence, and every identity, lineage, or economics
+mismatch preserve the exact existing local object. The companion cancellation does not authorize a
+replacement. No background request, scheduler, persistence, logging, metrics, API, service, SQLite,
+shared-core, or automatic Grand Exchange interaction is introduced.

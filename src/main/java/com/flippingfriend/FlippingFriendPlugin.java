@@ -722,6 +722,11 @@ public class FlippingFriendPlugin extends Plugin
 				{
 					suggestion = engine.refresh(false);
 				}
+				if (suggestion != null && (suggestion.getType() == SuggestionType.MODIFY_BUY
+					|| suggestion.getType() == SuggestionType.CANCEL))
+				{
+					suggestion = companion.selectBuyMaintenanceCancellation(suggestion);
+				}
 				if (suggestion == null)
 				{
 					// The two rejection controls the player actually has. These were honoured only by
