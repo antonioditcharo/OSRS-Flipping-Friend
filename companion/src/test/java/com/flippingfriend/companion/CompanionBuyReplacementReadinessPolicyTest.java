@@ -1,0 +1,10 @@
+package com.flippingfriend.companion;
+import org.junit.Test; import static org.junit.Assert.*;
+public class CompanionBuyReplacementReadinessPolicyTest {
+ private final CompanionBuyReplacementReadinessPolicy p=new CompanionBuyReplacementReadinessPolicy();
+ @Test public void exactRemainderBecomesReadyForPricingDeterministically(){BuyReplacementReadinessAssessment a=p.assess(context(400,400,1000,880,880,1100,1));BuyReplacementReadinessAssessment b=p.assess(context(400,400,1000,880,880,1100,1));assertEquals(BuyReplacementReadinessOutcome.READY_FOR_PRICING,a.getOutcome());assertEquals("EXACT_REMAINDER_READY_FOR_PRICING",a.getReasonCode());assertEquals(a.getAssessmentId(),b.getAssessmentId());assertEquals(400,a.getRemainderQuantity());}
+ @Test public void insufficientLimitIsIneligible(){BuyReplacementReadinessAssessment a=p.assess(context(400,399,1000,900,900,1100,1));assertEquals(BuyReplacementReadinessOutcome.INELIGIBLE,a.getOutcome());assertEquals("BUY_LIMIT_BELOW_REMAINDER",a.getReasonCode());}
+ @Test public void staleExpiredAndCapacityInputsAbstain(){assertEquals("INPUT_STALE",p.assess(context(400,400,1000,879,880,1100,1)).getReasonCode());assertEquals("INPUT_INCONSISTENT",p.assess(context(400,400,1001,900,900,1000,1)).getReasonCode());assertEquals("ACCOUNT_CAPACITY_UNAVAILABLE",p.assess(context(400,400,1000,900,900,1100,0)).getReasonCode());assertEquals("CONTEXT_REQUIRED",p.assess(null).getReasonCode());}
+ @Test public void assessmentCarriesNoPriceOrLifecycleAction()throws Exception{String s=java.nio.file.Files.readString(java.nio.file.Path.of("src/main/java/com/flippingfriend/companion/BuyReplacementReadinessAssessment.java"));assertFalse(s.contains("price"));assertFalse(s.contains("OfferLifecycleAction"));}
+ private static BuyReplacementEligibilityContext context(int remainder,int limit,long evaluated,long accountAt,long marketAt,long expires,int slots){return new BuyReplacementEligibilityContext("intent-1","offer-1","plan-1",2,4151,"Abyssal whip",remainder,1000,990,1010,limit,2000000,slots,true,100,expires,accountAt,marketAt,evaluated);}
+}
