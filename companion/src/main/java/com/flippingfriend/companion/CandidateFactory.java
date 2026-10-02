@@ -16,6 +16,7 @@ import com.flippingfriend.model.ItemGroups;
 import com.flippingfriend.model.ManipulationFilter;
 import com.flippingfriend.model.MarketContext;
 import com.flippingfriend.model.PriceAnchor;
+import com.flippingfriend.model.PriceOffset;
 import com.flippingfriend.model.RiskAppetite;
 import com.flippingfriend.model.TaxCalculator;
 import com.google.gson.JsonObject;
@@ -634,10 +635,10 @@ final class CandidateFactory
 
 		for (double buyOffset : appetite.getBuyOffsets())
 		{
-			int buyPrice = shift(screened.price.getLow(), buyOffset);
+			int buyPrice = PriceOffset.apply(screened.price.getLow(), buyOffset);
 			for (double sellOffset : appetite.getSellOffsets())
 			{
-				int sellPrice = shift(screened.price.getHigh(), sellOffset);
+				int sellPrice = PriceOffset.apply(screened.price.getHigh(), sellOffset);
 				if (sellPrice <= buyPrice)
 				{
 					continue;
@@ -897,15 +898,6 @@ final class CandidateFactory
 		return wait * waitMultiplier + working;
 	}
 
-	private static int shift(int price, double fraction)
-	{
-		int delta = (int) Math.round(price * fraction);
-		if (delta == 0 && fraction != 0)
-		{
-			delta = fraction > 0 ? 1 : -1;
-		}
-		return Math.max(1, price + delta);
-	}
 
 	private static LatestPrice quote(JsonObject root, int itemId)
 	{
