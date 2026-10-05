@@ -49,6 +49,12 @@ public class BuyReplacementCandidateFillViabilityEvaluatorTest
             price, 5, (long) price * 5, probability, hours, throughput, wait);
     }
 
+    static BuyReplacementCandidateFillViabilityAssessment viableForCompanionTests()
+    {
+        return new BuyReplacementCandidateFillViabilityEvaluator().evaluate(source(
+            evaluation(1, 501, 0.6, 1.2, 100, 0.2)), 1000);
+    }
+
     private static BuyReplacementCandidateFillEvaluationSet source(
         BuyReplacementCandidateFillEvaluation... values)
     {
