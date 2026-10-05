@@ -17,7 +17,7 @@ public class BuyReplacementCandidateFillEvaluatorTest
 
     @Test public void evaluatesEveryAffordableCandidateInOriginalOrder()
     {
-        BuyReplacementCandidateFillEvaluationSet result = evaluator.evaluate(context(), 1000);
+        BuyReplacementCandidateFillEvaluationSet result = evaluator.evaluate(contextForCompanionTests(), 1000);
         assertNotNull(result);
         assertEquals(3, result.getAssessments().size());
         assertEquals(3, result.getAffordableCandidates().size());
@@ -40,7 +40,7 @@ public class BuyReplacementCandidateFillEvaluatorTest
 
     @Test public void equalPricesAndCostsRemainDistinctMeasuredEvidence()
     {
-        BuyReplacementCandidateFillEvaluationSet result = evaluator.evaluate(context(), 1000);
+        BuyReplacementCandidateFillEvaluationSet result = evaluator.evaluate(contextForCompanionTests(), 1000);
         assertNotNull(result);
         assertEquals(result.getEvaluations().get(1).getBuyPrice(),
             result.getEvaluations().get(2).getBuyPrice());
@@ -54,7 +54,7 @@ public class BuyReplacementCandidateFillEvaluatorTest
 
     @Test public void weakFillEvidenceIsPreservedRatherThanFiltered()
     {
-        BuyReplacementCandidateFillEvaluationSet result = evaluator.evaluate(context(), 1000);
+        BuyReplacementCandidateFillEvaluationSet result = evaluator.evaluate(contextForCompanionTests(), 1000);
         assertNotNull(result);
         assertEquals(3, result.getEvaluations().size());
         assertEquals(0.0, result.getEvaluations().get(0).getProbability(), 0.0);
@@ -64,9 +64,9 @@ public class BuyReplacementCandidateFillEvaluatorTest
     @Test public void unavailableStaleAndInvalidInputsFailClosed()
     {
         assertNull(evaluator.evaluate(null, 1000));
-        assertNull(new BuyReplacementCandidateFillEvaluator(null).evaluate(context(), 1000));
-        assertNull(evaluator.evaluate(context(), 1121));
-        assertNull(evaluator.evaluate(context(), 999));
+        assertNull(new BuyReplacementCandidateFillEvaluator(null).evaluate(contextForCompanionTests(), 1000));
+        assertNull(evaluator.evaluate(contextForCompanionTests(), 1121));
+        assertNull(evaluator.evaluate(contextForCompanionTests(), 999));
     }
 
     @Test public void contractsCarryNoRankingSelectionEconomicsOrAuthorization() throws Exception
@@ -89,7 +89,7 @@ public class BuyReplacementCandidateFillEvaluatorTest
         }
     }
 
-    private static BuyReplacementCandidateFillInputContext context()
+    static BuyReplacementCandidateFillInputContext contextForCompanionTests()
     {
         int quantity = 5;
         int low = 500;
