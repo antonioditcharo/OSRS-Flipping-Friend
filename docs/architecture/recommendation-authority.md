@@ -318,3 +318,7 @@ A package-private pure fail-closed evaluator now applies the shared production `
 ## PACKAGE 3.48 BUY-REPLACEMENT DURATION-CALIBRATION INPUT FOUNDATION
 
 A package-private pure fail-closed composer now binds Package 3.47 completion evidence to the production effective `FillCalibration.waitMultiplier(itemId)` choice. Learning-disabled or missing calibration uses `FillCalibration.NEUTRAL`; enabled learning uses the supplied calibration. The immutable context preserves ordered completion evidence, identity, lineage, exact remainder, horizon, and timestamps. It does not apply `correctedHours`, calculate expected slot hours or profit, unwind loss, worst loss, Kelly sizing, GP per slot-hour, rank, select, authorize, persist, route, retrieve, present, schedule, or activate replacement behavior.
+
+## PACKAGE 3.49 BUY-REPLACEMENT CALIBRATED-DURATION FOUNDATION
+
+A package-private pure fail-closed evaluator now applies the production wait-only duration correction to both legs of every Package 3.48 ordered completion evaluation: unchanged expected hours when wait is nonpositive or nonfinite, otherwise `wait * multiplier + max(0, expectedHours - wait)`. It preserves raw measurements, completion probability, pricing and economics provenance, identity, lineage, exact remainder, horizon, calibration choice, and timestamps. It does not calculate expected slot hours or profit, unwind loss, worst loss, Kelly sizing, GP per slot-hour, rank, select, authorize, persist, route, retrieve, present, schedule, or activate replacement behavior.
