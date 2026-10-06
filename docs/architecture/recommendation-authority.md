@@ -314,3 +314,7 @@ A package-private pure fail-closed evaluator now interprets Package 3.45 sell-fi
 ## PACKAGE 3.47 BUY-REPLACEMENT ROUND-TRIP COMPLETION FOUNDATION
 
 A package-private pure fail-closed evaluator now applies the shared production `PortfolioCandidate.getCompletionProbability()` formula, buy probability multiplied by sell probability, to every Package 3.46 viable candidate. It preserves complete sell-fill evidence, the viable-only view, ordering, exact remainder, economics provenance, leg measurements, identity, lineage, horizon, and timestamps. It does not calibrate duration, calculate expected slot hours, expected profit, unwind loss, worst loss, Kelly sizing, GP per slot-hour, rank, select, authorize, persist, route, retrieve, present, schedule, or activate replacement behavior.
+
+## PACKAGE 3.48 BUY-REPLACEMENT DURATION-CALIBRATION INPUT FOUNDATION
+
+A package-private pure fail-closed composer now binds Package 3.47 completion evidence to the production effective `FillCalibration.waitMultiplier(itemId)` choice. Learning-disabled or missing calibration uses `FillCalibration.NEUTRAL`; enabled learning uses the supplied calibration. The immutable context preserves ordered completion evidence, identity, lineage, exact remainder, horizon, and timestamps. It does not apply `correctedHours`, calculate expected slot hours or profit, unwind loss, worst loss, Kelly sizing, GP per slot-hour, rank, select, authorize, persist, route, retrieve, present, schedule, or activate replacement behavior.
