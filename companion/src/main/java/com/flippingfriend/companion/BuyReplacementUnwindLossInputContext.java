@@ -1,0 +1,8 @@
+package com.flippingfriend.companion;
+import java.util.List;
+/** Immutable production unwind-loss inputs without applying the unwind calculation. */
+final class BuyReplacementUnwindLossInputContext {
+ private final BuyReplacementExpectedSlotOccupancyEvaluationSet source; private final int currentLowPrice; private final double volatility; private final int bucketSeconds; private final long marketObservedAt; private final long composedAt;
+ BuyReplacementUnwindLossInputContext(BuyReplacementExpectedSlotOccupancyEvaluationSet s,int low,double v,int bucket,long marketAt,long at){source=s;currentLowPrice=low;volatility=v;bucketSeconds=bucket;marketObservedAt=marketAt;composedAt=at;}
+ String getIntentId(){return source.getIntentId();} String getOriginalOfferIdentity(){return source.getOriginalOfferIdentity();} String getRecommendationId(){return source.getRecommendationId();} int getSlot(){return source.getSlot();} int getItemId(){return source.getItemId();} String getItemName(){return source.getItemName();} int getExactRemainderQuantity(){return source.getExactRemainderQuantity();} String getAppetiteName(){return source.getAppetiteName();} double getEffectiveHorizonHours(){return source.getEffectiveHorizonHours();} long getExpectedSlotOccupancyEvaluatedAt(){return source.getEvaluatedAt();} List<BuyReplacementExpectedSlotOccupancyEvaluation> getEvaluations(){return source.getEvaluations();} int getCurrentLowPrice(){return currentLowPrice;} double getVolatility(){return volatility;} int getBucketSeconds(){return bucketSeconds;} long getMarketObservedAt(){return marketObservedAt;} long getComposedAt(){return composedAt;}
+}
