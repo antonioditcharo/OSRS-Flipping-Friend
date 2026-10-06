@@ -338,3 +338,7 @@ A package-private pure fail-closed evaluator now applies production `CandidateFa
 ## PACKAGE 3.53 BUY-REPLACEMENT EXPECTED-PROFIT FOUNDATION
 
 A package-private pure fail-closed evaluator now applies production `PortfolioCandidate.expectedProfit()` arithmetic to every Package 3.52 ordered evaluation: completed probability times exact total net margin, minus stranded probability times exact total unwind loss. It preserves complete unwind-loss, slot-occupancy, pricing, tax, fill, duration, identity, lineage, market-input, horizon, ordering, and timestamp evidence. It does not calculate worst loss, Kelly sizing, GP per slot-hour, rank, select, authorize, persist, route, retrieve, present, schedule, or activate replacement behavior.
+
+## PACKAGE 3.54 BUY-REPLACEMENT WORST-LOSS INPUT FOUNDATION
+
+A package-private immutable context and pure fail-closed composer now bind Package 3.53 ordered expected-profit evidence to the production `RiskAppetite.lossCutPct` selected by its existing appetite name. The appetite must round-trip through the production mapping, and the immutable positive finite loss-cut scalar is preserved with complete expected-profit, unwind-loss, slot-occupancy, pricing, tax, fill, duration, identity, lineage, horizon, ordering, and timestamp evidence. It does not calculate worst loss, Kelly sizing, GP per slot-hour, rank, select, authorize, persist, route, retrieve, present, schedule, or activate replacement behavior.
