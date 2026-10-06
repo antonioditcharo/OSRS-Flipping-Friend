@@ -306,3 +306,7 @@ A package-private pure fail-closed composer now binds Package 3.43 eligible posi
 ## PACKAGE 3.45 BUY-REPLACEMENT SELL-FILL EVALUATION FOUNDATION
 
 A package-private pure fail-closed evaluator now applies the shared production `FillModel.estimateSell` neutral-seasonality overload to every Package 3.44 positive-net-margin candidate using the shared `FillCurve`, unchanged exact remainder, and effective horizon. It preserves ordered sell probability, expected duration, throughput, and wait evidence, including weak and never-fill results. It does not rebuild curves, retrieve history, filter viability, combine probabilities, resize quantity, calculate expected value or unwind cost, rank, select, authorize, persist, route, retrieve, present, schedule, or activate replacement behavior.
+
+## PACKAGE 3.46 BUY-REPLACEMENT SELL-FILL VIABILITY FOUNDATION
+
+A package-private pure fail-closed evaluator now interprets Package 3.45 sell-fill evidence with the shared plausibility semantics: positive probability and finite expected duration. It preserves the complete ordered evidence while deriving a separate immutable viable-only view; valid all-never-fill evidence is `NOT_VIABLE`. It does not invoke `FillModel`, rebuild curves, combine probabilities, resize quantity, calculate expected value or unwind cost, rank, select, authorize, persist, route, retrieve, present, schedule, or activate replacement behavior.
