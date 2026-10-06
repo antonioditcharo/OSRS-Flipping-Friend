@@ -310,3 +310,7 @@ A package-private pure fail-closed evaluator now applies the shared production `
 ## PACKAGE 3.46 BUY-REPLACEMENT SELL-FILL VIABILITY FOUNDATION
 
 A package-private pure fail-closed evaluator now interprets Package 3.45 sell-fill evidence with the shared plausibility semantics: positive probability and finite expected duration. It preserves the complete ordered evidence while deriving a separate immutable viable-only view; valid all-never-fill evidence is `NOT_VIABLE`. It does not invoke `FillModel`, rebuild curves, combine probabilities, resize quantity, calculate expected value or unwind cost, rank, select, authorize, persist, route, retrieve, present, schedule, or activate replacement behavior.
+
+## PACKAGE 3.47 BUY-REPLACEMENT ROUND-TRIP COMPLETION FOUNDATION
+
+A package-private pure fail-closed evaluator now applies the shared production `PortfolioCandidate.getCompletionProbability()` formula, buy probability multiplied by sell probability, to every Package 3.46 viable candidate. It preserves complete sell-fill evidence, the viable-only view, ordering, exact remainder, economics provenance, leg measurements, identity, lineage, horizon, and timestamps. It does not calibrate duration, calculate expected slot hours, expected profit, unwind loss, worst loss, Kelly sizing, GP per slot-hour, rank, select, authorize, persist, route, retrieve, present, schedule, or activate replacement behavior.
