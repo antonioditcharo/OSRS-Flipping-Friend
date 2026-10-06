@@ -334,3 +334,7 @@ A package-private immutable context and pure fail-closed composer now bind Packa
 ## PACKAGE 3.52 BUY-REPLACEMENT UNWIND-LOSS EVALUATION FOUNDATION
 
 A package-private pure fail-closed evaluator now applies production `CandidateFactory.unwindCost(...)` arithmetic to every Package 3.51 ordered input: bucket-scaled volatility with the production ceiling, adverse-drift share and floor; the lower of candidate buy price and current low anchor; production exit tax; nonnegative per-item exit loss; and exact-remainder total unwind loss. It preserves complete upstream slot-occupancy and economics evidence, ordering, identity, lineage, market inputs, horizon, and timestamps. It does not calculate expected profit, worst loss, Kelly sizing, GP per slot-hour, rank, select, authorize, persist, route, retrieve, present, schedule, or activate replacement behavior.
+
+## PACKAGE 3.53 BUY-REPLACEMENT EXPECTED-PROFIT FOUNDATION
+
+A package-private pure fail-closed evaluator now applies production `PortfolioCandidate.expectedProfit()` arithmetic to every Package 3.52 ordered evaluation: completed probability times exact total net margin, minus stranded probability times exact total unwind loss. It preserves complete unwind-loss, slot-occupancy, pricing, tax, fill, duration, identity, lineage, market-input, horizon, ordering, and timestamp evidence. It does not calculate worst loss, Kelly sizing, GP per slot-hour, rank, select, authorize, persist, route, retrieve, present, schedule, or activate replacement behavior.
