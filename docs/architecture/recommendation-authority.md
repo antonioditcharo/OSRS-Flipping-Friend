@@ -294,3 +294,7 @@ A package-private pure fail-closed evaluator now preserves the complete Package 
 ## PACKAGE 3.42 BUY-REPLACEMENT NET-MARGIN EVALUATION FOUNDATION
 
 A package-private pure evaluator now applies the shared production `TaxCalculator` contract to every Package 3.41 positive-spread candidate, preserving ordered tax-per-item, net-margin-per-item, total-tax, and total-net-margin evidence for the unchanged exact remainder. Complete raw pairings and the positive-spread view remain available and immutable; zero or negative net margins are retained rather than filtered. The package does not evaluate sell fills, resize quantity, rank, select, authorize, persist, route, retrieve, present, schedule, or activate replacement behavior.
+
+## PACKAGE 3.43 BUY-REPLACEMENT NET-MARGIN ELIGIBILITY FOUNDATION
+
+A package-private pure fail-closed evaluator now preserves the complete Package 3.42 tax-aware evaluation list while deriving a separate immutable ordered positive-net-margin view. It revalidates every evaluation against its Package 3.41 positive-spread source and the shared production `TaxCalculator`, including per-item tax, per-item net margin, total tax, and total net margin for the unchanged exact remainder. Valid all-zero-or-negative evidence yields `INELIGIBLE`. The package does not evaluate sell fills, resize quantity, calculate expected value or unwind cost, rank, select, authorize, persist, route, retrieve, present, schedule, or activate replacement behavior.
