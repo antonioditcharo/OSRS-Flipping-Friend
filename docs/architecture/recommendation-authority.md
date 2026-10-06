@@ -290,3 +290,7 @@ A package-private pure composer now applies shared `PriceOffset` arithmetic to P
 ## PACKAGE 3.41 BUY-REPLACEMENT SPREAD ELIGIBILITY FOUNDATION
 
 A package-private pure fail-closed evaluator now preserves the complete Package 3.40 raw pairing grid while deriving a separate immutable ordered positive-raw-spread view. It revalidates buy-major and sell-offset-minor ordering, canonical sell offsets, shared `PriceOffset` arithmetic, exact remainder, exact buy cost, and preserved buy-fill evidence. Valid all-nonpositive-spread evidence yields `INELIGIBLE`. The package does not invoke `TaxCalculator` or `FillModel`, calculate net margin, profit, expected value, or unwind cost, resize quantity, rank, select, authorize, persist, route, retrieve, present, schedule, or activate replacement behavior.
+
+## PACKAGE 3.42 BUY-REPLACEMENT NET-MARGIN EVALUATION FOUNDATION
+
+A package-private pure evaluator now applies the shared production `TaxCalculator` contract to every Package 3.41 positive-spread candidate, preserving ordered tax-per-item, net-margin-per-item, total-tax, and total-net-margin evidence for the unchanged exact remainder. Complete raw pairings and the positive-spread view remain available and immutable; zero or negative net margins are retained rather than filtered. The package does not evaluate sell fills, resize quantity, rank, select, authorize, persist, route, retrieve, present, schedule, or activate replacement behavior.
