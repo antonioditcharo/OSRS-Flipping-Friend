@@ -1,0 +1,7 @@
+package com.flippingfriend.companion;
+/** Immutable authoritative tax and net-margin evidence for one positive-spread pairing. */
+final class BuyReplacementNetMarginEvaluation {
+ private final BuyReplacementPositiveSpreadCandidate source; private final int taxPerItem; private final long netMarginPerItem; private final long totalTax; private final long totalNetMargin;
+ BuyReplacementNetMarginEvaluation(BuyReplacementPositiveSpreadCandidate s,int t,long m,long tt,long tm){source=s;taxPerItem=t;netMarginPerItem=m;totalTax=tt;totalNetMargin=tm;}
+ int getBuyOffsetIndex(){return source.getBuyOffsetIndex();} double getBuyOffset(){return source.getBuyOffset();} int getBuyPrice(){return source.getBuyPrice();} int getExactRemainderQuantity(){return source.getExactRemainderQuantity();} long getTotalCost(){return source.getTotalCost();} double getBuyProbability(){return source.getBuyProbability();} double getBuyExpectedHours(){return source.getBuyExpectedHours();} double getBuyUnitsPerHour(){return source.getBuyUnitsPerHour();} double getBuyWaitHours(){return source.getBuyWaitHours();} int getSellOffsetIndex(){return source.getSellOffsetIndex();} double getSellOffset(){return source.getSellOffset();} int getSellPrice(){return source.getSellPrice();} long getRawSpreadPerItem(){return source.getRawSpreadPerItem();} int getTaxPerItem(){return taxPerItem;} long getNetMarginPerItem(){return netMarginPerItem;} long getTotalTax(){return totalTax;} long getTotalNetMargin(){return totalNetMargin;}
+}
