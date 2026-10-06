@@ -1,0 +1,8 @@
+package com.flippingfriend.companion;
+import java.util.ArrayList; import java.util.Collections; import java.util.List;
+/** Immutable ordered production Kelly-input evidence. */
+final class BuyReplacementKellySizingInputContext {
+ private final BuyReplacementWorstLossEvaluationSet source; private final List<BuyReplacementKellySizingInput> inputs; private final double kellyShare; private final double minimumKellyFraction; private final double[] sizeGrid; private final long composedAt;
+ BuyReplacementKellySizingInputContext(BuyReplacementWorstLossEvaluationSet s,List<BuyReplacementKellySizingInput> i,double share,double minimum,double[] grid,long at){source=s;inputs=Collections.unmodifiableList(new ArrayList<>(i));kellyShare=share;minimumKellyFraction=minimum;sizeGrid=grid.clone();composedAt=at;}
+ String getIntentId(){return source.getIntentId();} String getOriginalOfferIdentity(){return source.getOriginalOfferIdentity();} String getRecommendationId(){return source.getRecommendationId();} int getItemId(){return source.getItemId();} int getExactRemainderQuantity(){return source.getExactRemainderQuantity();} String getAppetiteName(){return source.getAppetiteName();} List<BuyReplacementWorstLossEvaluation> getWorstLossEvaluations(){return source.getEvaluations();} List<BuyReplacementKellySizingInput> getInputs(){return inputs;} double getKellyShare(){return kellyShare;} double getMinimumKellyFraction(){return minimumKellyFraction;} double[] getSizeGrid(){return sizeGrid.clone();} long getWorstLossEvaluatedAt(){return source.getEvaluatedAt();} long getComposedAt(){return composedAt;}
+}

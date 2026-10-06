@@ -1,0 +1,8 @@
+package com.flippingfriend.companion;
+import java.util.ArrayList; import java.util.List;
+/** Pure fail-closed binding of Package 3.55 evidence to CandidateFactory Kelly inputs. */
+final class BuyReplacementKellySizingInputContextComposer {
+ private static final double KELLY_SHARE=0.35; private static final double MIN_KELLY_FRACTION=0.1; private static final double[] SIZE_GRID={0.5,1.0,2.0,4.0,8.0};
+ BuyReplacementKellySizingInputContext compose(BuyReplacementWorstLossEvaluationSet s,long at){if(s==null||at<s.getEvaluatedAt()||s.getEvaluatedAt()+CompanionBuyReplacementReadinessPolicy.MAX_INPUT_AGE_SECONDS<at||s.getEvaluations()==null||s.getEvaluations().isEmpty())return null;List<BuyReplacementKellySizingInput> out=new ArrayList<>(s.getEvaluations().size());for(BuyReplacementWorstLossEvaluation e:s.getEvaluations()){if(!valid(e,s))return null;long profit=e.getTotalNetMargin();long unwind=e.getTotalUnwindLoss();double p=e.getCompletionProbability();double b=unwind>0?(double)profit/unwind:profit;if(!Double.isFinite(b)||b<=0)return null;out.add(new BuyReplacementKellySizingInput(e,profit,unwind,p,b));}return new BuyReplacementKellySizingInputContext(s,out,KELLY_SHARE,MIN_KELLY_FRACTION,SIZE_GRID,at);}
+ private static boolean valid(BuyReplacementWorstLossEvaluation e,BuyReplacementWorstLossEvaluationSet s){return e!=null&&e.getExactRemainderQuantity()==s.getExactRemainderQuantity()&&e.getBuyPrice()>0&&e.getSellPrice()>0&&e.getTotalCost()==(long)e.getBuyPrice()*e.getExactRemainderQuantity()&&e.getTotalNetMargin()>0&&e.getTotalUnwindLoss()>=0&&e.getWorstLoss()>=1&&Double.isFinite(e.getCompletionProbability())&&e.getCompletionProbability()>0&&e.getCompletionProbability()<=1;}
+}
