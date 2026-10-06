@@ -58,9 +58,15 @@ public class BuyReplacementCandidateFillInputContextComposerTest
         assertFalse(source.contains("REPLACEMENT_AUTHORIZED"));
     }
 
+    static BuyReplacementCandidateFillInputContext contextForCompanionTests()
+    {
+        return new BuyReplacementCandidateFillInputContextComposer()
+            .compose(eligible(), history(), 1000, 1000);
+    }
+
     private static BuyReplacementCandidateEligibilityAssessment eligible()
     {
-        int quantity = 10;
+        int quantity = 5;
         int low = 990;
         long coins = 20_000;
         double[] offsets = {0.0, 0.01};
