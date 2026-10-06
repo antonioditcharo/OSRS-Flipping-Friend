@@ -302,3 +302,7 @@ A package-private pure fail-closed evaluator now preserves the complete Package 
 ## PACKAGE 3.44 BUY-REPLACEMENT SELL-FILL INPUT CONTEXT FOUNDATION
 
 A package-private pure fail-closed composer now binds Package 3.43 eligible positive-net-margin evidence to defensively copied oldest-first market history and one shared nonempty `FillCurve`. It preserves exact remainder, original pricing indexes, tax and net-margin evidence, buy-fill measurements, identity, lineage, appetite, horizon, and timestamps. It does not invoke `FillModel`, create `FillEstimate`, resize quantity, calculate combined probability, expected value or unwind cost, rank, select, authorize, persist, route, retrieve, present, schedule, or activate replacement behavior.
+
+## PACKAGE 3.45 BUY-REPLACEMENT SELL-FILL EVALUATION FOUNDATION
+
+A package-private pure fail-closed evaluator now applies the shared production `FillModel.estimateSell` neutral-seasonality overload to every Package 3.44 positive-net-margin candidate using the shared `FillCurve`, unchanged exact remainder, and effective horizon. It preserves ordered sell probability, expected duration, throughput, and wait evidence, including weak and never-fill results. It does not rebuild curves, retrieve history, filter viability, combine probabilities, resize quantity, calculate expected value or unwind cost, rank, select, authorize, persist, route, retrieve, present, schedule, or activate replacement behavior.
