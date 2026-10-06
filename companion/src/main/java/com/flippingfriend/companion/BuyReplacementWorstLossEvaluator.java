@@ -1,0 +1,7 @@
+package com.flippingfriend.companion;
+import java.util.ArrayList; import java.util.List;
+/** Pure fail-closed application of CandidateFactory worst-loss arithmetic. */
+final class BuyReplacementWorstLossEvaluator {
+ BuyReplacementWorstLossEvaluationSet evaluate(BuyReplacementWorstLossInputContext s,long at){if(s==null||at<s.getComposedAt()||s.getComposedAt()+CompanionBuyReplacementReadinessPolicy.MAX_INPUT_AGE_SECONDS<at||s.getEvaluations()==null||s.getEvaluations().isEmpty()||!Double.isFinite(s.getLossCutPct())||s.getLossCutPct()<=0)return null;List<BuyReplacementWorstLossEvaluation> out=new ArrayList<>(s.getEvaluations().size());for(BuyReplacementExpectedProfitEvaluation e:s.getEvaluations()){if(!valid(e,s))return null;double raw=e.getBuyPrice()*s.getLossCutPct()*e.getExactRemainderQuantity();if(!Double.isFinite(raw)||raw<0||raw>Long.MAX_VALUE)return null;long worst=Math.max(1,(long)raw);out.add(new BuyReplacementWorstLossEvaluation(e,s.getLossCutPct(),worst));}return new BuyReplacementWorstLossEvaluationSet(s,out,at);}
+ private static boolean valid(BuyReplacementExpectedProfitEvaluation e,BuyReplacementWorstLossInputContext s){return e!=null&&e.getExactRemainderQuantity()==s.getExactRemainderQuantity()&&e.getBuyPrice()>0&&e.getSellPrice()>0&&e.getTotalCost()==(long)e.getBuyPrice()*e.getExactRemainderQuantity()&&e.getTotalUnwindLoss()>=0&&Double.isFinite(e.getExpectedProfit())&&Double.isFinite(e.getExpectedSlotHours())&&e.getExpectedSlotHours()>=1.0/60.0;}
+}
