@@ -1,0 +1,6 @@
+package com.flippingfriend.companion;
+import java.util.ArrayList; import java.util.List;
+/** Pure fail-closed production quantity-grid composition without fill or economics recalculation. */
+final class BuyReplacementQuantityGridComposer {
+ BuyReplacementQuantityGridCandidateSet compose(BuyReplacementKellyFractionEvaluationSet s,long at){if(s==null||at<s.getEvaluatedAt()||s.getEvaluatedAt()+CompanionBuyReplacementReadinessPolicy.MAX_INPUT_AGE_SECONDS<at||s.getEvaluations()==null||s.getEvaluations().isEmpty())return null;double[] grid=s.getSizeGrid();if(grid==null||grid.length==0)return null;for(int j=0;j<grid.length;j++)if(!Double.isFinite(grid[j])||grid[j]<=0||(j>0&&grid[j]<grid[j-1]))return null;List<BuyReplacementQuantityGridCandidate> out=new ArrayList<>();for(BuyReplacementKellyFractionEvaluation e:s.getEvaluations()){if(e==null||e.getFillableQuantity()!=s.getExactRemainderQuantity()||e.getFillableQuantity()<=0||!Double.isFinite(e.getKellyFraction())||e.getKellyFraction()<=0||e.getKellyFraction()>1)return null;int last=0;for(int j=0;j<grid.length;j++){int q=(int)Math.max(1,Math.min(e.getFillableQuantity(),Math.round(e.getFillableQuantity()*e.getKellyFraction()*grid[j])));if(q==last)continue;last=q;out.add(new BuyReplacementQuantityGridCandidate(e,j,grid[j],q));}}return out.isEmpty()?null:new BuyReplacementQuantityGridCandidateSet(s,out,at);}
+}
