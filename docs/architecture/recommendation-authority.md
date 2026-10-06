@@ -298,3 +298,7 @@ A package-private pure evaluator now applies the shared production `TaxCalculato
 ## PACKAGE 3.43 BUY-REPLACEMENT NET-MARGIN ELIGIBILITY FOUNDATION
 
 A package-private pure fail-closed evaluator now preserves the complete Package 3.42 tax-aware evaluation list while deriving a separate immutable ordered positive-net-margin view. It revalidates every evaluation against its Package 3.41 positive-spread source and the shared production `TaxCalculator`, including per-item tax, per-item net margin, total tax, and total net margin for the unchanged exact remainder. Valid all-zero-or-negative evidence yields `INELIGIBLE`. The package does not evaluate sell fills, resize quantity, calculate expected value or unwind cost, rank, select, authorize, persist, route, retrieve, present, schedule, or activate replacement behavior.
+
+## PACKAGE 3.44 BUY-REPLACEMENT SELL-FILL INPUT CONTEXT FOUNDATION
+
+A package-private pure fail-closed composer now binds Package 3.43 eligible positive-net-margin evidence to defensively copied oldest-first market history and one shared nonempty `FillCurve`. It preserves exact remainder, original pricing indexes, tax and net-margin evidence, buy-fill measurements, identity, lineage, appetite, horizon, and timestamps. It does not invoke `FillModel`, create `FillEstimate`, resize quantity, calculate combined probability, expected value or unwind cost, rank, select, authorize, persist, route, retrieve, present, schedule, or activate replacement behavior.
