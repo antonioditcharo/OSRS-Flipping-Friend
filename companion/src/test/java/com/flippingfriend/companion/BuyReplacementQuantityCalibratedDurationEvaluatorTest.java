@@ -5,9 +5,9 @@ import org.junit.Test; import static org.junit.Assert.*;
 public class BuyReplacementQuantityCalibratedDurationEvaluatorTest {
  private final BuyReplacementQuantityCalibratedDurationEvaluator evaluator=new BuyReplacementQuantityCalibratedDurationEvaluator();
  @Test public void independentlyCorrectsBothLegsAndPreservesEveryGetter()throws Exception{
-  BuyReplacementQuantityDurationCalibrationInputContext s=context(0.2,0.3,0.75); BuyReplacementQuantityCalibratedDurationEvaluationSet r=evaluator.evaluate(s,1100);assertNotNull(r);assertSame(s,r.getSource());
+  BuyReplacementQuantityDurationCalibrationInputContext s=context(0.2,0.3,0.75); BuyReplacementQuantityCalibratedDurationEvaluationSet r=evaluator.evaluate(s,1100);assertNotNull(r);assertSame(s,r.getSource());assertSame(s.getSource(),r.getSource().getSource());
   assertSame(s.getEvaluations(),r.getCompletionEvaluations());assertSame(s.getCompleteFillEvaluations(),r.getCompleteFillEvaluations());assertSame(s.getViableCandidates(),r.getViableCandidates());assertEquals(1100,r.getEvaluatedAt());assertEquals(s.getComposedAt(),r.getCalibrationInputComposedAt());
-  for(Method a:s.getClass().getDeclaredMethods()){if(a.getParameterCount()!=0||a.getName().equals("getEvaluations")||a.getName().equals("getComposedAt"))continue;assertEquals(a.invoke(s),r.getClass().getDeclaredMethod(a.getName()).invoke(r));}
+  for(Method a:s.getClass().getDeclaredMethods()){if(a.getParameterCount()!=0||a.getName().equals("getEvaluations")||a.getName().equals("getComposedAt")||a.getName().equals("getSource"))continue;assertEquals(a.invoke(s),r.getClass().getDeclaredMethod(a.getName()).invoke(r));}
   assertEquals(s.getEvaluations().size(),r.getEvaluations().size());
   for(int i=0;i<r.getEvaluations().size();i++){BuyReplacementQuantityRoundTripCompletionEvaluation a=s.getEvaluations().get(i);BuyReplacementQuantityCalibratedDurationEvaluation e=r.getEvaluations().get(i);assertSame(a,e.getSource());
    for(Method g:a.getClass().getDeclaredMethods()){if(g.getParameterCount()==0)assertEquals(g.invoke(a),e.getClass().getDeclaredMethod(g.getName()).invoke(e));}
