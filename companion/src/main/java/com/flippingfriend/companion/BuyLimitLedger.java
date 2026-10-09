@@ -113,14 +113,18 @@ final class BuyLimitLedger
 
 		for (Map.Entry<Integer, MarketIngestionService.Item> entry : mapping.entrySet())
 		{
-			int limit = entry.getValue().buyLimit;
-			Window window = windows.get(entry.getKey());
-			int used = window == null || window.hasExpired(now) ? 0 : window.quantity();
-			remaining.put(entry.getKey(), Math.max(0, limit - used));
+			remaining.put(entry.getKey(), remainingAt(entry.getKey(), entry.getValue().buyLimit, now));
 		}
 		return remaining;
 	}
 
+	/** Remaining allowance for one item at an explicit instant; reads no clock and changes nothing. */
+	synchronized int remainingAt(int itemId, int buyLimit, Instant at)
+	{
+		Window window = windows.get(itemId);
+		int used = window == null || window.hasExpired(at) ? 0 : window.quantity();
+		return Math.max(0, buyLimit - used);
+	}
 	/** When an item's allowance returns, for planning the slot's next occupant. */
 	synchronized Instant resetsAt(int itemId)
 	{
