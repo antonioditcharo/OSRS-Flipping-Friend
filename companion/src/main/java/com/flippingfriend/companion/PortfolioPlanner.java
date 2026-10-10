@@ -84,7 +84,7 @@ final class PortfolioPlanner
 		}
 
 		long equity = account.getSpendableCoins() + account.getCommittedCoins();
-		long lossBudget = (long) (equity * DRAWDOWN_LIMIT) - (long) account.getMarkedSessionDrawdown();
+		long lossBudget = lossBudgetFor(account);
 		if (lossBudget <= 0)
 		{
 			return describing(PortfolioPlan.unavailable(correlationId, PortfolioPlanOutcome.DRAWDOWN_LIMIT_REACHED,
@@ -115,19 +115,9 @@ final class PortfolioPlanner
 		// Roll what is already held up into the same groups the candidates use, so a ceiling counts
 		// the book as well as the plan. The plugin can only report per item; the grouping is this
 		// side's own rule, so it is applied here rather than sent over the wire.
-		Map<String, Long> committedByGroup = new java.util.HashMap<>();
-		for (Map.Entry<Integer, Long> held : account.getCommittedByItem().entrySet())
-		{
-			MarketIngestionService.Item item = market.mapping.get(held.getKey());
-			String group = item == null ? "" : com.flippingfriend.model.ItemGroups.groupOf(item.name);
-			committedByGroup.merge(group, held.getValue(), Long::sum);
-		}
+		Map<String, Long> committedByGroup = committedByGroupFor(account, market.mapping);
 
-		PortfolioConstraints limits = new PortfolioConstraints(account.getFreeSlots(),
-			account.getSpendableCoins(), lossBudget,
-			(long) (equity * appetite.getItemExposureLimit()),
-			(long) (equity * appetite.getGroupExposureLimit()),
-			account.getCommittedByItem(), committedByGroup, account.getMinProfitPerFlip());
+		PortfolioConstraints limits = constraintsFor(account, appetite, lossBudget, committedByGroup);
 
 		// Drop what the player has already rejected before optimising, not after. Filtering at
 		// selection left the plan itself describing trades that would never be offered: the portfolio
@@ -315,6 +305,39 @@ final class PortfolioPlanner
 		return Math.max(held, account.getCommittedCoins());
 	}
 
+	/**
+	 * The session loss budget the planner enforces: the drawdown share of equity, less what the
+	 * session has already marked down. Zero or below means new buys are frozen.
+	 */
+	static long lossBudgetFor(AccountSnapshot account)
+	{
+		long equity = account.getSpendableCoins() + account.getCommittedCoins();
+		return (long) (equity * DRAWDOWN_LIMIT) - (long) account.getMarkedSessionDrawdown();
+	}
+	/** Committed capital per item rolled up into the item groups the candidates use. */
+	static Map<String, Long> committedByGroupFor(AccountSnapshot account,
+		Map<Integer, MarketIngestionService.Item> mapping)
+	{
+		Map<String, Long> committedByGroup = new java.util.HashMap<>();
+		for (Map.Entry<Integer, Long> held : account.getCommittedByItem().entrySet())
+		{
+			MarketIngestionService.Item item = mapping.get(held.getKey());
+			String group = item == null ? "" : com.flippingfriend.model.ItemGroups.groupOf(item.name);
+			committedByGroup.merge(group, held.getValue(), Long::sum);
+		}
+		return committedByGroup;
+	}
+	/** The per-plan limits the optimizer enforces, built exactly as plan() builds them. */
+	static PortfolioConstraints constraintsFor(AccountSnapshot account, RiskAppetite appetite,
+		long lossBudget, Map<String, Long> committedByGroup)
+	{
+		long equity = account.getSpendableCoins() + account.getCommittedCoins();
+		return new PortfolioConstraints(account.getFreeSlots(),
+			account.getSpendableCoins(), lossBudget,
+			(long) (equity * appetite.getItemExposureLimit()),
+			(long) (equity * appetite.getGroupExposureLimit()),
+			account.getCommittedByItem(), committedByGroup, account.getMinProfitPerFlip());
+	}
 	/** Whether the player has put this item out of bounds, by any of the three means available. */
 	static boolean rejected(PortfolioCandidate candidate, AccountSnapshot account)
 	{
