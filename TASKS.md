@@ -2,11 +2,8 @@
 
 ## Active
 
-- [ ] Make companion accounting and projections account-specific; prove isolation on account switch
-      and restart before migrating production position authority.
 - [ ] Make canonical durable positions, offers, costs, proceeds, and realized profit the shared
       source for the planner, exits, UI, and performance reports.
-- [ ] Restore long-lived active offers from durable state, including an eight-hour absence.
 
 ## Next
 
@@ -14,17 +11,23 @@
       complete live workflow; migrate sell maintenance and exits to companion policies.
 - [ ] Build account-level chronological replay for 100M members at 5m, 30m, 2h, and 8h checks.
       Include end-of-run inventory liquidation, cash, buy limits, tax, and missed visits.
-- [ ] Import the user's Flipping Copilot history as an immutable baseline; distinguish measured
-      historical results, simulated comparisons, and prospective alternating-session evidence.
+- [ ] Add prospective session/cadence measurement and full-account replay; historical CSVs do not
+      contain the session clocks needed for a fair GP/hour baseline.
 - [ ] Measure fill calibration, then add gated challenger learning and clearly separated paper data.
 - [ ] Close the feature-parity matrix in `docs/project-direction.md` and update user documentation.
 
 ## Waiting
 
-- Copilot flip-history export and any available timestamps for session starts/ends and remaining
-  inventory. Intake requirements are in `docs/project-direction.md`.
+- Historical session/cadence labels are unavailable. Do not infer them from execution timestamps.
 
 ## Done
+
+- Isolated live companion accounting, policy state, and calibration into explicit account scopes.
+- Fenced account-specific API paths, payloads, responses, recommendation caches, and outbox upgrades.
+- Restored active/uncollected offers independently of four-hour buy-limit expiry.
+- Imported both Copilot exports read-only; committed deidentified aggregate evidence and importer
+  tests while preserving original CSVs and keeping raw/row-level outputs local.
+- Replaced synthetic-account diagnostics with read-only protocol and account checks.
 
 - Assessed main, the latest package branch, the separate recovery branch, and the preserved stash.
 - Fixed blocked items disappearing from physical inventory, equipment, and bank evidence.

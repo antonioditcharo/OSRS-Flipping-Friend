@@ -39,8 +39,9 @@ public final class CompanionMain
 		Path companion = root.resolve("companion");
 		Files.createDirectories(companion);
 		String token = token(companion.resolve("companion.properties"));
-		SqliteStore store = new SqliteStore(companion.resolve("flipping-friend.db"));
-		LegacyMigrator.migrate(root, store);
+		// The former unscoped trade database remains untouched and unassigned. Shared market/model
+		// housekeeping uses a separate file; live accounting opens only explicit account databases.
+		SqliteStore store = new SqliteStore(companion.resolve("market-state.db"));
 		// A database from an earlier build still carries the ingestion table, which was written on
 		// every tick and read by nothing -- 2.5 GB of it on this machine. Dropping rows alone does not
 		// return the space, so the drop is followed by a compaction, once, while nothing else has the
@@ -95,10 +96,11 @@ public final class CompanionMain
 		// Buy-limit windows outlast this process, so recover them before advising anything.
 		service.rehydrate();
 		service.refreshMarket();
-		ApiServer api = new ApiServer(token, gson, service);
+		CompanionAccounts accounts = new CompanionAccounts(companion.resolve("accounts"), service);
+		ApiServer api = new ApiServer(token, gson, service, accounts);
 		api.start();
 		ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(2, r -> { Thread t = new Thread(r, "flipping-friend-market"); t.setDaemon(true); return t; });
-		scheduler.scheduleWithFixedDelay(guarded(service::refreshMarket), 60, 60, TimeUnit.SECONDS);
+		scheduler.scheduleWithFixedDelay(guarded(accounts::refreshMarket), 60, 60, TimeUnit.SECONDS);
 		// A second timer that only asks whether the first one is still alive. A scheduled task takes
 		// its own error reporting down with it when it dies, so nothing inside the ingestion loop can
 		// report that the ingestion loop has stopped.
@@ -118,7 +120,11 @@ public final class CompanionMain
 				System.err.println("could not prune model snapshots: " + ex);
 			}
 		}), 1, 1, TimeUnit.HOURS);
-		Runtime.getRuntime().addShutdownHook(new Thread(() -> { scheduler.shutdownNow(); api.close(); service.close(); try { store.close(); } catch (Exception ignored) { } }));
+		Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+			scheduler.shutdownNow(); api.close();
+			try { accounts.close(); } catch (Exception error) { System.err.println("could not close account stores: " + error); }
+			service.close(); try { store.close(); } catch (Exception ignored) { }
+		}));
 		System.out.println("Flipping Friend companion ready on loopback port " + ApiServer.PORT + ".");
 		Thread.currentThread().join();
 	}

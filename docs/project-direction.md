@@ -3,6 +3,13 @@
 Decision date: 11 October 2026. Assessment base: `CoPilot's-Rebuild-from-Main` at
 `1a4c665` (Package 3.85). Working branch: `codex/project-direction`.
 
+Continuation: the first changes are merged into the rebuild branch. Account isolation, long-offer
+recovery, scoped transport/cache fencing, and read-only diagnostics are implemented in the next
+delivery; see [account isolation](architecture/account-isolation.md). The findings below retain their
+original assessment context. The supplied [Copilot baseline](benchmarks/copilot-2026-10-11.md)
+contains 2,117 flip summaries across two accounts and 17,240 execution records for one account.
+Historical session/cadence labels are unavailable; GP/hour remains unmeasured.
+
 ## Product and success criteria
 
 Build a reliable, understandable flipping copilot with Flipping Copilot's player workflows,

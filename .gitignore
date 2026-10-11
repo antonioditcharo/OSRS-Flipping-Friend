@@ -37,3 +37,6 @@ credentials.properties
 companion.properties
 *.env
 .env.local
+
+# Personal exports and generated row-level analysis stay local.
+/local-data/

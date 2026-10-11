@@ -85,6 +85,7 @@ public class CompanionClient
 	/** The single point where a plan becomes the one in force, so tests can reach the same state. */
 	void acceptPlan(PortfolioPlan plan)
 	{
+		accountContext();
 		lastPlan = plan;
 	}
 
@@ -99,6 +100,7 @@ public class CompanionClient
 	 */
 	public boolean hasFreshPlan()
 	{
+		accountContext();
 		PortfolioPlan plan = lastPlan;
 		return plan != null && plan.getExpiresAt() > Instant.now().getEpochSecond();
 	}
@@ -113,9 +115,22 @@ public class CompanionClient
 	private volatile String lastError = "Companion has not been contacted.";
 	private volatile PortfolioPlan lastPlan;
 	private volatile CompanionHealth lastHealth;
+	private String observedAccountId;
 	/** Latest durably published canonical offer event by slot, retained after acknowledgement. */
 	private final java.util.concurrent.ConcurrentMap<Integer, OfferEvent> canonicalOffers =
 		new java.util.concurrent.ConcurrentHashMap<>();
+
+	private synchronized String accountContext()
+	{
+		String current = storage.accountId();
+		if (!java.util.Objects.equals(current, observedAccountId))
+		{
+			clearIncumbent(); lastPlan = null; lastHealth = null;
+			canonicalOffers.clear(); ledger.clear();
+			observedAccountId = current;
+		}
+		return current;
+	}
 
         public CompanionClient(PluginStorage storage, Gson gson, SuggestionLedger ledger)
         {
@@ -133,6 +148,7 @@ public class CompanionClient
                 OfferEventOutbox outbox, LongSupplier retryClock)
         {
                 this.storage = storage;
+                this.observedAccountId = storage.accountId();
                 this.gson = gson;
                 this.ledger = ledger;
                 this.outbox = outbox;
@@ -150,7 +166,27 @@ public class CompanionClient
 		java.util.Set<String> blocked, java.util.Set<Integer> skipped, java.util.Set<Integer> onOffer,
 		boolean sellOnly, java.util.Collection<Position> positions)
 	{
+		publishAccount(state, config, markedDrawdown, committedByItem, buyLimitUsed, blocked,
+			skipped, onOffer, sellOnly, positions, java.util.Collections.emptyList());
+	}
+
+	public void publishAccount(AccountState state, FlippingFriendConfig config, long markedDrawdown,
+		java.util.Map<Integer, Long> committedByItem, java.util.Map<Integer, Integer> buyLimitUsed,
+		java.util.Set<String> blocked, java.util.Set<Integer> skipped, java.util.Set<Integer> onOffer,
+		boolean sellOnly, java.util.Collection<Position> positions, java.util.Collection<TrackedOffer> offers)
+	{
 		if (!state.isLoggedIn()) return;
+		String accountId = accountContext();
+		if (accountId == null) { lastError = "Waiting for account identity"; return; }
+		// Publish current offer high-water marks before adopting their filled stock from a snapshot.
+		for (TrackedOffer offer : new java.util.ArrayList<>(offers))
+			if (!canonicalOffers.containsKey(offer.getSlot())) publishOffer(offer);
+		replayPendingOffers();
+		try
+		{
+			if (!outbox.pending().isEmpty()) { lastError = "Waiting for durable offer acknowledgements"; return; }
+		}
+		catch (Exception error) { lastError = error.getMessage(); return; }
 		long now = Instant.now().getEpochSecond();
                 java.util.List<PositionSnapshot> positionSnapshots = new java.util.ArrayList<>();
 		for (Position position : positions == null
@@ -178,13 +214,14 @@ public class CompanionClient
 			// How long a flip should take. The companion is what actually chooses the trade, and
 			// until this travelled it planned every leg at the risk appetite's own horizon however
 			// short or long a flip the player had asked for.
-			config.targetHoldMinutes(), positionSnapshots);
+			config.targetHoldMinutes(), positionSnapshots).withAccountId(accountId);
 		post("events/account-state", snapshot);
 	}
 
         public void publishOffer(TrackedOffer offer)
         {
                 if (offer == null) return;
+                accountContext();
                 long now = Instant.now().getEpochSecond();
                 String state = offer.getState() == null ? "OBSERVED" : offer.getState();
                 SuggestionLedger.Advice advice = ledger.attribute(offer.getItemId(), offer.isBuying(), now);
@@ -220,6 +257,7 @@ public class CompanionClient
         public void publishOfferCleared(int slot)
         {
                 if (slot < 0) return;
+                accountContext();
                 long now = Instant.now().getEpochSecond();
                 try
                 {
@@ -248,6 +286,7 @@ public class CompanionClient
 	 */
 	public PortfolioPlan refreshPlan()
 	{
+		String requestedAccount = accountContext();
 		try
 		{
 			CompanionHealth health = get("health", CompanionHealth.class);
@@ -257,7 +296,10 @@ public class CompanionClient
 				lastPlan = null;
 				return null;
 			}
-			acceptPlan(get("portfolio/current", PortfolioPlan.class));
+			PortfolioPlan fetched = get("portfolio/current", PortfolioPlan.class);
+			if (!java.util.Objects.equals(requestedAccount, accountContext()))
+				throw new IllegalStateException("Account changed while fetching the plan");
+			acceptPlan(fetched);
 			return lastPlan;
 		}
 		catch (Exception ex)
@@ -283,6 +325,7 @@ public class CompanionClient
 	public Suggestion nextBuySuggestion(Explainer explainer, Set<String> blocked, Set<Integer> skipped,
 		Set<Integer> onOffer)
 	{
+		accountContext();
 		try
 		{
 			PortfolioPlan plan = lastPlan;
@@ -483,6 +526,7 @@ public class CompanionClient
 		Set<String> blocked, Set<Integer> skipped, Set<Integer> onOffer,
 		EntryDecisionFetcher fetcher)
 	{
+		accountContext();
 		PortfolioPlan plan = lastPlan;
 		if (plan == null || plan.getExpiresAt() <= Instant.now().getEpochSecond()
 			|| fetcher == null)
@@ -560,6 +604,7 @@ public class CompanionClient
 
 	OfferEvent currentCanonicalOpenBuy()
 	{
+		accountContext();
 		OfferEvent selected = null;
 		for (OfferEvent event : canonicalOffers.values())
 		{
@@ -733,8 +778,8 @@ public class CompanionClient
 	public String lastError() { return lastError; }
 
 	/** Last plan fetched by the engine thread; Swing reads this cached immutable object only. */
-	public PortfolioPlan lastPlan() { return lastPlan; }
-	public CompanionHealth lastHealth() { return lastHealth; }
+	public PortfolioPlan lastPlan() { accountContext(); return lastPlan; }
+	public CompanionHealth lastHealth() { accountContext(); return lastHealth; }
 
 	/**
 	 * The buy already on screen, if it is still one the player could act on.
@@ -772,7 +817,7 @@ public class CompanionClient
         private void replayPendingOffers()
         {
                 long generation = replayGeneration.get();
-                replayPendingOffers(event -> request("events/ge-offer", "POST", gson.toJson(event)), generation);
+                replayPendingOffers(event -> request("events/ge-offer", "POST", gson.toJson(event), TIMEOUT_MILLIS, event.getAccountId()), generation);
         }
 
         boolean replayPendingOffers(OfferEventSender sender)
@@ -856,7 +901,7 @@ public class CompanionClient
                                 {
                                         if (replayEnabled && generation == replayGeneration.get())
                                         {
-                                                replayPendingOffers(event -> request("events/ge-offer", "POST", gson.toJson(event)), generation);
+                                                replayPendingOffers(event -> request("events/ge-offer", "POST", gson.toJson(event), TIMEOUT_MILLIS, event.getAccountId()), generation);
                                         }
                                 }
                                 finally
@@ -875,6 +920,7 @@ public class CompanionClient
 
         public void resumeOfferReplay()
         {
+                accountContext();
                 replayGeneration.incrementAndGet();
                 replayEnabled = true;
                 retryDelayMillis = INITIAL_RETRY_DELAY_MILLIS;
@@ -901,6 +947,8 @@ public class CompanionClient
 
         boolean consumeAcknowledgement(OfferEvent event, String response) throws Exception
         {
+		if (event != null && event.getAccountId() != null
+			&& !event.getAccountId().equals(storage.accountId())) return false;
                 OfferEventAcknowledgementResponse ack;
                 try { ack = gson.fromJson(response, OfferEventAcknowledgementResponse.class); }
                 catch (RuntimeException malformed) { return false; }
@@ -915,7 +963,8 @@ public class CompanionClient
 
 	private void post(String path, Object body)
 	{
-		try { request(path, "POST", gson.toJson(body)); }
+		try { request(path, "POST", gson.toJson(body), TIMEOUT_MILLIS,
+			body instanceof AccountSnapshot ? ((AccountSnapshot) body).getAccountId() : accountContext()); }
 		catch (Exception ex) { lastError = ex.getMessage(); }
 	}
 
@@ -996,13 +1045,28 @@ public class CompanionClient
 	private String request(String path, String method, String body, int readTimeoutMillis)
 		throws Exception
 	{
+		return request(path, method, body, readTimeoutMillis, accountContext());
+	}
+
+	private String request(String path, String method, String body, int readTimeoutMillis, String accountId)
+		throws Exception
+	{
+		boolean accountRequest = !path.startsWith("market/") && !path.equals("health");
+		if (accountRequest)
+		{
+			com.flippingfriend.core.AccountIdentity.require(accountId);
+			if (!accountId.equals(accountContext())) throw new IllegalStateException("Account changed before request");
+		}
 		String token = token();
 		if (token == null) throw new IllegalStateException("Start the Flipping Friend companion first.");
-		HttpURLConnection connection = (HttpURLConnection) new URL(BASE + path).openConnection();
+		// An older companion has no account namespace and returns 404 before accepting any mutation.
+		String endpoint = accountRequest ? "accounts/" + accountId + "/" + path : path;
+		HttpURLConnection connection = (HttpURLConnection) new URL(BASE + endpoint).openConnection();
 		connection.setRequestMethod(method);
 		connection.setConnectTimeout(TIMEOUT_MILLIS);
 		connection.setReadTimeout(readTimeoutMillis);
 		connection.setRequestProperty("X-Flipping-Friend-Token", token);
+		if (accountId != null) connection.setRequestProperty(com.flippingfriend.core.AccountIdentity.HEADER, accountId);
 		connection.setRequestProperty("Content-Type", "application/json");
 		if (body != null)
 		{
@@ -1010,8 +1074,18 @@ public class CompanionClient
 			try (OutputStream output = connection.getOutputStream()) { output.write(body.getBytes(StandardCharsets.UTF_8)); }
 		}
 		int code = connection.getResponseCode();
-		if (code < 200 || code >= 300) throw new IllegalStateException("Companion returned " + code);
-		try (InputStream input = connection.getInputStream()) { return new String(input.readAllBytes(), StandardCharsets.UTF_8); }
+		try (InputStream input = code < 200 || code >= 300 ? connection.getErrorStream() : connection.getInputStream())
+		{
+			if (code < 200 || code >= 300) throw new IllegalStateException("Companion returned " + code);
+			String response = new String(input.readAllBytes(), StandardCharsets.UTF_8);
+			if (accountRequest && (!accountId.equals(connection.getHeaderField(com.flippingfriend.core.AccountIdentity.HEADER))
+				|| !com.flippingfriend.core.AccountIdentity.PROTOCOL.equals(
+					connection.getHeaderField(com.flippingfriend.core.AccountIdentity.PROTOCOL_HEADER))))
+				throw new IllegalStateException("Companion does not confirm account-scoped protocol");
+			if (accountRequest && !accountId.equals(accountContext()))
+				throw new IllegalStateException("Account changed during request");
+			return response;
+		}
 		finally { connection.disconnect(); }
 	}
 

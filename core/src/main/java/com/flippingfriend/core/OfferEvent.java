@@ -17,6 +17,7 @@ package com.flippingfriend.core;
 public final class OfferEvent
 {
 	private final String schemaVersion;
+	private final String accountId;
 	private final String correlationId;
 	/** Stable identity of one logical delivery event, or null for legacy version-one payloads. */
 	private final String eventId;
@@ -61,6 +62,7 @@ public final class OfferEvent
 	private OfferEvent(Builder builder)
 	{
 		this.schemaVersion = builder.schemaVersion;
+		this.accountId = builder.accountId;
 		this.correlationId = builder.correlationId;
 		this.eventId = builder.eventId;
 		this.sessionId = builder.sessionId;
@@ -94,6 +96,19 @@ public final class OfferEvent
 	public String getCorrelationId() { return correlationId; }
 	public String getEventId() { return eventId; }
 	public String getSessionId() { return sessionId; }
+	public String getAccountId() { return accountId; }
+
+	/** Adds account scope without changing delivery identity or economic evidence. */
+	public OfferEvent withAccountId(String accountId)
+	{
+		if (!"1".equals(schemaVersion)) throw new IllegalArgumentException("unsupported offer schema");
+		return builder(correlationId, observedAt, eventType)
+			.accountId(AccountIdentity.require(accountId)).eventIdentity(eventId, sessionId, offerIdentity)
+			.slot(slot).item(itemId, itemName).buying(buying).price(price)
+			.quantities(totalQuantity, filledQuantity).spent(spent).sequence(sequence)
+			.firstSeenAt(firstSeenAt).recommendation(recommendationId, suggestedPrice, suggestedQuantity,
+				quoteAgeSeconds, predictedMinutes, predictedCompletion).build();
+	}
 	public String getOfferIdentity() { return offerIdentity; }
 	public long getObservedAt() { return observedAt; }
 	public String getEventType() { return eventType; }
@@ -146,6 +161,7 @@ public final class OfferEvent
 	public static final class Builder
 	{
 		private final String schemaVersion = "1";
+		private String accountId;
 		private final String correlationId;
 		private String eventId;
 		private String sessionId;
@@ -176,6 +192,7 @@ public final class OfferEvent
 			this.eventType = eventType;
 		}
 
+		public Builder accountId(String value) { this.accountId = AccountIdentity.require(value); return this; }
 		public Builder eventId(String value) { this.eventId = value; return this; }
 		public Builder sessionId(String value) { this.sessionId = value; return this; }
 		public Builder offerIdentity(String value) { this.offerIdentity = value; return this; }

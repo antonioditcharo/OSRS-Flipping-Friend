@@ -82,6 +82,23 @@ public class PluginStorage
 		return profile != null && !profile.isEmpty();
 	}
 
+	public String accountId()
+	{
+		String profile = configManager.getRSProfileKey();
+		return profile == null || profile.isBlank() ? null
+			: com.flippingfriend.core.AccountIdentity.fromProfileKey(profile);
+	}
+
+	/** Resolve identity and directory from one profile read; never redirect an in-flight write. */
+	public Path accountDir(String expectedAccountId)
+	{
+		String profile = configManager.getRSProfileKey();
+		if (profile == null || profile.isBlank()
+			|| !com.flippingfriend.core.AccountIdentity.fromProfileKey(profile).equals(expectedAccountId))
+			throw new IllegalStateException("account changed before resolving storage");
+		return ensure(root.resolve("accounts").resolve(sanitise(profile)));
+	}
+
 	public <T> T readJson(Path file, Type type, T fallback)
 	{
 		if (!Files.isRegularFile(file))
