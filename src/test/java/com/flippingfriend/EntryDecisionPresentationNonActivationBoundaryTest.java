@@ -34,11 +34,19 @@ public class EntryDecisionPresentationNonActivationBoundaryTest
     }
     private static String sha256(String value) throws Exception
     {
+        // Git may check text out as CRLF on Windows. Preserve the source boundary while
+        // hashing the same content on both supported development platforms.
+        value = value.replace("\r\n", "\n");
         byte[] digest = java.security.MessageDigest.getInstance("SHA-256")
             .digest(value.getBytes(StandardCharsets.UTF_8));
         StringBuilder result = new StringBuilder();
         for (byte part : digest) result.append(String.format("%02X", part));
         return result.toString();
+    }
+    @Test public void sourceBoundaryIgnoresCheckoutLineEndings() throws Exception
+    {
+        Assert.assertEquals(sha256("first\nsecond\n"), sha256("first\r\nsecond\r\n"));
+        Assert.assertNotEquals(sha256("first\nsecond\n"), sha256("first\nchanged\n"));
     }
     private static Path root()
     {

@@ -52,15 +52,15 @@ public final class DiagnosticCaptureVerifier
             DiagnosticCapturePreflight.validate(normalized, manifest);
         }
 
-        output.println("captureDirectory=" + normalized);
-        output.println("captureId=" + manifest.captureId());
+        output.print("captureDirectory=" + normalized + "\n");
+        output.print("captureId=" + manifest.captureId() + "\n");
         for (String name : FILE_NAMES)
         {
             DiagnosticCaptureManifest.FileIdentity identity = manifest.file(name);
-            output.println("file=" + name
+            output.print("file=" + name
                     + " size=" + identity.size()
-                    + " sha256=" + identity.sha256());
+                    + " sha256=" + identity.sha256() + "\n");
         }
-        output.println("verified=true");
+        output.print("verified=true\n");
     }
 }
