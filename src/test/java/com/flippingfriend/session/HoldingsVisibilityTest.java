@@ -102,6 +102,40 @@ public class HoldingsVisibilityTest
 	}
 
 	@Test
+	public void blockingAnItemDoesNotHideInventoryEquipmentOrCollectionStock()
+	{
+		Mockito.when(config.blockedItems()).thenReturn("Mystic smoke staff");
+		Mockito.when(itemManager.getItemComposition(MYSTIC_SMOKE_STAFF).getName())
+			.thenReturn("Mystic smoke staff");
+		put(InventoryID.INV, MYSTIC_SMOKE_STAFF, 2);
+		put(InventoryID.WORN, MYSTIC_SMOKE_STAFF, 1);
+		put(InventoryID.GE_OFFER_3, MYSTIC_SMOKE_STAFF, 4);
+
+		AccountState state = monitor.refresh();
+
+		assertEquals("blocking new trades must preserve ownership evidence", 7,
+			state.quantityHeld(MYSTIC_SMOKE_STAFF));
+		assertEquals(3, state.getInventoryHoldings().get(MYSTIC_SMOKE_STAFF).intValue());
+	}
+
+	@Test
+	public void blockedBankStockRemainsVisibleWhenTheBankCloses()
+	{
+		Mockito.when(config.blockedItems()).thenReturn("Mystic smoke staff");
+		Mockito.when(itemManager.getItemComposition(MYSTIC_SMOKE_STAFF).getName())
+			.thenReturn("Mystic smoke staff");
+		put(InventoryID.BANK, MYSTIC_SMOKE_STAFF, 5);
+
+		assertEquals(5, monitor.refresh().quantityHeld(MYSTIC_SMOKE_STAFF));
+		Mockito.when(client.getItemContainer(InventoryID.BANK)).thenReturn(null);
+
+		AccountState state = monitor.refresh();
+		assertEquals("the bank snapshot must retain blocked stock", 5,
+			state.quantityHeld(MYSTIC_SMOKE_STAFF));
+		assertEquals(5, state.getBankHoldings().get(MYSTIC_SMOKE_STAFF).intValue());
+	}
+
+	@Test
 	public void nothingAnywhereReadsAsNothingHeld()
 	{
 		assertEquals(0, monitor.refresh().quantityHeld(MYSTIC_SMOKE_STAFF));

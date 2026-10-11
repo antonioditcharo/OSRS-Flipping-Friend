@@ -106,13 +106,8 @@ public class AccountMonitor
 		// put it in no container this method looks at -- and a Mystic smoke staff, which is a weapon,
 		// went missing exactly that way. Coins cannot be equipped, so the return value is discarded.
 		readContainer(client.getItemContainer(InventoryID.WORN), inventoryHoldings);
-		java.util.Set<String> blockedNames = com.flippingfriend.model.SuggestionEngine.parseBlocked(config.blockedItems());
-		
-		inventoryHoldings.keySet().removeIf(id -> {
-			ItemComposition comp = itemManager.getItemComposition(id);
-			return comp != null && comp.getName() != null && blockedNames.contains(comp.getName().toLowerCase(java.util.Locale.ROOT));
-		});
-		
+		// Trading preferences belong to recommendation policy. A blocked item is still owned,
+		// and hiding it here would make inventory, bank and collection observations disagree.
 		merge(holdings, inventoryHoldings);
 
 		ItemContainer bank = client.getItemContainer(InventoryID.BANK);
@@ -120,12 +115,6 @@ public class AccountMonitor
 		{
 			Map<Integer, Integer> bankItems = new HashMap<>();
 			lastSeenBankCoins = readContainer(bank, bankItems);
-			
-			bankItems.keySet().removeIf(id -> {
-				ItemComposition comp = itemManager.getItemComposition(id);
-				return comp != null && comp.getName() != null && blockedNames.contains(comp.getName().toLowerCase(java.util.Locale.ROOT));
-			});
-			
 			lastSeenBankItems = bankItems;
 			bankSeen = true;
 		}

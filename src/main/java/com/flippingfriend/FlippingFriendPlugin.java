@@ -458,28 +458,25 @@ public class FlippingFriendPlugin extends Plugin
 	{
 		Map<Integer, Integer> holdings = state.getHoldings();
 
-		Map<Integer, Integer> inventoryHoldings = state.getInventoryHoldings();
 		Instant now = Instant.now();
 
-		// Inventory items are always adopted (the user holding them implies intent to sell).
-		// Bank items are only adopted if the aggressive config is enabled.
-		Map<Integer, Integer> toAdopt = new java.util.HashMap<>(inventoryHoldings);
+		// Carrying or wearing an item is ownership evidence, not permission to sell it.
+		// Explicit adoption respects trading preferences while reconciliation keeps all observations.
 		if (config.adoptExistingItems())
 		{
-			toAdopt.putAll(holdings);
-		}
-
-		for (Map.Entry<Integer, Integer> entry : toAdopt.entrySet())
-		{
-			ItemMetadata metadata = marketData.getSnapshot().metadata(entry.getKey());
-			if (metadata != null)
+			java.util.Set<String> blocked = SuggestionEngine.parseBlocked(config.blockedItems());
+			for (Map.Entry<Integer, Integer> entry : holdings.entrySet())
 			{
-				positions.adoptExisting(entry.getKey(), metadata.getName(), entry.getValue(), now);
+				ItemMetadata metadata = marketData.getSnapshot().metadata(entry.getKey());
+				if (metadata != null
+					&& !blocked.contains(metadata.getName().toLowerCase(java.util.Locale.ROOT)))
+				{
+					positions.adoptExisting(entry.getKey(), metadata.getName(), entry.getValue(), now);
+				}
 			}
 		}
 
-		// Items away in a sell offer are still held; anything else that has vanished really has —
-		// but only once the bank has been seen, since until then "not in hand" means nothing.
+		// Positive observations can reconcile ownership; missing container data is not a disposal.
 		positions.reconcile(holdings, offerTracker.listedForSale(), state.isBankSeen());
 	}
 
