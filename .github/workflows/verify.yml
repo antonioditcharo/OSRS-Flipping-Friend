@@ -2,6 +2,9 @@ name: Verify plugin and companion
 
 on:
   push:
+    branches:
+      - main
+      - "CoPilot's-Rebuild-from-Main"
   pull_request:
   workflow_dispatch:
 

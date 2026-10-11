@@ -32,4 +32,5 @@
 - Made the existing source-boundary hash independent of Windows checkout line endings.
 - Fixed the diagnostic capture verifier to emit the LF format its contract already requires.
 - Added Windows/Linux verification of tests and both supported artifacts.
+- Removed an unused, unconfigured reference gitlink that blocked GitHub Actions checkout.
 - Replaced unsupported product claims with the verified status and explicit project direction.
