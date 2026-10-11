@@ -31,6 +31,91 @@ public class OfferEventOutboxTest
 		assertFalse(Files.exists(root.resolve("accounts/default").resolve(OfferEventOutbox.FILE_NAME)));
 	}
 
+	@Test public void legacyPendingEventsGainScopeWithoutChangingDeliveryIdentity() throws Exception
+	{
+		PluginStorage storage = TestStorage.rootedAt(folder.newFolder("legacy").toPath(), "one");
+		OfferEventOutbox outbox = new OfferEventOutbox(storage);
+		OfferEvent original = outbox.enqueue((e, s, q) -> event(e, s, q, 561));
+		Path file = storage.accountDir().resolve(OfferEventOutbox.FILE_NAME);
+		com.google.gson.JsonObject legacy = storage.gson().fromJson(Files.readString(file), com.google.gson.JsonObject.class);
+		legacy.remove("accountId");
+		legacy.getAsJsonArray("pending").get(0).getAsJsonObject().remove("accountId");
+		Files.writeString(file, storage.gson().toJson(legacy));
+		OfferEvent restored = new OfferEventOutbox(storage).pending().get(0);
+		assertEquals(storage.accountId(), restored.getAccountId());
+		assertEquals(original.getEventId(), restored.getEventId());
+		assertEquals(original.getSessionId(), restored.getSessionId());
+		assertEquals(original.getSequence(), restored.getSequence());
+		assertEquals(storage.accountId(), new OfferEventOutbox(storage).pending().get(0).getAccountId());
+	}
+
+	@Test public void foreignScopeFailsClosedWithoutOverwritingTheQueue() throws Exception
+	{
+		PluginStorage storage = TestStorage.rootedAt(folder.newFolder("foreign").toPath(), "one");
+		new OfferEventOutbox(storage).enqueue((e, s, q) -> event(e, s, q, 561));
+		Path file = storage.accountDir().resolve(OfferEventOutbox.FILE_NAME);
+		com.google.gson.JsonObject foreign = storage.gson().fromJson(Files.readString(file), com.google.gson.JsonObject.class);
+		foreign.addProperty("accountId", com.flippingfriend.core.AccountIdentity.fromProfileKey("two"));
+		Files.writeString(file, storage.gson().toJson(foreign));
+		byte[] before = Files.readAllBytes(file);
+		try { new OfferEventOutbox(storage).pending(); org.junit.Assert.fail("foreign queue accepted"); }
+		catch (IllegalStateException expected) { }
+		org.junit.Assert.assertArrayEquals(before, Files.readAllBytes(file));
+	}
+
+	@Test public void profileSwitchDuringEnqueueCannotRedirectTheWrite() throws Exception
+	{
+		Path root = folder.newFolder("switch").toPath();
+		PluginStorage one = TestStorage.rootedAt(root, "one"), two = TestStorage.rootedAt(root, "two");
+		new OfferEventOutbox(one).enqueue((e, s, q) -> event(e, s, q, 561));
+		new OfferEventOutbox(two).enqueue((e, s, q) -> event(e, s, q, 4151));
+		Path firstFile = one.accountDir().resolve(OfferEventOutbox.FILE_NAME);
+		Path secondFile = two.accountDir().resolve(OfferEventOutbox.FILE_NAME);
+		byte[] firstBefore = Files.readAllBytes(firstFile), secondBefore = Files.readAllBytes(secondFile);
+		String firstId = one.accountId(), secondId = two.accountId();
+		Path firstDirectory = one.accountDir();
+		PluginStorage changing = org.mockito.Mockito.mock(PluginStorage.class);
+		org.mockito.Mockito.when(changing.hasAccount()).thenReturn(true);
+		org.mockito.Mockito.when(changing.gson()).thenReturn(one.gson());
+		org.mockito.Mockito.when(changing.accountId()).thenReturn(firstId);
+		org.mockito.Mockito.when(changing.accountDir(firstId)).thenReturn(firstDirectory);
+		OfferEventOutbox outbox = new OfferEventOutbox(changing);
+		try
+		{
+			outbox.enqueue((e, s, q) -> {
+				org.mockito.Mockito.when(changing.accountId()).thenReturn(secondId);
+				return event(e, s, q, 1603);
+			});
+			org.junit.Assert.fail("profile switch must reject enqueue");
+		}
+		catch (IllegalStateException expected) { }
+		org.junit.Assert.assertArrayEquals(firstBefore, Files.readAllBytes(firstFile));
+		org.junit.Assert.assertArrayEquals(secondBefore, Files.readAllBytes(secondFile));
+		try { two.accountDir(one.accountId()); org.junit.Assert.fail("foreign directory accepted"); }
+		catch (IllegalStateException expected) { }
+	}
+
+	@Test public void corruptPendingIdentityAndFutureSchemaPreserveTheQueue() throws Exception
+	{
+		PluginStorage storage = TestStorage.rootedAt(folder.newFolder("invalid-pending").toPath(), "one");
+		new OfferEventOutbox(storage).enqueue((e, s, q) -> event(e, s, q, 561));
+		Path file = storage.accountDir().resolve(OfferEventOutbox.FILE_NAME);
+		String valid = Files.readString(file);
+		for (String failure : new String[] {"schema", "sequence", "duplicate"})
+		{
+			com.google.gson.JsonObject invalid = storage.gson().fromJson(valid, com.google.gson.JsonObject.class);
+			com.google.gson.JsonArray pending = invalid.getAsJsonArray("pending");
+			if ("schema".equals(failure)) pending.get(0).getAsJsonObject().addProperty("schemaVersion", "2");
+			else if ("sequence".equals(failure)) pending.get(0).getAsJsonObject().addProperty("sequence", 2);
+			else pending.add(pending.get(0).deepCopy());
+			Files.writeString(file, storage.gson().toJson(invalid));
+			byte[] before = Files.readAllBytes(file);
+			try { new OfferEventOutbox(storage).pending(); org.junit.Assert.fail("invalid queue accepted: " + failure); }
+			catch (IllegalStateException expected) { }
+			org.junit.Assert.assertArrayEquals(before, Files.readAllBytes(file));
+		}
+	}
+
 	@Test public void persistsIdentitySequenceAndCompleteEventsAcrossRestart() throws Exception
 	{
 		Path root = folder.newFolder("restart").toPath();

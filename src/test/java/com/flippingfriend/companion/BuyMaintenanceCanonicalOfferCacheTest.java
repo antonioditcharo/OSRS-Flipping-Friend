@@ -57,7 +57,10 @@ public class BuyMaintenanceCanonicalOfferCacheTest
         java.nio.file.Path account = Files.createTempDirectory("canonical-offer-cache");
         Gson gson = new Gson();
         org.mockito.Mockito.when(storage.hasAccount()).thenReturn(true);
+        org.mockito.Mockito.when(storage.accountId()).thenReturn(
+            com.flippingfriend.core.AccountIdentity.fromProfileKey("test"));
         org.mockito.Mockito.when(storage.accountDir()).thenReturn(account);
+        org.mockito.Mockito.when(storage.accountDir(org.mockito.Mockito.anyString())).thenReturn(account);
         org.mockito.Mockito.when(storage.gson()).thenReturn(gson);
         SuggestionLedger ledger = new SuggestionLedger();
         CompanionClient client = new CompanionClient(storage, gson, ledger, new OfferEventOutbox(storage));

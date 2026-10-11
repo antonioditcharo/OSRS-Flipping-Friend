@@ -41,6 +41,9 @@ public final class OfferEventOutbox
 		String eventId = UUID.randomUUID().toString();
 		OfferEvent event = factory.build(eventId, state.sessionId, sequence);
 		validate(event, eventId, state.sessionId, sequence);
+		if (event.getAccountId() != null && !state.accountId.equals(event.getAccountId()))
+			throw new IllegalArgumentException("factory changed account identity");
+		event = event.withAccountId(state.accountId);
 		State updated = state.copy();
 		updated.nextSequence = sequence + 1;
 		updated.pending.add(event);
@@ -78,23 +81,52 @@ public final class OfferEventOutbox
 	private State loadRequired() throws Exception
 	{
 		if (!storage.hasAccount()) throw new IllegalStateException("account profile is required");
-		Path file = storage.accountDir().resolve(FILE_NAME);
-		if (!Files.exists(file)) return new State(UUID.randomUUID().toString());
+		String accountId = com.flippingfriend.core.AccountIdentity.require(storage.accountId());
+		Path file = storage.accountDir(accountId).resolve(FILE_NAME);
+		if (!Files.exists(file)) return new State(UUID.randomUUID().toString(), accountId, file);
+		State state;
 		try (Reader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8))
 		{
-			State state = gson.fromJson(reader, State.class);
-			if (state == null || state.formatVersion != FORMAT_VERSION || blank(state.sessionId)
-				|| state.nextSequence < 1 || state.pending == null)
-			{
-				throw new IllegalStateException("invalid offer event outbox");
-			}
-			return state;
+			state = gson.fromJson(reader, State.class);
 		}
+		if (state == null || state.formatVersion != FORMAT_VERSION || blank(state.sessionId)
+			|| state.nextSequence < 1 || state.pending == null)
+		{
+			throw new IllegalStateException("invalid offer event outbox");
+		}
+		boolean upgraded = state.accountId == null;
+		if (!upgraded && !accountId.equals(state.accountId))
+			throw new IllegalStateException("outbox belongs to another account");
+		state.accountId = accountId;
+		state.file = file;
+		java.util.Set<String> eventIds = new java.util.HashSet<>();
+		java.util.Set<Long> sequences = new java.util.HashSet<>();
+		for (int index = 0; index < state.pending.size(); index++)
+		{
+			OfferEvent event = state.pending.get(index);
+			if (event == null) throw new IllegalStateException("invalid pending event");
+			if (!"1".equals(event.getSchemaVersion()) || blank(event.getEventId())
+				|| !state.sessionId.equals(event.getSessionId())
+				|| event.getSequence() < 1 || event.getSequence() >= state.nextSequence
+				|| !eventIds.add(event.getEventId()) || !sequences.add(event.getSequence()))
+				throw new IllegalStateException("invalid pending event identity or sequence");
+			if (event.getAccountId() == null)
+			{
+				state.pending.set(index, event.withAccountId(accountId));
+				upgraded = true;
+			}
+			else if (!accountId.equals(event.getAccountId()))
+				throw new IllegalStateException("pending event belongs to another account");
+		}
+		if (upgraded) write(state);
+		return state;
 	}
 
 	private void write(State state) throws Exception
 	{
-		Path file = storage.accountDir().resolve(FILE_NAME);
+		if (!state.accountId.equals(storage.accountId()))
+			throw new IllegalStateException("account changed before saving the outbox");
+		Path file = state.file;
 		Files.createDirectories(file.getParent());
 		Path temp = file.resolveSibling(file.getFileName() + ".tmp");
 		try
@@ -136,13 +168,16 @@ public final class OfferEventOutbox
 	{
 		private int formatVersion = FORMAT_VERSION;
 		private String sessionId;
+		private String accountId;
+		private transient Path file;
 		private long nextSequence = 1;
 		private List<OfferEvent> pending = new ArrayList<>();
 		private State() { }
-		private State(String sessionId) { this.sessionId = sessionId; }
+		private State(String sessionId, String accountId, Path file)
+		{ this.sessionId = sessionId; this.accountId = accountId; this.file = file; }
 		private State copy()
 		{
-			State copy = new State(sessionId);
+			State copy = new State(sessionId, accountId, file);
 			copy.nextSequence = nextSequence;
 			copy.pending = new ArrayList<>(pending);
 			return copy;

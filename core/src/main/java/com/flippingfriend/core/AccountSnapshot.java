@@ -6,6 +6,7 @@ import java.util.Map;
 /** Plain account state copied by the plugin; contains no credentials or client objects. */
 public final class AccountSnapshot
 {
+	private final String accountId;
 	private final String correlationId;
 	private final long observedAt;
 	private final long spendableCoins;
@@ -195,6 +196,7 @@ public final class AccountSnapshot
                 java.util.Set<Integer> skippedItems, java.util.Set<Integer> itemsOnOffer, boolean sellOnly,
                 int targetHoldMinutes, java.util.List<PositionSnapshot> positions)
         {
+                this.accountId = null;
                 this.positions = positions == null
                         ? java.util.Collections.emptyList()
                         : java.util.Collections.unmodifiableList(new java.util.ArrayList<>(positions));
@@ -225,6 +227,24 @@ public final class AccountSnapshot
 		this.markedSessionDrawdown = Math.max(0, markedSessionDrawdown);
 	}
 
+	private AccountSnapshot(AccountSnapshot source, String accountId)
+	{
+		this.accountId = AccountIdentity.require(accountId);
+		this.correlationId = source.correlationId; this.observedAt = source.observedAt;
+		this.spendableCoins = source.spendableCoins; this.committedCoins = source.committedCoins;
+		this.freeSlots = source.freeSlots; this.totalSlots = source.totalSlots;
+		this.members = source.members; this.bankSeen = source.bankSeen;
+		this.markedSessionDrawdown = source.markedSessionDrawdown; this.riskAppetite = source.riskAppetite;
+		this.committedByItem = source.committedByItem; this.minProfitPerFlip = source.minProfitPerFlip;
+		this.buyLimitUsed = source.buyLimitUsed; this.learningDisabled = source.learningDisabled;
+		this.sellOnly = source.sellOnly; this.checkIntervalMinutes = source.checkIntervalMinutes;
+		this.targetHoldMinutes = source.targetHoldMinutes; this.blockedItems = source.blockedItems;
+		this.skippedItems = source.skippedItems; this.itemsOnOffer = source.itemsOnOffer;
+		this.positions = source.positions;
+	}
+
+	public AccountSnapshot withAccountId(String accountId) { return new AccountSnapshot(this, accountId); }
+	public String getAccountId() { return accountId; }
 	public String getCorrelationId() { return correlationId; }
 	public long getObservedAt() { return observedAt; }
 	public long getSpendableCoins() { return spendableCoins; }

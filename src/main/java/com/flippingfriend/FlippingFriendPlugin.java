@@ -702,7 +702,7 @@ public class FlippingFriendPlugin extends Plugin
 					companion.publishAccount(accountMonitor.getState(), config, markedDrawdown,
 						committedByItem(), buyLimits.activeWindows(java.time.Instant.now()),
 						com.flippingfriend.model.SuggestionEngine.parseBlocked(config.blockedItems()),
-						engine.skippedItems(), offerTracker.itemsWithOpenOffers(), engine.isSellOnly(), positions.all());
+						engine.skippedItems(), offerTracker.itemsWithOpenOffers(), engine.isSellOnly(), positions.all(), offerTracker.getOffers());
 
 					// The companion owns new-position selection and gets first chance to supply collect advice.
 					// The built-in engine remains as the collect fallback and still owns reprice and sell decisions.

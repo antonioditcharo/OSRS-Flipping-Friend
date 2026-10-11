@@ -40,6 +40,9 @@ final class CompanionService implements AutoCloseable
 {
 	private final Gson gson;
 	private final SqliteStore store;
+	private final String accountId;
+	private final boolean ownsMarket;
+	private volatile java.util.function.Supplier<java.util.List<Integer>> warmShortlist;
 	private final MarketIngestionService market;
 	private final SeriesCache series;
 	private final PortfolioPlanner planner;
@@ -153,14 +156,41 @@ final class CompanionService implements AutoCloseable
 	 */
 	CompanionService(Gson gson, SqliteStore store, java.nio.file.Path cacheDir)
 	{
+		this(gson, store, new MarketIngestionService(gson), cacheDir == null ? new SeriesCache()
+			: new SeriesCache(cacheDir.resolve("series-cache.json.gz")), null, true);
+	}
+
+	private CompanionService(Gson gson, SqliteStore store, MarketIngestionService market,
+		SeriesCache series, String accountId, boolean ownsMarket)
+	{
 		this.gson = gson;
 		this.store = store;
+		this.accountId = accountId;
+		this.ownsMarket = ownsMarket;
 		this.activeOffers = new ActiveOfferTracker();
-		this.market = new MarketIngestionService(gson);
-		this.series = cacheDir == null ? new SeriesCache()
-			: new SeriesCache(cacheDir.resolve("series-cache.json.gz"));
+		this.market = market;
+		this.series = series;
 		this.planner = new PortfolioPlanner(series);
 		this.executions = new ExecutionRecorder(store);
+		this.warmShortlist = planner::shortlistIds;
+	}
+
+	CompanionService forAccountStore(SqliteStore store, String accountId)
+	{
+		return new CompanionService(gson, store, market, series,
+			com.flippingfriend.core.AccountIdentity.require(accountId), false);
+	}
+
+	void useWarmShortlist(java.util.function.Supplier<java.util.List<Integer>> supplier) { warmShortlist = supplier; }
+	java.util.List<Integer> shortlistIds() { return planner.shortlistIds(); }
+
+	void refreshAccountPlan()
+	{
+		refreshCalibration();
+		AccountSnapshot snapshot = account;
+		long age = snapshot == null ? Long.MAX_VALUE : Instant.now().getEpochSecond() - snapshot.getObservedAt();
+		if (age < 0 || age > 150) { plan = null; return; }
+		requestPlan();
 	}
 
 	/**
@@ -176,6 +206,13 @@ final class CompanionService implements AutoCloseable
 		java.util.List<BuyLimitProjection> durableBuyLimits = store.buyLimitProjections();
 		buyLimits.restore(durableBuyLimits);
 		boolean restoreBuyLimitsFromEvents = durableBuyLimits.isEmpty();
+		for (OfferEvent event : store.activeOfferEvents())
+			activeOffers.apply(accountId == null ? event : event.withAccountId(accountId));
+		boolean restoreOffersFromEvents = store.offerProjections().isEmpty();
+		for (com.flippingfriend.core.OfferLifecycleProjection projection : store.offerProjections())
+			if (projection.getState() == com.flippingfriend.core.OfferLifecycleState.ERROR_RECONCILIATION)
+				fault("Offer projection slot " + projection.getSlot(), "durable offer requires reconciliation", null);
+		refreshPositionFaults();
 		long since = Instant.now().minus(BuyLimitLedger.WINDOW).getEpochSecond();
 		int replayed = 0;
 		for (String payload : store.recentOfferEvents(since))
@@ -184,7 +221,7 @@ final class CompanionService implements AutoCloseable
 			if (event != null)
 			{
 				if (restoreBuyLimitsFromEvents) buyLimits.apply(event);
-				activeOffers.apply(event);
+				if (restoreOffersFromEvents) activeOffers.apply(event);
 				replayed++;
 			}
 		}
@@ -254,6 +291,7 @@ final class CompanionService implements AutoCloseable
 	 */
 	private void requestWarm()
 	{
+		if (!ownsMarket) return;
 		if (warming || !warmRequested.compareAndSet(false, true))
 		{
 			return;
@@ -264,7 +302,7 @@ final class CompanionService implements AutoCloseable
 			warming = true;
 			try
 			{
-				java.util.List<Integer> wanted = planner.shortlistIds();
+				java.util.List<Integer> wanted = warmShortlist.get();
 				if (!wanted.isEmpty())
 				{
 					int spent = series.warm(wanted, CandidateFactory.LIVE_SHORT_STEP, WARM_BUDGET);
@@ -330,8 +368,21 @@ final class CompanionService implements AutoCloseable
 		}
 	}
 
+	private void refreshPositionFaults() throws Exception
+	{
+		for (com.flippingfriend.core.PositionProjection position : store.positionProjections())
+		{
+			String subsystem = "Position projection item " + position.getItemId();
+			if (position.getConsistencyState() == com.flippingfriend.core.PositionConsistencyState.RECONCILE)
+				fault(subsystem, position.getConsistencyReason(), null);
+			else resolved(subsystem);
+		}
+	}
+
 	void account(AccountSnapshot snapshot) throws Exception
 	{
+		if (snapshot == null || (accountId != null && !accountId.equals(snapshot.getAccountId())))
+			throw new IllegalArgumentException("snapshot account identity mismatch");
 		PositionStateView view = PositionStateView.from(snapshot);
 		SnapshotReconciliationResult reconciliation =
 			store.recordAndReconcileAccount(snapshot, view, gson.toJson(snapshot));
@@ -345,6 +396,8 @@ final class CompanionService implements AutoCloseable
 				+ " position(s) require reconciliation", null);
 		}
 		else resolved("Snapshot reconciliation");
+		// Positive snapshot evidence can repair an initial/restarted unknown-cost position.
+		refreshPositionFaults();
 		requestPlan();
 	}
 	PositionStateView positions()
@@ -354,6 +407,8 @@ final class CompanionService implements AutoCloseable
 
 	SqliteStore.EventAcceptance offer(OfferEvent event) throws Exception
 	{
+		if (event == null || (accountId != null && !accountId.equals(event.getAccountId())))
+			throw new IllegalArgumentException("offer account identity mismatch");
 		SqliteStore.ProjectedEventAcceptance projected =
 			store.recordAndProjectOffer(event, gson.toJson(event));
 		if (projected.acceptance == SqliteStore.EventAcceptance.DUPLICATE)
@@ -659,9 +714,9 @@ final class CompanionService implements AutoCloseable
 	{
 		planThread.shutdownNow();
 		warmThread.shutdownNow();
-		market.close();
+		if (ownsMarket) market.close();
 		// Whatever the last warming pass collected, before the process goes. Saving is throttled
 		// during a run, so without this a restart discards up to five minutes of fetching.
-		series.save();
+		if (ownsMarket) series.save();
 	}
 }

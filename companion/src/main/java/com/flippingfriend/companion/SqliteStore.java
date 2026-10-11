@@ -251,6 +251,39 @@ final class SqliteStore implements AutoCloseable
 		return result;
 	}
 
+	/** Restore current high-water state, independent of event-log retention or buy-limit age. */
+	synchronized List<OfferEvent> activeOfferEvents() throws Exception
+	{
+		List<OfferEvent> result = new ArrayList<>();
+		try (Statement statement = connection.createStatement(); ResultSet rows = statement.executeQuery(
+			"SELECT lifecycle_state,slot,offer_identity,session_id,last_sequence,last_observed_at,item_id,item_name,buying,price,total_quantity,filled_quantity,spent,recommendation_id,source_event_id FROM offer_projection ORDER BY slot"))
+		{
+			while (rows.next())
+			{
+				OfferLifecycleProjection projection = readProjection(rows);
+				String eventType;
+				switch (projection.getState())
+				{
+					case BUY_OPEN: case BUY_PARTIAL: eventType = "BUYING"; break;
+					case BUY_FILLED_UNCOLLECTED: eventType = "BOUGHT"; break;
+					case BUY_CANCELLED_UNCOLLECTED: eventType = "CANCELLED_BUY"; break;
+					case SELL_OPEN: case SELL_PARTIAL: eventType = "SELLING"; break;
+					case SELL_FILLED_UNCOLLECTED: eventType = "SOLD"; break;
+					case SELL_CANCELLED_UNCOLLECTED: eventType = "CANCELLED_SELL"; break;
+					default: continue;
+				}
+				result.add(OfferEvent.builder("restored-projection", projection.getLastObservedAt(), eventType)
+					.eventIdentity(rows.getString("source_event_id"), projection.getSessionId(), projection.getOfferIdentity())
+					.slot(projection.getSlot()).item(projection.getItemId(), projection.getItemName())
+					.buying(projection.isBuying()).price(projection.getPrice())
+					.quantities(projection.getTotalQuantity(), projection.getFilledQuantity())
+					.spent(projection.getSpent()).sequence(projection.getLastSequence())
+					.recommendation(projection.getRecommendationId(), 0, 0, 0, 0).build());
+			}
+		}
+		return result;
+	}
+
 	private OfferLifecycleProjection offerProjection(int slot) throws Exception
 	{
 		try (PreparedStatement statement = connection.prepareStatement(

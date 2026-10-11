@@ -10,8 +10,9 @@ are in `docs/project-direction.md`; historical package notes are not proof of ru
   and existing user data. Unknown cost or incomplete observations must not invent profit or disposal.
 - Observe physical holdings independently of blocked items, skips, and recommendation preferences.
   Keep owned inventory, offers, collection boxes, bank evidence, and flipping stock distinct.
-- Treat account isolation and one authoritative ledger as prerequisites for strategy tuning.
-  The current companion database and account snapshots still require an account-isolation migration.
+- Keep account-scoped API/database isolation intact. The old unscoped database is preserved and
+  unassigned; do not infer its owner or merge it into a live account. One authoritative ledger
+  for the planner, exits, UI, and reporting remains the next prerequisite for strategy tuning.
 - Optimize and evaluate whole-account returns over elapsed time with realistic manual visits,
   capital, tax, buy limits, partial fills, losses, and remaining inventory. Slot-hour rates are
   diagnostic inputs, not a performance claim.
@@ -22,3 +23,7 @@ are in `docs/project-direction.md`; historical package notes are not proof of ru
 - Standard verification: `gradlew.bat clean test jar :companion:shadowJar` on Windows;
   `bash ./gradlew clean test jar :companion:shadowJar` on Linux. Java bytecode targets 11.
   Save redirected clean-build logs outside `build/` to avoid Windows file locks.
+- Copilot CSVs are flip summaries and execution exports, without session clocks or cadence labels.
+  Preserve reported flip profit/tax, integer-average uncertainty, incomplete account coverage, and
+  duplicate ambiguity. Transaction-export Tax is derived by the client, not observed historical tax.
+  Run `python -m unittest discover -s tools/tests`; personal source/row-level outputs stay in `local-data/`.

@@ -20,11 +20,20 @@ final class ApiServer implements AutoCloseable
 	private final String token;
 	private final Gson gson;
 	private final CompanionService service;
+	private final CompanionAccounts accounts;
 
-	ApiServer(String token, Gson gson, CompanionService service) throws IOException
+	ApiServer(String token, Gson gson, CompanionService service, CompanionAccounts accounts) throws IOException
+	{
+		this(token, gson, service, accounts, new InetSocketAddress("127.0.0.1", PORT));
+	}
+
+	ApiServer(String token, Gson gson, CompanionService service, CompanionAccounts accounts,
+		InetSocketAddress address) throws IOException
 	{
 		this.token = token; this.gson = gson; this.service = service;
-		server = HttpServer.create(new InetSocketAddress("127.0.0.1", PORT), 0);
+		this.accounts = accounts;
+		if (!address.getAddress().isLoopbackAddress()) throw new IllegalArgumentException("loopback required");
+		server = HttpServer.create(address, 0);
 		server.createContext("/v1/health", this::health);
 		server.createContext("/v1/portfolio/current", this::portfolio);
 		server.createContext("/v1/action", this::action);
@@ -37,31 +46,81 @@ final class ApiServer implements AutoCloseable
 		server.createContext("/v1/market/series", this::marketSeries);
 		server.createContext("/v1/events/account-state", this::account);
 		server.createContext("/v1/events/ge-offer", this::offer);
+		server.createContext("/v1/accounts/", this::accountRoute);
 		server.setExecutor(executor);
 	}
 
 	void start() { server.start(); }
+	int port() { return server.getAddress().getPort(); }
+
+	private void accountRoute(HttpExchange exchange) throws IOException
+	{
+		if (!authorized(exchange)) return;
+		String[] path = exchange.getRequestURI().getPath().substring("/v1/accounts/".length()).split("/", 2);
+		if (path.length != 2 || !path[0].equals(exchange.getRequestHeaders().getFirst(
+			com.flippingfriend.core.AccountIdentity.HEADER)))
+		{
+			respond(exchange, 400, "{\"error\":\"account path and header must match\"}"); return;
+		}
+		switch (path[1])
+		{
+			case "portfolio/current": portfolio(exchange); break;
+			case "action": action(exchange); break;
+			case "policy/entry": entryDecision(exchange); break;
+			case "policy/buy-maintenance": buyMaintenanceDecision(exchange); break;
+			case "events/account-state": account(exchange); break;
+			case "events/ge-offer": offer(exchange); break;
+			default: respond(exchange, 404, "{\"error\":\"unknown account endpoint\"}");
+		}
+	}
+
+	private CompanionService accountService(HttpExchange exchange) throws IOException
+	{
+		try
+		{
+			String accountId = com.flippingfriend.core.AccountIdentity.require(
+				exchange.getRequestHeaders().getFirst(com.flippingfriend.core.AccountIdentity.HEADER));
+			exchange.getResponseHeaders().set(com.flippingfriend.core.AccountIdentity.HEADER, accountId);
+			return accounts.forAccount(accountId);
+		}
+		catch (Exception error) { respond(exchange, 400, error(error)); return null; }
+	}
+
+	private void requirePayloadAccount(HttpExchange exchange, String accountId)
+	{
+		com.flippingfriend.core.AccountIdentity.require(accountId);
+		if (!accountId.equals(exchange.getRequestHeaders().getFirst(com.flippingfriend.core.AccountIdentity.HEADER)))
+			throw new IllegalArgumentException("payload account identity does not match request");
+	}
 
 	private void health(HttpExchange exchange) throws IOException
 	{
 		if (!authorized(exchange)) return;
-		respond(exchange, 200, gson.toJson(service.health()));
+		CompanionService scoped = exchange.getRequestHeaders().getFirst(
+			com.flippingfriend.core.AccountIdentity.HEADER) == null ? service : accountService(exchange);
+		if (scoped != null) respond(exchange, 200, gson.toJson(scoped.health()));
 	}
 	private void portfolio(HttpExchange exchange) throws IOException
 	{
 		if (!authorized(exchange)) return;
+		CompanionService service = accountService(exchange);
+		if (service == null) return;
 		respond(exchange, 200, gson.toJson(service.plan()));
 	}
 
 	private void action(HttpExchange exchange) throws IOException
 	{
 		if (!authorized(exchange)) return;
+		CompanionService service = accountService(exchange);
+		if (service == null) return;
 		respond(exchange, 200, gson.toJson(service.action()));
 	}
 
 	private void buyMaintenanceDecision(HttpExchange exchange) throws IOException
 	{
 		if (!authorized(exchange)) return;
+		CompanionService service = accountService(exchange);
+		if (service == null) return;
 		respond(exchange, 200, gson.toJson(service.buyMaintenanceDecision(
 			java.time.Instant.now().getEpochSecond())));
 	}
@@ -69,6 +128,8 @@ final class ApiServer implements AutoCloseable
 	private void entryDecision(HttpExchange exchange) throws IOException
 	{
 		if (!authorized(exchange)) return;
+		CompanionService service = accountService(exchange);
+		if (service == null) return;
 		java.util.Map<String, String> query = queryOf(exchange);
 		String planId = query.get("planId");
 		String rank = query.get("rank");
@@ -142,7 +203,12 @@ final class ApiServer implements AutoCloseable
 		if (!authorized(exchange)) return;
 		try
 		{
-			service.account(gson.fromJson(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8), AccountSnapshot.class));
+			AccountSnapshot snapshot = gson.fromJson(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8), AccountSnapshot.class);
+			if (snapshot == null) throw new IllegalArgumentException("snapshot is required");
+			requirePayloadAccount(exchange, snapshot.getAccountId());
+			CompanionService service = accountService(exchange);
+			if (service == null) return;
+			service.account(snapshot);
 			respond(exchange, 202, "{\"accepted\":true}");
 		}
 		catch (Exception ex) { respond(exchange, 400, error(ex)); }
@@ -153,6 +219,10 @@ final class ApiServer implements AutoCloseable
 		try
 		{
 			OfferEvent event = gson.fromJson(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8), OfferEvent.class);
+			if (event == null) throw new IllegalArgumentException("offer is required");
+			requirePayloadAccount(exchange, event.getAccountId());
+			CompanionService service = accountService(exchange);
+			if (service == null) return;
 			SqliteStore.EventAcceptance acceptance = service.offer(event);
 			respond(exchange, 202, gson.toJson(OfferEventAcknowledgement.of(event, acceptance)));
 		}
@@ -184,6 +254,8 @@ final class ApiServer implements AutoCloseable
 	private static void respond(HttpExchange exchange, int code, String body) throws IOException
 	{
 		byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
+		exchange.getResponseHeaders().set(com.flippingfriend.core.AccountIdentity.PROTOCOL_HEADER,
+			com.flippingfriend.core.AccountIdentity.PROTOCOL);
 		exchange.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");
 		exchange.sendResponseHeaders(code, bytes.length);
 		exchange.getResponseBody().write(bytes);
