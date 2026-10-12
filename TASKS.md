@@ -3,7 +3,9 @@
 ## Active
 
 - [ ] Make canonical durable positions, offers, costs, proceeds, and realized profit the shared
-      source for the planner, exits, UI, and performance reports.
+      source for the planner, exits, inventory UI, calibration, and session risk.
+      Durable sale accounting and live Performance are implemented; other consumers still use
+      local records and must migrate with positive reconciliation evidence.
 
 ## Next
 
@@ -22,6 +24,12 @@
 
 ## Done
 
+- Persisted sale proceeds, proportional cost, tax/profit bounds, and rule evidence atomically.
+- Replaced live Performance journal totals with the account ledger, including unavailable/stale
+  response handling, unresolved coverage, and wrapped GP ranges; retained labeled local history.
+- Preserved old unpriced disposals and unproven offer tax rules without manufacturing profit.
+- Removed merged implementation branches and superseded build logs; retained final verification,
+  source data, and the reusable managed worktree.
 - Isolated live companion accounting, policy state, and calibration into explicit account scopes.
 - Fenced account-specific API paths, payloads, responses, recommendation caches, and outbox upgrades.
 - Restored active/uncollected offers independently of four-hour buy-limit expiry.

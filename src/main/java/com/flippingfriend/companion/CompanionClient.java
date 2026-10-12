@@ -115,6 +115,7 @@ public class CompanionClient
 	private volatile String lastError = "Companion has not been contacted.";
 	private volatile PortfolioPlan lastPlan;
 	private volatile CompanionHealth lastHealth;
+	private volatile com.flippingfriend.core.AccountLedgerSnapshot lastLedger;
 	private String observedAccountId;
 	/** Latest durably published canonical offer event by slot, retained after acknowledgement. */
 	private final java.util.concurrent.ConcurrentMap<Integer, OfferEvent> canonicalOffers =
@@ -126,6 +127,7 @@ public class CompanionClient
 		if (!java.util.Objects.equals(current, observedAccountId))
 		{
 			clearIncumbent(); lastPlan = null; lastHealth = null;
+			lastLedger = null;
 			canonicalOffers.clear(); ledger.clear();
 			observedAccountId = current;
 		}
@@ -287,6 +289,7 @@ public class CompanionClient
 	public PortfolioPlan refreshPlan()
 	{
 		String requestedAccount = accountContext();
+		refreshLedger(requestedAccount);
 		try
 		{
 			CompanionHealth health = get("health", CompanionHealth.class);
@@ -307,6 +310,36 @@ public class CompanionClient
 			lastError = ex.getMessage();
 			return null;
 		}
+	}
+
+	private void refreshLedger(String requestedAccount)
+	{
+		if (requestedAccount == null) { lastLedger = null; return; }
+		try
+		{
+			com.flippingfriend.core.AccountLedgerSnapshot fetched = get("ledger/current",
+				com.flippingfriend.core.AccountLedgerSnapshot.class);
+			acceptLedger(fetched, requestedAccount);
+		}
+		catch (Exception unavailable) { lastLedger = null; }
+	}
+
+	synchronized boolean acceptLedger(com.flippingfriend.core.AccountLedgerSnapshot fetched, String requestedAccount)
+	{
+		if (!java.util.Objects.equals(requestedAccount, accountContext())) return false;
+		if (fetched == null || !fetched.isValid()
+			|| !java.util.Objects.equals(requestedAccount, fetched.getAccountId()))
+		{ lastLedger = null; return false; }
+		lastLedger = fetched;
+		return true;
+	}
+
+	public com.flippingfriend.core.AccountLedgerSnapshot lastLedger()
+	{
+		String currentAccount = accountContext();
+		com.flippingfriend.core.AccountLedgerSnapshot current = lastLedger;
+		long age = current == null ? Long.MAX_VALUE : Instant.now().getEpochSecond() - current.getObservedAt();
+		return age < 0 || age > 150 || !java.util.Objects.equals(currentAccount, current.getAccountId()) ? null : current;
 	}
 
 	/**

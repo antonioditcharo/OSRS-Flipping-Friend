@@ -400,6 +400,11 @@ final class CompanionService implements AutoCloseable
 		refreshPositionFaults();
 		requestPlan();
 	}
+	com.flippingfriend.core.AccountLedgerSnapshot ledger() throws Exception
+	{
+		return store.ledgerSnapshot(accountId);
+	}
+
 	PositionStateView positions()
 	{
 		return PositionStateView.from(account);

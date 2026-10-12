@@ -65,6 +65,12 @@ foreach ($directory in $directories) {
         if ($response.Headers['X-Flipping-Friend-Account'] -ne $id) { throw 'Response account identity mismatch.' }
         $action = $response.Content | ConvertFrom-Json
         $plan = Invoke-RestMethod -Uri ($endpoint + 'portfolio/current') -Headers $accountHeaders -TimeoutSec 10
+        $ledgerResponse = Invoke-WebRequest -Uri ($endpoint + 'ledger/current') -Headers $accountHeaders -TimeoutSec 10
+        $ledger = $ledgerResponse.Content | ConvertFrom-Json
+        if ($ledgerResponse.Headers['X-Flipping-Friend-Account'] -ne $id -or $ledger.accountId -ne $id -or $ledger.schemaVersion -ne '1') {
+            throw 'Ledger scope or schema mismatch; update both supported JARs.'
+        }
+        Report $id 'PASS' "Ledger: $($ledger.sales) sale updates; $($ledger.unresolvedSales) unresolved; $($ledger.uncertainSales) profit ranges."
         $detail = if ($null -eq $plan) { 'No current plan; a fresh plugin snapshot may be required.' }
             else { "Plan: $($plan.status). $($plan.reason)" }
         Report $id 'PASS' "Action: $($action.type). $detail"

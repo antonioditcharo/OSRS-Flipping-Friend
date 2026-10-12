@@ -12,7 +12,6 @@ import com.flippingfriend.model.TaxCalculator;
 import com.flippingfriend.session.AccountMonitor;
 import com.flippingfriend.session.AccountState;
 import com.flippingfriend.session.PositionBook;
-import com.flippingfriend.session.SessionStats;
 import com.flippingfriend.session.TradeJournal;
 import java.awt.BorderLayout;
 import java.awt.Component;
@@ -153,9 +152,9 @@ public class FlippingFriendPanel extends PluginPanel
 
 		content.add(new CollapsibleSection("Portfolio", portfolioPanel, false));
 		content.add(new CollapsibleSection("Holding", positionsPanel, false));
-		content.add(new CollapsibleSection("Recent trades", historyPanel, false));
+		content.add(new CollapsibleSection("Local trade history", historyPanel, false));
 		content.add(new CollapsibleSection("Performance", statsPanel, false));
-		content.add(new CollapsibleSection("Bank Trajectory", bankTrajectoryPanel, false));
+		content.add(new CollapsibleSection("Estimated bank value", bankTrajectoryPanel, false));
 
 
 		content.add(UiUtils.gap(UiUtils.SPACE_L));
@@ -353,9 +352,7 @@ public class FlippingFriendPanel extends PluginPanel
 		positionsPanel.refresh();
 		historyPanel.refresh();
 
-		SessionStats session = journal.sessionStats();
-		SessionStats lifetime = journal.lifetimeStats();
-		statsPanel.update(session, lifetime);
+		statsPanel.updateLedger(companion.lastLedger());
 		portfolioPanel.refresh();
 		bankTrajectoryPanel.repaint();
 

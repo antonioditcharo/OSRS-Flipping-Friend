@@ -77,7 +77,7 @@ public class TaxCalculator
 		exemptIds = Collections.unmodifiableSet(resolved);
 	}
 
-	static boolean isExemptName(String rawName)
+	public static boolean isExemptName(String rawName)
 	{
 		if (rawName == null)
 		{

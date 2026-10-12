@@ -19,6 +19,24 @@ public class AccountClientIsolationTest
 {
     @Rule public final TemporaryFolder folder = new TemporaryFolder();
 
+    @Test public void staleMalformedAndFutureLedgerResponsesAreNotDisplayed() throws Exception
+    {
+        PluginStorage storage = Mockito.mock(PluginStorage.class);
+        String account = AccountIdentity.fromProfileKey("one");
+        Mockito.when(storage.accountId()).thenReturn(account);
+        CompanionClient client = new CompanionClient(storage, new Gson(), new SuggestionLedger());
+        com.flippingfriend.core.AccountLedgerSnapshot stale = new com.flippingfriend.core.AccountLedgerSnapshot(
+            account, Instant.now().minusSeconds(151).getEpochSecond(), 1, 1, 0, 1, 98, 98, 2, 2, Collections.emptyList());
+        assertTrue(client.acceptLedger(stale, account)); assertNull(client.lastLedger());
+        Gson gson = new Gson();
+        com.google.gson.JsonObject json = gson.toJsonTree(stale).getAsJsonObject();
+        json.addProperty("schemaVersion", "2");
+        assertFalse(client.acceptLedger(gson.fromJson(json, com.flippingfriend.core.AccountLedgerSnapshot.class), account));
+        json.addProperty("schemaVersion", "1"); json.addProperty("unresolvedSales", -1);
+        assertFalse(client.acceptLedger(gson.fromJson(json, com.flippingfriend.core.AccountLedgerSnapshot.class), account));
+        assertNull(client.lastLedger());
+    }
+
     @Test public void switchingAccountsClearsAdviceAndRejectsLateAcknowledgement() throws Exception
     {
         PluginStorage storage = Mockito.mock(PluginStorage.class);
@@ -42,12 +60,19 @@ public class AccountClientIsolationTest
         assertNotNull(client.currentCanonicalOpenBuy());
         client.acceptPlan(new PortfolioPlan("p", 0, Long.MAX_VALUE, "READY", "ok", 0, Collections.emptyList()));
         assertTrue(client.hasFreshPlan());
+        com.flippingfriend.core.AccountLedgerSnapshot ledgerSnapshot = new com.flippingfriend.core.AccountLedgerSnapshot(
+            one, Instant.now().getEpochSecond(), 1, 1, 0, 1, 98, 98, 2, 2, Collections.emptyList());
+        assertTrue(client.acceptLedger(ledgerSnapshot, one));
+        assertNotNull(client.lastLedger());
 
         Mockito.when(storage.accountId()).thenReturn(two);
         Mockito.when(storage.accountDir()).thenReturn(second);
         Mockito.when(storage.accountDir(Mockito.anyString())).thenReturn(second);
         assertFalse(client.hasFreshPlan());
         assertNull(client.lastPlan());
+        assertNull(client.lastLedger());
+        assertFalse(client.acceptLedger(ledgerSnapshot, one));
+        assertFalse(client.acceptLedger(ledgerSnapshot, two));
         assertNull(client.currentCanonicalOpenBuy());
         assertNull(ledger.attribute(561, true, Instant.now().getEpochSecond()));
         String acknowledgement = "{\"accepted\":true,\"eventId\":\"" + event.getEventId()

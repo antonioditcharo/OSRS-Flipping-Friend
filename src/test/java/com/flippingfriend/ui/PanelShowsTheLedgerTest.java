@@ -127,6 +127,12 @@ public class PanelShowsTheLedgerTest
 	private FlippingFriendPanel panelShowing(Suggestion suggestion, List<Position> held,
 		List<FlipRecord> flips) throws Exception
 	{
+		return panelShowing(suggestion, held, flips, null);
+	}
+
+	private FlippingFriendPanel panelShowing(Suggestion suggestion, List<Position> held,
+		List<FlipRecord> flips, com.flippingfriend.core.AccountLedgerSnapshot ledger) throws Exception
+	{
 		Path root = folder.newFolder("panel" + System.nanoTime()).toPath();
 		PluginStorage storage = TestStorage.rootedAt(root, "p");
 
@@ -158,6 +164,7 @@ public class PanelShowsTheLedgerTest
 
 		ItemManager items = Mockito.mock(ItemManager.class);
 		CompanionClient companion = Mockito.mock(CompanionClient.class);
+		Mockito.when(companion.lastLedger()).thenReturn(ledger);
 		MarketDataService market = new MarketDataService(null, new com.google.gson.Gson(), storage);
 
 		FlippingFriendPanel[] built = new FlippingFriendPanel[1];
@@ -422,7 +429,7 @@ public class PanelShowsTheLedgerTest
 	}
 
 	@Test
-	public void thePerformanceRowsAreTheJournalAndNothingElse() throws Exception
+	public void performanceUsesTheDurableLedgerAndKeepsLocalHistorySeparate() throws Exception
 	{
 		int quantity = 5_000;
 		int buy = 2_001;
@@ -434,17 +441,24 @@ public class PanelShowsTheLedgerTest
 			Instant.now().getEpochSecond() - 3_600, Instant.now().getEpochSecond() - 600,
 			90, profit, "MODERATE");
 
+		com.flippingfriend.core.AccountLedgerSnapshot ledger = new com.flippingfriend.core.AccountLedgerSnapshot(
+			com.flippingfriend.core.AccountIdentity.fromProfileKey("p"), Instant.now().getEpochSecond(),
+			1, 1, 0, 1, profit - 1, profit - 1, taxPaid, taxPaid, Collections.emptyList());
 		FlippingFriendPanel panel = panelShowing(Suggestion.idle(), Collections.emptyList(),
-			Collections.singletonList(flip));
+			Collections.singletonList(flip), ledger);
 		List<String> text = textOn(panel);
 		save(panel, "performance.png");
 
 		assertTrue("the flip appears in Recent trades", showsText(text, ITEM_NAME));
-		assertTrue("Profit is the journal's own figure: " + explainer.formatGp(profit),
-			showsText(text, explainer.formatGp(profit)));
-		assertTrue("Tax paid is the tax that was actually deducted from it: "
-			+ explainer.formatGp(taxPaid), showsText(text, explainer.formatGp(taxPaid)));
-		assertTrue("one flip, and it went well", showsText(text, "1"));
+		assertTrue("Profit uses the durable total, independently of the journal",
+			showsText(text, explainer.formatNumber(profit - 1) + " gp"));
+		assertTrue("Tax uses the same durable ledger", showsText(text, "Recorded tax: "
+			+ explainer.formatNumber(taxPaid) + " gp"));
+		assertTrue("sale updates are not called completed flips", showsText(text, "Sale updates: 1"));
+		assertTrue("legacy history is identified as estimated", showsText(text, "estimated tax or cost"));
+		List<String> clipped = new ArrayList<>();
+		findClipped(panel, clipped);
+		assertTrue("ledger ranges and coverage remain readable: " + clipped, clipped.isEmpty());
 
 		// The invariant the panel's two rows have to satisfy together. A "Tax paid" line beside a
 		// profit that never had the tax taken out of it is exactly what made the old ledger look

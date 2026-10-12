@@ -9,6 +9,8 @@ import com.flippingfriend.core.PositionAccountingEffectType;
 import com.flippingfriend.core.PositionConsistencyState;
 import com.flippingfriend.core.PositionProjection;
 import com.flippingfriend.core.AccountSnapshot;
+import com.flippingfriend.core.AccountLedgerSnapshot;
+import com.flippingfriend.core.SaleAccounting;
 import com.flippingfriend.core.PositionSnapshot;
 import com.flippingfriend.core.BuyReplacementIntent;
 import com.flippingfriend.core.BuyReplacementIntentState;
@@ -129,6 +131,18 @@ final class SqliteStore implements AutoCloseable
 			statement.execute("CREATE TABLE IF NOT EXISTS buy_replacement_intent_projection (intent_id TEXT PRIMARY KEY, schema_version TEXT NOT NULL, original_offer_identity TEXT NOT NULL, recommendation_id TEXT NOT NULL, slot INTEGER NOT NULL, item_id INTEGER NOT NULL, item_name TEXT NOT NULL, original_price INTEGER NOT NULL, original_quantity INTEGER NOT NULL, filled_quantity INTEGER NOT NULL, remainder_quantity INTEGER NOT NULL, created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL, state TEXT NOT NULL, reason_code TEXT NOT NULL, updated_at INTEGER NOT NULL)");
 		}
 
+		for (String definition : new String[] {"gross_proceeds INTEGER", "tax_lower INTEGER", "tax_upper INTEGER",
+			"profit_lower INTEGER", "profit_upper INTEGER", "sale_tax_policy TEXT", "sale_accounting_reason TEXT"})
+		{
+			String column = definition.substring(0, definition.indexOf(' '));
+			if (!hasColumn("position_event", column))
+				try (Statement statement = connection.createStatement())
+				{ statement.execute("ALTER TABLE position_event ADD COLUMN " + definition); }
+		}
+		if (!hasColumn("offer_projection", "sale_tax_policy"))
+			try (Statement statement = connection.createStatement())
+			{ statement.execute("ALTER TABLE offer_projection ADD COLUMN sale_tax_policy TEXT"); }
+
 		if (!hasColumn("event_log", "event_id"))
 		{
 			try (Statement statement = connection.createStatement())
@@ -219,9 +233,12 @@ final class SqliteStore implements AutoCloseable
 			}
 			OfferLifecycleProjection previous = offerProjection(event.getSlot());
 			OfferLifecycleTransition transition = OfferLifecycleReducer.apply(previous, event);
+			String taxPolicy = saleTaxPolicy(previous, event, transition);
 			writeProjection(transition.getProjection(), event.getEventId(), transition.getReason());
+			try (PreparedStatement statement = connection.prepareStatement("UPDATE offer_projection SET sale_tax_policy=? WHERE slot=?"))
+			{ statement.setString(1, taxPolicy); statement.setInt(2, event.getSlot()); statement.executeUpdate(); }
 			checkpoint.reached("OFFER_PROJECTION_WRITTEN");
-			PositionProjection position = applyPositionEffect(transition.getAccountingEffect());
+			PositionProjection position = applyPositionEffect(transition.getAccountingEffect(), event, previous, taxPolicy);
 			checkpoint.reached("POSITION_ACCOUNTING_APPLIED");
 			BuyLimitProjection buyLimit = applyBuyLimitEffect(event, transition);
 			checkpoint.reached("BUY_LIMIT_ACCOUNTING_APPLIED");
@@ -339,7 +356,27 @@ final class SqliteStore implements AutoCloseable
 		{ return r.next() ? r.getInt(1) : 0; }
 	}
 
-	private PositionProjection applyPositionEffect(PositionAccountingEffect effect) throws Exception
+	private String saleTaxPolicy(OfferLifecycleProjection previous, OfferEvent event,
+		OfferLifecycleTransition transition) throws Exception
+	{
+		if (event.isBuying() || transition.getNewState() == OfferLifecycleState.EMPTY) return null;
+		if (previous != null && previous.getState() != OfferLifecycleState.EMPTY)
+			try (PreparedStatement statement = connection.prepareStatement("SELECT sale_tax_policy FROM offer_projection WHERE slot=?"))
+			{
+				statement.setInt(1, event.getSlot());
+				try (ResultSet row = statement.executeQuery())
+				{ if (row.next() && row.getString(1) != null) return row.getString(1); }
+			}
+		if (transition.isAccepted() && previous != null && previous.getState() == OfferLifecycleState.EMPTY
+			&& previous.getLastObservedAt() >= SaleAccounting.CURRENT_POLICY_SAFE_FROM
+			&& event.getObservedAt() >= previous.getLastObservedAt() && event.getFilledQuantity() == 0)
+			return SaleAccounting.CURRENT_POLICY;
+		return event.getObservedAt() >= SaleAccounting.CURRENT_POLICY_SAFE_FROM
+			? SaleAccounting.UNPROVEN_PLACEMENT : "HISTORICAL_RULE_UNPROVEN";
+	}
+
+	private PositionProjection applyPositionEffect(PositionAccountingEffect effect, OfferEvent event,
+		OfferLifecycleProjection previous, String taxPolicy) throws Exception
 	{
 		if (effect == null || effect.getType() == PositionAccountingEffectType.NONE) return null;
 		PositionProjection current = effect.getItemId() > 0 ? positionProjection(effect.getItemId()) : null;
@@ -365,7 +402,7 @@ final class SqliteStore implements AutoCloseable
 				else if (effect.getQuantity() > current.getQuantity()) reason = "disposal exceeds durable position quantity";
 				else
 				{
-					appliedCost = current.getTotalCost() * effect.getQuantity() / current.getQuantity();
+					appliedCost = SaleAccounting.allocateCost(current.getTotalCost(), current.getQuantity(), effect.getQuantity());
 					if (effect.getQuantity() == current.getQuantity()) result = null;
 					else result = PositionProjection.ready(current.getItemId(), current.getItemName(), current.getQuantity() - effect.getQuantity(), current.getTotalCost() - appliedCost, current.getOpenedAt(), effect.getObservedAt(), effect.getSourceEventId(), effect.getOfferIdentity());
 				}
@@ -375,7 +412,11 @@ final class SqliteStore implements AutoCloseable
 				break;
 			default: break;
 		}
-		appendPositionEvent(effect, appliedCost, reason);
+		SaleAccounting sale = effect.getType() == PositionAccountingEffectType.DISPOSE
+			? SaleAccounting.calculate(event.getSpent() - (previous == null ? 0 : previous.getSpent()),
+				effect.getQuantity(), event.getPrice(), event.getItemName(), taxPolicy,
+				reason == null && current != null && current.isCostKnown() ? appliedCost : null) : null;
+		appendPositionEvent(effect, appliedCost, reason, sale, taxPolicy);
 		if (effect.getType() == PositionAccountingEffectType.RECONCILE || reason != null)
 		{
 			if (effect.getItemId() <= 0) return null;
@@ -411,11 +452,34 @@ final class SqliteStore implements AutoCloseable
 	{
 		try (PreparedStatement s=connection.prepareStatement("DELETE FROM position_projection WHERE item_id=?")){s.setInt(1,itemId);s.executeUpdate();}
 	}
-	private void appendPositionEvent(PositionAccountingEffect e,long appliedCost,String reason) throws Exception
+	private void appendPositionEvent(PositionAccountingEffect e,long appliedCost,String reason,
+		SaleAccounting sale, String taxPolicy) throws Exception
 	{
-		try (PreparedStatement s=connection.prepareStatement("INSERT OR IGNORE INTO position_event(source_event_id,source_offer_identity,observed_at,effect_type,item_id,item_name,quantity,acquisition_cost,applied_cost_basis,transition_reason,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)"))
+		try (PreparedStatement s=connection.prepareStatement("INSERT OR IGNORE INTO position_event(source_event_id,source_offer_identity,observed_at,effect_type,item_id,item_name,quantity,acquisition_cost,applied_cost_basis,transition_reason,created_at,gross_proceeds,tax_lower,tax_upper,profit_lower,profit_upper,sale_tax_policy,sale_accounting_reason) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"))
 		{
-			s.setString(1,e.getSourceEventId());s.setString(2,e.getOfferIdentity());s.setLong(3,e.getObservedAt());s.setString(4,e.getType().name());s.setInt(5,e.getItemId());s.setString(6,e.getItemName());s.setInt(7,e.getQuantity());s.setLong(8,e.getAcquisitionCost());s.setLong(9,appliedCost);s.setString(10,reason);s.setLong(11,Instant.now().getEpochSecond());s.executeUpdate();
+			s.setString(1,e.getSourceEventId());s.setString(2,e.getOfferIdentity());s.setLong(3,e.getObservedAt());s.setString(4,e.getType().name());s.setInt(5,e.getItemId());s.setString(6,e.getItemName());s.setInt(7,e.getQuantity());s.setLong(8,e.getAcquisitionCost());s.setLong(9,appliedCost);s.setString(10,reason);s.setLong(11,Instant.now().getEpochSecond());
+			s.setObject(12, sale == null ? null : sale.getGross());
+			s.setObject(13, sale == null ? null : sale.getTaxLower());
+			s.setObject(14, sale == null ? null : sale.getTaxUpper());
+			s.setObject(15, sale == null ? null : sale.getProfitLower());
+			s.setObject(16, sale == null ? null : sale.getProfitUpper());
+			s.setString(17, sale == null ? null : taxPolicy);
+			s.setString(18, sale == null ? null : sale.getReason());
+			s.executeUpdate();
+		}
+	}
+
+	synchronized AccountLedgerSnapshot ledgerSnapshot(String accountId) throws Exception
+	{
+		try (Statement statement = connection.createStatement(); ResultSet row = statement.executeQuery(
+			"SELECT COUNT(*),COUNT(profit_lower),COALESCE(SUM(CASE WHEN profit_lower<>profit_upper THEN 1 ELSE 0 END),0),COUNT(tax_lower)," +
+			"COALESCE(SUM(profit_lower),0),COALESCE(SUM(profit_upper),0)," +
+			"COALESCE(SUM(tax_lower),0),COALESCE(SUM(tax_upper),0) FROM position_event WHERE effect_type='DISPOSE'"))
+		{
+			row.next();
+			return new AccountLedgerSnapshot(accountId, Instant.now().getEpochSecond(), row.getLong(1),
+				row.getLong(2), row.getLong(3), row.getLong(4), row.getLong(5), row.getLong(6),
+				row.getLong(7), row.getLong(8), positionProjections());
 		}
 	}
 
