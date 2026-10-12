@@ -41,6 +41,13 @@ public class AccountApiIsolationTest
             assertTrue(body(api, "accounts/" + one + "/action", one).contains("COLLECT"));
             assertEquals(400, request(api, "accounts/" + one + "/events/ge-offer", two, gson.toJson(event)));
             assertEquals(400, request(api, "events/ge-offer", one, "{}"));
+            com.flippingfriend.core.AccountLedgerSnapshot first = gson.fromJson(
+                body(api, "accounts/" + one + "/ledger/current", one), com.flippingfriend.core.AccountLedgerSnapshot.class);
+            com.flippingfriend.core.AccountLedgerSnapshot second = gson.fromJson(
+                body(api, "accounts/" + two + "/ledger/current", two), com.flippingfriend.core.AccountLedgerSnapshot.class);
+            assertEquals(one, first.getAccountId()); assertTrue(first.isValid());
+            assertEquals(1, first.getPositions().size()); assertTrue(second.getPositions().isEmpty());
+            assertEquals(400, request(api, "accounts/" + one + "/ledger/current", two, null));
         }
     }
 

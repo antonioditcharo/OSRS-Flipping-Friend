@@ -13,6 +13,10 @@ are in `docs/project-direction.md`; historical package notes are not proof of ru
 - Keep account-scoped API/database isolation intact. The old unscoped database is preserved and
   unassigned; do not infer its owner or merge it into a live account. One authoritative ledger
   for the planner, exits, UI, and reporting remains the next prerequisite for strategy tuning.
+- Live Performance reads the durable account ledger. Do not fall back to journal estimates,
+  backfill old unpriced sales, or infer placement/tax rules from first-seen timestamps. Preserve
+  rule profiles and tax/profit ranges; a divisible average does not prove homogeneous fills.
+  Details: `docs/architecture/durable-profit-ledger.md`.
 - Optimize and evaluate whole-account returns over elapsed time with realistic manual visits,
   capital, tax, buy limits, partial fills, losses, and remaining inventory. Slot-hour rates are
   diagnostic inputs, not a performance claim.

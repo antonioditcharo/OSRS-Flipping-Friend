@@ -61,6 +61,8 @@ class HistoryPanel extends JPanel
 		lastSignature = signature;
 
 		removeAll();
+		add(UiUtils.mutedText("Local journal figures may include estimated tax or cost."));
+		add(UiUtils.gap(UiUtils.SPACE_XS));
 
 		if (recent.isEmpty())
 		{

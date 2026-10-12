@@ -12,7 +12,8 @@ assessment, feature matrix, and benchmark contract are in [Project direction](do
 
 The takeover assessment started from `CoPilot's-Rebuild-from-Main` at Package 3.85 (`1a4c665`).
 The first fixes are merged into that rebuild branch; `main` remains an earlier cleanup/revert baseline.
-Current continuation adds account isolation and the Copilot-history baseline.
+Current continuation adds account isolation, the Copilot-history baseline, and durable sale
+accounting consumed by live Performance.
 
 Implemented and exercised by automated tests:
 
@@ -22,6 +23,8 @@ Implemented and exercised by automated tests:
   offer/position projections, conservative snapshot reconciliation, and persistent buy-limit windows.
 - Account-specific databases, policy/calibration state, scoped API requests/responses, profile-cache
   fencing, and recovery of active/uncollected offers beyond the four-hour buy-limit window.
+- Durable sale proceeds, removed cost, tax/profit bounds, and live Performance from the scoped
+  account ledger; missing evidence and old unpriced sales remain explicit.
 - Shared sale-tax rules for homogeneous prices, including integer flooring, caps, and exemptions.
 - Analytical price/fill models and real-execution timing calibration fed back into candidate planning.
 - Membership, risk, spending cap, skipped/blocked items, and sell-only preferences.
@@ -29,9 +32,10 @@ Implemented and exercised by automated tests:
   remain physically visible and are excluded from adoption.
 
 Remaining correctness work includes a single authoritative
-ledger for live advice and profit reporting and complete replacement/sell
+ledger for planning, exits, inventory, calibration, and session risk and complete replacement/sell
 workflows. Plugin-side JSON records still coexist with companion projections. Mixed-price aggregate
-fills require explicit accounting uncertainty. The rebuild is not yet ready for a performance claim.
+fills retain tax/profit ranges. The [durable profit ledger](docs/architecture/durable-profit-ledger.md)
+documents evidence, migration, and coverage. The rebuild is not yet ready for a performance claim.
 
 Shadow trading, online logistic learning, exploration, automatic challenger promotion, cross-device
 synchronization, and an independent always-on learner are not implemented as earlier documentation

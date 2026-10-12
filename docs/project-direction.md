@@ -167,3 +167,13 @@ The added CI workflow checks Java 21 on Linux and Windows while retaining Java 1
 remote results are distinct from this local verification. Building both JARs does not certify live
 RuneLite compatibility, feature parity, or profitability. This change does not install the candidate
 build into the game.
+
+## Durable profit continuation — 11 October 2026
+
+The [durable sale ledger](architecture/durable-profit-ledger.md) closes the missing-proceeds portion
+of the initial assessment: accepted sale updates now store gross proceeds, removed cost, recorded
+rule evidence, tax/profit bounds, and unresolved coverage atomically. Live Performance reads the
+scoped ledger. Local history/valuation graphs remain labeled estimates; GP/hour headlines await
+session measurement. Planner exposures, exits, inventory UI, calibration, and session risk still
+require migration, so the broader single-authority exit gate remains open. Initial findings and
+verification counts above describe their original revisions.

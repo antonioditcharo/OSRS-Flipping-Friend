@@ -65,6 +65,7 @@ final class ApiServer implements AutoCloseable
 		switch (path[1])
 		{
 			case "portfolio/current": portfolio(exchange); break;
+			case "ledger/current": ledger(exchange); break;
 			case "action": action(exchange); break;
 			case "policy/entry": entryDecision(exchange); break;
 			case "policy/buy-maintenance": buyMaintenanceDecision(exchange); break;
@@ -106,6 +107,15 @@ final class ApiServer implements AutoCloseable
 		CompanionService service = accountService(exchange);
 		if (service == null) return;
 		respond(exchange, 200, gson.toJson(service.plan()));
+	}
+
+	private void ledger(HttpExchange exchange) throws IOException
+	{
+		if (!authorized(exchange)) return;
+		CompanionService scoped = accountService(exchange);
+		if (scoped == null) return;
+		try { respond(exchange, 200, gson.toJson(scoped.ledger())); }
+		catch (Exception failure) { respond(exchange, 500, error(failure)); }
 	}
 
 	private void action(HttpExchange exchange) throws IOException
