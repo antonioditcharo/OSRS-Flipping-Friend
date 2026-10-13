@@ -9,6 +9,8 @@
       local records and must migrate with positive reconciliation evidence.
 
 ## Next
+- [ ] Run the live verification checklist in HANDOFF.md for PR #31 (durable planner exposure)
+      on the real account and RuneLite; record results before relying on it for trading.
 
 - [ ] Finish manual cancel -> collect -> revalidate -> replace and partial-fill protection as a
       complete live workflow; migrate sell maintenance and exits to companion policies.
