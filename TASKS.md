@@ -4,7 +4,8 @@
 
 - [ ] Make canonical durable positions, offers, costs, proceeds, and realized profit the shared
       source for the planner, exits, inventory UI, calibration, and session risk.
-      Durable sale accounting and live Performance are implemented; other consumers still use
+      Durable sale accounting, live Performance, and planner per-item exposure are implemented;
+      other consumers still use
       local records and must migrate with positive reconciliation evidence.
 
 ## Next
@@ -23,6 +24,10 @@
 - Historical session/cadence labels are unavailable. Do not infer them from execution timestamps.
 
 ## Done
+- Prevented older or same-timestamp snapshots from restoring sold or partly sold positions.
+- Planner per-item exposure now reads durable positions and open-buy reservations in one
+  transaction; unresolved or overflowing state withdraws buy advice. Cash, committedCoins,
+  preferences, and session risk still come from the client snapshot.
 
 - Persisted sale proceeds, proportional cost, tax/profit bounds, and rule evidence atomically.
 - Replaced live Performance journal totals with the account ledger, including unavailable/stale

@@ -256,6 +256,41 @@ final class SqliteStore implements AutoCloseable
 		}
 	}
 
+	/** Positions and offers captured in the same database read transaction. */
+	static final class PlanningProjections
+	{
+		final List<PositionProjection> positions;
+		final List<OfferLifecycleProjection> offers;
+		PlanningProjections(List<PositionProjection> positions,
+			List<OfferLifecycleProjection> offers)
+		{
+			this.positions = java.util.Collections.unmodifiableList(new ArrayList<>(positions));
+			this.offers = java.util.Collections.unmodifiableList(new ArrayList<>(offers));
+		}
+	}
+	/** Does not change durable rows or participate in an existing write transaction. */
+	synchronized PlanningProjections planningProjections() throws Exception
+	{
+		if (!connection.getAutoCommit())
+			throw new IllegalStateException("planning read requires its own transaction");
+		connection.setAutoCommit(false);
+		try
+		{
+			PlanningProjections result = new PlanningProjections(
+				positionProjections(), offerProjections());
+			connection.commit();
+			return result;
+		}
+		catch (Exception failure)
+		{
+			connection.rollback();
+			throw failure;
+		}
+		finally
+		{
+			connection.setAutoCommit(true);
+		}
+	}
 	synchronized List<OfferLifecycleProjection> offerProjections() throws Exception
 	{
 		List<OfferLifecycleProjection> result = new ArrayList<>();
@@ -522,6 +557,34 @@ final class SqliteStore implements AutoCloseable
 		SnapshotReconciliationResult result) throws Exception
 	{
 		PositionProjection current = positionProjection(incoming.getItemId());
+		long latestEventAt = -1;
+		long latestDisposalAt = -1;
+		try (PreparedStatement s = connection.prepareStatement(
+			"SELECT MAX(observed_at), MAX(CASE WHEN effect_type='DISPOSE' THEN observed_at END) FROM position_event WHERE item_id=?"))
+		{
+			s.setInt(1, incoming.getItemId());
+			try (ResultSet r = s.executeQuery())
+			{
+				if (r.next())
+				{
+					long value = r.getLong(1);
+					if (!r.wasNull()) latestEventAt = value;
+					long disposal = r.getLong(2);
+					if (!r.wasNull()) latestDisposalAt = disposal;
+				}
+			}
+		}
+		if (snapshot.getObservedAt() < latestEventAt
+			|| snapshot.getObservedAt() <= latestDisposalAt
+			|| (current != null && snapshot.getObservedAt() < current.getUpdatedAt()))
+		{
+			audit(snapshot, incoming.getItemId(), "UNCHANGED",
+				current == null ? null : current.getConsistencyState().name(),
+				current == null ? null : current.getConsistencyState().name(),
+				"snapshot does not postdate durable position evidence");
+			if (current != null) result.unchanged(current);
+			return;
+		}
 		PositionProjection next = current;
 		String outcome;
 		String reason;

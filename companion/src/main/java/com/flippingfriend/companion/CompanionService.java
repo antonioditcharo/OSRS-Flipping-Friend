@@ -658,6 +658,25 @@ final class CompanionService implements AutoCloseable
 		{
 			return;
 		}
+		try
+		{
+			DurablePlanningExposure exposure =
+				DurablePlanningExposure.from(store.planningProjections());
+			if (exposure == null)
+				throw new IllegalStateException("durable exposure requires reconciliation");
+			snapshot = snapshot.withPlanningExposure(exposure.committedByItem);
+			resolved("Planning exposure");
+		}
+		catch (Exception unavailable)
+		{
+			fault("Planning exposure", String.valueOf(unavailable.getMessage()), unavailable);
+			plan = PortfolioPlan.unavailable(
+				snapshot.getCorrelationId() == null ? "none" : snapshot.getCorrelationId(),
+				PortfolioPlanOutcome.COMPANION_STATE_UNAVAILABLE,
+				"Durable holdings or offers require reconciliation before new buys.",
+				Instant.now().getEpochSecond());
+			return;
+		}
 		PortfolioPlan computed = planner.plan(market.state(), snapshot,
 			buyLimits.remaining(market.state().mapping), activeOffers.getActiveOffers());
 		plan = computed;
