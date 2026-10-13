@@ -45,7 +45,7 @@ See [account isolation](docs/architecture/account-isolation.md) and
 
 ## Next work and claims that remain unsupported
 
-The single-authority migration is **not complete**. Planner exposure inputs, exits, inventory UI,
+The single-authority migration is **not complete**. Planner per-item exposure now uses durable state (see below); exits, inventory UI,
 journal calibration, and local session-risk inputs still use local records. Migrate these consumers
 to the durable account state with positive inventory/cost reconciliation and behavior tests for
 partial fills, missed observations, crashes, duplicate delivery, profile changes, and restart.
@@ -66,6 +66,16 @@ No live RuneLite installation or live database migration was performed. Live ver
 actual holdings/collected coins remains outstanding. Profit superiority, feature parity, online
 logistic learning, shadow trading, and automatic challenger promotion have not been established.
 Historical package counts, roadmaps, and non-activation scaffolding are not runtime feature evidence.
+
+## Durable planner exposure
+Planning reads durable positions and offers together (`SqliteStore.planningProjections`) and
+`DurablePlanningExposure` counts known held cost plus unfilled BUY_OPEN/BUY_PARTIAL reservations,
+without double-counting fills. Unresolved positions, unknown offer states, or overflow replace any
+cached plan with COMPANION_STATE_UNAVAILABLE. Only `committedByItem` changes; cash, committedCoins,
+slots, preferences, and session drawdown remain client inputs. Snapshot reconciliation also refuses
+snapshots older than the latest position event, or not newer than the latest disposal, so sold stock
+cannot reappear. Concurrent read/write interleaving and a full live-market service test are untested;
+no live RuneLite verification was performed. Details: `docs/architecture/durable-planning-exposure.md`.
 
 ## Verification and continuation
 
