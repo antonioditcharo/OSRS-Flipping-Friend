@@ -1,5 +1,8 @@
 # Project direction
 
+Active development/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
+Read `HANDOFF.md` for merged PRs, verified behavior, source locations, and unfinished work.
+
 Build an OSRS flipping assistant that matches Flipping Copilot's useful player workflows and
 eventually exceeds its measured net account profit per hour. The current priorities and evidence
 are in `docs/project-direction.md`; historical package notes are not proof of runtime activation.

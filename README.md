@@ -10,8 +10,12 @@ assessment, feature matrix, and benchmark contract are in [Project direction](do
 
 ## Current status
 
+The GitHub default and active development branch is **`CoPilot's-Rebuild-from-Main`**.
+Continuing agents should start with [HANDOFF.md](HANDOFF.md), [AGENTS.md](AGENTS.md), and
+[TASKS.md](TASKS.md). The handoff identifies merged changes, verification, and remaining limitations.
+
 The takeover assessment started from `CoPilot's-Rebuild-from-Main` at Package 3.85 (`1a4c665`).
-The first fixes are merged into that rebuild branch; `main` remains an earlier cleanup/revert baseline.
+The fixes below are merged into that rebuild branch; `main` remains an earlier cleanup/revert baseline.
 Current continuation adds account isolation, the Copilot-history baseline, and durable sale
 accounting consumed by live Performance.
 
