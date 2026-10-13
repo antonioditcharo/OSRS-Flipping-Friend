@@ -243,6 +243,32 @@ public final class AccountSnapshot
 		this.positions = source.positions;
 	}
 
+	private AccountSnapshot(AccountSnapshot source, Map<Integer, Long> exposure)
+	{
+		this.accountId = source.accountId;
+		this.correlationId = source.correlationId; this.observedAt = source.observedAt;
+		this.spendableCoins = source.spendableCoins; this.committedCoins = source.committedCoins;
+		this.freeSlots = source.freeSlots; this.totalSlots = source.totalSlots;
+		this.members = source.members; this.bankSeen = source.bankSeen;
+		this.markedSessionDrawdown = source.markedSessionDrawdown; this.riskAppetite = source.riskAppetite;
+		this.committedByItem = Collections.unmodifiableMap(new java.util.HashMap<>(exposure)); this.minProfitPerFlip = source.minProfitPerFlip;
+		this.buyLimitUsed = source.buyLimitUsed; this.learningDisabled = source.learningDisabled;
+		this.sellOnly = source.sellOnly; this.checkIntervalMinutes = source.checkIntervalMinutes;
+		this.targetHoldMinutes = source.targetHoldMinutes; this.blockedItems = source.blockedItems;
+		this.skippedItems = source.skippedItems; this.itemsOnOffer = source.itemsOnOffer;
+		this.positions = source.positions;
+	}
+
+	/** Planning-only exposure override; all other account fields remain unchanged. */
+	public AccountSnapshot withPlanningExposure(Map<Integer, Long> exposure)
+	{
+		if (exposure == null) throw new IllegalArgumentException("exposure is required");
+		for (Map.Entry<Integer, Long> entry : exposure.entrySet())
+			if (entry.getKey() == null || entry.getKey() <= 0
+				|| entry.getValue() == null || entry.getValue() < 0)
+				throw new IllegalArgumentException("invalid planning exposure");
+		return new AccountSnapshot(this, exposure);
+	}
 	public AccountSnapshot withAccountId(String accountId) { return new AccountSnapshot(this, accountId); }
 	public String getAccountId() { return accountId; }
 	public String getCorrelationId() { return correlationId; }

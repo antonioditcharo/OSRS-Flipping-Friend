@@ -256,6 +256,41 @@ final class SqliteStore implements AutoCloseable
 		}
 	}
 
+	/** Positions and offers captured in the same database read transaction. */
+	static final class PlanningProjections
+	{
+		final List<PositionProjection> positions;
+		final List<OfferLifecycleProjection> offers;
+		PlanningProjections(List<PositionProjection> positions,
+			List<OfferLifecycleProjection> offers)
+		{
+			this.positions = java.util.Collections.unmodifiableList(new ArrayList<>(positions));
+			this.offers = java.util.Collections.unmodifiableList(new ArrayList<>(offers));
+		}
+	}
+	/** Does not change durable rows or participate in an existing write transaction. */
+	synchronized PlanningProjections planningProjections() throws Exception
+	{
+		if (!connection.getAutoCommit())
+			throw new IllegalStateException("planning read requires its own transaction");
+		connection.setAutoCommit(false);
+		try
+		{
+			PlanningProjections result = new PlanningProjections(
+				positionProjections(), offerProjections());
+			connection.commit();
+			return result;
+		}
+		catch (Exception failure)
+		{
+			connection.rollback();
+			throw failure;
+		}
+		finally
+		{
+			connection.setAutoCommit(true);
+		}
+	}
 	synchronized List<OfferLifecycleProjection> offerProjections() throws Exception
 	{
 		List<OfferLifecycleProjection> result = new ArrayList<>();
