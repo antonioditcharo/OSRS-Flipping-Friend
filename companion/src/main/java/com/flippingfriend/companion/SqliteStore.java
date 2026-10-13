@@ -522,6 +522,34 @@ final class SqliteStore implements AutoCloseable
 		SnapshotReconciliationResult result) throws Exception
 	{
 		PositionProjection current = positionProjection(incoming.getItemId());
+		long latestEventAt = -1;
+		long latestDisposalAt = -1;
+		try (PreparedStatement s = connection.prepareStatement(
+			"SELECT MAX(observed_at), MAX(CASE WHEN effect_type='DISPOSE' THEN observed_at END) FROM position_event WHERE item_id=?"))
+		{
+			s.setInt(1, incoming.getItemId());
+			try (ResultSet r = s.executeQuery())
+			{
+				if (r.next())
+				{
+					long value = r.getLong(1);
+					if (!r.wasNull()) latestEventAt = value;
+					long disposal = r.getLong(2);
+					if (!r.wasNull()) latestDisposalAt = disposal;
+				}
+			}
+		}
+		if (snapshot.getObservedAt() < latestEventAt
+			|| snapshot.getObservedAt() <= latestDisposalAt
+			|| (current != null && snapshot.getObservedAt() < current.getUpdatedAt()))
+		{
+			audit(snapshot, incoming.getItemId(), "UNCHANGED",
+				current == null ? null : current.getConsistencyState().name(),
+				current == null ? null : current.getConsistencyState().name(),
+				"snapshot does not postdate durable position evidence");
+			if (current != null) result.unchanged(current);
+			return;
+		}
 		PositionProjection next = current;
 		String outcome;
 		String reason;
