@@ -39,8 +39,9 @@ The storage read is transactionally grouped, but deterministic concurrent
 interleaving has not been tested. Client cash and preferences are not captured
 atomically with the durable projections.
 
-The service failure test replaces a cached unavailable plan; it does not
-specifically seed a cached READY allocation. A successful service-level test
+The service failure test seeds a cached READY plan containing a buy
+allocation and confirms a durable-read failure replaces it with an unavailable
+plan that has no allocations. A successful service-level test
 proving that durable exposure changes an optimizer allocation remains
 outstanding. Live RuneLite installation validation has not been performed.
 
