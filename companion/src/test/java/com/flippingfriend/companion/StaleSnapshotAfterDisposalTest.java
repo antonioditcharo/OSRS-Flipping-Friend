@@ -28,8 +28,14 @@ public class StaleSnapshotAfterDisposalTest {
         assertTrue(accepted.transition.getReason(), accepted.transition.isAccepted());
     }
     @Test public void olderSnapshotCannotResurrectFullySoldStockAfterRestart() throws Exception {
+        checkFullSale(100);
+    }
+    @Test public void equalTimestampCannotResurrectFullySoldStockAfterRestart() throws Exception {
+        checkFullSale(300);
+    }
+    private void checkFullSale(long snapshotAt) throws Exception {
         Path db = Files.createTempDirectory("stale-full-sale").resolve("account.db");
-        AccountSnapshot original = snapshot(100);
+        AccountSnapshot original = snapshot(snapshotAt);
         try (SqliteStore store = new SqliteStore(db)) {
             store.recordAndReconcileAccount(original, PositionStateView.from(original), new Gson().toJson(original));
             record(store, sale("sell-open", 200, "SELLING", 0, 0, 1));
@@ -42,8 +48,14 @@ public class StaleSnapshotAfterDisposalTest {
         }
     }
     @Test public void olderSnapshotCannotUndoPartialSale() throws Exception {
+        checkPartialSale(100);
+    }
+    @Test public void equalTimestampCannotUndoPartialSale() throws Exception {
+        checkPartialSale(300);
+    }
+    private void checkPartialSale(long snapshotAt) throws Exception {
         Path db = Files.createTempDirectory("stale-partial-sale").resolve("account.db");
-        AccountSnapshot original = snapshot(100);
+        AccountSnapshot original = snapshot(snapshotAt);
         try (SqliteStore store = new SqliteStore(db)) {
             store.recordAndReconcileAccount(original, PositionStateView.from(original), new Gson().toJson(original));
             record(store, sale("partial-open", 200, "SELLING", 0, 0, 1));
