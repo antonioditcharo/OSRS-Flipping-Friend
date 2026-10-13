@@ -41,9 +41,12 @@ atomically with the durable projections.
 
 The service failure test seeds a cached READY plan containing a buy
 allocation and confirms a durable-read failure replaces it with an unavailable
-plan that has no allocations. A successful service-level test
-proving that durable exposure changes an optimizer allocation remains
-outstanding. Live RuneLite installation validation has not been performed.
+plan that has no allocations. DurableExposureAllocationTest builds limits
+with the planner's own constraint helpers and runs the real PortfolioOptimizer
+on one candidate: client-snapshot exposure permits the buy, while durable
+exposure at the item cap refuses it with PORTFOLIO_CONSTRAINT. A full
+CompanionService test with live market data and candidate generation has not
+been added. Live RuneLite installation validation has not been performed.
 
 ## Prerequisite accounting repair
 
