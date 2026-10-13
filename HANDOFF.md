@@ -10,7 +10,7 @@ Active development and the GitHub default branch are **`CoPilot's-Rebuild-from-M
 include the work below. Start a new `codex/` branch from the current remote rebuild branch.
 Do not reset or force-push the historical branches to make them look current.
 
-The latest runtime implementation is merge commit `bfef926d334a3374a7c390d595ec6eab0eba8cdc`.
+The latest runtime implementation is merge commit `6b4140109de6a63d93614740c87b32f72cfe171d` (PR #31).
 This handoff changes documentation and repository discoverability; it adds no runtime features.
 
 | Merged work | Result | Merge commit |
@@ -18,6 +18,7 @@ This handoff changes documentation and repository discoverability; it adds no ru
 | [PR #27](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/27) | Physical blocked holdings remain visible; personal stock adoption requires the existing opt-in. Added Windows/Linux CI, checkout portability fixes, and an evidence-based project direction. Removed the orphan reference gitlink that broke checkout. | `ab7aeb23488e17e59773bcf805c144fd85c12434` |
 | [PR #28](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/28) | Account-specific databases/services/API scopes, cache and outbox fencing, recovery of offers older than four hours, read-only diagnostics, and Copilot CSV ingestion. | `6ec1a8f238a2232f31bd4906c48e4dafea7244bd` |
 | [PR #29](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/29) | Atomic durable sale proceeds, proportional cost, tax/profit bounds, rule evidence, and live Performance reading that account ledger. | `bfef926d334a3374a7c390d595ec6eab0eba8cdc` |
+| [PR #31](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/31) | Stale snapshots cannot restore sold positions; planner per-item exposure reads durable positions and open-buy reservations; unresolved state withdraws buy advice. | `6b4140109de6a63d93614740c87b32f72cfe171d` |
 
 ## Implemented boundaries to preserve
 
@@ -76,6 +77,38 @@ slots, preferences, and session drawdown remain client inputs. Snapshot reconcil
 snapshots older than the latest position event, or not newer than the latest disposal, so sold stock
 cannot reappear. Concurrent read/write interleaving and a full live-market service test are untested;
 no live RuneLite verification was performed. Details: `docs/architecture/durable-planning-exposure.md`.
+
+## Live verification checklist (pending, do this next)
+PR #31 passed Windows/Linux CI and a full local build, but has **never run against the real
+account database or RuneLite**. Complete this before relying on it for trading.
+
+1. **Build first.** From an up-to-date `CoPilot's-Rebuild-from-Main` (at `6b4140109de6a63d93614740c87b32f72cfe171d` or later):
+   `.\gradlew.bat clean test jar :companion:shadowJar --console=plain` and
+   `python -m unittest discover -s tools/tests -v`. Stop on any failure.
+2. **Back up before installing.** Stop RuneLite and the companion. Copy (never edit or move) the
+   account directory `companion/accounts/<accountId>/` and the currently installed plugin and
+   companion JARs to a dated backup folder. Do not touch the unassigned legacy
+   `companion/flipping-friend.db`.
+3. **Install both JARs together** using the supported numbered update wrapper (the lifecycle that
+   `UpdateLifecycleBoundaryTest` describes). Never install only one of the two artifacts.
+4. **Start and read-check.** Start the companion and RuneLite, log in, then run
+   `tools/pipeline-check.ps1` (read-only). Record its output.
+5. **Manual in-game checks** (the player performs every Grand Exchange action; nothing is automated):
+   - With an existing known-cost holding and no open buy: buy advice still appears for other items.
+   - Place a buy and let it partly fill: advice continues; the item is not double counted
+     (held cost plus only the unfilled remainder).
+   - Cancel or complete that buy and collect: no leftover reservation blocks advice.
+   - Sell a holding fully, restart the companion, log in again: the sold stock does not reappear.
+   - If the panel says "Durable holdings or offers require reconciliation before new buys", record
+     which item/offer caused it using read-only inspection only. Do not edit the database to clear it.
+6. **Record results** here and in TASKS.md: date, revision, pipeline-check output, and each check's
+   outcome. Any failure must first be reproduced as an automated regression test before a fix.
+
+**Rollback:** stop both processes and reinstall the backed-up JARs. Restore the account directory
+backup only if the database itself was damaged, and record that it was restored.
+
+Still untested after this checklist: concurrent read/write interleaving and a full live-market
+service test. Cash, committedCoins, preferences, and session risk remain client-snapshot inputs.
 
 ## Verification and continuation
 
