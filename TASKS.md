@@ -30,6 +30,8 @@
 - Preserved old unpriced disposals and unproven offer tax rules without manufacturing profit.
 - Removed merged implementation branches and superseded build logs; retained final verification,
   source data, and the reusable managed worktree.
+- Added a current agent handoff linked from README/AGENTS; designated the tested rebuild branch
+  as the GitHub default so fresh checkouts discover the implemented work.
 - Isolated live companion accounting, policy state, and calibration into explicit account scopes.
 - Fenced account-specific API paths, payloads, responses, recommendation caches, and outbox upgrades.
 - Restored active/uncollected offers independently of four-hour buy-limit expiry.

@@ -1,11 +1,13 @@
 # Project direction and takeover assessment
 
 Decision date: 11 October 2026. Assessment base: `CoPilot's-Rebuild-from-Main` at
-`1a4c665` (Package 3.85). Working branch: `codex/project-direction`.
+`1a4c665` (Package 3.85). Original assessment working branch: `codex/project-direction` (merged).
 
-Continuation: the first changes are merged into the rebuild branch. Account isolation, long-offer
-recovery, scoped transport/cache fencing, and read-only diagnostics are implemented in the next
-delivery; see [account isolation](architecture/account-isolation.md). The findings below retain their
+Continuation as of 13 October 2026: PRs #27, #28, and #29 are merged into the active/default
+`CoPilot's-Rebuild-from-Main` branch. Account isolation, long-offer recovery, scoped transport/cache
+fencing, read-only diagnostics, and durable sale accounting/live Performance are implemented.
+See [the current handoff](../HANDOFF.md), [account isolation](architecture/account-isolation.md),
+and [sale accounting](architecture/durable-profit-ledger.md). The findings below retain their
 original assessment context. The supplied [Copilot baseline](benchmarks/copilot-2026-10-11.md)
 contains 2,117 flip summaries across two accounts and 17,240 execution records for one account.
 Historical session/cadence labels are unavailable; GP/hour remains unmeasured.
