@@ -18,6 +18,7 @@ $env:JAVA_HOME = Join-Path $fixture 'java'
 if ($scenario.noJavaHome) { Remove-Item -LiteralPath Env:JAVA_HOME -ErrorAction SilentlyContinue }
 $global:ffUpdateTestEvents = [System.Collections.Generic.List[string]]::new()
 $global:ffUpdateTestStarted = $false
+$global:ffUpdateTestFixture = $fixture
 
 # Every command that can affect a real process, task or network connection is intercepted.
 function Get-Command {
@@ -67,6 +68,13 @@ function Start-Process {
     $global:ffUpdateTestStarted = $true
 }
 function Start-Sleep { param($Seconds, $Milliseconds) }
+function Clear-Host { }
+function Read-Host {
+    param($Prompt)
+    $global:ffUpdateTestEvents.Add('prompt:' + $Prompt)
+    if ($scenario.decline) { return 'no' }
+    return 'INSTALL'
+}
 function curl.exe { '{"status":"READY"}' }
 function Copy-Item {
     [CmdletBinding()] param([Alias('LiteralPath')]$Path, $Destination, [switch]$Force)
@@ -82,7 +90,16 @@ function Copy-Item {
 }
 
 $failure = $null
-try { & (Join-Path $fixture 'checkout/tools/apply-update.ps1') -SkipBuild }
+try {
+    $entry = if ($scenario.entry) { $scenario.entry } else { 'apply-update.ps1' }
+    $options = @{ }
+    if ($entry -eq 'apply-update.ps1') {
+        $options.SkipBuild = $true
+        if ($scenario.setup) { $options.ConfigureCompanionTask = $true }
+        if ($scenario.startOnly) { $options.StartOnly = $true }
+    }
+    & (Join-Path $fixture ('checkout/tools/' + $entry)) @options
+}
 catch { $failure = $_.Exception.Message }
 Write-Output ('HARNESS_RESULT=' + (@{
     error = $failure; events = @($global:ffUpdateTestEvents)
@@ -119,6 +136,9 @@ class UpdateLifecycleTest(unittest.TestCase):
         tools = self.checkout / "tools"
         tools.mkdir()
         shutil.copyfile(Path(__file__).resolve().parents[1] / "apply-update.ps1", tools / "apply-update.ps1")
+        shutil.copyfile(Path(__file__).resolve().parents[1] / "start.ps1", tools / "start.ps1")
+        (tools / "install.ps1").write_text("$global:ffUpdateTestEvents.Add('legacy-install')\n$global:LASTEXITCODE = 0\n", encoding="utf-8")
+        (tools / "run-dev.ps1").write_text("$global:ffUpdateTestEvents.Add('launch-runelite')\n", encoding="utf-8")
         (self.fixture / "harness.ps1").write_text(HARNESS, encoding="utf-8")
         self.scenario = {
             "taskPresent": True, "state": "Ready", "executable": str(self.java),
@@ -195,6 +215,39 @@ class UpdateLifecycleTest(unittest.TestCase):
         self.assertEqual(b"new-plugin", self.installed.read_bytes())
         self.assertIn("start-task", result["events"])
         self.assertIn("Update applied.", self.output)
+
+    def test_daily_start_does_not_rebuild_or_install(self):
+        self.scenario["entry"] = "start.ps1"
+        # Stub the paired runtime entry here to isolate the launcher's delegation contract.
+        (self.checkout / "tools/apply-update.ps1").write_text(
+            "param([switch]$StartOnly)\nif (-not $StartOnly) { throw 'Expected start-only.' }\n"
+            "$global:ffUpdateTestEvents.Add('guarded-start')\n", encoding="utf-8")
+        result = self.run_update()
+        self.assertIsNone(result["error"], self.output)
+        self.assertEqual(["guarded-start", "launch-runelite"], result["events"], self.output)
+
+    def test_daily_start_cannot_launch_after_guard_rejects_installation(self):
+        self.scenario["entry"] = "start.ps1"
+        (self.checkout / "tools/apply-update.ps1").write_text(
+            "param([switch]$StartOnly)\nthrow 'Installation requires re-setup.'\n", encoding="utf-8")
+        result = self.run_update()
+        self.assertIsNotNone(result["error"], self.output)
+        self.assertNotIn("launch-runelite", result["events"], self.output)
+
+    def test_update_requires_backup_review_before_installation(self):
+        self.scenario["decline"] = True
+        result = self.run_update()
+        self.assertIsNotNone(result["error"], self.output)
+        self.assertEqual(b"original-installed-plugin", self.installed.read_bytes())
+        self.assertNotIn("copy-plugin", result["events"], self.output)
+        self.assertNotIn("start-task", result["events"], self.output)
+
+    def test_update_deploys_companion_outside_build_directory(self):
+        result = self.run_update()
+        self.assertIsNone(result["error"], self.output)
+        installed_companion = self.fixture / "profile/.runelite/osrs-flipping-friend/runtime/flipping-friend-companion.jar"
+        self.assertTrue(installed_companion.is_file(), self.output)
+        self.assertEqual(b"new-companion", installed_companion.read_bytes())
 
 
 if __name__ == "__main__":
