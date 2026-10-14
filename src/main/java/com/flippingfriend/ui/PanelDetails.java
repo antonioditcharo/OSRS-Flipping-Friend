@@ -36,7 +36,6 @@ final class PanelDetails {
     private final PriceGraphPanel graph = new PriceGraphPanel();
     private final JLabel graphTitle = new JLabel();
     private final JButton copyQuantity = new JButton("Copy quantity"), copyPrice = new JButton("Copy price");
-    private final CompanionClient companion;
     private Suggestion shown = Suggestion.idle();
     private boolean syncing;
     private JDialog dialog;
@@ -47,7 +46,7 @@ final class PanelDetails {
         FlippingFriendConfig config, ConfigManager settings, CompanionClient companion, Runnable changed) {
         this.holdings = holdings; this.history = history; this.plan = plan; this.performance = performance;
         this.bank = bank; this.market = market; this.explainer = explainer; this.engine = engine;
-        this.config = config; this.companion = companion;
+        this.config = config;
         JPanel guide = new JPanel(new BorderLayout(8, 8)); guide.setBackground(UiUtils.CARD);
         guide.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12)); guide.add(recommendation, BorderLayout.CENTER);
         JPanel copies = new JPanel(new FlowLayout(FlowLayout.LEFT)); copies.setOpaque(false);
@@ -77,6 +76,8 @@ final class PanelDetails {
         settingsView.add(UiUtils.gap(12)); settingsView.add(sellOnly); settingsView.add(UiUtils.gap(12));
         settingsView.add(UiUtils.bodyText("Set the input key and other options in RuneLite's Flipping Friend configuration. "
             + "The key fills one open quantity or price prompt; press Enter and Confirm yourself."));
+        for (Component child : settingsView.getComponents()) if (child instanceof JComponent)
+            ((JComponent)child).setAlignmentX(Component.LEFT_ALIGNMENT);
         add("Settings", settingsView);
         tabs.setFont(FontManager.getRunescapeSmallFont());
         tabs.setTabLayoutPolicy(JTabbedPane.SCROLL_TAB_LAYOUT);
