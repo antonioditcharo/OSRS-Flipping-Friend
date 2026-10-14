@@ -20,9 +20,12 @@
       Read-only event evidence is private in local-data; historical rows lack game-state proof.
       Preserve known costs, active offers, unpriced history and the fail-closed guard while preparing
       authoritative reconciliation. Windows/Linux CI at `6ce171e` passed (run 38542984377);
-      final-head checks after this documentation update, paired installation with fresh backup review,
-      and controlled manual acceptance remain pending. Source review is PR #38 against rebuild;
-      require both final-head CI checks before source merge. The player has closed RuneLite.
+      both final-head checks at `84159c6` also passed (run 38543697812). PR #38 merged at `9a4c1ec8`;
+      rebuild was fast-forwarded cleanly and historical main preserved. Current documentation branch
+      is `codex/offer-observation-live-verification`. Paired installation with fresh backup review,
+      post-install pipeline and controlled manual acceptance remain pending. Player has closed RuneLite;
+      next step is numbered Update, pause at INSTALL, and supply the fresh backup listing for review.
+      Do not expect this prevention fix to clear existing live reconciliation faults automatically.
 
 - [ ] Live-retest explicit unpriced-stock review installed at rebuild `49934e44` (PR #37).
       Regressions preceded implementation (`932ab1f` / `1f728eb6`); local standard verification passed
