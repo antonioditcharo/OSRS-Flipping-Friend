@@ -70,7 +70,9 @@ not an observation of historical tax. Do not infer a valid GP/hour comparison fr
 
 The user-run paired installation at `6411f800` was followed by a RuneLite login freeze. After PR #36,
 the user installed the compatible pair at `cb203a83`; read-only pair and launcher compatibility checks
-passed. User-performed login and the live checklist remain pending (see the latest continuation below).
+passed. The user subsequently reported working login and sell recommendations, but no new buys.
+The pipeline check passed its protocol/ledger checks and exposed a reconciliation-blocked buy plan;
+controlled trading acceptance checks remain pending (see the latest continuation below).
 No agent database migration was performed. Verification against actual holdings/collected coins remains outstanding.
 Profit superiority, feature parity, online
 logistic learning, shadow trading, and automatic challenger promotion have not been established.
@@ -174,6 +176,60 @@ temporary path aliases before invoking PowerShell; all 15 tests passed locally a
 PR checks for the final remote outcome; the first run is retained as failure evidence.
 
 ## Verification and continuation
+
+### Live login and blocked buy advice — 13 October 2026, 22:27–22:29 AKDT
+
+Runtime source remains `cb203a834401d4e32cc5791d07f0ade37df80d61`; documentation branch
+`codex/pr31-live-verification`. The user reported login was working enough to recommend sells for
+earlier manual purchases, but new buy recommendations were absent. This is user-reported UI behavior,
+not a controlled sell or accounting acceptance result.
+
+Agent ran `tools/pipeline-check.ps1 -SkipBuild` under bundled PowerShell 7, using only the supported
+GET endpoints. Standard build/tests were already passed; no build or game input was performed during
+this diagnostic. Original output is retained privately in
+`local-data/diagnostics/pr31-live-20261013/pipeline-20261013-222706.txt`.
+Output below substitutes `<account-id>` for the private opaque account identifier; all verdicts,
+counts and reasons are otherwise verbatim:
+
+```text
+PASS [Artifact] build\libs\osrs-flipping-friend.jar
+PASS [Artifact] companion\build\libs\flipping-friend-companion.jar
+PASS [Protocol] accounts-v1
+PASS [Market] Ready. Choosing which items to study.
+PASS [<account-id>] Ledger: 4 sale updates; 2 unresolved; 0 profit ranges.
+PASS [<account-id>] Action: WAIT. Plan: UNAVAILABLE. Durable holdings or offers require reconciliation before new buys.
+INFO [Accounting] No synthetic snapshots, offers, or trades were posted by this check.
+PIPELINE_EXIT=0
+```
+
+Exit zero verifies the diagnostic's protocol/ledger checks, not readiness for trading. A subsequent
+scoped health GET returned HTTP 200 / DEGRADED with five position cost warnings and two
+`disposal has no durable position` faults. A scoped portfolio GET returned HTTP 200 / UNAVAILABLE /
+COMPANION_STATE_UNAVAILABLE with no allocations. A scoped ledger GET confirmed seven RECONCILE
+entries: five positive-quantity unknown-cost holdings and two zero-quantity disposal entries.
+Private item/quantity/cost details and event identities are retained only in
+`local-data/diagnostics/pr31-live-20261013/ledger-20261013-222907.json`; they are not public fixtures.
+No database was opened by the agent; no accounting event, synthetic snapshot, record edit, process
+restart, or game input was performed. Shared market readiness is distinct from scoped account health.
+
+Source trace: `DurablePlanningExposure.from()` fails closed on any unresolved position;
+`CompanionService.refreshPlan()` withdraws the entire buy plan in that case. `CompanionClient`
+publishes all local PositionBook entries, including unknown-cost entries. `syncHoldings()` only
+adopts additional personal stock when the existing `adoptExistingItems` opt-in is enabled; its current
+live setting and the origins of the saved entries have not been established. Turning that setting off
+does not remove existing durable records. Do not guess which holdings are personal, claim historical
+profit, clear warnings by editing records, or weaken the guard simply to show buys.
+
+The user has been asked to classify the five held items as personal stock or flipping stock. Complete
+the missing onboarding/reconciliation workflow using explicit evidence and regression tests before
+source changes; preserve incomplete sales as unresolved and keep physical ownership distinct from
+trading intent. Any real bug must first be reproduced on a new codex branch from current rebuild.
+
+Checklist outcome: build, reviewed backup, paired installation and read-only protocol/ledger check
+passed; login/sell display was user-reported. New-buy readiness is BLOCKED by reconciliation. The
+controlled known-cost holding/no-open-buy case has not been established; partial fill, cancel/collect,
+full sale/restart and conservation remain untested. Reconciliation blockers have been identified
+read-only. Do not mark the overall live checklist complete or merge its acceptance record yet.
 
 ### Compatible pair installed — 13 October 2026, after the 22:09 backup (login still pending)
 
