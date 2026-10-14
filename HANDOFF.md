@@ -20,6 +20,7 @@ The update-tooling continuation below does not add trading or learning features.
 | [PR #29](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/29) | Atomic durable sale proceeds, proportional cost, tax/profit bounds, rule evidence, and live Performance reading that account ledger. | `bfef926d334a3374a7c390d595ec6eab0eba8cdc` |
 | [PR #31](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/31) | Stale snapshots cannot restore sold positions; planner per-item exposure reads durable positions and open-buy reservations; unresolved state withdraws buy advice. | `6b4140109de6a63d93614740c87b32f72cfe171d` |
 | [PR #33](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/33) | Guarded update rejects disabled/foreign tasks and incomplete artifact pairs; Java-on-PATH fallback; recorded incomplete live verification. Windows/Linux CI passed. | `7b98a19bf288ab259bb275c2efaf2669028b9482` |
+| [PR #34](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/34) | Shared paired setup/re-setup/update/start/status lifecycle, stable installed companion, hash manifest, backup review, saved-login reuse and refreshed shortcut. Windows/Linux CI passed. | `cb2c1d2dac01865374108339fbd1fcee43ee0093` |
 
 ## Implemented boundaries to preserve
 
@@ -87,8 +88,9 @@ account database or RuneLite**. Complete this before relying on it for trading.
    `.\gradlew.bat clean test jar :companion:shadowJar --console=plain` and
    `python -m unittest discover -s tools/tests -v`. Stop on any failure.
 2. **Back up before installing.** Stop RuneLite and the companion. Copy (never edit or move) the
-   account directory `companion/accounts/<accountId>/` and the currently installed plugin and
-   companion JARs to a dated backup folder. Do not touch the unassigned legacy
+   account directory `companion/accounts/<accountId>/`, the plugin's separate `accounts/` records,
+   and the currently installed plugin and companion JARs to a dated backup folder. Preserve the two
+   account layouts separately; do not infer ownership or import records. Do not touch the unassigned legacy
    `companion/flipping-friend.db`.
 3. **Install both JARs together** using the supported numbered update wrapper (the lifecycle that
    `UpdateLifecycleBoundaryTest` describes). Never install only one of the two artifacts.
@@ -164,6 +166,54 @@ temporary path aliases before invoking PowerShell; all 15 tests passed locally a
 PR checks for the final remote outcome; the first run is retained as failure evidence.
 
 ## Verification and continuation
+
+### Backup review continuation — 13 October 2026
+
+Base `cb2c1d2dac01865374108339fbd1fcee43ee0093`; implementation
+`2b1f38d88256af35be5858ec7dbeb7c5c35978c3` on `codex/plugin-account-backup`.
+Regression commit `9945dafe96cc6f3e74b5a5f9d02092e2f837b1ea` preceded the fix. The actual-script test
+first failed with `Missing plugin account backup: default/session.json` (`Ran 1 test in 1.194s`,
+`FAILED (failures=1)`). The wrapper backed up companion hashed scopes but omitted the plugin's
+profile records under the sibling `osrs-flipping-friend/accounts/` directory.
+
+The wrapper now copies that tree as `plugin-accounts/` before the INSTALL prompt, preserving directory
+names, pre-login records, pending events and parked history without parsing/importing them. It rejects
+linked directories/files before traversing or copying their targets. Companion scoped backups remain
+under backup `accounts/`; the unassigned legacy database stays untouched. Tests exercise preservation
+on declined installation and rejection of a nested junction/symlink using disposable files.
+
+Local verification: 1,163 Java tests passed / six skipped / zero failures/errors (1,169 total,
+306 suites), both JARs built; all 40 Python tests passed, including 32 lifecycle tests. Exact endings:
+`BUILD SUCCESSFUL in 40s`, `18 actionable tasks: 18 executed`, exit 0;
+`Ran 40 tests in 30.744s`, `OK`, exit 0. Logs outside build outputs:
+`.gradle/plugin-account-backup-gradle.log` and `.gradle/plugin-account-backup-python.log` (gitignored).
+Use the corresponding PR's Windows/Linux checks for remote results.
+
+Live backup review at base revision `cb2c1d2d`:
+
+- The user ran the numbered returning-user wrapper and stopped at its INSTALL prompt. Backup:
+  `%USERPROFILE%/.runelite/osrs-flipping-friend/backups/20261013-193255-a12e2729/`.
+- Prior plugin JAR: 324,999 bytes; prior companion JAR: 106,202,023 bytes. Both backup SHA-256 values
+  matched their original JAR sources. Prior task XML: 2,113 bytes. Its principal resolves to the
+  current Windows user, while its working directory/JAR point to the previous checkout.
+- Missing `runtime/installation.json` was observed; the previous installation predates the manifest.
+  The expected `companion/accounts/` was absent. This does not establish absence of other account data.
+- Read-only filename/size inspection found 21 plugin account files totaling 1,501,532 bytes under
+  the separate root `accounts/` tree. No database or credential filenames or links were found there.
+  While installation remained paused, these records were copied to the same backup's
+  `plugin-accounts/` directory; every relative filename and size matched (21 files / 1,501,532 bytes).
+  No contents were parsed, ownership assigned, or source records edited/moved/deleted.
+- At the copy preflight, the task was Disabled, listener count on port 37777 was 0, and observable
+  RuneLite process count was 0. Installed JARs, saved credentials, account databases and the unassigned
+  legacy database were not changed by this review. No game input occurred.
+- The existing installer already passed its backup code before the source fix; the supplemental
+  copy completes this particular backup. Keep that installer as the sole installation process.
+  Resume only after backup review; do not start a second installer while it holds the runtime lock.
+
+Checklist outcome: build passed; backup inspection/copy passed for observed sources; paired live
+installation is still awaiting the user's INSTALL confirmation. **Pipeline-check output: not run**
+(installation remains paused). Login, known-cost holding, partial buy, cancel/collect, full sale and
+restart checks remain unperformed. No live planner/accounting success is claimed.
 
 ### Setup/re-setup/start continuation — 13 October 2026
 

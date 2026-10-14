@@ -37,8 +37,11 @@ It does not download a JDK or change system environment settings.
 
 Backups are under `%USERPROFILE%\.runelite\osrs-flipping-friend\backups\<date-and-id>\`. They contain
 the installed plugin, the prior companion JAR when found, the prior task configuration/manifest, and
-scoped account directories when present, including SQLite sidecar files. A prior desktop shortcut is
-also copied there before it is retargeted.
+companion scoped account directories under `accounts/` when present, including SQLite sidecar files.
+The plugin's separate profile records from `osrs-flipping-friend/accounts/` are copied as
+`plugin-accounts/`, including positions, offers, journals, pending events and parked history. These
+copies retain their existing directory names; no ownership is inferred or data imported. A prior
+desktop shortcut is also copied there before it is retargeted.
 
 Missing backup sources are reported as missing. Absence of the expected account directory does not
 prove data is absent elsewhere. The installer never assigns, imports, moves, repairs or deletes the

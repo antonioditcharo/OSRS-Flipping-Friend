@@ -440,6 +440,63 @@ class UpdateLifecycleTest(unittest.TestCase):
         self.assertEqual(b"unassigned-legacy-sentinel", legacy.read_bytes())
         self.assertFalse(any(path.name == "flipping-friend.db" and "accounts" not in path.parts for path in backup.rglob("*")))
 
+    def test_plugin_account_records_are_backed_up_before_install_confirmation(self):
+        data_root = self.properties.parent.parent
+        plugin_accounts = data_root / "accounts"
+        records = {
+            "default/session.json": b"pre-login-session-sentinel",
+            "rsprofile_fixture/positions.json": b"positions-sentinel",
+            "rsprofile_fixture/offers.json": b"offers-sentinel",
+            "rsprofile_fixture/journal.jsonl": b"journal-sentinel",
+            "rsprofile_fixture/companion-event-outbox.json": b"pending-events-sentinel",
+            "rsprofile_fixture/migration-parked/transactions.jsonl": b"parked-history-sentinel",
+        }
+        for relative, contents in records.items():
+            path = plugin_accounts / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(contents)
+        self.scenario["decline"] = True
+        result = self.run_update()
+        self.assertIn("Installation cancelled", result["error"], self.output)
+        backup = next((data_root / "backups").iterdir())
+        for relative, contents in records.items():
+            saved = backup / "plugin-accounts" / relative
+            self.assertTrue(saved.is_file(), f"Missing plugin account backup: {relative}\n{self.output}")
+            self.assertEqual(contents, saved.read_bytes())
+            self.assertEqual(contents, (plugin_accounts / relative).read_bytes())
+        review = next(i for i, event in enumerate(result["events"]) if event.startswith("prompt:"))
+        self.assertTrue(all(i < review for i, event in enumerate(result["events"]) if event == "backup-file"))
+        self.assertNotIn("copy-plugin", result["events"], self.output)
+        self.assertNotIn("start-task", result["events"], self.output)
+
+    def test_link_in_plugin_account_records_blocks_backup_and_confirmation(self):
+        plugin_accounts = self.properties.parent.parent / "accounts"
+        plugin_accounts.mkdir()
+        target = self.fixture / "unassigned-records"
+        target.mkdir()
+        (target / "journal.jsonl").write_bytes(b"linked-history-sentinel")
+        link = plugin_accounts / "rsprofile_link"
+        if os.name == "nt":
+            quoted_link = str(link).replace("'", "''")
+            quoted_target = str(target).replace("'", "''")
+            created = subprocess.run(
+                [self.shell, "-NoProfile", "-NonInteractive", "-Command",
+                 "$ErrorActionPreference = 'Stop'; New-Item -ItemType Junction "
+                 f"-Path '{quoted_link}' -Value '{quoted_target}' | Out-Null"],
+                capture_output=True, text=True, timeout=20,
+            )
+            self.assertEqual(0, created.returncode, created.stdout + created.stderr)
+        else:
+            link.symlink_to(target, target_is_directory=True)
+        result = self.run_update()
+        self.assertIn("Plugin account backup contains a link", result["error"], self.output)
+        self.assertFalse(any(event.startswith("prompt:") for event in result["events"]))
+        self.assertNotIn("copy-plugin", result["events"], self.output)
+        self.assertNotIn("start-task", result["events"], self.output)
+        backup = next((self.properties.parent.parent / "backups").iterdir())
+        self.assertFalse((backup / "plugin-accounts").exists())
+        self.assertEqual(b"linked-history-sentinel", (target / "journal.jsonl").read_bytes())
+
     def test_incomplete_copy_cannot_start_or_claim_success(self):
         self.scenario["failCompanionCopy"] = True
         result = self.run_update()

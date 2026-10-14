@@ -18,6 +18,11 @@
       The returning-user workflow is now `1b - Re-setup Existing Installation.bat`: close RuneLite,
       review the generated backup before typing INSTALL, then launch/login and perform read-only
       pipeline/manual checks. No live install was executed during development.
+      Later backup review at base `cb2c1d2d`: both prior JAR backups matched source hashes; task XML
+      resolves to the current Windows user. Plugin account records were found separately from the
+      absent companion scope directory and copied into the dated backup (21 files / 1,501,532 bytes;
+      relative filenames/sizes matched). Installer remains at INSTALL; no installed pair replacement,
+      pipeline-check, login or manual trading checks have been observed. See the latest handoff.
 
 - [ ] Finish manual cancel -> collect -> revalidate -> replace and partial-fill protection as a
       complete live workflow; migrate sell maintenance and exits to companion policies.
@@ -33,6 +38,13 @@
 - Historical session/cadence labels are unavailable. Do not infer them from execution timestamps.
 
 ## Done
+- Reproduced the missing plugin account backup before fixing it on `codex/plugin-account-backup`.
+  The wrapper now preserves the separate profile records as `plugin-accounts/` before confirmation,
+  retaining companion hashed scopes separately and rejecting links without importing data.
+  Standard build passed 1,163 Java tests with six skips; all 40 Python tests passed (32 lifecycle).
+  Completed the observed live backup with a supplemental copy while the user's installer was paused;
+  source data and all databases stayed unchanged. Installation and live checks remain pending.
+
 - Unified first setup, explicit returning-user re-setup, paired updates, start and status behind
   the guarded installer. Backup review precedes confirmation/build/copies/task reconfiguration.
   Installed companion is outside source build outputs; hash manifest blocks incomplete or altered
