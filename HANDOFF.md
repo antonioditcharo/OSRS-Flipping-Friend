@@ -23,6 +23,7 @@ player workflow; strategy tuning and measured learning promotion remain pending.
 | [PR #33](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/33) | Guarded update rejects disabled/foreign tasks and incomplete artifact pairs; Java-on-PATH fallback; recorded incomplete live verification. Windows/Linux CI passed. | `7b98a19bf288ab259bb275c2efaf2669028b9482` |
 | [PR #34](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/34) | Shared paired setup/re-setup/update/start/status lifecycle, stable installed companion, hash manifest, backup review, saved-login reuse and refreshed shortcut. Windows/Linux CI passed. | `cb2c1d2dac01865374108339fbd1fcee43ee0093` |
 | [PR #35](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/35) | Separate plugin profile records are included in the pre-install backup; linked records are rejected. Recorded actual backup review. Windows/Linux CI passed. | `6411f800e9a56d37de5dbd3b3194061ae262e910` |
+| [PR #36](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/36) | Exact official RuneLite artifact selection, installed API compatibility guard, long spent counters and persistent pause for unsupported unit prices. Windows/Linux CI passed on final revision `10d1a4bc`. | `cb203a834401d4e32cc5791d07f0ade37df80d61` |
 
 ## Implemented boundaries to preserve
 
@@ -67,9 +68,10 @@ exports' evidence limits. Raw CSVs and row-level outputs are intentionally gitig
 Session/cadence labels are unavailable. Transaction-export Tax is derived by Copilot's exporter,
 not an observation of historical tax. Do not infer a valid GP/hour comparison from these files.
 
-The user-run paired installation was verified read-only at `6411f800`; the subsequent RuneLite
-login froze before the live checklist could proceed (see the continuation below). No agent database
-migration was performed. Live verification against actual holdings/collected coins remains outstanding.
+The user-run paired installation at `6411f800` was followed by a RuneLite login freeze. After PR #36,
+the user installed the compatible pair at `cb203a83`; read-only pair and launcher compatibility checks
+passed. User-performed login and the live checklist remain pending (see the latest continuation below).
+No agent database migration was performed. Verification against actual holdings/collected coins remains outstanding.
 Profit superiority, feature parity, online
 logistic learning, shadow trading, and automatic challenger promotion have not been established.
 Historical package counts, roadmaps, and non-activation scaffolding are not runtime feature evidence.
@@ -172,6 +174,72 @@ temporary path aliases before invoking PowerShell; all 15 tests passed locally a
 PR checks for the final remote outcome; the first run is retained as failure evidence.
 
 ## Verification and continuation
+
+### Compatible pair installed — 13 October 2026, after the 22:09 backup (login still pending)
+
+Installed source revision: `cb203a834401d4e32cc5791d07f0ade37df80d61` on the rebuild branch.
+PR #36 merged after both [Windows/Linux checks on final revision `10d1a4bc`](https://github.com/antonioditcharo/OSRS-Flipping-Friend/actions/runs/38519989011)
+passed. Documentation continues on `codex/pr31-live-verification`; this is an incomplete acceptance
+record, not evidence of successful login or trading.
+
+The user ran `4 - Update.bat` and paused at INSTALL with backup
+`%USERPROFILE%/.runelite/osrs-flipping-friend/backups/20261013-220953-f1ad1d84/`.
+Read-only review found:
+
+- Companion account backup: three files / 321,176 bytes, including the database and its WAL/SHM
+  sidecars. Every relative filename and size matched the source. No database contents were opened.
+- Plugin account backup: 22 files / 1,500,384 bytes; every relative filename and size matched the
+  separate source tree. No account record contents or saved login were opened during the review.
+- Prior plugin: 392,218 bytes; prior companion: 17,721,459 bytes; prior installation manifest:
+  458 bytes. Each backup matched its installed source by SHA-256.
+- Task definition: 1,895 bytes. The action matched the paused installed task and the principal SID
+  matched the current Windows user. The initial diagnostic incorrectly tried to translate that SID
+  as an account name and failed; reading it as a SID passed without changing the task.
+- Task Disabled, Enabled=False; listener count on 37777 was zero; observable RuneLite process count
+  was zero. The unassigned legacy database was not copied, opened, assigned or changed by this review.
+
+After review, the user confirmed INSTALL. Exact reported build/install ending:
+
+```text
+BUILD SUCCESSFUL in 5s
+8 actionable tasks: 8 up-to-date
+Built C:\Users\Antonio\OSRS Flipping Friend Rebuild\build\libs\osrs-flipping-friend.jar (384.1 KB)
+Companion ready (accounts-v1).
+Update applied. Both installed JARs verified. Restart RuneLite to pick up plugin changes.
+Press any key to continue . . .
+```
+
+Agent read-only post-install verification used `tools/status.ps1`, then
+`tools/run-dev.ps1 -CheckOnly`, plus installed/build JAR hash comparison. Exact output:
+
+```text
+FLIPPING FRIEND - STATUS
+Plugin: present
+Installed companion: present
+Pair manifest: present
+Companion credential: present
+Saved RuneLite login: present
+Companion task: Running
+Task checkout: C:\Users\Antonio\OSRS Flipping Friend Rebuild
+Installed pair verified; companion responds with accounts-v1 (READY or DEGRADED).
+Overall status: PAIR VERIFIED / COMPANION RESPONDING
+The read-only pipeline check after login reports account coverage and market freshness.
+STATUS_EXIT=0
+RuneLite 1.13.1 and the installed plugin API match; cached artifacts verified.
+Compatibility check passed. No client started and no files changed.
+COMPATIBILITY_EXIT=0
+INSTALLATION_BACKUP=C:\Users\Antonio\.runelite\osrs-flipping-friend\backups\20261013-220953-f1ad1d84
+Plugin INSTALLED_BYTES=393350 MATCHES_VERIFIED_BUILD=True
+Companion INSTALLED_BYTES=17722571 MATCHES_VERIFIED_BUILD=True
+POST_INSTALL_REVIEW=PASS (no client launched; no game input)
+```
+
+**Pipeline-check output: not run after this install; awaiting user login.** Build and backup/paired
+installation checks have passed for the observed sources. Login, known-cost holding, partial buy,
+cancel/collect, full sale/restart and any reconciliation message remain unobserved. The next user step
+is `2 - Start Flipping Friend.bat` and manual login without making GE changes yet. Then run the
+read-only pipeline check with `-SkipBuild` (the standard build already passed) and proceed one
+manual checklist case at a time. Do not edit database/account records to clear a warning.
 
 ### RuneLite login freeze continuation — 13 October 2026 (source verified; live retest pending)
 
