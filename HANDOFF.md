@@ -10,6 +10,12 @@ Source commit `fe8e72c3170659923570f2f83954baa27d04f6f1` on `codex/automatic-tra
 remains `0cb8ef8`; required `ee0d3aff` ancestor check exits 0. Regression-first commit `b25a358`
 reproduces three existing personal adoption/recount failures before production changes.
 
+Final source follow-ups: `1515fc3` corrects UTF-8 text with a failing-before-fix regression.
+`1275bd7` reproduces delayed sell guidance writing under a newly selected account;
+`b07f9cfd0809912726e3da86e94c8ae12014e43a` binds both intent creation and resumption to the
+client-captured offer account. Final clean verification below includes both fixes; all original
+account/offer observation regressions still pass. Final log: `.gradle/automatic-scope-final-account-clean.log`.
+
 The current source replaces routine item classification with remaining quantities from accepted
 purchase/sale deltas in the existing durable account event ledger. Source-free personal snapshots
 never enroll belongings; matching an item name/history alone is insufficient. The automatic view
@@ -36,24 +42,24 @@ verification. Existing local journal/calibration and realized session-risk input
 migration; unrealized risk marking now uses the same managed trade quantities. No profitability,
 feature-parity or learned-policy promotion claim is made.
 
-Verification on this Windows PC (14 October, approximately 08:24 AKDT):
+Verification on this Windows PC (14 October, 16:37:24 UTC):
 
 ```text
 RuneLite process count: 0
 .\gradlew.bat clean test jar :companion:shadowJar --console=plain
 BUILD SUCCESSFUL in 28s
 18 actionable tasks: 18 executed
-CLEAN_BUILD_EXIT=0
-Root: 501 tests, 0 failures, 0 errors, 0 skips
+FINAL_CLEAN_BUILD_EXIT=0
+Root: 502 tests, 0 failures, 0 errors, 0 skips
 Core: 166 tests, 0 failures, 0 errors, 0 skips
 Companion: 555 tests, 0 failures, 0 errors, 6 skips
-Total: 1,216 passed, 6 skipped, 0 failures/errors
+Total: 1,217 passed, 6 skipped, 0 failures/errors
 python -m unittest discover -s tools/tests -v
 Ran 48 tests in 80.074s
 OK
 PYTHON_EXIT=0
-Plugin JAR: 418,380 bytes
-Companion JAR: 17,753,148 bytes
+Plugin JAR: 418,626 bytes
+Companion JAR: 17,753,394 bytes
 Project class bytecode major version: 55 (Java 11), both JARs
 ```
 
@@ -75,7 +81,7 @@ Supported build (windows-latest): completed / success
 Workflow: completed / success
 ```
 
-A final follow-up corrects Windows text encoding after a new failing regression demonstrates
+The follow-up corrects Windows text encoding after a new failing regression demonstrates
 UTF-8 mojibake in edited comments/documentation. It preserves the source behavior above, uses
 explicit UTF-8 for text edits and rechecks the standard build. Its exact-head CI must also pass
 before merge; keep PR #40 unmerged until owner approval. The checkout remains on the clean,
