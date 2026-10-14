@@ -3,6 +3,82 @@
 Updated 14 October 2026 (America/Anchorage). Read this with [AGENTS.md](AGENTS.md) and
 [TASKS.md](TASKS.md) before continuing implementation.
 
+## Automatic trade scope source implementation — 14 October 2026
+
+Source commit `fe8e72c3170659923570f2f83954baa27d04f6f1` on `codex/automatic-trade-scope`, based on rebuilt/default
+`5ac9704` after design PR #39 merged with both exact-head CI checks passing. Historical `main`
+remains `0cb8ef8`; required `ee0d3aff` ancestor check exits 0. Regression-first commit `b25a358`
+reproduces three existing personal adoption/recount failures before production changes.
+
+The current source replaces routine item classification with remaining quantities from accepted
+purchase/sale deltas in the existing durable account event ledger. Source-free personal snapshots
+never enroll belongings; matching an item name/history alone is insufficient. The automatic view
+is read-only and ephemeral, not a third saved position book. Ledger schema 2 supplies these positions
+and incomplete/uncertain evidence rows to the plugin; future observed executions use the same view
+for accounting. No past sale profit/tax, legacy position projection or account database is rewritten.
+Known unresolved costs, actual RECONCILE executions and ERROR offers still block unsafe entries.
+
+The adoption setting, Review holdings panel and Not holding this control are removed. Old data and
+saved preferences are preserved. Holding and unsolicited exits use fresh durable trade quantities;
+pending delivery or old/unavailable ledger data has no local runtime ownership fallback. Unknown
+cost remains unknown in actual manual sell maintenance. The player-selected sell editor receives
+fresh item/quantity price guidance, cleared on close, buy setup, unsupported price, missing stock,
+stale/future market data and account transition. Opening the editor records no execution. An exact
+sell-offer reprice intent survives restart and waits for observed cancel/collect before offering a
+fresh relist capped to the unsold remainder. It relies on the existing 12-hour collected-offer proof;
+missing proof never creates collection or disposal. All game actions remain manual.
+
+Missed flips opens a separate read-only table of recorded update dates, quantities, gross proceeds,
+tax/profit ranges or Unavailable, and evidence reasons. Routine personal snapshots are absent.
+Legacy known-cost snapshots without acquisition proof are labelled legacy records, not current
+physical inventory. The main sidebar rendering was inspected in `build/ui/no-clipping.png` during
+verification. Existing local journal/calibration and realized session-risk inputs still require
+migration; unrealized risk marking now uses the same managed trade quantities. No profitability,
+feature-parity or learned-policy promotion claim is made.
+
+Verification on this Windows PC (14 October, approximately 08:24 AKDT):
+
+```text
+RuneLite process count: 0
+.\gradlew.bat clean test jar :companion:shadowJar --console=plain
+BUILD SUCCESSFUL in 28s
+18 actionable tasks: 18 executed
+CLEAN_BUILD_EXIT=0
+Root: 500 tests, 0 failures, 0 errors, 0 skips
+Core: 166 tests, 0 failures, 0 errors, 0 skips
+Companion: 555 tests, 0 failures, 0 errors, 6 skips
+Total: 1,215 passed, 6 skipped, 0 failures/errors
+python -m unittest discover -s tools/tests -v
+Ran 48 tests in 80.074s
+OK
+PYTHON_EXIT=0
+Plugin JAR: 418,380 bytes
+Companion JAR: 17,753,148 bytes
+Project class bytecode major version: 55 (Java 11), both JARs
+```
+
+Behavior checks cover saved adoption settings, personal extra quantities, observed buys, partial
+sales, mixed tracked/untracked sales, duplicate delivery, restart recovery, safe historical gaps,
+unsafe current exposure, canonical UI/exit ownership, selected sell context, fresh quote guards,
+account-scoped relist intent, and read-only Missed flips. Intermediate failing logs remain under
+`.gradle/automatic-scope-*` outside build; the entry presenter source hash was updated only for the
+intentional profit-availability field, with its authority assertions preserved.
+
+**Runtime remains installed PR #37 (`49934e44`), not this source revision.** No installer was run,
+no service was stopped, no game input was sent, and no live database was opened or modified during
+this implementation. Pipeline output for this new pair is **not observed / pending installation**.
+The previous live WAIT/UNAVAILABLE faults remain historical evidence and are not presumed cleared.
+The PR #31 live checklist remains incomplete; this source verification does not complete it.
+
+Next owner-operated acceptance: after source PR checks and review, use the numbered paired Update
+wrapper, display/review its fresh backup, and wait for uppercase INSTALL before installation. Then
+Start/login manually and perform one announced step at a time: GET-only pipeline; compact panel and
+Missed flips; price for a selected personal-item sell without executing it; quote withdrawal on
+close/item/account change; a small controlled observed buy/sell; partial cancel/collect/relist and
+restart replay. Record actual dates/revision/pipeline output/outcomes without editing live rows.
+If an existing fault prevents any check, preserve the exact output and reproduce the bug before a
+new source fix. Completion/merge of the final live acceptance record still needs owner approval.
+
 ## Current source and branch
 
 Active development and the GitHub default branch are **`CoPilot's-Rebuild-from-Main`**.
@@ -181,7 +257,7 @@ PR checks for the final remote outcome; the first run is retained as failure evi
 
 ## Verification and continuation
 
-### Workflow correction — 14 October 2026 (direction accepted; replacement not implemented)
+### Workflow correction â€” 14 October 2026 (direction accepted; replacement not implemented)
 
 The owner rejected routine player classification and main-panel clutter. The new target is
 [automatic trade scope and player-started sales](docs/architecture/automatic-trade-scope.md):
@@ -205,7 +281,7 @@ No new runtime test, installation, game input, account-file change or database o
 Pause the routine classification retest and the standalone PR #38 update instruction while
 preparing the replacement workflow; PR #38's observation safeguards remain required in that build.
 
-### PR #38 merged; paired update still pending — 14 October 2026, 01:41 AKDT
+### PR #38 merged; paired update still pending â€” 14 October 2026, 01:41 AKDT
 
 Current rebuild source: `9a4c1ec8f8f2a05d34072c0f5e6cf6cbd34434ab` (PR #38).
 Both [final-head CI checks at `84159c6a421fcb93911efaba0448374cccd0715b`](https://github.com/antonioditcharo/OSRS-Flipping-Friend/actions/runs/38543697812)
@@ -238,7 +314,7 @@ Controlled known-cost holding/no-open-buy, partial fill, cancel/collect and full
 remain pending. Do not mark the overall acceptance complete; its completed record still requires
 the owner's merge approval.
 
-### Offer observation boundary — 14 October 2026 (source verified; not installed)
+### Offer observation boundary â€” 14 October 2026 (source verified; not installed)
 
 Base: fetched rebuild `49934e44590e0a484e0ddbd4857179102b03bdc2`; branch
 `codex/offer-observation-boundary`. Regression commit `b8c679f` preceded implementation
@@ -331,7 +407,7 @@ been observed as saved. Continue read-only evidence and the authoritative reconc
 under the owner's database rule; preserve physical holdings, active offers and unresolved history.
 Controlled manual partial-fill/cancel/collect/full-sale/restart acceptance remains incomplete.
 
-### Review panel visible; fresh lifecycle faults — 14 October 2026, 01:02 AKDT
+### Review panel visible; fresh lifecycle faults â€” 14 October 2026, 01:02 AKDT
 
 Installed source remains rebuild `49934e44590e0a484e0ddbd4857179102b03bdc2` (PR #37).
 On documentation branch `codex/stock-review-live-verification` at `882825915be66cb3db4df08ee35582abf6c02907`,
@@ -368,7 +444,7 @@ Panel visibility is user-reported; saving reviews and post-review planning remai
 Known-cost holding/no-open-buy, partial buy, cancel/collect and full sale/restart acceptance remain
 pending. The overall PR #31 acceptance checklist is incomplete.
 
-### Stock-review pair installed — 14 October 2026 checkpoint (player login/review pending)
+### Stock-review pair installed â€” 14 October 2026 checkpoint (player login/review pending)
 
 Installed source: rebuild `49934e44590e0a484e0ddbd4857179102b03bdc2` (PR #37).
 Both [final Windows/Linux checks at `0e38e070`](https://github.com/antonioditcharo/OSRS-Flipping-Friend/actions/runs/38527042939)
@@ -429,7 +505,7 @@ not yet run.** Login/review controls, post-review plan availability, known-cost 
 partial fills, cancel/collect and full sale/restart acceptance remain unverified. The update itself
 does not classify records or establish new-buy readiness or historical profit.
 
-### Unpriced stock review workflow — 13 October 2026 (source implemented; live retest pending)
+### Unpriced stock review workflow â€” 13 October 2026 (source implemented; live retest pending)
 
 Base: rebuild `cb203a834401d4e32cc5791d07f0ade37df80d61`; branch `codex/stock-review-workflow`.
 Regression commit `932ab1fda5717cfbe455b3fc449ce0d000362d33` preceded implementation
@@ -496,7 +572,7 @@ by the player in the new panel after a supported paired update and a fresh backu
 the conversation's classifications directly into live files. Recheck pipeline output after review,
 then continue each controlled manual checklist case. Unknown historical profit remains unknown.
 
-### Live login and blocked buy advice — 13 October 2026, 22:27–22:29 AKDT
+### Live login and blocked buy advice â€” 13 October 2026, 22:27â€“22:29 AKDT
 
 Runtime source remains `cb203a834401d4e32cc5791d07f0ade37df80d61`; documentation branch
 `codex/pr31-live-verification`. The user reported login was working enough to recommend sells for
@@ -551,7 +627,7 @@ full sale/restart and conservation remain untested. Reconciliation blockers have
 read-only. Do not mark the overall live checklist complete. Review source workflow fixes separately
 from final acceptance; the completed acceptance record still requires the owner's merge approval.
 
-### Compatible pair installed — 13 October 2026, after the 22:09 backup (login still pending)
+### Compatible pair installed â€” 13 October 2026, after the 22:09 backup (login still pending)
 
 Installed source revision: `cb203a834401d4e32cc5791d07f0ade37df80d61` on the rebuild branch.
 PR #36 merged after both [Windows/Linux checks on final revision `10d1a4bc`](https://github.com/antonioditcharo/OSRS-Flipping-Friend/actions/runs/38519989011)
@@ -617,7 +693,7 @@ is `2 - Start Flipping Friend.bat` and manual login without making GE changes ye
 read-only pipeline check with `-SkipBuild` (the standard build already passed) and proceed one
 manual checklist case at a time. Do not edit database/account records to clear a warning.
 
-### RuneLite login freeze continuation — 13 October 2026 (source verified; live retest pending)
+### RuneLite login freeze continuation â€” 13 October 2026 (source verified; live retest pending)
 
 Base `6411f800e9a56d37de5dbd3b3194061ae262e910`; work branch `codex/runelite-login-classpath`.
 Implementation `3ae5386d264d0a7055441033cf5709ed1271908f` was verified at source/documentation revision
@@ -719,7 +795,7 @@ by this troubleshooting; the explicit live configuration change was retirement o
 and restart acceptance checks remain unperformed. Continue the checklist after compatible paired
 installation and user-performed login; the read-only companion status is not proof of these outcomes.
 
-### Backup review continuation — 13 October 2026
+### Backup review continuation â€” 13 October 2026
 
 Base `cb2c1d2dac01865374108339fbd1fcee43ee0093`; implementation
 `2b1f38d88256af35be5858ec7dbeb7c5c35978c3` on `codex/plugin-account-backup`.
@@ -767,7 +843,7 @@ installation is still awaiting the user's INSTALL confirmation. **Pipeline-check
 (installation remains paused). Login, known-cost holding, partial buy, cancel/collect, full sale and
 restart checks remain unperformed. No live planner/accounting success is claimed.
 
-### Setup/re-setup/start continuation — 13 October 2026
+### Setup/re-setup/start continuation â€” 13 October 2026
 
 Base `7b98a19bf288ab259bb275c2efaf2669028b9482`; implementation
 `b5ea293686820d97df6f45e917cffb8efaf6741c` on `codex/paired-setup-start`. Regression commit `2d629cd`

@@ -21,7 +21,7 @@ are in `docs/project-direction.md`; historical package notes are not proof of ru
   the observed sell offer through completion. Unknown acquisition cost/profit stays unknown.
   Put incomplete trade evidence in a separately opened Missed flips window, preserving live
   exposure guards and account data. See `docs/architecture/automatic-trade-scope.md` for the target
-  workflow and regression gate; it is not yet implemented.
+  workflow and regression gate. Source implementation is present; paired installation and live acceptance remain pending.
 - Keep account-scoped API/database isolation intact. The old unscoped database is preserved and
   unassigned; do not infer its owner or merge it into a live account. One authoritative ledger
   for the planner, exits, UI, and reporting remains the next prerequisite for strategy tuning.

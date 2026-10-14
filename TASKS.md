@@ -9,17 +9,19 @@
       local records and must migrate with positive reconciliation evidence.
 
 ## Next
-- [ ] Replace routine holdings review/adoption with automatic trade scope and player-started sale
-      guidance, as requested 14 October. Accepted contract: docs/architecture/automatic-trade-scope.md.
-      Match outstanding quantities/provenance from observed buys, including manual buys; keep personal
-      extras independent. Recommend an external owned item's price only when selected in sell setup,
-      then maintain the actual sell offer. Unknown cost/profit remains unavailable. Add a separately
-      opened Missed flips window backed by scoped row-level ledger evidence. Migrate the active planner,
-      exits, maintenance and holding UI coherently; do not introduce another ledger or bypass unbounded
-      active exposure. Reproduce old workflow with behavior tests before source changes. Source/UI
-      replacement is not implemented yet; current installed/source records remain unchanged.
-      Earlier personal/no-longer-held classification retests and standalone PR #38 update instruction
-      below are superseded as the immediate next step; preserve their historical evidence.
+- [ ] Install and live-verify automatic trade scope from `codex/automatic-trade-scope`.
+      Regression-first commit `b25a358` reproduces three adoption/recount failures before code changes.
+      Source now tracks remaining accepted acquisition quantities in the existing durable event
+      ledger, preserves old records, removes adoption/review/dismiss controls, quotes a player-selected
+      sell setup and maintains unknown-cost actual sell offers without inventing profit. Exact-offer
+      cancel/collect/relist guidance survives restart; Missed flips is a separately opened read-only
+      evidence table. Scope API schema 2 is understood by the plugin and pipeline checker.
+      Personal snapshots and unrelated unpriced sales do not require player classification; real
+      execution/offer faults and unresolved known-cost exposure remain protected. Installed runtime
+      is still PR #37 (`49934e44`); no installation, database editing or game action occurred here.
+      Final clean verification and GitHub checks are recorded in HANDOFF.md. Next: reviewed paired
+      update, GET-only pipeline, then owner-operated sell editor/partial fill/restart acceptance.
+      Do not claim these source tests completed the PR #31 live checklist or cleared existing faults.
 
 - [ ] Continue account reconciliation after the 14 October lifecycle-fault diagnosis. Source branch
       `codex/offer-observation-boundary` from rebuild `49934e44` reproduces five observation-boundary
