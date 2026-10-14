@@ -50,6 +50,11 @@ public class TradeUiRenderingTest {
         BufferedImage withoutDuplicateHints=render(client,resolver,guide,cardOnly);
         assertArrayEquals("The visible instruction card already carries the numbers; editor hints must not overprint it",
             withoutDuplicateHints.getRGB(0,0,1100,600,null,0,1100), mismatch.getRGB(0,0,1100,600,null,0,1100));
+        when(client.getVarpValue(VarPlayerID.TRADINGPOST_SEARCH)).thenReturn(4151);
+        BufferedImage personalItem=render(client,resolver,guide,config);
+        assertEquals("A personal item must still explain the right-click override on the locked button",
+            mismatch.getRGB(380,393), personalItem.getRGB(380,393));
+        when(client.getVarpValue(VarPlayerID.TRADINGPOST_SEARCH)).thenReturn(561);
         Path output=Path.of("build","ui"); Files.createDirectories(output);
         ImageIO.write(mismatch,"png",output.resolve("trade-ui-mismatch.png").toFile());
         when(client.getVarbitValue(VarbitID.GE_NEWOFFER_QUANTITY)).thenReturn(10);
