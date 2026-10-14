@@ -19,7 +19,9 @@
       Personal snapshots and unrelated unpriced sales do not require player classification; real
       execution/offer faults and unresolved known-cost exposure remain protected. Installed runtime
       is still PR #37 (`49934e44`); no installation, database editing or game action occurred here.
-      Final clean verification and GitHub checks are recorded in HANDOFF.md. Next: reviewed paired
+      Final clean verification and GitHub checks are recorded in HANDOFF.md. PR #40 is open;
+      Ubuntu/Windows checks passed at 16222f0 (run 38598173659). The final UTF-8 follow-up
+      must also pass both checks; merge remains subject to owner approval. Next: reviewed paired
       update, GET-only pipeline, then owner-operated sell editor/partial fill/restart acceptance.
       Do not claim these source tests completed the PR #31 live checklist or cleared existing faults.
 

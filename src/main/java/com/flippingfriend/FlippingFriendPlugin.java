@@ -62,8 +62,8 @@ import org.slf4j.LoggerFactory;
  * <p>
  * The division of labour is strict, because getting it wrong in a RuneLite plugin produces
  * intermittent client freezes. Anything that reads live game state runs on the client thread and
- * does nothing but copy that state into plain objects. Anything that thinks â€” scoring thousands of
- * items, fetching prices, computing history â€” runs on a background executor against those copies.
+ * does nothing but copy that state into plain objects. Anything that thinks — scoring thousands of
+ * items, fetching prices, computing history — runs on a background executor against those copies.
  * Anything that draws runs on the Swing thread.
  * <p>
  * The plugin only ever reads from the game and paints on top of it. It sends no input of any kind.
@@ -349,7 +349,7 @@ public class FlippingFriendPlugin extends Plugin
 
 		// The account refresh runs on the client thread, so it has to complete before the engine
 		// recomputes. Firing both at once meant the new suggestion was calculated against the slot
-		// count and committed capital from *before* the offer was placed â€” which is how the panel
+		// count and committed capital from *before* the offer was placed — which is how the panel
 		// ended up repeating an instruction the player had already carried out.
 		refreshAccountState(this::requestEngineRefresh);
 	}
@@ -412,7 +412,7 @@ public class FlippingFriendPlugin extends Plugin
 	}
 
 	/**
-	 * The heartbeat. Runs off the client thread, so it must never touch the client directly â€” the
+	 * The heartbeat. Runs off the client thread, so it must never touch the client directly — the
 	 * one thing it does need from the game is pushed to it by {@link #refreshAccountState()}.
 	 */
 	@Schedule(period = 2, unit = ChronoUnit.SECONDS, asynchronous = true)
@@ -486,7 +486,7 @@ public class FlippingFriendPlugin extends Plugin
 	 * Keeps the position book in step with what the account actually holds.
 	 * <p>
 	 * Only what the plugin bought is tracked. Opening your bank must not turn its contents into
-	 * flipping stock â€” a bank is gear, supplies and long-term holdings, and quietly deciding to
+	 * flipping stock — a bank is gear, supplies and long-term holdings, and quietly deciding to
 	 * sell it would be both wrong and alarming. Bank contents are still <em>read</em>, because a
 	 * position the plugin bought and then banked still needs to be sellable, but they never
 	 * enroll pre-existing belongings as new trade positions.

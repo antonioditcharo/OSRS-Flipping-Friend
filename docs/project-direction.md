@@ -170,7 +170,7 @@ remote results are distinct from this local verification. Building both JARs doe
 RuneLite compatibility, feature parity, or profitability. This change does not install the candidate
 build into the game.
 
-## Durable profit continuation â€” 11 October 2026
+## Durable profit continuation — 11 October 2026
 
 The [durable sale ledger](architecture/durable-profit-ledger.md) closes the missing-proceeds portion
 of the initial assessment: accepted sale updates now store gross proceeds, removed cost, recorded
@@ -180,7 +180,7 @@ session measurement. Planner exposures, exits, inventory UI, calibration, and se
 require migration, so the broader single-authority exit gate remains open. Initial findings and
 verification counts above describe their original revisions.
 
-## Automatic stock and sale workflow â€” 14 October 2026
+## Automatic stock and sale workflow — 14 October 2026
 
 The owner corrected the product direction: routine inventory management belongs in automatic
 execution tracking. Personal belongings must not be adopted into trading stock or generate
