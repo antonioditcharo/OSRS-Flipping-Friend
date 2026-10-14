@@ -334,6 +334,7 @@ public interface FlippingFriendConfig extends Config
 		keyName = "showOnboarding",
 		name = "Show the intro card",
 		description = "Show the short explanation of what flipping is at the top of the panel.",
+		hidden = true,
 		position = 4,
 		section = advancedSection
 	)
