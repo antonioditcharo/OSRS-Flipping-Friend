@@ -10,8 +10,8 @@ Active development and the GitHub default branch are **`CoPilot's-Rebuild-from-M
 include the work below. Start a new `codex/` branch from the current remote rebuild branch.
 Do not reset or force-push the historical branches to make them look current.
 
-The latest runtime implementation is merge commit `6b4140109de6a63d93614740c87b32f72cfe171d` (PR #31).
-This handoff changes documentation and repository discoverability; it adds no runtime features.
+The latest trading-runtime implementation is merge commit `6b4140109de6a63d93614740c87b32f72cfe171d` (PR #31).
+The update-tooling continuation below does not add trading or learning features.
 
 | Merged work | Result | Merge commit |
 | --- | --- | --- |
@@ -104,16 +104,73 @@ account database or RuneLite**. Complete this before relying on it for trading.
 6. **Record results** here and in TASKS.md: date, revision, pipeline-check output, and each check's
    outcome. Any failure must first be reproduced as an automated regression test before a fix.
 
-**Rollback:** stop both processes and reinstall the backed-up JARs. Restore the account directory
-backup only if the database itself was damaged, and record that it was restored.
+**Rollback:** stop both processes and reinstall the backed-up JARs. Under the owner's database
+handling rule, do not restore, edit, move, migrate, or repair account databases or the unassigned
+legacy database. Record any suspected database problem and investigate read-only.
 
 Still untested after this checklist: concurrent read/write interleaving and a full live-market
 service test. Cash, committedCoins, preferences, and session risk remain client-snapshot inputs.
 
+## 13 October 2026 checkpoint and update-tooling continuation
+
+Development base: `ee0d3aff4ee8d83f7806358204d48e7af33f2597`, containing PR #31. The primary Windows
+checkout was on the rebuild branch, clean and equal to origin after fetching. Historical `main`
+at `0cb8ef8` was preserved. The three untracked historical dashboard directories were moved with
+`Move-Item` to the sibling `OSRS-Flipping-Friend-dashboard-backup-20261013-154616` directory;
+32,634 files / 950,774,032 bytes matched before and after. This is not an installation/account backup.
+
+| Live checklist check | Observed outcome |
+| --- | --- |
+| Build at `ee0d3aff` | PASS: 1,163 Java tests passed, six skipped, zero failures/errors; both supported JARs built; eight Python importer tests passed. |
+| Stop and back up installed components/accounts | NOT PERFORMED. Read-only preparation found RuneLite running, no listener on 37777, and a disabled `FlippingFriendCompanion` task configured for the older `.claude/worktrees/plugin-trade-recommendations-profit-a27519` checkout. The expected scoped accounts directory was absent. |
+| Install both JARs through the numbered wrapper | NOT PERFORMED. Task configuration does not select this checkout's companion. No task or installed JAR was changed. |
+| Start/login and run `tools/pipeline-check.ps1` | NOT RUN. There is no pipeline-check output for this checkpoint; no live success is claimed. |
+| Known-cost holding permits advice for other items | NOT OBSERVED. |
+| Partial buy counts held cost plus only unfilled reservation | NOT OBSERVED. |
+| Cancel/complete and collect removes the reservation | NOT OBSERVED. |
+| Full sale and restart cannot resurrect sold stock | NOT OBSERVED. |
+| Read-only identification of any reconciliation message | NOT OBSERVED. No live database was opened or changed. |
+
+The missing expected accounts directory does not establish whether account data exist elsewhere.
+Locate backup sources read-only before any installation; preserve the unassigned legacy database
+and never infer its account owner. The existing task is still disabled and points to its old checkout.
+
+After the owner authorized autonomous development, branch `codex/update-task-checkout-safety`
+reproduced the updater faults before production changes. Test commit `b9d5fdb` ran the actual script
+against disposable files and mocked process/task/network commands: four failures, two positive
+controls passing. The old script replaced the plugin before rejecting a disabled task or missing
+companion JAR; a task for another checkout or JAR could answer health and report "Update applied."
+A separate regression also reproduced unset `JAVA_HOME` preventing the promised PATH fallback.
+
+Implementation revision `152db838700579eabf208d4589193c9d47be3994` changes `tools/apply-update.ps1`:
+
+- Validate an existing root-folder companion task before stopping/building, and again before copying:
+  it must be enabled, have one existing Java executable action, and name this checkout and companion JAR.
+- Accept the supported installer's optional heap limit and single JAR argument; reject extra arguments
+  that might select another data location. Unreadable task enumeration aborts rather than falling back.
+- Require both supported JAR files before replacing the installed plugin. Use a literal source path.
+- Preserve the direct hidden Java launch when no companion task exists; do not enable or retarget an old task.
+- Allow Java discovery through PATH when `JAVA_HOME` is unset.
+
+Seven behavior tests now cover invalid tasks/artifacts and valid scheduled/direct launches, including
+paths with spaces and missing `JAVA_HOME`. They mock every process, scheduled-task and HTTP operation
+used by the updater and run in temporary folders. CI runs these with the existing Python discovery
+command on Windows/Linux. These tests do not certify real Task Scheduler, RuneLite or account behavior.
+Task reconfiguration after the final validation and runtime binary identity remain unverified.
+The first [PR #33 CI run](https://github.com/antonioditcharo/OSRS-Flipping-Friend/actions/runs/38497703500)
+passed Linux but failed the Windows harness's fixture-path boundary check. The fixture now resolves
+temporary path aliases before invoking PowerShell; all 15 tests passed locally again. Use the latest
+PR checks for the final remote outcome; the first run is retained as failure evidence.
+
 ## Verification and continuation
 
-The last supported local build passed 1,147 Java tests with six capture-dependent skips, plus eight
-Python importer tests, and built both JARs. It used Windows/JDK 23, Gradle 8.14, and RuneLite 1.12.39.
+The 13 October local verification at implementation revision `152db838700579eabf208d4589193c9d47be3994`
+passed 1,163 Java tests with six capture-dependent skips (1,169 total, 306 suites), zero failures/errors,
+plus 15 Python tests, and built both JARs. It used Windows/JDK 23, Gradle 8.14, and RuneLite 1.12.39.
+Exact Gradle ending: `BUILD SUCCESSFUL in 45s`, `18 actionable tasks: 18 executed`, exit 0.
+Exact Python ending: `Ran 15 tests in 6.395s`, `OK`, exit 0. Local complete logs are
+`.gradle/update-task-final-gradle.log` and `.gradle/update-task-final-python.log` (gitignored).
+The seven updater cases also passed under PowerShell 7; the numbered wrapper uses Windows PowerShell.
 [Post-merge CI for the runtime revision](https://github.com/antonioditcharo/OSRS-Flipping-Friend/actions/runs/38197169733)
 passed on Windows and Linux with JDK 21. Compilation targets Java 11.
 

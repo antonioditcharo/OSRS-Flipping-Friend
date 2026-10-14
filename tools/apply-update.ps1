@@ -15,10 +15,54 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
+$taskName = 'FlippingFriendCompanion'
+$built = Join-Path $root 'build\libs\osrs-flipping-friend.jar'
+$companionBuilt = Join-Path $root 'companion\build\libs\flipping-friend-companion.jar'
+
+function Normalize-AbsolutePath([string] $path) {
+    if (-not $path -or -not [IO.Path]::IsPathRooted($path)) {
+        throw 'Scheduled companion task must use absolute checkout and JAR paths.'
+    }
+    return [IO.Path]::GetFullPath($path).TrimEnd([char[]]@('\', '/'))
+}
+
+function Get-ValidatedCompanionTask {
+    # Enumerate the root task folder so absence is normal, but an unreadable task store fails closed.
+    $tasks = @(Get-ScheduledTask -TaskPath '\' -ErrorAction Stop |
+        Where-Object { $_.TaskName -eq $taskName })
+    if ($tasks.Count -eq 0) { return $null }
+    if ($tasks.Count -ne 1) { throw 'Multiple companion tasks found; update was not applied.' }
+    $candidate = $tasks[0]
+    if ($candidate.State -eq 'Disabled' -or $candidate.Settings.Enabled -eq $false) {
+        throw 'The companion scheduled task is disabled; update was not applied. Review its configuration before updating.'
+    }
+    $actions = @($candidate.Actions)
+    if ($actions.Count -ne 1) { throw 'Companion task must have exactly one Java action; update was not applied.' }
+    $action = $actions[0]
+    if ((Normalize-AbsolutePath $action.WorkingDirectory) -ne (Normalize-AbsolutePath $root)) {
+        throw "Companion task points to a different checkout; update was not applied. Expected: $root"
+    }
+    # Accept the supported installer action (optional heap limit, then one quoted or bare JAR).
+    # Extra application arguments could change the data location and are deliberately rejected.
+    if ($action.Arguments -notmatch '^\s*(?:-Xmx[1-9][0-9]*[kKmMgG]\s+)?-jar\s+(?:"(?<quoted>[^"]+)"|(?<bare>\S+))\s*$') {
+        throw 'Companion task has unsupported Java/JAR arguments; update was not applied.'
+    }
+    $jar = if ($Matches['quoted']) { $Matches['quoted'] } else { $Matches['bare'] }
+    if ((Normalize-AbsolutePath $jar) -ne (Normalize-AbsolutePath $companionBuilt)) {
+        throw "Companion task points to a different JAR; update was not applied. Expected: $companionBuilt"
+    }
+    $executable = Normalize-AbsolutePath $action.Execute
+    if ([IO.Path]::GetFileName($executable) -notmatch '^javaw?\.exe$' -or
+        -not (Test-Path -LiteralPath $executable -PathType Leaf)) {
+        throw 'Companion task must use an existing Java executable; update was not applied.'
+    }
+    return $candidate
+}
 
 function Find-Java {
-    $candidates = @(
-        (Join-Path $env:JAVA_HOME 'bin\java.exe'),
+    $candidates = @()
+    if ($env:JAVA_HOME) { $candidates += Join-Path $env:JAVA_HOME 'bin\java.exe' }
+    $candidates += @(
         (Get-Command java -ErrorAction SilentlyContinue).Source,
         'C:\Program Files\Java\jdk-23\bin\java.exe'
     )
@@ -70,6 +114,8 @@ function Stop-Ours([string] $match, [string] $label) {
 }
 
 $java = Find-Java
+# Reject a disabled or foreign-checkout task before stopping processes, building, or copying files.
+$task = Get-ValidatedCompanionTask
 Write-Host 'Flipping Friend - applying update'
 Write-Host ''
 
@@ -103,16 +149,14 @@ if (-not $SkipBuild) {
     Write-Host '  build ok'
 }
 
-# 3. Install the plugin where RuneLite will look for it.
-$built = Join-Path $root 'build\libs\osrs-flipping-friend.jar'
+# 3. Require both artifacts and recheck task configuration before replacing the installed plugin.
+if (-not (Test-Path -LiteralPath $built -PathType Leaf)) { throw "Plugin jar not found at $built" }
+if (-not (Test-Path -LiteralPath $companionBuilt -PathType Leaf)) { throw "Companion jar not found at $companionBuilt" }
+$task = Get-ValidatedCompanionTask
 $installed = Join-Path $env:USERPROFILE '.runelite\sideloaded-plugins\osrs-flipping-friend.jar'
-if (-not (Test-Path $built)) { throw "Plugin jar not found at $built" }
 New-Item -ItemType Directory -Force -Path (Split-Path $installed) | Out-Null
-Copy-Item $built $installed -Force
+Copy-Item -LiteralPath $built -Destination $installed -Force
 Write-Host "  plugin installed ($((Get-Item $installed).Length) bytes)"
-
-$companionBuilt = Join-Path $root 'companion\build\libs\flipping-friend-companion.jar'
-if (-not (Test-Path $companionBuilt)) { throw "Companion jar not found at $companionBuilt" }
 
 # 4. Start the companion on the new build.
 $logDir = Join-Path $env:USERPROFILE '.runelite\osrs-flipping-friend\companion'
@@ -123,12 +167,11 @@ Write-Host 'Starting companion...'
 # Through the scheduled task where there is one, so the thing that owns the companion the
 # rest of the time is the thing that started it. A bare process here is restarted by the
 # task's hourly watchdog anyway, and then there are two of them racing for the port.
-$task = Get-ScheduledTask -TaskName 'FlippingFriendCompanion' -ErrorAction SilentlyContinue
 if ($task) {
-    Start-ScheduledTask -TaskName 'FlippingFriendCompanion'
+    Start-ScheduledTask -TaskName $taskName -TaskPath '\'
 } else {
     Start-Process -FilePath $java `
-        -ArgumentList '-jar', "`"$(Join-Path $root 'companion\build\libs\flipping-friend-companion.jar')`"" `
+        -ArgumentList '-jar', "`"$companionBuilt`"" `
         -WindowStyle Hidden `
         -RedirectStandardOutput (Join-Path $logDir 'companion.log') `
         -RedirectStandardError (Join-Path $logDir 'companion.log.err')
