@@ -15,6 +15,9 @@
       unperformed. The scheduled task is disabled and configured for another checkout; the expected
       scoped accounts directory is absent. Locate backup sources read-only before installation.
       The updater now rejects the bad task before changes; it does not repair live configuration.
+      The returning-user workflow is now `1b - Re-setup Existing Installation.bat`: close RuneLite,
+      review the generated backup before typing INSTALL, then launch/login and perform read-only
+      pipeline/manual checks. No live install was executed during development.
 
 - [ ] Finish manual cancel -> collect -> revalidate -> replace and partial-fill protection as a
       complete live workflow; migrate sell maintenance and exits to companion policies.
@@ -30,6 +33,16 @@
 - Historical session/cadence labels are unavailable. Do not infer them from execution timestamps.
 
 ## Done
+- Unified first setup, explicit returning-user re-setup, paired updates, start and status behind
+  the guarded installer. Backup review precedes confirmation/build/copies/task reconfiguration.
+  Installed companion is outside source build outputs; hash manifest blocks incomplete or altered
+  pairs. Everyday launch does not rebuild. Re-setup preserves saved login and refreshes the shortcut.
+- Tested failure, preservation, status and uninstall paths with 29 actual-script lifecycle tests;
+  all 37 Python tests passed. Standard build at `b5ea2936` passed 1,163 Java tests with six skips and
+  built both JARs. These are automated results; real setup, login and trading remain unverified.
+  Review added a reproducing task-registration guard regression (38 final Python tests) so setup
+  cannot report completion through direct launch when the configured task is unobservable.
+
 - Added actual-script updater regressions before fixes, using disposable files and mocked
   process/task/network boundaries. Reject disabled or foreign-checkout/JAR tasks before stopping
   or copying; require both artifacts before replacing the plugin; preserve the valid direct launch

@@ -1,7 +1,3 @@
-# Runs the local portfolio companion in the foreground. It only reads public market data and
-# accepts observations from the local RuneLite plugin; it never controls the game client.
+# Compatibility launcher for the verified installed pair. Developer source runs use Gradle explicitly.
 $ErrorActionPreference = 'Stop'
-$root = Split-Path -Parent $PSScriptRoot
-Set-Location $root
-
-& "$root\gradlew.bat" :companion:run --console=plain
+& "$PSScriptRoot\apply-update.ps1" -StartOnly

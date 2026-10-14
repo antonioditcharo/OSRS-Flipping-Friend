@@ -21,8 +21,9 @@ public class UninstallLifecycleBoundaryTest
                 Assert.assertTrue(uninstall.contains("sideloaded-plugins"));
                 Assert.assertTrue(uninstall.contains("osrs-flipping-friend.jar"));
                 Assert.assertTrue(uninstall.contains("Flipping Friend.lnk"));
-                Assert.assertTrue(uninstall.contains("Remove-Item $pluginJar"));
-                Assert.assertTrue(uninstall.contains("Remove-Item $shortcut"));
+                Assert.assertTrue(uninstall.contains("Remove-Item -LiteralPath $pluginJar"));
+                Assert.assertTrue(uninstall.contains("Remove-Item -LiteralPath $shortcut"));
+                Assert.assertTrue(uninstall.contains("installation.json"));
                 Assert.assertTrue(uninstall.contains("Preserved companion data"));
                 Assert.assertTrue(uninstall.contains("Preserved RuneLite login credentials"));
                 Assert.assertTrue(uninstall.contains("tools\\cleanup.ps1"));

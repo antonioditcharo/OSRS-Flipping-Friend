@@ -1,106 +1,87 @@
 # Start here
 
-Two files. Run them in order. That is the whole thing.
+Use these files from the **current rebuild folder**. An old desktop shortcut can still point to a
+previous checkout; re-setup replaces it after installing the current pair.
 
----
+| What you need | Double-click |
+| --- | --- |
+| First installation | `1 - First Time Setup.bat` |
+| Previously installed, moved checkout, disabled task, or old shortcut | `1b - Re-setup Existing Installation.bat` |
+| Everyday launch | `2 - Start Flipping Friend.bat` or the refreshed desktop shortcut |
+| Read-only diagnostics | `3 - Status.bat` |
+| Update after changing/pulling source | `4 - Update.bat` |
+| Remove installed components while retaining data | `5 - Uninstall.bat` |
 
-## The first time only
+## Setup or re-setup
 
-**Double-click `1 - First Time Setup`**
+1. Close every RuneLite window yourself. Setup never closes the game or performs any game action.
+2. Run `1` for a fresh installation or `1b` for an existing installation. Both use the same installer.
+   An existing saved login is reused without reading or displaying it. File presence does not prove
+   that the login is still valid. If there is no saved login, follow the manual login instructions.
+3. The installer stops the companion, pauses its existing task and creates a dated backup. It shows
+   every backed-up file's path and size. Review this output **before typing `INSTALL`**.
+4. After confirmation, it builds and installs **both** JARs, configures the companion task for this
+   checkout, verifies the installed pair and scoped health, and refreshes the desktop shortcut.
+5. Run `2 - Start`, log in yourself, and open the Flipping Friend coin panel. Use `3 - Status`, then
+   the read-only pipeline check below, before the manual checks in [HANDOFF.md](HANDOFF.md).
 
-It asks one question — whether you use the Jagex Launcher — and then walks you through the rest,
-opening the windows you need, building the plugin and companion, and checking each step worked.
+Run as your usual Windows user. If Windows refuses access to the old scheduled task, preserve the
+error output; running re-setup as administrator for that same user may be necessary. Do not use a
+different Windows account to work around it.
 
-At the end it puts a **Flipping Friend** shortcut on your desktop.
-Setup also installs the local companion that provides the supported new-buy portfolio planning.
+An installed JDK is needed to build; CI uses JDK 21 and local verification uses the existing JDK 23.
+The installer selects an available JDK from JAVA_HOME, Java's directory, or that existing JDK 23 path.
+It does not download a JDK or change system environment settings.
 
----
+## What is preserved
 
-## Every time you want to play
+Backups are under `%USERPROFILE%\.runelite\osrs-flipping-friend\backups\<date-and-id>\`. They contain
+the installed plugin, the prior companion JAR when found, the prior task configuration/manifest, and
+scoped account directories when present, including SQLite sidecar files. A prior desktop shortcut is
+also copied there before it is retargeted.
 
-**Double-click `Flipping Friend` on your desktop**
+Missing backup sources are reported as missing. Absence of the expected account directory does not
+prove data is absent elsewhere. The installer never assigns, imports, moves, repairs or deletes the
+unassigned `companion/flipping-friend.db`; it does not copy that legacy file into a live account.
+Saved RuneLite login credentials are retained. Account directories containing links are rejected.
 
-(or `2 - Start Flipping Friend` in this folder — same thing)
+If you decline, building fails, or a copy fails, the companion remains stopped and its task paused.
+Do not trade on a partly applied update. Preserve the output, resolve the cause, then run re-setup
+again. Backups remain available; never edit or restore databases to make the check pass.
 
-The game opens. Log in as normal. Then click the **gold coin icon** in the bar down the right-hand
-side of the RuneLite window.
+## Everyday start and updates
 
-That is it.
+`2 - Start` checks the installed pair, starts or reuses a healthy companion, then opens RuneLite.
+It does **not** rebuild or replace JARs. After fetching source changes, close RuneLite and use `4 - Update`.
+If the old task is disabled or belongs to another checkout, use `1b` instead of `4`.
 
----
+The companion runs from `...\osrs-flipping-friend\runtime\flipping-friend-companion.jar`, independently
+of the source `build/` folders. A later development build cannot replace that installed JAR.
+The task runs at logon and checks hourly while that Windows user is logged in. Re-setup uses an
+interactive limited principal; it does not promise operation before logon or after logout.
 
-## What you will see
+`3 - Status` is read-only and validates the JAR pair, task checkout and scoped health. A responding
+companion can still have a cold/degraded market cache; status is not proof of market freshness or
+correct live account accounting. After logging in, run this from PowerShell in the project folder:
 
-The panel tells you **one thing to do at a time**. Do that thing, and it tells you the next one.
+```powershell
+.\tools\pipeline-check.ps1 -SkipBuild
+```
 
-When you open the Grand Exchange it draws a **green box around whatever you should click**, and
-shows the exact price and quantity to type next to it. Every number has a **copy** button in the
-panel so you never have to type one out by hand.
+Record the output. It makes read-only requests and posts no synthetic trades. The in-game holding,
+partial buy, cancel/collect, full sale and restart checks in [HANDOFF.md](HANDOFF.md) remain manual.
+No live success or profit superiority is established by the automated build.
 
-It will say things like:
+## Removing the installation
 
-- *Buy 1,000 × Cannonball* — with the price to offer
-- *Collect your Rune scimitar* — a finished offer is holding up a slot
-- *Your Magic logs offer is too low* — the market moved, cancel and re-place it
-- *Sell your Dragon bones* — with the price to ask
-- *Nothing worth trading right now* — this is a real answer, not a bug. It would rather say nothing
-  than talk you into a bad trade. It keeps looking every few seconds.
+`5 - Uninstall` stops the companion, removes its task, both installed JARs, pair manifest and shortcut.
+Account/legacy databases, backups and saved login are preserved. It refuses JAR removal if a remaining
+listener cannot be stopped safely. Developer source builds also remain in the project folder.
 
-**It never clicks or types for you.** You place every offer yourself.
+## Project and preferences
 
----
-
-## Settings
-
-Click the wrench icon in RuneLite, find **Flipping Friend**. The two worth knowing:
-
-**Risk level** (also on the panel itself)
-- *Low* — small, quick, safe trades
-- *Moderate* — the default, and the right choice if you are unsure
-- *High* — bigger profits, longer waits, and some trades will lose
-
-**How often you check the GE** (also on the panel)
-Set this honestly — it changes what you get suggested. Tell it you check every hour and it gives you
-fewer, larger, wider-margin offers that should be finished when you come back, instead of quick
-flips that sit completed while you are away.
-
-**Account type**
-- *Detect automatically* — the default, and correct for almost everyone
-- *Free-to-play* — pick this if you have no membership. It then only suggests buying items you can
-  actually trade, and plans around 3 Grand Exchange slots instead of 8.
-
-**Also sell items I already own** — off, and you probably want it left off. Your bank is gear and
-supplies, not flipping stock, so the plugin ignores it. Anything it buys for you is always tracked.
-
-Note that selling is never restricted by membership. If your membership ran out while you were
-holding members' gear, the plugin will still tell you to sell it — that is allowed in game, and it
-is often the first thing you should do.
-
----
-
-## If something goes wrong
-
-Before changing anything, double-click `3 - Status`. It performs a read-only check of the plugin, companion task, port, credential, and authenticated health response.
-
-**"I don't see the gold coin icon."**
-Click the wrench icon, search for *Flipping Friend*, and make sure it is switched on.
-
-**"It only shows the old username-and-password login screen."**
-The Jagex login step did not complete. Run `1 - First Time Setup` again.
-
-**"It says nothing is worth trading."**
-That is normal, especially on Low risk. Give it a few minutes, or switch to Moderate.
-
-**"RuneLite updated and now something is broken."**
-Open `build.gradle` and change the version on the `ext.runeLiteVersion` line to match.
-Then double-click `4 - Update`. The update stops the companion safely, rebuilds both supported artifacts, restarts the companion, and verifies its health. Restart RuneLite afterward.
-**Getting rid of it.**
-Double-click `5 - Uninstall` to remove the installed plugin, companion task and process, and desktop shortcut.
-Companion data and saved login credentials are preserved. Run `tools\cleanup.ps1` separately if you also want to remove the saved login.
-
----
-
-## For the curious
-
-`README.md` has the full picture: how it decides what to trade, how to run the tests, and how to
-replay real market history through the decision code.
+See [README.md](README.md) for supported components and [TASKS.md](TASKS.md) for remaining work.
+The live verification checkpoint is in [HANDOFF.md](HANDOFF.md). Settings cover membership, checking
+cadence, spending/risk preferences and adoption of personal stock. Physical ownership remains visible
+even for blocked items. Unknown cost and incomplete evidence must not become invented profit.
+Explicit 2h/8h benchmark settings remain pending; do not substitute the 3h option.

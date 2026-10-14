@@ -49,12 +49,21 @@ and [task list](TASKS.md) describe the work ahead.
 ## Running the existing development build
 
 See [START HERE.md](START%20HERE.md) for the existing Windows setup and launcher instructions.
+For an installation from a previous checkout, use `1b - Re-setup Existing Installation.bat` after
+closing RuneLite. It reuses a saved login, backs up the prior installation/scoped account directories,
+shows paths/sizes for confirmation, installs both JARs and refreshes the task/desktop shortcut.
+Everyday start validates the installed pair without rebuilding. Updates use `4 - Update.bat`.
 The supported artifacts are:
 
 | Component | Build task | Artifact |
 | --- | --- | --- |
 | RuneLite plugin | `jar` | `build/libs/osrs-flipping-friend.jar` |
 | Local companion | `:companion:shadowJar` | `companion/build/libs/flipping-friend-companion.jar` |
+
+The installed companion is copied to `~/.runelite/osrs-flipping-friend/runtime/`, outside source
+build outputs. The installed pair has a hash manifest; status/start reject missing or altered JARs.
+Re-setup configures a task for the current Windows user, running at logon and hourly while logged in.
+It preserves account/legacy databases and never assigns the unscoped legacy file to an account.
 
 The companion listens on loopback at `127.0.0.1:37777`. Local records live under
 `~/.runelite/osrs-flipping-friend/`; live companion accounting is stored under
