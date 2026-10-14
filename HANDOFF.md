@@ -66,7 +66,21 @@ repair/migration/edit or trade action occurred. Last recorded runtime remains PR
 it was not reinspected by this source-only task. Existing durable reconciliation faults and PR #31
 live checklist remain unresolved. After CI and owner approval, merge the candidate, update the
 normal rebuild checkout and use its paired backup/update wrapper. Never install from this temporary
-worktree or repair a database to make a check pass. GitHub and final-head checks follow when available.
+worktree or repair a database to make a check pass.
+
+GitHub: [combined PR #43](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/43), open
+against `CoPilot's-Rebuild-from-Main`, mergeable and awaiting owner approval. Both exact-head
+checks passed at `5c6159d09ebeabadc5afb1546e09326abeb1ee89` in
+[run 38652952390](https://github.com/antonioditcharo/OSRS-Flipping-Friend/actions/runs/38652952390):
+
+```text
+Supported build (ubuntu-latest): completed / success
+Supported build (windows-latest): completed / success
+```
+
+The CI receipt is a documentation-only follow-up. Require both checks on the eventual PR head
+before merging; current check status is available on PR #43. Original #40/#41/#42 remain open
+at `fd60c8b` / `9f254e0` / `8aebbed`, respectively. No PR was merged or installed.
 
 ## Automatic trade scope source implementation — 14 October 2026
 
