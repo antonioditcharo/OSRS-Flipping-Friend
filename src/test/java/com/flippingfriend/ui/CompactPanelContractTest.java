@@ -154,4 +154,11 @@ public class CompactPanelContractTest {
         });
     }
     static void layout(Component c) { c.doLayout(); if(c instanceof Container) for(Component child:((Container)c).getComponents()) layout(child); }
+    @Test public void openedSettingsControlsShareTheSameLeftEdge() throws Exception {
+        SwingUtilities.invokeAndWait(()->{
+            JComponent view=panel.detailsComponent("Settings"); view.setSize(730,250); layout(view);
+            for(Component c:view.getComponents()) if(c instanceof JTextArea || c instanceof JComboBox || c instanceof JCheckBox)
+                assertEquals("Settings content should align with its 12px inset",12,c.getX());
+        });
+    }
 }
