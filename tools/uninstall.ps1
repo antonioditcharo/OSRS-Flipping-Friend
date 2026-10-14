@@ -1,11 +1,16 @@
 # Removes the installed Flipping Friend runtime components.
 # Companion data and saved RuneLite login credentials are preserved.
+param([string] $ShortcutDirectory)
 
 $ErrorActionPreference = 'Stop'
 $pluginJar = Join-Path $env:USERPROFILE '.runelite\sideloaded-plugins\osrs-flipping-friend.jar'
-$shortcut = Join-Path ([Environment]::GetFolderPath('Desktop')) 'Flipping Friend.lnk'
+$desktop = $ShortcutDirectory
+if (-not $desktop) { $desktop = [Environment]::GetFolderPath('Desktop') }
+if (-not $desktop) { $desktop = Join-Path $env:USERPROFILE 'Desktop' }
+$shortcut = Join-Path $desktop 'Flipping Friend.lnk'
 $companionData = Join-Path $env:USERPROFILE '.runelite\osrs-flipping-friend\companion'
 $credentials = Join-Path $env:USERPROFILE '.runelite\credentials.properties'
+$runtime = Join-Path $env:USERPROFILE '.runelite\osrs-flipping-friend\runtime'
 
 Write-Host ''
 Write-Host '  FLIPPING FRIEND - UNINSTALL' -ForegroundColor Cyan
@@ -13,16 +18,21 @@ Write-Host ''
 
 & "$PSScriptRoot\uninstall-companion.ps1"
 
+foreach ($artifact in @('flipping-friend-companion.jar','installation.json')) {
+    $path = Join-Path $runtime $artifact
+    if (Test-Path -LiteralPath $path -PathType Leaf) { Remove-Item -LiteralPath $path -Force }
+}
+
 Write-Host ''
 if (Test-Path $pluginJar) {
-    Remove-Item $pluginJar -Force
+    Remove-Item -LiteralPath $pluginJar -Force
     Write-Host 'Removed the installed RuneLite plugin.' -ForegroundColor Green
 } else {
     Write-Host 'The RuneLite plugin was not installed; nothing to remove.'
 }
 
 if (Test-Path $shortcut) {
-    Remove-Item $shortcut -Force
+    Remove-Item -LiteralPath $shortcut -Force
     Write-Host 'Removed the desktop shortcut.' -ForegroundColor Green
 } else {
     Write-Host 'The desktop shortcut was not present; nothing to remove.'

@@ -17,12 +17,14 @@ public class StatusLifecycleBoundaryTest
                 Path script = root.resolve("tools/status.ps1");
                 Assert.assertTrue(Files.exists(script));
                 String status = new String(Files.readAllBytes(script), StandardCharsets.UTF_8);
+                String lifecycle = new String(Files.readAllBytes(root.resolve("tools/apply-update.ps1")), StandardCharsets.UTF_8);
                 Assert.assertTrue(status.contains("FlippingFriendCompanion"));
                 Assert.assertTrue(status.contains("companion.properties"));
-                Assert.assertTrue(status.contains("127.0.0.1:37777/v1/health"));
-                Assert.assertTrue(status.contains("X-Flipping-Friend-Token"));
+                Assert.assertTrue(status.contains("-CheckOnly"));
+                Assert.assertTrue(lifecycle.contains("127.0.0.1:37777/v1/health"));
+                Assert.assertTrue(lifecycle.contains("X-Flipping-Friend-Token"));
                 Assert.assertTrue(status.contains("READY"));
-                Assert.assertTrue(status.contains("DEGRADED"));
+                Assert.assertTrue(lifecycle.contains("DEGRADED"));
                 Assert.assertTrue(status.contains("SETUP INCOMPLETE"));
                 Assert.assertFalse(status.contains("Start-ScheduledTask"));
                 Assert.assertFalse(status.contains("Stop-ScheduledTask"));

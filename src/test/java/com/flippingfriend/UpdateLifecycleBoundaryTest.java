@@ -25,7 +25,7 @@ public class UpdateLifecycleBoundaryTest
                 Assert.assertTrue(update.contains("127.0.0.1:37777/v1/health"));
                 Assert.assertTrue(update.contains("X-Flipping-Friend-Token"));
                 Assert.assertTrue(update.contains("Update applied."));
-                Assert.assertTrue(update.contains("restart it to pick up plugin changes"));
+                Assert.assertTrue(update.contains("Restart RuneLite to pick up plugin changes"));
                 Assert.assertFalse(update.contains("FlippingFriendLearning"));
                 Assert.assertFalse(update.contains("flipping-friend-daemon"));
                 Assert.assertFalse(update.contains("KeepDaemon"));
