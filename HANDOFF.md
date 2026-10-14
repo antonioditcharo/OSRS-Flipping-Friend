@@ -172,6 +172,7 @@ PR checks for the final remote outcome; the first run is retained as failure evi
 ### RuneLite login freeze continuation — 13 October 2026 (verification pending)
 
 Base `6411f800e9a56d37de5dbd3b3194061ae262e910`; work branch `codex/runelite-login-classpath`.
+Implementation `3ae5386d264d0a7055441033cf5709ed1271908f` remains pending final Java verification.
 Regression commit `52e6fb965badd7d8591839afe4b03f51fee69b9c` preceded implementation. Historical main
 and all live databases remain untouched. This source work has not been installed or tested in-game.
 
