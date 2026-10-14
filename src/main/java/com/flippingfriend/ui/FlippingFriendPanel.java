@@ -76,6 +76,7 @@ public class FlippingFriendPanel extends PluginPanel
 	private final StatsPanel statsPanel;
 	private final PortfolioPanel portfolioPanel;
 	private final BankTrajectoryPanel bankTrajectoryPanel;
+	private final StockReviewPanel stockReviewPanel;
 
 	private final JPanel onboardingSlot = new JPanel(new BorderLayout());
 	private final JButton sellOnlyButton = new JButton();
@@ -129,6 +130,12 @@ public class FlippingFriendPanel extends PluginPanel
 		this.statsPanel = new StatsPanel(explainer);
 		this.portfolioPanel = new PortfolioPanel(companion, explainer);
 		this.bankTrajectoryPanel = new BankTrajectoryPanel(journal, explainer);
+		this.stockReviewPanel = new StockReviewPanel(companion, () ->
+		{
+			engine.setPendingAdjustment(null);
+			rejected();
+		});
+		this.positionsPanel.setTradingPositions(engine::tradingPositions);
 
 		setLayout(new BorderLayout());
 		setBackground(UiUtils.BACKGROUND);
@@ -151,6 +158,7 @@ public class FlippingFriendPanel extends PluginPanel
 		content.add(new CollapsibleSection("Recommendation", suggestionCard, false));
 
 		content.add(new CollapsibleSection("Portfolio", portfolioPanel, false));
+		content.add(new CollapsibleSection("Review holdings", stockReviewPanel, false));
 		content.add(new CollapsibleSection("Holding", positionsPanel, false));
 		content.add(new CollapsibleSection("Local trade history", historyPanel, false));
 		content.add(new CollapsibleSection("Performance", statsPanel, false));
@@ -353,6 +361,7 @@ public class FlippingFriendPanel extends PluginPanel
 		historyPanel.refresh();
 
 		statsPanel.updateLedger(companion.lastLedger());
+		stockReviewPanel.refresh();
 		portfolioPanel.refresh();
 		bankTrajectoryPanel.repaint();
 

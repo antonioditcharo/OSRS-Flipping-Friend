@@ -23,6 +23,7 @@ player workflow; strategy tuning and measured learning promotion remain pending.
 | [PR #33](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/33) | Guarded update rejects disabled/foreign tasks and incomplete artifact pairs; Java-on-PATH fallback; recorded incomplete live verification. Windows/Linux CI passed. | `7b98a19bf288ab259bb275c2efaf2669028b9482` |
 | [PR #34](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/34) | Shared paired setup/re-setup/update/start/status lifecycle, stable installed companion, hash manifest, backup review, saved-login reuse and refreshed shortcut. Windows/Linux CI passed. | `cb2c1d2dac01865374108339fbd1fcee43ee0093` |
 | [PR #35](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/35) | Separate plugin profile records are included in the pre-install backup; linked records are rejected. Recorded actual backup review. Windows/Linux CI passed. | `6411f800e9a56d37de5dbd3b3194061ae262e910` |
+| [PR #36](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/36) | Exact official RuneLite artifact selection, installed API compatibility guard, long spent counters and persistent pause for unsupported unit prices. Windows/Linux CI passed on final revision `10d1a4bc`. | `cb203a834401d4e32cc5791d07f0ade37df80d61` |
 
 ## Implemented boundaries to preserve
 
@@ -67,9 +68,12 @@ exports' evidence limits. Raw CSVs and row-level outputs are intentionally gitig
 Session/cadence labels are unavailable. Transaction-export Tax is derived by Copilot's exporter,
 not an observation of historical tax. Do not infer a valid GP/hour comparison from these files.
 
-The user-run paired installation was verified read-only at `6411f800`; the subsequent RuneLite
-login froze before the live checklist could proceed (see the continuation below). No agent database
-migration was performed. Live verification against actual holdings/collected coins remains outstanding.
+The user-run paired installation at `6411f800` was followed by a RuneLite login freeze. After PR #36,
+the user installed the compatible pair at `cb203a83`; read-only pair and launcher compatibility checks
+passed. The user subsequently reported working login and sell recommendations, but no new buys.
+The pipeline check passed its protocol/ledger checks and exposed a reconciliation-blocked buy plan;
+controlled trading acceptance checks remain pending (see the latest continuation below).
+No agent database migration was performed. Verification against actual holdings/collected coins remains outstanding.
 Profit superiority, feature parity, online
 logistic learning, shadow trading, and automatic challenger promotion have not been established.
 Historical package counts, roadmaps, and non-activation scaffolding are not runtime feature evidence.
@@ -81,12 +85,14 @@ without double-counting fills. Unresolved positions, unknown offer states, or ov
 cached plan with COMPANION_STATE_UNAVAILABLE. Only `committedByItem` changes; cash, committedCoins,
 slots, preferences, and session drawdown remain client inputs. Snapshot reconciliation also refuses
 snapshots older than the latest position event, or not newer than the latest disposal, so sold stock
-cannot reappear. Concurrent read/write interleaving and a full live-market service test are untested;
-no live RuneLite verification was performed. Details: `docs/architecture/durable-planning-exposure.md`.
+cannot reappear. Concurrent read/write interleaving and a full live-market service test are untested.
+Installed-pair and read-only runtime evidence is recorded below; controlled trading checks remain
+incomplete. Details: `docs/architecture/durable-planning-exposure.md`.
 
 ## Live verification checklist (pending, do this next)
-PR #31 passed Windows/Linux CI and a full local build, but has **never run against the real
-account database or RuneLite**. Complete this before relying on it for trading.
+PR #31 passed Windows/Linux CI and a full local build. It has now been installed and its read-only
+account pipeline checked, but **controlled live trading verification remains incomplete**.
+Continue the outstanding checks below before relying on it for trading.
 
 1. **Build first.** From an up-to-date `CoPilot's-Rebuild-from-Main` (at `6b4140109de6a63d93614740c87b32f72cfe171d` or later):
    `.\gradlew.bat clean test jar :companion:shadowJar --console=plain` and
@@ -172,6 +178,194 @@ temporary path aliases before invoking PowerShell; all 15 tests passed locally a
 PR checks for the final remote outcome; the first run is retained as failure evidence.
 
 ## Verification and continuation
+
+### Unpriced stock review workflow — 13 October 2026 (source implemented; live retest pending)
+
+Base: rebuild `cb203a834401d4e32cc5791d07f0ade37df80d61`; branch `codex/stock-review-workflow`.
+Regression commit `932ab1fda5717cfbe455b3fc449ce0d000362d33` preceded implementation
+`1f728eb6cd3b6b90013ee36dd6eef2e3c79765e9`. The source branch incorporates the earlier installation
+and blocked-plan checkpoints from `codex/pr31-live-verification`; that earlier branch is preserved.
+
+The owner identified four of the five positive-quantity unpriced entries as personal inventory or
+equipment. The fifth is no longer held; the two unpriced historical-sale items were also confirmed
+fully sold. Those declarations describe current trading intent/ownership, not purchase prices or
+historical profit. Personal item/quantity/event details remain in private local diagnostics.
+
+The initial automated workflow fixtures reproduced three blocked planning cases: declared personal
+stock, a retired old holding, and a retired unpriced sale entry. The unclassified unknown-cost control
+remained blocked. Exact initial ending: `4 tests completed, 3 failed`, `BUILD FAILED in 9s`,
+`REGRESSION_EXIT=1`; log `.gradle/stock-review-regression.log`. The sale fixture was subsequently
+strengthened with SELLING followed by SOLD so it also verifies a genuinely unresolved sale update.
+
+Implemented player workflow:
+
+- **Review holdings** displays fresh scoped durable entries. The player can choose **Personal item**
+  for source-free unpriced holdings or **I no longer hold this** for an unpriced old entry; **Clear
+  review** reverses that preference. A stale/foreign/changed row is refused. Cost-bearing conflicts
+  cannot be excluded through these controls and remain a reconciliation prerequisite.
+- `stock-declarations.json` stores these choices separately in the plugin's existing account profile
+  directory, with account identity and a position-specific evidence signature. It is included by the
+  existing `plugin-accounts/` backup. Malformed/foreign saved preferences fail closed, and an attempted
+  save does not overwrite them. No new database table, schema migration or ledger-correction endpoint
+  exists; the normal snapshot carries the declarations as trading preferences.
+- Durable exposure excludes only matching reviewed, unpriced entries. All original projections,
+  accounting events and unresolved historical profit remain intact. Known-cost holdings and every
+  buy reservation still count. Open buys, uncollected purchased items, remaining sell stock and unknown
+  offer states cannot be concealed by a declaration. New quantity, cost, opening evidence or event/
+  offer identity invalidates an old review.
+- Local new-sell selection and the trading Holding list respect matching declarations without
+  deleting PositionBook entries or physical holdings. Personal stock is also excluded from new entry
+  candidates while the local evidence matches the review. Existing offer maintenance remains active.
+- Review changes withdraw cached plans, fence earlier client responses and queued guidance, and
+  invalidate the companion's cached READY plan before background recomputation. This does not complete
+  the broader concurrent account-snapshot/read interleaving verification.
+- Scoped health can remain DEGRADED to show accounting history warnings. Its separate planning
+  readiness field requires fresh market data, a successful current durable exposure calculation and
+  no other subsystem fault. The client also validates market/health timestamps before reading plans.
+  Missing readiness evidence, unresolved active stock and stale/future market data still stop entry.
+
+Verification: 1,186 Java tests passed / six capture-dependent skips / zero failures/errors (1,192
+tests, 315 suites), both JARs built; all 48 Python tests passed (`Ran 48 tests in 29.907s`, `OK`,
+`PYTHON_EXIT=0`). The clean build at implementation `1f728eb6` ended `BUILD SUCCESSFUL in 31s`,
+`18 actionable tasks: 18 executed`, `GRADLE_EXIT=0`. A final clean build also verifies automatic
+temporary-fixture cleanup; use `.gradle/stock-review-final-clean-build.log` for that ending.
+The final clean ending also passed: `BUILD SUCCESSFUL in 31s`, `18 actionable tasks: 18 executed`,
+`GRADLE_EXIT=0`. [PR #37 CI at `c188066f`](https://github.com/antonioditcharo/OSRS-Flipping-Friend/actions/runs/38526589543)
+passed Windows and Linux; check both final-head checks before merge.
+Python log: `.gradle/stock-review-python.log`; all logs are gitignored, outside build outputs.
+The broader first run caught a companion access before the unsupported-price guard and a holding-list
+fixture mismatch; both were corrected while preserving the assertions. A later fixture compile failed
+because the companion has no Mockito dependency; a paused executor replaces that mock without adding
+a dependency. These failures are retained in the earlier `.gradle/stock-review-*.log` files.
+
+**Not installed or live-tested.** Installed runtime remains `cb203a83`, where buys are blocked as
+recorded below. No live database, position record, credential, game setting, installed artifact or task
+was changed by this development. The agent did not perform game input or stop RuneLite; the owner
+closed it and process inspection confirmed zero clients before the clean build. Reviews must be made
+by the player in the new panel after a supported paired update and a fresh backup review. Do not write
+the conversation's classifications directly into live files. Recheck pipeline output after review,
+then continue each controlled manual checklist case. Unknown historical profit remains unknown.
+
+### Live login and blocked buy advice — 13 October 2026, 22:27–22:29 AKDT
+
+Runtime source remains `cb203a834401d4e32cc5791d07f0ade37df80d61`; documentation branch
+`codex/pr31-live-verification`. The user reported login was working enough to recommend sells for
+earlier manual purchases, but new buy recommendations were absent. This is user-reported UI behavior,
+not a controlled sell or accounting acceptance result.
+
+Agent ran `tools/pipeline-check.ps1 -SkipBuild` under bundled PowerShell 7, using only the supported
+GET endpoints. Standard build/tests were already passed; no build or game input was performed during
+this diagnostic. Original output is retained privately in
+`local-data/diagnostics/pr31-live-20261013/pipeline-20261013-222706.txt`.
+Output below substitutes `<account-id>` for the private opaque account identifier; all verdicts,
+counts and reasons are otherwise verbatim:
+
+```text
+PASS [Artifact] build\libs\osrs-flipping-friend.jar
+PASS [Artifact] companion\build\libs\flipping-friend-companion.jar
+PASS [Protocol] accounts-v1
+PASS [Market] Ready. Choosing which items to study.
+PASS [<account-id>] Ledger: 4 sale updates; 2 unresolved; 0 profit ranges.
+PASS [<account-id>] Action: WAIT. Plan: UNAVAILABLE. Durable holdings or offers require reconciliation before new buys.
+INFO [Accounting] No synthetic snapshots, offers, or trades were posted by this check.
+PIPELINE_EXIT=0
+```
+
+Exit zero verifies the diagnostic's protocol/ledger checks, not readiness for trading. A subsequent
+scoped health GET returned HTTP 200 / DEGRADED with five position cost warnings and two
+`disposal has no durable position` faults. A scoped portfolio GET returned HTTP 200 / UNAVAILABLE /
+COMPANION_STATE_UNAVAILABLE with no allocations. A scoped ledger GET confirmed seven RECONCILE
+entries: five positive-quantity unknown-cost holdings and two zero-quantity disposal entries.
+Private item/quantity/cost details and event identities are retained only in
+`local-data/diagnostics/pr31-live-20261013/ledger-20261013-222907.json`; they are not public fixtures.
+No database was opened by the agent; no accounting event, synthetic snapshot, record edit, process
+restart, or game input was performed. Shared market readiness is distinct from scoped account health.
+
+Source trace: `DurablePlanningExposure.from()` fails closed on any unresolved position;
+`CompanionService.refreshPlan()` withdraws the entire buy plan in that case. `CompanionClient`
+publishes all local PositionBook entries, including unknown-cost entries. `syncHoldings()` only
+adopts additional personal stock when the existing `adoptExistingItems` opt-in is enabled; its current
+live setting and the origins of the saved entries have not been established. Turning that setting off
+does not remove existing durable records. Do not guess which holdings are personal, claim historical
+profit, clear warnings by editing records, or weaken the guard simply to show buys.
+
+The user has been asked to classify the five held items as personal stock or flipping stock. Complete
+the missing onboarding/reconciliation workflow using explicit evidence and regression tests before
+source changes; preserve incomplete sales as unresolved and keep physical ownership distinct from
+trading intent. Any real bug must first be reproduced on a new codex branch from current rebuild.
+
+Checklist outcome: build, reviewed backup, paired installation and read-only protocol/ledger check
+passed; login/sell display was user-reported. New-buy readiness is BLOCKED by reconciliation. The
+controlled known-cost holding/no-open-buy case has not been established; partial fill, cancel/collect,
+full sale/restart and conservation remain untested. Reconciliation blockers have been identified
+read-only. Do not mark the overall live checklist complete. Review source workflow fixes separately
+from final acceptance; the completed acceptance record still requires the owner's merge approval.
+
+### Compatible pair installed — 13 October 2026, after the 22:09 backup (login still pending)
+
+Installed source revision: `cb203a834401d4e32cc5791d07f0ade37df80d61` on the rebuild branch.
+PR #36 merged after both [Windows/Linux checks on final revision `10d1a4bc`](https://github.com/antonioditcharo/OSRS-Flipping-Friend/actions/runs/38519989011)
+passed. Documentation continues on `codex/pr31-live-verification`; this is an incomplete acceptance
+record, not evidence of successful login or trading.
+
+The user ran `4 - Update.bat` and paused at INSTALL with backup
+`%USERPROFILE%/.runelite/osrs-flipping-friend/backups/20261013-220953-f1ad1d84/`.
+Read-only review found:
+
+- Companion account backup: three files / 321,176 bytes, including the database and its WAL/SHM
+  sidecars. Every relative filename and size matched the source. No database contents were opened.
+- Plugin account backup: 22 files / 1,500,384 bytes; every relative filename and size matched the
+  separate source tree. No account record contents or saved login were opened during the review.
+- Prior plugin: 392,218 bytes; prior companion: 17,721,459 bytes; prior installation manifest:
+  458 bytes. Each backup matched its installed source by SHA-256.
+- Task definition: 1,895 bytes. The action matched the paused installed task and the principal SID
+  matched the current Windows user. The initial diagnostic incorrectly tried to translate that SID
+  as an account name and failed; reading it as a SID passed without changing the task.
+- Task Disabled, Enabled=False; listener count on 37777 was zero; observable RuneLite process count
+  was zero. The unassigned legacy database was not copied, opened, assigned or changed by this review.
+
+After review, the user confirmed INSTALL. Exact reported build/install ending:
+
+```text
+BUILD SUCCESSFUL in 5s
+8 actionable tasks: 8 up-to-date
+Built C:\Users\Antonio\OSRS Flipping Friend Rebuild\build\libs\osrs-flipping-friend.jar (384.1 KB)
+Companion ready (accounts-v1).
+Update applied. Both installed JARs verified. Restart RuneLite to pick up plugin changes.
+Press any key to continue . . .
+```
+
+Agent read-only post-install verification used `tools/status.ps1`, then
+`tools/run-dev.ps1 -CheckOnly`, plus installed/build JAR hash comparison. Exact output:
+
+```text
+FLIPPING FRIEND - STATUS
+Plugin: present
+Installed companion: present
+Pair manifest: present
+Companion credential: present
+Saved RuneLite login: present
+Companion task: Running
+Task checkout: C:\Users\Antonio\OSRS Flipping Friend Rebuild
+Installed pair verified; companion responds with accounts-v1 (READY or DEGRADED).
+Overall status: PAIR VERIFIED / COMPANION RESPONDING
+The read-only pipeline check after login reports account coverage and market freshness.
+STATUS_EXIT=0
+RuneLite 1.13.1 and the installed plugin API match; cached artifacts verified.
+Compatibility check passed. No client started and no files changed.
+COMPATIBILITY_EXIT=0
+INSTALLATION_BACKUP=C:\Users\Antonio\.runelite\osrs-flipping-friend\backups\20261013-220953-f1ad1d84
+Plugin INSTALLED_BYTES=393350 MATCHES_VERIFIED_BUILD=True
+Companion INSTALLED_BYTES=17722571 MATCHES_VERIFIED_BUILD=True
+POST_INSTALL_REVIEW=PASS (no client launched; no game input)
+```
+
+**Pipeline-check output: not run after this install; awaiting user login.** Build and backup/paired
+installation checks have passed for the observed sources. Login, known-cost holding, partial buy,
+cancel/collect, full sale/restart and any reconciliation message remain unobserved. The next user step
+is `2 - Start Flipping Friend.bat` and manual login without making GE changes yet. Then run the
+read-only pipeline check with `-SkipBuild` (the standard build already passed) and proceed one
+manual checklist case at a time. Do not edit database/account records to clear a warning.
 
 ### RuneLite login freeze continuation — 13 October 2026 (source verified; live retest pending)
 

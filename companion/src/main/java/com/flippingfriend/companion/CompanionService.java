@@ -386,6 +386,12 @@ final class CompanionService implements AutoCloseable
 		PositionStateView view = PositionStateView.from(snapshot);
 		SnapshotReconciliationResult reconciliation =
 			store.recordAndReconcileAccount(snapshot, view, gson.toJson(snapshot));
+		if (account != null && !gson.toJsonTree(account.getStockDeclarations()).equals(gson.toJsonTree(snapshot.getStockDeclarations())))
+		{
+			plan = PortfolioPlan.unavailable(snapshot.getCorrelationId(), PortfolioPlanOutcome.COMPANION_STATE_UNAVAILABLE,
+				"Holding review changed; recomputing the buy plan.", Instant.now().getEpochSecond());
+			lastPlanAt = 0;
+		}
 		account = snapshot;
 		// The plugin's ledger is durable; this one is rebuilt from events that can go missing. Take
 		// the higher of the two so a dropped fill is corrected on the next cycle rather than never.
@@ -587,7 +593,14 @@ final class CompanionService implements AutoCloseable
 		{
 			// Reporting zero is honest; failing a health check over a version number is not.
 		}
-		return new CompanionHealth(status, detail, marketAt, modelVersion, now);
+		boolean planningAvailable = false;
+		if (fresh && account != null && faults.keySet().stream().allMatch(key ->
+			key.startsWith("Position projection item ") || key.equals("Snapshot reconciliation") || key.equals("Planning exposure")))
+		{
+			try { planningAvailable = DurablePlanningExposure.from(store.planningProjections(), account.getStockDeclarations()) != null; }
+			catch (Exception unavailable) { /* Keep the planning gate closed. */ }
+		}
+		return new CompanionHealth(status, detail, marketAt, modelVersion, now, planningAvailable);
 	}
 
 
@@ -658,10 +671,11 @@ final class CompanionService implements AutoCloseable
 		{
 			return;
 		}
+		AccountSnapshot sourceSnapshot = snapshot;
 		try
 		{
 			DurablePlanningExposure exposure =
-				DurablePlanningExposure.from(store.planningProjections());
+				DurablePlanningExposure.from(store.planningProjections(), snapshot.getStockDeclarations());
 			if (exposure == null)
 				throw new IllegalStateException("durable exposure requires reconciliation");
 			snapshot = snapshot.withPlanningExposure(exposure.committedByItem);
@@ -669,6 +683,7 @@ final class CompanionService implements AutoCloseable
 		}
 		catch (Exception unavailable)
 		{
+			if (account != sourceSnapshot) return;
 			fault("Planning exposure", String.valueOf(unavailable.getMessage()), unavailable);
 			plan = PortfolioPlan.unavailable(
 				snapshot.getCorrelationId() == null ? "none" : snapshot.getCorrelationId(),
@@ -679,6 +694,7 @@ final class CompanionService implements AutoCloseable
 		}
 		PortfolioPlan computed = planner.plan(market.state(), snapshot,
 			buyLimits.remaining(market.state().mapping), activeOffers.getActiveOffers());
+		if (account != sourceSnapshot) return;
 		plan = computed;
 		try
 		{

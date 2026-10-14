@@ -9,16 +9,39 @@
       local records and must migrate with positive reconciliation evidence.
 
 ## Next
-- [ ] Finish the RuneLite login compatibility fix on `codex/runelite-login-classpath` from
-      `6411f800`. User-run installation passed read-only pair/companion status, then login froze
-      with a long GE getter linkage error from a mixed 1.12.39/1.13.1 classpath. Eight launcher and
-      one Java ABI regressions reproduced the problems before fixes; 48 Python tests now pass.
-      First local clean was blocked by RuneLite's open full API extra; the user closed the client.
-      Final standard verification at `dcad648b` passed 1,168 Java tests with six skips and all 48
-      Python tests, and built both JARs. Windows/Linux CI passed at that revision; verify final PR
-      checks before merge, then update the pair through the numbered wrapper after showing/reviewing
-      the fresh backup. No troubleshooting source changes have been installed, and no live databases,
-      game settings or credentials were altered. See latest HANDOFF.
+- [ ] Install and live-retest explicit unpriced-stock review from `codex/stock-review-workflow`.
+      Regressions preceded implementation (`932ab1f` / `1f728eb6`); local standard verification passed
+      1,186 Java tests with six skips and all 48 Python tests. Both JARs built. Verify Windows/Linux CI,
+      then use the supported paired update with a fresh reviewed backup. User confirmed four personal
+      holdings and three fully sold/no-longer-held old entries. Player must make those declarations
+      in Review holdings after installation; do not edit live records or seed preferences from chat.
+      Preferences exclude matching unpriced entries from trading decisions without changing ledger
+      quantities, costs, sale history or unknown profit. Known-cost conflicts, changed evidence and
+      open/uncollected offers remain protected. Scoped degraded history stays visible while a separate
+      safe planning gate handles reviewed exposure. Current installed runtime is still `cb203a83`.
+      Pipeline and controlled manual acceptance after this change remain pending. Full single-authority
+      exits/UI/risk migration and positive cost reconciliation are still prerequisites.
+
+- [ ] Complete live acceptance with the compatible pair installed at `cb203a83` (PR #36 merged after
+      final Windows/Linux CI passed at `10d1a4bc`). The earlier mixed 1.12.39/1.13.1 classpath and
+      long GE getter linkage error were reproduced by regressions before the source fix. Standard
+      local verification passed 1,168 Java tests with six skips and all 48 Python tests.
+      User confirmed the paired update after review of backup `20261013-220953-f1ad1d84`: companion
+      account filenames/sizes matched (3 files / 321,176 bytes), plugin accounts matched (22 files /
+      1,500,384 bytes), both prior JARs and manifest matched by SHA-256, and task action/owner matched.
+      User reported BUILD SUCCESSFUL in 5s, Companion ready (accounts-v1), and both JARs verified.
+      Read-only status and launcher CheckOnly both exited zero; installed plugin/companion matched
+      the verified builds (393,350 / 17,722,571 bytes), with RuneLite API 1.13.1 compatibility passed.
+      User now reports login and sell recommendations working, but no new buys. Pipeline check at
+      22:27 AKDT exited zero: artifacts/protocol/market/ledger reads passed; plan UNAVAILABLE with
+      "Durable holdings or offers require reconciliation before new buys." Scoped health and ledger
+      GETs identified seven RECONCILE entries: five unknown-cost holdings and two disposal entries
+      without a durable position. Raw account details remain private in local-data diagnostics.
+      New-buy readiness is blocked; controlled manual acceptance cases remain untested. The user has
+      supplied classification; the new source workflow above now awaits paired installation/live review.
+      Do not edit live records or bypass the guard.
+      No agent database, credential or game-setting changes occurred. See latest HANDOFF; documentation branch
+      is `codex/pr31-live-verification`.
       An unrelated popup was traced to obsolete hourly `FlippingFriendLearning`, pointing to the
       absent daemon JAR in this checkout. Its definition was backed up (1,907 bytes), action/principal
       checked, then disabled/stopped. Current companion remained running. The historical forecaster
@@ -40,6 +63,10 @@
       absent companion scope directory and copied into the dated backup (21 files / 1,501,532 bytes;
       relative filenames/sizes matched). Installer remains at INSTALL; no installed pair replacement,
       pipeline-check, login or manual trading checks have been observed. See the latest handoff.
+      These are historical checkpoints. Latest checkpoint at `cb203a83`: backup and compatible
+      paired update completed; status and launcher compatibility passed. User reported login/sell
+      display; read-only pipeline passed but buy plan remains reconciliation-blocked. Controlled manual
+      trading acceptance remains pending, recorded above and in the latest HANDOFF continuation.
 
 - [ ] Finish manual cancel -> collect -> revalidate -> replace and partial-fill protection as a
       complete live workflow; migrate sell maintenance and exits to companion policies.

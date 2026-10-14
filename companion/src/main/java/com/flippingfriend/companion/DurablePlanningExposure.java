@@ -16,11 +16,19 @@ final class DurablePlanningExposure {
     }
 
     static DurablePlanningExposure from(SqliteStore.PlanningProjections read) {
+        return from(read, Collections.emptyMap());
+    }
+
+    static DurablePlanningExposure from(SqliteStore.PlanningProjections read,
+            Map<Integer, com.flippingfriend.core.StockDeclaration> declarations) {
         if (read == null) return null;
         try {
             Map<Integer, Long> byItem = new HashMap<>();
             long reserved = 0;
             for (var position : read.positions) {
+                var declaration = position == null || declarations == null ? null
+                    : declarations.get(position.getItemId());
+                if (declaration != null && declaration.excludes(position, read.offers)) continue;
                 if (position == null || position.getItemId() <= 0
                         || position.getConsistencyState() != PositionConsistencyState.READY
                         || !position.isCostKnown() || position.getQuantity() <= 0

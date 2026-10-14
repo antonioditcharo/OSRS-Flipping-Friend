@@ -155,6 +155,7 @@ public class PanelShowsTheLedgerTest
 
 		SuggestionEngine engine = Mockito.mock(SuggestionEngine.class);
 		Mockito.when(engine.getCurrent()).thenReturn(suggestion);
+		Mockito.when(engine.tradingPositions()).thenAnswer(invocation -> positions.all());
 		Mockito.when(engine.getPositionStatuses()).thenReturn(Collections.emptyMap());
 		Mockito.when(engine.isSellOnly()).thenReturn(false);
 

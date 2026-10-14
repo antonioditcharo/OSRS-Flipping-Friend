@@ -64,6 +64,9 @@ class PositionsPanel extends JPanel
 
 	/** What was last drawn, so an unchanged refresh can be skipped rather than blinked through. */
 	private String lastSignature;
+	private java.util.function.Supplier<java.util.Collection<Position>> tradingPositions;
+	void setTradingPositions(java.util.function.Supplier<java.util.Collection<Position>> supplier)
+	{ tradingPositions = supplier; }
 
 	/**
 	 * Closes a holding the player says they no longer have.
@@ -80,7 +83,7 @@ class PositionsPanel extends JPanel
 
 	void refresh()
 	{
-		List<Position> held = new ArrayList<>(positions.all());
+		List<Position> held = new ArrayList<>(tradingPositions == null ? positions.all() : tradingPositions.get());
 		held.removeIf(position -> position.getQuantity() <= 0);
 		held.sort(Comparator.comparingLong(Position::getOpenedAt).reversed());
 

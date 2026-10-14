@@ -9,7 +9,7 @@ The returned collections are immutable copies.
 DurablePlanningExposure derives per-item committed capital from known-cost,
 READY positions plus price times unfilled quantity for BUY_OPEN and BUY_PARTIAL
 offers. Terminal buys and sells add no outstanding buy reservation.
-Unresolved positions, unsupported offer states, malformed inputs, and checked
+Unclassified unresolved positions, unsupported offer states, malformed inputs, and checked
 arithmetic overflow refuse exposure calculation. Aggregate exposure across
 different items is checked as well as per-item sums.
 
@@ -17,6 +17,20 @@ AccountSnapshot.withPlanningExposure() creates a planning-only copy with a
 defensively copied exposure map. All other fields remain unchanged.
 CompanionService passes that copy to PortfolioPlanner. A durable-read or
 calculation failure replaces the cached plan with COMPANION_STATE_UNAVAILABLE.
+
+## Explicit review of unpriced old stock
+
+The player's account-scoped stock declarations are separate trading preferences. A declaration
+matches the exact unpriced position quantity, cost flag/value, opening evidence and event/offer
+identities. Personal declarations require source-free stock. No-longer-held declarations are the
+player's statement, not an inferred disposal. Matching declarations can exclude those entries from
+planning, while the original ledger rows, unresolved sales, costs and profit coverage remain intact.
+Known-cost holdings are never excluded through this path. New evidence invalidates a stale declaration.
+
+Declarations cannot conceal open buys, uncollected purchases, remaining sell stock or unknown offers.
+The client and companion withdraw cached plans on review changes. Health keeps accounting warnings
+visible and separately reports safe planning availability after fresh-market and durable-read checks.
+Malformed/stale/foreign evidence fails closed. No database schema or correction endpoint is added.
 
 ## Deliberately unchanged
 
@@ -46,7 +60,8 @@ with the planner's own constraint helpers and runs the real PortfolioOptimizer
 on one candidate: client-snapshot exposure permits the buy, while durable
 exposure at the item cap refuses it with PORTFOLIO_CONSTRAINT. A full
 CompanionService test with live market data and candidate generation has not
-been added. Live RuneLite installation validation has not been performed.
+been added. Pair installation, API compatibility and scoped read-only runtime checks have been
+observed; controlled live trading acceptance remains incomplete. See HANDOFF.md for dated evidence.
 
 ## Prerequisite accounting repair
 

@@ -83,6 +83,19 @@ Record the output. It makes read-only requests and posts no synthetic trades. Th
 partial buy, cancel/collect, full sale and restart checks in [HANDOFF.md](HANDOFF.md) remain manual.
 No live success or profit superiority is established by the automated build.
 
+## Reviewing old unpriced holdings
+
+If new buys are paused for holdings reconciliation, open **Review holdings** in the plugin panel.
+For an unpriced personal supply or equipment item, choose **Personal item**. For an old entry you
+have completely sold or otherwise no longer hold (including in the bank or collection boxes), choose
+**I no longer hold this**. Use **Clear review** to undo a choice. Keep uncertain items under review.
+
+These choices are saved separately for the current account. Original purchase/sale records and
+unknown historical profit stay unchanged. A matching review can remove an old unpriced entry from
+trading decisions; current offers and changed position evidence still require investigation. A
+position with recorded cost cannot be excluded here. Run the read-only pipeline check again after
+review; declarations alone do not guarantee an eligible buy or establish a profit-per-hour result.
+
 ## Removing the installation
 
 `5 - Uninstall` stops the companion, removes its task, both installed JARs, pair manifest and shortcut.

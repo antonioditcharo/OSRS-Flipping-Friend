@@ -7,6 +7,7 @@ import java.util.Map;
 public final class AccountSnapshot
 {
 	private final String accountId;
+	private final Map<Integer, StockDeclaration> stockDeclarations;
 	private final String correlationId;
 	private final long observedAt;
 	private final long spendableCoins;
@@ -197,6 +198,7 @@ public final class AccountSnapshot
                 int targetHoldMinutes, java.util.List<PositionSnapshot> positions)
         {
                 this.accountId = null;
+                this.stockDeclarations = Collections.emptyMap();
                 this.positions = positions == null
                         ? java.util.Collections.emptyList()
                         : java.util.Collections.unmodifiableList(new java.util.ArrayList<>(positions));
@@ -230,6 +232,7 @@ public final class AccountSnapshot
 	private AccountSnapshot(AccountSnapshot source, String accountId)
 	{
 		this.accountId = AccountIdentity.require(accountId);
+		this.stockDeclarations = source.getStockDeclarations();
 		this.correlationId = source.correlationId; this.observedAt = source.observedAt;
 		this.spendableCoins = source.spendableCoins; this.committedCoins = source.committedCoins;
 		this.freeSlots = source.freeSlots; this.totalSlots = source.totalSlots;
@@ -245,7 +248,14 @@ public final class AccountSnapshot
 
 	private AccountSnapshot(AccountSnapshot source, Map<Integer, Long> exposure)
 	{
+		this(source, exposure, source.getStockDeclarations());
+	}
+
+	private AccountSnapshot(AccountSnapshot source, Map<Integer, Long> exposure,
+		Map<Integer, StockDeclaration> declarations)
+	{
 		this.accountId = source.accountId;
+		this.stockDeclarations = Collections.unmodifiableMap(new java.util.HashMap<>(declarations));
 		this.correlationId = source.correlationId; this.observedAt = source.observedAt;
 		this.spendableCoins = source.spendableCoins; this.committedCoins = source.committedCoins;
 		this.freeSlots = source.freeSlots; this.totalSlots = source.totalSlots;
@@ -270,6 +280,16 @@ public final class AccountSnapshot
 		return new AccountSnapshot(this, exposure);
 	}
 	public AccountSnapshot withAccountId(String accountId) { return new AccountSnapshot(this, accountId); }
+	public AccountSnapshot withStockDeclarations(Map<Integer, StockDeclaration> declarations)
+	{
+		if (declarations == null) throw new IllegalArgumentException("stock declarations required");
+		return new AccountSnapshot(this, getCommittedByItem(), declarations);
+	}
+	public Map<Integer, StockDeclaration> getStockDeclarations()
+	{
+		return stockDeclarations == null ? Collections.emptyMap()
+			: Collections.unmodifiableMap(new java.util.HashMap<>(stockDeclarations));
+	}
 	public String getAccountId() { return accountId; }
 	public String getCorrelationId() { return correlationId; }
 	public long getObservedAt() { return observedAt; }

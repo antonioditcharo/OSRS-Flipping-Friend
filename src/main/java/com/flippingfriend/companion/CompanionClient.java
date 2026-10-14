@@ -88,6 +88,13 @@ public class CompanionClient
 		accountContext();
 		lastPlan = plan;
 	}
+	synchronized boolean acceptFetchedPlan(PortfolioPlan plan, String requestedAccount, long requestedReview)
+	{
+		if (!java.util.Objects.equals(requestedAccount, accountContext())
+			|| requestedReview != stockReviewGeneration.get()) return false;
+		acceptPlan(plan);
+		return true;
+	}
 
 	/**
 	 * Whether the companion is in a position to answer at all, as opposed to answering "not now".
@@ -116,6 +123,38 @@ public class CompanionClient
 	private volatile PortfolioPlan lastPlan;
 	private volatile CompanionHealth lastHealth;
 	private volatile com.flippingfriend.core.AccountLedgerSnapshot lastLedger;
+	@Inject private com.flippingfriend.session.StockDeclarations stockDeclarations;
+	private final AtomicLong stockReviewGeneration = new AtomicLong();
+	public long stockReviewVersion() { return stockReviewGeneration.get(); }
+
+	private com.flippingfriend.session.StockDeclarations stockDeclarations()
+	{
+		if (stockDeclarations == null) stockDeclarations = new com.flippingfriend.session.StockDeclarations(storage);
+		return stockDeclarations;
+	}
+	public java.util.Map<Integer, com.flippingfriend.core.StockDeclaration> stockReviews()
+	{ return stockDeclarations().read(); }
+
+	public synchronized boolean reviewStock(String expectedAccount, com.flippingfriend.core.PositionProjection position,
+		com.flippingfriend.core.StockDeclaration.Use use)
+	{
+		com.flippingfriend.core.AccountLedgerSnapshot current = lastLedger();
+		if (current == null || !java.util.Objects.equals(expectedAccount, current.getAccountId()) || position == null) return false;
+		try
+		{
+			com.flippingfriend.core.PositionProjection latest = current.getPositions().stream()
+				.filter(p -> p.getItemId() == position.getItemId()).findFirst().orElse(null);
+			if (latest == null) return false;
+			com.flippingfriend.core.StockDeclaration declaration = use == null ? null
+				: new com.flippingfriend.core.StockDeclaration(position, use);
+			if (declaration != null && !declaration.matches(latest)) return false;
+			stockDeclarations().record(expectedAccount, position.getItemId(), declaration);
+			stockReviewGeneration.incrementAndGet();
+			clearIncumbent(); lastPlan = null;
+			return true;
+		}
+		catch (Exception failed) { lastError = "Stock review was not saved: " + failed.getMessage(); return false; }
+	}
 	private String observedAccountId;
 	/** Latest durably published canonical offer event by slot, retained after acknowledgement. */
 	private final java.util.concurrent.ConcurrentMap<Integer, OfferEvent> canonicalOffers =
@@ -221,7 +260,8 @@ public class CompanionClient
 			// How long a flip should take. The companion is what actually chooses the trade, and
 			// until this travelled it planned every leg at the risk appetite's own horizon however
 			// short or long a flip the player had asked for.
-			config.targetHoldMinutes(), positionSnapshots).withAccountId(accountId);
+			config.targetHoldMinutes(), positionSnapshots).withAccountId(accountId)
+			.withStockDeclarations(stockDeclarations().read());
 		post("events/account-state", snapshot);
 	}
 
@@ -293,13 +333,14 @@ public class CompanionClient
 	 */
 	public PortfolioPlan refreshPlan()
 	{
+		long requestedReview = stockReviewGeneration.get();
 		String requestedAccount = accountContext();
 		refreshLedger(requestedAccount);
 		try
 		{
 			CompanionHealth health = get("health", CompanionHealth.class);
 			lastHealth = health;
-			if (health == null || !health.isReady())
+			if (health == null || !health.canReadPlan(Instant.now().getEpochSecond()))
 			{
 				lastPlan = null;
 				return null;
@@ -307,7 +348,7 @@ public class CompanionClient
 			PortfolioPlan fetched = get("portfolio/current", PortfolioPlan.class);
 			if (!java.util.Objects.equals(requestedAccount, accountContext()))
 				throw new IllegalStateException("Account changed while fetching the plan");
-			acceptPlan(fetched);
+			if (!acceptFetchedPlan(fetched, requestedAccount, requestedReview)) return null;
 			return lastPlan;
 		}
 		catch (Exception ex)
