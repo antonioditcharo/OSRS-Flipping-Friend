@@ -9,6 +9,20 @@
       local records and must migrate with positive reconciliation evidence.
 
 ## Next
+- [ ] Install and live-verify the separate trade walkthrough/confirmation slice after owner approval
+      and final-head Ubuntu/Windows CI. Branch `codex/trade-ui-walkthrough`, from rebuild `5ac97048`;
+      eight reproducing regressions at `52513d1`, implementation `b0ee05c`, final rendering check
+      `10c4fe4`. Actual values govern both highlights and the normal Confirm lock; native right-click
+      Confirm permits deliberate personal inputs. No game-input automation or database changes.
+      Standard local build: 1,221 Java passed, six skipped, zero failures/errors; 48 Python passed.
+      Combined preview with unmerged PR #40 at `22985fa` passed 1,241 Java with six skips and both
+      JARs built. Keep quote-refresh and guard handlers, clear both on session reset, and preserve
+      lock rendering on a personal item during merge resolution. See
+      docs/architecture/trade-ui-walkthrough.md for verified behavior and player acceptance cases.
+      Installed runtime remains PR #37. Live pipeline-check was not run for this source slice;
+      PR #31 and accounting reconciliation remain unfinished. Do not install from a temporary worktree.
+
+
 - [ ] Install and live-verify automatic trade scope from `codex/automatic-trade-scope`.
       Regression-first commit `b25a358` reproduces three adoption/recount failures before code changes.
       Source now tracks remaining accepted acquisition quantities in the existing durable event

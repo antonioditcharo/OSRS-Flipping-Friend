@@ -214,6 +214,19 @@ public interface FlippingFriendConfig extends Config
         position = 8, section = guidanceSection)
     default boolean protectTradeConfirmation() { return true; }
 
+    @ConfigItem(keyName = "showSuggestedSearchItem", name = "Suggested item in GE search",
+        description = "Show the current recommended buy as a selectable item in an empty GE search.",
+        position = 9, section = guidanceSection)
+    default boolean showSuggestedSearchItem() { return true; }
+
+    @ConfigItem(keyName = "fillRecommendedInputKey", name = "Fill recommended price/quantity",
+        description = "Choose a key to fill the open GE quantity or price prompt. "
+            + "Press Enter yourself to accept it. Enter cannot be used as this key.",
+        position = 10, section = guidanceSection)
+    default net.runelite.client.config.Keybind fillRecommendedInputKey() {
+        return net.runelite.client.config.Keybind.NOT_SET;
+    }
+
 	@ConfigItem(
 		keyName = "highlightColor",
 		name = "Highlight colour",

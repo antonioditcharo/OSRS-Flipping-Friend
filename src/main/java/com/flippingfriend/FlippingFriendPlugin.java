@@ -66,7 +66,8 @@ import org.slf4j.LoggerFactory;
  * items, fetching prices, computing history — runs on a background executor against those copies.
  * Anything that draws runs on the Swing thread.
  * <p>
- * The plugin only ever reads from the game and paints on top of it. It sends no input of any kind.
+ * Offer actions remain player-operated. A configured player key may fill the already open GE
+ * numeric prompt; it never accepts the input or places, cancels or collects an offer.
  */
 @PluginDescriptor(
 	name = "Flipping Friend",
@@ -161,6 +162,7 @@ public class FlippingFriendPlugin extends Plugin
 	private StepGuide stepGuide;
 
     @Inject private com.flippingfriend.overlay.TradeConfirmGuard tradeConfirmGuard;
+    @Inject private com.flippingfriend.overlay.GeInputAssist geInputAssist;
 
 	@Inject
 	private GeWidgetResolver widgetResolver;
@@ -197,6 +199,7 @@ public class FlippingFriendPlugin extends Plugin
 	@Override
 	protected void startUp()
 	{
+        geInputAssist.start();
 		worker = Executors.newSingleThreadExecutor(r ->
 		{
 			Thread thread = new Thread(r, "flipping-friend-engine");
@@ -239,6 +242,7 @@ public class FlippingFriendPlugin extends Plugin
 	@Override
 	protected void shutDown()
 	{
+        geInputAssist.stop();
         stepGuide.reset(); tradeConfirmGuard.reset();
 		offerObservationGeneration.incrementAndGet();
 		synchronized (pendingOffers) { pendingOffers.clear(); }
@@ -278,6 +282,7 @@ public class FlippingFriendPlugin extends Plugin
 	@Subscribe
 	public void onGameStateChanged(GameStateChanged event)
 	{
+        if (geInputAssist != null) geInputAssist.reset();
         if (stepGuide != null) stepGuide.reset();
         if (tradeConfirmGuard != null) tradeConfirmGuard.reset();
 		GameState state = event.getGameState();
@@ -384,12 +389,25 @@ public class FlippingFriendPlugin extends Plugin
     @Subscribe
     public void onMenuOpened(net.runelite.api.events.MenuOpened event) { tradeConfirmGuard.onMenuOpened(event); }
     @Subscribe
-    public void onBeforeRender(net.runelite.api.events.BeforeRender event) { tradeConfirmGuard.beforeRender(); }
+    public void onBeforeRender(net.runelite.api.events.BeforeRender event) {
+        tradeConfirmGuard.beforeRender();
+        refreshInputAssist();
+    }
+    @Subscribe
+    public void onVarClientIntChanged(net.runelite.api.events.VarClientIntChanged event) { refreshInputAssist(); }
+    @Subscribe
+    public void onScriptPostFired(net.runelite.api.events.ScriptPostFired event) {
+        if (event.getScriptId() == net.runelite.api.ScriptID.GE_ITEM_SEARCH
+            || event.getScriptId() == net.runelite.api.ScriptID.GE_OFFERS_SETUP_BUILD) refreshInputAssist();
+    }
+    private void refreshInputAssist() {
+        geInputAssist.refresh(accountDataLoaded.get() && offerTracker.hasCompleteOfferEvidence());
+    }
 
 	@Subscribe
 	public void onMenuOptionClicked(MenuOptionClicked event)
 	{
-        // Guard user clicks only; never populate fields or submit an offer for the player.
+        // Confirm remains a player click. Input assistance is a separate configured key press.
         tradeConfirmGuard.onMenuOptionClicked(event);
         if (!event.isConsumed()) stepGuide.onMenuOptionClicked(event);
 	}
@@ -401,6 +419,7 @@ public class FlippingFriendPlugin extends Plugin
 		{
 			stepGuide.onSetupClosed();
             tradeConfirmGuard.reset();
+            geInputAssist.reset();
 		}
 	}
 
@@ -411,6 +430,10 @@ public class FlippingFriendPlugin extends Plugin
 		{
 			return;
 		}
+
+        if ("fillRecommendedInputKey".equals(event.getKey()) || "showSuggestedSearchItem".equals(event.getKey())) {
+            geInputAssist.reset();
+        }
 
 		offerTracker.setRiskProfileName(config.riskProfile().name());
 		if ("riskProfile".equals(event.getKey()) || "blockedItems".equals(event.getKey()))

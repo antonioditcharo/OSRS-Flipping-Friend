@@ -280,6 +280,50 @@ PR checks for the final remote outcome; the first run is retained as failure evi
 
 ## Verification and continuation
 
+### Parallel trade UI slice — 14 October 2026 (source verified; not installed)
+
+Owner requested a parallel slice before accepting the automatic trade-scope work. Standalone
+branch `codex/trade-ui-walkthrough` starts from fetched rebuild
+`5ac97048c0fc44a513cc86564867406479b0d8db`; regression commit `52513d1` recorded eight failures
+before production changes. Implementation is `b0ee05c8b0b68cb5ea570c510a7ed8de99a07508`, followed
+by personal-context rendering regression `10c4fe4e6803bb2b61595822c0c3aa6bf8809bb2`.
+
+- Quantity and price highlights follow committed game values and return when those values change.
+  A click opening an input field no longer counts as completing it. Both wrong fields are highlighted.
+- Normal Confirm is guarded while item/side/quantity/64-bit price differ or input remains open.
+  The player can right-click the original native Confirm to deliberately override for a personal
+  trade. No field population, scripted game input or automated submission exists.
+- Actual dynamic buttons are resolved by actions; hidden controls and mere captions are rejected.
+  The visible lock explains the override. Duplicate number hints no longer overprint the card.
+- Logout/editor close clears progress and override permission. Queued recommendation callbacks
+  check session/profile. No accounting, ownership, database or installed-runtime changes occurred.
+
+Standard Windows verification at the production revision: **1,221 Java passed / six skipped**
+(1,227 total, 321 suites), zero failures/errors; both JARs built. Exact output:
+`BUILD SUCCESSFUL in 37s`, `18 actionable tasks: 17 executed, 1 up-to-date`, exit 0.
+Python output: `Ran 48 tests in 81.010s`, `OK`, exit 0. Final personal-context rendering assertion
+also passed (`BUILD SUCCESSFUL in 5s`, exit 0). Logs outside build outputs:
+`.gradle/trade-ui-final-gradle.log`, `.gradle/trade-ui-final-python.log`, and
+`.gradle/trade-ui-personal-lock.log`. Synthetic render fixtures are not live screenshots.
+
+PR #40 remains OPEN and unmerged at `fd60c8be9b7313178ab9700018a02bfa34004c24`; final-head
+Ubuntu/Windows CI passed (run 38599815145). Its source is in a separate branch; earlier "not
+implemented" entries below describe the prior checkpoint. This UI slice does not silently include it.
+An isolated combined preview at `22985fa4955a2266fbcde4ae607334284e9237a0` on
+`codex/trade-ui-scope-integration` passed **1,241 Java / six skipped** (1,247 total, 328 suites),
+zero failures/errors, with both JARs built: `BUILD SUCCESSFUL in 28s`,
+`18 actionable tasks: 17 executed, 1 up-to-date`, exit 0. A merge regression first reproduced the
+personal-item lock disappearing; the resolution preserves both quote refresh and menu guard.
+Integration details and required merge resolutions are in
+[trade UI walkthrough](docs/architecture/trade-ui-walkthrough.md).
+
+**Live pipeline-check output: not run for this slice.** Installed pair remains the prior PR #37
+runtime; no agent game actions, installation, task changes or database inspection/repair occurred.
+Neither PR is merged or installed. After owner approval and final-head CI, use the root supported
+paired update with fresh backup review, then let the player perform the documented BUY/SELL,
+override, field-edit, layout, restart/profile and maintenance acceptance checks. Existing live
+account reconciliation and the PR #31 checklist remain outstanding.
+
 ### Workflow correction — 14 October 2026 (direction accepted; replacement not implemented)
 
 The owner rejected routine player classification and main-panel clutter. The new target is
