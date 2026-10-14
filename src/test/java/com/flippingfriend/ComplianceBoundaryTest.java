@@ -48,7 +48,11 @@ public class ComplianceBoundaryTest
 
                         if (source.contains("setVarcStrValue")
                                 || source.contains("VarClientStr.INPUT_TEXT")
-                                || source.contains("autoPopulateHotkey"))
+                                || source.contains("autoPopulateHotkey")
+                                || source.contains("invokeMenuAction(") || source.contains("menuAction(")
+                                || source.contains("runScript(") || source.contains("setVarpValue(")
+                                || source.contains("setVarpLongValue(") || source.contains("setVarbitValue(")
+                                || source.contains("java.awt.Robot"))
                         {
                                 violations.add(path.toString());
                         }

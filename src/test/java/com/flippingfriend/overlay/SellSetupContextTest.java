@@ -22,12 +22,22 @@ public class SellSetupContextTest {
     }
     @Test public void playerChosenSaleTemporarilyOverridesBuyAdviceAndClosingRestoresIt() {
         Client client=mock(Client.class); when(client.isClientThread()).thenReturn(true);
-        var guide=new StepGuide(client,mock(GeWidgetResolver.class));
+        var resolver=mock(GeWidgetResolver.class);
+        when(resolver.isSetupOpen()).thenReturn(true);
+        when(client.getGameState()).thenReturn(net.runelite.api.GameState.LOGGED_IN);
+        when(client.getVarpValue(VarPlayerID.TRADINGPOST_SEARCH)).thenReturn(561);
+        when(client.getVarbitValue(VarbitID.GE_NEWOFFER_TYPE)).thenReturn(1);
+        when(client.getVarbitValue(VarbitID.GE_NEWOFFER_QUANTITY)).thenReturn(100);
+        when(client.getVarbitValue(VarbitID.GE_SELECTEDSLOT)).thenReturn(1);
+        when(client.getVarpLongValue(GeEditorValues.PRICE_VARP)).thenReturn(118L);
+        var guide=new StepGuide(client,resolver);
         var buy=Suggestion.builder(SuggestionType.BUY).item(2,"Other item").quantity(10).price(100).build();
         guide.setSuggestion(buy);
         var quote=Suggestion.builder(SuggestionType.SELL).item(561,"Nature rune").quantity(100).price(119).profitKnown(false).build();
         guide.setEditorQuote(quote); assertSame(quote,guide.getSuggestion());
         assertTrue(guide.isQuantityDone()); assertFalse(guide.isPriceDone());
+        when(client.getVarbitValue(VarbitID.GE_NEWOFFER_QUANTITY)).thenReturn(99);
+        assertFalse(guide.isQuantityDone());
         guide.onSetupClosed(); assertSame(buy,guide.getSuggestion());
     }
 }

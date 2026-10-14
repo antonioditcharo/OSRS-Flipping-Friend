@@ -4,13 +4,10 @@ import com.flippingfriend.model.Suggestion;
 import com.flippingfriend.model.SuggestionType;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import net.runelite.api.Client;
 import net.runelite.api.events.MenuOptionClicked;
-import net.runelite.api.gameval.VarPlayerID;
-import net.runelite.api.VarClientInt;
 import net.runelite.api.widgets.Widget;
 
 /**
@@ -18,9 +15,9 @@ import net.runelite.api.widgets.Widget;
  * <p>
  * Most of the answer is read straight from live game state — is the Grand Exchange open, is the
  * offer editor up, which item is loaded into it — because state that is derived fresh cannot drift
- * out of sync with what the player is actually looking at. The one thing the game does not expose
- * is whether the quantity and price have been entered yet, so those two are tracked by watching
- * clicks land on the relevant controls.
+ * out of sync with what the player is actually looking at. Quantity and the 64-bit price are read
+ * from committed GE variables. Clicks only identify
+ * an input currently being edited; they never prove its value.
  * <p>
  * When the quantity and price controls cannot be identified in the interface, the guide degrades
  * deliberately: it highlights the whole editor and shows both numbers at once. Less precise, but it
@@ -38,16 +35,20 @@ public class StepGuide
     private volatile Suggestion editorQuote;
 	private volatile boolean quantityDone;
 	private volatile boolean priceDone;
+    private volatile boolean entryStarted;
+    private Widget editingControl;
 
 	/** Whether the quantity field has been dealt with, so a hint for it can stop being drawn. */
 	public boolean isQuantityDone()
 	{
+		refreshProgress();
 		return quantityDone;
 	}
 
 	/** Whether the price field has been dealt with. */
 	public boolean isPriceDone()
 	{
+		refreshProgress();
 		return priceDone;
 	}
 
@@ -105,6 +106,7 @@ public class StepGuide
 		{
 			quantityDone = false;
 			priceDone = false;
+            entryStarted = false; editingControl = null;
 		}
 		else
 		{
@@ -127,7 +129,7 @@ public class StepGuide
 	{
 		// Nothing is being typed if nothing has been entered, and that half of the question needs no
 		// widgets — so ask it first and usually avoid touching the client at all.
-		if (!quantityDone && !priceDone)
+		if (!entryStarted)
 		{
 			return false;
 		}
@@ -168,43 +170,30 @@ public class StepGuide
     }
     public Suggestion getSuggestion() { return editorQuote == null ? tracked : editorQuote; }
 
-	/** Called on the client thread for every click, purely as an observation. */
-	public void onMenuOptionClicked(MenuOptionClicked event)
-	{
-		if (!resolver.isSetupOpen())
-		{
-			return;
-		}
+    /** Clicking a control starts entry; only committed values establish completion. */
+    public void onMenuOptionClicked(MenuOptionClicked event)
+    {
+        if (!client.isClientThread() || !resolver.isSetupOpen()) return;
+        Widget quantity = resolver.getQuantityControl(), price = resolver.getPriceControl();
+        if (isSameWidget(event, quantity)) { entryStarted = true; editingControl = quantity; }
+        else if (isSameWidget(event, price)) { entryStarted = true; editingControl = price; }
+        refreshProgress();
+    }
 
-		String option = event.getMenuOption();
-		String normalised = option == null ? "" : option.toLowerCase(Locale.ROOT);
-
-		Widget quantityControl = resolver.getQuantityControl();
-		Widget priceControl = resolver.getPriceControl();
-		Widget confirmControl = resolver.getConfirmButton();
-
-		if (isSameWidget(event, confirmControl) || normalised.contains("confirm"))
-		{
-			quantityDone = true;
-			priceDone = true;
-			return;
-		}
-
-		if (normalised.contains("price") || isSameWidget(event, priceControl))
-		{
-			quantityDone = true;
-			if (isSameWidget(event, priceControl))
-			{
-				priceDone = true;
-			}
-			return;
-		}
-
-		if (isSameWidget(event, quantityControl))
-		{
-			quantityDone = true;
-		}
-	}
+    private void refreshProgress() {
+        if (!client.isClientThread()) return;
+        GeEditorValues values = GeEditorValues.read(client, resolver);
+        Suggestion suggestion = getSuggestion();
+        boolean context = values != null && values.contextMatches(suggestion);
+        quantityDone = context && values.quantity == suggestion.getQuantity()
+            && !(values.typing && editingControl == resolver.getQuantityControl());
+        priceDone = context && values.price == suggestion.getPrice()
+            && !(values.typing && editingControl == resolver.getPriceControl());
+    }
+    GeEditorValues editorValues() { return GeEditorValues.read(client, resolver); }
+    public void reset() {
+        tracked = Suggestion.idle(); pending = null; onSetupClosed();
+    }
 
 	/** Clears progress when the editor closes, so re-opening it starts the walkthrough again. */
 	public void onSetupClosed()
@@ -212,6 +201,7 @@ public class StepGuide
         editorQuote = null;
 		quantityDone = false;
 		priceDone = false;
+        entryStarted = false; editingControl = null;
 		// The offer is placed or abandoned either way, so anything held back can now take over.
 		applyPending();
 	}
@@ -276,41 +266,7 @@ public class StepGuide
 
 	private GuideState adjustState(Suggestion suggestion)
 	{
-		if (resolver.isSetupOpen())
-		{
-			Widget quantityControl = resolver.getQuantityControl();
-			Widget priceControl = resolver.getPriceControl();
-
-			if (quantityControl == null && priceControl == null)
-			{
-				Widget setup = resolver.getSetupPanel();
-				return new GuideState(GuideStep.SET_QUANTITY, single(setup), suggestion, true);
-			}
-
-			boolean isTyping = client.getVarcIntValue(net.runelite.api.VarClientInt.INPUT_TYPE) != 0;
-
-			if (!quantityDone && quantityControl != null)
-			{
-				return new GuideState(GuideStep.SET_QUANTITY, single(quantityControl), suggestion);
-			}
-
-			if (!priceDone && priceControl != null)
-			{
-				if (isTyping && quantityDone)
-				{
-					return new GuideState(GuideStep.SET_QUANTITY, single(quantityControl), suggestion);
-				}
-				return new GuideState(GuideStep.SET_PRICE, single(priceControl), suggestion);
-			}
-
-			if (isTyping && priceDone)
-			{
-				return new GuideState(GuideStep.SET_PRICE, single(priceControl), suggestion);
-			}
-
-			Widget confirm = resolver.getConfirmButton();
-			return new GuideState(GuideStep.CONFIRM, single(confirm), suggestion);
-		}
+        if (resolver.isSetupOpen()) return editorState(suggestion);
 
 		List<Widget> targets = new ArrayList<>();
 		Widget slot = resolver.getSlot(suggestion.getSlot());
@@ -367,53 +323,39 @@ public class StepGuide
 			return new GuideState(GuideStep.SELL_FROM_INVENTORY, targets, suggestion);
 		}
 
-		// The editor is open. Is it loaded with the right item?
-		int loadedItem = client.getVarpValue(VarPlayerID.TRADINGPOST_SEARCH);
-		if (buying && loadedItem != suggestion.getItemId())
-		{
-			Widget result = resolver.getSearchResult(suggestion.getItemId());
-			if (result != null)
-			{
-				return new GuideState(GuideStep.PICK_SEARCH_RESULT, single(result), suggestion);
-			}
-			return new GuideState(GuideStep.SEARCH_ITEM, new ArrayList<>(), suggestion);
-		}
+        return editorState(suggestion);
+    }
 
-		Widget quantityControl = resolver.getQuantityControl();
-		Widget priceControl = resolver.getPriceControl();
-
-		if (quantityControl == null && priceControl == null)
-		{
-			// Could not identify the individual controls, so point at the whole editor rather than
-			// risk highlighting something arbitrary.
-			Widget setup = resolver.getSetupPanel();
-			return new GuideState(GuideStep.SET_QUANTITY, single(setup), suggestion, true);
-		}
-
-		boolean isTyping = client.getVarcIntValue(VarClientInt.INPUT_TYPE) != 0;
-
-		if (!quantityDone && quantityControl != null)
-		{
-			return new GuideState(GuideStep.SET_QUANTITY, single(quantityControl), suggestion);
-		}
-
-		if (!priceDone && priceControl != null)
-		{
-			if (isTyping && quantityDone)
-			{
-				return new GuideState(GuideStep.SET_QUANTITY, single(quantityControl), suggestion);
-			}
-			return new GuideState(GuideStep.SET_PRICE, single(priceControl), suggestion);
-		}
-
-		if (isTyping && priceDone)
-		{
-			return new GuideState(GuideStep.SET_PRICE, single(priceControl), suggestion);
-		}
-
-		Widget confirm = resolver.getConfirmButton();
-		return new GuideState(GuideStep.CONFIRM, single(confirm), suggestion);
-	}
+    private GuideState editorState(Suggestion suggestion) {
+        GeEditorValues values = editorValues();
+        if (values == null) return GuideState.none();
+        if (values.item <= 0 && values.type == 0 && values.slot >= 0 && values.slot < 8
+            && (suggestion.getType() == SuggestionType.BUY || suggestion.getType() == SuggestionType.MODIFY_BUY)) {
+            Widget result = resolver.getSearchResult(suggestion.getItemId());
+            return new GuideState(result == null ? GuideStep.SEARCH_ITEM : GuideStep.PICK_SEARCH_RESULT,
+                single(result), suggestion);
+        }
+        if (!values.usable()) return GuideState.none();
+        if (!values.contextMatches(suggestion)) {
+            if (values.type == 0 && suggestion.getType() == SuggestionType.BUY) {
+                Widget result = resolver.getSearchResult(suggestion.getItemId());
+                return new GuideState(result == null ? GuideStep.SEARCH_ITEM : GuideStep.PICK_SEARCH_RESULT,
+                    single(result), suggestion);
+            }
+            Widget back = client.getWidget(net.runelite.api.gameval.InterfaceID.GeOffers.BACK);
+            return new GuideState(GuideStep.CHECK_OFFER, single(back), suggestion);
+        }
+        refreshProgress();
+        if (values.matches(suggestion)) return new GuideState(GuideStep.CONFIRM, single(resolver.getConfirmButton()), suggestion);
+        Widget quantity = resolver.getQuantityControl(), price = resolver.getPriceControl();
+        List<Widget> targets = new ArrayList<>();
+        if (!quantityDone && quantity != null) targets.add(quantity);
+        if (!priceDone && price != null) targets.add(price);
+        if (values.typing && editingControl != null && !targets.contains(editingControl)) targets.add(editingControl);
+        if (targets.isEmpty()) targets.addAll(single(resolver.getSetupPanel()));
+        boolean both = (!quantityDone && !priceDone) || quantity == null || price == null;
+        return new GuideState(!quantityDone ? GuideStep.SET_QUANTITY : GuideStep.SET_PRICE, targets, suggestion, both);
+    }
 
 	private static boolean isSameWidget(MenuOptionClicked event, Widget widget)
 	{
@@ -427,7 +369,8 @@ public class StepGuide
 			return true;
 		}
 		// getParam1 carries the packed widget id of the clicked component.
-		return event.getParam1() == widget.getId();
+		return widget.getId() > 0 && event.getParam1() == widget.getId()
+            && event.getParam0() == widget.getIndex();
 	}
 
 	private static List<Widget> single(Widget widget)

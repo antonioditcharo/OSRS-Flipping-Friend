@@ -202,7 +202,8 @@ public class GrandExchangeOverlay extends Overlay
 				lines.add(big("Price: " + explainer.formatNumber(suggestion.getPrice()) + " gp"));
 				break;
 
-			case SEARCH_ITEM:
+			case CHECK_OFFER:
+            case SEARCH_ITEM:
 			case PICK_SEARCH_RESULT:
 				lines.add(big(suggestion.getItemName()));
 				break;
