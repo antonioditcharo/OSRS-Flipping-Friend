@@ -124,7 +124,12 @@ public class CompanionClient
 	private synchronized String accountContext()
 	{
 		String current = storage.accountId();
-		if (!java.util.Objects.equals(current, observedAccountId))
+		java.nio.file.Path accountDirectory = current == null ? null : storage.accountDir(current);
+		boolean unsupportedPrice = accountDirectory != null && java.nio.file.Files.exists(accountDirectory
+			.resolve(com.flippingfriend.session.OfferTracker.UNSUPPORTED_PRICE_FILE));
+		if (unsupportedPrice) current = null;
+		// Repeat invalidation while blocked: an earlier in-flight response must not restore advice.
+		if (unsupportedPrice || !java.util.Objects.equals(current, observedAccountId))
 		{
 			clearIncumbent(); lastPlan = null; lastHealth = null;
 			lastLedger = null;

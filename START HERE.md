@@ -65,7 +65,15 @@ interactive limited principal; it does not promise operation before logon or aft
 
 `3 - Status` is read-only and validates the JAR pair, task checkout and scoped health. A responding
 companion can still have a cold/degraded market cache; status is not proof of market freshness or
-correct live account accounting. After logging in, run this from PowerShell in the project folder:
+correct live account accounting.
+
+Start also checks RuneLite's official artifact list and the API version in the installed plugin.
+An old or missing API declaration requires a paired update even when companion status passes.
+It excludes older cached client/API JARs without deleting them. For a separate read-only compatibility
+check before launching, run `tools/run-dev.ps1 -CheckOnly`. If RuneLite has updated beyond this
+project's supported API version, a compatible source update is needed before launch.
+
+After logging in, run this from PowerShell in the project folder:
 
 ```powershell
 .\tools\pipeline-check.ps1 -SkipBuild

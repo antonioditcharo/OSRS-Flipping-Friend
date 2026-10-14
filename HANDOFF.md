@@ -10,8 +10,9 @@ Active development and the GitHub default branch are **`CoPilot's-Rebuild-from-M
 include the work below. Start a new `codex/` branch from the current remote rebuild branch.
 Do not reset or force-push the historical branches to make them look current.
 
-The latest trading-runtime implementation is merge commit `6b4140109de6a63d93614740c87b32f72cfe171d` (PR #31).
-The update-tooling continuation below does not add trading or learning features.
+The durable planner/accounting foundation is merge commit `6b4140109de6a63d93614740c87b32f72cfe171d`
+(PR #31). The setup and RuneLite compatibility continuations below are also required for the current
+player workflow; strategy tuning and measured learning promotion remain pending.
 
 | Merged work | Result | Merge commit |
 | --- | --- | --- |
@@ -21,6 +22,7 @@ The update-tooling continuation below does not add trading or learning features.
 | [PR #31](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/31) | Stale snapshots cannot restore sold positions; planner per-item exposure reads durable positions and open-buy reservations; unresolved state withdraws buy advice. | `6b4140109de6a63d93614740c87b32f72cfe171d` |
 | [PR #33](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/33) | Guarded update rejects disabled/foreign tasks and incomplete artifact pairs; Java-on-PATH fallback; recorded incomplete live verification. Windows/Linux CI passed. | `7b98a19bf288ab259bb275c2efaf2669028b9482` |
 | [PR #34](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/34) | Shared paired setup/re-setup/update/start/status lifecycle, stable installed companion, hash manifest, backup review, saved-login reuse and refreshed shortcut. Windows/Linux CI passed. | `cb2c1d2dac01865374108339fbd1fcee43ee0093` |
+| [PR #35](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/35) | Separate plugin profile records are included in the pre-install backup; linked records are rejected. Recorded actual backup review. Windows/Linux CI passed. | `6411f800e9a56d37de5dbd3b3194061ae262e910` |
 
 ## Implemented boundaries to preserve
 
@@ -65,8 +67,10 @@ exports' evidence limits. Raw CSVs and row-level outputs are intentionally gitig
 Session/cadence labels are unavailable. Transaction-export Tax is derived by Copilot's exporter,
 not an observation of historical tax. Do not infer a valid GP/hour comparison from these files.
 
-No live RuneLite installation or live database migration was performed. Live verification against
-actual holdings/collected coins remains outstanding. Profit superiority, feature parity, online
+The user-run paired installation was verified read-only at `6411f800`; the subsequent RuneLite
+login froze before the live checklist could proceed (see the continuation below). No agent database
+migration was performed. Live verification against actual holdings/collected coins remains outstanding.
+Profit superiority, feature parity, online
 logistic learning, shadow trading, and automatic challenger promotion have not been established.
 Historical package counts, roadmaps, and non-activation scaffolding are not runtime feature evidence.
 
@@ -110,6 +114,8 @@ account database or RuneLite**. Complete this before relying on it for trading.
 **Rollback:** stop both processes and reinstall the backed-up JARs. Under the owner's database
 handling rule, do not restore, edit, move, migrate, or repair account databases or the unassigned
 legacy database. Record any suspected database problem and investigate read-only.
+The plugin pair must also match the current RuneLite API. An older backup without compatible API
+metadata cannot be launched through the new guard; do not bypass it or mix old cached client/API JARs.
 
 Still untested after this checklist: concurrent read/write interleaving and a full live-market
 service test. Cash, committedCoins, preferences, and session risk remain client-snapshot inputs.
@@ -166,6 +172,108 @@ temporary path aliases before invoking PowerShell; all 15 tests passed locally a
 PR checks for the final remote outcome; the first run is retained as failure evidence.
 
 ## Verification and continuation
+
+### RuneLite login freeze continuation — 13 October 2026 (source verified; live retest pending)
+
+Base `6411f800e9a56d37de5dbd3b3194061ae262e910`; work branch `codex/runelite-login-classpath`.
+Implementation `3ae5386d264d0a7055441033cf5709ed1271908f` was verified at source/documentation revision
+`dcad648bc76efd7b358d57bfba847c0f3bbc2cd7` after the user closed RuneLite.
+Regression commit `52e6fb965badd7d8591839afe4b03f51fee69b9c` preceded implementation. Historical main
+and all live databases remain untouched. This source work has not been installed or tested in-game.
+
+The user completed re-setup after an earlier lowercase `install` correctly cancelled it. Read-only
+status at `6411f800` reported both installed JARs/manifest present, the task Running in the rebuild
+checkout, `accounts-v1` responding, and `Overall status: PAIR VERIFIED / COMPANION RESPONDING`.
+That verifies the companion pair, not RuneLite ABI compatibility or successful login. The user then
+ran the numbered Start wrapper and reported a freeze during login at 20:38 AKDT.
+
+Observed evidence, without game input or stopping either process:
+
+- Launcher output included client 1.13.1 and client 1.12.39 resources on one classpath and warned
+  that the plugin was built against 1.12.39. The Client error was
+  `NoSuchMethodError: 'long net.runelite.api.GrandExchangeOffer.getPrice()'`, originating in the
+  Flipping Utilities offer-event handler. This is an API linkage failure; do not blame or remove
+  that plugin to conceal a mixed dependency set.
+- Read-only javap confirmed 1.12.39 has int price/spent getters and 1.13.1 has long getters.
+  All 31 Windows/amd64 artifacts selected by the official bootstrap version 1.13.1 were already
+  present and hash-matched. Old client/API JARs were also present; no cache files were deleted.
+- A read-only thread dump at 20:42 AKDT contained no Client game thread, while the AWT event
+  thread remained waiting normally. That is consistent with the game thread ending after the
+  linkage error; no successful login or UI recovery was observed. Private dump remains gitignored:
+  `local-data/diagnostics/runelite-login-20261013/threads-24828.txt`.
+- Automated actual-script regressions first failed all eight launcher cases (`Ran 8 tests in
+  5.847s`, `FAILED (failures=8)`). The Java ABI test first failed `expected:<long> but was:<int>`.
+  Logs: `.gradle/runelite-launcher-regression.log` and `.gradle/runelite-api-regression.log`.
+
+Implemented and automatically verified source:
+
+- `run-dev.ps1` selects the exact official bootstrap Windows/architecture artifact list, checks
+  required current client/injected/API entries and each local size/hash, and excludes stale cache
+  versions and other-platform natives. It reads but does not repair/delete/download cached JARs.
+  Artifact names cannot escape the repository directory. The matching full API extra is appended
+  only for normal developer launch. `-CheckOnly` validates without launching or downloading extras.
+  Selection follows the [official launcher artifact flow](https://github.com/runelite/launcher/blob/master/src/main/java/net/runelite/launcher/Launcher.java).
+- Source and the installed plugin JAR must both declare the bootstrap API version. Missing/old
+  installed metadata stops launch and requires the paired numbered update; source pin alone cannot
+  prove what is installed. Build pin is now 1.13.1 and JAR manifest includes `RuneLite-Api-Version`.
+  Java bytecode still targets 11. Monetary test fixtures now provide long API values.
+- Cumulative spent counters remain long. A targeted partial-buy regression passed with 3.5B GP
+  recorded cost. Unit prices still use the existing 32-bit strategy model. A boundary regression
+  first caught `ArithmeticException: integer overflow`; the source now records the raw unsupported
+  observation as account-local `unsupported-offer-price.json` and pauses accounting/publication/
+  advice. EMPTY and restart cannot erase the pause or manufacture disposal/profit. Cached/late
+  companion advice is invalidated; other accounts remain independent. Full 64-bit unit-price
+  support and positive reconciliation are future work; do not edit/delete the evidence to unblock it.
+
+Initial verification checkpoint: all 48 Python tests passed (`Ran 48 tests in 31.241s`, `OK`, exit 0),
+including eight launcher cases; isolated launcher run also passed (`Ran 8 tests in 5.510s`).
+The full standard local Gradle command stopped at clean, before validating the final Java changes:
+
+```text
+Execution failed for task ':clean'.
+java.io.IOException: Unable to delete directory '.../build'
+Failed to delete .../build/runtime-extras/runelite-api-1.13.1.jar
+BUILD FAILED in 5s
+1 actionable task: 1 executed
+GRADLE_EXIT=1
+```
+
+The then-open RuneLite process held that full API extra. No game process was stopped or locked file
+forcibly deleted. The user subsequently closed RuneLite; process inspection confirmed zero clients.
+Failure evidence is preserved as `.gradle/runelite-login-locked-gradle.log`; final Python output is
+`.gradle/runelite-login-final-python.log` (gitignored, outside build).
+
+Final local standard verification passed: 1,168 Java tests passed / six capture-dependent skips /
+zero failures/errors (1,174 total across 308 suites), both supported JARs built. Exact endings:
+`BUILD SUCCESSFUL in 48s`, `18 actionable tasks: 18 executed`, `GRADLE_EXIT=0`;
+`Ran 48 tests in 43.965s`, `OK`, `PYTHON_EXIT=0`. Full clean-build log:
+`.gradle/runelite-login-gradle.log`. Built plugin manifest declares `RuneLite-Api-Version: 1.13.1`;
+plugin size 393,350 bytes; companion size 17,722,571 bytes. These are source artifacts, not proof of
+the installed or running version. [PR #36 CI at dcad648b](https://github.com/antonioditcharo/OSRS-Flipping-Friend/actions/runs/38515934145)
+also passed Windows and Linux. Check the final PR revision's checks before merging.
+
+The user also supplied a Java launcher popup naming missing `build/libs/flipping-friend-daemon.jar`.
+Read-only Task Scheduler inventory found `FlippingFriendLearning` targeting that exact path in this
+checkout. Its last recorded attempt was 21:00:01 AKDT and its next scheduled attempt was 22:00;
+it was Running with the JAR absent. Supported source references to this obsolete component exist
+only in tests that prohibit its activation. This popup is separate from the RuneLite API linkage error.
+
+Task definition was exported and its action matched before cleanup:
+`%USERPROFILE%/.runelite/osrs-flipping-friend/backups/legacy-task-20261013-213226-eef1efb7/FlippingFriendLearning.xml`
+(1,907 bytes). A fresh action/path check and principal comparison confirmed the same missing JAR,
+same checkout and current Windows user. Only that obsolete task was disabled/stopped, preserving
+its definition; observed `LEGACY_TASK_STATE=Disabled`, `LEGACY_TASK_ENABLED=False`. The current
+companion remained Running; observed RuneLite process count remained zero. No daemon JAR was
+rebuilt and no cache/data file was altered to satisfy the obsolete task. A separate historical
+forecaster task was observed Ready in the older checkout; this cleanup did not modify it.
+
+After merge, apply both artifacts through the supported numbered wrapper with a fresh observed
+backup and confirmation. No installed JARs, game settings, credentials or databases were changed
+by this troubleshooting; the explicit live configuration change was retirement of the obsolete task.
+
+**Pipeline-check output: not run.** Login, known-cost holding, partial buy, cancel/collect, full sale
+and restart acceptance checks remain unperformed. Continue the checklist after compatible paired
+installation and user-performed login; the read-only companion status is not proof of these outcomes.
 
 ### Backup review continuation — 13 October 2026
 

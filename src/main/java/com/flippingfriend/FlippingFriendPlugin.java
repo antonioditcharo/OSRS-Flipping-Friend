@@ -316,6 +316,11 @@ public class FlippingFriendPlugin extends Plugin
 		offerTracker.setMarket(marketData.getSnapshot());
 		drainPendingOffers();
 		offerTracker.onOfferChanged(event.getSlot(), event.getOffer());
+		if (!offerTracker.hasCompleteOfferEvidence())
+		{
+			withdrawUnsupportedPriceAdvice();
+			return;
+		}
 		if (event.getOffer().getState() == net.runelite.api.GrandExchangeOfferState.EMPTY)
 		{
 			publishOfferClearedToCompanion(event.getSlot());
@@ -492,7 +497,7 @@ public class FlippingFriendPlugin extends Plugin
 	/** Replays whatever arrived during the account-load window, oldest slot first for determinism. */
 	private void drainPendingOffers()
 	{
-		if (pendingOffers.isEmpty())
+		if (pendingOffers.isEmpty() || !offerTracker.hasCompleteOfferEvidence())
 		{
 			return;
 		}
@@ -504,6 +509,7 @@ public class FlippingFriendPlugin extends Plugin
 			if (offer != null)
 			{
 				offerTracker.onOfferChanged(slot, offer);
+				if (!offerTracker.hasCompleteOfferEvidence()) return;
 			}
 		}
 	}
@@ -672,6 +678,11 @@ public class FlippingFriendPlugin extends Plugin
 			{
 				try
 				{
+					if (!offerTracker.hasCompleteOfferEvidence())
+					{
+						clientThread.invokeLater(this::withdrawUnsupportedPriceAdvice);
+						return;
+					}
 					// The companion owns new-entry portfolio selection. The legacy engine remains here only
 					// for collect/sell recovery while its equivalent companion workflows are introduced.
 					long markedDrawdown = com.flippingfriend.session.SessionRisk.markedDrawdown(
@@ -793,6 +804,11 @@ public class FlippingFriendPlugin extends Plugin
 				Suggestion settled = suggestion;
 				clientThread.invokeLater(() ->
 				{
+					if (!offerTracker.hasCompleteOfferEvidence())
+					{
+						withdrawUnsupportedPriceAdvice();
+						return;
+					}
 					stepGuide.setSuggestion(settled);
 					panel.refresh();
 				});
@@ -829,6 +845,15 @@ public class FlippingFriendPlugin extends Plugin
 			}
 		});
 		});
+	}
+
+	/** Called on the client thread, including at the final advice-delivery boundary. */
+	private void withdrawUnsupportedPriceAdvice()
+	{
+		stepGuide.setSuggestion(Suggestion.waiting("Offer data requires reconciliation",
+			"An observed offer price exceeds this plugin's supported range. Advice is paused; "
+				+ "the observation and prior accounting are retained for a compatible update."));
+		panel.refresh();
 	}
 
 	/** A short, readable description of a failure, for a card rather than a log. */

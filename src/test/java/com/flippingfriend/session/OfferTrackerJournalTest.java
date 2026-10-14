@@ -51,13 +51,13 @@ public class OfferTrackerJournalTest
 		GrandExchangeOffer o = Mockito.mock(GrandExchangeOffer.class);
 		Mockito.when(o.getState()).thenReturn(state);
 		Mockito.when(o.getItemId()).thenReturn(RUBY);
-		Mockito.when(o.getPrice()).thenReturn(price);
+		Mockito.when(o.getPrice()).thenReturn((long) price);
 		Mockito.when(o.getTotalQuantity()).thenReturn(total);
 		Mockito.when(o.getQuantitySold()).thenReturn(sold);
 		// Pre-tax on both sides of the book, which is what the game reports. This fixture used to
 		// subtract the sale tax here, so it agreed with production exactly where production was
 		// wrong and the whole suite stayed green over a 2% error in every recorded sale.
-		Mockito.when(o.getSpent()).thenReturn(price * sold);
+		Mockito.when(o.getSpent()).thenReturn((long) price * sold);
 		return o;
 	}
 
@@ -247,10 +247,10 @@ public class OfferTrackerJournalTest
 		GrandExchangeOffer sold = Mockito.mock(GrandExchangeOffer.class);
 		Mockito.when(sold.getState()).thenReturn(GrandExchangeOfferState.SOLD);
 		Mockito.when(sold.getItemId()).thenReturn(RUBY);
-		Mockito.when(sold.getPrice()).thenReturn(asked);
+		Mockito.when(sold.getPrice()).thenReturn((long) asked);
 		Mockito.when(sold.getTotalQuantity()).thenReturn(100);
 		Mockito.when(sold.getQuantitySold()).thenReturn(100);
-		Mockito.when(sold.getSpent()).thenReturn(received * 100);
+		Mockito.when(sold.getSpent()).thenReturn((long) received * 100);
 		tracker.onOfferChanged(1, sold);
 
 		FlipRecord record = journal.getHistory().get(0);

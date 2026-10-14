@@ -1,4 +1,4 @@
-# Starts RuneLite with sideloaded plugins enabled.
+# Starts RuneLite with sideloaded plugins enabled. CheckOnly validates without launch or downloads.
 #
 # RuneLite deliberately refuses developer mode when it is started by RuneLite.exe: the check is
 # `options.has("developer-mode") && RuneLiteProperties.getLauncherVersion() == null`, and the
@@ -11,6 +11,7 @@
 # --insecure-write-credentials to the launcher. See README.md, and delete it with
 # tools\cleanup.ps1 when you are done.
 
+param([switch] $CheckOnly)
 $ErrorActionPreference = 'Stop'
 
 $repository = Join-Path $env:USERPROFILE '.runelite\repository2'
@@ -26,30 +27,70 @@ if (-not (Test-Path $java)) {
     Write-Host 'Using java from PATH (RuneLite bundled runtime not found).' -ForegroundColor Yellow
 }
 
-# injected-client carries the game itself and must come before the rest; the remaining order is
-# irrelevant because the jars do not overlap.
-$jars = Get-ChildItem (Join-Path $repository '*.jar') | Sort-Object {
-    if ($_.Name -like 'injected-client*') { 0 }
-    elseif ($_.Name -like 'client-*') { 1 }
-    else { 2 }
-}
-$classpath = ($jars | ForEach-Object { $_.FullName }) -join ';'
-
+# RuneLite's repository retains old versions. Enumerating *.jar mixes incompatible API classes.
+# Use the official bootstrap's exact Windows artifact set; never delete or repair that cache.
+try {
+    $bootstrap = (Invoke-WebRequest -Uri 'https://static.runelite.net/bootstrap.json' -UseBasicParsing -TimeoutSec 20).Content | ConvertFrom-Json
+} catch { throw "Could not verify RuneLite bootstrap: $($_.Exception.Message). No client was launched." }
+$installed = [string]$bootstrap.version
+if ($installed -notmatch '^\d+(\.\d+)+$' -or -not $bootstrap.artifacts) { throw 'RuneLite bootstrap is incomplete. No client was launched.' }
 $root = Split-Path -Parent $PSScriptRoot
-$installed = $null
-$clientJar = $jars | Where-Object { $_.Name -match '^client-(\d[\d.]*)\.jar$' } | Select-Object -First 1
-if ($clientJar -and $clientJar.Name -match '^client-(\d[\d.]*)\.jar$') {
-    $installed = $Matches[1]
-
-    # Warn when RuneLite has updated past the version the plugin was compiled against. It will
-    # usually still load, but an API change is exactly the kind of thing that surfaces as a
-    # confusing crash rather than a clear error.
-    $buildFile = Join-Path $root 'build.gradle'
-    $pinned = (Select-String -Path $buildFile -Pattern "runeLiteVersion\s*=\s*'([\d.]+)'").Matches.Groups[1].Value
-    if ($installed -ne $pinned) {
-        Write-Host "RuneLite is now $installed but the plugin was built against $pinned." -ForegroundColor Yellow
-        Write-Host "Update ext.runeLiteVersion in build.gradle and re-run tools\install.ps1." -ForegroundColor Yellow
+$buildFile = Join-Path $root 'build.gradle'
+$pinned = (Select-String -LiteralPath $buildFile -Pattern "runeLiteVersion\s*=\s*'([\d.]+)'").Matches.Groups[1].Value
+if ($installed -ne $pinned) {
+    throw "RuneLite is $installed but this source targets $pinned. A compatible project update is required. No client was launched."
+}
+$sideloaded = Join-Path $env:USERPROFILE '.runelite\sideloaded-plugins'
+$pluginJar = Join-Path $sideloaded 'osrs-flipping-friend.jar'
+if (-not (Test-Path -LiteralPath $pluginJar -PathType Leaf)) { throw 'The installed plugin is missing. Use the numbered setup wrapper.' }
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+$archive = [IO.Compression.ZipFile]::OpenRead($pluginJar)
+try {
+    $manifestEntry = $archive.GetEntry('META-INF/MANIFEST.MF')
+    if (-not $manifestEntry) { throw 'Installed plugin has no API version metadata. Close RuneLite and use 4 - Update.' }
+    $reader = [IO.StreamReader]::new($manifestEntry.Open())
+    try { $pluginManifest = $reader.ReadToEnd() } finally { $reader.Dispose() }
+} finally { $archive.Dispose() }
+$apiMetadata = [regex]::Match($pluginManifest, '(?m)^RuneLite-Api-Version:\s*(\d[\d.]*)\s*$')
+if (-not $apiMetadata.Success) { throw 'Installed plugin has no API version metadata. Close RuneLite and use 4 - Update.' }
+if ($apiMetadata.Groups[1].Value -ne $installed) {
+    throw "RuneLite is $installed but the installed plugin targets $($apiMetadata.Groups[1].Value). Close RuneLite and use 4 - Update. No client was launched."
+}
+$architecture = $env:PROCESSOR_ARCHITEW6432
+if (-not $architecture) { $architecture = $env:PROCESSOR_ARCHITECTURE }
+if (-not $architecture) { $architecture = if ([IntPtr]::Size -eq 8) { 'AMD64' } else { 'x86' } }
+$arch = switch ($architecture.ToUpperInvariant()) { 'AMD64' { 'amd64' } 'X86' { 'x86' } 'ARM64' { 'aarch64' } default { throw "Unsupported Windows architecture: $architecture" } }
+$selected = @()
+foreach ($artifact in $bootstrap.artifacts) {
+    if ($artifact.platform -and -not @($artifact.platform | Where-Object {
+        $_.name -eq 'win' -and (-not $_.arch -or $_.arch -eq $arch)
+    }).Count) { continue }
+    if ($artifact.name -notmatch '^[A-Za-z0-9_-][A-Za-z0-9._-]*\.jar$') { throw 'Invalid RuneLite artifact name; no cache file was accessed.' }
+    if ($artifact.hash -notmatch '^[0-9a-fA-F]{64}$' -or $artifact.size -le 0) { throw "Invalid RuneLite artifact metadata: $($artifact.name)" }
+    if ($selected.name -contains $artifact.name) { throw "Duplicate RuneLite artifact name: $($artifact.name)" }
+    $selected += $artifact
+}
+foreach ($required in @("client-$installed.jar", "injected-client-$installed.jar", "runelite-api-$installed-runtime.jar")) {
+    if ($selected.name -notcontains $required) { throw "Current RuneLite artifact is missing from bootstrap: $required" }
+}
+$jars = @()
+foreach ($artifact in $selected) {
+    $path = Join-Path $repository $artifact.name
+    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "Current RuneLite artifact is missing: $($artifact.name). Refresh through the normal RuneLite launcher; this script changes no cached JARs." }
+    $stream = [IO.File]::OpenRead($path)
+    $sha = [Security.Cryptography.SHA256]::Create()
+    try { $hash = ([BitConverter]::ToString($sha.ComputeHash($stream))).Replace('-', '').ToLowerInvariant() }
+    finally { $stream.Dispose(); $sha.Dispose() }
+    if ((Get-Item -LiteralPath $path).Length -ne $artifact.size -or $hash -ne $artifact.hash.ToLowerInvariant()) {
+        throw "Current RuneLite artifact does not match official bootstrap: $($artifact.name). No cache repair or client launch was attempted."
     }
+    $jars += $path
+}
+$classpath = $jars -join ';'
+Write-Host "RuneLite $installed and the installed plugin API match; cached artifacts verified."
+if ($CheckOnly) {
+    Write-Host 'Compatibility check passed. No client started and no files changed.'
+    return
 }
 
 # The launcher ships a stripped "-runtime" API jar with the gameval classes removed, because their
@@ -76,11 +117,6 @@ if ($installed) {
     if (Test-Path $apiJar) {
         $classpath = "$classpath;$apiJar"
     }
-}
-
-$sideloaded = Join-Path $env:USERPROFILE '.runelite\sideloaded-plugins'
-if (-not (Test-Path (Join-Path $sideloaded 'osrs-flipping-friend.jar'))) {
-    Write-Host 'The plugin is not installed yet. Run tools\install.ps1 first.' -ForegroundColor Yellow
 }
 
 $credentials = Join-Path $env:USERPROFILE '.runelite\credentials.properties'
