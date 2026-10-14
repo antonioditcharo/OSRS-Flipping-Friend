@@ -10,8 +10,9 @@ Active development and the GitHub default branch are **`CoPilot's-Rebuild-from-M
 include the work below. Start a new `codex/` branch from the current remote rebuild branch.
 Do not reset or force-push the historical branches to make them look current.
 
-The latest trading-runtime implementation is merge commit `6b4140109de6a63d93614740c87b32f72cfe171d` (PR #31).
-The update-tooling continuation below does not add trading or learning features.
+The durable planner/accounting foundation is merge commit `6b4140109de6a63d93614740c87b32f72cfe171d`
+(PR #31). The setup and RuneLite compatibility continuations below are also required for the current
+player workflow; strategy tuning and measured learning promotion remain pending.
 
 | Merged work | Result | Merge commit |
 | --- | --- | --- |
@@ -21,6 +22,7 @@ The update-tooling continuation below does not add trading or learning features.
 | [PR #31](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/31) | Stale snapshots cannot restore sold positions; planner per-item exposure reads durable positions and open-buy reservations; unresolved state withdraws buy advice. | `6b4140109de6a63d93614740c87b32f72cfe171d` |
 | [PR #33](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/33) | Guarded update rejects disabled/foreign tasks and incomplete artifact pairs; Java-on-PATH fallback; recorded incomplete live verification. Windows/Linux CI passed. | `7b98a19bf288ab259bb275c2efaf2669028b9482` |
 | [PR #34](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/34) | Shared paired setup/re-setup/update/start/status lifecycle, stable installed companion, hash manifest, backup review, saved-login reuse and refreshed shortcut. Windows/Linux CI passed. | `cb2c1d2dac01865374108339fbd1fcee43ee0093` |
+| [PR #35](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/35) | Separate plugin profile records are included in the pre-install backup; linked records are rejected. Recorded actual backup review. Windows/Linux CI passed. | `6411f800e9a56d37de5dbd3b3194061ae262e910` |
 
 ## Implemented boundaries to preserve
 
