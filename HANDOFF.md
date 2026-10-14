@@ -181,6 +181,65 @@ PR checks for the final remote outcome; the first run is retained as failure evi
 
 ## Verification and continuation
 
+### Search suggestion and configured input key — 14 October 2026 (stacked source; not installed)
+
+Owner explicitly requested a recommended BUY item in game chat search and a player-assigned key
+to fill quantity/price prompts. This narrow player-triggered prompt write supersedes the earlier
+blanket ban on plugin input text writes; the agent must still never operate the real game, and
+all offer placement/cancellation/collection/confirmation stays manual. Implementation details,
+primary references and acceptance cases: [trade input assistance](docs/architecture/trade-input-assistance.md).
+
+Branch `codex/trade-input-assist` started at fetched rebuild `5ac97048`, then merged the unchanged
+PR #41 head `9f254e04e9c83f3d653b5ab5a514c4c144d62123` as a dependency. Its PR is stacked on
+`codex/trade-ui-walkthrough` to keep the new review diff separate; retarget/reconcile with current
+rebuild after PR #41 is approved and merged. PR #40 is still separate at `fd60c8be`, not included
+in this source branch. Neither original PR/head nor the root checkout was changed.
+
+- Test-first commit `b6bfe475e0ce57e44a66af7f2b898b00854b111f` specifies the new controllers/config;
+  baseline compilation fails because the features do not exist (not a historical bug reproduction).
+- Implementation/prototype `0abf74c` includes two failing behavior regressions for a queued key
+  press surviving close/reopen or temporary readiness loss. Fix `648765b74505dfda114e831e5ad3cee4a2769c8f`
+  advances the input permission generation on lost/changed eligibility; both regressions now pass.
+- Empty BUY search gets a selectable suggested row/icon without replacing the native previous
+  item/results. Typed personal queries, wrong side, withdrawn advice and hidden/disabled UI hide it.
+- `Fill recommended price/quantity` defaults to Not set. One configured key press fills one visible
+  matching numeric prompt; Enter is rejected as a binding. Held/repeated/typed events cannot advance
+  another field. Enter and Confirm remain separate player actions; filling text does not unlock Confirm.
+- AWT reads a copied target. The client-thread callback rechecks profile, item, side, slot, advice,
+  key setting, numeric mode, exact prompt/widgets, focus, readiness and generation before writing
+  only INPUT_TEXT/display text. Startup/shutdown/session/config/editor boundaries invalidate permission.
+
+Standalone standard Windows verification at `648765b`: **1,239 Java passed / six skipped**
+(1,245 total, 323 suites), zero failures/errors, both JARs built. Exact output:
+`BUILD SUCCESSFUL in 34s`, `18 actionable tasks: 17 executed, 1 up-to-date`, exit 0.
+Python: `Ran 48 tests in 75.971s`, `OK`, exit 0. Both project class targets are Java 11 (major 55).
+Full logs outside build: `.gradle/trade-input-final-gradle.log`, `.gradle/trade-input-final-python.log`;
+test-first/intermediate/queue regression logs remain under `.gradle/trade-input-*` (gitignored).
+
+Combined preview `codex/input-assist-scope-integration` at
+`d0bbef8038341c80a25cd44fe7e43355d3465ca1` incorporates the already verified PR #40/#41 merge
+resolutions and this slice. Source merged cleanly; TASKS conflict was resolved retaining both
+pending workflows. A new behavior test proves selected personal-sale quote precedence over a
+background buy, unknown profit preserved, text fill on an explicit key, and normal Confirm still
+blocked until copied observations show manual Enter committed the value.
+Full standard preview: **1,260 Java passed / six skipped** (1,266 total, 330 suites), zero failures/
+errors; both JARs built. Exact output: `BUILD SUCCESSFUL in 30s`,
+`18 actionable tasks: 15 executed, 3 up-to-date`, exit 0. Evidence:
+`.gradle/input-assist-integration-gradle.log`. The preview is not an approved installation target.
+
+Reference is the current plugin-hub-pinned Copilot source `c8dbb5155c44156ed3050c50155b086c25815556`.
+The input write and native selection listener follow that player-operated pattern; no claim of
+official approval for this plugin or live acceptance is made. Native chat appearance/selection,
+physical keyboard dispatch and price-mode behavior are still unobserved while the player is away.
+
+**Pipeline-check output: not run for this slice.** Installed runtime remains PR #37. No installer,
+live database edit/repair, task change, credential change or agent game input occurred. Do not merge
+pending slices until their final-head CI passes and the owner approves. After merging/reconciling
+the reviewed sources, use the root supported paired update with fresh backup review. Player then
+checks search/select, assign key, quantity/key/Enter, price/key/Enter, manual Confirm, personal sell,
+normal typing, held keys, disabled/unassigned/Enter settings, editor close/reopen and account restart.
+Keep existing accounting exposure guards and complete the outstanding PR #31 live checks separately.
+
 ### Parallel trade UI slice — 14 October 2026 (source verified; not installed)
 
 Owner requested a parallel slice before accepting the automatic trade-scope work. Standalone

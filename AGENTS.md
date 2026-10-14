@@ -36,6 +36,10 @@ are in `docs/project-direction.md`; historical package notes are not proof of ru
   only with chronological evaluation against a frozen baseline and loss/return guardrails.
 - Prefer complete player workflows and behavioral regression tests over new inactive scaffolding.
   Preserve manual game interaction while preparing feature parity.
+- The owner explicitly authorizes a configured player key to fill one already open, matching GE
+  quantity/price prompt. Keep this narrow exception in GeInputAssist with lifecycle/context tests;
+  Enter, confirmation, placement, cancellation and collection remain player actions. The assistant
+  must never send input to the real game. See docs/architecture/trade-input-assistance.md.
 - Standard verification: `gradlew.bat clean test jar :companion:shadowJar` on Windows;
   `bash ./gradlew clean test jar :companion:shadowJar` on Linux. Java bytecode targets 11.
   Save redirected clean-build logs outside `build/` to avoid Windows file locks.

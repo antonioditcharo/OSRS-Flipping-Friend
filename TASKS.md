@@ -9,6 +9,21 @@
       local records and must migrate with positive reconciliation evidence.
 
 ## Next
+- [ ] Review, merge/reconcile and live-verify the search/input follow-up on `codex/trade-input-assist`,
+      stacked on pending PR #41 without changing either original PR. Test-first `b6bfe47` specifies
+      new features; implementation `0abf74c` includes two failing queued-input regressions fixed at
+      `648765b`. Recommended BUY appears as a native-selectable row in empty GE search, preserving
+      previous item/results. A configured player key fills one open matching quantity/price prompt;
+      key defaults Not set, Enter/Confirm remain manual, held keys do not continue a sequence.
+      One scoped INPUT_TEXT write is permitted; no programmatic selection/submission or agent game input.
+      Standalone standard: 1,239 Java passed, six skipped, zero failures/errors; 48 Python passed.
+      Combined with PR #40/#41 at `d0bbef8`: 1,260 Java passed, six skipped, both JARs built, including
+      personal sale quote/unknown-profit/input/Confirm behavior. See docs/architecture/trade-input-assistance.md.
+      Await exact-head CI and owner approval; retarget against current rebuild after PR #41 merges.
+      Runtime stays PR #37 and live pipeline was not run for this slice. After paired backup/update,
+      player verifies actual chat row, assigned key, manual Enter/Confirm, normal typing, held key,
+      wrong-context protection, disabled settings and editor/account boundaries. No DB repair.
+
 - [ ] Install and live-verify the separate trade walkthrough/confirmation slice after owner approval
       and final-head Ubuntu/Windows CI. Branch `codex/trade-ui-walkthrough`, from rebuild `5ac97048`;
       eight reproducing regressions at `52513d1`, implementation `b0ee05c`, final rendering check
