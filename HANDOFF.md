@@ -157,6 +157,10 @@ paths with spaces and missing `JAVA_HOME`. They mock every process, scheduled-ta
 used by the updater and run in temporary folders. CI runs these with the existing Python discovery
 command on Windows/Linux. These tests do not certify real Task Scheduler, RuneLite or account behavior.
 Task reconfiguration after the final validation and runtime binary identity remain unverified.
+The first [PR #33 CI run](https://github.com/antonioditcharo/OSRS-Flipping-Friend/actions/runs/38497703500)
+passed Linux but failed the Windows harness's fixture-path boundary check. The fixture now resolves
+temporary path aliases before invoking PowerShell; all 15 tests passed locally again. Use the latest
+PR checks for the final remote outcome; the first run is retained as failure evidence.
 
 ## Verification and continuation
 
@@ -166,7 +170,7 @@ plus 15 Python tests, and built both JARs. It used Windows/JDK 23, Gradle 8.14, 
 Exact Gradle ending: `BUILD SUCCESSFUL in 45s`, `18 actionable tasks: 18 executed`, exit 0.
 Exact Python ending: `Ran 15 tests in 6.395s`, `OK`, exit 0. Local complete logs are
 `.gradle/update-task-final-gradle.log` and `.gradle/update-task-final-python.log` (gitignored).
-The initial six updater cases also passed under PowerShell 7; the numbered wrapper uses Windows PowerShell.
+The seven updater cases also passed under PowerShell 7; the numbered wrapper uses Windows PowerShell.
 [Post-merge CI for the runtime revision](https://github.com/antonioditcharo/OSRS-Flipping-Friend/actions/runs/38197169733)
 passed on Windows and Linux with JDK 21. Compilation targets Java 11.
 

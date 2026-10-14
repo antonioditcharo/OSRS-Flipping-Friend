@@ -11,7 +11,7 @@ import unittest
 
 HARNESS = r"""
 $ErrorActionPreference = 'Stop'
-$fixture = $env:FF_UPDATE_TEST_ROOT
+$fixture = [IO.Path]::GetFullPath($env:FF_UPDATE_TEST_ROOT)
 $scenario = Get-Content -Raw -LiteralPath (Join-Path $fixture 'scenario.json') | ConvertFrom-Json
 $env:USERPROFILE = Join-Path $fixture 'profile'
 $env:JAVA_HOME = Join-Path $fixture 'java'
@@ -100,7 +100,9 @@ class UpdateLifecycleTest(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory(prefix="flipping friend update ")
         self.addCleanup(temporary.cleanup)
-        self.fixture = Path(temporary.name)
+        # Windows hosted runners can expose TEMP through an 8.3 alias. PowerShell expands
+        # script locations, so resolve the fixture first to compare the same physical paths.
+        self.fixture = Path(temporary.name).resolve()
         self.checkout = self.fixture / "checkout"
         self.plugin = self.checkout / "build/libs/osrs-flipping-friend.jar"
         self.companion = self.checkout / "companion/build/libs/flipping-friend-companion.jar"
