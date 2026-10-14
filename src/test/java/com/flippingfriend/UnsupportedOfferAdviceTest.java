@@ -45,6 +45,7 @@ public class UnsupportedOfferAdviceTest
 		{
 			inject(plugin, "offerTracker", tracker);
 			inject(plugin, "clientThread", clientThread);
+			inject(plugin, "configManager", Mockito.mock(net.runelite.client.config.ConfigManager.class));
 			inject(plugin, "stepGuide", guide);
 			inject(plugin, "widgetResolver", Mockito.mock(GeWidgetResolver.class));
 			inject(plugin, "engine", Mockito.mock(SuggestionEngine.class));

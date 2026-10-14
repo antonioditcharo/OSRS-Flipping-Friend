@@ -69,6 +69,15 @@ public class TrackedOffer
 		this.lastChanged = firstSeen;
 	}
 
+	/** Copy only observation fields on the client thread; never hand the live record to a worker. */
+	public TrackedOffer copyObservation()
+	{
+		TrackedOffer copy = new TrackedOffer(slot, itemId, buying, price, totalQuantity, firstSeen);
+		copy.itemName = itemName; copy.quantityFilled = quantityFilled; copy.spent = spent;
+		copy.state = state; copy.lastChanged = lastChanged;
+		return copy;
+	}
+
 	public int getSlot()
 	{
 		return slot;

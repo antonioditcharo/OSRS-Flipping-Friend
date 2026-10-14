@@ -43,7 +43,7 @@ public class OfferObservationBoundaryTest
         f.plugin.onGrandExchangeOfferChanged(changed(2, observation(GrandExchangeOfferState.EMPTY, 0)));
         f.worker.runPending();
         verify(f.tracker, never()).onOfferChanged(anyInt(), any());
-        verify(f.companion, never()).publishOfferCleared(anyInt());
+        verify(f.companion, never()).publishOfferCleared(anyInt(), anyString());
     }
 
     @Test public void queuedPublicationRetainsTheObservedPartialFill() throws Exception
@@ -58,7 +58,7 @@ public class OfferObservationBoundaryTest
         tracked.setQuantityFilled(10); tracked.setSpent(10000); tracked.setState("SOLD");
         f.worker.runPending();
         ArgumentCaptor<TrackedOffer> sent = ArgumentCaptor.forClass(TrackedOffer.class);
-        verify(f.companion).publishOffer(sent.capture());
+        verify(f.companion).publishOffer(sent.capture(), eq(com.flippingfriend.core.AccountIdentity.fromProfileKey("synthetic-profile")));
         assertEquals("SELLING", sent.getValue().getState());
         assertEquals(2, sent.getValue().getQuantityFilled());
         assertEquals(2000, sent.getValue().getSpent());
@@ -104,7 +104,58 @@ public class OfferObservationBoundaryTest
         GameStateChanged logout = new GameStateChanged(); logout.setGameState(GameState.LOGIN_SCREEN);
         f.plugin.onGameStateChanged(logout);
         f.worker.runPending();
-        verify(f.companion, never()).publishOffer(any());
+        verify(f.companion, never()).publishOffer(any(), anyString());
+    }
+
+    @Test public void loggedInCollectionStillPublishesEmpty() throws Exception
+    {
+        Fixture f = new Fixture();
+        f.plugin.onGrandExchangeOfferChanged(changed(2, observation(GrandExchangeOfferState.EMPTY, 0)));
+        f.worker.runPending();
+        verify(f.tracker).onOfferChanged(eq(2), any());
+        verify(f.companion).publishOfferCleared(2, com.flippingfriend.core.AccountIdentity.fromProfileKey("synthetic-profile"));
+    }
+
+    @Test public void bufferedTerminalAndCollectionBothReachCompanionInOrder() throws Exception
+    {
+        Fixture f = new Fixture();
+        f.setLoaded(false); when(f.configManager.getRSProfileKey()).thenReturn(null);
+        f.plugin.onGrandExchangeOfferChanged(changed(1, observation(GrandExchangeOfferState.BOUGHT, 10)));
+        f.plugin.onGrandExchangeOfferChanged(changed(1, observation(GrandExchangeOfferState.EMPTY, 0)));
+        TrackedOffer terminal = new TrackedOffer(1, 4151, true, 1000, 10, 100);
+        terminal.setState("BOUGHT"); terminal.setQuantityFilled(10); terminal.setSpent(10000);
+        when(f.tracker.getOffer(1)).thenReturn(terminal);
+        when(f.configManager.getRSProfileKey()).thenReturn("synthetic-profile");
+        f.setLoaded(true); f.drain(); f.worker.runPending();
+        org.mockito.InOrder order = inOrder(f.companion);
+        order.verify(f.companion).publishOffer(argThat(o -> "BOUGHT".equals(o.getState()) && o.getSpent() == 10000), anyString());
+        order.verify(f.companion).publishOfferCleared(eq(1), anyString());
+    }
+
+    @Test public void authenticatedSlotArrayRestoresMissedOfflineCompletion() throws Exception
+    {
+        Fixture f = new Fixture();
+        when(f.client.getGameState()).thenReturn(GameState.LOGGING_IN);
+        GrandExchangeOffer terminal = observation(GrandExchangeOfferState.BOUGHT, 10);
+        f.plugin.onGrandExchangeOfferChanged(changed(0, terminal));
+        verify(f.tracker, never()).onOfferChanged(anyInt(), any());
+        when(f.client.getGameState()).thenReturn(GameState.LOGGED_IN);
+        when(f.client.getGrandExchangeOffers()).thenReturn(new GrandExchangeOffer[] { terminal });
+        Method restore = FlippingFriendPlugin.class.getDeclaredMethod("restoreCurrentOffers", long.class, String.class);
+        restore.setAccessible(true); restore.invoke(f.plugin, 0L, "synthetic-profile");
+        verify(f.tracker).onOfferChanged(eq(0), argThat(o -> o.getState() == GrandExchangeOfferState.BOUGHT && o.getSpent() == 10000));
+    }
+
+    @Test public void bufferedUnknownProfileEventsCannotCrossLogout() throws Exception
+    {
+        Fixture f = new Fixture();
+        f.setLoaded(false); when(f.configManager.getRSProfileKey()).thenReturn(null);
+        f.plugin.onGrandExchangeOfferChanged(changed(1, observation(GrandExchangeOfferState.BOUGHT, 10)));
+        GameStateChanged logout = new GameStateChanged(); logout.setGameState(GameState.LOGIN_SCREEN);
+        f.plugin.onGameStateChanged(logout);
+        when(f.configManager.getRSProfileKey()).thenReturn("another-profile");
+        f.setLoaded(true); f.drain();
+        verify(f.tracker, never()).onOfferChanged(anyInt(), any());
     }
 
     private static GrandExchangeOfferChanged changed(int slot, GrandExchangeOffer offer)

@@ -221,12 +221,22 @@ public class CompanionClient
 		java.util.Set<String> blocked, java.util.Set<Integer> skipped, java.util.Set<Integer> onOffer,
 		boolean sellOnly, java.util.Collection<Position> positions, java.util.Collection<TrackedOffer> offers)
 	{
+		publishAccount(state, config, markedDrawdown, committedByItem, buyLimitUsed, blocked, skipped,
+			onOffer, sellOnly, positions, offers, accountContext());
+	}
+
+	public void publishAccount(AccountState state, FlippingFriendConfig config, long markedDrawdown,
+		java.util.Map<Integer, Long> committedByItem, java.util.Map<Integer, Integer> buyLimitUsed,
+		java.util.Set<String> blocked, java.util.Set<Integer> skipped, java.util.Set<Integer> onOffer,
+		boolean sellOnly, java.util.Collection<Position> positions, java.util.Collection<TrackedOffer> offers,
+		String expectedAccountId)
+	{
 		if (!state.isLoggedIn()) return;
 		String accountId = accountContext();
-		if (accountId == null) { lastError = "Waiting for account identity"; return; }
+		if (accountId == null || !accountId.equals(expectedAccountId)) { lastError = "Waiting for current account identity"; return; }
 		// Publish current offer high-water marks before adopting their filled stock from a snapshot.
 		for (TrackedOffer offer : new java.util.ArrayList<>(offers))
-			if (!canonicalOffers.containsKey(offer.getSlot())) publishOffer(offer);
+			if (!canonicalOffers.containsKey(offer.getSlot())) publishOffer(offer, expectedAccountId);
 		replayPendingOffers();
 		try
 		{
@@ -267,8 +277,15 @@ public class CompanionClient
 
         public void publishOffer(TrackedOffer offer)
         {
+                publishOffer(offer, accountContext());
+        }
+
+        /** A delayed observation must retain the account captured by the client thread. */
+        public void publishOffer(TrackedOffer offer, String expectedAccountId)
+        {
                 if (offer == null) return;
-                accountContext();
+                if (expectedAccountId == null || !expectedAccountId.equals(accountContext()))
+                { lastError = "Could not persist offer event: account identity changed or unavailable"; return; }
                 long now = Instant.now().getEpochSecond();
                 String state = offer.getState() == null ? "OBSERVED" : offer.getState();
                 SuggestionLedger.Advice advice = ledger.attribute(offer.getItemId(), offer.isBuying(), now);
@@ -278,6 +295,7 @@ public class CompanionClient
                         {
                                 long start = offer.getFirstSeen() > 0 ? offer.getFirstSeen() : now;
                                 OfferEvent.Builder builder = OfferEvent.builder(UUID.randomUUID().toString(), now, state)
+                                        .accountId(expectedAccountId)
                                         .eventIdentity(eventId, sessionId,
                                                 offer.getSlot() + "@" + start + ":" + offer.getItemId())
                                         .slot(offer.getSlot()).item(offer.getItemId(), offer.getItemName())
@@ -303,13 +321,20 @@ public class CompanionClient
 
         public void publishOfferCleared(int slot)
         {
+                publishOfferCleared(slot, accountContext());
+        }
+
+        public void publishOfferCleared(int slot, String expectedAccountId)
+        {
                 if (slot < 0) return;
-                accountContext();
+                if (expectedAccountId == null || !expectedAccountId.equals(accountContext()))
+                { lastError = "Could not persist offer event: account identity changed or unavailable"; return; }
                 long now = Instant.now().getEpochSecond();
                 try
                 {
                         OfferEvent event = outbox.enqueue((eventId, sessionId, sequence) ->
                                 OfferEvent.builder(UUID.randomUUID().toString(), now, "EMPTY")
+                                        .accountId(expectedAccountId)
                                         .eventIdentity(eventId, sessionId, null).slot(slot)
                                         .sequence(sequence).build());
                         canonicalOffers.remove(slot);

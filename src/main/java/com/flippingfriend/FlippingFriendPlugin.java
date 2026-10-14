@@ -16,6 +16,7 @@ import com.flippingfriend.session.AccountMonitor;
 import com.flippingfriend.session.AccountState;
 import com.flippingfriend.session.BuyLimitTracker;
 import com.flippingfriend.session.OfferTracker;
+import com.flippingfriend.session.OfferObservation;
 import com.flippingfriend.session.PositionBook;
 import com.flippingfriend.session.TradeJournal;
 import com.flippingfriend.session.TradePlans;
@@ -178,6 +179,7 @@ public class FlippingFriendPlugin extends Plugin
 	private final java.util.Set<Integer> alertedDumps = new java.util.concurrent.ConcurrentSkipListSet<>();
 
 	private final AtomicBoolean accountDataLoaded = new AtomicBoolean();
+	private final java.util.concurrent.atomic.AtomicLong offerObservationGeneration = new java.util.concurrent.atomic.AtomicLong();
 	private volatile long lastAccountRefresh;
 	private volatile long lastEngineRefresh;
 	private volatile long lastPersist;
@@ -235,6 +237,8 @@ public class FlippingFriendPlugin extends Plugin
 	@Override
 	protected void shutDown()
 	{
+		offerObservationGeneration.incrementAndGet();
+		synchronized (pendingOffers) { pendingOffers.clear(); }
 		companion.pauseOfferReplay();
 		marketData.setUpdateListener(null);
 		offerTracker.setChangeListener(null);
@@ -272,6 +276,7 @@ public class FlippingFriendPlugin extends Plugin
 		GameState state = event.getGameState();
 		if (state == GameState.LOGGED_IN)
 		{
+			offerObservationGeneration.incrementAndGet();
 			// The RuneLite profile key is not available the instant the game state flips, so the
 			// actual load is attempted from the scheduled tick until it succeeds.
 			accountDataLoaded.set(false);
@@ -280,8 +285,11 @@ public class FlippingFriendPlugin extends Plugin
 			// survive a restart and be forgotten about.
 			engine.setSellOnly(false);
 		}
-		else if (state == GameState.LOGIN_SCREEN || state == GameState.HOPPING)
+		else if (state == GameState.LOGIN_SCREEN || state == GameState.HOPPING
+			|| state == GameState.LOGGING_IN || state == GameState.CONNECTION_LOST)
 		{
+			offerObservationGeneration.incrementAndGet();
+			synchronized (pendingOffers) { pendingOffers.clear(); }
 			companion.pauseOfferReplay();
 			persist();
 			accountMonitor.reset();
@@ -292,6 +300,11 @@ public class FlippingFriendPlugin extends Plugin
 	@Subscribe
 	public void onGrandExchangeOfferChanged(GrandExchangeOfferChanged event)
 	{
+		// Login/logout resets are not evidence that the player collected an offer.
+		if (client.getGameState() != GameState.LOGGED_IN || event == null || event.getOffer() == null) return;
+		GrandExchangeOfferChanged captured = new GrandExchangeOfferChanged();
+		captured.setSlot(event.getSlot()); captured.setOffer(OfferObservation.copyOf(event.getOffer()));
+		event = captured;
 		// The game replays every slot on login, and it does so before this plugin knows which account
 		// it is looking at. Booking those fills against an offer book that has not been read off disk
 		// yet made every replayed offer look brand new, so its entire running total was counted as a
@@ -307,9 +320,9 @@ public class FlippingFriendPlugin extends Plugin
 			// true while another update is still coming. It is not true of the login replay: if the
 			// offer finished while the plugin was away and the player collects it, the next update for
 			// that slot is EMPTY, which carries no fill to catch up on. The buy is then gone, and with
-			// it the only record of what the item cost. Keeping the event costs one small map and
+			// it the only record of what the item cost. Keeping copied observations in order
 			// replays it the moment the account is known.
-			pendingOffers.put(event.getSlot(), event.getOffer());
+			synchronized (pendingOffers) { pendingOffers.addLast(event); }
 			return;
 		}
 
@@ -488,29 +501,46 @@ public class FlippingFriendPlugin extends Plugin
 	/**
 	 * Offer events that arrived before this plugin knew whose account it was looking at.
 	 * <p>
-	 * Keyed by slot, so only the most recent state of each slot is kept -- which is all the ledger
-	 * needs, since fills are tracked as running totals.
+	 * Preserve arrival order, including a terminal fill followed by EMPTY in the same slot.
 	 */
-	private final java.util.Map<Integer, net.runelite.api.GrandExchangeOffer> pendingOffers =
-		new java.util.concurrent.ConcurrentHashMap<>();
+	private final java.util.Deque<GrandExchangeOfferChanged> pendingOffers = new java.util.ArrayDeque<>();
 
-	/** Replays whatever arrived during the account-load window, oldest slot first for determinism. */
+	/** Client thread only: replay copied observations in arrival order, publishing every transition. */
 	private void drainPendingOffers()
 	{
-		if (pendingOffers.isEmpty() || !offerTracker.hasCompleteOfferEvidence())
+		if (!accountDataLoaded.get() || client.getGameState() != GameState.LOGGED_IN
+			|| !offerTracker.hasCompleteOfferEvidence())
 		{
 			return;
 		}
-		java.util.List<Integer> slots = new java.util.ArrayList<>(pendingOffers.keySet());
-		java.util.Collections.sort(slots);
-		for (int slot : slots)
+		while (true)
 		{
-			net.runelite.api.GrandExchangeOffer offer = pendingOffers.remove(slot);
-			if (offer != null)
-			{
-				offerTracker.onOfferChanged(slot, offer);
-				if (!offerTracker.hasCompleteOfferEvidence()) return;
-			}
+			GrandExchangeOfferChanged event;
+			synchronized (pendingOffers) { event = pendingOffers.pollFirst(); }
+			if (event == null) return;
+			offerTracker.onOfferChanged(event.getSlot(), event.getOffer());
+			if (!offerTracker.hasCompleteOfferEvidence()) { withdrawUnsupportedPriceAdvice(); return; }
+			if (event.getOffer().getState() == net.runelite.api.GrandExchangeOfferState.EMPTY)
+				publishOfferClearedToCompanion(event.getSlot());
+			else publishOfferToCompanion(offerTracker.getOffer(event.getSlot()));
+			persist();
+		}
+	}
+
+	/** Read authenticated slots after loading; pre-login resets were intentionally ignored. */
+	private void restoreCurrentOffers(long generation, String profile)
+	{
+		if (generation != offerObservationGeneration.get() || !accountDataLoaded.get()
+			|| client.getGameState() != GameState.LOGGED_IN
+			|| !java.util.Objects.equals(profile, configManager.getRSProfileKey())) return;
+		drainPendingOffers();
+		net.runelite.api.GrandExchangeOffer[] offers = client.getGrandExchangeOffers();
+		if (offers == null) return;
+		for (int slot = 0; slot < offers.length; slot++)
+		{
+			if (offers[slot] == null) continue;
+			GrandExchangeOfferChanged event = new GrandExchangeOfferChanged();
+			event.setSlot(slot); event.setOffer(offers[slot]); onGrandExchangeOfferChanged(event);
 		}
 	}
 
@@ -550,8 +580,9 @@ public class FlippingFriendPlugin extends Plugin
 			companion.resumeOfferReplay();
 			log.debug("loaded account data ({} journal entries)", journal.getHistory().size());
 			
-			// Flush any pending offers that were buffered during login replay before data as loaded
-			clientThread.invokeLater(this::drainPendingOffers);
+			long generation = offerObservationGeneration.get();
+			String profile = configManager.getRSProfileKey();
+			clientThread.invokeLater(() -> restoreCurrentOffers(generation, profile));
 		}
 	}
 
@@ -673,11 +704,18 @@ public class FlippingFriendPlugin extends Plugin
 			boolean midAdjustment = active != null && isSetupOpen
 				&& setupItemId == active.getItemId() && active.getType().isModify();
 			engine.setPendingAdjustment(midAdjustment ? active : null);
+			java.util.List<TrackedOffer> observedOffers = new java.util.ArrayList<>();
+			for (TrackedOffer offer : offerTracker.getOffers()) observedOffers.add(offer.copyObservation());
+			String observedProfile = configManager.getRSProfileKey();
+			String observedAccount = observedProfile == null || observedProfile.isBlank() ? null
+				: com.flippingfriend.core.AccountIdentity.fromProfileKey(observedProfile);
+			long observedGeneration = offerObservationGeneration.get();
 
 			executor.execute(() ->
 			{
 				try
 				{
+					if (observedGeneration != offerObservationGeneration.get()) return;
 					if (!offerTracker.hasCompleteOfferEvidence())
 					{
 						clientThread.invokeLater(this::withdrawUnsupportedPriceAdvice);
@@ -714,7 +752,7 @@ public class FlippingFriendPlugin extends Plugin
 					companion.publishAccount(accountMonitor.getState(), config, markedDrawdown,
 						committedByItem(), buyLimits.activeWindows(java.time.Instant.now()),
 						com.flippingfriend.model.SuggestionEngine.parseBlocked(config.blockedItems()),
-						engine.skippedItems(), offerTracker.itemsWithOpenOffers(), engine.isSellOnly(), positions.all(), offerTracker.getOffers());
+						engine.skippedItems(), offerTracker.itemsWithOpenOffers(), engine.isSellOnly(), positions.all(), observedOffers, observedAccount);
 
 					// The companion owns new-position selection and gets first chance to supply collect advice.
 					// The built-in engine remains as the collect fallback and still owns reprice and sell decisions.
@@ -872,11 +910,18 @@ public class FlippingFriendPlugin extends Plugin
 	private void publishOfferToCompanion(TrackedOffer offer)
 	{
 		ExecutorService executor = worker;
-		if (executor == null || executor.isShutdown())
+		if (offer == null || executor == null || executor.isShutdown())
 		{
 			return;
 		}
-		executor.execute(() -> companion.publishOffer(offer));
+		TrackedOffer observation = offer.copyObservation();
+		String profile = configManager.getRSProfileKey();
+		if (profile == null || profile.isBlank()) return;
+		String account = com.flippingfriend.core.AccountIdentity.fromProfileKey(profile);
+		long generation = offerObservationGeneration.get();
+		executor.execute(() -> {
+			if (generation == offerObservationGeneration.get()) companion.publishOffer(observation, account);
+		});
 	}
 
 	private void publishOfferClearedToCompanion(int slot)
@@ -886,7 +931,13 @@ public class FlippingFriendPlugin extends Plugin
 		{
 			return;
 		}
-		executor.execute(() -> companion.publishOfferCleared(slot));
+		String profile = configManager.getRSProfileKey();
+		if (profile == null || profile.isBlank()) return;
+		String account = com.flippingfriend.core.AccountIdentity.fromProfileKey(profile);
+		long generation = offerObservationGeneration.get();
+		executor.execute(() -> {
+			if (generation == offerObservationGeneration.get()) companion.publishOfferCleared(slot, account);
+		});
 	}
 
 	private void notifyIfNeeded(Suggestion suggestion)
