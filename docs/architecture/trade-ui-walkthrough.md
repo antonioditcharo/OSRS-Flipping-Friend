@@ -20,10 +20,12 @@ values first** while locked; the painted button says **Locked - right-click**. T
 not declare the recommended values complete, change cost/profit, or enroll personal possessions.
 The `Protect trade confirmation` setting defaults on and is independent of overlay visibility.
 
-The user enters every value and initiates every action. The plugin never fills fields, executes
+The confirmation guard never fills fields, executes
 client scripts, invokes a native menu action, or submits an offer. The guard only changes menu
 priority, supplies a plugin no-op entry, and consumes an unintended normal confirmation. Native
 Confirm is preserved for the player's context-menu selection.
+The later [input assistance slice](trade-input-assistance.md) adds the owner's explicitly requested
+key to fill one open numeric prompt; Enter and Confirm still require separate player actions.
 
 ## Observation and boundaries
 

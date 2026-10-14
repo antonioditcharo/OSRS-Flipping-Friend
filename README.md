@@ -52,6 +52,11 @@ the native Confirm option to deliberately override for a personal trade. Its sou
 tests are ready; approval, paired installation and live verification are pending. PR #40's automatic
 trade scope remains a separate, unmerged slice. Follow the handoff before installing either.
 
+The follow-up [input assistance slice](docs/architecture/trade-input-assistance.md) adds a selectable
+recommended BUY item in empty GE search and a configurable key to fill the already open quantity
+or price prompt. The key defaults to Not set; Enter and Confirm remain manual. This source is
+stacked on PR #41 and awaits approval, paired installation and live player verification.
+
 ## Running the existing development build
 
 See [START HERE.md](START%20HERE.md) for the existing Windows setup and launcher instructions.
