@@ -440,6 +440,35 @@ class UpdateLifecycleTest(unittest.TestCase):
         self.assertEqual(b"unassigned-legacy-sentinel", legacy.read_bytes())
         self.assertFalse(any(path.name == "flipping-friend.db" and "accounts" not in path.parts for path in backup.rglob("*")))
 
+    def test_plugin_account_records_are_backed_up_before_install_confirmation(self):
+        data_root = self.properties.parent.parent
+        plugin_accounts = data_root / "accounts"
+        records = {
+            "default/session.json": b"pre-login-session-sentinel",
+            "rsprofile_fixture/positions.json": b"positions-sentinel",
+            "rsprofile_fixture/offers.json": b"offers-sentinel",
+            "rsprofile_fixture/journal.jsonl": b"journal-sentinel",
+            "rsprofile_fixture/companion-event-outbox.json": b"pending-events-sentinel",
+            "rsprofile_fixture/migration-parked/transactions.jsonl": b"parked-history-sentinel",
+        }
+        for relative, contents in records.items():
+            path = plugin_accounts / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(contents)
+        self.scenario["decline"] = True
+        result = self.run_update()
+        self.assertIn("Installation cancelled", result["error"], self.output)
+        backup = next((data_root / "backups").iterdir())
+        for relative, contents in records.items():
+            saved = backup / "plugin-accounts" / relative
+            self.assertTrue(saved.is_file(), f"Missing plugin account backup: {relative}\n{self.output}")
+            self.assertEqual(contents, saved.read_bytes())
+            self.assertEqual(contents, (plugin_accounts / relative).read_bytes())
+        review = next(i for i, event in enumerate(result["events"]) if event.startswith("prompt:"))
+        self.assertTrue(all(i < review for i, event in enumerate(result["events"]) if event == "backup-file"))
+        self.assertNotIn("copy-plugin", result["events"], self.output)
+        self.assertNotIn("start-task", result["events"], self.output)
+
     def test_incomplete_copy_cannot_start_or_claim_success(self):
         self.scenario["failCompanionCopy"] = True
         result = self.run_update()
