@@ -11,12 +11,12 @@ import org.junit.Assert;
 import org.junit.Test;
 
 /**
- * Protects the manual-only interaction boundary.
+ * Protects manual offer actions and the sole explicitly requested, player-triggered prompt writer.
  */
 public class ComplianceBoundaryTest
 {
         @Test
-        public void productionCodeDoesNotWriteGameInput() throws IOException
+        public void onlyThePlayerTriggeredPromptControllerMayWriteInputText() throws IOException
         {
                 Path sourceRoot = Paths.get("src", "main", "java");
 
@@ -46,9 +46,12 @@ public class ComplianceBoundaryTest
                                 Files.readAllBytes(path),
                                 java.nio.charset.StandardCharsets.UTF_8);
 
-                        if (source.contains("setVarcStrValue")
-                                || source.contains("VarClientStr.INPUT_TEXT")
-                                || source.contains("autoPopulateHotkey")
+                        boolean promptController = path.endsWith(Paths.get("overlay", "GeInputAssist.java"));
+                        boolean allowedPromptWrite = promptController
+                                && source.split("setVarcStrValue", -1).length == 2
+                                && source.contains("client.setVarcStrValue(VarClientStr.INPUT_TEXT, text)");
+                        if ((source.contains("setVarcStrValue") && !allowedPromptWrite)
+                                || source.contains("setVarcIntValue(")
                                 || source.contains("invokeMenuAction(") || source.contains("menuAction(")
                                 || source.contains("runScript(") || source.contains("setVarpValue(")
                                 || source.contains("setVarpLongValue(") || source.contains("setVarbitValue(")

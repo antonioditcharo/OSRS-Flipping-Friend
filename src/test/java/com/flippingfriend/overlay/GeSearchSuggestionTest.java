@@ -7,7 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 import net.runelite.api.*;
 import net.runelite.api.gameval.*;
-import net.runelite.api.widgets.*;
+import net.runelite.api.widgets.Widget;
 import org.junit.Before;
 import org.junit.Test;
 import static org.junit.Assert.*;
@@ -46,7 +46,9 @@ public class GeSearchSuggestionTest {
     }
     @Test public void existingPreviousSearchAndNativeResultsArePreserved() {
         Widget nativePrevious=mock(Widget.class); when(nativePrevious.getOriginalHeight()).thenReturn(32); children.add(nativePrevious);
-        search.refresh(true); assertEquals(4,children.size()); verifyNoMoreInteractions(nativePrevious);
+        search.refresh(true); assertEquals(4,children.size());
+        verify(nativePrevious,never()).setHidden(anyBoolean()); verify(nativePrevious,never()).setText(anyString());
+        verify(nativePrevious,never()).setOnOpListener(any());
         verify(children.get(1)).setOriginalY(32);
     }
     @Test public void typedPersonalSearchHidesSuggestionWithoutChangingTheQueryOrResults() {

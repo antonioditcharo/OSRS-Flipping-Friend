@@ -63,7 +63,7 @@ public class GeInputAssistTest {
         KeyEvent e=press(KeyEvent.VK_E); assist.keyPressed(e);
         verify(e).consume(); verify(client,never()).setVarcStrValue(anyInt(),anyString());
         drain(); verify(client).setVarcStrValue(VarClientStr.INPUT_TEXT,"10"); verify(input).setText("10*");
-        verify(client,never()).setVarbitValue(anyInt(),anyInt()); verify(client,never()).runScript(anyInt(),any());
+        verify(client,never()).setVarbitValue(any(int[].class),anyInt(),anyInt()); verify(client,never()).runScript(anyInt(),any());
     }
     @Test public void supportsBothPricePromptModesAndLeavesEnterToThePlayer() {
         for (int mode:new int[]{7,30}) {
@@ -126,5 +126,32 @@ public class GeInputAssistTest {
     @Test public void changingTheConfiguredKeyBeforeQueuedFillCancelsIt() {
         assist.keyPressed(press(KeyEvent.VK_E)); when(config.fillRecommendedInputKey()).thenReturn(Keybind.NOT_SET); drain();
         verify(client,never()).setVarcStrValue(anyInt(),anyString());
+    }
+    @Test public void closingAndReopeningTheSamePromptCannotReuseAnEarlierKeyPress() {
+        assist.keyPressed(press(KeyEvent.VK_E));
+        when(client.getVarcIntValue(VarClientInt.INPUT_TYPE)).thenReturn(0); assist.refresh(true);
+        when(client.getVarcIntValue(VarClientInt.INPUT_TYPE)).thenReturn(7); assist.refresh(true);
+        drain(); verify(client,never()).setVarcStrValue(anyInt(),anyString());
+    }
+    @Test public void temporaryReadinessLossCannotReviveAnEarlierKeyPress() {
+        assist.keyPressed(press(KeyEvent.VK_E)); assist.refresh(false); assist.refresh(true); drain();
+        verify(client,never()).setVarcStrValue(anyInt(),anyString());
+    }
+    @Test public void heldKeyCannotFillTheNextPromptUntilReleasedAndPressedAgain() {
+        assist.keyPressed(press(KeyEvent.VK_E)); drain();
+        when(title.getText()).thenReturn("Set a price for each item:"); assist.refresh(true);
+        assist.keyPressed(press(KeyEvent.VK_E)); drain(); verify(client,never()).setVarcStrValue(VarClientStr.INPUT_TEXT,"100");
+        assist.keyReleased(press(KeyEvent.VK_E)); assist.keyPressed(press(KeyEvent.VK_E)); drain();
+        verify(client).setVarcStrValue(VarClientStr.INPUT_TEXT,"10"); verify(client).setVarcStrValue(VarClientStr.INPUT_TEXT,"100");
+    }
+    @Test public void sellQuantityRequiresTheMatchingSellPromptAndDoesNotChangeAdvice() {
+        when(client.getVarbitValue(VarbitID.GE_NEWOFFER_TYPE)).thenReturn(1);
+        Suggestion sale=Suggestion.builder(SuggestionType.SELL).item(561,"Nature rune").quantity(5).price(119).build();
+        guide.setSuggestion(sale);
+        assist.refresh(true); assist.keyPressed(press(KeyEvent.VK_E)); drain();
+        verify(client,never()).setVarcStrValue(anyInt(),anyString());
+        when(title.getText()).thenReturn("How many do you wish to sell?"); assist.refresh(true);
+        assist.keyPressed(press(KeyEvent.VK_E)); drain(); verify(client).setVarcStrValue(VarClientStr.INPUT_TEXT,"5");
+        assertSame(sale,guide.getSuggestion());
     }
 }
