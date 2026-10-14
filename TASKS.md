@@ -9,6 +9,18 @@
       local records and must migrate with positive reconciliation evidence.
 
 ## Next
+- [ ] Replace routine holdings review/adoption with automatic trade scope and player-started sale
+      guidance, as requested 14 October. Accepted contract: docs/architecture/automatic-trade-scope.md.
+      Match outstanding quantities/provenance from observed buys, including manual buys; keep personal
+      extras independent. Recommend an external owned item's price only when selected in sell setup,
+      then maintain the actual sell offer. Unknown cost/profit remains unavailable. Add a separately
+      opened Missed flips window backed by scoped row-level ledger evidence. Migrate the active planner,
+      exits, maintenance and holding UI coherently; do not introduce another ledger or bypass unbounded
+      active exposure. Reproduce old workflow with behavior tests before source changes. Source/UI
+      replacement is not implemented yet; current installed/source records remain unchanged.
+      Earlier personal/no-longer-held classification retests and standalone PR #38 update instruction
+      below are superseded as the immediate next step; preserve their historical evidence.
+
 - [ ] Continue account reconciliation after the 14 October lifecycle-fault diagnosis. Source branch
       `codex/offer-observation-boundary` from rebuild `49934e44` reproduces five observation-boundary
       failures at `b8c679f`, then fixes them at `f58a0cf`. Copied client observations, ordered load
@@ -20,9 +32,12 @@
       Read-only event evidence is private in local-data; historical rows lack game-state proof.
       Preserve known costs, active offers, unpriced history and the fail-closed guard while preparing
       authoritative reconciliation. Windows/Linux CI at `6ce171e` passed (run 38542984377);
-      final-head checks after this documentation update, paired installation with fresh backup review,
-      and controlled manual acceptance remain pending. Source review is PR #38 against rebuild;
-      require both final-head CI checks before source merge. The player has closed RuneLite.
+      both final-head checks at `84159c6` also passed (run 38543697812). PR #38 merged at `9a4c1ec8`;
+      rebuild was fast-forwarded cleanly and historical main preserved. Current documentation branch
+      is `codex/offer-observation-live-verification`. Paired installation with fresh backup review,
+      post-install pipeline and controlled manual acceptance remain pending. Player has closed RuneLite;
+      next step is numbered Update, pause at INSTALL, and supply the fresh backup listing for review.
+      Do not expect this prevention fix to clear existing live reconciliation faults automatically.
 
 - [ ] Live-retest explicit unpriced-stock review installed at rebuild `49934e44` (PR #37).
       Regressions preceded implementation (`932ab1f` / `1f728eb6`); local standard verification passed

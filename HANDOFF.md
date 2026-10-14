@@ -25,6 +25,7 @@ player workflow; strategy tuning and measured learning promotion remain pending.
 | [PR #35](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/35) | Separate plugin profile records are included in the pre-install backup; linked records are rejected. Recorded actual backup review. Windows/Linux CI passed. | `6411f800e9a56d37de5dbd3b3194061ae262e910` |
 | [PR #36](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/36) | Exact official RuneLite artifact selection, installed API compatibility guard, long spent counters and persistent pause for unsupported unit prices. Windows/Linux CI passed on final revision `10d1a4bc`. | `cb203a834401d4e32cc5791d07f0ade37df80d61` |
 | [PR #37](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/37) | Explicit account-scoped review of unpriced personal/retired stock preserves ledger accounting; open offers and changed evidence remain protected. Windows/Linux CI passed on final revision `0e38e070`. | `49934e44590e0a484e0ddbd4857179102b03bdc2` |
+| [PR #38](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/38) | Authenticated, copied offer observations and ordered load replay; queued publication retains session/account identity. Windows/Linux CI passed on final revision `84159c6`. Existing live reconciliation faults are preserved. | `9a4c1ec8f8f2a05d34072c0f5e6cf6cbd34434ab` |
 
 ## Implemented boundaries to preserve
 
@@ -179,6 +180,63 @@ temporary path aliases before invoking PowerShell; all 15 tests passed locally a
 PR checks for the final remote outcome; the first run is retained as failure evidence.
 
 ## Verification and continuation
+
+### Workflow correction — 14 October 2026 (direction accepted; replacement not implemented)
+
+The owner rejected routine player classification and main-panel clutter. The new target is
+[automatic trade scope and player-started sales](docs/architecture/automatic-trade-scope.md):
+track outstanding quantities from observed purchases; leave unrelated personal holdings outside
+trading stock; offer fresh sale-price guidance for an item the player selects to sell, then maintain
+the actual observed sell offer. Incomplete trades belong in a separately opened Missed flips view.
+Unknown acquisition costs/profit, trade identities and physical ownership evidence stay intact.
+
+This supersedes the PR #37 review/adoption workflow as product direction. Do not ask the player
+to classify routine personal inventory or treat historical manual-review tasks below as the next
+product acceptance target. Do not hide known-cost/active exposure conflicts merely to show buys.
+Missing history and extra personal units of the same item require quantity/provenance matching,
+not an item-ID membership check. The single-authority migration is still the prerequisite.
+
+Documentation branch: `codex/automatic-trade-scope-design`, from fetched rebuild `9a4c1ec8`,
+including the PR #38 merge checkpoint. AGENTS/TASKS/project direction now record the replacement
+and behavioral gate. The installed pair and current Java code were not changed by this decision.
+StockReviewPanel/adoption remain in current source until their tested replacement is implemented;
+row-level incomplete trade evidence and player-started sell pricing are not yet wired end to end.
+No new runtime test, installation, game input, account-file change or database operation occurred.
+Pause the routine classification retest and the standalone PR #38 update instruction while
+preparing the replacement workflow; PR #38's observation safeguards remain required in that build.
+
+### PR #38 merged; paired update still pending — 14 October 2026, 01:41 AKDT
+
+Current rebuild source: `9a4c1ec8f8f2a05d34072c0f5e6cf6cbd34434ab` (PR #38).
+Both [final-head CI checks at `84159c6a421fcb93911efaba0448374cccd0715b`](https://github.com/antonioditcharo/OSRS-Flipping-Friend/actions/runs/38543697812)
+passed before source merge at 09:41:15 UTC. Exact final output:
+
+```text
+Supported build (ubuntu-latest)   pass   1m21s
+Supported build (windows-latest)  pass   2m5s
+FINAL_CI_EXIT=0
+```
+
+The primary rebuild branch was fast-forwarded to that merge and observed clean/equal to origin.
+Historical main remains `0cb8ef8aab9114f02b16d2eca4433c0f7e010894`; earlier source/documentation
+branches were preserved. This checkpoint is on `codex/offer-observation-live-verification`.
+The standard local clean build and all Python tests passed as recorded below; this checkpoint
+changes documentation only. No live account files, databases, tasks or installed JARs changed.
+
+Read-only `tools/status.ps1` still exited zero with `PAIR VERIFIED / COMPANION RESPONDING`.
+Installed plugin remains 407,086 bytes; installed companion remains 17,737,530 bytes (PR #37).
+The new source pair is not installed. The player has closed RuneLite, confirmed by the corrected
+client-main-class process check. Next player step: run the supported `4 - Update.bat`, stop at
+INSTALL, and provide the fresh backup listing for path/size/hash/task review before confirmation.
+Never install a single artifact or manually clear live records.
+
+After that update, inspect the fresh scoped ledger before any review choice or GE action.
+The prevention fix does not clear existing durable faults, so new buys may remain unavailable.
+Positive authoritative reconciliation is still required for cost-bearing/offer conflicts; unpriced
+personal/retired declarations cannot conceal them. **Post-PR #38 installation pipeline: not run.**
+Controlled known-cost holding/no-open-buy, partial fill, cancel/collect and full sale/restart checks
+remain pending. Do not mark the overall acceptance complete; its completed record still requires
+the owner's merge approval.
 
 ### Offer observation boundary — 14 October 2026 (source verified; not installed)
 

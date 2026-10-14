@@ -13,6 +13,15 @@ are in `docs/project-direction.md`; historical package notes are not proof of ru
   and existing user data. Unknown cost or incomplete observations must not invent profit or disposal.
 - Observe physical holdings independently of blocked items, skips, and recommendation preferences.
   Keep owned inventory, offers, collection boxes, bank evidence, and flipping stock distinct.
+- Routine personal inventory must not require classification by the player. Track only the
+  remaining quantity from observed buy executions, with acquisition provenance; an item ID's
+  appearance in history does not enroll every owned unit. Do not auto-adopt or recommend selling
+  pre-existing belongings. This supersedes the earlier adoption/review workflow as product direction.
+- For other owned items, give a current price when the player selects a GE sell setup, then maintain
+  the observed sell offer through completion. Unknown acquisition cost/profit stays unknown.
+  Put incomplete trade evidence in a separately opened Missed flips window, preserving live
+  exposure guards and account data. See `docs/architecture/automatic-trade-scope.md` for the target
+  workflow and regression gate; it is not yet implemented.
 - Keep account-scoped API/database isolation intact. The old unscoped database is preserved and
   unassigned; do not infer its owner or merge it into a live account. One authoritative ledger
   for the planner, exits, UI, and reporting remains the next prerequisite for strategy tuning.
