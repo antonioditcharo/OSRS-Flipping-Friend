@@ -66,8 +66,15 @@ public final class GeInputAssist implements KeyListener {
     /** Called on the client thread after rendering/rebuilds; AWT receives a copied eligibility target. */
     public void refresh(boolean ready) {
         if (!client.isClientThread()) return;
+        Target previous = target;
         accountReady = running && ready && hasProfile();
-        target = readTarget();
+        Target observed = readTarget();
+        if (previous != null && (observed == null || !observed.samePrompt(previous))) {
+            // Even a prompt closed and reopened with identical widgets needs a new key press.
+            generation.incrementAndGet();
+            observed = readTarget();
+        }
+        target = observed;
         Canvas canvas = client.getCanvas();
         if (canvas == null || !canvas.hasFocus()) heldKey = 0;
         search.refresh(accountReady);
@@ -106,7 +113,7 @@ public final class GeInputAssist implements KeyListener {
 
     @Override public void keyPressed(KeyEvent event) {
         if (!running || event.isConsumed() || event.getKeyCode() == KeyEvent.VK_ENTER) return;
-        if (heldKey == event.getKeyCode()) { event.consume(); return; }
+        if (heldKey != 0 && heldKey == event.getKeyCode()) { event.consume(); return; }
         Target requested = target;
         if (requested == null || !requested.key.equals(config.fillRecommendedInputKey()) || !requested.key.matches(event)) return;
         event.consume();
