@@ -4,12 +4,14 @@ import com.flippingfriend.core.*;
 import com.google.gson.*;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.nio.file.Files;
+import org.junit.Rule;
+import org.junit.rules.TemporaryFolder;
 import org.junit.Test;
 import static org.junit.Assert.*;
 
 /** Synthetic account fixtures only; never opens a live account or uses market HTTP. */
 public class StockReviewWorkflowTest {
+    @Rule public TemporaryFolder folder = new TemporaryFolder();
     private final Gson gson = new Gson();
 
     @Test public void personalSnapshotHoldingDoesNotBlockOtherBuysOrChangeLedger() throws Exception {
@@ -26,7 +28,7 @@ public class StockReviewWorkflowTest {
     }
 
     private void checkReview(String use, boolean sold, boolean allowed) throws Exception {
-        SqliteStore store = new SqliteStore(Files.createTempDirectory("stock-review").resolve("test.db"));
+        SqliteStore store = new SqliteStore(folder.newFolder().toPath().resolve("test.db"));
         CompanionService service = new CompanionService(gson, store);
         try {
             AccountSnapshot seed = SnapshotReconciliationTest.account(100,

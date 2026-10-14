@@ -9,6 +9,19 @@
       local records and must migrate with positive reconciliation evidence.
 
 ## Next
+- [ ] Install and live-retest explicit unpriced-stock review from `codex/stock-review-workflow`.
+      Regressions preceded implementation (`932ab1f` / `1f728eb6`); local standard verification passed
+      1,186 Java tests with six skips and all 48 Python tests. Both JARs built. Verify Windows/Linux CI,
+      then use the supported paired update with a fresh reviewed backup. User confirmed four personal
+      holdings and three fully sold/no-longer-held old entries. Player must make those declarations
+      in Review holdings after installation; do not edit live records or seed preferences from chat.
+      Preferences exclude matching unpriced entries from trading decisions without changing ledger
+      quantities, costs, sale history or unknown profit. Known-cost conflicts, changed evidence and
+      open/uncollected offers remain protected. Scoped degraded history stays visible while a separate
+      safe planning gate handles reviewed exposure. Current installed runtime is still `cb203a83`.
+      Pipeline and controlled manual acceptance after this change remain pending. Full single-authority
+      exits/UI/risk migration and positive cost reconciliation are still prerequisites.
+
 - [ ] Complete live acceptance with the compatible pair installed at `cb203a83` (PR #36 merged after
       final Windows/Linux CI passed at `10d1a4bc`). The earlier mixed 1.12.39/1.13.1 classpath and
       long GE getter linkage error were reproduced by regressions before the source fix. Standard
@@ -24,9 +37,9 @@
       "Durable holdings or offers require reconciliation before new buys." Scoped health and ledger
       GETs identified seven RECONCILE entries: five unknown-cost holdings and two disposal entries
       without a durable position. Raw account details remain private in local-data diagnostics.
-      New-buy readiness is blocked; controlled manual acceptance cases remain untested. Await the
-      user's personal-stock/flipping-stock classification, then complete the missing reconciliation
-      workflow with positive evidence and regressions. Do not edit live records or bypass the guard.
+      New-buy readiness is blocked; controlled manual acceptance cases remain untested. The user has
+      supplied classification; the new source workflow above now awaits paired installation/live review.
+      Do not edit live records or bypass the guard.
       No agent database, credential or game-setting changes occurred. See latest HANDOFF; documentation branch
       is `codex/pr31-live-verification`.
       An unrelated popup was traced to obsolete hourly `FlippingFriendLearning`, pointing to the

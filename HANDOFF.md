@@ -177,6 +177,70 @@ PR checks for the final remote outcome; the first run is retained as failure evi
 
 ## Verification and continuation
 
+### Unpriced stock review workflow — 13 October 2026 (source implemented; live retest pending)
+
+Base: rebuild `cb203a834401d4e32cc5791d07f0ade37df80d61`; branch `codex/stock-review-workflow`.
+Regression commit `932ab1fda5717cfbe455b3fc449ce0d000362d33` preceded implementation
+`1f728eb6cd3b6b90013ee36dd6eef2e3c79765e9`. The source branch incorporates the earlier installation
+and blocked-plan checkpoints from `codex/pr31-live-verification`; that earlier branch is preserved.
+
+The owner identified four of the five positive-quantity unpriced entries as personal inventory or
+equipment. The fifth is no longer held; the two unpriced historical-sale items were also confirmed
+fully sold. Those declarations describe current trading intent/ownership, not purchase prices or
+historical profit. Personal item/quantity/event details remain in private local diagnostics.
+
+The initial automated workflow fixtures reproduced three blocked planning cases: declared personal
+stock, a retired old holding, and a retired unpriced sale entry. The unclassified unknown-cost control
+remained blocked. Exact initial ending: `4 tests completed, 3 failed`, `BUILD FAILED in 9s`,
+`REGRESSION_EXIT=1`; log `.gradle/stock-review-regression.log`. The sale fixture was subsequently
+strengthened with SELLING followed by SOLD so it also verifies a genuinely unresolved sale update.
+
+Implemented player workflow:
+
+- **Review holdings** displays fresh scoped durable entries. The player can choose **Personal item**
+  for source-free unpriced holdings or **I no longer hold this** for an unpriced old entry; **Clear
+  review** reverses that preference. A stale/foreign/changed row is refused. Cost-bearing conflicts
+  cannot be excluded through these controls and remain a reconciliation prerequisite.
+- `stock-declarations.json` stores these choices separately in the plugin's existing account profile
+  directory, with account identity and a position-specific evidence signature. It is included by the
+  existing `plugin-accounts/` backup. Malformed/foreign saved preferences fail closed, and an attempted
+  save does not overwrite them. No new database table, schema migration or ledger-correction endpoint
+  exists; the normal snapshot carries the declarations as trading preferences.
+- Durable exposure excludes only matching reviewed, unpriced entries. All original projections,
+  accounting events and unresolved historical profit remain intact. Known-cost holdings and every
+  buy reservation still count. Open buys, uncollected purchased items, remaining sell stock and unknown
+  offer states cannot be concealed by a declaration. New quantity, cost, opening evidence or event/
+  offer identity invalidates an old review.
+- Local new-sell selection and the trading Holding list respect matching declarations without
+  deleting PositionBook entries or physical holdings. Personal stock is also excluded from new entry
+  candidates while the local evidence matches the review. Existing offer maintenance remains active.
+- Review changes withdraw cached plans, fence earlier client responses and queued guidance, and
+  invalidate the companion's cached READY plan before background recomputation. This does not complete
+  the broader concurrent account-snapshot/read interleaving verification.
+- Scoped health can remain DEGRADED to show accounting history warnings. Its separate planning
+  readiness field requires fresh market data, a successful current durable exposure calculation and
+  no other subsystem fault. The client also validates market/health timestamps before reading plans.
+  Missing readiness evidence, unresolved active stock and stale/future market data still stop entry.
+
+Verification: 1,186 Java tests passed / six capture-dependent skips / zero failures/errors (1,192
+tests, 315 suites), both JARs built; all 48 Python tests passed (`Ran 48 tests in 29.907s`, `OK`,
+`PYTHON_EXIT=0`). The clean build at implementation `1f728eb6` ended `BUILD SUCCESSFUL in 31s`,
+`18 actionable tasks: 18 executed`, `GRADLE_EXIT=0`. A final clean build also verifies automatic
+temporary-fixture cleanup; use `.gradle/stock-review-final-clean-build.log` for that ending.
+Python log: `.gradle/stock-review-python.log`; all logs are gitignored, outside build outputs.
+The broader first run caught a companion access before the unsupported-price guard and a holding-list
+fixture mismatch; both were corrected while preserving the assertions. A later fixture compile failed
+because the companion has no Mockito dependency; a paused executor replaces that mock without adding
+a dependency. These failures are retained in the earlier `.gradle/stock-review-*.log` files.
+
+**Not installed or live-tested.** Installed runtime remains `cb203a83`, where buys are blocked as
+recorded below. No live database, position record, credential, game setting, installed artifact or task
+was changed by this development. The agent did not perform game input or stop RuneLite; the owner
+closed it and process inspection confirmed zero clients before the clean build. Reviews must be made
+by the player in the new panel after a supported paired update and a fresh backup review. Do not write
+the conversation's classifications directly into live files. Recheck pipeline output after review,
+then continue each controlled manual checklist case. Unknown historical profit remains unknown.
+
 ### Live login and blocked buy advice — 13 October 2026, 22:27–22:29 AKDT
 
 Runtime source remains `cb203a834401d4e32cc5791d07f0ade37df80d61`; documentation branch
@@ -229,7 +293,8 @@ Checklist outcome: build, reviewed backup, paired installation and read-only pro
 passed; login/sell display was user-reported. New-buy readiness is BLOCKED by reconciliation. The
 controlled known-cost holding/no-open-buy case has not been established; partial fill, cancel/collect,
 full sale/restart and conservation remain untested. Reconciliation blockers have been identified
-read-only. Do not mark the overall live checklist complete or merge its acceptance record yet.
+read-only. Do not mark the overall live checklist complete. Review source workflow fixes separately
+from final acceptance; the completed acceptance record still requires the owner's merge approval.
 
 ### Compatible pair installed — 13 October 2026, after the 22:09 backup (login still pending)
 

@@ -4,7 +4,8 @@ import com.flippingfriend.core.*;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import java.lang.reflect.*;
-import java.nio.file.Files;
+import org.junit.Rule;
+import org.junit.rules.TemporaryFolder;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.concurrent.AbstractExecutorService;
@@ -13,8 +14,9 @@ import org.junit.Test;
 import static org.junit.Assert.*;
 
 public class StockReviewHealthTest {
+    @Rule public TemporaryFolder folder = new TemporaryFolder();
     @Test public void serviceSeparatesReviewedExposureFromUnresolvedHistoryAndOtherFaults() throws Exception {
-        SqliteStore store = new SqliteStore(Files.createTempDirectory("review-health").resolve("test.db"));
+        SqliteStore store = new SqliteStore(folder.newFolder().toPath().resolve("test.db"));
         CompanionService service = new CompanionService(new Gson(), store);
         try {
             AccountSnapshot raw = SnapshotReconciliationTest.account(100,
@@ -41,7 +43,7 @@ public class StockReviewHealthTest {
         } finally { service.close(); }
     }
     @Test public void removingReviewImmediatelyWithdrawsCachedReadyPlanBeforeWorkerRuns() throws Exception {
-        SqliteStore store = new SqliteStore(Files.createTempDirectory("review-revoke").resolve("test.db"));
+        SqliteStore store = new SqliteStore(folder.newFolder().toPath().resolve("test.db"));
         CompanionService service = new CompanionService(new Gson(), store);
         try {
             AccountSnapshot raw = SnapshotReconciliationTest.account(100,
