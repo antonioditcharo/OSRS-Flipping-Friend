@@ -208,7 +208,9 @@ Review added an observable-task-registration guard before either JAR replacement
 first reproduced a false success through direct-launch fallback when registration could not be read
 back. The final Python suite has 38 tests (30 lifecycle tests). First PR CI also exposed harness
 portability errors in Windows utility command discovery and Linux LOCALAPPDATA; both fixture
-boundaries were corrected without weakening file-preservation or startup assertions.
+boundaries were corrected without weakening file-preservation or startup assertions. Windows CI
+continued to fail utility hash-command resolution; JAR hashing now uses the .NET SHA-256 stream API
+directly, preserving the same manifest/hash assertions without a PowerShell utility-command dependency.
 
 **Live state is unchanged by this development.** No installed JAR, task, shortcut or live database was
 modified; no game input occurred. The old disabled task/shortcut still need the user-run `1b` path.

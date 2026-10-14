@@ -61,6 +61,13 @@ function Assert-Task($candidate, [switch] $AllowDisabled) {
         throw 'Companion task points to a different JAR. Run 1b - Re-setup Existing Installation.'
     }
 }
+function Get-ArtifactSha256([string] $path) {
+    # Only installed JARs are hashed; account/database files are never opened here.
+    $stream = [IO.File]::OpenRead($path)
+    $hasher = [Security.Cryptography.SHA256]::Create()
+    try { return [BitConverter]::ToString($hasher.ComputeHash($stream)).Replace('-', '') }
+    finally { $hasher.Dispose(); $stream.Dispose() }
+}
 function Assert-InstalledPair {
     if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) { throw 'Installation requires setup or re-setup. Run 1 or 1b in this folder.' }
     $manifest = Get-Content -Raw -LiteralPath $manifestPath | ConvertFrom-Json
@@ -68,7 +75,7 @@ function Assert-InstalledPair {
         (Normalize-AbsolutePath $manifest.checkout) -ne (Normalize-AbsolutePath $root)) { throw 'Installation belongs to another checkout. Run 1b - Re-setup Existing Installation.' }
     foreach ($entry in @(@($installed, $manifest.pluginSha256), @($companionInstalled, $manifest.companionSha256))) {
         if (-not (Test-Path -LiteralPath $entry[0] -PathType Leaf) -or
-            (Get-FileHash -LiteralPath $entry[0] -Algorithm SHA256).Hash -ne $entry[1]) {
+            (Get-ArtifactSha256 $entry[0]) -ne $entry[1]) {
             throw 'Installed JAR pair is missing or changed. Run 4 - Update (or 1b for an older installation).'
         }
     }
@@ -223,8 +230,8 @@ try {
     Copy-Item -LiteralPath $built -Destination $installed -Force
     Copy-Item -LiteralPath $companionBuilt -Destination $companionInstalled -Force
     @{ schemaVersion = 1; checkout = $root; backupDirectory = $backup; installedAtUtc = [DateTime]::UtcNow.ToString('o')
-        pluginSha256 = (Get-FileHash -LiteralPath $installed -Algorithm SHA256).Hash
-        companionSha256 = (Get-FileHash -LiteralPath $companionInstalled -Algorithm SHA256).Hash
+        pluginSha256 = Get-ArtifactSha256 $installed
+        companionSha256 = Get-ArtifactSha256 $companionInstalled
     } | ConvertTo-Json | Set-Content -LiteralPath $manifestPath -Encoding UTF8
     Assert-InstalledPair
     if ($task) { Enable-ScheduledTask -TaskName $taskName -TaskPath '\' | Out-Null }
