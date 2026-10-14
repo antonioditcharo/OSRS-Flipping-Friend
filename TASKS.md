@@ -12,13 +12,13 @@
 - [ ] Review [consolidated PR #43](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/43)
       on `codex/copilot-panel`, including pending PR #40/#41/#42
       plus the compact native sidebar. Original PRs remain unchanged/open; coordinate overlap
-      before merging. Final Java source `d1191f8`: 1,277 passed, six existing skips; 48 Python
+      before merging. Final Java source `7c213a5`: 1,278 passed, six existing skips; 48 Python
       tooling tests passed earlier in this slice with tooling unchanged afterward.
       Java 11 JARs built, RuneLiteLAF renders and connected controls verified. One current action,
       real cadence presets, risk and durable recorded profit replace the accordion stack.
       Settings/records/graphs open separately. See docs/architecture/compact-panel.md and design-qa.md.
-      Ubuntu/Windows both passed at `5c6159d` (run 38652952390). The receipt only changes docs;
-      require both checks on the eventual PR head and owner approval, then a fresh backup/paired
+      Earlier Ubuntu/Windows passed at `5c6159d` (run 38652952390), before the final budget fix.
+      Latest-head checks/receipt are on PR #43; require both checks and owner approval, then a fresh backup/paired
       update from the normal checkout. Live pipeline, scaling/window behavior, pause/resume,
       search/key/Confirm and automatic ownership acceptance remain pending. Reconciliation faults
       and PR #31 checklist are not cleared. No database editing or game automation.

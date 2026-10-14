@@ -40,7 +40,7 @@ Iterations fixed a preset remaining highlighted under a custom cadence, cached n
 and mixed Settings alignment. Each has a failing automated case before its fix. An initial details
 measurement included FlatLaf's default border instead of the component's actual border; the fixture
 false positive was corrected before identifying the remaining long-item clip (16px for 48px).
-The final geometry gate passes.
+The final geometry gate passes. A connection review then caught inventory-only cash replacing the old planner budget; a failing test now preserves bank/collection coins, bankroll cap and the F2P indicator, followed by the footer correction.
 
 Intentional differences: own branding/Material icons; inline risk; exact durable Recorded profit
 instead of an unsupported session/reset counter; records opened separately instead of mixing

@@ -13,7 +13,7 @@ unchanged and open. Review this as one coherent candidate; coordinate overlap be
 earlier slices. Historical main is untouched.
 
 One Copilot-style instruction, exact quantity/price, graph/pause/block/skip, real 5m/30m/2h/8h
-presets, risk, durable Recorded profit and cash/free slots replace the old stack. Gear and More
+presets, risk, durable Recorded profit and spendable budget/free slots replace the old stack. Gear and More
 open Settings and existing record consumers in modeless details; Missed flips remains separate
 and read-only. SuggestionCard, OnboardingCard and CollapsibleSection are deleted. Plugin injection,
 refresh and shutdown connections remain. See [workflow/source map](docs/architecture/compact-panel.md),
@@ -30,10 +30,14 @@ Regression trail: `e3ebc21` specifies the replacement contract (five failures on
 `f58790c` / `60f1010` cover native wrapping, including a corrected FlatLaf measurement fixture;
 `f05dc4b` fixes the real 16px/48px long-item clip. `b3bd364` reproduces Settings alignment.
 Source `a08eb43e56b25f0fb41499fc1d2ff1a9f855329d` fixes it and records icon attribution.
-Final source `d1191f891e518c7cf236e4640b4010ae48cff1dd` hides the obsolete intro preference,
+Source `d1191f891e518c7cf236e4640b4010ae48cff1dd` hides the obsolete intro preference,
 preserving its saved key. No inactive intro-card toggle is left in RuneLite configuration.
 
-Final local Java verification on 14 October 2026, source `d1191f8`:
+A final connection review found inventory-only cash had replaced the prior spendable budget.
+`33e5c96` reproduces lost bank/collection/cap and F2P display connections; final source
+`7c213a54ee3f2290e62506a8f360d2c09948dd9e` restores the shared planner budget and account mode.
+
+Final local Java verification on 14 October 2026, source `7c213a5`:
 
 ```text
 RuneLite process count: 0
@@ -41,21 +45,21 @@ RuneLite process count: 0
 BUILD SUCCESSFUL in 33s
 18 actionable tasks: 18 executed
 FINAL_CLEAN_BUILD_EXIT=0
-Root: 562 tests, 0 failures, 0 errors, 0 skipped
+Root: 563 tests, 0 failures, 0 errors, 0 skipped
 Core: 166 tests, 0 failures, 0 errors, 0 skipped
 Companion: 555 tests, 0 failures, 0 errors, 6 skipped
-Total: 1,277 passed, 6 skipped, 0 failures/errors
+Total: 1,278 passed, 6 skipped, 0 failures/errors
 python -m unittest discover -s tools/tests -v
 Ran 48 tests in 78.292s
 OK
-Plugin JAR: 447,872 bytes
-Companion JAR: 17,782,640 bytes
+Plugin JAR: 448,114 bytes
+Companion JAR: 17,782,882 bytes
 Project class bytecode: major 55 (Java 11), both JARs
 ```
 
-Logs: `.gradle/compact-panel-final-clean.log` and `.gradle/compact-panel-python.log`, outside build.
+Logs: `.gradle/compact-panel-budget-final-clean.log` and `.gradle/compact-panel-python.log`, outside build.
 The Python tooling check ran during the earlier clean verification at `a08eb43`; tooling sources
-did not change afterward. Both complete Java builds passed with the same test counts.
+did not change afterward. Earlier complete builds passed 1,277; the budget regression adds one passing test.
 A preliminary unqualified `test --tests ...` passed selected root tests but failed because companion
 had no matching tests; targeted invocations were corrected to `:test`. Final verification runs every
 module without filters. No final result is inferred from that preliminary failure.
@@ -78,8 +82,8 @@ Supported build (ubuntu-latest): completed / success
 Supported build (windows-latest): completed / success
 ```
 
-The CI receipt is a documentation-only follow-up. Require both checks on the eventual PR head
-before merging; current check status is available on PR #43. Original #40/#41/#42 remain open
+This earlier CI receipt predates the final budget-display correction. Require both checks on the
+current PR head before merging; the authoritative latest-head status and receipt are on PR #43. Original #40/#41/#42 remain open
 at `fd60c8b` / `9f254e0` / `8aebbed`, respectively. No PR was merged or installed.
 
 ## Automatic trade scope source implementation — 14 October 2026

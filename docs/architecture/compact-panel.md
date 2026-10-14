@@ -6,7 +6,7 @@ It does not merge those PRs into the rebuild branch.
 
 The sidebar is a compact Flipping Copilot-style action surface: one instruction, exact quantity
 and unit price, graph / pause / block / skip, four cadence presets, risk, durable recorded profit
-and inventory cash/free-slot status. Flipping Friend retains its own name and assets. The old
+and spendable-budget/free-slot status. Flipping Friend retains its own name and assets. The old
 onboarding, SuggestionCard and collapsible sections are removed from source.
 
 ## Player controls and connections
@@ -19,6 +19,7 @@ onboarding, SuggestionCard and collapsible sections are removed from source.
 | Block / skip | Displayed BUY item, `SuggestionEngine.skip` and existing blocked-items config |
 | Cadence / risk | Existing ConfigManager keys, incumbent clear and worker refresh |
 | Finish session | Existing `SuggestionEngine.setSellOnly`, cleared on login |
+| Budget / account mode | Same spendableCoins bank/collection/commitment/cap contract as planning; free slots and F2P status |
 | Recorded profit / Performance | Scoped fresh `CompanionClient.lastLedger`, StatsPanel |
 | Holdings | Canonical `engine.tradingPositions`, trade evidence and position status |
 | Plan | Existing PortfolioPanel and companion plan |
@@ -63,7 +64,7 @@ packaged. A public reference sprite is used only in a local synthetic screenshot
 
 CompactPanelContractTest clicks production Swing controls: displayed-vs-engine item, all menu
 destinations, exact cadences, external/custom settings, sell-only, pause, unknown-cost sales,
-ledger loss and narrow labels. PanelShowsTheLedgerTest retains after-tax, holdings, history and
+ledger loss, planner budget settings, F2P status and narrow labels. PanelShowsTheLedgerTest retains after-tax, holdings, history and
 full-reason assertions in the opened views. CompactPanelRenderingTest uses RuneLiteLAF at 225/239px
 and 730x540 details, checking text geometry. Input-generation and horizon tests cover model effects.
 See root design-qa.md and HANDOFF.md for evidence and limitations.
