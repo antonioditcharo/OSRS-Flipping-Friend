@@ -20,9 +20,9 @@ import net.runelite.client.ui.overlay.components.TextComponent;
 /**
  * Prints the target quantity and price beside the offer editor, level with the field each belongs to.
  * <p>
- * The instruction card already carries these numbers, but it sits off to one side. When someone is
- * typing into the number pad, their eyes are on the editor — so the figure they are copying should
- * be there too. Small thing; it removes the back-and-forth that causes mistyped prices.
+ * The instruction card already carries these numbers. When it is visible, omit the duplicate
+ * hints so the two overlays cannot print over each other. With the card disabled, the hints
+ * stay beside the corresponding input controls.
  * <p>
  * <b>Beside, not on.</b> These were centred on the control and drawn three pixels above it, which is
  * where the Grand Exchange puts its own captions and the value typed so far — so "Type 5,111,111"
@@ -58,7 +58,7 @@ public class OfferEditorOverlay extends Overlay
 	@Override
 	public Dimension render(Graphics2D graphics)
 	{
-		if (!config.showOfferEditorHints() || !resolver.isSetupOpen())
+		if (!resolver.isSetupOpen())
 		{
 			return null;
 		}
@@ -69,6 +69,9 @@ public class OfferEditorOverlay extends Overlay
 			return null;
 		}
 
+        GeEditorValues values = GeEditorValues.read(client, resolver);
+        if (values == null || !values.usable() || !GeEditorValues.isOffer(suggestion)) return null;
+
 		Widget panel = resolver.getSetupPanel();
 		if (panel == null)
 		{
@@ -77,6 +80,10 @@ public class OfferEditorOverlay extends Overlay
 
 		graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 		graphics.setFont(FontManager.getRunescapeSmallFont());
+
+        if (config.protectTradeConfirmation() && !values.matches(suggestion)) drawLockedConfirm(graphics);
+        if (!config.showOfferEditorHints() || !values.contextMatches(suggestion)) return null;
+        if (config.showOverlay() && config.showInstructionCard()) return null;
 
 		// Only the field still to be filled. Both were drawn on every frame the editor was open,
 		// including after both numbers were typed and the guide had moved on to Confirm, so the
@@ -94,6 +101,24 @@ public class OfferEditorOverlay extends Overlay
 
 		return null;
 	}
+
+    private void drawLockedConfirm(Graphics2D graphics) {
+        Widget confirm = resolver.getConfirmButton();
+        Rectangle bounds = confirm == null ? null : confirm.getBounds();
+        if (bounds == null || bounds.width <= 0 || bounds.height <= 0) return;
+        graphics.setColor(new Color(25, 25, 25, 225));
+        graphics.fillRoundRect(bounds.x, bounds.y, bounds.width, bounds.height, 6, 6);
+        graphics.setColor(new Color(230, 163, 87));
+        graphics.drawRoundRect(bounds.x, bounds.y, bounds.width, bounds.height, 6, 6);
+        String label = "Locked - right-click";
+        FontMetrics metrics = graphics.getFontMetrics();
+        if (metrics.stringWidth(label) > bounds.width - 6) label = "Locked";
+        TextComponent text = new TextComponent();
+        text.setText(label); text.setColor(LABEL); text.setOutline(true);
+        text.setPosition(new java.awt.Point(bounds.x + Math.max(3, (bounds.width - metrics.stringWidth(label)) / 2),
+            bounds.y + (bounds.height + metrics.getAscent() - metrics.getDescent()) / 2));
+        text.render(graphics);
+    }
 
 	private void drawBeside(Graphics2D graphics, Widget panel, Widget widget, String text)
 	{

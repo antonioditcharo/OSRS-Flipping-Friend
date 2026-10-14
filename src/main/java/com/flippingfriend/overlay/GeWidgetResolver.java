@@ -12,9 +12,9 @@ import net.runelite.api.widgets.Widget;
 /**
  * Finds the Grand Exchange widgets the walkthrough needs to point at.
  * <p>
- * The eight slots, the setup panel and the confirm button have stable generated ids, so those are
- * looked up directly. The quantity and price controls inside the setup panel do not — they are
- * dynamic children whose indices Jagex is free to renumber in any update. Hardcoding those indices
+ * The slots and setup panel have stable ids. Actual editor buttons can be dynamic children,
+ * so they are found by their actions before using the generated confirm container. Their child
+ * indices can change in any game update. Hardcoding those indices
  * is the usual approach and it breaks silently: the plugin carries on drawing a highlight, just
  * around the wrong thing.
  * <p>
@@ -27,6 +27,7 @@ import net.runelite.api.widgets.Widget;
 public class GeWidgetResolver
 {
 	private static final String[] QUANTITY_HINTS = {"enter quantity", "set quantity", "custom quantity"};
+	private static final String[] CONFIRM_HINTS = {"confirm"};
 	private static final String[] PRICE_HINTS = {"enter price", "set price", "custom price"};
 	/** Depth is bounded so a malformed interface cannot send the search spinning. */
 	private static final int MAX_DEPTH = 4;
@@ -62,7 +63,8 @@ public class GeWidgetResolver
 
 	public Widget getConfirmButton()
 	{
-		return visible(client.getWidget(InterfaceID.GeOffers.SETUP_CONFIRM));
+		Widget dynamic = findByAction(getSetupPanel(), CONFIRM_HINTS);
+        return dynamic != null ? dynamic : visible(client.getWidget(InterfaceID.GeOffers.SETUP_CONFIRM));
 	}
 
 	public Widget getCollectAllButton()
@@ -199,7 +201,7 @@ public class GeWidgetResolver
 
 	private Widget search(Widget widget, String[] hints, int depth)
 	{
-		if (widget == null || depth > MAX_DEPTH)
+		if (widget == null || widget.isHidden() || depth > MAX_DEPTH)
 		{
 			return null;
 		}
@@ -261,18 +263,6 @@ public class GeWidgetResolver
 			}
 		}
 
-		String text = widget.getText();
-		if (text != null)
-		{
-			String normalised = text.toLowerCase(Locale.ROOT);
-			for (String hint : hints)
-			{
-				if (normalised.contains(hint))
-				{
-					return true;
-				}
-			}
-		}
 		return false;
 	}
 

@@ -219,6 +219,12 @@ public interface FlippingFriendConfig extends Config
 		return true;
 	}
 
+    @ConfigItem(keyName = "protectTradeConfirmation", name = "Protect trade confirmation",
+        description = "Confirm normally only when the recommended item, quantity and price match. "
+            + "Right-click Confirm to place a personal trade with different values.",
+        position = 8, section = guidanceSection)
+    default boolean protectTradeConfirmation() { return true; }
+
 	@ConfigItem(
 		keyName = "highlightColor",
 		name = "Highlight colour",
