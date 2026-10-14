@@ -19,7 +19,8 @@
       projections remain blocked and are not auto-repaired or hidden by personal-stock reviews.
       Read-only event evidence is private in local-data; historical rows lack game-state proof.
       Preserve known costs, active offers, unpriced history and the fail-closed guard while preparing
-      authoritative reconciliation. Final-head CI, paired installation with fresh backup review,
+      authoritative reconciliation. Windows/Linux CI at `6ce171e` passed (run 38542984377);
+      final-head checks after this documentation update, paired installation with fresh backup review,
       and controlled manual acceptance remain pending. Source review is PR #38 against rebuild;
       require both final-head CI checks before source merge. The player has closed RuneLite.
 

@@ -253,6 +253,19 @@ Clean log: `.gradle/offer-observation-clean-build.log`; Python log:
 `.gradle/offer-observation-python.log`. Both supported source JARs built, targeting Java 11.
 Use the PR's final-head Windows/Linux checks for remote outcome.
 
+Both [Windows/Linux CI checks at `6ce171ec55fca79587b66d1e9331cd577d6da8fe`](https://github.com/antonioditcharo/OSRS-Flipping-Friend/actions/runs/38542984377)
+passed on 14 October. Exact check output:
+
+```text
+Supported build (ubuntu-latest)   pass   1m11s
+Supported build (windows-latest)  pass   3m19s
+CI_EXIT=0
+```
+
+This subsequent evidence-only documentation commit changes no production code; require both
+checks on the resulting final PR head before source merge as well. The full live acceptance record
+has not been completed or approved for merge.
+
 **Not installed.** Runtime remains PR #37 at `49934e44`; new buy advice remains blocked. Source
 prevention does not repair existing projections, replay historical events into the live database,
 establish historical profit, or authorize hiding cost-bearing conflicts. Review choices have not
