@@ -1,6 +1,6 @@
 # Agent handoff
 
-Updated 13 October 2026 (America/Anchorage). Read this with [AGENTS.md](AGENTS.md) and
+Updated 14 October 2026 (America/Anchorage). Read this with [AGENTS.md](AGENTS.md) and
 [TASKS.md](TASKS.md) before continuing implementation.
 
 ## Current source and branch
@@ -24,6 +24,7 @@ player workflow; strategy tuning and measured learning promotion remain pending.
 | [PR #34](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/34) | Shared paired setup/re-setup/update/start/status lifecycle, stable installed companion, hash manifest, backup review, saved-login reuse and refreshed shortcut. Windows/Linux CI passed. | `cb2c1d2dac01865374108339fbd1fcee43ee0093` |
 | [PR #35](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/35) | Separate plugin profile records are included in the pre-install backup; linked records are rejected. Recorded actual backup review. Windows/Linux CI passed. | `6411f800e9a56d37de5dbd3b3194061ae262e910` |
 | [PR #36](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/36) | Exact official RuneLite artifact selection, installed API compatibility guard, long spent counters and persistent pause for unsupported unit prices. Windows/Linux CI passed on final revision `10d1a4bc`. | `cb203a834401d4e32cc5791d07f0ade37df80d61` |
+| [PR #37](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/37) | Explicit account-scoped review of unpriced personal/retired stock preserves ledger accounting; open offers and changed evidence remain protected. Windows/Linux CI passed on final revision `0e38e070`. | `49934e44590e0a484e0ddbd4857179102b03bdc2` |
 
 ## Implemented boundaries to preserve
 
@@ -178,6 +179,67 @@ temporary path aliases before invoking PowerShell; all 15 tests passed locally a
 PR checks for the final remote outcome; the first run is retained as failure evidence.
 
 ## Verification and continuation
+
+### Stock-review pair installed — 14 October 2026 checkpoint (player login/review pending)
+
+Installed source: rebuild `49934e44590e0a484e0ddbd4857179102b03bdc2` (PR #37).
+Both [final Windows/Linux checks at `0e38e070`](https://github.com/antonioditcharo/OSRS-Flipping-Friend/actions/runs/38527042939)
+passed before merge. Documentation continues on `codex/stock-review-live-verification` from that
+clean, fetched rebuild revision. Historical main and all earlier working branches remain preserved.
+
+The owner supplied the new backup listing and paused at INSTALL. Backup:
+`%USERPROFILE%/.runelite/osrs-flipping-friend/backups/20261013-233014-f45bc48b/`.
+Read-only review passed: companion account three files / 6,225,568 bytes (database plus WAL/SHM),
+plugin profile records 22 files / 1,502,156 bytes; every relative filename and size matched its source.
+The prior plugin (393,350 bytes), prior companion (17,722,571 bytes) and manifest (458 bytes) each
+matched their backup by SHA-256. Task XML was 1,895 bytes; action and current Windows principal
+matched. Task Disabled/Enabled=False, listener count zero, observable RuneLite count zero at review.
+No account/database contents were opened or changed by that review, and the unassigned legacy
+database was not copied or assigned. The owner then confirmed INSTALL in the same updater.
+
+The completion log supplied on 14 October reports:
+
+```text
+BUILD SUCCESSFUL in 4s
+8 actionable tasks: 8 up-to-date
+Built C:\Users\Antonio\OSRS Flipping Friend Rebuild\build\libs\osrs-flipping-friend.jar (397.5 KB)
+Companion ready (accounts-v1).
+Update applied. Both installed JARs verified. Restart RuneLite to pick up plugin changes.
+Press any key to continue . . .
+```
+
+Agent read-only post-install checks: `tools/status.ps1`, `tools/run-dev.ps1 -CheckOnly`, installed/
+build JAR hash comparison and the manifest's reviewed-backup path. Exact output:
+
+```text
+FLIPPING FRIEND - STATUS
+Plugin: present
+Installed companion: present
+Pair manifest: present
+Companion credential: present
+Saved RuneLite login: present
+Companion task: Running
+Task checkout: C:\Users\Antonio\OSRS Flipping Friend Rebuild
+Installed pair verified; companion responds with accounts-v1 (READY or DEGRADED).
+Overall status: PAIR VERIFIED / COMPANION RESPONDING
+The read-only pipeline check after login reports account coverage and market freshness.
+STATUS_EXIT=0
+RuneLite 1.13.1 and the installed plugin API match; cached artifacts verified.
+Compatibility check passed. No client started and no files changed.
+COMPATIBILITY_EXIT=0
+INSTALLATION_BACKUP=C:\Users\Antonio\.runelite\osrs-flipping-friend\backups\20261013-233014-f45bc48b
+Plugin INSTALLED_BYTES=407086 MATCHES_VERIFIED_BUILD=True
+Companion INSTALLED_BYTES=17737530 MATCHES_VERIFIED_BUILD=True
+POST_INSTALL_REVIEW=PASS (no client launched; no game input)
+```
+
+Further process inspection found `OBSERVABLE_RUNELITE_PROCESS_COUNT=0`. The next player step is
+numbered Start and manual login, then confirmation that **Review holdings** appears. Inspect a fresh
+scoped ledger before guiding the player through the declarations previously supplied; do not seed
+preferences from chat or change GE offers during this step. **Pipeline-check after this install:
+not yet run.** Login/review controls, post-review plan availability, known-cost holding/no-open-buy,
+partial fills, cancel/collect and full sale/restart acceptance remain unverified. The update itself
+does not classify records or establish new-buy readiness or historical profit.
 
 ### Unpriced stock review workflow — 13 October 2026 (source implemented; live retest pending)
 

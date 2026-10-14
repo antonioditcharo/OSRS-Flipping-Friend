@@ -9,16 +9,24 @@
       local records and must migrate with positive reconciliation evidence.
 
 ## Next
-- [ ] Install and live-retest explicit unpriced-stock review from `codex/stock-review-workflow`.
+- [ ] Live-retest explicit unpriced-stock review installed at rebuild `49934e44` (PR #37).
       Regressions preceded implementation (`932ab1f` / `1f728eb6`); local standard verification passed
-      1,186 Java tests with six skips and all 48 Python tests. Both JARs built. Verify Windows/Linux CI,
-      then use the supported paired update with a fresh reviewed backup. User confirmed four personal
+      1,186 Java tests with six skips and all 48 Python tests. Final Windows/Linux CI at `0e38e070`
+      passed before merge. Owner completed the supported paired update after review of backup
+      `20261013-233014-f45bc48b`: three companion account files / 6,225,568 bytes and 22 plugin records /
+      1,502,156 bytes matched source filenames/sizes; prior JAR/manifest hashes and task action/owner
+      matched. Completion output supplied 14 October reports BUILD SUCCESSFUL in 4s and both JARs
+      verified. Agent status and launcher CheckOnly exited zero; installed/build hashes matched
+      (plugin 407,086 bytes; companion 17,737,530 bytes), with RuneLite API 1.13.1 compatibility passed.
+      Source/runtime now `49934e44`; documentation branch `codex/stock-review-live-verification`.
+      Owner had confirmed four personal
       holdings and three fully sold/no-longer-held old entries. Player must make those declarations
       in Review holdings after installation; do not edit live records or seed preferences from chat.
       Preferences exclude matching unpriced entries from trading decisions without changing ledger
       quantities, costs, sale history or unknown profit. Known-cost conflicts, changed evidence and
       open/uncollected offers remain protected. Scoped degraded history stays visible while a separate
-      safe planning gate handles reviewed exposure. Current installed runtime is still `cb203a83`.
+      safe planning gate handles reviewed exposure. Next: numbered Start, manual login, confirm Review
+      holdings is present, then inspect the fresh scoped ledger before the player makes declarations.
       Pipeline and controlled manual acceptance after this change remain pending. Full single-authority
       exits/UI/risk migration and positive cost reconciliation are still prerequisites.
 
