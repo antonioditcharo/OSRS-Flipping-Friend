@@ -27,7 +27,13 @@
       open/uncollected offers remain protected. Scoped degraded history stays visible while a separate
       safe planning gate handles reviewed exposure. Next: numbered Start, manual login, confirm Review
       holdings is present, then inspect the fresh scoped ledger before the player makes declarations.
-      Pipeline and controlled manual acceptance after this change remain pending. Full single-authority
+      14 October 01:02 AKDT: player reports Review holdings appears. Read-only pipeline exited zero,
+      but Action WAIT / Plan UNAVAILABLE persists. Fresh scoped ledger GET returned HTTP 200 and
+      shows the seven prior unpriced entries plus three new invalid lifecycle transition entries,
+      including two known-cost positions. Review choices were left unchanged; cause is not established.
+      Diagnose read-only and reproduce any real bug on a fresh codex branch before source changes;
+      never clear or repair live records to unblock advice. Private evidence is in local-data diagnostics.
+      Review saving, post-review buy readiness and controlled manual acceptance remain pending. Full single-authority
       exits/UI/risk migration and positive cost reconciliation are still prerequisites.
 
 - [ ] Complete live acceptance with the compatible pair installed at `cb203a83` (PR #36 merged after

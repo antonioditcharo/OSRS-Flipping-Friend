@@ -180,6 +180,43 @@ PR checks for the final remote outcome; the first run is retained as failure evi
 
 ## Verification and continuation
 
+### Review panel visible; fresh lifecycle faults — 14 October 2026, 01:02 AKDT
+
+Installed source remains rebuild `49934e44590e0a484e0ddbd4857179102b03bdc2` (PR #37).
+On documentation branch `codex/stock-review-live-verification` at `882825915be66cb3db4df08ee35582abf6c02907`,
+the player reported that **Review holdings** appears. Review choices and GE actions were explicitly
+left unchanged for the fresh read-only check; no declarations have been observed or seeded from chat.
+
+Agent ran `tools/pipeline-check.ps1 -SkipBuild` with bundled PowerShell 7, then the scoped
+`ledger/current` GET (HTTP 200). Original output and ledger are private in
+`local-data/diagnostics/stock-review-live-20261014/pipeline-before-review-20261014-010227.txt`
+and `ledger-before-review-20261014-010230.json`. The opaque account identifier is replaced below
+with `<account-id>`; all verdicts, counts and reasons are otherwise verbatim:
+
+```text
+PASS [Artifact] build\libs\osrs-flipping-friend.jar
+PASS [Artifact] companion\build\libs\flipping-friend-companion.jar
+PASS [Protocol] accounts-v1
+PASS [Market] Ready. Choosing which items to study.
+PASS [<account-id>] Ledger: 4 sale updates; 2 unresolved; 0 profit ranges.
+PASS [<account-id>] Action: WAIT. Plan: UNAVAILABLE. Durable holdings or offers require reconciliation before new buys.
+INFO [Accounting] No synthetic snapshots, offers, or trades were posted by this check.
+PIPELINE_EXIT=0
+```
+
+Exit zero means the diagnostic completed; it does not establish buy readiness. The ledger still
+has the seven earlier unpriced reconciliation entries and now also has three entries reporting
+`invalid lifecycle transition`, two with known costs and one with zero quantity/unknown cost.
+Item identities, quantities, costs and event/offer identities remain in private diagnostics.
+The cause has not yet been established. Do not classify a known-cost conflict as retired, clear
+records, or weaken the planning guard to unblock buys. Inspect evidence read-only and reproduce
+any actual bug in an automated regression on a new `codex/` branch from current remote rebuild
+before implementation. No live database or account record was edited, migrated or repaired.
+
+Panel visibility is user-reported; saving reviews and post-review planning remain untested.
+Known-cost holding/no-open-buy, partial buy, cancel/collect and full sale/restart acceptance remain
+pending. The overall PR #31 acceptance checklist is incomplete.
+
 ### Stock-review pair installed — 14 October 2026 checkpoint (player login/review pending)
 
 Installed source: rebuild `49934e44590e0a484e0ddbd4857179102b03bdc2` (PR #37).
