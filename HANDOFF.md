@@ -112,6 +112,8 @@ account database or RuneLite**. Complete this before relying on it for trading.
 **Rollback:** stop both processes and reinstall the backed-up JARs. Under the owner's database
 handling rule, do not restore, edit, move, migrate, or repair account databases or the unassigned
 legacy database. Record any suspected database problem and investigate read-only.
+The plugin pair must also match the current RuneLite API. An older backup without compatible API
+metadata cannot be launched through the new guard; do not bypass it or mix old cached client/API JARs.
 
 Still untested after this checklist: concurrent read/write interleaving and a full live-market
 service test. Cash, committedCoins, preferences, and session risk remain client-snapshot inputs.
@@ -169,10 +171,11 @@ PR checks for the final remote outcome; the first run is retained as failure evi
 
 ## Verification and continuation
 
-### RuneLite login freeze continuation — 13 October 2026 (verification pending)
+### RuneLite login freeze continuation — 13 October 2026 (source verified; live retest pending)
 
 Base `6411f800e9a56d37de5dbd3b3194061ae262e910`; work branch `codex/runelite-login-classpath`.
-Implementation `3ae5386d264d0a7055441033cf5709ed1271908f` remains pending final Java verification.
+Implementation `3ae5386d264d0a7055441033cf5709ed1271908f` was verified at source/documentation revision
+`dcad648bc76efd7b358d57bfba847c0f3bbc2cd7` after the user closed RuneLite.
 Regression commit `52e6fb965badd7d8591839afe4b03f51fee69b9c` preceded implementation. Historical main
 and all live databases remain untouched. This source work has not been installed or tested in-game.
 
@@ -200,7 +203,7 @@ Observed evidence, without game input or stopping either process:
   5.847s`, `FAILED (failures=8)`). The Java ABI test first failed `expected:<long> but was:<int>`.
   Logs: `.gradle/runelite-launcher-regression.log` and `.gradle/runelite-api-regression.log`.
 
-Implemented source, awaiting full Java verification:
+Implemented and automatically verified source:
 
 - `run-dev.ps1` selects the exact official bootstrap Windows/architecture artifact list, checks
   required current client/injected/API entries and each local size/hash, and excludes stale cache
@@ -220,7 +223,7 @@ Implemented source, awaiting full Java verification:
   companion advice is invalidated; other accounts remain independent. Full 64-bit unit-price
   support and positive reconciliation are future work; do not edit/delete the evidence to unblock it.
 
-Verification checkpoint: all 48 Python tests passed (`Ran 48 tests in 31.241s`, `OK`, exit 0),
+Initial verification checkpoint: all 48 Python tests passed (`Ran 48 tests in 31.241s`, `OK`, exit 0),
 including eight launcher cases; isolated launcher run also passed (`Ran 8 tests in 5.510s`).
 The full standard local Gradle command stopped at clean, before validating the final Java changes:
 
@@ -233,13 +236,38 @@ BUILD FAILED in 5s
 GRADLE_EXIT=1
 ```
 
-The still-open RuneLite process holds that full API extra. Do not force-stop the game or force-delete
-the locked file. The user must close RuneLite, then rerun the standard clean build and Python suite.
+The then-open RuneLite process held that full API extra. No game process was stopped or locked file
+forcibly deleted. The user subsequently closed RuneLite; process inspection confirmed zero clients.
 Failure evidence is preserved as `.gradle/runelite-login-locked-gradle.log`; final Python output is
-`.gradle/runelite-login-python.log` (gitignored, outside build). Final Java tests have not passed yet.
-Keep this source as a draft until local verification and both CI checks pass. Then review and apply
-both artifacts through the supported numbered wrapper with a fresh observed backup and confirmation.
-No installed JARs, game settings, credentials or databases were changed by this troubleshooting.
+`.gradle/runelite-login-final-python.log` (gitignored, outside build).
+
+Final local standard verification passed: 1,168 Java tests passed / six capture-dependent skips /
+zero failures/errors (1,174 total across 308 suites), both supported JARs built. Exact endings:
+`BUILD SUCCESSFUL in 48s`, `18 actionable tasks: 18 executed`, `GRADLE_EXIT=0`;
+`Ran 48 tests in 43.965s`, `OK`, `PYTHON_EXIT=0`. Full clean-build log:
+`.gradle/runelite-login-gradle.log`. Built plugin manifest declares `RuneLite-Api-Version: 1.13.1`;
+plugin size 393,350 bytes; companion size 17,722,571 bytes. These are source artifacts, not proof of
+the installed or running version. [PR #36 CI at dcad648b](https://github.com/antonioditcharo/OSRS-Flipping-Friend/actions/runs/38515934145)
+also passed Windows and Linux. Check the final PR revision's checks before merging.
+
+The user also supplied a Java launcher popup naming missing `build/libs/flipping-friend-daemon.jar`.
+Read-only Task Scheduler inventory found `FlippingFriendLearning` targeting that exact path in this
+checkout. Its last recorded attempt was 21:00:01 AKDT and its next scheduled attempt was 22:00;
+it was Running with the JAR absent. Supported source references to this obsolete component exist
+only in tests that prohibit its activation. This popup is separate from the RuneLite API linkage error.
+
+Task definition was exported and its action matched before cleanup:
+`%USERPROFILE%/.runelite/osrs-flipping-friend/backups/legacy-task-20261013-213226-eef1efb7/FlippingFriendLearning.xml`
+(1,907 bytes). A fresh action/path check and principal comparison confirmed the same missing JAR,
+same checkout and current Windows user. Only that obsolete task was disabled/stopped, preserving
+its definition; observed `LEGACY_TASK_STATE=Disabled`, `LEGACY_TASK_ENABLED=False`. The current
+companion remained Running; observed RuneLite process count remained zero. No daemon JAR was
+rebuilt and no cache/data file was altered to satisfy the obsolete task. A separate historical
+forecaster task was observed Ready in the older checkout; this cleanup did not modify it.
+
+After merge, apply both artifacts through the supported numbered wrapper with a fresh observed
+backup and confirmation. No installed JARs, game settings, credentials or databases were changed
+by this troubleshooting; the explicit live configuration change was retirement of the obsolete task.
 
 **Pipeline-check output: not run.** Login, known-cost holding, partial buy, cancel/collect, full sale
 and restart acceptance checks remain unperformed. Continue the checklist after compatible paired

@@ -13,11 +13,16 @@
       `6411f800`. User-run installation passed read-only pair/companion status, then login froze
       with a long GE getter linkage error from a mixed 1.12.39/1.13.1 classpath. Eight launcher and
       one Java ABI regressions reproduced the problems before fixes; 48 Python tests now pass.
-      Final local Java verification stopped at clean because RuneLite holds the full API extra in
-      build/runtime-extras. Wait for the user to close RuneLite; do not kill it or delete the lock.
-      Run the standard clean verification, review both CI results, then update the pair through the
-      numbered wrapper after showing/reviewing the fresh backup. No troubleshooting source changes
-      have been installed, and no databases/settings/credentials were altered. See latest HANDOFF.
+      First local clean was blocked by RuneLite's open full API extra; the user closed the client.
+      Final standard verification at `dcad648b` passed 1,168 Java tests with six skips and all 48
+      Python tests, and built both JARs. Windows/Linux CI passed at that revision; verify final PR
+      checks before merge, then update the pair through the numbered wrapper after showing/reviewing
+      the fresh backup. No troubleshooting source changes have been installed, and no live databases,
+      game settings or credentials were altered. See latest HANDOFF.
+      An unrelated popup was traced to obsolete hourly `FlippingFriendLearning`, pointing to the
+      absent daemon JAR in this checkout. Its definition was backed up (1,907 bytes), action/principal
+      checked, then disabled/stopped. Current companion remained running. The historical forecaster
+      task was not changed; do not revive unsupported components or infer database ownership.
       Full 64-bit unit-price support remains pending; unsupported-price evidence pauses advice and
       accounting across restart. Preserve that evidence rather than manually clearing it.
 
