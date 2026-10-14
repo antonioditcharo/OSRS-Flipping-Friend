@@ -182,9 +182,11 @@ public class FlippingFriendPanel extends PluginPanel {
             : ledger.getProfitUpper() < 0 ? UiUtils.profitColor(-1) : UiUtils.TEXT);
         coverage.setText(ledger == null ? "Waiting for account ledger" : ledger.getSales() + " sale updates · " + ledger.getUnresolvedSales() + " unresolved");
         bankroll.setText(account != null && account.isLoggedIn()
-            ? explainer.formatGp(account.getInventoryCoins()) + " · " + account.getFreeSlots() + "/" + account.getTotalSlots() + " GE slots free"
+            ? "Budget: " + explainer.formatGp(account.spendableCoins(config.includeBankValue(), config.bankrollCap())) + " · " + account.getFreeSlots() + "/" + account.getTotalSlots() + " free"
             : "Log in to see account guidance");
-        mode.setText(engine.isSellOnly() ? "Finish session: sell only" : ""); mode.setForeground(UiUtils.WARNING);
+        String accountMode = account != null && account.isLoggedIn() && account.isFreeToPlay() ? "Free-to-play" : "";
+        mode.setText(accountMode + (engine.isSellOnly() ? (accountMode.isEmpty() ? "" : " · ") + "Sell only" : ""));
+        bankroll.setToolTipText("Planning budget using bank-value preference, collection coins, live commitments and bankroll cap."); mode.setForeground(UiUtils.WARNING);
         revalidate(); repaint();
     }
     private String range(long lower, long upper) {
