@@ -204,6 +204,12 @@ boundaries. Exact endings: `BUILD SUCCESSFUL in 41s`, `18 actionable tasks: 18 e
 `Ran 37 tests in 30.593s`, `OK`, exit 0. Full local logs: `.gradle/paired-setup-gradle.log` and
 `.gradle/paired-setup-python.log` (gitignored). CI checks Windows/Linux; use the PR for remote evidence.
 
+Review added an observable-task-registration guard before either JAR replacement; its regression
+first reproduced a false success through direct-launch fallback when registration could not be read
+back. The final Python suite has 38 tests (30 lifecycle tests). First PR CI also exposed harness
+portability errors in Windows utility command discovery and Linux LOCALAPPDATA; both fixture
+boundaries were corrected without weakening file-preservation or startup assertions.
+
 **Live state is unchanged by this development.** No installed JAR, task, shortcut or live database was
 modified; no game input occurred. The old disabled task/shortcut still need the user-run `1b` path.
 No pipeline-check output exists for this continuation. Real Task Scheduler registration, desktop COM,

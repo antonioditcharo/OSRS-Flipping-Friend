@@ -215,6 +215,9 @@ try {
         & "$PSScriptRoot\register-companion-task.ps1" -Java $java -Jar $companionInstalled -Checkout $root
     }
     $task = Get-CompanionTask
+    if ($ConfigureCompanionTask -and -not $task) {
+        throw 'Companion task registration is not observable. Installed JARs were not replaced; inspect Task Scheduler before retrying.'
+    }
     Assert-Task $task -AllowDisabled
     New-Item -ItemType Directory -Force -Path (Split-Path $installed) | Out-Null
     Copy-Item -LiteralPath $built -Destination $installed -Force

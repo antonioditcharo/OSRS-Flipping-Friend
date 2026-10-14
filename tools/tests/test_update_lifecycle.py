@@ -139,6 +139,11 @@ function New-ScheduledTaskSettingsSet {
 function Register-ScheduledTask {
     [CmdletBinding()] param($TaskName, $TaskPath, $Action, $Trigger, $Principal, $Settings, [switch]$Force, $Description)
     $global:ffUpdateTestEvents.Add('register-task')
+    if ($scenario.registrationNotVisible) {
+        $global:ffUpdateTestTask = $null
+        $scenario.taskPresent = $false
+        return
+    }
     $global:ffUpdateTestTask = [pscustomobject]@{
         TaskName=$TaskName; TaskPath=$TaskPath; State='Disabled'; Actions=@($Action); Settings=$Settings
     }
@@ -547,6 +552,13 @@ class UpdateLifecycleTest(unittest.TestCase):
         self.assertTrue(self.installed.is_file())
         self.assertTrue(self.installed_companion.is_file())
         self.assertNotIn("remove-file", result["events"], self.output)
+
+    def test_setup_requires_observable_registered_task_before_replacing_jars(self):
+        self.scenario.update(setup=True, registrationNotVisible=True)
+        result = self.run_update()
+        self.assertIsNotNone(result["error"], self.output)
+        self.assertNotIn("copy-plugin", result["events"], self.output)
+        self.assertNotIn("Update applied.", self.output)
 
 
 if __name__ == "__main__":

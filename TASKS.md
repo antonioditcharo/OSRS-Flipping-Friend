@@ -40,6 +40,8 @@
 - Tested failure, preservation, status and uninstall paths with 29 actual-script lifecycle tests;
   all 37 Python tests passed. Standard build at `b5ea2936` passed 1,163 Java tests with six skips and
   built both JARs. These are automated results; real setup, login and trading remain unverified.
+  Review added a reproducing task-registration guard regression (38 final Python tests) so setup
+  cannot report completion through direct launch when the configured task is unobservable.
 
 - Added actual-script updater regressions before fixes, using disposable files and mocked
   process/task/network boundaries. Reject disabled or foreign-checkout/JAR tasks before stopping
