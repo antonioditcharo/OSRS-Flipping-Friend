@@ -151,4 +151,14 @@ public class PositionBookTest
 		assertEquals("a position must not grow just because more were found", 10,
 			book.get(MAGIC_LOGS).getQuantity());
 	}
+
+    @Test
+    public void personalExtrasCannotWidenAnUnpricedHistoricalRecord() throws Exception
+    {
+        PositionBook book = bookAt(folder.newFolder("personal").toPath());
+        book.adoptExisting(MAGIC_LOGS, "Magic logs", 10, Instant.now());
+        book.reconcile(Map.of(MAGIC_LOGS, 6010), Collections.emptyMap(), true);
+        assertEquals(10, book.get(MAGIC_LOGS).getQuantity());
+        assertEquals(0, book.get(MAGIC_LOGS).getTotalCost());
+    }
 }
