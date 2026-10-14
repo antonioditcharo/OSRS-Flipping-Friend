@@ -9,6 +9,19 @@
       local records and must migrate with positive reconciliation evidence.
 
 ## Next
+- [ ] Continue account reconciliation after the 14 October lifecycle-fault diagnosis. Source branch
+      `codex/offer-observation-boundary` from rebuild `49934e44` reproduces five observation-boundary
+      failures at `b8c679f`, then fixes them at `f58a0cf`. Copied client observations, ordered load
+      replay, authenticated slot recovery, session generations and captured account payloads prevent
+      further reset/mutable-publication faults. Standard clean build passed 1,198 Java tests, six
+      skips and zero failures/errors; all 48 Python tests passed. No live database was changed.
+      Source is not installed; current runtime remains `49934e44`. Existing durable ERROR/RECONCILE
+      projections remain blocked and are not auto-repaired or hidden by personal-stock reviews.
+      Read-only event evidence is private in local-data; historical rows lack game-state proof.
+      Preserve known costs, active offers, unpriced history and the fail-closed guard while preparing
+      authoritative reconciliation. Final-head CI, paired installation with fresh backup review,
+      and controlled manual acceptance remain pending. The player has closed RuneLite.
+
 - [ ] Live-retest explicit unpriced-stock review installed at rebuild `49934e44` (PR #37).
       Regressions preceded implementation (`932ab1f` / `1f728eb6`); local standard verification passed
       1,186 Java tests with six skips and all 48 Python tests. Final Windows/Linux CI at `0e38e070`

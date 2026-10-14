@@ -58,6 +58,19 @@ positive reconciliation evidence; it is never replaced with zero or a current qu
 
 ## Restart behavior
 
+Client offer observations are accepted only while LOGGED_IN. Account loading schedules a fenced
+client-thread read of the current GE slot array so an offline completion is recovered after login;
+non-authenticated EMPTY resets do not prove collection. Raw API values are copied immediately,
+and the load queue preserves terminal then EMPTY in arrival order. Every drained transition is
+published. The worker receives copies of TrackedOffer observation fields, including for snapshot
+bootstrap, rather than a mutable live record whose state and fill counters can change separately.
+
+Queued publication retains the captured account ID and session generation. Logout, login, world hop,
+disconnect and shutdown withdraw old queued work. Payload identity and the existing outbox checks
+also refuse a switch during enqueue. This does not establish crash-safe delivery before an event
+has reached the durable outbox or repair existing ERROR/RECONCILE rows. A missing terminal before
+an authenticated EMPTY still requires reconciliation; the reducer and historical tax rules stay strict.
+
 Active and uncollected offers are reconstructed from durable current projections, including offers
 older than the four-hour buy-limit window. Four-hour expiry applies to allowance, not ownership,
 slot occupancy, or collection. Restoration retains original offer/session/sequence/source-event

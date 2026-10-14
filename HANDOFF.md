@@ -180,6 +180,83 @@ PR checks for the final remote outcome; the first run is retained as failure evi
 
 ## Verification and continuation
 
+### Offer observation boundary — 14 October 2026 (source verified; not installed)
+
+Base: fetched rebuild `49934e44590e0a484e0ddbd4857179102b03bdc2`; branch
+`codex/offer-observation-boundary`. Regression commit `b8c679f` preceded implementation
+`f58a0cf`. This branch also includes the installation and blocked-pipeline documentation
+from the preserved `codex/stock-review-live-verification` branch.
+
+After the panel visibility checkpoint below, scoped health GET returned HTTP 200 / DEGRADED /
+`planningStateAvailable=false`, with five offer-slot lifecycle faults. HTTP does not expose past
+offer observations. Agent inspected only the already identified scoped account database using
+SQLite URI `mode=ro`, connection `query_only=ON`, and an authorizer denying SQL writes. No schema,
+record, file location, WAL or legacy database was edited, moved, migrated or repaired. Private
+evidence: `local-data/diagnostics/stock-review-live-20261014/read-only-offer-history.json`.
+
+The 1,606 saved observations included batches of EMPTY followed about one second later by the
+same five offer identities and fill counters. Some occurred before PR #37 was installed; this
+does not establish that PR #37 caused the faults. The history also contained a SELLING observation
+with filled quantity equal to its total, followed by SOLD. Historical events lack authenticated
+game-state evidence, so the exact cause of every live fault cannot be proved from those rows alone.
+
+Automated synthetic tests reproduced five source boundary defects before implementation: a login
+screen EMPTY was processed as collection, a queued mutable record advanced before publication,
+a buffered live API object changed its counters, the per-slot buffer dropped a terminal event
+when EMPTY followed, and queued observations survived logout. Exact initial expanded ending:
+`5 tests completed, 5 failed`, `BUILD FAILED in 8s`, `REGRESSION_EXIT=1`.
+Log `.gradle/offer-observation-regression-expanded.log`. The first two cases had already failed
+independently in `.gradle/offer-observation-regression.log`. An intermediate fixture compile failure
+used the wrong GameStateChanged constructor; the corrected fixture produced the five failures above.
+
+Implemented boundaries:
+
+- Only LOGGED_IN offer events reach local accounting/publication. Non-authenticated resets are
+  ignored; after account loading, a fenced client-thread read of the actual current slot array
+  recovers offline completions. A missed terminal before an authenticated EMPTY remains unresolved.
+- Raw API observations are copied immediately into immutable `OfferObservation` values. The load
+  buffer preserves arrival order, including terminal then EMPTY in the same slot, and publishes
+  each drained transition rather than only changing the local tracker.
+- `TrackedOffer.copyObservation()` captures coherent state/quantity/spent/identity fields before
+  either direct publication or the account refresh enters the worker. Login/logout/hop/disconnect/
+  shutdown generations withdraw queued work from an earlier session. Observations not yet persisted
+  before that boundary are not invented later; this does not establish crash-safe delivery before
+  outbox enqueue or complete the broader concurrent account-snapshot migration.
+- Publication retains the captured account ID. CompanionClient refuses mismatches before enqueue;
+  the scoped payload and existing outbox write checks also refuse a profile change during event
+  construction. Existing durable event/session/sequence identities, acknowledgements, duplicate
+  behavior, accounting transactions, tax rules and fail-closed reducer remain unchanged.
+
+Verification: 1,198 Java tests passed / six capture-dependent skips / zero failures/errors (1,204
+total). All 48 Python tests passed (`Ran 48 tests in 41.964s`, `OK`, `PYTHON_EXIT=0`). The initial
+full run caught a missing-account error-message regression; the original assertions were preserved
+and the source message restored. A targeted command also propagated plugin-only filters into the
+companion task and failed with no matching tests; the corrected `:test` run passed all 14 focused
+checks. Logs are gitignored under `.gradle/offer-observation-*.log`, outside build outputs.
+
+The player closed RuneLite. An initial overly broad process filter matched `.runelite` in the
+companion JAR path; it aborted before clean. Read-only classification identified the installed
+companion, and the corrected client-main-class check found zero RuneLite clients. The actual
+standard command `.\gradlew.bat clean test jar :companion:shadowJar --console=plain` then ended:
+
+```text
+OBSERVABLE_RUNELITE_CLIENT_COUNT=0
+BUILD SUCCESSFUL in 34s
+18 actionable tasks: 18 executed
+GRADLE_EXIT=0
+```
+
+Clean log: `.gradle/offer-observation-clean-build.log`; Python log:
+`.gradle/offer-observation-python.log`. Both supported source JARs built, targeting Java 11.
+Use the PR's final-head Windows/Linux checks for remote outcome.
+
+**Not installed.** Runtime remains PR #37 at `49934e44`; new buy advice remains blocked. Source
+prevention does not repair existing projections, replay historical events into the live database,
+establish historical profit, or authorize hiding cost-bearing conflicts. Review choices have not
+been observed as saved. Continue read-only evidence and the authoritative reconciliation workflow
+under the owner's database rule; preserve physical holdings, active offers and unresolved history.
+Controlled manual partial-fill/cancel/collect/full-sale/restart acceptance remains incomplete.
+
 ### Review panel visible; fresh lifecycle faults — 14 October 2026, 01:02 AKDT
 
 Installed source remains rebuild `49934e44590e0a484e0ddbd4857179102b03bdc2` (PR #37).
