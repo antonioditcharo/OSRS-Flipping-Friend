@@ -46,4 +46,17 @@ public class SellRelistIntentTest {
         assertNull(intent.collectedRemainder(tracker));
         assertNull(new SellRelistIntent(TestStorage.rootedAt(root,"two")).collectedRemainder(tracker));
     }
+    @Test public void delayedAdviceCannotWriteIntoTheNewlySelectedAccount() throws Exception {
+        var storage=TestStorage.rootedAt(folder.newFolder().toPath(),"two");
+        var intent=new SellRelistIntent(storage);
+        String capturedAccount=com.flippingfriend.core.AccountIdentity.fromProfileKey("one");
+        try {
+            SellRelistIntent.class.getMethod("advise",TrackedOffer.class,String.class)
+                .invoke(intent,offer("SELLING",0,false,1000),capturedAccount);
+        } catch (NoSuchMethodException oldUnscopedAdvice) {
+            intent.advise(offer("SELLING",0,false,1000));
+        }
+        assertFalse("An old-account offer must not create new-account guidance",
+            java.nio.file.Files.exists(storage.accountDir().resolve("sell-relist-intent.json")));
+    }
 }
