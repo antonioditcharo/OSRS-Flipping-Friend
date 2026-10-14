@@ -161,4 +161,14 @@ public class CompactPanelContractTest {
                 assertEquals("Settings content should align with its 12px inset",12,c.getX());
         });
     }
+    @Test public void budgetKeepsBankCollectionAndCapConnectionsFromTheOldHeader() throws Exception {
+        when(monitor.getState()).thenReturn(new AccountState(true,true,false,10_000_000,50_000_000,5_000_000,8,8,0,true,
+            Collections.emptyMap(),Collections.emptyMap(),Collections.emptyMap()));
+        when(config.includeBankValue()).thenReturn(true); when(config.bankrollCap()).thenReturn(40_000_000L);
+        refresh(); assertTrue("Show the same capped budget sent to the planner",text(panel).contains("Budget: 40m gp"));
+        when(config.includeBankValue()).thenReturn(false); refresh(); assertTrue(text(panel).contains("Budget: 15m gp"));
+        when(monitor.getState()).thenReturn(new AccountState(true,false,false,10_000_000,50_000_000,5_000_000,3,3,0,true,
+            Collections.emptyMap(),Collections.emptyMap(),Collections.emptyMap()));
+        refresh(); assertTrue("Preserve the old account-mode indication",text(panel).contains("Free-to-play"));
+    }
 }
