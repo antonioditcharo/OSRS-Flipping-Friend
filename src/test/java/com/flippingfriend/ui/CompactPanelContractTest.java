@@ -53,7 +53,7 @@ public class CompactPanelContractTest {
             .map(c->(AbstractButton)c).findFirst().orElseThrow(()->new AssertionError("Missing connected control: "+name));
     }
     @Test public void sidebarIsAnActionSurfaceRatherThanAStackOfOldSections() {
-        assertFalse(tree(panel).stream().anyMatch(c->c instanceof CollapsibleSection || c instanceof OnboardingCard));
+        assertFalse(tree(panel).stream().anyMatch(c->c.getClass().getSimpleName().equals("CollapsibleSection") || c.getClass().getSimpleName().equals("OnboardingCard")));
         assertTrue("Compact action must be present",tree(panel).stream().anyMatch(c->"suggested-action".equals(c.getName())));
     }
     @Test public void skipRejectsTheDisplayedGuideItemAndRefreshesThroughThePlugin() throws Exception {
@@ -87,4 +87,71 @@ public class CompactPanelContractTest {
         assertTrue(tree(panel).stream().filter(c->c instanceof JTextArea).map(c->((JTextArea)c).getText()).anyMatch(t->t.contains("-11")&&t.contains("-10")));
         verify(journal,never()).sessionStats(); verify(journal,never()).lifetimeStats();
     }
+    private String text(Component view) {
+        return tree(view).stream().map(c -> c instanceof JTextArea ? ((JTextArea)c).getText()
+            : c instanceof JLabel ? ((JLabel)c).getText() : "").collect(java.util.stream.Collectors.joining("\n"));
+    }
+    @Test public void graphPreferencesAndEveryRecordsMenuRouteToRealViews() throws Exception {
+        java.util.List<String> opened=new ArrayList<>();
+        panel.setWindowPresenter((name,content)->{opened.add(name); assertNotNull(content);});
+        SwingUtilities.invokeAndWait(()->{
+            button("graph-action").doClick(); button("preferences-action").doClick(); button("performance-action").doClick();
+            for(Component entry:panel.detailsMenu().getComponents()) ((JMenuItem)entry).doClick();
+        });
+        assertEquals(Arrays.asList("Price graph","Settings","Performance","Recommendation","Price graph","Plan","Holdings",
+            "Performance","Local history","Bank estimate","Settings","Missed flips"),opened);
+        verify(market,atLeastOnce()).getSeries(561,"1h"); verify(market,never()).getSeries(4151,"1h");
+    }
+    @Test public void controlsDisableForNonBuyAdviceAndFollowGuideCorrections() throws Exception {
+        when(guide.getSuggestion()).thenReturn(Suggestion.builder(SuggestionType.SELL).item(2361,"Adamant bar").quantity(5).price(222).profitKnown(false).build());
+        refresh(); assertFalse(button("skip-action").isEnabled()); assertFalse(button("block-action").isEnabled());
+        assertTrue(text(panel).contains("222 gp each"));
+        assertFalse(text(panel).contains("Nature rune"));
+        SwingUtilities.invokeAndWait(()->{ button("skip-action").doClick(); button("block-action").doClick(); });
+        verify(engine,never()).skip(anyInt());
+        Component[] detail=new Component[1]; SwingUtilities.invokeAndWait(()->detail[0]=panel.detailsComponent("Recommendation"));
+        assertTrue(text(detail[0]).contains("Unavailable (unknown acquisition cost)"));
+        when(guide.getSuggestion()).thenReturn(Suggestion.idle()); refresh(); assertFalse(button("graph-action").isEnabled());
+    }
+    @Test public void oldCustomIntervalsAndExternalConfigUpdatesStayVisible() throws Exception {
+        when(config.checkInterval()).thenReturn(CheckInterval.OCCASIONAL); when(config.riskProfile()).thenReturn(RiskProfile.LOW);
+        refresh(); assertTrue(text(panel).contains("180m (custom)")); assertTrue(button("risk-low").isSelected());
+        for(String cadence:Arrays.asList("5m","30m","2h","8h")) assertFalse(button("cadence-"+cadence).isSelected());
+        when(config.checkInterval()).thenReturn(CheckInterval.EIGHT_HOURS); refresh(); assertTrue(button("cadence-8h").isSelected());
+        Component[] detail=new Component[1]; SwingUtilities.invokeAndWait(()->detail[0]=panel.detailsComponent("Settings"));
+        JComboBox<?> intervals=tree(detail[0]).stream().filter(c->c instanceof JComboBox).map(c->(JComboBox<?>)c).findFirst().orElseThrow();
+        assertEquals(CheckInterval.EIGHT_HOURS,intervals.getSelectedItem());
+        SwingUtilities.invokeAndWait(()->intervals.setSelectedItem(CheckInterval.HOURLY));
+        verify(settings).setConfiguration(FlippingFriendConfig.GROUP,"checkInterval",CheckInterval.HOURLY);
+    }
+    @Test public void sellOnlyAndPauseControlsCallTheExistingGuidancePaths() throws Exception {
+        Runnable callback=mock(Runnable.class); panel.setOnRejection(callback);
+        Component[] detail=new Component[1]; SwingUtilities.invokeAndWait(()->detail[0]=panel.detailsComponent("Settings"));
+        JCheckBox finish=tree(detail[0]).stream().filter(c->c instanceof JCheckBox).map(c->(JCheckBox)c).findFirst().orElseThrow();
+        SwingUtilities.invokeAndWait(finish::doClick); verify(engine).setSellOnly(true); verify(callback).run();
+        SwingUtilities.invokeAndWait(()->button("pause-action").doClick()); verify(guide).setPaused(true); verify(callback,times(2)).run();
+        when(guide.isPaused()).thenReturn(true); when(guide.getSuggestion()).thenReturn(Suggestion.waiting("Recommendations paused",""));
+        refresh(); assertFalse(button("skip-action").isEnabled());
+        assertEquals("Resume recommendations",button("pause-action").getToolTipText());
+        SwingUtilities.invokeAndWait(()->button("pause-action").doClick()); verify(guide).setPaused(false);
+    }
+    @Test public void ledgerLossAndAccountExitClearProfitWithoutJournalFallback() throws Exception {
+        when(companion.lastLedger()).thenReturn(new AccountLedgerSnapshot(AccountIdentity.fromProfileKey("synthetic"),
+            java.time.Instant.now().getEpochSecond(),1,0,0,0,0,0,0,0,Collections.emptyList())); refresh();
+        assertTrue(text(panel).contains("Unresolved")); assertTrue(text(panel).contains("Known recorded profit"));
+        when(companion.lastLedger()).thenReturn(null); refresh(); assertTrue(text(panel).contains("Unavailable"));
+        when(monitor.getState()).thenReturn(AccountState.loggedOut()); refresh();
+        assertTrue(text(panel).contains("Log in to see account guidance"));
+        verify(journal,never()).sessionStats(); verify(journal,never()).lifetimeStats();
+    }
+    @Test public void narrowSidebarKeepsAccountAndCoverageVisibleRatherThanAtZeroHeight() throws Exception {
+        SwingUtilities.invokeAndWait(()->{
+            panel.setSize(225,499); layout(panel); layout(panel);
+            for(Component c:tree(panel)) if(c instanceof JLabel && ((JLabel)c).getText()!=null && !((JLabel)c).getText().isEmpty()) {
+                assertTrue(((JLabel)c).getText()+" is collapsed",c.getHeight()>0);
+                assertTrue(((JLabel)c).getText()+" is cut off",c.getFontMetrics(c.getFont()).stringWidth(((JLabel)c).getText())<=c.getWidth());
+            }
+        });
+    }
+    static void layout(Component c) { c.doLayout(); if(c instanceof Container) for(Component child:((Container)c).getComponents()) layout(child); }
 }

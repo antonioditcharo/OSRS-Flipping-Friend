@@ -37,6 +37,19 @@ public class StepGuide
 	private volatile boolean priceDone;
     private volatile boolean entryStarted;
     private Widget editingControl;
+    private volatile boolean paused;
+    private final java.util.concurrent.atomic.AtomicLong adviceGeneration = new java.util.concurrent.atomic.AtomicLong();
+    private static final Suggestion PAUSED = Suggestion.waiting("Recommendations paused", "Resume using the play button. Trade observations continue.");
+
+    public boolean isPaused() { return paused; }
+    public long getAdviceGeneration() { return adviceGeneration.get(); }
+    /** Changes guidance only. No client API, game input or accounting write. */
+    public synchronized void setPaused(boolean value) {
+        if (paused == value) return;
+        paused = value; adviceGeneration.incrementAndGet();
+        tracked = Suggestion.idle(); pending = null; editorQuote = null;
+        quantityDone = false; priceDone = false; entryStarted = false; editingControl = null;
+    }
 
 	/** Whether the quantity field has been dealt with, so a hint for it can stop being drawn. */
 	public boolean isQuantityDone()
@@ -76,8 +89,9 @@ public class StepGuide
 	 * typed: a finished offer waits indefinitely, and a sale a few seconds later is a rounding error
 	 * against placing the wrong trade entirely.
 	 */
-	public void setSuggestion(Suggestion suggestion)
+	public synchronized void setSuggestion(Suggestion suggestion)
 	{
+        if (paused) return;
 		Suggestion incoming = suggestion == null ? Suggestion.idle() : suggestion;
 		if (incoming.sameAs(tracked))
 		{
@@ -162,13 +176,14 @@ public class StepGuide
 		}
 	}
 
-    public void setEditorQuote(Suggestion quote) {
+    public synchronized void setEditorQuote(Suggestion quote) {
+        if (paused) return;
         if (quote != null && (editorQuote == null || !quote.sameAs(editorQuote))) {
             quantityDone = true; priceDone = false;
         }
         editorQuote = quote;
     }
-    public Suggestion getSuggestion() { return editorQuote == null ? tracked : editorQuote; }
+    public Suggestion getSuggestion() { return paused ? PAUSED : editorQuote == null ? tracked : editorQuote; }
 
     /** Clicking a control starts entry; only committed values establish completion. */
     public void onMenuOptionClicked(MenuOptionClicked event)
@@ -191,7 +206,8 @@ public class StepGuide
             && !(values.typing && editingControl == resolver.getPriceControl());
     }
     GeEditorValues editorValues() { return GeEditorValues.read(client, resolver); }
-    public void reset() {
+    public synchronized void reset() {
+        paused = false; adviceGeneration.incrementAndGet();
         tracked = Suggestion.idle(); pending = null; onSetupClosed();
     }
 

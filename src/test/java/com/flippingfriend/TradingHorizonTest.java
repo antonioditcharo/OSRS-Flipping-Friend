@@ -160,4 +160,11 @@ public class TradingHorizonTest
 		assertTrue(text.toLowerCase().contains("hour"));
 	}
 
+    @Test public void twoAndEightHourCadencesRemainDistinctFromLegacyThreeHours() {
+        assertEquals(120, CheckInterval.TWO_HOURS.getMinutes()); assertEquals(480, CheckInterval.EIGHT_HOURS.getMinutes());
+        assertEquals(180, CheckInterval.OCCASIONAL.getMinutes());
+        assertEquals(240, TradingHorizon.of(RiskProfile.LOW, CheckInterval.TWO_HOURS, 1).maxHoldMinutes());
+        assertEquals(960, TradingHorizon.of(RiskProfile.LOW, CheckInterval.EIGHT_HOURS, 1).maxHoldMinutes());
+        assertEquals(6.4, TradingHorizon.of(RiskProfile.LOW, CheckInterval.EIGHT_HOURS, 1).legHorizonHours(), 0.001);
+    }
 }

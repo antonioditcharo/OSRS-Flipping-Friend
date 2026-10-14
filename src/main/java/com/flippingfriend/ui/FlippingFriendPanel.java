@@ -4,484 +4,200 @@ import com.flippingfriend.CheckInterval;
 import com.flippingfriend.FlippingFriendConfig;
 import com.flippingfriend.RiskProfile;
 import com.flippingfriend.companion.CompanionClient;
+import com.flippingfriend.core.AccountLedgerSnapshot;
 import com.flippingfriend.data.MarketDataService;
-import com.flippingfriend.model.Explainer;
-import com.flippingfriend.model.Suggestion;
-import com.flippingfriend.model.SuggestionEngine;
-import com.flippingfriend.model.TaxCalculator;
-import com.flippingfriend.session.AccountMonitor;
-import com.flippingfriend.session.AccountState;
-import com.flippingfriend.session.PositionBook;
-import com.flippingfriend.session.TradeJournal;
-import java.awt.BorderLayout;
-import java.awt.Component;
-import java.awt.Dimension;
-import java.util.Locale;
+import com.flippingfriend.model.*;
+import com.flippingfriend.overlay.StepGuide;
+import com.flippingfriend.session.*;
+import java.awt.*;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.function.BiConsumer;
 import javax.inject.Inject;
-import javax.swing.BorderFactory;
-import javax.swing.BoxLayout;
-import javax.swing.DefaultComboBoxModel;
-import javax.swing.JComboBox;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.JScrollPane;
-import javax.swing.JButton;
-import javax.swing.JTextArea;
-import javax.swing.ScrollPaneConstants;
-import javax.swing.SwingUtilities;
+import javax.swing.*;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.ui.FontManager;
 import net.runelite.client.ui.PluginPanel;
 
-/**
- * The side panel: the current instruction, what is held, recent trades, and how things are going.
- * <p>
- * The content lives in a scrollable column that declares it tracks the viewport width, which is what
- * makes text wrap into the panel instead of running off the right-hand edge. Nothing inside sets a
- * fixed height, so a card grows to fit its content rather than cropping it.
- * <p>
- * Every update arrives from a background thread, so all of them are marshalled onto the event
- * dispatch thread here rather than at each call site. Swing is not thread safe and the symptoms of
- * getting that wrong are intermittent and awful to diagnose.
- */
-public class FlippingFriendPanel extends PluginPanel
-{
-	private static final org.slf4j.Logger log =
-		org.slf4j.LoggerFactory.getLogger(FlippingFriendPanel.class);
+/** Compact action surface. Account records and explanations are opened separately. */
+public class FlippingFriendPanel extends PluginPanel {
+    private final SuggestionEngine engine;
+    private final AccountMonitor accountMonitor;
+    private final FlippingFriendConfig config;
+    private final ConfigManager configManager;
+    private final CompanionClient companion;
+    private final StepGuide stepGuide;
+    private final Explainer explainer;
+    private final CompactSuggestionPanel suggestion;
+    private final PanelDetails details;
+    private final MissedFlipsWindow missedFlips;
+    private final Map<CheckInterval, JToggleButton> cadences = new LinkedHashMap<>();
+    private final Map<RiskProfile, JToggleButton> risks = new LinkedHashMap<>();
+    private final JLabel cadenceCaption = label("How often do you check offers?", false);
+    private final JLabel profitCaption = label("Recorded profit", false);
+    private final JTextArea profit = CompactSuggestionPanel.text(UiUtils.TEXT);
+    private final JLabel coverage = label("", false), bankroll = label("", false), mode = label("", false);
+    private final JButton skip, block, pause, graph;
+    private final JPopupMenu menu = new JPopupMenu();
+    private Runnable onRejection = () -> { };
 
-	private final SuggestionEngine engine;
-	private final TradeJournal journal;
-	private final AccountMonitor accountMonitor;
-	private final FlippingFriendConfig config;
-	private final ConfigManager configManager;
-	private final Explainer explainer;
-	private final CompanionClient companion;
-	private Runnable onRejection = () -> { };
+    @Inject public FlippingFriendPanel(SuggestionEngine engine, PositionBook positions, TradeJournal journal,
+        AccountMonitor accountMonitor, MarketDataService marketData, ItemManager itemManager,
+        Explainer explainer, TaxCalculator taxCalculator, FlippingFriendConfig config,
+        ConfigManager configManager, CompanionClient companion, StepGuide stepGuide) {
+        super(false);
+        this.engine = engine; this.accountMonitor = accountMonitor; this.config = config;
+        this.configManager = configManager; this.companion = companion; this.stepGuide = stepGuide; this.explainer = explainer;
+        suggestion = new CompactSuggestionPanel(itemManager, explainer);
+        PositionsPanel holdings = new PositionsPanel(positions, marketData, itemManager, explainer, taxCalculator, engine::getPositionStatuses);
+        holdings.setTradingPositions(engine::tradingPositions); holdings.setTradeEvidenceAvailable(engine::hasTradeEvidence);
+        details = new PanelDetails(holdings, new HistoryPanel(journal, itemManager, explainer),
+            new PortfolioPanel(companion, explainer), new StatsPanel(explainer), new BankTrajectoryPanel(journal, explainer),
+            marketData, explainer, engine, config, configManager, companion, this::changed);
+        missedFlips = new MissedFlipsWindow(companion);
+        setLayout(new BorderLayout()); setBackground(UiUtils.CARD);
+        setBorder(BorderFactory.createEmptyBorder(6, 6, 6, 6));
+        UiUtils.ScrollableColumn content = new UiUtils.ScrollableColumn();
+        content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS)); content.setBackground(UiUtils.CARD);
+        JPanel header = row(new BorderLayout());
+        header.add(label("Flipping Friend", true), BorderLayout.CENTER);
+        JPanel tools = row(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+        tools.add(PanelIcons.button("preferences-action", "settings", "Preferences", () -> open("Settings")));
+        JButton more = PanelIcons.button("more-action", "more_horiz", "Records and details", () -> { });
+        more.addActionListener(e -> menu.show(more, 0, more.getHeight())); tools.add(more);
+        header.add(tools, BorderLayout.EAST); add(content, header, 8);
+        JLabel caption = label("Suggested Action:", true); caption.setHorizontalAlignment(SwingConstants.CENTER);
+        JPanel title = row(new BorderLayout()); title.add(caption); add(content, title, 5);
+        add(content, suggestion, 0);
+        JPanel actions = row(new FlowLayout(FlowLayout.CENTER, 8, 0));
+        graph = PanelIcons.button("graph-action", "show_chart", "Open current item's price graph", () -> open("Price graph"));
+        pause = PanelIcons.button("pause-action", "pause", "Pause recommendations", this::togglePause);
+        block = PanelIcons.button("block-action", "block", "Block this buy item", () -> reject(true));
+        skip = PanelIcons.button("skip-action", "skip_next", "Skip this buy item", () -> reject(false));
+        block.setIcon(PanelIcons.icon("block", new Color(225, 100, 100)));
+        for (JButton button : new JButton[]{graph, pause, block, skip}) actions.add(button);
+        add(content, actions, 12);
+        cadenceCaption.setHorizontalAlignment(SwingConstants.CENTER);
+        JPanel cadenceTitle = row(new BorderLayout()); cadenceTitle.add(cadenceCaption); add(content, cadenceTitle, 3);
+        JPanel cadenceRow = row(new GridLayout(1, 4, 2, 0)); ButtonGroup cadenceGroup = new ButtonGroup();
+        CheckInterval[] intervals = {CheckInterval.FIVE_MINUTES, CheckInterval.THIRTY_MINUTES, CheckInterval.TWO_HOURS, CheckInterval.EIGHT_HOURS};
+        String[] labels = {"5m", "30m", "2h", "8h"};
+        for (int i = 0; i < intervals.length; i++) {
+            CheckInterval value = intervals[i]; JToggleButton button = toggle(labels[i], "cadence-" + labels[i]);
+            button.setToolTipText(value.getDescription());
+            button.addActionListener(e -> { configManager.setConfiguration(FlippingFriendConfig.GROUP, "checkInterval", value); changed(); });
+            cadences.put(value, button); cadenceGroup.add(button); cadenceRow.add(button);
+        }
+        add(content, cadenceRow, 0);
+        JPanel riskRow = row(new GridLayout(1, 4, 2, 0)); riskRow.add(label("Risk", false)); ButtonGroup riskGroup = new ButtonGroup();
+        String[] riskLabels = {"Low", "Med", "High"}; int i = 0;
+        for (RiskProfile value : RiskProfile.values()) {
+            JToggleButton button = toggle(riskLabels[i++], "risk-" + value.name().toLowerCase(java.util.Locale.ROOT));
+            button.setToolTipText(value.getDescription());
+            button.addActionListener(e -> { configManager.setConfiguration(FlippingFriendConfig.GROUP, "riskProfile", value); changed(); });
+            risks.put(value, button); riskGroup.add(button); riskRow.add(button);
+        }
+        add(content, riskRow, 7); add(content, divider(), 12);
+        JPanel profitHeader = row(new BorderLayout()); profitHeader.add(profitCaption);
+        profitHeader.add(PanelIcons.button("performance-action", "open_in_new", "Open recorded performance", () -> open("Performance")), BorderLayout.EAST);
+        add(content, profitHeader, 4); profit.setFont(FontManager.getRunescapeBoldFont()); add(content, profit, 0);
+        add(content, coverage, 3); add(content, divider(), 12); add(content, bankroll, 8); add(content, mode, 3);
+        JScrollPane scroll = new JScrollPane(content, ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED, ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+        scroll.setBorder(BorderFactory.createEmptyBorder()); scroll.getViewport().setBackground(UiUtils.CARD);
+        scroll.getVerticalScrollBar().setUnitIncrement(16); scroll.getVerticalScrollBar().setPreferredSize(new Dimension(8, 0));
+        add(scroll);
+        for (String name : new String[]{"Recommendation", "Price graph", "Plan", "Holdings", "Performance", "Local history", "Bank estimate", "Settings"}) {
+            JMenuItem entry = new JMenuItem(name); entry.addActionListener(e -> open(name)); menu.add(entry);
+        }
+        JMenuItem missed = new JMenuItem("Missed flips"); missed.addActionListener(e -> missedFlips.open(SwingUtilities.getWindowAncestor(this))); menu.add(missed);
+    }
 
-	/** Our own handle on the scrolled column; PluginPanel keeps a private one of its own. */
-	private JScrollPane scrolledColumn;
-
-	private final SuggestionCard suggestionCard;
-	/**
-	 * The walkthrough, so the panel shows the trade actually being guided.
-	 * <p>
-	 * Reading the engine directly would let the panel and the overlay disagree: the guide holds its
-	 * advice while an offer is half-entered, and a panel that had already moved on would be telling
-	 * the player to do one thing while every highlight in the game pointed at another.
-	 */
-	private final com.flippingfriend.overlay.StepGuide stepGuide;
-	private final PositionsPanel positionsPanel;
-	private final HistoryPanel historyPanel;
-	private final StatsPanel statsPanel;
-	private final PortfolioPanel portfolioPanel;
-	private final BankTrajectoryPanel bankTrajectoryPanel;
-	private final MissedFlipsWindow missedFlips;
-
-	private final JPanel onboardingSlot = new JPanel(new BorderLayout());
-	private final JButton sellOnlyButton = new JButton();
-	private final JComboBox<RiskProfile> riskSelector = new JComboBox<>();
-	private final JComboBox<CheckInterval> intervalSelector = new JComboBox<>();
-	private final JLabel bankrollLabel = new JLabel();
-	private final JTextArea sellOnlyNote;
-	private final JTextArea riskDescription;
-	private final JTextArea intervalDescription;
-
-	private boolean suppressSelectorEvents;
-
-	@Inject
-	public FlippingFriendPanel(SuggestionEngine engine, PositionBook positions, TradeJournal journal,
-		AccountMonitor accountMonitor, MarketDataService marketData, ItemManager itemManager,
-		Explainer explainer, TaxCalculator taxCalculator,
-		FlippingFriendConfig config, ConfigManager configManager,
-		CompanionClient companion, com.flippingfriend.overlay.StepGuide stepGuide)
-	{
-		super(false);
-
-		this.engine = engine;
-		this.stepGuide = stepGuide;
-		this.journal = journal;
-		this.accountMonitor = accountMonitor;
-		this.config = config;
-		this.configManager = configManager;
-		this.explainer = explainer;
-		this.companion = companion;
-
-		this.sellOnlyNote = UiUtils.wrappedText("", UiUtils.MUTED,
-			FontManager.getRunescapeSmallFont(), UiUtils.CONTENT_WIDTH);
-		this.riskDescription = UiUtils.wrappedText("", UiUtils.MUTED,
-			FontManager.getRunescapeSmallFont(), UiUtils.CONTENT_WIDTH);
-		this.intervalDescription = UiUtils.wrappedText("", UiUtils.MUTED,
-			FontManager.getRunescapeSmallFont(), UiUtils.CONTENT_WIDTH);
-
-		this.suggestionCard = new SuggestionCard(itemManager, explainer);
-		this.positionsPanel = new PositionsPanel(positions, marketData, itemManager, explainer, taxCalculator,
-			engine::getPositionStatuses);
-
-		this.historyPanel = new HistoryPanel(journal, itemManager, explainer);
-		this.statsPanel = new StatsPanel(explainer);
-		this.portfolioPanel = new PortfolioPanel(companion, explainer);
-		this.bankTrajectoryPanel = new BankTrajectoryPanel(journal, explainer);
-		this.missedFlips = new MissedFlipsWindow(companion);
-
-		this.positionsPanel.setTradingPositions(engine::tradingPositions);
-        this.positionsPanel.setTradeEvidenceAvailable(engine::hasTradeEvidence);
-
-		setLayout(new BorderLayout());
-		setBackground(UiUtils.BACKGROUND);
-		setBorder(BorderFactory.createEmptyBorder(UiUtils.PANEL_BORDER, UiUtils.PANEL_BORDER,
-			UiUtils.PANEL_BORDER, UiUtils.PANEL_BORDER));
-
-		UiUtils.ScrollableColumn content = new UiUtils.ScrollableColumn();
-		content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
-
-		content.add(buildHeader());
-
-		onboardingSlot.setBackground(UiUtils.BACKGROUND);
-		onboardingSlot.setAlignmentX(Component.LEFT_ALIGNMENT);
-		content.add(UiUtils.gap(UiUtils.SPACE_M));
-		content.add(onboardingSlot);
-
-		suggestionCard.setOnSkip(this::skipItem);
-		suggestionCard.setOnBlock(this::blockItem);
-		content.add(UiUtils.gap(UiUtils.SPACE_M));
-		content.add(new CollapsibleSection("Recommendation", suggestionCard, false));
-
-		content.add(new CollapsibleSection("Portfolio", portfolioPanel, false));
-        JButton missed = new JButton("Missed flips");
-        missed.setAlignmentX(Component.LEFT_ALIGNMENT);
-        missed.setBackground(UiUtils.CARD); missed.setForeground(UiUtils.TEXT);
-        missed.setOpaque(true); missed.setFocusPainted(false);
-        missed.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(UiUtils.DIVIDER),
-            BorderFactory.createEmptyBorder(5, 10, 5, 10)));
-        missed.setToolTipText("Open incomplete and uncertain trade evidence in a separate window.");
-        missed.addActionListener(e -> missedFlips.open(SwingUtilities.getWindowAncestor(this)));
-        content.add(missed);
-		content.add(new CollapsibleSection("Holding", positionsPanel, false));
-		content.add(new CollapsibleSection("Local trade history", historyPanel, false));
-		content.add(new CollapsibleSection("Performance", statsPanel, false));
-		content.add(new CollapsibleSection("Estimated bank value", bankTrajectoryPanel, false));
-
-
-		content.add(UiUtils.gap(UiUtils.SPACE_L));
-
-		scrolledColumn = new JScrollPane(content,
-			ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED,
-			ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
-		scrolledColumn.setBackground(UiUtils.BACKGROUND);
-		scrolledColumn.getViewport().setBackground(UiUtils.BACKGROUND);
-		scrolledColumn.setBorder(BorderFactory.createEmptyBorder());
-		scrolledColumn.getVerticalScrollBar().setUnitIncrement(16);
-		scrolledColumn.getVerticalScrollBar().setPreferredSize(new Dimension(9, 0));
-
-		add(scrolledColumn, BorderLayout.CENTER);
-
-		refreshOnboarding();
-	}
-
-	private JPanel buildHeader()
-	{
-		JPanel header = new JPanel();
-		header.setLayout(new BoxLayout(header, BoxLayout.Y_AXIS));
-		header.setBackground(UiUtils.BACKGROUND);
-		header.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-		JLabel title = UiUtils.label("Flipping Friend", UiUtils.TEXT, FontManager.getRunescapeBoldFont());
-		title.setAlignmentX(Component.LEFT_ALIGNMENT);
-		header.add(title);
-
-		bankrollLabel.setFont(FontManager.getRunescapeSmallFont());
-		bankrollLabel.setForeground(UiUtils.MUTED);
-		bankrollLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
-		header.add(UiUtils.gap(2));
-		header.add(bankrollLabel);
-
-		riskSelector.setModel(new DefaultComboBoxModel<>(RiskProfile.values()));
-		riskSelector.setSelectedItem(config.riskProfile());
-		riskSelector.addActionListener(e ->
-		{
-			if (suppressSelectorEvents)
-			{
-				return;
-			}
-			RiskProfile selected = (RiskProfile) riskSelector.getSelectedItem();
-			if (selected != null)
-			{
-				configManager.setConfiguration(FlippingFriendConfig.GROUP, "riskProfile", selected);
-				UiUtils.setWrappedText(riskDescription, selected.getDescription());
-			}
-		});
-
-		// On the panel rather than buried in settings: this changes what gets suggested as much as
-		// the risk level does, and it is the one setting that legitimately varies session to session
-		// depending on what the player is actually doing.
-		intervalSelector.setModel(new DefaultComboBoxModel<>(CheckInterval.values()));
-		intervalSelector.setSelectedItem(config.checkInterval());
-		intervalSelector.addActionListener(e ->
-		{
-			if (suppressSelectorEvents)
-			{
-				return;
-			}
-			CheckInterval selected = (CheckInterval) intervalSelector.getSelectedItem();
-			if (selected != null)
-			{
-				configManager.setConfiguration(FlippingFriendConfig.GROUP, "checkInterval", selected);
-				UiUtils.setWrappedText(intervalDescription, selected.getDescription());
-			}
-		});
-
-		UiUtils.setWrappedText(riskDescription, config.riskProfile().getDescription());
-		UiUtils.setWrappedText(intervalDescription, config.checkInterval().getDescription());
-
-		// Above the risk selector, because when it is on it is the single most important thing about
-		// what the plugin is going to say, and a mode that quietly stops every buy has to be visible
-		// without scrolling or hunting through settings.
-		sellOnlyButton.addActionListener(e ->
-		{
-			engine.setSellOnly(!engine.isSellOnly());
-			// The companion holds the last buy it put in front of you, so that a momentary gap in the
-			// plan does not blink the card. That hold has to be broken here or switching sell-only
-			// back off re-serves the buy from before you started winding down -- chosen under the
-			// old intent, and possibly minutes stale.
-			companion.clearIncumbent();
-			// Through rejected(), not a bare refresh(). The card draws what the walkthrough is
-			// guiding and only the plugin's worker writes that, so repainting the panel changed the
-			// button and left the advice showing a buy for up to a full refresh interval -- thirty
-			// seconds by default, five minutes at the top of the range. Skip and Block were converted
-			// to this long ago; the mode switch is the one control that was missed, and it is the one
-			// where a stale answer costs the most.
-			rejected();
-		});
-		sellOnlyButton.setFocusPainted(false);
-		// Coloured from this panel's own palette rather than left to the look and feel. Every other
-		// component here paints itself explicitly, and this one did not: on a light look and feel it
-		// drew the panel's light grey text onto a near-white button, which is the single control
-		// that changes what the plugin will say and it was effectively invisible.
-		sellOnlyButton.setOpaque(true);
-		sellOnlyButton.setBackground(UiUtils.CARD);
-		sellOnlyButton.setBorder(javax.swing.BorderFactory.createCompoundBorder(
-			javax.swing.BorderFactory.createLineBorder(UiUtils.DIVIDER),
-			javax.swing.BorderFactory.createEmptyBorder(4, 8, 4, 8)));
-		sellOnlyButton.setAlignmentX(Component.LEFT_ALIGNMENT);
-		sellOnlyButton.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, 26));
-		header.add(UiUtils.gap(UiUtils.SPACE_M));
-		header.add(sellOnlyButton);
-		header.add(UiUtils.gap(UiUtils.SPACE_XS));
-		header.add(sellOnlyNote);
-
-		header.add(UiUtils.gap(UiUtils.SPACE_M));
-		header.add(selectorBlock("Risk level", riskSelector, riskDescription));
-		header.add(UiUtils.gap(UiUtils.SPACE_M));
-		header.add(selectorBlock("How often you check the GE", intervalSelector, intervalDescription));
-
-		return header;
-	}
-
-	private JPanel selectorBlock(String label, JComboBox<?> selector, JTextArea description)
-	{
-		JPanel block = new JPanel();
-		block.setLayout(new BoxLayout(block, BoxLayout.Y_AXIS));
-		block.setBackground(UiUtils.BACKGROUND);
-		block.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-		JLabel caption = UiUtils.small(label);
-		caption.setAlignmentX(Component.LEFT_ALIGNMENT);
-		block.add(caption);
-		block.add(UiUtils.gap(UiUtils.SPACE_XS));
-
-		selector.setFocusable(false);
-		selector.setAlignmentX(Component.LEFT_ALIGNMENT);
-		selector.setMaximumSize(new Dimension(Integer.MAX_VALUE, 26));
-		block.add(selector);
-
-		description.setAlignmentX(Component.LEFT_ALIGNMENT);
-		block.add(UiUtils.gap(UiUtils.SPACE_XS));
-		block.add(description);
-
-		return block;
-	}
-
-	/**
-	 * Keeps the sell-only control showing the truth.
-	 * <p>
-	 * Driven from the engine rather than from the button's own state, because the engine clears the
-	 * mode on login and the button would otherwise go on claiming it was still on.
-	 */
-	private void updateSellOnlyControl()
-	{
-		boolean on = engine.isSellOnly();
-		sellOnlyButton.setText(on ? "Sell-only mode: ON — click to resume buying"
-			: "Switch to sell-only");
-		sellOnlyButton.setForeground(on ? UiUtils.WARNING : UiUtils.TEXT);
-		UiUtils.setWrappedText(sellOnlyNote, on
-			? "No new trades will be suggested. Open buys are offered for cancellation, and what you "
-				+ "hold is sold on the usual rules. This clears when you next log in."
-			: "Winding down? This stops new buys and helps you close out what you are holding.");
-	}
-
-	public void closeWindows() { SwingUtilities.invokeLater(missedFlips::dispose); }
-
-	/** Safe to call from any thread. */
-	public void refresh()
-	{
-		SwingUtilities.invokeLater(() ->
-		{
-			try
-			{
-				refreshOnEdt();
-			}
-			catch (Exception ex)
-			{
-				// One bad section must not take the window with it. Several of these panels clear
-				// themselves before rebuilding, so an exception halfway through leaves the sidebar
-				// part-empty and skips everything after it -- on every refresh from then on, because
-				// nothing here was ever going to recover on its own.
-				log.warn("could not refresh the panel", ex);
-			}
-		});
-	}
-
-	private void refreshOnEdt()
-	{
-		updateSellOnlyControl();
-
-		// Several sections rebuild themselves wholesale, so the column's height changes underneath the
-		// scrollbar and the viewport is clamped to whatever still fits. Holding the offset across the
-		// rebuild keeps the player where they were reading.
-		java.awt.Point scrolledTo = scrolledColumn == null ? null
-			: scrolledColumn.getViewport().getViewPosition();
-
-		// What the guide is actually guiding, which during a half-entered offer is not the newest
-		// advice — plus whatever is queued behind it, so the deferral is visible rather than silent.
-		Suggestion suggestion = stepGuide == null ? engine.getCurrent() : stepGuide.getSuggestion();
-		suggestionCard.update(suggestion,
-			stepGuide == null ? null : stepGuide.getPending());
-		positionsPanel.refresh();
-		historyPanel.refresh();
-
-		statsPanel.updateLedger(companion.lastLedger());
-		missedFlips.refresh();
-		portfolioPanel.refresh();
-		bankTrajectoryPanel.repaint();
-
-		updateBankroll();
-		syncSelectors();
-		revalidate();
-		repaint();
-
-		if (scrolledTo != null)
-		{
-			// After the layout has settled, or the position is clamped against the old height.
-			SwingUtilities.invokeLater(() ->
-			{
-				java.awt.Dimension extent = scrolledColumn.getViewport().getExtentSize();
-				java.awt.Dimension full = scrolledColumn.getViewport().getViewSize();
-				int highest = Math.max(0, full.height - extent.height);
-				scrolledTo.y = Math.min(scrolledTo.y, highest);
-				scrolledColumn.getViewport().setViewPosition(scrolledTo);
-			});
-		}
-	}
-
-	private void updateBankroll()
-	{
-		AccountState account = accountMonitor.getState();
-		if (!account.isLoggedIn())
-		{
-			bankrollLabel.setText("Not logged in");
-			return;
-		}
-
-		long spendable = account.spendableCoins(config.includeBankValue(), config.bankrollCap());
-		String mode = account.isFreeToPlay() ? "  ·  free-to-play" : "";
-		bankrollLabel.setText(explainer.formatGp(spendable) + "  ·  " + account.getFreeSlots()
-			+ " of " + account.getTotalSlots() + " slots free" + mode);
-	}
-
-	/** Keeps the panel in step when settings are changed from RuneLite's own config screen. */
-	private void syncSelectors()
-	{
-		RiskProfile profile = config.riskProfile();
-		CheckInterval interval = config.checkInterval();
-
-		if (riskSelector.getSelectedItem() != profile || intervalSelector.getSelectedItem() != interval)
-		{
-			suppressSelectorEvents = true;
-			riskSelector.setSelectedItem(profile);
-			UiUtils.setWrappedText(riskDescription, profile.getDescription());
-			intervalSelector.setSelectedItem(interval);
-			UiUtils.setWrappedText(intervalDescription, interval.getDescription());
-			suppressSelectorEvents = false;
-		}
-	}
-
-	private void refreshOnboarding()
-	{
-		onboardingSlot.removeAll();
-		if (config.showOnboarding())
-		{
-			onboardingSlot.add(new OnboardingCard(() ->
-			{
-				config.setShowOnboarding(false);
-				refreshOnboarding();
-			}), BorderLayout.CENTER);
-		}
-		onboardingSlot.revalidate();
-		onboardingSlot.repaint();
-	}
-
-
-	private void skipItem(Suggestion suggestion)
-	{
-		if (suggestion != null && suggestion.getItemId() > 0)
-		{
-			engine.skip(suggestion.getItemId());
-			rejected();
-		}
-	}
-
-	/** Adds the item to the permanent blocklist in config, so it survives restarts. */
-	private void blockItem(Suggestion suggestion)
-	{
-		if (suggestion == null || suggestion.getItemId() <= 0 || suggestion.getItemName() == null)
-		{
-			return;
-		}
-
-		String existing = config.blockedItems() == null ? "" : config.blockedItems().trim();
-		String name = suggestion.getItemName();
-		if (existing.toLowerCase(Locale.ROOT).contains(name.toLowerCase(Locale.ROOT)))
-		{
-			return;
-		}
-
-		String updated = existing.isEmpty() ? name : existing + ", " + name;
-		configManager.setConfiguration(FlippingFriendConfig.GROUP, "blockedItems", updated);
-		engine.skip(suggestion.getItemId());
-		rejected();
-	}
-
-	/**
-	 * Acts on a rejection immediately instead of waiting for the next poll.
-	 * <p>
-	 * Both buttons used to update only the built-in engine and repaint, but the card renders what the
-	 * walkthrough is guiding, and only the plugin's refresh loop writes that. At the default thirty
-	 * second interval the card sat unchanged for up to half a minute after a click, which reads as a
-	 * broken button.
-	 */
-	private void rejected()
-	{
-		// No engine call here. This runs on the Swing thread, and refreshing the engine from it did
-		// cache-miss HTTP on the event thread for a result that was discarded anyway -- the update the
-		// player sees comes from onRejection, which goes through the worker like every other refresh.
-		refresh();
-		onRejection.run();
-	}
-
-	/** Lets the plugin re-run its full refresh, which is the only thing that updates the walkthrough. */
-	public void setOnRejection(Runnable onRejection)
-	{
-		this.onRejection = onRejection == null ? () -> { } : onRejection;
-	}
+    private static JPanel divider() {
+        JPanel rule = new JPanel(); rule.setBackground(UiUtils.DIVIDER); rule.setPreferredSize(new Dimension(0, 1)); return rule;
+    }
+    private static JPanel row(LayoutManager layout) {
+        JPanel panel = new JPanel(layout); panel.setOpaque(false); return panel;
+    }
+    private static JLabel label(String text, boolean bold) {
+        JLabel label = new JLabel(text) {
+            @Override public Dimension getMaximumSize() { return new Dimension(Integer.MAX_VALUE, getPreferredSize().height); }
+        }; label.setForeground(bold ? UiUtils.TEXT : UiUtils.MUTED);
+        label.setFont(bold ? FontManager.getRunescapeBoldFont() : FontManager.getRunescapeSmallFont()); return label;
+    }
+    private static JToggleButton toggle(String text, String name) {
+        JToggleButton button = new JToggleButton(text); button.setName(name); button.setFont(FontManager.getRunescapeFont());
+        button.setUI(new javax.swing.plaf.basic.BasicToggleButtonUI());
+        button.setBorder(BorderFactory.createLineBorder(UiUtils.DIVIDER));
+        button.setMargin(new Insets(4, 2, 4, 2)); button.setPreferredSize(new Dimension(40, 24)); button.setFocusPainted(true); button.setBackground(UiUtils.CARD);
+        button.setForeground(UiUtils.TEXT); button.setOpaque(true); return button;
+    }
+    private static void add(JPanel column, JComponent child, int gap) {
+        if (gap > 0) column.add(Box.createVerticalStrut(gap));
+        child.setAlignmentX(LEFT_ALIGNMENT);
+        // Text owns its wrapped height; rows remain compact rather than stretching with the viewport.
+        if (!(child instanceof JTextArea) && !(child instanceof CompactSuggestionPanel) && !(child instanceof JLabel))
+            child.setMaximumSize(new Dimension(Integer.MAX_VALUE, child.getPreferredSize().height));
+        column.add(child);
+    }
+    private void open(String name) { details.open(this, name); }
+    private void togglePause() { stepGuide.setPaused(!stepGuide.isPaused()); changed(); }
+    private void reject(boolean permanently) {
+        Suggestion shown = suggestion.displayed();
+        if (shown.getType() != SuggestionType.BUY || stepGuide.isPaused()) return;
+        if (permanently) {
+            String existing = config.blockedItems() == null ? "" : config.blockedItems().trim();
+            String name = shown.getItemName();
+            if (!SuggestionEngine.parseBlocked(existing).contains(name.toLowerCase(java.util.Locale.ROOT)))
+                configManager.setConfiguration(FlippingFriendConfig.GROUP, "blockedItems", existing.isEmpty() ? name : existing + ", " + name);
+        }
+        engine.skip(shown.getItemId()); changed();
+    }
+    private void changed() { companion.clearIncumbent(); refresh(); onRejection.run(); }
+    public void setOnRejection(Runnable callback) { onRejection = callback == null ? () -> { } : callback; }
+    public void refresh() {
+        if (SwingUtilities.isEventDispatchThread()) refreshOnEdt(); else SwingUtilities.invokeLater(this::refreshOnEdt);
+    }
+    private void refreshOnEdt() {
+        Suggestion active = stepGuide.getSuggestion();
+        suggestion.update(active, stepGuide.getPending());
+        AccountState account = accountMonitor.getState();
+        AccountLedgerSnapshot ledger = account != null && account.isLoggedIn() ? companion.lastLedger() : null;
+        details.update(active, ledger); missedFlips.refresh();
+        boolean buying = active != null && active.getType() == SuggestionType.BUY && !stepGuide.isPaused();
+        skip.setEnabled(buying); block.setEnabled(buying); graph.setEnabled(active != null && active.getItemId() > 0);
+        pause.setIcon(PanelIcons.icon(stepGuide.isPaused() ? "play_arrow" : "pause", UiUtils.TEXT));
+        pause.setToolTipText(stepGuide.isPaused() ? "Resume recommendations" : "Pause recommendations");
+        pause.getAccessibleContext().setAccessibleName(pause.getToolTipText());
+        for (Map.Entry<CheckInterval, JToggleButton> entry : cadences.entrySet()) style(entry.getValue(), entry.getKey() == config.checkInterval());
+        for (Map.Entry<RiskProfile, JToggleButton> entry : risks.entrySet()) style(entry.getValue(), entry.getKey() == config.riskProfile());
+        cadenceCaption.setText(cadences.containsKey(config.checkInterval()) || config.checkInterval() == null
+            ? "How often do you check offers?" : "Checking every " + config.checkInterval().getMinutes() + "m (custom)");
+        profitCaption.setText(ledger != null && ledger.getUnresolvedSales() > 0 ? "Known recorded profit" : "Recorded profit");
+        profit.setText(ledger == null ? "Unavailable" : ledger.getBoundedSales() == 0 && ledger.getSales() > 0 ? "Unresolved"
+            : range(ledger.getProfitLower(), ledger.getProfitUpper()));
+        profit.setForeground(ledger == null ? UiUtils.TEXT : ledger.getProfitLower() > 0 ? UiUtils.profitColor(1)
+            : ledger.getProfitUpper() < 0 ? UiUtils.profitColor(-1) : UiUtils.TEXT);
+        coverage.setText(ledger == null ? "Waiting for account ledger" : ledger.getSales() + " sale updates · " + ledger.getUnresolvedSales() + " unresolved");
+        bankroll.setText(account != null && account.isLoggedIn()
+            ? explainer.formatGp(account.getInventoryCoins()) + " · " + account.getFreeSlots() + "/" + account.getTotalSlots() + " GE slots free"
+            : "Log in to see account guidance");
+        mode.setText(engine.isSellOnly() ? "Finish session: sell only" : ""); mode.setForeground(UiUtils.WARNING);
+        revalidate(); repaint();
+    }
+    private String range(long lower, long upper) {
+        return lower == upper ? explainer.formatNumber(lower) + " gp" : explainer.formatNumber(lower) + " to " + explainer.formatNumber(upper) + " gp";
+    }
+    private static void style(JToggleButton button, boolean selected) {
+        button.setSelected(selected); button.setForeground(selected ? Color.BLACK : UiUtils.TEXT);
+        button.setBackground(selected ? new Color(255, 190, 0) : UiUtils.CARD);
+    }
+    // Test access uses the same window contents and routing as the live controls, without creating a native window.
+    JComponent detailsComponent(String name) { details.select(name); return details.view(name); }
+    void setWindowPresenter(BiConsumer<String, JComponent> presenter) { details.setPresenter(presenter); missedFlips.setPresenter(presenter); }
+    JPopupMenu detailsMenu() { return menu; }
+    public void closeWindows() {
+        Runnable close = () -> { details.dispose(); missedFlips.dispose(); };
+        if (SwingUtilities.isEventDispatchThread()) close.run(); else SwingUtilities.invokeLater(close);
+    }
 }

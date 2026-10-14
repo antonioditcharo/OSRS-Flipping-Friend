@@ -873,7 +873,7 @@ public class FlippingFriendPlugin extends Plugin
 				// A sale is advice too, and until now it was the only kind nobody wrote down. Without
 				// this the offer that follows reaches the companion unattributed, so the sell leg --
 				// the one where the fill is genuinely in doubt -- never scored a single prediction.
-				if (suggestion.getType() == SuggestionType.SELL)
+				if (!stepGuide.isPaused() && suggestion.getType() == SuggestionType.SELL)
 				{
 					companion.recordSellAdvice(suggestion);
 				}
@@ -895,9 +895,7 @@ public class FlippingFriendPlugin extends Plugin
 					stepGuide.setSuggestion(current);
 					panel.refresh();
 				});
-				notifyIfNeeded(suggestion);
-
-				checkPriceDumps();
+				if (!stepGuide.isPaused()) { notifyIfNeeded(suggestion); checkPriceDumps(); }
 
 			}
 			catch (Exception ex)
@@ -993,7 +991,7 @@ public class FlippingFriendPlugin extends Plugin
 		{
 			notifier.notify(config.notifyOnFill(), "Your " + suggestion.getItemName() + " offer has finished.");
 		}
-		else if (suggestion.getType() == SuggestionType.SELL)
+		else if (!stepGuide.isPaused() && suggestion.getType() == SuggestionType.SELL)
 		{
 			notifier.notify(config.notifyOnSellSignal(),
 				"Time to sell your " + suggestion.getItemName() + ".");

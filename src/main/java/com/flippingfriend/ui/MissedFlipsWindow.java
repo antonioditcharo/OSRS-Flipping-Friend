@@ -21,14 +21,15 @@ import javax.swing.table.AbstractTableModel;
 final class MissedFlipsWindow {
     private final CompanionClient companion;
     private JDialog dialog;
+    private JPanel content;
+    private java.util.function.BiConsumer<String, javax.swing.JComponent> presenter;
+    void setPresenter(java.util.function.BiConsumer<String, javax.swing.JComponent> presenter) { this.presenter = presenter; }
     private final EvidenceTable model = new EvidenceTable();
     private final JLabel status = new JLabel();
     MissedFlipsWindow(CompanionClient companion) { this.companion = companion; }
     void open(Window owner) {
-        if (dialog == null) {
-            dialog = new JDialog(owner, "Missed flips", java.awt.Dialog.ModalityType.MODELESS);
-            dialog.setDefaultCloseOperation(JDialog.HIDE_ON_CLOSE);
-            JPanel content = new JPanel(new BorderLayout(8, 8));
+        if (content == null) {
+            content = new JPanel(new BorderLayout(8, 8));
             content.setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 10, 10));
             content.add(status, BorderLayout.NORTH);
             JTable table = new JTable(model);
@@ -38,19 +39,25 @@ final class MissedFlipsWindow {
             for (int i=0;i<widths.length;i++) table.getColumnModel().getColumn(i).setPreferredWidth(widths[i]);
             content.add(new JScrollPane(table), BorderLayout.CENTER);
             content.add(new JLabel("Recorded trade updates; quantities are not current inventory. Unknown money stays unavailable."), BorderLayout.SOUTH);
+        }
+        refresh();
+        if (presenter != null) { presenter.accept("Missed flips", content); return; }
+        if (dialog == null) {
+            dialog = new JDialog(owner, "Missed flips", java.awt.Dialog.ModalityType.MODELESS);
+            dialog.setDefaultCloseOperation(JDialog.HIDE_ON_CLOSE);
             dialog.setContentPane(content); dialog.setSize(1100, 460); dialog.setLocationRelativeTo(owner);
         }
-        refresh(); dialog.setVisible(true);
+        dialog.setVisible(true);
     }
     void refresh() {
-        if (dialog == null) return;
+        if (content == null) return;
         AccountLedgerSnapshot ledger = companion.lastLedger();
         model.update(ledger);
         status.setText(ledger == null || ledger.getMissedFlips() == null
             ? "Waiting for fresh account trade evidence."
             : model.getRowCount() + " incomplete or uncertain trade updates. Historical gaps can require investigation.");
     }
-    void dispose() { if (dialog != null) { dialog.dispose(); dialog = null; } }
+    void dispose() { if (dialog != null) { dialog.dispose(); dialog = null; } content = null; model.update(null); status.setText(""); }
 
     static final class EvidenceTable extends AbstractTableModel {
         private final String[] columns = {"When (UTC)","Item","Update","Quantity","Buy cost","Gross sale","Tax","Profit","Missing evidence"};

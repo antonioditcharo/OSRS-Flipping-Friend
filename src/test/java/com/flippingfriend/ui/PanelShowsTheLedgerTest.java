@@ -158,6 +158,7 @@ public class PanelShowsTheLedgerTest
 		Mockito.when(engine.tradingPositions()).thenAnswer(invocation -> positions.all());
 		Mockito.when(engine.getPositionStatuses()).thenReturn(Collections.emptyMap());
 		Mockito.when(engine.isSellOnly()).thenReturn(false);
+        Mockito.when(engine.hasTradeEvidence()).thenReturn(true);
 
 		StepGuide guide = Mockito.mock(StepGuide.class);
 		Mockito.when(guide.getSuggestion()).thenReturn(suggestion);
@@ -193,8 +194,11 @@ public class PanelShowsTheLedgerTest
 	{
 		component.setSize(PANEL_WIDTH, 10_000);
 		layOutTree(component);
-		component.setSize(PANEL_WIDTH, contentHeight(component));
-		layOutTree(component);
+		for (int pass = 0; pass < 3; pass++) {
+            int height = contentHeight(component);
+            component.setSize(PANEL_WIDTH, height > 0 ? height : component.getPreferredSize().height);
+            layOutTree(component);
+        }
 	}
 
 	/** How tall the column inside the scroll pane wants to be, which is what has to be painted. */
@@ -300,6 +304,15 @@ public class PanelShowsTheLedgerTest
 		ImageIO.write(image, "png", new File(dir, name));
 	}
 
+    private Component opened(FlippingFriendPanel panel, String name) throws Exception {
+        Component[] view = new Component[1];
+        SwingUtilities.invokeAndWait(() -> { view[0] = panel.detailsComponent(name); layOut(view[0]); });
+        return view[0];
+    }
+    private List<String> withDetails(FlippingFriendPanel panel, String name) throws Exception {
+        List<String> text = textOn(panel); text.addAll(textOn(opened(panel, name))); return text;
+    }
+
 	// ------------------------------------------------------------------ the checks
 
 	@Test
@@ -320,7 +333,7 @@ public class PanelShowsTheLedgerTest
 
 		FlippingFriendPanel panel = panelShowing(buy, Collections.emptyList(),
 			Collections.emptyList());
-		List<String> text = textOn(panel);
+		List<String> text = withDetails(panel, "Recommendation");
 		save(panel, "buy-card.png");
 
 		assertTrue("the item has to be named: " + text, showsText(text, ITEM_NAME));
@@ -356,7 +369,7 @@ public class PanelShowsTheLedgerTest
 
 		FlippingFriendPanel panel = panelShowing(reprice, Collections.emptyList(),
 			Collections.emptyList());
-		List<String> text = textOn(panel);
+		List<String> text = withDetails(panel, "Recommendation");
 		save(panel, "reprice-card.png");
 
 		assertTrue("the instruction has to be the three real actions", showsText(text, "cancel"));
@@ -387,7 +400,7 @@ public class PanelShowsTheLedgerTest
 
 		FlippingFriendPanel panel = panelShowing(sell, Collections.emptyList(),
 			Collections.emptyList());
-		List<String> text = textOn(panel);
+		List<String> text = withDetails(panel, "Recommendation");
 		save(panel, "sell-card.png");
 
 		assertTrue(showsText(text, ITEM_NAME));
@@ -399,6 +412,7 @@ public class PanelShowsTheLedgerTest
 
 		List<String> clipped = new ArrayList<>();
 		findClipped(panel, clipped);
+        findClipped(opened(panel, "Recommendation"), clipped);
 		assertTrue("nothing cut off: " + clipped, clipped.isEmpty());
 	}
 
@@ -412,7 +426,7 @@ public class PanelShowsTheLedgerTest
 
 		FlippingFriendPanel panel = panelShowing(Suggestion.idle(),
 			Collections.singletonList(held), Collections.emptyList());
-		List<String> text = textOn(panel);
+		List<String> text = textOn(opened(panel, "Holdings"));
 		save(panel, "holding-card.png");
 
 		long afterTax = tax.netProfit(ITEM, 2_001, 2_119, 5_000);
@@ -447,7 +461,8 @@ public class PanelShowsTheLedgerTest
 			1, 1, 0, 1, profit - 1, profit - 1, taxPaid, taxPaid, Collections.emptyList());
 		FlippingFriendPanel panel = panelShowing(Suggestion.idle(), Collections.emptyList(),
 			Collections.singletonList(flip), ledger);
-		List<String> text = textOn(panel);
+		List<String> text = withDetails(panel, "Performance");
+        text.addAll(textOn(opened(panel, "Local history")));
 		save(panel, "performance.png");
 
 		assertTrue("the flip appears in Recent trades", showsText(text, ITEM_NAME));
@@ -459,6 +474,7 @@ public class PanelShowsTheLedgerTest
 		assertTrue("legacy history is identified as estimated", showsText(text, "estimated tax or cost"));
 		List<String> clipped = new ArrayList<>();
 		findClipped(panel, clipped);
+        findClipped(opened(panel, "Recommendation"), clipped);
 		assertTrue("ledger ranges and coverage remain readable: " + clipped, clipped.isEmpty());
 
 		// The invariant the panel's two rows have to satisfy together. A "Tax paid" line beside a
@@ -504,6 +520,7 @@ public class PanelShowsTheLedgerTest
 
 		List<String> clipped = new ArrayList<>();
 		findClipped(panel, clipped);
+        findClipped(opened(panel, "Recommendation"), clipped);
 		assertTrue("these are drawn with their text cut off: " + clipped, clipped.isEmpty());
 	}
 

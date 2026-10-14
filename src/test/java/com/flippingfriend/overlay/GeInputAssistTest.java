@@ -154,4 +154,21 @@ public class GeInputAssistTest {
         assist.keyPressed(press(KeyEvent.VK_E)); drain(); verify(client).setVarcStrValue(VarClientStr.INPUT_TEXT,"5");
         assertSame(sale,guide.getSuggestion());
     }
+    @Test public void queuedKeyCannotCrossPauseAndResumeEvenWithIdenticalFreshAdvice() {
+        assist.keyPressed(press(KeyEvent.VK_E));
+        guide.setPaused(true);
+        guide.setPaused(false); guide.setSuggestion(buy(100));
+        drain(); verify(client,never()).setVarcStrValue(anyInt(),anyString());
+        assist.refresh(true); assist.keyReleased(press(KeyEvent.VK_E)); assist.keyPressed(press(KeyEvent.VK_E));
+        drain(); verify(client).setVarcStrValue(VarClientStr.INPUT_TEXT,"10");
+    }
+    @Test public void pauseWithdrawsBuyAndManualSaleGuidanceUntilFreshAdviceAfterResume() {
+        guide.setEditorQuote(Suggestion.builder(SuggestionType.SELL).item(561,"Nature rune").quantity(3).price(99).profitKnown(false).build());
+        guide.setPaused(true); assertFalse(guide.getSuggestion().isActionable()); assertNull(guide.getPending());
+        guide.setSuggestion(buy(110)); guide.setEditorQuote(buy(120));
+        assertFalse(guide.getSuggestion().isActionable());
+        guide.setPaused(false); assertFalse(guide.getSuggestion().isActionable());
+        guide.setSuggestion(buy(100)); assertTrue(guide.getSuggestion().isActionable());
+        guide.setPaused(true); guide.reset(); assertFalse(guide.isPaused()); assertFalse(guide.getSuggestion().isActionable());
+    }
 }

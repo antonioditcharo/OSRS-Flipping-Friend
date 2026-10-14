@@ -21,7 +21,9 @@ public enum CheckInterval
 	FIFTEEN_MINUTES("Every 15 minutes", "Doing something else, checking in fairly often.", 15),
 	THIRTY_MINUTES("Every 30 minutes", "Off doing content, back every so often.", 30),
 	HOURLY("Every hour", "Checking once an hour or so.", 60),
-	OCCASIONAL("Every few hours", "Set offers and leave them for a long while.", 180);
+	OCCASIONAL("Every 3 hours", "Set offers and check again in three hours.", 180),
+	TWO_HOURS("Every 2 hours", "Check offers every two hours.", 120),
+	EIGHT_HOURS("Every 8 hours", "Set offers and return after eight hours.", 480);
 
 	private final String displayName;
 	private final String description;
