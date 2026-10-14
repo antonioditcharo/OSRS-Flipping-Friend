@@ -16,6 +16,7 @@ Import-Module Microsoft.PowerShell.Utility
 $fixture = [IO.Path]::GetFullPath($env:FF_UPDATE_TEST_ROOT)
 $scenario = Get-Content -Raw -LiteralPath (Join-Path $fixture 'scenario.json') | ConvertFrom-Json
 $env:USERPROFILE = Join-Path $fixture 'profile'
+$env:LOCALAPPDATA = Join-Path $fixture 'localappdata'
 $env:JAVA_HOME = Join-Path $fixture 'java'
 if ($scenario.noJavaHome) { Remove-Item -LiteralPath Env:JAVA_HOME -ErrorAction SilentlyContinue }
 $global:ffUpdateTestEvents = [System.Collections.Generic.List[string]]::new()
@@ -27,9 +28,14 @@ $env:USERNAME = 'fixture-user'
 
 # Every command that can affect a real process, task or network connection is intercepted.
 function Get-Command {
-    [CmdletBinding()] param($Name)
-    if ($Name -ne 'java') { throw 'Unexpected command lookup in test.' }
-    [pscustomobject]@{ Source = (Join-Path $fixture 'java/bin/java.exe') }
+    [CmdletBinding()] param([string[]]$Name, [string[]]$Module, [switch]$ListImported, [switch]$All)
+    if ($Name.Count -eq 1 -and $Name[0] -eq 'java' -and -not $Module) {
+        [pscustomobject]@{ Source = (Join-Path $fixture 'java/bin/java.exe') }
+    } else {
+        # PowerShell 5.1 uses command lookup while loading its Get-FileHash function.
+        # Only Java discovery is fake; preserve native utility-module lookup.
+        Microsoft.PowerShell.Core\Get-Command @PSBoundParameters
+    }
 }
 function Get-ScheduledTask {
     [CmdletBinding()] param($TaskName, $TaskPath)
