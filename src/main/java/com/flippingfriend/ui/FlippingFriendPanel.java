@@ -32,6 +32,7 @@ public class FlippingFriendPanel extends PluginPanel {
     private final CompactSuggestionPanel suggestion;
     private final PanelDetails details;
     private final MissedFlipsWindow missedFlips;
+    private final ButtonGroup cadenceGroup = new ButtonGroup(), riskGroup = new ButtonGroup();
     private final Map<CheckInterval, JToggleButton> cadences = new LinkedHashMap<>();
     private final Map<RiskProfile, JToggleButton> risks = new LinkedHashMap<>();
     private final JLabel cadenceCaption = label("How often do you check offers?", false);
@@ -80,7 +81,7 @@ public class FlippingFriendPanel extends PluginPanel {
         add(content, actions, 12);
         cadenceCaption.setHorizontalAlignment(SwingConstants.CENTER);
         JPanel cadenceTitle = row(new BorderLayout()); cadenceTitle.add(cadenceCaption); add(content, cadenceTitle, 3);
-        JPanel cadenceRow = row(new GridLayout(1, 4, 2, 0)); ButtonGroup cadenceGroup = new ButtonGroup();
+        JPanel cadenceRow = row(new GridLayout(1, 4, 2, 0));
         CheckInterval[] intervals = {CheckInterval.FIVE_MINUTES, CheckInterval.THIRTY_MINUTES, CheckInterval.TWO_HOURS, CheckInterval.EIGHT_HOURS};
         String[] labels = {"5m", "30m", "2h", "8h"};
         for (int i = 0; i < intervals.length; i++) {
@@ -90,7 +91,7 @@ public class FlippingFriendPanel extends PluginPanel {
             cadences.put(value, button); cadenceGroup.add(button); cadenceRow.add(button);
         }
         add(content, cadenceRow, 0);
-        JPanel riskRow = row(new GridLayout(1, 4, 2, 0)); riskRow.add(label("Risk", false)); ButtonGroup riskGroup = new ButtonGroup();
+        JPanel riskRow = row(new GridLayout(1, 4, 2, 0)); riskRow.add(label("Risk", false));
         String[] riskLabels = {"Low", "Med", "High"}; int i = 0;
         for (RiskProfile value : RiskProfile.values()) {
             JToggleButton button = toggle(riskLabels[i++], "risk-" + value.name().toLowerCase(java.util.Locale.ROOT));
@@ -169,6 +170,7 @@ public class FlippingFriendPanel extends PluginPanel {
         pause.setIcon(PanelIcons.icon(stepGuide.isPaused() ? "play_arrow" : "pause", UiUtils.TEXT));
         pause.setToolTipText(stepGuide.isPaused() ? "Resume recommendations" : "Pause recommendations");
         pause.getAccessibleContext().setAccessibleName(pause.getToolTipText());
+        cadenceGroup.clearSelection(); riskGroup.clearSelection();
         for (Map.Entry<CheckInterval, JToggleButton> entry : cadences.entrySet()) style(entry.getValue(), entry.getKey() == config.checkInterval());
         for (Map.Entry<RiskProfile, JToggleButton> entry : risks.entrySet()) style(entry.getValue(), entry.getKey() == config.riskProfile());
         cadenceCaption.setText(cadences.containsKey(config.checkInterval()) || config.checkInterval() == null
