@@ -68,8 +68,8 @@ public class CompactPanelRenderingTest {
             for(Component c:CompactPanelContractTest.tree(component)) if(c instanceof JTextArea && visibleTo(c,component) && c.getWidth()>0) {
                 JTextArea actual=(JTextArea)c; if(actual.getText().isEmpty()) continue;
                 JTextArea measure=new JTextArea(actual.getText()); measure.setLineWrap(true); measure.setWrapStyleWord(true);
-                measure.setFont(actual.getFont()); measure.setMargin(actual.getMargin()); measure.setSize(actual.getWidth(),Short.MAX_VALUE);
-                assertTrue(name+": clipped text: "+actual.getText(),actual.getHeight()>=measure.getPreferredSize().height);
+                measure.setFont(actual.getFont()); measure.setMargin(actual.getMargin()); measure.setBorder(actual.getBorder()); measure.setSize(actual.getWidth(),Short.MAX_VALUE);
+                assertTrue(name+": clipped text: "+actual.getText()+" (actual "+actual.getSize()+", needs "+measure.getPreferredSize()+")",actual.getHeight()>=measure.getPreferredSize().height);
             }
         });
         BufferedImage image=new BufferedImage(width,height,BufferedImage.TYPE_INT_RGB);
