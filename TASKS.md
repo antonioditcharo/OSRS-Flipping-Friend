@@ -20,7 +20,8 @@
       Read-only event evidence is private in local-data; historical rows lack game-state proof.
       Preserve known costs, active offers, unpriced history and the fail-closed guard while preparing
       authoritative reconciliation. Final-head CI, paired installation with fresh backup review,
-      and controlled manual acceptance remain pending. The player has closed RuneLite.
+      and controlled manual acceptance remain pending. Source review is PR #38 against rebuild;
+      require both final-head CI checks before source merge. The player has closed RuneLite.
 
 - [ ] Live-retest explicit unpriced-stock review installed at rebuild `49934e44` (PR #37).
       Regressions preceded implementation (`932ab1f` / `1f728eb6`); local standard verification passed

@@ -186,6 +186,9 @@ Base: fetched rebuild `49934e44590e0a484e0ddbd4857179102b03bdc2`; branch
 `codex/offer-observation-boundary`. Regression commit `b8c679f` preceded implementation
 `f58a0cf`. This branch also includes the installation and blocked-pipeline documentation
 from the preserved `codex/stock-review-live-verification` branch.
+Source review: [PR #38](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/38), targeting
+the rebuild branch. Both final-head supported-build CI checks must pass before source merge;
+this is a prevention fix, not the completed PR #31 trading acceptance record.
 
 After the panel visibility checkpoint below, scoped health GET returned HTTP 200 / DEGRADED /
 `planningStateAvailable=false`, with five offer-slot lifecycle faults. HTTP does not expose past
