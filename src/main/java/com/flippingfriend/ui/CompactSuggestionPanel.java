@@ -26,7 +26,25 @@ final class CompactSuggestionPanel extends JPanel {
         setBackground(UiUtils.CARD); setBorder(BorderFactory.createEmptyBorder(10, 12, 10, 12));
         icon.setPreferredSize(new Dimension(36, 36)); icon.setVerticalAlignment(SwingConstants.CENTER);
         add(icon, BorderLayout.WEST);
-        JPanel words = new JPanel(); words.setLayout(new BoxLayout(words, BoxLayout.Y_AXIS)); words.setOpaque(false);
+        JPanel words = new JPanel(new java.awt.GridLayout(0, 1)) {
+            // No cached BoxLayout text heights: measure each line at the current available width.
+            private int textWidth() {
+                int parentWidth = CompactSuggestionPanel.this.getWidth();
+                return Math.max(50, parentWidth > 0 ? parentWidth - 24 - (icon.isVisible() ? 46 : 0) : 150);
+            }
+            @Override public Dimension getPreferredSize() {
+                int height = 0;
+                for (Component line : getComponents()) if (line.isVisible()) height += heightAt((JTextArea)line, textWidth());
+                return new Dimension(150, height);
+            }
+            @Override public void doLayout() {
+                int y = 0;
+                for (Component line : getComponents()) if (line.isVisible()) {
+                    int height = heightAt((JTextArea)line, getWidth());
+                    line.setBounds(0, y, getWidth(), height); y += height;
+                }
+            }
+        }; words.setOpaque(false);
         for (JTextArea line : new JTextArea[]{action, item, price, queued}) { line.setAlignmentX(LEFT_ALIGNMENT); words.add(line); }
         add(words, BorderLayout.CENTER);
     }
@@ -58,6 +76,14 @@ final class CompactSuggestionPanel extends JPanel {
             if (image != null) image.addTo(icon);
         }
         revalidate(); repaint();
+    }
+    private static int heightAt(JTextArea text, int width) {
+        Dimension old = text.getSize(); text.setSize(Math.max(1, width), Short.MAX_VALUE);
+        int height = text.getPreferredSize().height; text.setSize(old); return height;
+    }
+    @Override public void setBounds(int x, int y, int width, int height) {
+        boolean changed = width != getWidth(); super.setBounds(x, y, width, height);
+        if (changed && getParent() != null) { getParent().invalidate(); revalidate(); }
     }
     Suggestion displayed() { return shown; }
     @Override public Dimension getPreferredSize() {
