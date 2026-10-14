@@ -15,10 +15,16 @@ $fixture = $env:FF_UPDATE_TEST_ROOT
 $scenario = Get-Content -Raw -LiteralPath (Join-Path $fixture 'scenario.json') | ConvertFrom-Json
 $env:USERPROFILE = Join-Path $fixture 'profile'
 $env:JAVA_HOME = Join-Path $fixture 'java'
+if ($scenario.noJavaHome) { Remove-Item -LiteralPath Env:JAVA_HOME -ErrorAction SilentlyContinue }
 $global:ffUpdateTestEvents = [System.Collections.Generic.List[string]]::new()
 $global:ffUpdateTestStarted = $false
 
 # Every command that can affect a real process, task or network connection is intercepted.
+function Get-Command {
+    [CmdletBinding()] param($Name)
+    if ($Name -ne 'java') { throw 'Unexpected command lookup in test.' }
+    [pscustomobject]@{ Source = (Join-Path $fixture 'java/bin/java.exe') }
+}
 function Get-ScheduledTask {
     [CmdletBinding()] param($TaskName, $TaskPath)
     if ($scenario.taskPresent) {
@@ -63,7 +69,7 @@ function Start-Process {
 function Start-Sleep { param($Seconds, $Milliseconds) }
 function curl.exe { '{"status":"READY"}' }
 function Copy-Item {
-    [CmdletBinding()] param($Path, $Destination, [switch]$Force)
+    [CmdletBinding()] param([Alias('LiteralPath')]$Path, $Destination, [switch]$Force)
     # Do not permit even a future updater change to copy outside this disposable fixture.
     foreach ($candidate in @($Path, $Destination)) {
         if (-not [IO.Path]::GetFullPath($candidate).StartsWith(
@@ -87,12 +93,12 @@ Write-Output ('HARNESS_RESULT=' + (@{
 class UpdateLifecycleTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.shell = shutil.which("powershell") or shutil.which("pwsh")
+        cls.shell = os.environ.get("FF_UPDATE_TEST_SHELL") or shutil.which("powershell") or shutil.which("pwsh")
         if cls.shell is None:
             raise RuntimeError("PowerShell is required for the updater behavior tests.")
 
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix="flipping-friend-update-")
+        temporary = tempfile.TemporaryDirectory(prefix="flipping friend update ")
         self.addCleanup(temporary.cleanup)
         self.fixture = Path(temporary.name)
         self.checkout = self.fixture / "checkout"
@@ -178,6 +184,14 @@ class UpdateLifecycleTest(unittest.TestCase):
         self.assertEqual(b"new-plugin", self.installed.read_bytes())
         self.assertIn("start-process", result["events"])
         self.assertNotIn("start-task", result["events"])
+        self.assertIn("Update applied.", self.output)
+
+    def test_java_on_path_works_without_java_home(self):
+        self.scenario["noJavaHome"] = True
+        result = self.run_update()
+        self.assertIsNone(result["error"], self.output)
+        self.assertEqual(b"new-plugin", self.installed.read_bytes())
+        self.assertIn("start-task", result["events"])
         self.assertIn("Update applied.", self.output)
 
 
