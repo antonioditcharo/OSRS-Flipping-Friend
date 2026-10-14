@@ -11,6 +11,10 @@
 ## Next
 - [ ] Run the live verification checklist in HANDOFF.md for PR #31 (durable planner exposure)
       on the real account and RuneLite; record results before relying on it for trading.
+      13 October checkpoint at `ee0d3aff`: build passed; installation and manual checks remain
+      unperformed. The scheduled task is disabled and configured for another checkout; the expected
+      scoped accounts directory is absent. Locate backup sources read-only before installation.
+      The updater now rejects the bad task before changes; it does not repair live configuration.
 
 - [ ] Finish manual cancel -> collect -> revalidate -> replace and partial-fill protection as a
       complete live workflow; migrate sell maintenance and exits to companion policies.
@@ -26,6 +30,16 @@
 - Historical session/cadence labels are unavailable. Do not infer them from execution timestamps.
 
 ## Done
+- Added actual-script updater regressions before fixes, using disposable files and mocked
+  process/task/network boundaries. Reject disabled or foreign-checkout/JAR tasks before stopping
+  or copying; require both artifacts before replacing the plugin; preserve the valid direct launch
+  and Java-on-PATH fallback without JAVA_HOME. Seven updater tests plus eight importer tests pass.
+- Verified implementation `152db838` with the standard Windows build: 1,163 Java tests passed,
+  six skipped, both JARs built, 15 Python tests passed. Recorded the incomplete live checklist
+  without inventing a pipeline-check result or changing databases, installed JARs or scheduled tasks.
+- Preserved historical dashboard leftovers in a sibling backup using moves, with matching file
+  counts/sizes; historical `main` remains unchanged.
+
 - Prevented older or same-timestamp snapshots from restoring sold or partly sold positions.
 - Planner per-item exposure now reads durable positions and open-buy reservations in one
   transaction; unresolved or overflowing state withdraws buy advice. Cash, committedCoins,
