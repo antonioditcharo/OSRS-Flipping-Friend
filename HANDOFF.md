@@ -85,12 +85,14 @@ without double-counting fills. Unresolved positions, unknown offer states, or ov
 cached plan with COMPANION_STATE_UNAVAILABLE. Only `committedByItem` changes; cash, committedCoins,
 slots, preferences, and session drawdown remain client inputs. Snapshot reconciliation also refuses
 snapshots older than the latest position event, or not newer than the latest disposal, so sold stock
-cannot reappear. Concurrent read/write interleaving and a full live-market service test are untested;
-no live RuneLite verification was performed. Details: `docs/architecture/durable-planning-exposure.md`.
+cannot reappear. Concurrent read/write interleaving and a full live-market service test are untested.
+Installed-pair and read-only runtime evidence is recorded below; controlled trading checks remain
+incomplete. Details: `docs/architecture/durable-planning-exposure.md`.
 
 ## Live verification checklist (pending, do this next)
-PR #31 passed Windows/Linux CI and a full local build, but has **never run against the real
-account database or RuneLite**. Complete this before relying on it for trading.
+PR #31 passed Windows/Linux CI and a full local build. It has now been installed and its read-only
+account pipeline checked, but **controlled live trading verification remains incomplete**.
+Continue the outstanding checks below before relying on it for trading.
 
 1. **Build first.** From an up-to-date `CoPilot's-Rebuild-from-Main` (at `6b4140109de6a63d93614740c87b32f72cfe171d` or later):
    `.\gradlew.bat clean test jar :companion:shadowJar --console=plain` and
@@ -227,6 +229,9 @@ tests, 315 suites), both JARs built; all 48 Python tests passed (`Ran 48 tests i
 `PYTHON_EXIT=0`). The clean build at implementation `1f728eb6` ended `BUILD SUCCESSFUL in 31s`,
 `18 actionable tasks: 18 executed`, `GRADLE_EXIT=0`. A final clean build also verifies automatic
 temporary-fixture cleanup; use `.gradle/stock-review-final-clean-build.log` for that ending.
+The final clean ending also passed: `BUILD SUCCESSFUL in 31s`, `18 actionable tasks: 18 executed`,
+`GRADLE_EXIT=0`. [PR #37 CI at `c188066f`](https://github.com/antonioditcharo/OSRS-Flipping-Friend/actions/runs/38526589543)
+passed Windows and Linux; check both final-head checks before merge.
 Python log: `.gradle/stock-review-python.log`; all logs are gitignored, outside build outputs.
 The broader first run caught a companion access before the unsupported-price guard and a holding-list
 fixture mismatch; both were corrected while preserving the assertions. A later fixture compile failed
