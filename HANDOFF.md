@@ -19,6 +19,7 @@ The update-tooling continuation below does not add trading or learning features.
 | [PR #28](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/28) | Account-specific databases/services/API scopes, cache and outbox fencing, recovery of offers older than four hours, read-only diagnostics, and Copilot CSV ingestion. | `6ec1a8f238a2232f31bd4906c48e4dafea7244bd` |
 | [PR #29](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/29) | Atomic durable sale proceeds, proportional cost, tax/profit bounds, rule evidence, and live Performance reading that account ledger. | `bfef926d334a3374a7c390d595ec6eab0eba8cdc` |
 | [PR #31](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/31) | Stale snapshots cannot restore sold positions; planner per-item exposure reads durable positions and open-buy reservations; unresolved state withdraws buy advice. | `6b4140109de6a63d93614740c87b32f72cfe171d` |
+| [PR #33](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/33) | Guarded update rejects disabled/foreign tasks and incomplete artifact pairs; Java-on-PATH fallback; recorded incomplete live verification. Windows/Linux CI passed. | `7b98a19bf288ab259bb275c2efaf2669028b9482` |
 
 ## Implemented boundaries to preserve
 
@@ -163,6 +164,51 @@ temporary path aliases before invoking PowerShell; all 15 tests passed locally a
 PR checks for the final remote outcome; the first run is retained as failure evidence.
 
 ## Verification and continuation
+
+### Setup/re-setup/start continuation — 13 October 2026
+
+Base `7b98a19bf288ab259bb275c2efaf2669028b9482`; implementation
+`b5ea293686820d97df6f45e917cffb8efaf6741c` on `codex/paired-setup-start`. Regression commit `2d629cd`
+preceded implementation: four failures reproduced daily start bypassing the guard, missing backup
+review, and running the companion from a source build output; seven existing controls passed.
+
+- Root `1b - Re-setup Existing Installation.bat` is the returning-user entry. Setup reuses a saved
+  login without opening/displaying it, invokes the paired installer, and retargets the desktop
+  shortcut only after successful installation. Fresh setup retains manual login configuration.
+- `apply-update.ps1` is shared by setup, update, start and read-only status. It requires the player
+  to close RuneLite, serializes installers/starts with an exclusive control-file handle, pauses and
+  stops the existing companion task, then copies a dated backup before prompting for `INSTALL`.
+- Backup includes prior installed JARs when present, task XML/manifest and scoped account directories
+  with sidecars. Missing sources are reported; linked account directories are rejected. It never
+  assigns, moves, repairs, deletes or backs up the unassigned legacy database as an account.
+- The installed companion now lives at `.runelite/osrs-flipping-friend/runtime/flipping-friend-companion.jar`.
+  Both installed JAR hashes and checkout are recorded in `runtime/installation.json`. Source clean
+  builds no longer replace the running companion artifact. Missing/changed pairs cannot start.
+- Re-setup registers a disabled Java task after confirmation, copies both artifacts, verifies the
+  pair, then enables/starts it and requires an authenticated `accounts-v1` health response.
+  The task uses an interactive limited principal, logon trigger and hourly watchdog while logged in;
+  it no longer configures S4U/startup execution before logon or after logout.
+- Everyday start builds/copies nothing and cannot open RuneLite after guard failure. Compatibility
+  install/run helpers delegate to the same lifecycle. Status is read-only and refuses false readiness
+  from disabled tasks or foreign/missing pairs. Uninstall removes both installed artifacts/manifest
+  while keeping account/legacy data, backups and saved login; an unknown listener blocks JAR removal.
+- Decline, failed backup/build/copy or task reconfiguration aborts without claiming success. The
+  task stays paused on an interrupted install; rerun re-setup after resolving the cause. No automatic
+  database rollback/repair exists. START HERE and README now distinguish fresh setup, re-setup,
+  everyday launch, update and diagnostics.
+
+Local verification: standard clean Gradle build passed, 1,163 Java tests passed / six skipped /
+zero failures/errors (1,169 total across 306 suites); both JARs built. All 37 Python tests passed,
+including 29 actual-script lifecycle tests using temporary files and mocked process/task/network/COM
+boundaries. Exact endings: `BUILD SUCCESSFUL in 41s`, `18 actionable tasks: 18 executed`, exit 0;
+`Ran 37 tests in 30.593s`, `OK`, exit 0. Full local logs: `.gradle/paired-setup-gradle.log` and
+`.gradle/paired-setup-python.log` (gitignored). CI checks Windows/Linux; use the PR for remote evidence.
+
+**Live state is unchanged by this development.** No installed JAR, task, shortcut or live database was
+modified; no game input occurred. The old disabled task/shortcut still need the user-run `1b` path.
+No pipeline-check output exists for this continuation. Real Task Scheduler registration, desktop COM,
+login validity, runtime binary identity and in-game accounting still require observation. The existing
+PR #31 manual verification checklist remains outstanding. Do not treat mocked tests as live proof.
 
 The 13 October local verification at implementation revision `152db838700579eabf208d4589193c9d47be3994`
 passed 1,163 Java tests with six capture-dependent skips (1,169 total, 306 suites), zero failures/errors,
