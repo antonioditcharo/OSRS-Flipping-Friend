@@ -9,17 +9,46 @@
       local records and must migrate with positive reconciliation evidence.
 
 ## Next
-- [ ] Install and live-retest explicit unpriced-stock review from `codex/stock-review-workflow`.
+- [ ] Continue account reconciliation after the 14 October lifecycle-fault diagnosis. Source branch
+      `codex/offer-observation-boundary` from rebuild `49934e44` reproduces five observation-boundary
+      failures at `b8c679f`, then fixes them at `f58a0cf`. Copied client observations, ordered load
+      replay, authenticated slot recovery, session generations and captured account payloads prevent
+      further reset/mutable-publication faults. Standard clean build passed 1,198 Java tests, six
+      skips and zero failures/errors; all 48 Python tests passed. No live database was changed.
+      Source is not installed; current runtime remains `49934e44`. Existing durable ERROR/RECONCILE
+      projections remain blocked and are not auto-repaired or hidden by personal-stock reviews.
+      Read-only event evidence is private in local-data; historical rows lack game-state proof.
+      Preserve known costs, active offers, unpriced history and the fail-closed guard while preparing
+      authoritative reconciliation. Windows/Linux CI at `6ce171e` passed (run 38542984377);
+      final-head checks after this documentation update, paired installation with fresh backup review,
+      and controlled manual acceptance remain pending. Source review is PR #38 against rebuild;
+      require both final-head CI checks before source merge. The player has closed RuneLite.
+
+- [ ] Live-retest explicit unpriced-stock review installed at rebuild `49934e44` (PR #37).
       Regressions preceded implementation (`932ab1f` / `1f728eb6`); local standard verification passed
-      1,186 Java tests with six skips and all 48 Python tests. Both JARs built. Verify Windows/Linux CI,
-      then use the supported paired update with a fresh reviewed backup. User confirmed four personal
+      1,186 Java tests with six skips and all 48 Python tests. Final Windows/Linux CI at `0e38e070`
+      passed before merge. Owner completed the supported paired update after review of backup
+      `20261013-233014-f45bc48b`: three companion account files / 6,225,568 bytes and 22 plugin records /
+      1,502,156 bytes matched source filenames/sizes; prior JAR/manifest hashes and task action/owner
+      matched. Completion output supplied 14 October reports BUILD SUCCESSFUL in 4s and both JARs
+      verified. Agent status and launcher CheckOnly exited zero; installed/build hashes matched
+      (plugin 407,086 bytes; companion 17,737,530 bytes), with RuneLite API 1.13.1 compatibility passed.
+      Source/runtime now `49934e44`; documentation branch `codex/stock-review-live-verification`.
+      Owner had confirmed four personal
       holdings and three fully sold/no-longer-held old entries. Player must make those declarations
       in Review holdings after installation; do not edit live records or seed preferences from chat.
       Preferences exclude matching unpriced entries from trading decisions without changing ledger
       quantities, costs, sale history or unknown profit. Known-cost conflicts, changed evidence and
       open/uncollected offers remain protected. Scoped degraded history stays visible while a separate
-      safe planning gate handles reviewed exposure. Current installed runtime is still `cb203a83`.
-      Pipeline and controlled manual acceptance after this change remain pending. Full single-authority
+      safe planning gate handles reviewed exposure. Next: numbered Start, manual login, confirm Review
+      holdings is present, then inspect the fresh scoped ledger before the player makes declarations.
+      14 October 01:02 AKDT: player reports Review holdings appears. Read-only pipeline exited zero,
+      but Action WAIT / Plan UNAVAILABLE persists. Fresh scoped ledger GET returned HTTP 200 and
+      shows the seven prior unpriced entries plus three new invalid lifecycle transition entries,
+      including two known-cost positions. Review choices were left unchanged; cause is not established.
+      Diagnose read-only and reproduce any real bug on a fresh codex branch before source changes;
+      never clear or repair live records to unblock advice. Private evidence is in local-data diagnostics.
+      Review saving, post-review buy readiness and controlled manual acceptance remain pending. Full single-authority
       exits/UI/risk migration and positive cost reconciliation are still prerequisites.
 
 - [ ] Complete live acceptance with the compatible pair installed at `cb203a83` (PR #36 merged after
