@@ -9,17 +9,36 @@
       local records and must migrate with positive reconciliation evidence.
 
 ## Next
-- [ ] Replace routine holdings review/adoption with automatic trade scope and player-started sale
-      guidance, as requested 14 October. Accepted contract: docs/architecture/automatic-trade-scope.md.
-      Match outstanding quantities/provenance from observed buys, including manual buys; keep personal
-      extras independent. Recommend an external owned item's price only when selected in sell setup,
-      then maintain the actual sell offer. Unknown cost/profit remains unavailable. Add a separately
-      opened Missed flips window backed by scoped row-level ledger evidence. Migrate the active planner,
-      exits, maintenance and holding UI coherently; do not introduce another ledger or bypass unbounded
-      active exposure. Reproduce old workflow with behavior tests before source changes. Source/UI
-      replacement is not implemented yet; current installed/source records remain unchanged.
-      Earlier personal/no-longer-held classification retests and standalone PR #38 update instruction
-      below are superseded as the immediate next step; preserve their historical evidence.
+- [ ] Install and live-verify the separate trade walkthrough/confirmation slice after owner approval
+      and final-head Ubuntu/Windows CI. Branch `codex/trade-ui-walkthrough`, from rebuild `5ac97048`;
+      eight reproducing regressions at `52513d1`, implementation `b0ee05c`, final rendering check
+      `10c4fe4`. Actual values govern both highlights and the normal Confirm lock; native right-click
+      Confirm permits deliberate personal inputs. No game-input automation or database changes.
+      Standard local build: 1,221 Java passed, six skipped, zero failures/errors; 48 Python passed.
+      Combined preview with unmerged PR #40 at `22985fa` passed 1,241 Java with six skips and both
+      JARs built. Keep quote-refresh and guard handlers, clear both on session reset, and preserve
+      lock rendering on a personal item during merge resolution. See
+      docs/architecture/trade-ui-walkthrough.md for verified behavior and player acceptance cases.
+      Installed runtime remains PR #37. Live pipeline-check was not run for this source slice;
+      PR #31 and accounting reconciliation remain unfinished. Do not install from a temporary worktree.
+
+
+- [ ] Install and live-verify automatic trade scope from `codex/automatic-trade-scope`.
+      Regression-first commit `b25a358` reproduces three adoption/recount failures before code changes.
+      Source now tracks remaining accepted acquisition quantities in the existing durable event
+      ledger, preserves old records, removes adoption/review/dismiss controls, quotes a player-selected
+      sell setup and maintains unknown-cost actual sell offers without inventing profit. Exact-offer
+      cancel/collect/relist guidance survives restart; Missed flips is a separately opened read-only
+      evidence table. Scope API schema 2 is understood by the plugin and pipeline checker.
+      Personal snapshots and unrelated unpriced sales do not require player classification; real
+      execution/offer faults and unresolved known-cost exposure remain protected. Installed runtime
+      is still PR #37 (`49934e44`); no installation, database editing or game action occurred here.
+      Final clean verification and GitHub checks are recorded in HANDOFF.md. PR #40 is open;
+      Ubuntu/Windows checks passed at 16222f0 (run 38598173659). UTF-8 and delayed relist-account fixes are
+      verified by final clean build (1,217 passed, six skipped, zero failures/errors). Final-head CI
+      must also pass both checks; merge remains subject to owner approval. Next: reviewed paired
+      update, GET-only pipeline, then owner-operated sell editor/partial fill/restart acceptance.
+      Do not claim these source tests completed the PR #31 live checklist or cleared existing faults.
 
 - [ ] Continue account reconciliation after the 14 October lifecycle-fault diagnosis. Source branch
       `codex/offer-observation-boundary` from rebuild `49934e44` reproduces five observation-boundary

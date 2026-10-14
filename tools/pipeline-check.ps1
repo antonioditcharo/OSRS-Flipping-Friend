@@ -67,8 +67,13 @@ foreach ($directory in $directories) {
         $plan = Invoke-RestMethod -Uri ($endpoint + 'portfolio/current') -Headers $accountHeaders -TimeoutSec 10
         $ledgerResponse = Invoke-WebRequest -Uri ($endpoint + 'ledger/current') -Headers $accountHeaders -TimeoutSec 10
         $ledger = $ledgerResponse.Content | ConvertFrom-Json
-        if ($ledgerResponse.Headers['X-Flipping-Friend-Account'] -ne $id -or $ledger.accountId -ne $id -or $ledger.schemaVersion -ne '1') {
+        if ($ledgerResponse.Headers['X-Flipping-Friend-Account'] -ne $id -or $ledger.accountId -ne $id -or @('1', '2') -notcontains $ledger.schemaVersion) {
             throw 'Ledger scope or schema mismatch; update both supported JARs.'
+        }
+        if ($ledger.schemaVersion -eq '2' -and
+            ($ledger.PSObject.Properties.Name -notcontains 'tradingPositions' -or
+             $ledger.PSObject.Properties.Name -notcontains 'missedFlips')) {
+            throw 'Ledger trade evidence is missing; update both supported JARs.'
         }
         Report $id 'PASS' "Ledger: $($ledger.sales) sale updates; $($ledger.unresolvedSales) unresolved; $($ledger.uncertainSales) profit ranges."
         $detail = if ($null -eq $plan) { 'No current plan; a fresh plugin snapshot may be required.' }

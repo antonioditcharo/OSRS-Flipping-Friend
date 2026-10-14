@@ -25,7 +25,7 @@ public class EntryDecisionPresentationNonActivationBoundaryTest
         Assert.assertTrue(client.contains("EntryDecisionPresenter.present(decision, plan, explainer)"));
         Assert.assertFalse(plugin.contains("companion.nextBuySuggestion("));
         Assert.assertFalse(plugin.contains("engine.buyFallback()"));
-        Assert.assertEquals("2488CA51432868AC9623541996CDF4B13B2DCA9E9775DC72592DA1CDCE501BA0",
+        Assert.assertEquals("C5D8A4D5F5F941D3A37861B28EA2DC537B2B55379F4BDC58C8078DDD45A89E2A",
             sha256(suggestion));
     }
     private static String read(Path root, String path) throws Exception

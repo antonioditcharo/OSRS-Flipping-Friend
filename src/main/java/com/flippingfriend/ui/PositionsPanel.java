@@ -65,21 +65,10 @@ class PositionsPanel extends JPanel
 	/** What was last drawn, so an unchanged refresh can be skipped rather than blinked through. */
 	private String lastSignature;
 	private java.util.function.Supplier<java.util.Collection<Position>> tradingPositions;
+    private java.util.function.BooleanSupplier tradeEvidenceAvailable = () -> true;
+    void setTradeEvidenceAvailable(java.util.function.BooleanSupplier supplier) { tradeEvidenceAvailable = supplier; }
 	void setTradingPositions(java.util.function.Supplier<java.util.Collection<Position>> supplier)
 	{ tradingPositions = supplier; }
-
-	/**
-	 * Closes a holding the player says they no longer have.
-	 * <p>
-	 * The counterpart to no longer deleting positions for being invisible: without a way to say "this
-	 * is gone", anything sold outside the plugin or dropped would sit here for ever.
-	 */
-	private java.util.function.IntConsumer onClose = itemId -> { };
-
-	void setOnClose(java.util.function.IntConsumer onClose)
-	{
-		this.onClose = onClose == null ? itemId -> { } : onClose;
-	}
 
 	void refresh()
 	{
@@ -93,7 +82,7 @@ class PositionsPanel extends JPanel
 		// anything had changed, which is what made the sidebar blink -- and it did the work on the
 		// Swing thread, so the cost was paid where it is most visible. The signature covers everything
 		// the cards render, so a change still redraws immediately and a quiet refresh costs nothing.
-		String signature = signatureOf(held);
+		String signature = signatureOf(held) + tradeEvidenceAvailable.getAsBoolean();
 		if (signature.equals(lastSignature))
 		{
 			return;
@@ -109,8 +98,9 @@ class PositionsPanel extends JPanel
 		{
 			JPanel empty = UiUtils.card();
 			empty.setLayout(new BorderLayout());
-			empty.add(UiUtils.mutedText("Nothing held right now. Anything the plugin buys for you will "
-				+ "appear here with a price chart."), BorderLayout.CENTER);
+			empty.add(UiUtils.mutedText(tradeEvidenceAvailable.getAsBoolean()
+                ? "No tracked purchases remain. Observed buys appear here with their remaining quantities."
+                : "Waiting for fresh tracked holdings. Your recorded trade history is preserved."), BorderLayout.CENTER);
 			UiUtils.constrainWidth(empty);
 			add(empty);
 			revalidate();
@@ -226,36 +216,7 @@ class PositionsPanel extends JPanel
 		row.add(UiUtils.gap(UiUtils.SPACE_S));
 		row.add(buildFooter(position, marketSell));
 		row.add(UiUtils.gap(UiUtils.SPACE_S));
-		row.add(buildDismiss(position));
 
-		UiUtils.constrainWidth(row);
-		return row;
-	}
-
-	/**
-	 * The "I do not have this" control.
-	 * <p>
-	 * Positions are no longer deleted because the plugin cannot see the item -- doing that on a bank
-	 * snapshot that stops updating when the bank closes is what silently destroyed real holdings and
-	 * the cost basis behind them. The price of that safety is that something disposed of outside the
-	 * plugin has to be dismissed by hand, so here is the hand.
-	 */
-	private JPanel buildDismiss(Position position)
-	{
-		JPanel row = new JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 0, 0));
-		row.setOpaque(false);
-		row.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-		javax.swing.JButton dismiss = new javax.swing.JButton("Not holding this");
-		dismiss.setFont(FontManager.getRunescapeSmallFont());
-		dismiss.setForeground(UiUtils.MUTED);
-		dismiss.setBackground(UiUtils.CARD_HOVER);
-		dismiss.setFocusPainted(false);
-		dismiss.setBorder(BorderFactory.createEmptyBorder(3, 8, 3, 8));
-		dismiss.setToolTipText("Forget this holding. Use it when you have sold or lost the item "
-			+ "outside the plugin -- it does not sell anything.");
-		dismiss.addActionListener(e -> onClose.accept(position.getItemId()));
-		row.add(dismiss);
 
 		UiUtils.constrainWidth(row);
 		return row;

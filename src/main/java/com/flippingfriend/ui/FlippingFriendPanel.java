@@ -76,7 +76,7 @@ public class FlippingFriendPanel extends PluginPanel
 	private final StatsPanel statsPanel;
 	private final PortfolioPanel portfolioPanel;
 	private final BankTrajectoryPanel bankTrajectoryPanel;
-	private final StockReviewPanel stockReviewPanel;
+	private final MissedFlipsWindow missedFlips;
 
 	private final JPanel onboardingSlot = new JPanel(new BorderLayout());
 	private final JButton sellOnlyButton = new JButton();
@@ -117,25 +117,15 @@ public class FlippingFriendPanel extends PluginPanel
 		this.suggestionCard = new SuggestionCard(itemManager, explainer);
 		this.positionsPanel = new PositionsPanel(positions, marketData, itemManager, explainer, taxCalculator,
 			engine::getPositionStatuses);
-		// Dismissing a holding is the only way one leaves the book without a sale, so it goes through
-		// the same immediate-recompute path as Skip and Block rather than waiting for the next poll.
-		this.positionsPanel.setOnClose(itemId ->
-		{
-			if (positions.close(itemId))
-			{
-				rejected();
-			}
-		});
+
 		this.historyPanel = new HistoryPanel(journal, itemManager, explainer);
 		this.statsPanel = new StatsPanel(explainer);
 		this.portfolioPanel = new PortfolioPanel(companion, explainer);
 		this.bankTrajectoryPanel = new BankTrajectoryPanel(journal, explainer);
-		this.stockReviewPanel = new StockReviewPanel(companion, () ->
-		{
-			engine.setPendingAdjustment(null);
-			rejected();
-		});
+		this.missedFlips = new MissedFlipsWindow(companion);
+
 		this.positionsPanel.setTradingPositions(engine::tradingPositions);
+        this.positionsPanel.setTradeEvidenceAvailable(engine::hasTradeEvidence);
 
 		setLayout(new BorderLayout());
 		setBackground(UiUtils.BACKGROUND);
@@ -158,7 +148,15 @@ public class FlippingFriendPanel extends PluginPanel
 		content.add(new CollapsibleSection("Recommendation", suggestionCard, false));
 
 		content.add(new CollapsibleSection("Portfolio", portfolioPanel, false));
-		content.add(new CollapsibleSection("Review holdings", stockReviewPanel, false));
+        JButton missed = new JButton("Missed flips");
+        missed.setAlignmentX(Component.LEFT_ALIGNMENT);
+        missed.setBackground(UiUtils.CARD); missed.setForeground(UiUtils.TEXT);
+        missed.setOpaque(true); missed.setFocusPainted(false);
+        missed.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(UiUtils.DIVIDER),
+            BorderFactory.createEmptyBorder(5, 10, 5, 10)));
+        missed.setToolTipText("Open incomplete and uncertain trade evidence in a separate window.");
+        missed.addActionListener(e -> missedFlips.open(SwingUtilities.getWindowAncestor(this)));
+        content.add(missed);
 		content.add(new CollapsibleSection("Holding", positionsPanel, false));
 		content.add(new CollapsibleSection("Local trade history", historyPanel, false));
 		content.add(new CollapsibleSection("Performance", statsPanel, false));
@@ -322,6 +320,8 @@ public class FlippingFriendPanel extends PluginPanel
 			: "Winding down? This stops new buys and helps you close out what you are holding.");
 	}
 
+	public void closeWindows() { SwingUtilities.invokeLater(missedFlips::dispose); }
+
 	/** Safe to call from any thread. */
 	public void refresh()
 	{
@@ -361,7 +361,7 @@ public class FlippingFriendPanel extends PluginPanel
 		historyPanel.refresh();
 
 		statsPanel.updateLedger(companion.lastLedger());
-		stockReviewPanel.refresh();
+		missedFlips.refresh();
 		portfolioPanel.refresh();
 		bankTrajectoryPanel.repaint();
 

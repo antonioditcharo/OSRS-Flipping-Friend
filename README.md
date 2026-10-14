@@ -46,6 +46,12 @@ synchronization, and an independent always-on learner are not implemented as ear
 claimed. Historical roadmaps and package records are retained as references; the current direction
 and [task list](TASKS.md) describe the work ahead.
 
+The parallel [trade walkthrough slice](docs/architecture/trade-ui-walkthrough.md) validates actual
+quantity/price inputs, keeps mismatched controls highlighted and guards normal Confirm. Right-click
+the native Confirm option to deliberately override for a personal trade. Its source and automated
+tests are ready; approval, paired installation and live verification are pending. PR #40's automatic
+trade scope remains a separate, unmerged slice. Follow the handoff before installing either.
+
 ## Running the existing development build
 
 See [START HERE.md](START%20HERE.md) for the existing Windows setup and launcher instructions.

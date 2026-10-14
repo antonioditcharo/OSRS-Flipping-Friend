@@ -54,28 +54,23 @@ public class ExistingHoldingsAdoptionTest
     }
 
     @Test
-    public void optingInAdoptsEligibleInventoryAndBankStock() throws Exception
+    public void savedAdoptionSettingCannotEnrollPersonalInventory() throws Exception
     {
         Mockito.when(config.adoptExistingItems()).thenReturn(true);
         sync();
-
-        Mockito.verify(positions).adoptExisting(Mockito.eq(STAFF), Mockito.eq("Mystic smoke staff"),
-            Mockito.eq(1), Mockito.any(Instant.class));
-        Mockito.verify(positions).adoptExisting(Mockito.eq(RUNE), Mockito.eq("Nature rune"),
-            Mockito.eq(50), Mockito.any(Instant.class));
+        Mockito.verify(positions, Mockito.never()).adoptExisting(Mockito.anyInt(),
+            Mockito.anyString(), Mockito.anyInt(), Mockito.any(Instant.class));
+        Mockito.verify(positions).reconcile(holdings, Collections.emptyMap(), true);
     }
 
     @Test
-    public void optingInStillProtectsBlockedStockWithoutHidingIt() throws Exception
+    public void blockedPersonalStockStillRemainsPhysicallyObserved() throws Exception
     {
         Mockito.when(config.adoptExistingItems()).thenReturn(true);
-        Mockito.when(config.blockedItems()).thenReturn("  MYSTIC SMOKE STAFF  ");
+        Mockito.when(config.blockedItems()).thenReturn("Nature rune");
         sync();
-
-        Mockito.verify(positions, Mockito.never()).adoptExisting(Mockito.eq(STAFF),
+        Mockito.verify(positions, Mockito.never()).adoptExisting(Mockito.anyInt(),
             Mockito.anyString(), Mockito.anyInt(), Mockito.any(Instant.class));
-        Mockito.verify(positions).adoptExisting(Mockito.eq(RUNE), Mockito.eq("Nature rune"),
-            Mockito.eq(50), Mockito.any(Instant.class));
         Mockito.verify(positions).reconcile(holdings, Collections.emptyMap(), true);
     }
 

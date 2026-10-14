@@ -96,7 +96,7 @@ public class LostPositionTest
 	}
 
 	@Test
-	public void seeingMoreThanRecordedStillCorrectsAnAdoptedHolding() throws Exception
+	public void personalExtrasDoNotEnlargeAnAdoptedLegacyRecord() throws Exception
 	{
 		// The safe half of reconcile, which is kept: finding more of something whose cost was never
 		// known cannot be a mistake about visibility.
@@ -105,7 +105,7 @@ public class LostPositionTest
 
 		book.reconcile(holding(EARTH_ORB, 250), Collections.emptyMap(), true);
 
-		assertEquals(250, book.get(EARTH_ORB).getQuantity());
+		assertEquals(100, book.get(EARTH_ORB).getQuantity());
 	}
 
 	@Test

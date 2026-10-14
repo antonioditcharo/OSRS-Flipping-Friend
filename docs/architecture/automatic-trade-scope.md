@@ -92,8 +92,40 @@ The owner's experience supplies the desired player-started sale behavior. The of
 confirms a separate incomplete-trade view at the inspected revision. Its server-backed correction
 actions are not authorization to change this project's live databases.
 
-Current source still has StockReviewPanel, optional adoptExistingItems, local PositionBook exits,
-and durable planner exposure that can stop globally on reconciliation. AccountLedgerSnapshot
-reports aggregate unresolved sales and positions, but does not yet expose the complete row-level
-evidence required for the new window. These are implementation gaps, not completed features.
-PR #38's authenticated/coherent offer-observation fix remains required underneath this workflow.
+Source implementation on `codex/automatic-trade-scope` reads accepted `position_event` execution
+rows into an ephemeral `AutomaticTradeScope`; it creates no new ownership database or persisted
+position book. Account ledger schema 2 adds trading positions with acquisition provenance and
+read-only incomplete/uncertain update evidence. Past sale accounting and legacy projection rows
+are not rewritten. Future observed executions in automatic mode account from this same view.
+The plugin publishes automatic scope intent, stops snapshot adoption/repair in that mode, and
+uses fresh durable quantities for unsolicited exits, Holding cards and unrealized risk marking.
+A pending offer outbox or unavailable/old ledger withdraws these trade positions without using
+local positions as a runtime fallback. Existing Performance still reads recorded ledger totals.
+
+The adoption setting and main-panel review/dismiss controls are removed. Old saved records and
+preferences remain preserved. Physical holdings cannot widen any trade quantity. Selecting a sell
+editor yields current item/quantity price guidance; buy editors, closed editors, unsupported offer
+prices, missing inventory, stale/future quotes and account transitions withdraw it. Only observed
+offer executions enter accounting. Unknown-cost maintenance and relists do not publish invented
+profit. `sell-relist-intent.json` stores guidance for an exact observed offer, not owned inventory;
+it waits for the recorded cancellation and collection, then requests a fresh quote capped to the
+cancelled unsold quantity. It survives restart and remains account scoped. Collected-offer proof
+uses the existing 12-hour retained observation window; absent proof never invents collection.
+
+Missed flips opens a modeless, read-only table. It displays individual durable update timestamps,
+quantities, recorded gross, tax/profit ranges or Unavailable, and evidence reasons. Source-free
+unpriced personal snapshots do not appear as missed trades. Legacy known-cost snapshots lacking
+acquisition provenance are labelled legacy records; their quantities are not claimed as current
+physical inventory. No corrections, database migrations or old sale backfills are offered.
+
+Planning ignores source-free zero-cost snapshots and unrelated unpriced sale history when the
+execution ledger and current offer projections prove safe exposure. Actual RECONCILE execution
+records, ERROR offers, malformed money and unresolved known costs still abstain. Legacy positive
+cost records remain conservative capital guards unless their source projection exactly matches
+accepted execution evidence. This preserves uncertainty without asking the player to classify
+routine belongings.
+
+Local clean-build and behavioral validation are recorded in HANDOFF.md. Paired installation,
+manual game acceptance and the original PR #31 checklist are still pending. Realized session-risk
+and calibration inputs still need their durable-ledger migration; this change makes no parity,
+profit-per-hour or learning-improvement claim. PR #38's observation fix remains required.

@@ -258,7 +258,7 @@ class SuggestionCard extends JPanel
 			.append(shown.getPrice()).append(':')
 			.append(shown.getQuantity()).append(':')
 			.append(shown.getTargetSellPrice()).append(':')
-			.append(shown.getExpectedProfit()).append(':')
+			.append(shown.getExpectedProfit()).append(':').append(shown.isProfitKnown()).append(':')
 			.append(shown.getConfidence()).append(':')
 			.append(shown.isActionable()).append(':')
 			.append(shown.getBuyFillMinutes()).append(':')
@@ -367,7 +367,12 @@ class SuggestionCard extends JPanel
 
 	private void updateProfit()
 	{
-		if (suggestion.getExpectedProfit() != 0)
+		if (!suggestion.isProfitKnown()) {
+            profitLabel.setText("Profit unavailable");
+            profitLabel.setForeground(UiUtils.MUTED);
+            profitLabel.setVisible(true);
+        }
+        else if (suggestion.getExpectedProfit() != 0)
 		{
 			profitLabel.setText("Expected profit  " + explainer.formatGp(suggestion.getExpectedProfit()));
 			profitLabel.setForeground(UiUtils.profitColor(suggestion.getExpectedProfit()));

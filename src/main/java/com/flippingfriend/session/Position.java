@@ -165,7 +165,7 @@ public class Position
 
 		quantity -= removed;
 		totalCost -= costBasis;
-		return new Removal(removed, costBasis, soldQuantity - removed);
+		return new Removal(costKnown ? removed : 0, costBasis, costKnown ? soldQuantity - removed : soldQuantity);
 	}
 
 	/**

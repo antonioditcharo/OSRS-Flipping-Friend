@@ -217,6 +217,11 @@ final class SqliteStore implements AutoCloseable
 	}
 	/** Atomically accepts one canonical offer event and advances its current slot projection. */
 	synchronized ProjectedEventAcceptance recordAndProjectOffer(OfferEvent event, String payload) throws Exception
+    {
+        return recordAndProjectOffer(event, payload, false);
+    }
+    synchronized ProjectedEventAcceptance recordAndProjectOffer(OfferEvent event, String payload,
+            boolean automaticScope) throws Exception
 	{
 		if (event == null) throw new IllegalArgumentException("event is required");
 		boolean autoCommit = connection.getAutoCommit();
@@ -238,7 +243,8 @@ final class SqliteStore implements AutoCloseable
 			try (PreparedStatement statement = connection.prepareStatement("UPDATE offer_projection SET sale_tax_policy=? WHERE slot=?"))
 			{ statement.setString(1, taxPolicy); statement.setInt(2, event.getSlot()); statement.executeUpdate(); }
 			checkpoint.reached("OFFER_PROJECTION_WRITTEN");
-			PositionProjection position = applyPositionEffect(transition.getAccountingEffect(), event, previous, taxPolicy);
+			PositionProjection position = automaticScope ? applyAutomaticPositionEffect(transition.getAccountingEffect(), event, previous, taxPolicy)
+                : applyPositionEffect(transition.getAccountingEffect(), event, previous, taxPolicy);
 			checkpoint.reached("POSITION_ACCOUNTING_APPLIED");
 			BuyLimitProjection buyLimit = applyBuyLimitEffect(event, transition);
 			checkpoint.reached("BUY_LIMIT_ACCOUNTING_APPLIED");
@@ -261,6 +267,7 @@ final class SqliteStore implements AutoCloseable
 	{
 		final List<PositionProjection> positions;
 		final List<OfferLifecycleProjection> offers;
+        AutomaticTradeScope tradeScope;
 		PlanningProjections(List<PositionProjection> positions,
 			List<OfferLifecycleProjection> offers)
 		{
@@ -278,6 +285,7 @@ final class SqliteStore implements AutoCloseable
 		{
 			PlanningProjections result = new PlanningProjections(
 				positionProjections(), offerProjections());
+            result.tradeScope = automaticTradeScope();
 			connection.commit();
 			return result;
 		}
@@ -410,6 +418,59 @@ final class SqliteStore implements AutoCloseable
 			? SaleAccounting.UNPROVEN_PLACEMENT : "HISTORICAL_RULE_UNPROVEN";
 	}
 
+    private AutomaticTradeScope automaticTradeScope() throws Exception {
+        AutomaticTradeScope scope = new AutomaticTradeScope();
+        try (PreparedStatement s = connection.prepareStatement(
+            "SELECT effect_type,item_id,item_name,quantity,acquisition_cost,observed_at,source_event_id,source_offer_identity FROM position_event ORDER BY id");
+             ResultSet r = s.executeQuery()) {
+            while (r.next()) scope.apply(r.getString(1), r.getInt(2), r.getString(3), r.getInt(4),
+                r.getLong(5), r.getLong(6), r.getString(7), r.getString(8));
+        }
+        return scope;
+    }
+
+    private java.util.List<com.flippingfriend.core.MissedFlipEvidence> missedFlipEvidence() throws Exception {
+        java.util.List<com.flippingfriend.core.MissedFlipEvidence> result = new ArrayList<>();
+        try (PreparedStatement s = connection.prepareStatement(
+            "SELECT source_event_id,source_offer_identity,item_id,item_name,effect_type,quantity,observed_at," +
+            "acquisition_cost,gross_proceeds,tax_lower,tax_upper,profit_lower,profit_upper," +
+            "COALESCE(sale_accounting_reason,transition_reason,'Incomplete trade evidence') FROM position_event " +
+            "WHERE effect_type='RECONCILE' OR transition_reason IS NOT NULL OR " +
+            "(effect_type='DISPOSE' AND (profit_lower IS NULL OR profit_lower<>profit_upper)) ORDER BY id DESC");
+             ResultSet r = s.executeQuery()) {
+            while (r.next()) result.add(new com.flippingfriend.core.MissedFlipEvidence(
+                r.getString(1),r.getString(2),r.getInt(3),r.getString(4),r.getString(5),r.getInt(6),r.getLong(7),
+                "ACQUIRE".equals(r.getString(5)) ? nullableLong(r,8) : null, nullableLong(r,9),
+                nullableLong(r,10),nullableLong(r,11),nullableLong(r,12),nullableLong(r,13),r.getString(14)));
+        }
+        return result;
+    }
+    private static Long nullableLong(ResultSet row, int column) throws Exception {
+        long value = row.getLong(column); return row.wasNull() ? null : value;
+    }
+
+    /** Future observed executions use the same event-ledger quantity view as exits and planning.
+     * No startup rebuilding, rewriting old sales, or replacing legacy projections occurs here. */
+    private PositionProjection applyAutomaticPositionEffect(PositionAccountingEffect effect, OfferEvent event,
+            OfferLifecycleProjection previous, String taxPolicy) throws Exception {
+        if (effect == null || effect.getType() == PositionAccountingEffectType.NONE) return null;
+        AutomaticTradeScope scope = automaticTradeScope();
+        PositionProjection current = scope.positions.get(effect.getItemId());
+        Long cost = null;
+        String reason = effect.getReason();
+        if (effect.getType() == PositionAccountingEffectType.DISPOSE) {
+            if (current != null && !scope.unsafeItems.contains(effect.getItemId())
+                    && effect.getQuantity() <= current.getQuantity())
+                cost = SaleAccounting.allocateCost(current.getTotalCost(), current.getQuantity(), effect.getQuantity());
+            else reason = "Sale lacks complete observed acquisition coverage";
+        }
+        SaleAccounting sale = effect.getType() == PositionAccountingEffectType.DISPOSE
+            ? SaleAccounting.calculate(event.getSpent() - (previous == null ? 0 : previous.getSpent()),
+                effect.getQuantity(), event.getPrice(), event.getItemName(), taxPolicy, cost) : null;
+        appendPositionEvent(effect, cost == null ? 0 : cost, reason, sale, taxPolicy);
+        return null;
+    }
+
 	private PositionProjection applyPositionEffect(PositionAccountingEffect effect, OfferEvent event,
 		OfferLifecycleProjection previous, String taxPolicy) throws Exception
 	{
@@ -514,7 +575,8 @@ final class SqliteStore implements AutoCloseable
 			row.next();
 			return new AccountLedgerSnapshot(accountId, Instant.now().getEpochSecond(), row.getLong(1),
 				row.getLong(2), row.getLong(3), row.getLong(4), row.getLong(5), row.getLong(6),
-				row.getLong(7), row.getLong(8), positionProjections());
+				row.getLong(7), row.getLong(8), positionProjections())
+                .withTradeEvidence(automaticTradeScope().readyPositions(), missedFlipEvidence());
 		}
 	}
 
@@ -530,7 +592,8 @@ final class SqliteStore implements AutoCloseable
 			checkpoint.reached("ACCOUNT_EVENT_RECORDED");
 			SnapshotReconciliationResult result = new SnapshotReconciliationResult();
 			Map<Integer, PositionSnapshot> seen = view.byItem();
-			for (PositionSnapshot incoming : seen.values()) reconcileSnapshotPosition(snapshot, incoming, result);
+			if (!snapshot.isAutomaticTradeScope())
+                for (PositionSnapshot incoming : seen.values()) reconcileSnapshotPosition(snapshot, incoming, result);
 			for (PositionProjection existing : positionProjections())
 			{
 				if (!seen.containsKey(existing.getItemId()))

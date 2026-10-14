@@ -15,13 +15,7 @@ import javax.inject.Singleton;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * Every item currently held, keyed by item id.
- * <p>
- * One position per item rather than one per purchase: the Grand Exchange has no concept of
- * separate lots, so if you buy the same item twice you simply own more of it at a blended price.
- * Modelling it any other way would produce sell advice for lots the game cannot distinguish.
- */
+/** Legacy local journal/delivery cache. Runtime trading ownership comes from the durable event ledger. */
 @Singleton
 public class PositionBook
 {
@@ -154,6 +148,9 @@ public class PositionBook
 				Position created = new Position(id, itemName, quantity, totalCost, when.getEpochSecond(), true);
 				return created;
 			}
+            // Keep an old unpriced adoption intact. A new purchase cannot price its personal units.
+            // The acquisition cost cache records the observed purchase separately above.
+            if (!existing.isCostKnown()) return existing;
 			existing.addFill(quantity, totalCost);
 			if (existing.getItemName() == null)
 			{
@@ -292,49 +289,14 @@ public class PositionBook
 		reconcile(actualHoldings, listedForSale, true);
 	}
 
-	/**
-	 * Reconciles against what the account is currently seen to hold.
-	 * <p>
-	 * <b>What the plugin can see is evidence of presence, never of absence.</b> This used to delete a
-	 * position on {@code inHand + onOffer <= 0} and trim it on anything smaller than the recorded
-	 * quantity, gated only on the bank having been opened at some point in the session. That gate is
-	 * not worth what it appeared to be: the game only syncs the bank container while the bank is
-	 * <em>open</em>, so the flag meant "you opened your bank once" while the contents behind it were a
-	 * photograph from that moment. Collect an item to your bank afterwards and it is in no live
-	 * container and not in the photograph — indistinguishable, to this method, from having been sold.
-	 * <p>
-	 * It cost real money. A 1,793-unit Earth orb position bought for 2,438,480 gp was trimmed to 297
-	 * units and 403,920 gp — exactly the proportional reduction this method performs — while all 1,793
-	 * sat listed for sale. Two other holdings were deleted outright, and because the cost basis lives
-	 * only here, their eventual sales settled with nothing behind them and were dropped from the
-	 * journal as unpriceable. Silently: this method logged nothing at all.
-	 * <p>
-	 * So absence no longer decides anything. A position closes when a sale accounts for it
-	 * ({@link #recordSell}) or when the player says so ({@link #close}). What is kept is the safe
-	 * half: seeing <em>more</em> than was recorded still corrects a position upward, because that
-	 * cannot be a mistake about visibility.
-	 *
-	 * @param holdingsAreComplete retained for callers and tests; no longer gates anything destructive,
-	 *                            because nothing here is destructive any more
-	 */
+    /** Compatibility hook: container observations never change recorded acquisition quantities. */
+
 	public void reconcile(Map<Integer, Integer> actualHoldings, Map<Integer, Integer> listedForSale,
 		boolean holdingsAreComplete)
 	{
-		for (Position position : new ArrayList<>(positions.values()))
-		{
-			int itemId = position.getItemId();
-			int inHand = actualHoldings.getOrDefault(itemId, 0);
-			int onOffer = listedForSale.getOrDefault(itemId, 0);
-			int reallyHeld = inHand + onOffer;
+        // Quantity changes require execution evidence. Extra physical units are personal stock;
+        // missing units may be banked or uncollected. Keep legacy records intact.
 
-			// Upward only, and only for a position whose cost was never known -- one with a known cost
-			// basis is the more valuable record, and finding extra units of it means the player has
-			// some from elsewhere, not that the recorded buy was wrong.
-			if (!position.isCostKnown() && reallyHeld > position.getQuantity())
-			{
-				position.setQuantity(reallyHeld);
-			}
-		}
 	}
 
 	/**

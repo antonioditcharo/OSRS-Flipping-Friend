@@ -421,7 +421,7 @@ final class CompanionService implements AutoCloseable
 		if (event == null || (accountId != null && !accountId.equals(event.getAccountId())))
 			throw new IllegalArgumentException("offer account identity mismatch");
 		SqliteStore.ProjectedEventAcceptance projected =
-			store.recordAndProjectOffer(event, gson.toJson(event));
+			store.recordAndProjectOffer(event, gson.toJson(event), account != null && account.isAutomaticTradeScope());
 		if (projected.acceptance == SqliteStore.EventAcceptance.DUPLICATE)
 		{
 			return projected.acceptance;
@@ -597,7 +597,7 @@ final class CompanionService implements AutoCloseable
 		if (fresh && account != null && faults.keySet().stream().allMatch(key ->
 			key.startsWith("Position projection item ") || key.equals("Snapshot reconciliation") || key.equals("Planning exposure")))
 		{
-			try { planningAvailable = DurablePlanningExposure.from(store.planningProjections(), account.getStockDeclarations()) != null; }
+			try { planningAvailable = DurablePlanningExposure.from(store.planningProjections(), account.getStockDeclarations(), account.isAutomaticTradeScope()) != null; }
 			catch (Exception unavailable) { /* Keep the planning gate closed. */ }
 		}
 		return new CompanionHealth(status, detail, marketAt, modelVersion, now, planningAvailable);
@@ -675,7 +675,7 @@ final class CompanionService implements AutoCloseable
 		try
 		{
 			DurablePlanningExposure exposure =
-				DurablePlanningExposure.from(store.planningProjections(), snapshot.getStockDeclarations());
+				DurablePlanningExposure.from(store.planningProjections(), snapshot.getStockDeclarations(), snapshot.isAutomaticTradeScope());
 			if (exposure == null)
 				throw new IllegalStateException("durable exposure requires reconciliation");
 			snapshot = snapshot.withPlanningExposure(exposure.committedByItem);

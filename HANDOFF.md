@@ -3,6 +3,105 @@
 Updated 14 October 2026 (America/Anchorage). Read this with [AGENTS.md](AGENTS.md) and
 [TASKS.md](TASKS.md) before continuing implementation.
 
+## Automatic trade scope source implementation — 14 October 2026
+
+Source commit `fe8e72c3170659923570f2f83954baa27d04f6f1` on `codex/automatic-trade-scope`, based on rebuilt/default
+`5ac9704` after design PR #39 merged with both exact-head CI checks passing. Historical `main`
+remains `0cb8ef8`; required `ee0d3aff` ancestor check exits 0. Regression-first commit `b25a358`
+reproduces three existing personal adoption/recount failures before production changes.
+
+Final source follow-ups: `1515fc3` corrects UTF-8 text with a failing-before-fix regression.
+`1275bd7` reproduces delayed sell guidance writing under a newly selected account;
+`b07f9cfd0809912726e3da86e94c8ae12014e43a` binds both intent creation and resumption to the
+client-captured offer account. Final clean verification below includes both fixes; all original
+account/offer observation regressions still pass. Final log: `.gradle/automatic-scope-final-account-clean.log`.
+
+The current source replaces routine item classification with remaining quantities from accepted
+purchase/sale deltas in the existing durable account event ledger. Source-free personal snapshots
+never enroll belongings; matching an item name/history alone is insufficient. The automatic view
+is read-only and ephemeral, not a third saved position book. Ledger schema 2 supplies these positions
+and incomplete/uncertain evidence rows to the plugin; future observed executions use the same view
+for accounting. No past sale profit/tax, legacy position projection or account database is rewritten.
+Known unresolved costs, actual RECONCILE executions and ERROR offers still block unsafe entries.
+
+The adoption setting, Review holdings panel and Not holding this control are removed. Old data and
+saved preferences are preserved. Holding and unsolicited exits use fresh durable trade quantities;
+pending delivery or old/unavailable ledger data has no local runtime ownership fallback. Unknown
+cost remains unknown in actual manual sell maintenance. The player-selected sell editor receives
+fresh item/quantity price guidance, cleared on close, buy setup, unsupported price, missing stock,
+stale/future market data and account transition. Opening the editor records no execution. An exact
+sell-offer reprice intent survives restart and waits for observed cancel/collect before offering a
+fresh relist capped to the unsold remainder. It relies on the existing 12-hour collected-offer proof;
+missing proof never creates collection or disposal. All game actions remain manual.
+
+Missed flips opens a separate read-only table of recorded update dates, quantities, gross proceeds,
+tax/profit ranges or Unavailable, and evidence reasons. Routine personal snapshots are absent.
+Legacy known-cost snapshots without acquisition proof are labelled legacy records, not current
+physical inventory. The main sidebar rendering was inspected in `build/ui/no-clipping.png` during
+verification. Existing local journal/calibration and realized session-risk inputs still require
+migration; unrealized risk marking now uses the same managed trade quantities. No profitability,
+feature-parity or learned-policy promotion claim is made.
+
+Verification on this Windows PC (14 October, 16:37:24 UTC):
+
+```text
+RuneLite process count: 0
+.\gradlew.bat clean test jar :companion:shadowJar --console=plain
+BUILD SUCCESSFUL in 28s
+18 actionable tasks: 18 executed
+FINAL_CLEAN_BUILD_EXIT=0
+Root: 502 tests, 0 failures, 0 errors, 0 skips
+Core: 166 tests, 0 failures, 0 errors, 0 skips
+Companion: 555 tests, 0 failures, 0 errors, 6 skips
+Total: 1,217 passed, 6 skipped, 0 failures/errors
+python -m unittest discover -s tools/tests -v
+Ran 48 tests in 80.074s
+OK
+PYTHON_EXIT=0
+Plugin JAR: 418,626 bytes
+Companion JAR: 17,753,394 bytes
+Project class bytecode major version: 55 (Java 11), both JARs
+```
+
+Behavior checks cover saved adoption settings, personal extra quantities, observed buys, partial
+sales, mixed tracked/untracked sales, duplicate delivery, restart recovery, safe historical gaps,
+unsafe current exposure, canonical UI/exit ownership, selected sell context, fresh quote guards,
+account-scoped relist intent, and read-only Missed flips. Intermediate failing logs remain under
+`.gradle/automatic-scope-*` outside build; the entry presenter source hash was updated only for the
+intentional profit-availability field, with its authority assertions preserved.
+
+GitHub: [PR #40](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/40) is open against
+`CoPilot's-Rebuild-from-Main`. Both exact-head checks at
+`16222f0d2625c6f12726423d4075c65d5331b6f3` passed in
+[run 38598173659](https://github.com/antonioditcharo/OSRS-Flipping-Friend/actions/runs/38598173659):
+
+```text
+Supported build (ubuntu-latest): completed / success
+Supported build (windows-latest): completed / success
+Workflow: completed / success
+```
+
+The follow-up corrects Windows text encoding after a new failing regression demonstrates
+UTF-8 mojibake in edited comments/documentation. It preserves the source behavior above, uses
+explicit UTF-8 for text edits and rechecks the standard build. Its exact-head CI must also pass
+before merge; keep PR #40 unmerged until owner approval. The checkout remains on the clean,
+pushed implementation branch for review. No historical branch is altered.
+
+**Runtime remains installed PR #37 (`49934e44`), not this source revision.** No installer was run,
+no service was stopped, no game input was sent, and no live database was opened or modified during
+this implementation. Pipeline output for this new pair is **not observed / pending installation**.
+The previous live WAIT/UNAVAILABLE faults remain historical evidence and are not presumed cleared.
+The PR #31 live checklist remains incomplete; this source verification does not complete it.
+
+Next owner-operated acceptance: after source PR checks and review, use the numbered paired Update
+wrapper, display/review its fresh backup, and wait for uppercase INSTALL before installation. Then
+Start/login manually and perform one announced step at a time: GET-only pipeline; compact panel and
+Missed flips; price for a selected personal-item sell without executing it; quote withdrawal on
+close/item/account change; a small controlled observed buy/sell; partial cancel/collect/relist and
+restart replay. Record actual dates/revision/pipeline output/outcomes without editing live rows.
+If an existing fault prevents any check, preserve the exact output and reproduce the bug before a
+new source fix. Completion/merge of the final live acceptance record still needs owner approval.
+
 ## Current source and branch
 
 Active development and the GitHub default branch are **`CoPilot's-Rebuild-from-Main`**.
@@ -180,6 +279,50 @@ temporary path aliases before invoking PowerShell; all 15 tests passed locally a
 PR checks for the final remote outcome; the first run is retained as failure evidence.
 
 ## Verification and continuation
+
+### Parallel trade UI slice — 14 October 2026 (source verified; not installed)
+
+Owner requested a parallel slice before accepting the automatic trade-scope work. Standalone
+branch `codex/trade-ui-walkthrough` starts from fetched rebuild
+`5ac97048c0fc44a513cc86564867406479b0d8db`; regression commit `52513d1` recorded eight failures
+before production changes. Implementation is `b0ee05c8b0b68cb5ea570c510a7ed8de99a07508`, followed
+by personal-context rendering regression `10c4fe4e6803bb2b61595822c0c3aa6bf8809bb2`.
+
+- Quantity and price highlights follow committed game values and return when those values change.
+  A click opening an input field no longer counts as completing it. Both wrong fields are highlighted.
+- Normal Confirm is guarded while item/side/quantity/64-bit price differ or input remains open.
+  The player can right-click the original native Confirm to deliberately override for a personal
+  trade. No field population, scripted game input or automated submission exists.
+- Actual dynamic buttons are resolved by actions; hidden controls and mere captions are rejected.
+  The visible lock explains the override. Duplicate number hints no longer overprint the card.
+- Logout/editor close clears progress and override permission. Queued recommendation callbacks
+  check session/profile. No accounting, ownership, database or installed-runtime changes occurred.
+
+Standard Windows verification at the production revision: **1,221 Java passed / six skipped**
+(1,227 total, 321 suites), zero failures/errors; both JARs built. Exact output:
+`BUILD SUCCESSFUL in 37s`, `18 actionable tasks: 17 executed, 1 up-to-date`, exit 0.
+Python output: `Ran 48 tests in 81.010s`, `OK`, exit 0. Final personal-context rendering assertion
+also passed (`BUILD SUCCESSFUL in 5s`, exit 0). Logs outside build outputs:
+`.gradle/trade-ui-final-gradle.log`, `.gradle/trade-ui-final-python.log`, and
+`.gradle/trade-ui-personal-lock.log`. Synthetic render fixtures are not live screenshots.
+
+PR #40 remains OPEN and unmerged at `fd60c8be9b7313178ab9700018a02bfa34004c24`; final-head
+Ubuntu/Windows CI passed (run 38599815145). Its source is in a separate branch; earlier "not
+implemented" entries below describe the prior checkpoint. This UI slice does not silently include it.
+An isolated combined preview at `22985fa4955a2266fbcde4ae607334284e9237a0` on
+`codex/trade-ui-scope-integration` passed **1,241 Java / six skipped** (1,247 total, 328 suites),
+zero failures/errors, with both JARs built: `BUILD SUCCESSFUL in 28s`,
+`18 actionable tasks: 17 executed, 1 up-to-date`, exit 0. A merge regression first reproduced the
+personal-item lock disappearing; the resolution preserves both quote refresh and menu guard.
+Integration details and required merge resolutions are in
+[trade UI walkthrough](docs/architecture/trade-ui-walkthrough.md).
+
+**Live pipeline-check output: not run for this slice.** Installed pair remains the prior PR #37
+runtime; no agent game actions, installation, task changes or database inspection/repair occurred.
+Neither PR is merged or installed. After owner approval and final-head CI, use the root supported
+paired update with fresh backup review, then let the player perform the documented BUY/SELL,
+override, field-edit, layout, restart/profile and maintenance acceptance checks. Existing live
+account reconciliation and the PR #31 checklist remain outstanding.
 
 ### Workflow correction — 14 October 2026 (direction accepted; replacement not implemented)
 
