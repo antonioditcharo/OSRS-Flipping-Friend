@@ -164,6 +164,16 @@ public class SuggestionEngine
 	private final AtomicReference<List<EvaluatedCandidate>> lastEvaluated =
 		new AtomicReference<>(Collections.emptyList());
 	private final SkipList skipped;
+	@Inject private com.flippingfriend.session.StockDeclarations stockDeclarations;
+
+	public Collection<Position> tradingPositions()
+	{
+		List<Position> held = new ArrayList<>(positions.all());
+		if (stockDeclarations != null) held.removeIf(stockDeclarations::excludesLocal);
+		return held;
+	}
+	public boolean reviewedOutOfTrading(int itemId)
+	{ return stockDeclarations != null && stockDeclarations.excludesLocal(positions.get(itemId)); }
 
 	@Inject
 	public SuggestionEngine(MarketDataService marketData, FeatureEngine featureEngine,
@@ -1205,7 +1215,7 @@ public class SuggestionEngine
 	 */
 	private Position awaitingExit()
 	{
-		return awaitingExit(positions.all(), offers.listedForSale(), offers.itemsBeingBought());
+		return awaitingExit(tradingPositions(), offers.listedForSale(), offers.itemsBeingBought());
 	}
 
 	static Position awaitingExit(java.util.Collection<Position> held, Map<Integer, Integer> listed)
@@ -1389,7 +1399,7 @@ public class SuggestionEngine
 		java.util.Set<Integer> stillBuying = offers.itemsBeingBought();
 		SellCandidate best = null;
 
-		for (Position position : new ArrayList<>(positions.all()))
+		for (Position position : tradingPositions())
 		{
 			int itemId = position.getItemId();
 			if (position.getQuantity() <= 0)

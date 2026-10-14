@@ -683,6 +683,7 @@ public class FlippingFriendPlugin extends Plugin
 						clientThread.invokeLater(this::withdrawUnsupportedPriceAdvice);
 						return;
 					}
+					long stockReviewVersion = companion.stockReviewVersion();
 					// The companion owns new-entry portfolio selection. The legacy engine remains here only
 					// for collect/sell recovery while its equivalent companion workflows are introduced.
 					long markedDrawdown = com.flippingfriend.session.SessionRisk.markedDrawdown(
@@ -809,7 +810,10 @@ public class FlippingFriendPlugin extends Plugin
 						withdrawUnsupportedPriceAdvice();
 						return;
 					}
-					stepGuide.setSuggestion(settled);
+					Suggestion current = stockReviewVersion != companion.stockReviewVersion()
+						|| (settled.getType() == SuggestionType.SELL && engine.reviewedOutOfTrading(settled.getItemId()))
+						? Suggestion.waiting("Holding review changed", "Recomputing guidance for your trading stock.") : settled;
+					stepGuide.setSuggestion(current);
 					panel.refresh();
 				});
 				notifyIfNeeded(suggestion);

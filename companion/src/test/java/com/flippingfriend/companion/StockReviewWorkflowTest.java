@@ -33,8 +33,12 @@ public class StockReviewWorkflowTest {
                 new PositionSnapshot(4151, "Example trading stock", 2, 2000, true, 10, 0, 0, 0));
             store.recordAndReconcileAccount(seed, PositionStateView.from(seed), gson.toJson(seed));
             if (sold) {
+                OfferEvent open = OfferEvent.builder("open", 109, "SELLING")
+                    .eventIdentity("open-event", "session", "old-sale").sequence(1).slot(0)
+                    .item(100, "Example old sale").buying(false).price(100).quantities(3, 0).spent(0).build();
+                store.recordAndProjectOffer(open, gson.toJson(open));
                 OfferEvent sale = OfferEvent.builder("sale", 110, "SOLD")
-                    .eventIdentity("sale-event", "session", "old-sale").sequence(1).slot(0)
+                    .eventIdentity("sale-event", "session", "old-sale").sequence(2).slot(0)
                     .item(100, "Example old sale").buying(false).price(100).quantities(3, 3).spent(300).build();
                 store.recordAndProjectOffer(sale, gson.toJson(sale));
             } else {

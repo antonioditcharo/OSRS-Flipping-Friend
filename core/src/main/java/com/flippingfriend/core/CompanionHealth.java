@@ -8,9 +8,16 @@ public final class CompanionHealth
 	private final long marketObservedAt;
 	private final long modelVersion;
 	private final long checkedAt;
+	private final boolean planningStateAvailable;
 
 	public CompanionHealth(String status, String reason, long marketObservedAt, long modelVersion, long checkedAt)
 	{
+		this(status, reason, marketObservedAt, modelVersion, checkedAt, false);
+	}
+	public CompanionHealth(String status, String reason, long marketObservedAt, long modelVersion, long checkedAt,
+		boolean planningStateAvailable)
+	{
+		this.planningStateAvailable = planningStateAvailable;
 		this.status = status;
 		this.reason = reason;
 		this.marketObservedAt = marketObservedAt;
@@ -24,4 +31,10 @@ public final class CompanionHealth
 	public long getModelVersion() { return modelVersion; }
 	public long getCheckedAt() { return checkedAt; }
 	public boolean isReady() { return "READY".equals(status); }
+	public boolean canReadPlan(long now)
+	{
+		return (isReady() || ("DEGRADED".equals(status) && planningStateAvailable))
+			&& checkedAt <= now && now - checkedAt <= 150
+			&& marketObservedAt > 0 && marketObservedAt <= now && now - marketObservedAt <= 120;
+	}
 }
