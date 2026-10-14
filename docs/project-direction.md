@@ -179,3 +179,22 @@ scoped ledger. Local history/valuation graphs remain labeled estimates; GP/hour 
 session measurement. Planner exposures, exits, inventory UI, calibration, and session risk still
 require migration, so the broader single-authority exit gate remains open. Initial findings and
 verification counts above describe their original revisions.
+
+## Automatic stock and sale workflow — 14 October 2026
+
+The owner corrected the product direction: routine inventory management belongs in automatic
+execution tracking. Personal belongings must not be adopted into trading stock or generate
+unsolicited sales/review tasks. Track the remaining quantity from observed purchases, including
+manually chosen buys, while retaining recommendation attribution separately. Extra personally
+owned units of that item remain outside the matched position.
+
+For other owned items, suggest a fresh current price when the player selects a sell setup, then
+maintain the observed sell offer to completion/collection. Missing acquisition cost does not
+become zero cost, a borrowed recent purchase price, or realized profit. Incomplete trading records
+belong in a separately opened Missed flips window, with scoped evidence and coverage visible.
+
+The [accepted workflow](architecture/automatic-trade-scope.md) supersedes the earlier Review holdings
+and adoption approach. It requires a tested migration of the split local/durable consumers; the
+replacement is not yet implemented. Historical/account data and active exposure protections remain
+intact. This UI/ownership correction does not establish feature parity, learning improvement or
+profit superiority.

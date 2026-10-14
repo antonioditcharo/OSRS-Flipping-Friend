@@ -9,6 +9,18 @@
       local records and must migrate with positive reconciliation evidence.
 
 ## Next
+- [ ] Replace routine holdings review/adoption with automatic trade scope and player-started sale
+      guidance, as requested 14 October. Accepted contract: docs/architecture/automatic-trade-scope.md.
+      Match outstanding quantities/provenance from observed buys, including manual buys; keep personal
+      extras independent. Recommend an external owned item's price only when selected in sell setup,
+      then maintain the actual sell offer. Unknown cost/profit remains unavailable. Add a separately
+      opened Missed flips window backed by scoped row-level ledger evidence. Migrate the active planner,
+      exits, maintenance and holding UI coherently; do not introduce another ledger or bypass unbounded
+      active exposure. Reproduce old workflow with behavior tests before source changes. Source/UI
+      replacement is not implemented yet; current installed/source records remain unchanged.
+      Earlier personal/no-longer-held classification retests and standalone PR #38 update instruction
+      below are superseded as the immediate next step; preserve their historical evidence.
+
 - [ ] Continue account reconciliation after the 14 October lifecycle-fault diagnosis. Source branch
       `codex/offer-observation-boundary` from rebuild `49934e44` reproduces five observation-boundary
       failures at `b8c679f`, then fixes them at `f58a0cf`. Copied client observations, ordered load

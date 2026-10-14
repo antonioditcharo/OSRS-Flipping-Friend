@@ -181,6 +181,30 @@ PR checks for the final remote outcome; the first run is retained as failure evi
 
 ## Verification and continuation
 
+### Workflow correction — 14 October 2026 (direction accepted; replacement not implemented)
+
+The owner rejected routine player classification and main-panel clutter. The new target is
+[automatic trade scope and player-started sales](docs/architecture/automatic-trade-scope.md):
+track outstanding quantities from observed purchases; leave unrelated personal holdings outside
+trading stock; offer fresh sale-price guidance for an item the player selects to sell, then maintain
+the actual observed sell offer. Incomplete trades belong in a separately opened Missed flips view.
+Unknown acquisition costs/profit, trade identities and physical ownership evidence stay intact.
+
+This supersedes the PR #37 review/adoption workflow as product direction. Do not ask the player
+to classify routine personal inventory or treat historical manual-review tasks below as the next
+product acceptance target. Do not hide known-cost/active exposure conflicts merely to show buys.
+Missing history and extra personal units of the same item require quantity/provenance matching,
+not an item-ID membership check. The single-authority migration is still the prerequisite.
+
+Documentation branch: `codex/automatic-trade-scope-design`, from fetched rebuild `9a4c1ec8`,
+including the PR #38 merge checkpoint. AGENTS/TASKS/project direction now record the replacement
+and behavioral gate. The installed pair and current Java code were not changed by this decision.
+StockReviewPanel/adoption remain in current source until their tested replacement is implemented;
+row-level incomplete trade evidence and player-started sell pricing are not yet wired end to end.
+No new runtime test, installation, game input, account-file change or database operation occurred.
+Pause the routine classification retest and the standalone PR #38 update instruction while
+preparing the replacement workflow; PR #38's observation safeguards remain required in that build.
+
 ### PR #38 merged; paired update still pending — 14 October 2026, 01:41 AKDT
 
 Current rebuild source: `9a4c1ec8f8f2a05d34072c0f5e6cf6cbd34434ab` (PR #38).
