@@ -19,6 +19,26 @@ public class AccountClientIsolationTest
 {
     @Rule public final TemporaryFolder folder = new TemporaryFolder();
 
+    @Test public void unsupportedPriceClearsCachedAndLateAdviceWithoutChangingOtherAccounts() throws Exception
+    {
+        PluginStorage storage = com.flippingfriend.data.TestStorage.rootedAt(folder.newFolder().toPath(), "one");
+        CompanionClient client = new CompanionClient(storage, new Gson(), new SuggestionLedger());
+        PortfolioPlan plan = new PortfolioPlan("p", 0, Long.MAX_VALUE, "READY", "ok", 0, Collections.emptyList());
+        client.acceptPlan(plan);
+        assertTrue(client.hasFreshPlan());
+        java.nio.file.Files.writeString(storage.accountDir().resolve(
+            com.flippingfriend.session.OfferTracker.UNSUPPORTED_PRICE_FILE), "{\"price\":3000000000}");
+        assertFalse(client.hasFreshPlan());
+        assertNull(client.lastPlan());
+        client.acceptPlan(plan); // An earlier in-flight response cannot restore a usable plan.
+        assertFalse(client.hasFreshPlan());
+        assertNull(client.lastPlan());
+        PluginStorage other = com.flippingfriend.data.TestStorage.rootedAt(folder.newFolder().toPath(), "two");
+        CompanionClient second = new CompanionClient(other, new Gson(), new SuggestionLedger());
+        second.acceptPlan(plan);
+        assertTrue(second.hasFreshPlan());
+    }
+
     @Test public void staleMalformedAndFutureLedgerResponsesAreNotDisplayed() throws Exception
     {
         PluginStorage storage = Mockito.mock(PluginStorage.class);

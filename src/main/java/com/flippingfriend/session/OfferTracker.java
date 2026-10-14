@@ -36,6 +36,7 @@ public class OfferTracker
 	{
 	}.getType();
 	private static final String FILE_NAME = "offers.json";
+	public static final String UNSUPPORTED_PRICE_FILE = "unsupported-offer-price.json";
 
 	/**
 	 * How long a finished offer is remembered so a replay of it can be recognised.
@@ -73,6 +74,7 @@ public class OfferTracker
 	private final Map<Integer, TrackedOffer> settled = new ConcurrentHashMap<>();
 
 	private Path loadedFrom;
+	private volatile boolean unresolvedPriceObservation;
 	private volatile Runnable changeListener;
 	private volatile AbandonedBuyListener abandonedBuyListener;
 	private volatile MarketSnapshot market = MarketSnapshot.empty();
@@ -115,6 +117,7 @@ public class OfferTracker
 
 		bySlot.clear();
 		settled.clear();
+		unresolvedPriceObservation = java.nio.file.Files.exists(file.resolveSibling(UNSUPPORTED_PRICE_FILE));
 		long cutoff = Instant.now().getEpochSecond() - SETTLED_RETENTION_SECONDS;
 		for (TrackedOffer offer : storage.<List<TrackedOffer>>readJson(file, OFFER_LIST, new ArrayList<>()))
 		{
@@ -207,6 +210,12 @@ public class OfferTracker
 		return bySlot.get(slot);
 	}
 
+	/** A missing observation cannot be cleared by EMPTY, a restart, or a narrower later price. */
+	public boolean hasCompleteOfferEvidence()
+	{
+		return !unresolvedPriceObservation;
+	}
+
 	/**
 	 * Applies one offer update from the game.
 	 * <p>
@@ -215,7 +224,7 @@ public class OfferTracker
 	 */
 	public void onOfferChanged(int slot, GrandExchangeOffer offer)
 	{
-		if (offer == null)
+		if (offer == null || unresolvedPriceObservation)
 		{
 			return;
 		}
@@ -261,7 +270,30 @@ public class OfferTracker
 			|| state == GrandExchangeOfferState.CANCELLED_BUY;
 
 		int itemId = offer.getItemId();
-		int price = offer.getPrice();
+		long observedPrice = offer.getPrice();
+		if (observedPrice < 0 || observedPrice > Integer.MAX_VALUE)
+		{
+			unresolvedPriceObservation = true;
+			java.util.Map<String, Object> evidence = new java.util.LinkedHashMap<>();
+			evidence.put("slot", slot);
+			evidence.put("itemId", itemId);
+			evidence.put("price", observedPrice);
+			evidence.put("spent", offer.getSpent());
+			evidence.put("totalQuantity", offer.getTotalQuantity());
+			evidence.put("filledQuantity", offer.getQuantitySold());
+			evidence.put("state", state.name());
+			evidence.put("observedAt", now.getEpochSecond());
+			if (storage.hasAccount())
+			{
+				Path destination = loadedFrom == null ? storage.accountDir().resolve(UNSUPPORTED_PRICE_FILE)
+					: loadedFrom.resolveSibling(UNSUPPORTED_PRICE_FILE);
+				storage.writeJson(destination, evidence, java.util.Map.class);
+			}
+			log.warn("offer in slot {} has unsupported price {}; preserving evidence and pausing accounting", slot, observedPrice);
+			notifyChanged();
+			return;
+		}
+		int price = Math.toIntExact(observedPrice);
 		int total = offer.getTotalQuantity();
 		int filled = offer.getQuantitySold();
 

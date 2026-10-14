@@ -265,11 +265,11 @@ public class PartialBuyTest
 		GrandExchangeOffer o = Mockito.mock(GrandExchangeOffer.class);
 		Mockito.when(o.getState()).thenReturn(state);
 		Mockito.when(o.getItemId()).thenReturn(itemId);
-		Mockito.when(o.getPrice()).thenReturn(price);
+		Mockito.when(o.getPrice()).thenReturn((long) price);
 		Mockito.when(o.getTotalQuantity()).thenReturn(total);
 		Mockito.when(o.getQuantitySold()).thenReturn(filled);
 		// Pre-tax on both sides, which is what the game reports.
-		Mockito.when(o.getSpent()).thenReturn(price * filled);
+		Mockito.when(o.getSpent()).thenReturn((long) price * filled);
 		return o;
 	}
 

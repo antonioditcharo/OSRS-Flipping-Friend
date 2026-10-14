@@ -41,10 +41,10 @@ public class OfferTrackerReportingTest
 		GrandExchangeOffer o = Mockito.mock(GrandExchangeOffer.class);
 		Mockito.when(o.getState()).thenReturn(state);
 		Mockito.when(o.getItemId()).thenReturn(itemId);
-		Mockito.when(o.getPrice()).thenReturn(price);
+		Mockito.when(o.getPrice()).thenReturn((long) price);
 		Mockito.when(o.getTotalQuantity()).thenReturn(total);
 		Mockito.when(o.getQuantitySold()).thenReturn(sold);
-		Mockito.when(o.getSpent()).thenReturn(price * sold);
+		Mockito.when(o.getSpent()).thenReturn((long) price * sold);
 		return o;
 	}
 

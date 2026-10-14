@@ -65,8 +65,10 @@ exports' evidence limits. Raw CSVs and row-level outputs are intentionally gitig
 Session/cadence labels are unavailable. Transaction-export Tax is derived by Copilot's exporter,
 not an observation of historical tax. Do not infer a valid GP/hour comparison from these files.
 
-No live RuneLite installation or live database migration was performed. Live verification against
-actual holdings/collected coins remains outstanding. Profit superiority, feature parity, online
+The user-run paired installation was verified read-only at `6411f800`; the subsequent RuneLite
+login froze before the live checklist could proceed (see the continuation below). No agent database
+migration was performed. Live verification against actual holdings/collected coins remains outstanding.
+Profit superiority, feature parity, online
 logistic learning, shadow trading, and automatic challenger promotion have not been established.
 Historical package counts, roadmaps, and non-activation scaffolding are not runtime feature evidence.
 
@@ -166,6 +168,81 @@ temporary path aliases before invoking PowerShell; all 15 tests passed locally a
 PR checks for the final remote outcome; the first run is retained as failure evidence.
 
 ## Verification and continuation
+
+### RuneLite login freeze continuation — 13 October 2026 (verification pending)
+
+Base `6411f800e9a56d37de5dbd3b3194061ae262e910`; work branch `codex/runelite-login-classpath`.
+Regression commit `52e6fb965badd7d8591839afe4b03f51fee69b9c` preceded implementation. Historical main
+and all live databases remain untouched. This source work has not been installed or tested in-game.
+
+The user completed re-setup after an earlier lowercase `install` correctly cancelled it. Read-only
+status at `6411f800` reported both installed JARs/manifest present, the task Running in the rebuild
+checkout, `accounts-v1` responding, and `Overall status: PAIR VERIFIED / COMPANION RESPONDING`.
+That verifies the companion pair, not RuneLite ABI compatibility or successful login. The user then
+ran the numbered Start wrapper and reported a freeze during login at 20:38 AKDT.
+
+Observed evidence, without game input or stopping either process:
+
+- Launcher output included client 1.13.1 and client 1.12.39 resources on one classpath and warned
+  that the plugin was built against 1.12.39. The Client error was
+  `NoSuchMethodError: 'long net.runelite.api.GrandExchangeOffer.getPrice()'`, originating in the
+  Flipping Utilities offer-event handler. This is an API linkage failure; do not blame or remove
+  that plugin to conceal a mixed dependency set.
+- Read-only javap confirmed 1.12.39 has int price/spent getters and 1.13.1 has long getters.
+  All 31 Windows/amd64 artifacts selected by the official bootstrap version 1.13.1 were already
+  present and hash-matched. Old client/API JARs were also present; no cache files were deleted.
+- A read-only thread dump at 20:42 AKDT contained no Client game thread, while the AWT event
+  thread remained waiting normally. That is consistent with the game thread ending after the
+  linkage error; no successful login or UI recovery was observed. Private dump remains gitignored:
+  `local-data/diagnostics/runelite-login-20261013/threads-24828.txt`.
+- Automated actual-script regressions first failed all eight launcher cases (`Ran 8 tests in
+  5.847s`, `FAILED (failures=8)`). The Java ABI test first failed `expected:<long> but was:<int>`.
+  Logs: `.gradle/runelite-launcher-regression.log` and `.gradle/runelite-api-regression.log`.
+
+Implemented source, awaiting full Java verification:
+
+- `run-dev.ps1` selects the exact official bootstrap Windows/architecture artifact list, checks
+  required current client/injected/API entries and each local size/hash, and excludes stale cache
+  versions and other-platform natives. It reads but does not repair/delete/download cached JARs.
+  Artifact names cannot escape the repository directory. The matching full API extra is appended
+  only for normal developer launch. `-CheckOnly` validates without launching or downloading extras.
+  Selection follows the [official launcher artifact flow](https://github.com/runelite/launcher/blob/master/src/main/java/net/runelite/launcher/Launcher.java).
+- Source and the installed plugin JAR must both declare the bootstrap API version. Missing/old
+  installed metadata stops launch and requires the paired numbered update; source pin alone cannot
+  prove what is installed. Build pin is now 1.13.1 and JAR manifest includes `RuneLite-Api-Version`.
+  Java bytecode still targets 11. Monetary test fixtures now provide long API values.
+- Cumulative spent counters remain long. A targeted partial-buy regression passed with 3.5B GP
+  recorded cost. Unit prices still use the existing 32-bit strategy model. A boundary regression
+  first caught `ArithmeticException: integer overflow`; the source now records the raw unsupported
+  observation as account-local `unsupported-offer-price.json` and pauses accounting/publication/
+  advice. EMPTY and restart cannot erase the pause or manufacture disposal/profit. Cached/late
+  companion advice is invalidated; other accounts remain independent. Full 64-bit unit-price
+  support and positive reconciliation are future work; do not edit/delete the evidence to unblock it.
+
+Verification checkpoint: all 48 Python tests passed (`Ran 48 tests in 31.241s`, `OK`, exit 0),
+including eight launcher cases; isolated launcher run also passed (`Ran 8 tests in 5.510s`).
+The full standard local Gradle command stopped at clean, before validating the final Java changes:
+
+```text
+Execution failed for task ':clean'.
+java.io.IOException: Unable to delete directory '.../build'
+Failed to delete .../build/runtime-extras/runelite-api-1.13.1.jar
+BUILD FAILED in 5s
+1 actionable task: 1 executed
+GRADLE_EXIT=1
+```
+
+The still-open RuneLite process holds that full API extra. Do not force-stop the game or force-delete
+the locked file. The user must close RuneLite, then rerun the standard clean build and Python suite.
+Failure evidence is preserved as `.gradle/runelite-login-locked-gradle.log`; final Python output is
+`.gradle/runelite-login-python.log` (gitignored, outside build). Final Java tests have not passed yet.
+Keep this source as a draft until local verification and both CI checks pass. Then review and apply
+both artifacts through the supported numbered wrapper with a fresh observed backup and confirmation.
+No installed JARs, game settings, credentials or databases were changed by this troubleshooting.
+
+**Pipeline-check output: not run.** Login, known-cost holding, partial buy, cancel/collect, full sale
+and restart acceptance checks remain unperformed. Continue the checklist after compatible paired
+installation and user-performed login; the read-only companion status is not proof of these outcomes.
 
 ### Backup review continuation — 13 October 2026
 
