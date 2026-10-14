@@ -767,7 +767,8 @@ public class FlippingFriendPlugin extends Plugin
 
 					// The decision chain: companion collect, then built-in recovery, then companion buy, then fallback buy.
 
-				Suggestion suggestion = companion.nextAction();
+                engine.setObservedAccount(observedAccount);
+                Suggestion suggestion = companion.nextAction();
 				if (suggestion == null)
 				{
 					suggestion = engine.refresh(false);

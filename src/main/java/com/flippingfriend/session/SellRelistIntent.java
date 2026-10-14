@@ -24,8 +24,12 @@ public final class SellRelistIntent {
             storage.writeJson(storage.accountDir(loadedAccount).resolve("sell-relist-intent.json"), intent, Intent.class);
     }
     public synchronized void advise(TrackedOffer offer) {
+        advise(offer, storage.accountId());
+    }
+    public synchronized void advise(TrackedOffer offer, String expectedAccount) {
+        if (expectedAccount == null || !expectedAccount.equals(storage.accountId())) return;
         load();
-        if (loadedAccount == null || offer == null || offer.isBuying() || offer.getRemaining() <= 0) return;
+        if (!expectedAccount.equals(loadedAccount) || offer == null || offer.isBuying() || offer.getRemaining() <= 0) return;
         if (intent != null && intent.matches(offer)) return;
         intent = new Intent(); intent.item = offer.getItemId(); intent.slot = offer.getSlot();
         intent.firstSeen = offer.getFirstSeen(); intent.quantity = offer.getRemaining();
@@ -33,7 +37,12 @@ public final class SellRelistIntent {
     }
     /** Return only the quantity proved cancelled and collected from this exact offer. */
     public synchronized int[] collectedRemainder(OfferTracker tracker) {
+        return collectedRemainder(tracker, storage.accountId());
+    }
+    public synchronized int[] collectedRemainder(OfferTracker tracker, String expectedAccount) {
+        if (expectedAccount == null || !expectedAccount.equals(storage.accountId())) return null;
         load();
+        if (!expectedAccount.equals(loadedAccount)) return null;
         if (intent == null || intent.item <= 0 || intent.quantity <= 0 || intent.firstSeen <= 0) return null;
         for (TrackedOffer offer : tracker.getOffers()) {
             if (!offer.isBuying() && offer.getItemId() == intent.item && !intent.matches(offer)) {

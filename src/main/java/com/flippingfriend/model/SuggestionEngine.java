@@ -166,6 +166,8 @@ public class SuggestionEngine
 	private final SkipList skipped;
     @Inject private com.flippingfriend.companion.CompanionClient companion;
     @Inject private com.flippingfriend.session.SellRelistIntent sellRelist;
+    private volatile String observedAccount;
+    public void setObservedAccount(String account) { observedAccount = account; }
 
     public boolean hasTradeEvidence() {
         var ledger = companion == null ? null : companion.tradingLedger();
@@ -427,7 +429,7 @@ public class SuggestionEngine
 		}
 
         if (sellRelist != null) {
-            int[] remaining = sellRelist.collectedRemainder(offers);
+            int[] remaining = sellRelist.collectedRemainder(offers, observedAccount);
             if (remaining != null && account.getFreeSlots() > 0) {
                 Suggestion relist = ManualSalePrice.quote(remaining[0], remaining[1],
                     account.getInventoryHoldings().getOrDefault(remaining[0], 0), market, now);
@@ -813,7 +815,7 @@ public class SuggestionEngine
 
 				// What the new price is actually worth. The reprice card carried no figure at all, so a
 				long change = costKnown ? taxCalculator.netProfit(offer.getItemId(), position.getAverageCost(), newPrice, remaining) : 0;
-                if (sellRelist != null) sellRelist.advise(offer);
+                if (sellRelist != null) sellRelist.advise(offer, observedAccount);
 				return Suggestion.builder(SuggestionType.MODIFY_SELL)
 					.item(offer.getItemId(), name)
 					.slot(offer.getSlot())
