@@ -160,6 +160,8 @@ public class FlippingFriendPlugin extends Plugin
 	@Inject
 	private StepGuide stepGuide;
 
+    @Inject private com.flippingfriend.overlay.TradeConfirmGuard tradeConfirmGuard;
+
 	@Inject
 	private GeWidgetResolver widgetResolver;
 
@@ -237,6 +239,7 @@ public class FlippingFriendPlugin extends Plugin
 	@Override
 	protected void shutDown()
 	{
+        stepGuide.reset(); tradeConfirmGuard.reset();
 		offerObservationGeneration.incrementAndGet();
 		synchronized (pendingOffers) { pendingOffers.clear(); }
 		companion.pauseOfferReplay();
@@ -273,6 +276,8 @@ public class FlippingFriendPlugin extends Plugin
 	@Subscribe
 	public void onGameStateChanged(GameStateChanged event)
 	{
+        if (stepGuide != null) stepGuide.reset();
+        if (tradeConfirmGuard != null) tradeConfirmGuard.reset();
 		GameState state = event.getGameState();
 		if (state == GameState.LOGGED_IN)
 		{
@@ -357,11 +362,19 @@ public class FlippingFriendPlugin extends Plugin
 		refreshAccountState();
 	}
 
+    @Subscribe
+    public void onMenuEntryAdded(net.runelite.api.events.MenuEntryAdded event) { tradeConfirmGuard.onMenuEntryAdded(event); }
+    @Subscribe
+    public void onMenuOpened(net.runelite.api.events.MenuOpened event) { tradeConfirmGuard.onMenuOpened(event); }
+    @Subscribe
+    public void onBeforeRender(net.runelite.api.events.BeforeRender event) { tradeConfirmGuard.beforeRender(); }
+
 	@Subscribe
 	public void onMenuOptionClicked(MenuOptionClicked event)
 	{
-		// Observation only. Nothing here consumes, rewrites or injects a menu action.
-		stepGuide.onMenuOptionClicked(event);
+        // Guard user clicks only; never populate fields or submit an offer for the player.
+        tradeConfirmGuard.onMenuOptionClicked(event);
+        if (!event.isConsumed()) stepGuide.onMenuOptionClicked(event);
 	}
 
 	@Subscribe
@@ -370,6 +383,7 @@ public class FlippingFriendPlugin extends Plugin
 		if (event.getGroupId() == WidgetUtil.componentToInterface(InterfaceID.GeOffers.UNIVERSE))
 		{
 			stepGuide.onSetupClosed();
+            tradeConfirmGuard.reset();
 		}
 	}
 
@@ -843,6 +857,8 @@ public class FlippingFriendPlugin extends Plugin
 				Suggestion settled = suggestion;
 				clientThread.invokeLater(() ->
 				{
+                    if (observedGeneration != offerObservationGeneration.get()
+                        || !java.util.Objects.equals(observedProfile, configManager.getRSProfileKey())) return;
 					if (!offerTracker.hasCompleteOfferEvidence())
 					{
 						withdrawUnsupportedPriceAdvice();

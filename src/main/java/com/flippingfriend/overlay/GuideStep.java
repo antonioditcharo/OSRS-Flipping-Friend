@@ -19,6 +19,7 @@ public enum GuideStep
 	SET_QUANTITY("Set the quantity"),
 	SET_PRICE("Set the price"),
 	CONFIRM("Confirm the offer"),
+    CHECK_OFFER("Choose the recommended item and offer type"),
 	SELL_FROM_INVENTORY("Click the item in the panel on the right"),
 	COLLECT("Collect your finished offer"),
 	CANCEL_OFFER("Cancel this offer so it can be replaced"),

@@ -69,4 +69,20 @@ public class TradeWalkthroughValuesTest {
         assertEquals(GuideStep.SET_PRICE,resolve().getStep());
         assertTrue(resolve().getTargets().contains(price));
     }
+
+    @Test public void emptyBuySearchStillGuidesThePlayerToTheRecommendedItem() {
+        when(client.getVarpValue(VarPlayerID.TRADINGPOST_SEARCH)).thenReturn(-1);
+        assertEquals(GuideStep.SEARCH_ITEM,resolve().getStep());
+    }
+    @Test public void wrongSellItemNeverReceivesBuyQuantityOrPriceHighlights() {
+        when(client.getVarpValue(VarPlayerID.TRADINGPOST_SEARCH)).thenReturn(4151);
+        when(client.getVarbitValue(VarbitID.GE_NEWOFFER_TYPE)).thenReturn(1);
+        assertFalse(resolve().getTargets().contains(quantity)); assertFalse(resolve().getTargets().contains(price));
+        assertNotEquals(GuideStep.CONFIRM,resolve().getStep());
+    }
+    @Test public void resettingSessionWithdrawsOldAdviceAndProgress() {
+        click(quantity,"Enter quantity"); guide.reset();
+        assertEquals(GuideStep.NONE,resolve().getStep());
+        assertNull(guide.getPending()); assertFalse(guide.isQuantityDone()); assertFalse(guide.isPriceDone());
+    }
 }
