@@ -68,6 +68,11 @@ public class OfferEditorOverlay extends Overlay
 		{
 			return null;
 		}
+        int loaded = client.getVarpValue(net.runelite.api.gameval.VarPlayerID.TRADINGPOST_SEARCH);
+        boolean selling = client.getVarbitValue(net.runelite.api.gameval.VarbitID.GE_NEWOFFER_TYPE) == 1;
+        boolean adviceSelling = suggestion.getType() == com.flippingfriend.model.SuggestionType.SELL
+            || suggestion.getType() == com.flippingfriend.model.SuggestionType.MODIFY_SELL;
+        if (loaded != suggestion.getItemId() || selling != adviceSelling) return null;
 
 		Widget panel = resolver.getSetupPanel();
 		if (panel == null)

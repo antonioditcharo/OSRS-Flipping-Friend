@@ -35,6 +35,7 @@ public class StepGuide
 	private volatile Suggestion tracked = Suggestion.idle();
 	/** Advice that arrived mid-entry and is waiting for the editor to close. */
 	private volatile Suggestion pending;
+    private volatile Suggestion editorQuote;
 	private volatile boolean quantityDone;
 	private volatile boolean priceDone;
 
@@ -159,10 +160,13 @@ public class StepGuide
 		}
 	}
 
-	public Suggestion getSuggestion()
-	{
-		return tracked;
-	}
+    public void setEditorQuote(Suggestion quote) {
+        if (quote != null && (editorQuote == null || !quote.sameAs(editorQuote))) {
+            quantityDone = true; priceDone = false;
+        }
+        editorQuote = quote;
+    }
+    public Suggestion getSuggestion() { return editorQuote == null ? tracked : editorQuote; }
 
 	/** Called on the client thread for every click, purely as an observation. */
 	public void onMenuOptionClicked(MenuOptionClicked event)
@@ -205,6 +209,7 @@ public class StepGuide
 	/** Clears progress when the editor closes, so re-opening it starts the walkthrough again. */
 	public void onSetupClosed()
 	{
+        editorQuote = null;
 		quantityDone = false;
 		priceDone = false;
 		// The offer is placed or abandoned either way, so anything held back can now take over.
@@ -218,7 +223,7 @@ public class StepGuide
 	 */
 	public GuideState resolve(int totalSlots, boolean[] occupiedSlots)
 	{
-		Suggestion suggestion = tracked;
+		Suggestion suggestion = getSuggestion();
 		if (suggestion == null || !suggestion.isActionable())
 		{
 			return GuideState.none();

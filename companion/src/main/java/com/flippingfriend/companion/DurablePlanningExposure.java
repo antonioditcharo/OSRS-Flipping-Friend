@@ -21,14 +21,34 @@ final class DurablePlanningExposure {
 
     static DurablePlanningExposure from(SqliteStore.PlanningProjections read,
             Map<Integer, com.flippingfriend.core.StockDeclaration> declarations) {
+        return from(read, declarations, false);
+    }
+    static DurablePlanningExposure from(SqliteStore.PlanningProjections read,
+            Map<Integer, com.flippingfriend.core.StockDeclaration> declarations, boolean automatic) {
         if (read == null) return null;
         try {
             Map<Integer, Long> byItem = new HashMap<>();
             long reserved = 0;
+            if (automatic) {
+                if (read.tradeScope == null || !read.tradeScope.unsafeItems.isEmpty()) return null;
+                for (var p : read.tradeScope.readyPositions()) byItem.put(p.getItemId(), p.getTotalCost());
+            }
             for (var position : read.positions) {
+                if (automatic && position != null) {
+                    // Snapshot-only personal records and untracked old sales are not trade positions.
+                    // Known legacy capital still guards entries; unresolved money is never ignored.
+                    if (!position.isCostKnown() && position.getTotalCost() == 0) continue;
+                    if (position.isCostKnown() && position.getConsistencyState() == PositionConsistencyState.READY) {
+                        var atSource = read.tradeScope.positionsAtEvent.get(position.getSourceEventId());
+                        boolean covered = atSource != null && atSource.getItemId() == position.getItemId()
+                            && atSource.getQuantity() == position.getQuantity() && atSource.getTotalCost() == position.getTotalCost();
+                        if (!covered) byItem.merge(position.getItemId(), position.getTotalCost(), Math::max);
+                        continue;
+                    }
+                }
                 var declaration = position == null || declarations == null ? null
                     : declarations.get(position.getItemId());
-                if (declaration != null && declaration.excludes(position, read.offers)) continue;
+                if (!automatic && declaration != null && declaration.excludes(position, read.offers)) continue;
                 if (position == null || position.getItemId() <= 0
                         || position.getConsistencyState() != PositionConsistencyState.READY
                         || !position.isCostKnown() || position.getQuantity() <= 0

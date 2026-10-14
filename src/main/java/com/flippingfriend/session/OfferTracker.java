@@ -205,6 +205,8 @@ public class OfferTracker
 		return items;
 	}
 
+	public TrackedOffer getSettledOffer(int slot) { return settled.get(slot); }
+
 	public TrackedOffer getOffer(int slot)
 	{
 		return bySlot.get(slot);

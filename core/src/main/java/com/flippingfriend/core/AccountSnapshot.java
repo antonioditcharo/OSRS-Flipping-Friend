@@ -7,6 +7,7 @@ import java.util.Map;
 public final class AccountSnapshot
 {
 	private final String accountId;
+    private final boolean automaticTradeScope;
 	private final Map<Integer, StockDeclaration> stockDeclarations;
 	private final String correlationId;
 	private final long observedAt;
@@ -198,6 +199,7 @@ public final class AccountSnapshot
                 int targetHoldMinutes, java.util.List<PositionSnapshot> positions)
         {
                 this.accountId = null;
+                this.automaticTradeScope = false;
                 this.stockDeclarations = Collections.emptyMap();
                 this.positions = positions == null
                         ? java.util.Collections.emptyList()
@@ -232,6 +234,7 @@ public final class AccountSnapshot
 	private AccountSnapshot(AccountSnapshot source, String accountId)
 	{
 		this.accountId = AccountIdentity.require(accountId);
+        this.automaticTradeScope = source.automaticTradeScope;
 		this.stockDeclarations = source.getStockDeclarations();
 		this.correlationId = source.correlationId; this.observedAt = source.observedAt;
 		this.spendableCoins = source.spendableCoins; this.committedCoins = source.committedCoins;
@@ -254,7 +257,13 @@ public final class AccountSnapshot
 	private AccountSnapshot(AccountSnapshot source, Map<Integer, Long> exposure,
 		Map<Integer, StockDeclaration> declarations)
 	{
+        this(source, exposure, declarations, source.automaticTradeScope);
+    }
+    private AccountSnapshot(AccountSnapshot source, Map<Integer, Long> exposure,
+            Map<Integer, StockDeclaration> declarations, boolean automaticScope)
+    {
 		this.accountId = source.accountId;
+        this.automaticTradeScope = automaticScope;
 		this.stockDeclarations = Collections.unmodifiableMap(new java.util.HashMap<>(declarations));
 		this.correlationId = source.correlationId; this.observedAt = source.observedAt;
 		this.spendableCoins = source.spendableCoins; this.committedCoins = source.committedCoins;
@@ -290,6 +299,10 @@ public final class AccountSnapshot
 		return stockDeclarations == null ? Collections.emptyMap()
 			: Collections.unmodifiableMap(new java.util.HashMap<>(stockDeclarations));
 	}
+    public boolean isAutomaticTradeScope() { return automaticTradeScope; }
+    public AccountSnapshot withAutomaticTradeScope() {
+        return new AccountSnapshot(this, getCommittedByItem(), getStockDeclarations(), true);
+    }
 	public String getAccountId() { return accountId; }
 	public String getCorrelationId() { return correlationId; }
 	public long getObservedAt() { return observedAt; }

@@ -55,6 +55,16 @@ public class GeWidgetResolver
 		return setup != null && !setup.isHidden();
 	}
 
+    /** Copies only the player's current sell-editor context; never alters the editor. */
+    public int[] sellSetup() {
+        if (!isSetupOpen() || client.getVarbitValue(net.runelite.api.gameval.VarbitID.GE_NEWOFFER_TYPE) != 1)
+            return null;
+        int item = client.getVarpValue(net.runelite.api.gameval.VarPlayerID.TRADINGPOST_SEARCH);
+        int quantity = client.getVarbitValue(net.runelite.api.gameval.VarbitID.GE_NEWOFFER_QUANTITY);
+        if (item <= 0 || quantity <= 0) return null;
+        return new int[] { itemManager.canonicalize(item), quantity };
+    }
+
 	public Widget getSetupPanel()
 	{
 		return visible(client.getWidget(InterfaceID.GeOffers.SETUP));

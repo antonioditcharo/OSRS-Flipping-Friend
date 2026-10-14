@@ -154,20 +154,9 @@ public interface FlippingFriendConfig extends Config
 		return true;
 	}
 
-	@ConfigItem(
-		keyName = "adoptExistingItems",
-		name = "Also sell items I already own",
-		description = "Off by default. When on, tradeable items already in your bank and inventory "
-			+ "are treated as things to sell. Most people do not want this: your bank is your gear "
-			+ "and supplies, not flipping stock. Items the plugin buys for you are always tracked "
-			+ "either way.",
-		position = 5,
-		section = tradingSection
-	)
-	default boolean adoptExistingItems()
-	{
-		return false;
-	}
+    /** Retained for old saved configuration; no longer used or exposed as a setting. */
+    @Deprecated
+    default boolean adoptExistingItems() { return false; }
 
 	@ConfigItem(
 		keyName = "blockedItems",

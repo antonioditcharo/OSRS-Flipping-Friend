@@ -62,8 +62,8 @@ import org.slf4j.LoggerFactory;
  * <p>
  * The division of labour is strict, because getting it wrong in a RuneLite plugin produces
  * intermittent client freezes. Anything that reads live game state runs on the client thread and
- * does nothing but copy that state into plain objects. Anything that thinks — scoring thousands of
- * items, fetching prices, computing history — runs on a background executor against those copies.
+ * does nothing but copy that state into plain objects. Anything that thinks â€” scoring thousands of
+ * items, fetching prices, computing history â€” runs on a background executor against those copies.
  * Anything that draws runs on the Swing thread.
  * <p>
  * The plugin only ever reads from the game and paints on top of it. It sends no input of any kind.
@@ -248,6 +248,8 @@ public class FlippingFriendPlugin extends Plugin
 		overlayManager.remove(grandExchangeOverlay);
 		overlayManager.remove(offerEditorOverlay);
 		clientToolbar.removeNavigation(navigationButton);
+        panel.closeWindows();
+        stepGuide.setEditorQuote(null);
 		navigationButton = null;
 
 
@@ -273,6 +275,7 @@ public class FlippingFriendPlugin extends Plugin
 	@Subscribe
 	public void onGameStateChanged(GameStateChanged event)
 	{
+        if (stepGuide != null) stepGuide.setEditorQuote(null);
 		GameState state = event.getGameState();
 		if (state == GameState.LOGGED_IN)
 		{
@@ -346,7 +349,7 @@ public class FlippingFriendPlugin extends Plugin
 
 		// The account refresh runs on the client thread, so it has to complete before the engine
 		// recomputes. Firing both at once meant the new suggestion was calculated against the slot
-		// count and committed capital from *before* the offer was placed — which is how the panel
+		// count and committed capital from *before* the offer was placed â€” which is how the panel
 		// ended up repeating an instruction the player had already carried out.
 		refreshAccountState(this::requestEngineRefresh);
 	}
@@ -356,6 +359,22 @@ public class FlippingFriendPlugin extends Plugin
 	{
 		refreshAccountState();
 	}
+
+    @Subscribe
+    public void onGameTick(net.runelite.api.events.GameTick event) { refreshSellSetupQuote(); }
+    @Subscribe
+    public void onVarbitChanged(net.runelite.api.events.VarbitChanged event) { refreshSellSetupQuote(); }
+
+    private void refreshSellSetupQuote() {
+        int[] setup = client.getGameState() == GameState.LOGGED_IN && accountDataLoaded.get() && hasProfile() ? widgetResolver.sellSetup() : null;
+        Suggestion quote = setup == null || !offerTracker.hasCompleteOfferEvidence() ? null
+            : com.flippingfriend.model.ManualSalePrice.quote(setup[0], setup[1],
+                accountMonitor.getState().getInventoryHoldings().getOrDefault(setup[0], 0),
+                marketData.getSnapshot(), Instant.now());
+        Suggestion previous = stepGuide.getSuggestion();
+        stepGuide.setEditorQuote(quote);
+        if (panel != null && !stepGuide.getSuggestion().sameAs(previous)) panel.refresh();
+    }
 
 	@Subscribe
 	public void onMenuOptionClicked(MenuOptionClicked event)
@@ -393,7 +412,7 @@ public class FlippingFriendPlugin extends Plugin
 	}
 
 	/**
-	 * The heartbeat. Runs off the client thread, so it must never touch the client directly — the
+	 * The heartbeat. Runs off the client thread, so it must never touch the client directly â€” the
 	 * one thing it does need from the game is pushed to it by {@link #refreshAccountState()}.
 	 */
 	@Schedule(period = 2, unit = ChronoUnit.SECONDS, asynchronous = true)
@@ -467,32 +486,16 @@ public class FlippingFriendPlugin extends Plugin
 	 * Keeps the position book in step with what the account actually holds.
 	 * <p>
 	 * Only what the plugin bought is tracked. Opening your bank must not turn its contents into
-	 * flipping stock — a bank is gear, supplies and long-term holdings, and quietly deciding to
+	 * flipping stock â€” a bank is gear, supplies and long-term holdings, and quietly deciding to
 	 * sell it would be both wrong and alarming. Bank contents are still <em>read</em>, because a
-	 * position the plugin bought and then banked still needs to be sellable, but they are never
-	 * adopted as new positions unless the user explicitly asks.
+	 * position the plugin bought and then banked still needs to be sellable, but they never
+	 * enroll pre-existing belongings as new trade positions.
 	 */
 	private void syncHoldings(AccountState state)
 	{
 		Map<Integer, Integer> holdings = state.getHoldings();
 
-		Instant now = Instant.now();
-
-		// Carrying or wearing an item is ownership evidence, not permission to sell it.
-		// Explicit adoption respects trading preferences while reconciliation keeps all observations.
-		if (config.adoptExistingItems())
-		{
-			java.util.Set<String> blocked = SuggestionEngine.parseBlocked(config.blockedItems());
-			for (Map.Entry<Integer, Integer> entry : holdings.entrySet())
-			{
-				ItemMetadata metadata = marketData.getSnapshot().metadata(entry.getKey());
-				if (metadata != null
-					&& !blocked.contains(metadata.getName().toLowerCase(java.util.Locale.ROOT)))
-				{
-					positions.adoptExisting(entry.getKey(), metadata.getName(), entry.getValue(), now);
-				}
-			}
-		}
+		// Physical holdings never enroll trade stock, including an old saved adoption setting.
 
 		// Positive observations can reconcile ownership; missing container data is not a disposal.
 		positions.reconcile(holdings, offerTracker.listedForSale(), state.isBankSeen());
@@ -579,7 +582,7 @@ public class FlippingFriendPlugin extends Plugin
 			accountDataLoaded.set(true);
 			companion.resumeOfferReplay();
 			log.debug("loaded account data ({} journal entries)", journal.getHistory().size());
-			
+
 			long generation = offerObservationGeneration.get();
 			String profile = configManager.getRSProfileKey();
 			clientThread.invokeLater(() -> restoreCurrentOffers(generation, profile));
@@ -684,13 +687,13 @@ public class FlippingFriendPlugin extends Plugin
 		}
 
 		lastEngineRefresh = System.currentTimeMillis();
-		
+
 		clientThread.invokeLater(() ->
 		{
 			boolean isSetupOpen = widgetResolver.isSetupOpen();
 			int setupItemId = isSetupOpen ? client.getVarpValue(VarPlayerID.TRADINGPOST_SEARCH) : -1;
 			Suggestion active = stepGuide.getSuggestion();
-			
+
 			// Hold the reprice card still while the player is in the editor for that same item, and
 			// let it go the instant they are not.
 			//
@@ -721,11 +724,11 @@ public class FlippingFriendPlugin extends Plugin
 						clientThread.invokeLater(this::withdrawUnsupportedPriceAdvice);
 						return;
 					}
-					long stockReviewVersion = companion.stockReviewVersion();
+
 					// The companion owns new-entry portfolio selection. The legacy engine remains here only
 					// for collect/sell recovery while its equivalent companion workflows are introduced.
 					long markedDrawdown = com.flippingfriend.session.SessionRisk.markedDrawdown(
-						journal.sessionStats(), positions, marketData.getSnapshot(), taxCalculator);
+						journal.sessionStats(), engine.tradingPositions(), marketData.getSnapshot(), taxCalculator);
 
 					long bankroll = accountMonitor.getState().spendableCoins(config.includeBankValue(), config.bankrollCap());
 					if (bankroll > 0 && markedDrawdown > bankroll * 0.15)
@@ -848,9 +851,9 @@ public class FlippingFriendPlugin extends Plugin
 						withdrawUnsupportedPriceAdvice();
 						return;
 					}
-					Suggestion current = stockReviewVersion != companion.stockReviewVersion()
-						|| (settled.getType() == SuggestionType.SELL && engine.reviewedOutOfTrading(settled.getItemId()))
-						? Suggestion.waiting("Holding review changed", "Recomputing guidance for your trading stock.") : settled;
+                    if (observedGeneration != offerObservationGeneration.get()) return;
+                    Suggestion current = settled;
+
 					stepGuide.setSuggestion(current);
 					panel.refresh();
 				});
@@ -991,14 +994,14 @@ public class FlippingFriendPlugin extends Plugin
 			int itemId = pos.getItemId();
 			com.flippingfriend.data.LatestPrice latest = snapshot.latest(itemId);
 			com.flippingfriend.data.Candle avg = snapshot.fiveMinute(itemId);
-			
+
 			if (latest != null && avg != null && avg.getAvgHighPrice() != null && avg.getAvgHighPrice() > 0)
 			{
 				double drop = 1.0 - ((double) latest.getLow() / avg.getAvgHighPrice());
 				if (drop > 0.10 && alertedDumps.add(itemId)) // 10% sudden drop
 				{
 					String msg = "\u26A0\uFE0F **PRICE DUMP ALERT** \u26A0\uFE0F\n" +
-						"Your held item **" + pos.getItemName() + "** has dropped by " + String.format("%.1f%%", drop * 100) + 
+						"Your held item **" + pos.getItemName() + "** has dropped by " + String.format("%.1f%%", drop * 100) +
 						" in the last 5 minutes!";
 					// discordWebhook.sendMessage(webhook, msg);
 					notifier.notify(msg);

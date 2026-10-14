@@ -271,7 +271,7 @@ public class CompanionClient
 			// until this travelled it planned every leg at the risk appetite's own horizon however
 			// short or long a flip the player had asked for.
 			config.targetHoldMinutes(), positionSnapshots).withAccountId(accountId)
-			.withStockDeclarations(stockDeclarations().read());
+			.withAutomaticTradeScope();
 		post("events/account-state", snapshot);
 	}
 
@@ -310,6 +310,7 @@ public class CompanionClient
                                 }
                                 return builder.build();
                         });
+                        lastLedger = null;
                         rememberCanonicalOffer(event);
                         replayPendingOffers();
                 }
@@ -337,6 +338,7 @@ public class CompanionClient
                                         .accountId(expectedAccountId)
                                         .eventIdentity(eventId, sessionId, null).slot(slot)
                                         .sequence(sequence).build());
+                        lastLedger = null;
                         canonicalOffers.remove(slot);
                         replayPendingOffers();
                 }
@@ -409,9 +411,17 @@ public class CompanionClient
 	{
 		String currentAccount = accountContext();
 		com.flippingfriend.core.AccountLedgerSnapshot current = lastLedger;
+
 		long age = current == null ? Long.MAX_VALUE : Instant.now().getEpochSecond() - current.getObservedAt();
 		return age < 0 || age > 150 || !java.util.Objects.equals(currentAccount, current.getAccountId()) ? null : current;
 	}
+
+    /** Trading instructions wait for all observed executions to reach the durable ledger. */
+    public com.flippingfriend.core.AccountLedgerSnapshot tradingLedger() {
+        try { if (!outbox.pending().isEmpty()) return null; }
+        catch (Exception unavailable) { return null; }
+        return lastLedger();
+    }
 
 	/**
 	 * The trade to recommend, held steady between plans.

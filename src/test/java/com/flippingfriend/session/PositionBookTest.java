@@ -161,4 +161,19 @@ public class PositionBookTest
         assertEquals(10, book.get(MAGIC_LOGS).getQuantity());
         assertEquals(0, book.get(MAGIC_LOGS).getTotalCost());
     }
+
+    @Test
+    public void aNewBuyCannotPriceOrEnrollLegacyPersonalUnits() throws Exception
+    {
+        PositionBook book = bookAt(folder.newFolder("legacy-buy").toPath());
+        book.adoptExisting(MAGIC_LOGS, "Magic logs", 6000, Instant.now());
+        book.recordBuy(MAGIC_LOGS, "Magic logs", 100, 10000, Instant.now());
+        assertEquals(6000, book.get(MAGIC_LOGS).getQuantity());
+        org.junit.Assert.assertFalse(book.get(MAGIC_LOGS).isCostKnown());
+        Position.Removal sale=book.recordSell(MAGIC_LOGS,6100);
+        assertEquals(0,sale.getBackedQuantity());
+        Position.Removal claim=book.claimUnaccounted(MAGIC_LOGS,6100);
+        assertEquals(100,claim.getBackedQuantity()); assertEquals(10000,claim.getCostBasis());
+        assertEquals(6000,claim.getUnbackedQuantity());
+    }
 }

@@ -164,16 +164,38 @@ public class SuggestionEngine
 	private final AtomicReference<List<EvaluatedCandidate>> lastEvaluated =
 		new AtomicReference<>(Collections.emptyList());
 	private final SkipList skipped;
-	@Inject private com.flippingfriend.session.StockDeclarations stockDeclarations;
+    @Inject private com.flippingfriend.companion.CompanionClient companion;
+    @Inject private com.flippingfriend.session.SellRelistIntent sellRelist;
 
-	public Collection<Position> tradingPositions()
-	{
-		List<Position> held = new ArrayList<>(positions.all());
-		if (stockDeclarations != null) held.removeIf(stockDeclarations::excludesLocal);
-		return held;
-	}
-	public boolean reviewedOutOfTrading(int itemId)
-	{ return stockDeclarations != null && stockDeclarations.excludesLocal(positions.get(itemId)); }
+    public boolean hasTradeEvidence() {
+        var ledger = companion == null ? null : companion.tradingLedger();
+        return ledger != null && ledger.getTradingPositions() != null;
+    }
+    public Collection<Position> tradingPositions()
+    {
+        // The local book remains a delivery/journal cache. Runtime exits use durable acquisition evidence.
+        if (companion == null) {
+            List<Position> fixtures = new ArrayList<>(positions.all());
+            fixtures.removeIf(p -> !p.isCostKnown());
+            return fixtures;
+        }
+        var ledger = companion.tradingLedger();
+        if (ledger == null || ledger.getTradingPositions() == null) return Collections.emptyList();
+        List<Position> held = new ArrayList<>();
+        for (var p : ledger.getTradingPositions()) {
+            Position position = new Position(p.getItemId(), p.getItemName(), p.getQuantity(),
+                p.getTotalCost(), p.getOpenedAt(), true);
+            tradePlans.applyTo(position);
+            held.add(position);
+        }
+        return held;
+    }
+    private Position tradingPosition(int itemId) {
+        for (Position p : tradingPositions()) if (p.getItemId() == itemId) return p;
+        return null;
+    }
+    public boolean reviewedOutOfTrading(int itemId)
+    { return tradingPosition(itemId) == null; }
 
 	@Inject
 	public SuggestionEngine(MarketDataService marketData, FeatureEngine featureEngine,
@@ -403,6 +425,15 @@ public class SuggestionEngine
 		{
 			return replace;
 		}
+
+        if (sellRelist != null) {
+            int[] remaining = sellRelist.collectedRemainder(offers);
+            if (remaining != null && account.getFreeSlots() > 0) {
+                Suggestion relist = ManualSalePrice.quote(remaining[0], remaining[1],
+                    account.getInventoryHoldings().getOrDefault(remaining[0], 0), market, now);
+                if (relist != null) return relist;
+            }
+        }
 
 		// Sells, then modifications, then buys.
 		//
@@ -725,9 +756,9 @@ public class SuggestionEngine
 				// Below break-even this is not a repricing decision at all, it is a decision to take a loss,
 				// and that belongs to SellTimingEngine: it holds while the position is above its stop and
 				// cuts when it is not. Say nothing here and let it answer.
-				Position position = positions.get(offer.getItemId());
+				Position position = tradingPosition(offer.getItemId());
 				boolean costKnown = position != null && position.isCostKnown()
-					&& position.getAverageCost() > 0;
+					&& position.getAverageCost() > 0 && remaining <= position.getQuantity();
 				int breakEven = costKnown
 					? taxCalculator.breakEvenSellPrice(offer.getItemId(), position.getAverageCost()) : 0;
 				boolean isCut = false;
@@ -781,13 +812,15 @@ public class SuggestionEngine
 				}
 
 				// What the new price is actually worth. The reprice card carried no figure at all, so a
-				long change = taxCalculator.netProfit(offer.getItemId(), costKnown ? position.getAverageCost() : 0, newPrice, remaining);
+				long change = costKnown ? taxCalculator.netProfit(offer.getItemId(), position.getAverageCost(), newPrice, remaining) : 0;
+                if (sellRelist != null) sellRelist.advise(offer);
 				return Suggestion.builder(SuggestionType.MODIFY_SELL)
 					.item(offer.getItemId(), name)
 					.slot(offer.getSlot())
 					.price(newPrice)
 					.quantity(remaining)
 					.expectedProfit(change)
+                    .profitKnown(costKnown)
 					.lossCut(isCut)
 					.headline(isCut ? "Cut your losses on " + name : "Your " + name + " offer is too high")
 					.detail((isCut
@@ -1001,7 +1034,7 @@ public class SuggestionEngine
 	private Suggestion sellOnlyIdle()
 	{
 		return Suggestion.waiting("Sell-only mode is on",
-			positions.isEmpty()
+			tradingPositions().isEmpty()
 				? "Everything is sold and no new trades will be suggested. Log in again, or switch "
 					+ "sell-only off, to start trading."
 				: "No new trades will be suggested. What you still hold will be offered for sale as "
@@ -1388,7 +1421,7 @@ public class SuggestionEngine
 	private Suggestion sellSuggestion(MarketSnapshot market, TradingHorizon horizon, AccountState account,
 		Instant now)
 	{
-		if (positions.isEmpty())
+		if (tradingPositions().isEmpty())
 		{
 			positionStatuses.set(Collections.emptyMap());
 			return null;
@@ -2007,7 +2040,7 @@ public class SuggestionEngine
 		Map<Integer, Long> byItem = new HashMap<>();
 		Map<String, Long> byGroup = new HashMap<>();
 
-		for (Position position : positions.all())
+		for (Position position : tradingPositions())
 		{
 			long value = position.isCostKnown()
 				? position.getTotalCost()

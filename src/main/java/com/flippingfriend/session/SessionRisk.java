@@ -37,6 +37,11 @@ public final class SessionRisk
 	public static long markedDrawdown(SessionStats stats, PositionBook positions,
 		MarketSnapshot market, TaxCalculator tax)
 	{
+        return markedDrawdown(stats, positions == null ? java.util.Collections.emptyList() : positions.all(), market, tax);
+    }
+    public static long markedDrawdown(SessionStats stats, java.util.Collection<Position> positions,
+            MarketSnapshot market, TaxCalculator tax)
+    {
 		long realised = stats == null ? 0 : stats.getProfit();
 		long unrealised = unrealisedProfit(positions, market, tax);
 		long net = realised + unrealised;
@@ -44,7 +49,7 @@ public final class SessionRisk
 	}
 
 	/** Mark-to-market profit on everything still held, at what it would net if sold now. */
-	private static long unrealisedProfit(PositionBook positions, MarketSnapshot market,
+	private static long unrealisedProfit(java.util.Collection<Position> positions, MarketSnapshot market,
 		TaxCalculator tax)
 	{
 		if (positions == null || market == null || !market.isUsable())
@@ -53,7 +58,7 @@ public final class SessionRisk
 		}
 
 		long total = 0;
-		for (Position position : positions.all())
+		for (Position position : positions)
 		{
 			if (!position.isCostKnown() || position.getQuantity() <= 0)
 			{
