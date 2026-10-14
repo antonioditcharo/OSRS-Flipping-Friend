@@ -184,6 +184,27 @@ try {
             Copy-Item -LiteralPath $entry[0] -Destination (Join-Path $backup $entry[1]) -Force
         } else { Write-Host "Backup source absent: $($entry[0])" }
     }
+    # The plugin keeps its profile records beside companion/, not in the companion's hashed scopes.
+    # Preserve this tree as stored, including default/ and parked history, without interpreting it.
+    $pluginAccounts = Join-Path $dataRoot 'accounts'
+    if (Test-Path -LiteralPath $pluginAccounts) {
+        if (-not (Test-Path -LiteralPath $pluginAccounts -PathType Container)) { throw 'Plugin account data location is not a directory.' }
+        $pending = [System.Collections.Generic.Stack[string]]::new()
+        $pending.Push($pluginAccounts)
+        while ($pending.Count -gt 0) {
+            $directory = $pending.Pop()
+            if ((Get-Item -LiteralPath $directory -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) {
+                throw 'Plugin account backup contains a link; inspect it read-only before installing.'
+            }
+            foreach ($entry in @(Get-ChildItem -LiteralPath $directory -Force)) {
+                if ($entry.Attributes -band [IO.FileAttributes]::ReparsePoint) {
+                    throw 'Plugin account backup contains a link; inspect it read-only before installing.'
+                }
+                if ($entry.PSIsContainer) { $pending.Push($entry.FullName) }
+            }
+        }
+        Copy-Item -LiteralPath $pluginAccounts -Destination (Join-Path $backup 'plugin-accounts') -Recurse
+    } else { Write-Host 'No plugin account records directory observed.' }
     $accounts = Join-Path $logDir 'accounts'
     foreach ($directory in @($logDir, $accounts)) {
         if ((Test-Path -LiteralPath $directory) -and

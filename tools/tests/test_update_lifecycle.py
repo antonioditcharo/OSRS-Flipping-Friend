@@ -469,6 +469,34 @@ class UpdateLifecycleTest(unittest.TestCase):
         self.assertNotIn("copy-plugin", result["events"], self.output)
         self.assertNotIn("start-task", result["events"], self.output)
 
+    def test_link_in_plugin_account_records_blocks_backup_and_confirmation(self):
+        plugin_accounts = self.properties.parent.parent / "accounts"
+        plugin_accounts.mkdir()
+        target = self.fixture / "unassigned-records"
+        target.mkdir()
+        (target / "journal.jsonl").write_bytes(b"linked-history-sentinel")
+        link = plugin_accounts / "rsprofile_link"
+        if os.name == "nt":
+            quoted_link = str(link).replace("'", "''")
+            quoted_target = str(target).replace("'", "''")
+            created = subprocess.run(
+                [self.shell, "-NoProfile", "-NonInteractive", "-Command",
+                 "$ErrorActionPreference = 'Stop'; New-Item -ItemType Junction "
+                 f"-Path '{quoted_link}' -Value '{quoted_target}' | Out-Null"],
+                capture_output=True, text=True, timeout=20,
+            )
+            self.assertEqual(0, created.returncode, created.stdout + created.stderr)
+        else:
+            link.symlink_to(target, target_is_directory=True)
+        result = self.run_update()
+        self.assertIn("Plugin account backup contains a link", result["error"], self.output)
+        self.assertFalse(any(event.startswith("prompt:") for event in result["events"]))
+        self.assertNotIn("copy-plugin", result["events"], self.output)
+        self.assertNotIn("start-task", result["events"], self.output)
+        backup = next((self.properties.parent.parent / "backups").iterdir())
+        self.assertFalse((backup / "plugin-accounts").exists())
+        self.assertEqual(b"linked-history-sentinel", (target / "journal.jsonl").read_bytes())
+
     def test_incomplete_copy_cannot_start_or_claim_success(self):
         self.scenario["failCompanionCopy"] = True
         result = self.run_update()
