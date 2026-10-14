@@ -8,6 +8,15 @@ The goal is to match Flipping Copilot's player workflows and eventually exceed i
 account GP/hour. That result has not yet been demonstrated. The current priorities, source-backed
 assessment, feature matrix, and benchmark contract are in [Project direction](docs/project-direction.md).
 
+## Compact sidebar review
+
+The pending combined review replaces the stacked sidebar with a Flipping Copilot-style action
+panel: current trade, graph/pause/block/skip, 5m/30m/2h/8h cadence, risk and durable recorded profit.
+Gear opens preferences; More opens holdings, history, plan, full recommendation and Missed flips.
+It includes pending automatic ownership, walkthrough and search/input changes; it is not installed
+or merged. See [workflow and acceptance](docs/architecture/compact-panel.md),
+[native visual QA](design-qa.md) and [rendered preview](docs/images/compact-buy.png).
+
 ## Current status
 
 The GitHub default and active development branch is **`CoPilot's-Rebuild-from-Main`**.

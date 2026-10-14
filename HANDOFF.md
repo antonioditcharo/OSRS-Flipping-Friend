@@ -3,6 +3,71 @@
 Updated 14 October 2026 (America/Anchorage). Read this with [AGENTS.md](AGENTS.md) and
 [TASKS.md](TASKS.md) before continuing implementation.
 
+## Compact sidebar and combined review — 14 October 2026
+
+**Newest review source: `codex/copilot-panel`; not installed or merged.** It starts from rebuild
+`5ac97048c0fc44a513cc86564867406479b0d8db`, includes combined integration
+`d0bbef8038341c80a25cd44fe7e43355d3465ca1` (PR #40/#41/#42 behavior), and merges PR #42's final
+`8aebbed4636591458463311fe6207106a544e273` documentation boundary. Original PR heads remain
+unchanged and open. Review this as one coherent candidate; coordinate overlap before merging
+earlier slices. Historical main is untouched.
+
+One Copilot-style instruction, exact quantity/price, graph/pause/block/skip, real 5m/30m/2h/8h
+presets, risk, durable Recorded profit and cash/free slots replace the old stack. Gear and More
+open Settings and existing record consumers in modeless details; Missed flips remains separate
+and read-only. SuggestionCard, OnboardingCard and CollapsibleSection are deleted. Plugin injection,
+refresh and shutdown connections remain. See [workflow/source map](docs/architecture/compact-panel.md),
+[native visual QA](design-qa.md) and [synthetic capture](docs/images/compact-buy.png).
+
+Pause withdraws walkthrough/editor/search/input advice and advisory notifications, fencing queued
+key fills across pause/resume even with identical fresh advice. Observation/accounting continues.
+Resume refreshes; account reset clears pause. New 120/480-minute values reach existing horizon and
+account contracts; legacy 180-minute settings remain visibly custom. Unknown-cost sales and durable
+ranges/unavailable states remain intact. No fabricated session reset, GP/hour or journal fallback.
+
+Regression trail: `e3ebc21` specifies the replacement contract (five failures on the old panel);
+`f0fbf6e` implements it with the failing custom-selection case, corrected at `20a8b99`.
+`f58790c` / `60f1010` cover native wrapping, including a corrected FlatLaf measurement fixture;
+`f05dc4b` fixes the real 16px/48px long-item clip. `b3bd364` reproduces Settings alignment.
+Source `a08eb43e56b25f0fb41499fc1d2ff1a9f855329d` fixes it and records icon attribution.
+Final source `d1191f891e518c7cf236e4640b4010ae48cff1dd` hides the obsolete intro preference,
+preserving its saved key. No inactive intro-card toggle is left in RuneLite configuration.
+
+Final local Java verification on 14 October 2026, source `d1191f8`:
+
+```text
+RuneLite process count: 0
+.\gradlew.bat clean test jar :companion:shadowJar --console=plain
+BUILD SUCCESSFUL in 33s
+18 actionable tasks: 18 executed
+FINAL_CLEAN_BUILD_EXIT=0
+Root: 562 tests, 0 failures, 0 errors, 0 skipped
+Core: 166 tests, 0 failures, 0 errors, 0 skipped
+Companion: 555 tests, 0 failures, 0 errors, 6 skipped
+Total: 1,277 passed, 6 skipped, 0 failures/errors
+python -m unittest discover -s tools/tests -v
+Ran 48 tests in 78.292s
+OK
+Plugin JAR: 447,872 bytes
+Companion JAR: 17,782,640 bytes
+Project class bytecode: major 55 (Java 11), both JARs
+```
+
+Logs: `.gradle/compact-panel-final-clean.log` and `.gradle/compact-panel-python.log`, outside build.
+The Python tooling check ran during the earlier clean verification at `a08eb43`; tooling sources
+did not change afterward. Both complete Java builds passed with the same test counts.
+A preliminary unqualified `test --tests ...` passed selected root tests but failed because companion
+had no matching tests; targeted invocations were corrected to `:test`. Final verification runs every
+module without filters. No final result is inferred from that preliminary failure.
+
+Live pipeline-check output: **not run for this slice**. Installation, scaling/focus and game
+acceptance: **pending owner**. No game input, installation, scheduled-task/runtime change, database
+repair/migration/edit or trade action occurred. Last recorded runtime remains PR #37 `49934e44`;
+it was not reinspected by this source-only task. Existing durable reconciliation faults and PR #31
+live checklist remain unresolved. After CI and owner approval, merge the candidate, update the
+normal rebuild checkout and use its paired backup/update wrapper. Never install from this temporary
+worktree or repair a database to make a check pass. GitHub and final-head checks follow when available.
+
 ## Automatic trade scope source implementation — 14 October 2026
 
 Source commit `fe8e72c3170659923570f2f83954baa27d04f6f1` on `codex/automatic-trade-scope`, based on rebuilt/default

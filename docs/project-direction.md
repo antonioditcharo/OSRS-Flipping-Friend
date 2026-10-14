@@ -21,8 +21,9 @@ local companion; repair their authority and accounting boundaries before replaci
 
 The owner specified 100M GP, a members account, and checks every 5 minutes, 30 minutes, 2 hours,
 and 8 hours. These are four separate benchmark scenarios, each with eight GE slots. The current
-`CheckInterval` options include 5m and 30m but only a 3h long-interval option; explicit 2h and 8h
-support belongs in the benchmark and subsequent player settings. Never substitute 3h for either.
+`codex/copilot-panel` review source now exposes actual 5m, 30m, 2h and 8h settings and preserves
+legacy custom values. That source is not yet installed or merged; earlier builds had only 3h
+as their long-interval option. Never substitute 3h for either benchmark cadence.
 
 Primary operational metric: realized net trading profit / measured elapsed session hours,
 with a documented session-time policy. Waiting and completed-but-uncollected offers consume time.

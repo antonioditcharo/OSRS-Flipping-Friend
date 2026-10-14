@@ -9,6 +9,18 @@
       local records and must migrate with positive reconciliation evidence.
 
 ## Next
+- [ ] Review the consolidated `codex/copilot-panel` candidate, including pending PR #40/#41/#42
+      plus the compact native sidebar. Original PRs remain unchanged/open; coordinate overlap
+      before merging. Final Java source `d1191f8`: 1,277 passed, six existing skips; 48 Python
+      tooling tests passed earlier in this slice with tooling unchanged afterward.
+      Java 11 JARs built, RuneLiteLAF renders and connected controls verified. One current action,
+      real cadence presets, risk and durable recorded profit replace the accordion stack.
+      Settings/records/graphs open separately. See docs/architecture/compact-panel.md and design-qa.md.
+      Await both final-head CI checks and owner approval; then use a reviewed fresh backup/paired
+      update from the normal checkout. Live pipeline, scaling/window behavior, pause/resume,
+      search/key/Confirm and automatic ownership acceptance remain pending. Reconciliation faults
+      and PR #31 checklist are not cleared. No database editing or game automation.
+
 - [ ] Review, merge/reconcile and live-verify the search/input follow-up on `codex/trade-input-assist`,
       stacked on pending PR #41 without changing either original PR. Test-first `b6bfe47` specifies
       new features; implementation `0abf74c` includes two failing queued-input regressions fixed at

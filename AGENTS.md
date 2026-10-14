@@ -22,6 +22,10 @@ are in `docs/project-direction.md`; historical package notes are not proof of ru
   Put incomplete trade evidence in a separately opened Missed flips window, preserving live
   exposure guards and account data. See `docs/architecture/automatic-trade-scope.md` for the target
   workflow and regression gate. Source implementation is present; paired installation and live acceptance remain pending.
+- Keep the sidebar compact: current guided action, controls and durable recorded profit. Open
+  explanations, holdings/history/plan and settings separately; do not restore the old accordion
+  stack or label recorded totals as session profit. Preserve actual 5m/30m/2h/8h and visibly custom
+  legacy intervals. See docs/architecture/compact-panel.md.
 - Keep account-scoped API/database isolation intact. The old unscoped database is preserved and
   unassigned; do not infer its owner or merge it into a live account. One authoritative ledger
   for the planner, exits, UI, and reporting remains the next prerequisite for strategy tuning.
