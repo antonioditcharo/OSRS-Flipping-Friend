@@ -34,10 +34,11 @@ final class TradeGapEvidence {
             }
             Slot next=prior==null?new Slot(e.getSessionId()):prior;
             if (!ordered) next.trusted=false;
-            // A witnessed terminal followed by EMPTY separates later offer episodes. Past gap
-            // mappings have already been retained; clearing this context does not dispose stock.
+            // A terminal followed by an unambiguous EMPTY separates later offer episodes. A clear
+            // recorded as RECONCILE retains its context for subsequent rejected observations.
+            // Neither operation disposes stock or removes the already retained gap mappings.
             if ("EMPTY".equals(e.getEventType())) {
-                if (ordered && next.terminal) next.items.clear();
+                if (ordered && next.terminal && !gaps.containsKey(e.getEventId())) next.items.clear();
                 next.terminal=false;
             } else {
                 next.items.add(e.getItemId());
