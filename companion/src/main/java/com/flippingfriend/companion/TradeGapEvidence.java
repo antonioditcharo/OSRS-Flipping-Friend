@@ -14,14 +14,13 @@ final class TradeGapEvidence {
         gaps.keySet().forEach(id->result.put(id,Collections.emptySet()));
         return result;
     }
-    static Map<String,Set<Integer>> scope(List<OfferEvent> history,Map<String,Integer> gaps) {
+    static Map<String,Set<Integer>> scope(List<OfferEvent> history,Map<String,Integer> gaps,String account) {
         Map<String,Set<Integer>> result=unknown(gaps);
+        try { AccountIdentity.require(account); } catch (IllegalArgumentException unavailable) { return result; }
         Map<Integer,Slot> slots=new HashMap<>();
         Set<String> eventIds=new HashSet<>();
-        String account=null;
         for (OfferEvent e:history) {
             if (!valid(e) || !eventIds.add(e.getEventId())) return unknown(gaps);
-            if (account==null) account=e.getAccountId();
             if (!account.equals(e.getAccountId())) return unknown(gaps);
             Slot prior=slots.get(e.getSlot());
             boolean ordered=prior==null || (prior.trusted && prior.session.equals(e.getSessionId())
@@ -61,7 +60,7 @@ final class TradeGapEvidence {
         if ("EMPTY".equals(e.getEventType())) return e.getItemId()==0 && !e.isBuying()
             && e.getPrice()==0 && e.getTotalQuantity()==0 && e.getFilledQuantity()==0 && e.getSpent()==0
             && blank(e.getOfferIdentity());
-        if (!NONEMPTY.contains(e.getEventType()) || e.getItemId()<=0 || blank(e.getOfferIdentity())
+        if (blank(e.getEventType()) || !NONEMPTY.contains(e.getEventType()) || e.getItemId()<=0 || blank(e.getOfferIdentity())
                 || e.getPrice()<=0 || e.getTotalQuantity()<=0 || e.getFilledQuantity()<0
                 || e.getFilledQuantity()>e.getTotalQuantity() || e.getSpent()<0) return false;
         boolean buy=e.getEventType().equals("BUYING") || e.getEventType().equals("BOUGHT")
