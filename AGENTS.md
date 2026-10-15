@@ -63,6 +63,11 @@ are in `docs/project-direction.md`; historical package notes are not proof of ru
   earliest recorded source before pairing execution statistics. Unknown or mismatched original
   advice stays unpaired. This is observational association, not proven intent or exact fill timing.
   See docs/architecture/execution-prediction-provenance.md; censoring/evaluation remain open in #56.
+  Prospective timing reads preserve placement, first-fill and full-completion intervals; cancellations
+  censor at the last confirmed active capture. Do not turn offline time or historical aggregate
+  ratios into exact fills or a waiting multiplier. Runtime uses the public-price baseline until
+  chronological challenger promotion gates pass; counts alone cannot authorize learning. See
+  docs/architecture/execution-observation-intervals.md. This promotion fence is not finished learning.
 - Automatic runtime entry risk must use the durable prospective account window, realized profit
   bounds, uncertainty reserves and fresh taxed marks. Restart cannot reset its loss allowance.
   Client journal drawdown or wire-supplied canonicalRisk cannot authorize buys. Unknown profit stays
