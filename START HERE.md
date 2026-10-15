@@ -3,6 +3,10 @@
 Use these files from the **current rebuild folder**. An old desktop shortcut can still point to a
 previous checkout; re-setup replaces it after installing the current pair.
 
+For the compact sidebar and combined trade changes, start with
+[HOME TEST CHECKLIST.md](HOME%20TEST%20CHECKLIST.md). PR #43 must be approved/merged and this
+checkout updated before installing that candidate. The numbered Update wrapper does not fetch Git.
+
 | What you need | Double-click |
 | --- | --- |
 | First installation | `1 - First Time Setup.bat` |
@@ -83,18 +87,20 @@ Record the output. It makes read-only requests and posts no synthetic trades. Th
 partial buy, cancel/collect, full sale and restart checks in [HANDOFF.md](HANDOFF.md) remain manual.
 No live success or profit superiority is established by the automated build.
 
-## Reviewing old unpriced holdings
+## Inventory and trade records
 
-If new buys are paused for holdings reconciliation, open **Review holdings** in the plugin panel.
-For an unpriced personal supply or equipment item, choose **Personal item**. For an old entry you
-have completely sold or otherwise no longer hold (including in the bank or collection boxes), choose
-**I no longer hold this**. Use **Clear review** to undo a choice. Keep uncertain items under review.
+Personal supplies and equipment do not require classification. **More > Holdings** contains
+remaining managed purchases with acquisition evidence; merely owning an item or seeing it in old
+history does not enroll every owned unit. The old Review holdings controls are removed.
 
-These choices are saved separately for the current account. Original purchase/sale records and
-unknown historical profit stay unchanged. A matching review can remove an old unpriced entry from
-trading decisions; current offers and changed position evidence still require investigation. A
-position with recorded cost cannot be excluded here. Run the read-only pipeline check again after
-review; declarations alone do not guarantee an eligible buy or establish a profit-per-hour result.
+To get a current price for another owned item, select it yourself in a GE SELL setup. Opening that
+setup records no trade. If you place a sell, its observed offer enters maintenance; unknown
+acquisition cost/profit stays unknown. **More > Missed flips** opens incomplete/uncertain recorded
+evidence separately. It does not repair accounting or change ownership.
+
+If entries remain blocked for reconciliation, preserve the exact message and pipeline output.
+Some existing faults still require investigation; the UI update does not guarantee new buys.
+Do not edit a database or classify personal belongings to bypass a real exposure fault.
 
 ## Removing the installation
 
@@ -105,7 +111,7 @@ listener cannot be stopped safely. Developer source builds also remain in the pr
 ## Project and preferences
 
 See [README.md](README.md) for supported components and [TASKS.md](TASKS.md) for remaining work.
-The live verification checkpoint is in [HANDOFF.md](HANDOFF.md). Settings cover membership, checking
-cadence, spending/risk preferences and adoption of personal stock. Physical ownership remains visible
-even for blocked items. Unknown cost and incomplete evidence must not become invented profit.
-Explicit 2h/8h benchmark settings remain pending; do not substitute the 3h option.
+The live verification checkpoint is in [HANDOFF.md](HANDOFF.md). Settings cover membership,
+checking cadence and spending/risk preferences. The compact panel has actual 5m/30m/2h/8h presets;
+older custom intervals remain available with their real minutes. Physical ownership remains
+independent of exclusions. Unknown cost and incomplete evidence must not become invented profit.

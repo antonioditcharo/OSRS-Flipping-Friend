@@ -9,6 +9,9 @@
       local records and must migrate with positive reconciliation evidence.
 
 ## Next
+- [ ] Follow root HOME TEST CHECKLIST.md for the current combined candidate. The obsolete
+      classification/review directions in START HERE have been replaced. Approval/merge, paired
+      backup review/install and player-operated baseline/UI/trade/restart acceptance remain pending.
 - [ ] Review [consolidated PR #43](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/43)
       on `codex/copilot-panel`, including pending PR #40/#41/#42
       plus the compact native sidebar. Original PRs remain unchanged/open; coordinate overlap

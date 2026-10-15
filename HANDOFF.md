@@ -5,6 +5,13 @@ Updated 14 October 2026 (America/Anchorage). Read this with [AGENTS.md](AGENTS.m
 
 ## Compact sidebar and combined review — 14 October 2026
 
+Completeness follow-up: root [HOME TEST CHECKLIST.md](HOME%20TEST%20CHECKLIST.md) gives the
+approved-merge gate, guarded regular-checkout update, backup-review pause and ordered live checks.
+START HERE no longer tells users to classify personal holdings or says 2h/8h are missing. No source
+behavior changes accompany this follow-up. Final implementation head `e4dd4d2` passed both checks
+in [run 38653571963](https://github.com/antonioditcharo/OSRS-Flipping-Friend/actions/runs/38653571963).
+Any later documentation head still requires both current checks and owner approval before merge.
+
 **Newest review source: `codex/copilot-panel`; not installed or merged.** It starts from rebuild
 `5ac97048c0fc44a513cc86564867406479b0d8db`, includes combined integration
 `d0bbef8038341c80a25cd44fe7e43355d3465ca1` (PR #40/#41/#42 behavior), and merges PR #42's final
