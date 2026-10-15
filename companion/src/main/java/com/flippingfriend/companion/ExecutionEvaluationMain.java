@@ -46,11 +46,14 @@ public final class ExecutionEvaluationMain {
         var evaluation=new ExecutionHorizonEvaluation(snapshot.observations(),null);
         byte[] sources=bytes(snapshot),scores=bytes(evaluation);
         if(sources.length>MAX_FILE_BYTES || scores.length>MAX_FILE_BYTES)throw new IllegalArgumentException("Evaluation exceeds the explicit 256 MiB file limit; no prefix was truncated");
-        Manifest manifest=new Manifest(snapshot,revision,hash(sources),hash(scores),artifactHash());
+        byte[] artifact=artifactBytes();
+        if(artifact!=null && artifact.length>MAX_FILE_BYTES)throw new IllegalArgumentException("Evaluator artifact exceeds the explicit file limit");
+        Manifest manifest=new Manifest(snapshot,revision,hash(sources),hash(scores),artifact==null?null:hash(artifact));
         Files.createDirectories(target.getParent());Files.createDirectory(target);
         // A manifest appears last; interrupted/incomplete directories are never accepted by verify.
         Files.write(target.resolve("sources.json"),sources,StandardOpenOption.CREATE_NEW);
         Files.write(target.resolve("evaluation.json"),scores,StandardOpenOption.CREATE_NEW);
+        if(artifact!=null)Files.write(target.resolve("evaluator.jar.bin"),artifact,StandardOpenOption.CREATE_NEW);
         Files.write(target.resolve("manifest.json"),bytes(manifest),StandardOpenOption.CREATE_NEW);
     }
     static Verified verify(Path directory)throws Exception {
@@ -63,6 +66,9 @@ public final class ExecutionEvaluationMain {
                 || "JAR_SHA256".equals(manifest.codeIdentity) && manifest.artifactSha256!=null && manifest.artifactSha256.matches("[0-9a-f]{64}"))
             || !hash(sourceBytes).equals(manifest.sourceSha256) || !hash(scoreBytes).equals(manifest.evaluationSha256))
             throw new IllegalArgumentException("Manifest version or file hashes do not match");
+        if("JAR_SHA256".equals(manifest.codeIdentity)
+            && !hash(read(directory,"evaluator.jar.bin")).equals(manifest.artifactSha256))
+            throw new IllegalArgumentException("Retained evaluator artifact does not match its manifest");
         var snapshot=JSON.fromJson(new String(sourceBytes,StandardCharsets.UTF_8),ExecutionSourceSnapshot.class);
         if(snapshot==null || !Objects.equals(manifest.accountId,snapshot.accountId)
             || !Objects.equals(manifest.capturedAt,snapshot.capturedAt) || !Objects.equals(manifest.sourceCursor,snapshot.sourceCursor)
@@ -103,9 +109,11 @@ public final class ExecutionEvaluationMain {
         byte[] digest=MessageDigest.getInstance("SHA-256").digest(bytes);StringBuilder hex=new StringBuilder();
         for(byte value:digest)hex.append(String.format(Locale.ROOT,"%02x",value&255));return hex.toString();
     }
-    private static String artifactHash()throws Exception {
+    private static byte[] artifactBytes()throws Exception {
         Path source=Path.of(ExecutionEvaluationMain.class.getProtectionDomain().getCodeSource().getLocation().toURI());
-        return Files.isRegularFile(source) && source.getFileName().toString().endsWith(".jar")?hash(Files.readAllBytes(source)):null;
+        if(!Files.isRegularFile(source))return null;
+        if(Files.size(source)>MAX_FILE_BYTES)throw new IllegalArgumentException("Evaluator artifact exceeds the explicit file limit");
+        return Files.readAllBytes(source);
     }
     private static byte[] read(Path directory,String name)throws Exception {
         Path file=directory.resolve(name);
