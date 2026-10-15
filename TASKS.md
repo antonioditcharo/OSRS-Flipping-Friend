@@ -5,12 +5,14 @@ statements later in this file. Read [HANDOFF.md](HANDOFF.md) for exact evidence.
 
 ## Active
 
-- [ ] Install the queued #51/#52/#53 pair after renewed Windows administrator approval.
-      Player closed RuneLite; zero clients observed. The elevated supported updater did not start:
-      Start-Process returned "The operation was canceled by the user." No helper log/new backup/JAR
-      replacement occurred. Old #49 pair remains verified and companion Running (status exit 0).
-      Do not repeatedly request elevation after cancellation; the player question is already pending.
-      Fresh backup/paired install, actual risk/BUY proof and controlled live acceptance remain open.
+- [x] Install the combined #51/#52/#53 pair through the supported administrator Update shortcut.
+      Earlier agent helper was canceled before starting; owner opened the interactive updater.
+      Fresh backup 20261015-080957-c3a069ab verified before INSTALL: prior hashes, task action/owner,
+      3 companion files / 10,407,584 bytes and 22 plugin files / 1,499,405 bytes matched.
+      Installed plugin 469,023 and companion 17,832,054 bytes match builds/manifest and all tested
+      project classes. Status/1.13.2 compatibility/GET-only pipeline pass. Agent launched RuneLite.
+      Fresh scoped read: READY/four allocations, risk AVAILABLE/fresh/positive budget; final GET
+      returned ENTRY/PLACE_BUY. Actual UI/offer/fill/restart acceptance remains open; no game input.
 
 - [x] Deliver durable recommendation risk on codex/durable-risk-authority from rebuild 598fed3.
       Regression 774a521 reproduces foreign local-session profit; bb4339d isolates the local cache.
@@ -20,14 +22,14 @@ statements later in this file. Read [HANDOFF.md](HANDOFF.md) for exact evidence.
       JSON schema regressions 02744c7 precede the final fix. Standard: 1,373 Java passed/six skips,
       both Java 11 JARs, 44s; all 63 Python tests pass. PR #53 merged as 3362b62 after both checks at
       65d6f1f passed (run 38763296900). Normal rebuild clean/current; historical main unchanged.
-      Runtime is #49; pre-install status/compatibility/pipeline pass but no live risk/BUY proof.
+      Runtime now includes #53; current risk/entry GET proof passes as recorded above.
 
 - [x] Deliver atomic execution-evidence transaction on codex/atomic-execution-evidence from c915ea8.
       Verified write-failure regressions at e34927a precede fixes. Canonical acceptance, accounting,
       limits, dedup claim and eligible execution statistics now commit/roll back together. Existing
       keys/stats and incomplete-offer exclusions are preserved; no historical backfill/schema change.
       Standard: 1,350 Java passed/six skips, both JARs, 52s. PR #52 merged as 598fed3 after both
-      checks at e2b51c5 passed (run 38716858569). Installation remains batched/pending normal close.
+      checks at e2b51c5 passed (run 38716858569). Installed with #51/#53 in the combined pair above.
 
 - [x] Deliver planner-heartbeat follow-up on codex/coherent-plan-heartbeat from 70d8453.
       Live PR #49 observations recovered all current slots: zero ERROR/eight authenticated sources,
@@ -35,9 +37,8 @@ statements later in this file. Read [HANDOFF.md](HANDOFF.md) for exact evidence.
       unchanged. Installed planner still retained a transient reconciliation refusal. Regression
       025ed19 reproduces same-economics receipt rotation and spacing failures before source fixes.
       Standard: 1,346 Java passed/six skips, both JARs, 44s. PR #51 merged as c915ea8 after both
-      checks at e6ecb10 passed (run 38714913420). Supported paired update remains pending the normal
-      RuneLite close already requested from the player; never force-kill it.
-      No live current BUY, game trade or restart acceptance has been established yet.
+      checks at e6ecb10 passed (run 38714913420). Installed with #52/#53 in the combined pair above.
+      READY/four allocations and final PLACE_BUY GET observed; game trade/restart still untested.
 
 - [x] Source causal trade-gap scope merged in PR #48 as ea0b3b4; both checks passed at e6fb786
       (run 38683353210). The following details are its source receipt, not installed acceptance:
@@ -65,9 +66,9 @@ statements later in this file. Read [HANDOFF.md](HANDOFF.md) for exact evidence.
       tests passed. Runtime now includes PR #47/#48/#49 in the f600dae installation.
 - [ ] Continue batched HOME TEST CHECKLIST.md and PR #31 live acceptance. Actual installed/build/
       manifest comparisons, status and API 1.13.2 compatibility pass. GET-only pipeline exits 0:
-      ledger reads four sales/two unresolved; WAIT/UNAVAILABLE awaits real login/current observations.
+      ledger reads four sales/two unresolved; READY/four allocations and final ENTRY/PLACE_BUY observed.
       RuneLite was launched through the supported wrapper, one client observed. The agent reads
-      subsequent logs/pipeline directly; player logs in and opens GE once, without pasted output.
+      subsequent logs/pipeline directly; actual UI and all game input remain player-operated.
       Startup/UI, search/key/Confirm and controlled trade/cancel/collect/relist/restart remain pending.
 - [x] Delivered PowerShell 5.1 pipeline compatibility and installed receipt in PR #50, merged as
       70d8453 after both checks at 3c8006c passed (run 38713257067).
@@ -82,6 +83,11 @@ statements later in this file. Read [HANDOFF.md](HANDOFF.md) for exact evidence.
 
 ## Next
 
+- [ ] Audit calibration prediction provenance and cancellation censoring before changing strategy.
+      Current execution aggregates pool open time from completed/canceled offers; canceled time is
+      a lower bound, not an observed fill duration. Preserve existing data/dedup keys and separate
+      real/paper evidence. Reproduce concrete faults first; promotion requires chronological held-out
+      evaluation against a frozen baseline with return/loss/calibration guardrails.
 - [ ] Finish manual cancel -> collect -> revalidate -> replace and partial-fill protection as a
       complete live workflow; migrate sell maintenance and exits to companion policies.
 - [ ] Build account-level chronological replay for 100M members at 5m, 30m, 2h, and 8h checks.

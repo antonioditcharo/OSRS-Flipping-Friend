@@ -3,63 +3,89 @@
 Updated 15 October 2026 (America/Anchorage). Read this with [AGENTS.md](AGENTS.md) and
 [TASKS.md](TASKS.md) before continuing implementation.
 
-## PR #53 delivered; Windows elevation canceled — 15 October 2026
+## Installed #51/#52/#53 pair; live entry read passes — 15 October 2026
 
-[PR #53](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/53) is merged as
-`3362b62bee6256527ba4c401106713c70336308d`. Both final-head checks passed at
-`65d6f1fcc96703ce4f4c1cab6053df317c57445c` in
-[run 38763296900](https://github.com/antonioditcharo/OSRS-Flipping-Friend/actions/runs/38763296900):
+Current normal rebuild is `33f4dc0f18ab6505edb16b54d7c77da3b60b6f6f` (documentation #54), clean
+and current with origin. Runtime source is the tested #53 merge `3362b62`; no runtime source changed
+in #54 or this receipt. #53 CI and full verification are recorded below. #54 passed both checks
+at `37a7bd184a4b7e66595477f25e0d9ad5ffa9860e` in
+[run 38765010660](https://github.com/antonioditcharo/OSRS-Flipping-Friend/actions/runs/38765010660).
+Runtime PR #53 passed both checks at `65d6f1fcc96703ce4f4c1cab6053df317c57445c` in
+[run 38763296900](https://github.com/antonioditcharo/OSRS-Flipping-Friend/actions/runs/38763296900).
+Historical main remains `0cb8ef8` and required ancestry remains intact.
+
+The earlier elevated helper was canceled before it started. The owner then opened the supported
+administrator Update shortcut. The agent observed its active process/installation lock and verified
+its fresh backup read-only before the owner supplied INSTALL in that existing console. No second
+updater was launched. Backup:
 
 ```text
-Supported build (ubuntu-latest): completed / success
-Supported build (windows-latest): completed / success
+C:\Users\Antonio\.runelite\osrs-flipping-friend\backups\20261015-080957-c3a069ab
+companion-task.xml                 1,895 bytes
+flipping-friend-companion.jar 17,812,619 bytes
+installation.json                   458 bytes
+osrs-flipping-friend.jar          461,863 bytes
+companion accounts: 3 files / 10,407,584 bytes
+plugin accounts:   22 files / 1,499,405 bytes
 ```
 
-Normal rebuild is clean, fast-forwarded and tree-identical to that tested head. Required ee0d3aff
-ancestry exits 0; historical main remains `0cb8ef8aab9114f02b16d2eca4433c0f7e010894`.
-Final source/standard/Python evidence is summarized below: 1,373 Java passed/six existing
-skips, both Java 11 JARs, 44s; all 63 Python tests passed. This checkpoint is documentation-only;
-runtime source is unchanged from the tested/merged tree.
+Prior JAR/manifest hashes matched; account relative names/sizes matched without opening/hashing
+their contents. Saved/live task action and working directory matched, and both principals resolved
+to the current-user SID. An initial text-only principal comparison differed because SID and display
+name are different representations; resolved identity verification passed. This was an interactive
+update with recorded pre-install checks, not an unattended backup-verification.json receipt.
 
-The player confirmed RuneLite closed; process inspection observed zero clients. The agent prepared
-the supported `tools/apply-update.ps1 -Unattended` helper and requested Windows elevation for the
-existing companion task. Windows consent.exe was observed while no helper log or exit receipt
-existed. Start-Process then returned exactly:
-
-```text
-This command cannot be run due to the error: An error occurred trying to start process
-'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe' with working directory
-'C:\Users\Antonio\OSRS Flipping Friend Rebuild'. The operation was canceled by the user.
-UPDATER_LOG_NOT_CREATED_YET
-```
-
-The updater did not start. No new backup, JAR replacement, task stop, database operation, launch
-or game input occurred. Do not mistake the empty launcher process ID/PowerShell wrapper exit for
-installation success. Read-only verification afterward:
+The new manifest names that backup. Installed plugin 469,023 bytes and companion 17,832,054 bytes
+match their normal-checkout builds and manifest hashes. All 214 plugin / 435 companion project
+classes exactly match the standard-tested candidate; all target Java 11. The 20-byte package-size
+difference from candidate JARs does not change any project class. Read-only receipt:
 
 ```text
-Companion task: Running
+PAIRED_INSTALL_PROOF=PASS / PAIRED_PROOF_EXIT=0
 Overall status: PAIR VERIFIED / COMPANION RESPONDING
-STATUS_AFTER_ELEVATION_EXIT=0
-Manifest backup: ...\backups\20261015-011945-07ffac76
-Installed companion: 17,812,619 bytes
-Installed plugin: 461,863 bytes
+STATUS_HOST_EXIT=0
+RuneLite 1.13.2 and the installed plugin API match; cached artifacts verified.
+COMPATIBILITY_HOST_EXIT=0
+PASS [Protocol] accounts-v1
+PASS [Market] Ready. Choosing which items to study.
+PASS [<account-id>] Ledger: 4 sale updates; 2 unresolved; 0 profit ranges.
+PASS [<account-id>] Action: WAIT. Plan: UNAVAILABLE. Waiting for the game client to report your coins and free slots.
+PIPELINE_HOST_EXIT=0
 ```
 
-Runtime is still verified #49. #51/#52/#53 remain one queued installation batch. The pre-install
-API compatibility and GET-only pipeline are the existing runtime's results, not acceptance
-of the new sources. Windows administrator approval is still required; do not bypass it or repeatedly
-relaunch elevation after cancellation. The already pending player question asks about that prompt.
-After renewed readiness, use the prepared normal-checkout .gradle/elevated-update-durable-risk.ps1
-through Windows elevation, verify its fresh backup receipt and pair with
-.gradle/durable-risk-install-proof.py, run status/compatibility/pipeline and launch via tools/start.ps1.
-Those private helpers contain no credentials and do not patch databases. Observe actual outcomes;
-do not infer a new risk window or a BUY before fresh authenticated post-install account evidence.
+The agent launched tools/start.ps1 with a hidden console and captured logs. One RuneLite client was
+observed; initialization completed. Fresh authenticated account observations subsequently arrived.
+The post-launch GET-only pipeline exited 0, preserving four sale updates/two unresolved, with
+Action WAIT / Plan READY. A separate account-scoped GET observed an unavailable current-proof
+response; a later read returned the following actual result:
 
-Current continuation branch: codex/durable-risk-live-verification from 3362b62. Deliver this
-checkpoint through a documentation PR with both exact-head checks; no additional JAR install or
-repeated local runtime build is needed for documentation-only changes. Remaining recommendation,
-manual acceptance, calibration and whole-account benchmark work stays active.
+```text
+PLAN_STATUS=READY
+ALLOCATION_COUNT=4
+RISK_STATUS=AVAILABLE
+RISK_FRESH=True
+RISK_BUDGET_POSITIVE=True
+ENTRY_DECISION=ENTRY
+ENTRY_ACTION=PLACE_BUY
+ENTRY_REASON=ENTRY_CANDIDATE_SELECTED
+GET_ONLY_PROOF_COMPLETE=True
+LAUNCH_ERROR_EXCEPTION_LINES=0
+```
+
+Final approval was a read-only policy GET, not a placed offer. Do not infer UI selection, successful
+fills, realized returns or controlled trade/restart acceptance from it. Login UI itself was not
+inspected. Launch stderr contains RuneLite's reflective-access warnings; no ERROR/Exception line
+was found in either captured launch log at the check. No agent game input, synthetic live POST,
+manual database edit, repair, migration, historical backfill or owner assignment occurred. Normal
+application accounting/risk ingestion continues from real client observations.
+
+Private normal-checkout evidence: .gradle/durable-risk-install-proof.py, .gradle/durable-risk-launch.*,
+and local-data/diagnostics/durable-risk-{postinstall,postlaunch}-pipeline-20261015.txt plus
+durable-risk-live-{plan,entry}-20261015.json. The old canceled helper receipt remains absent.
+Keep this current checkpoint compact; previous full states are archived below. Next: player home
+checklist acceptance, calibration provenance/censoring audit and companion sell/replacement work,
+followed by chronological whole-account cadence evaluation. No additional install for this
+documentation-only receipt is required.
 
 ## Source contract and verification
 
@@ -92,23 +118,6 @@ loss reserves, and survives restart. Client journal totals and wire-supplied ris
 runtime entries. Unknown profit stays unknown. No old unscoped database is assigned, no history is
 backfilled, and no live financial rows were repaired or pruned.
 
-Pre-install GET-only pipeline on the existing #49 pair (account ID redacted):
-
-```text
-PASS [Artifact] build\libs\osrs-flipping-friend.jar
-PASS [Artifact] companion\build\libs\flipping-friend-companion.jar
-PASS [Protocol] accounts-v1
-PASS [Market] Ready. Choosing which items to study.
-PASS [<account-id>] Ledger: 4 sale updates; 2 unresolved; 0 profit ranges.
-PASS [<account-id>] Action: WAIT. Plan: UNAVAILABLE. Working out the best use of your slots.
-INFO [Accounting] No synthetic snapshots, offers, or trades were posted by this check.
-PIPELINE_EXIT=0
-```
-
-Read-only API compatibility host exit was 0 (1.13.2). A first launcher diagnostic named the wrong
-script directory and exited -196608; corrected tools/run-dev.ps1 CheckOnly passed. These are
-transport/compatibility results, not live BUY/UI/trade/restart acceptance or benchmark evidence.
-
 ## Active source map
 
 | Boundary | Contract/source |
@@ -122,7 +131,7 @@ transport/compatibility results, not live BUY/UI/trade/restart acceptance or ben
 
 ## Remaining work and historical evidence
 
-Finish the queued supported installation and observe fresh account/risk/plan evidence. Player login
+Complete controlled acceptance from the current installed READY/entry proof. Player login
 and all game input remain manual. Then finish companion sell/replacement workflows, remaining
 calibration authority, controlled UI/partial-fill/cancel/collect/restart acceptance and chronological
 whole-account replay. Benchmark 100M GP, members, eight slots, with 5m/30m/2h/8h visits reported

@@ -4,13 +4,13 @@ The default assisted workflow is now batched: the agent handles GitHub, builds, 
 paired updates, status, compatibility, pipeline and logs. You do not need to paste console output,
 reply at INSTALL, or respond after every check. See [development workflow](docs/development-workflow.md).
 
-PR #49 is installed (source merge f600dae). Status, RuneLite 1.13.2 compatibility and ledger HTTP
-reads pass. Fresh eight-slot/cash proof recovered, but planner timing fixes (#51), atomic execution
-evidence (#52) and durable risk (#53) are merged and queued for one paired update. RuneLite is closed.
-Windows canceled the administrator elevation request, so the updater did not start; #49 remains
-installed. The agent handles the retry after renewed readiness, fresh backup and diagnostics.
-After the verified update/agent launch, log in and open GE once. The agent
-reads diagnostics directly. Historical gaps, actual buy readiness and controlled acceptance remain.
+The combined pair through PR #53 is installed. Fresh backup, installed/build/manifest hashes,
+tested classes, status, RuneLite 1.13.2 compatibility and GET-only pipeline pass. RuneLite was
+launched and fresh account observations arrived. Live reads show four planned buys, available
+account risk and final ENTRY/PLACE_BUY approval. No offer was placed by the agent.
+Open the Flipping Friend panel and work through the acceptance batch below when convenient.
+The agent reads diagnostics directly; no additional install or pasted logs are needed.
+Historical gaps and controlled UI/trade/restart acceptance remain open.
 
 ## 1. Prepare one candidate
 
