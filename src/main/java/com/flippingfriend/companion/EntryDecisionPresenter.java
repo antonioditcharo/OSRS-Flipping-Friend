@@ -19,6 +19,11 @@ final class EntryDecisionPresenter
     static PresentedEntryDecision present(PolicyDecision decision, PortfolioPlan plan,
         Explainer explainer)
     {
+        return present(decision,plan,explainer,null);
+    }
+    static PresentedEntryDecision present(PolicyDecision decision, PortfolioPlan plan,
+        Explainer explainer, String account)
+    {
         if (!validEntryDecision(decision)) return null;
         if (plan != null && !same(decision.getRecommendationId(), plan.getCorrelationId())) return null;
         if (decision.getAction() == OfferLifecycleAction.WAIT)
@@ -36,7 +41,15 @@ final class EntryDecisionPresenter
             matched = candidate;
         }
         if (matched == null) return null;
-        Suggestion suggestion = Suggestion.builder(SuggestionType.BUY)
+        return new PresentedEntryDecision(decision,buySuggestion(matched,plan,explainer,account));
+    }
+
+    /** One conversion for the active policy path and the legacy proposal adapter. No evidence write. */
+    static Suggestion buySuggestion(PortfolioCandidate matched,PortfolioPlan plan,Explainer explainer,String account) {
+        var forecast=matched.getBuyForecast();
+        boolean forecastConsistent=forecast==null || (forecast.matches(matched.getItemId(),true,matched.getBuyPrice(),matched.getQuantity())
+            && Math.abs(forecast.getHorizonSeconds()-matched.getHorizonHours()*3600)<=1e-9*Math.max(1,matched.getHorizonHours()*3600));
+        return Suggestion.builder(SuggestionType.BUY)
             .item(matched.getItemId(), matched.getItemName())
             .price(matched.getBuyPrice())
             .quantity(matched.getQuantity())
@@ -44,11 +57,13 @@ final class EntryDecisionPresenter
             .confidence(matched.getDisplayCompletionProbability())
             .expectedMinutes(matched.getSlotHours() * 60)
             .fillMinutes(matched.getBuyHours() * 60, matched.getSellHours() * 60)
+            .adviceContext(account,plan.getCorrelationId(),Math.max(0,java.time.Instant.now().getEpochSecond()-plan.getCreatedAt()),plan.getExpiresAt())
+            .legCompletionProbability(forecastConsistent ? matched.getDisplayBuyFillProbability() : null)
+            .executionForecast(forecast)
             .targetSellPrice(matched.getSellPrice())
             .headline("Buy " + explainer.formatNumber(matched.getQuantity()) + " × "
                 + matched.getItemName())
             .build();
-        return new PresentedEntryDecision(decision, suggestion);
     }
 
     private static boolean validEntryDecision(PolicyDecision decision)

@@ -75,6 +75,7 @@ public final class PortfolioCandidate
 	private final double sellHours;
 	private final double horizonHours;
 	private final long expiresAt;
+    private ExecutionForecast buyForecast,sellForecast;
 
 	/**
 	 * Why the order is the size it is.
@@ -167,7 +168,18 @@ public final class PortfolioCandidate
 		this.sellHours = from.sellHours;
 		this.horizonHours = from.horizonHours;
 		this.expiresAt = from.expiresAt;
+        this.buyForecast=from.buyForecast;this.sellForecast=from.sellForecast;
 	}
+
+    public PortfolioCandidate withForecasts(ExecutionForecast buy,ExecutionForecast sell) {
+        if(buy==null || sell==null || !buy.matches(itemId,true,targetBuyPrice,quantity)
+            || !sell.matches(itemId,false,targetSellPrice,quantity))throw new IllegalArgumentException("forecast order mismatch");
+        PortfolioCandidate copy=new PortfolioCandidate(this,displayBuyFillProbability);
+        copy.buyForecast=buy;copy.sellForecast=sell;return copy;
+    }
+    public ExecutionForecast getBuyForecast(){return buyForecast;}
+    public ExecutionForecast getSellForecast(){return sellForecast;}
+    public double getDisplayBuyFillProbability(){return displayBuyFillProbability>0?displayBuyFillProbability:buyFillProbability;}
 
 	/** Expected net GP, weighting each of the three outcomes by how likely it is. */
 	public double expectedProfit()
@@ -209,9 +221,7 @@ public final class PortfolioCandidate
 	/** Completion as a stable number fit to put in front of someone. See the field's own note. */
 	public double getDisplayCompletionProbability()
 	{
-		return displayBuyFillProbability > 0
-			? displayBuyFillProbability * sellFillProbability
-			: getCompletionProbability();
+		return getDisplayBuyFillProbability()*sellFillProbability;
 	}
 
 	/** Expected slot occupancy, kept under the old name for callers that only want a duration. */

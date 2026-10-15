@@ -22,10 +22,10 @@ public class EntryDecisionPresentationNonActivationBoundaryTest
         Assert.assertFalse(plugin.contains("PresentedEntryDecision"));
         Assert.assertFalse(plugin.contains("fetchEntryDecision("));
         Assert.assertTrue(plugin.contains("companion.nextEntrySuggestion("));
-        Assert.assertTrue(client.contains("EntryDecisionPresenter.present(decision, plan, explainer)"));
+        Assert.assertTrue(client.contains("EntryDecisionPresenter.present(decision, plan, explainer, requestedAccount)"));
         Assert.assertFalse(plugin.contains("companion.nextBuySuggestion("));
         Assert.assertFalse(plugin.contains("engine.buyFallback()"));
-        Assert.assertEquals("C5D8A4D5F5F941D3A37861B28EA2DC537B2B55379F4BDC58C8078DDD45A89E2A",
+        Assert.assertEquals("3FD2AB90432921421D72D0671F0F34DECFB015F85217BDB2AC70CBF284FC6429",
             sha256(suggestion));
     }
     private static String read(Path root, String path) throws Exception

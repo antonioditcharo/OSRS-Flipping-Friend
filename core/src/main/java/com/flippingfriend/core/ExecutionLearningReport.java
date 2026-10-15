@@ -10,13 +10,14 @@ public final class ExecutionLearningReport {
     private final long generatedAt, sourceCursor;
     private final int completedIntervals, cancelledCensored, openCensored, endedCensored, unknownStarts, inconsistentSources, comparableForecasts;
     private final int totalObservations;
+    private final int fullForecasts;
     private final boolean observationsTruncated;
     private final List<ExecutionTimingObservation> observations;
     public ExecutionLearningReport(String accountId,long generatedAt,long cursor,String status,String reason,
             List<ExecutionTimingObservation> observations) {
         this.schemaVersion="1";this.accountId=accountId;this.generatedAt=generatedAt;this.sourceCursor=cursor;
         this.status=status;this.reason=reason;activeModel="PUBLIC_PRICE_BASELINE";promotionStatus="HOLD_FOR_VALIDATION";
-        int complete=0,cancel=0,open=0,ended=0,unknown=0,inconsistent=0,comparable=0;
+        int complete=0,cancel=0,open=0,ended=0,unknown=0,inconsistent=0,comparable=0,full=0;
         for(var observation:observations) {
             if("COMPLETED_INTERVAL".equals(observation.getOutcome()))complete++;
             else if("CANCELLED_CENSORED".equals(observation.getOutcome()))cancel++;
@@ -25,10 +26,12 @@ public final class ExecutionLearningReport {
             else if("INCONSISTENT_SOURCE".equals(observation.getOutcome()))inconsistent++;
             else unknown++;
             if(observation.isPredictionComparable())comparable++;
+            if(observation.getExecutionForecast()!=null)full++;
         }
         completedIntervals=complete;cancelledCensored=cancel;openCensored=open;endedCensored=ended;
         unknownStarts=unknown;inconsistentSources=inconsistent;comparableForecasts=comparable;
         totalObservations=observations.size();observationsTruncated=totalObservations>200;
+        fullForecasts=full;
         // Bounded diagnostic response; counters cover the complete source prefix, not this tail.
         this.observations=Collections.unmodifiableList(new ArrayList<>(observations.subList(Math.max(0,totalObservations-200),totalObservations)));
     }
@@ -51,6 +54,7 @@ public final class ExecutionLearningReport {
     public int getInconsistentSources(){return inconsistentSources;}
     public int getComparableForecasts(){return comparableForecasts;}
     public int getTotalObservations(){return totalObservations;}
+    public int getFullForecasts(){return fullForecasts;}
     public boolean isObservationsTruncated(){return observationsTruncated;}
     public List<ExecutionTimingObservation> getObservations(){return observations==null?Collections.emptyList():Collections.unmodifiableList(observations);}
 }

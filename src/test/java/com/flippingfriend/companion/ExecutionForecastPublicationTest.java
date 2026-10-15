@@ -28,6 +28,7 @@ public class ExecutionForecastPublicationTest {
     @Test public void buyEvidenceUsesTheBuyLegProbabilityRatherThanRoundTripConfidence()throws Exception {
         var client=client();Suggestion suggestion=propose(client);
         assertEquals(.35,suggestion.getConfidence(),1e-12);
+        client.recordPresentedAdvice(suggestion,suggestion.getAdviceAccountId());
         var advice=ledger.attribute(561,true,Instant.now().getEpochSecond());assertNotNull(advice);
         assertEquals("The displayed buy forecast was 70%, while the round trip was 35%",.7,advice.getPredictedCompletion(),1e-12);
     }
@@ -41,5 +42,27 @@ public class ExecutionForecastPublicationTest {
             .expectedMinutes(50).build());
         var advice=ledger.attribute(561,false,Instant.now().getEpochSecond());assertNotNull(advice);
         assertEquals("A missing sell forecast stays unknown",0,advice.getPredictedMinutes(),0);
+    }
+    @Test public void aLateOrForeignProposalCannotEnterThePresentationLedger()throws Exception {
+        var client=client();Suggestion proposed=propose(client);
+        client.recordPresentedAdvice(proposed,AccountIdentity.fromProfileKey("foreign"));
+        assertNull(ledger.attribute(561,true,Instant.now().getEpochSecond()));
+        var expired=Suggestion.builder(SuggestionType.BUY).item(561,"Nature rune").price(100).quantity(10)
+            .adviceContext(proposed.getAdviceAccountId(),"expired",0,Instant.now().getEpochSecond()-1)
+            .fillMinutes(12,30).legCompletionProbability(.7).build();
+        client.recordPresentedAdvice(expired,proposed.getAdviceAccountId());
+        assertNull(ledger.attribute(561,true,Instant.now().getEpochSecond()));
+    }
+    @Test public void activeEntryPolicyPresentationCarriesTheLegEvidenceToAcceptance()throws Exception {
+        var client=client();propose(client);
+        var presented=client.nextEntryDecisionPresentation(new Explainer(),Set.of(),Set.of(),Set.of(),
+            (plan,rank)->PolicyDecision.action("1","fixture","decision",PolicyDecisionType.ENTRY,
+                OfferLifecycleAction.PLACE_BUY,"ENTRY_CANDIDATE_SELECTED",Instant.now().getEpochSecond(),
+                Instant.now().getEpochSecond()-1,"561:100:110:10",plan));
+        assertNotNull(presented);assertNull(ledger.attribute(561,true,Instant.now().getEpochSecond()));
+        var suggestion=presented.getSuggestion();assertEquals(Double.valueOf(.7),suggestion.getLegCompletionProbability());
+        assertNotNull(suggestion.getAdviceAccountId());
+        client.recordPresentedAdvice(suggestion,suggestion.getAdviceAccountId());
+        assertEquals(.7,ledger.attribute(561,true,Instant.now().getEpochSecond()).getPredictedCompletion(),1e-12);
     }
 }

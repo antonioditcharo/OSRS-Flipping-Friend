@@ -6,6 +6,7 @@ public final class ExecutionTimingObservation {
     private final int slot, itemId, quantity, price;
     private final boolean buying, predictionComparable, timingCoherent;
     private final double predictedMinutes;
+    private final ExecutionForecast executionForecast;
     private final String outcome, reason;
     private final Long placementLowerAt, placementUpperAt, firstFillAfterAt, firstFillByAt;
     private final Long completionAfterAt, completionByAt, durationLowerSeconds, durationUpperSeconds;
@@ -20,6 +21,8 @@ public final class ExecutionTimingObservation {
         lastActiveEventId=lastActive==null?null:lastActive.getEventId();
         this.reason=reason;this.timingCoherent=timingCoherent;predictionComparable=comparable && timingCoherent;
         predictedMinutes=predictionComparable?original.getPredictedMinutes():0;
+        executionForecast=predictionComparable && original.getExecutionForecast()!=null
+            && original.getExecutionForecast().matches(original) ? original.getExecutionForecast() : null;
         placementLowerAt=!timingCoherent || previousEmpty==null?null:previousEmpty.getObservedAt();
         // Captures report whole seconds: t describes [t,t+1), not an exact instant.
         placementUpperAt=!timingCoherent || firstActive==null?null:afterSecond(firstActive.getObservedAt());
@@ -51,6 +54,7 @@ public final class ExecutionTimingObservation {
     public boolean isPredictionComparable(){return predictionComparable;}
     public boolean isTimingCoherent(){return timingCoherent;}
     public double getPredictedMinutes(){return predictedMinutes;}
+    public ExecutionForecast getExecutionForecast(){return executionForecast;}
     public String getOutcome(){return outcome;}
     public String getReason(){return reason;}
     public Long getPlacementLowerAt(){return placementLowerAt;}

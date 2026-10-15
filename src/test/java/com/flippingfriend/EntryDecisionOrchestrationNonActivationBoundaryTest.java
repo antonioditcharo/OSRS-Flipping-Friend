@@ -17,7 +17,7 @@ public class EntryDecisionOrchestrationNonActivationBoundaryTest
             "src/main/java/com/flippingfriend/FlippingFriendPlugin.java"), StandardCharsets.UTF_8);
         Assert.assertTrue(client.contains("nextEntryDecisionPresentation(Explainer explainer"));
         Assert.assertTrue(client.contains("this::fetchEntryDecision"));
-        Assert.assertTrue(client.contains("EntryDecisionPresenter.present(decision, plan, explainer)"));
+        Assert.assertTrue(client.contains("EntryDecisionPresenter.present(decision, plan, explainer, requestedAccount)"));
         Assert.assertFalse(plugin.contains("nextEntryDecisionPresentation("));
         Assert.assertFalse(plugin.contains("fetchEntryDecision("));
         Assert.assertFalse(plugin.contains("companion.nextBuySuggestion("));

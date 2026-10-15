@@ -92,5 +92,26 @@ public class AdviceDeliveryBoundaryTest {
         when(f.companion.nextAction()).thenReturn(sale);f.computeAdvice();
         verify(f.guide,never()).setSuggestion(sale);
         verify(f.companion,never()).recordSellAdvice(sale);
+        verify(f.companion,never()).recordPresentedAdvice(any(),anyString());
+    }
+    @Test public void deliveryRecordsOnlyTheGuidesActuallyAcceptedAdvice()throws Exception {
+        Fixture f=new Fixture();when(f.guide.isPaused()).thenReturn(false);
+        f.set("notifier",mock(net.runelite.client.Notifier.class));
+        var accepted=Suggestion.builder(SuggestionType.SELL).item(561,"Accepted").quantity(10).price(100).build();
+        when(f.guide.getSuggestion()).thenReturn(accepted);
+        f.computeAdvice();f.clientQueue.remove().run();
+        verify(f.guide).setSuggestion(f.advice);
+        verify(f.companion).recordPresentedAdvice(accepted,com.flippingfriend.core.AccountIdentity.fromProfileKey("fixture"));
+        verify(f.companion,never()).recordPresentedAdvice(eq(f.advice),anyString());
+    }
+    @Test public void pausedDeliveryDoesNotRecordAdvice()throws Exception {
+        Fixture f=new Fixture();f.queueAdvice();f.clientQueue.remove().run();
+        verify(f.companion,never()).recordPresentedAdvice(any(),anyString());
+    }
+    @Test public void aProfileChangeRejectsQueuedEvidenceAlongWithTheAdvice()throws Exception {
+        Fixture f=new Fixture();f.queueAdvice();
+        when(((ConfigManager)getField(f.plugin,"configManager")).getRSProfileKey()).thenReturn("other");
+        f.clientQueue.remove().run();verify(f.guide,never()).setSuggestion(f.advice);
+        verify(f.companion,never()).recordPresentedAdvice(any(),anyString());
     }
 }
