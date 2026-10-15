@@ -1,0 +1,104 @@
+package com.flippingfriend.companion;
+
+import com.flippingfriend.core.*;
+import com.google.gson.Gson;
+import com.google.gson.JsonObject;
+import java.nio.file.Path;
+import java.util.Collections;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
+import static org.junit.Assert.*;
+
+/** Wire-level observations in disposable stores; no live account or game interaction. */
+public class OfferObservationRecoveryTest {
+    @Rule public TemporaryFolder folder = new TemporaryFolder();
+    private final String account = AccountIdentity.fromProfileKey("recovery-fixture");
+    private final Gson gson = new Gson();
+
+    private OfferEvent event(String state, int filled, long sequence) {
+        OfferEvent.Builder b = OfferEvent.builder("fixture", 1700000000L + sequence, state)
+            .accountId(account).eventIdentity("event-" + sequence, "session", "buy")
+            .slot(0).sequence(sequence);
+        if (!"EMPTY".equals(state)) b.item(561,"Nature rune").buying(true).price(100)
+            .quantities(10,filled).spent(filled * 100L);
+        return b.build();
+    }
+    private OfferEvent live(OfferEvent event) {
+        JsonObject wire = gson.toJsonTree(event).getAsJsonObject();
+        wire.addProperty("authenticatedObservation", true);
+        return gson.fromJson(wire, OfferEvent.class);
+    }
+    private OfferLifecycleProjection error() {
+        var open = OfferLifecycleReducer.apply(null,event("BUYING",0,1)).getProjection();
+        return OfferLifecycleReducer.apply(open,event("EMPTY",0,2)).getProjection();
+    }
+    private SqliteStore.ProjectedEventAcceptance accept(SqliteStore store, OfferEvent e) throws Exception {
+        return store.recordAndProjectOffer(e,gson.toJson(e),true);
+    }
+
+    @Test public void freshAuthenticatedEmptyRestoresCurrentSlotWithoutInventingAnExecution() {
+        var next = OfferLifecycleReducer.apply(error(),live(event("EMPTY",0,3)));
+        assertTrue(next.getReason(), next.isAccepted());
+        assertEquals(OfferLifecycleState.EMPTY,next.getNewState());
+        assertEquals(PositionAccountingEffectType.NONE,next.getAccountingEffect().getType());
+    }
+    @Test public void recoveredPartialIsOnlyABaselineAndLaterDeltasAreAccountedOnce() {
+        var recovered = OfferLifecycleReducer.apply(error(),live(event("BUYING",4,3)));
+        assertTrue(recovered.getReason(),recovered.isAccepted());
+        assertEquals(OfferLifecycleState.BUY_PARTIAL,recovered.getNewState());
+        assertEquals(PositionAccountingEffectType.RECONCILE,recovered.getAccountingEffect().getType());
+        var next = OfferLifecycleReducer.apply(recovered.getProjection(),live(event("BUYING",6,4)));
+        assertTrue(next.isAccepted()); assertEquals(2,next.getAccountingEffect().getQuantity());
+        assertEquals(200,next.getAccountingEffect().getAcquisitionCost());
+    }
+    @Test public void cachedLegacyForeignSessionAndStaleObservationsCannotRecover() {
+        var error = error();
+        assertFalse(OfferLifecycleReducer.apply(error,event("EMPTY",0,3)).isAccepted());
+        assertFalse(OfferLifecycleReducer.apply(error,live(event("EMPTY",0,1))).isAccepted());
+        JsonObject foreign = gson.toJsonTree(live(event("EMPTY",0,3))).getAsJsonObject();
+        foreign.addProperty("sessionId","another-session");
+        assertFalse(OfferLifecycleReducer.apply(error,gson.fromJson(foreign,OfferEvent.class)).isAccepted());
+        foreign.addProperty("sessionId","session"); foreign.addProperty("observedAt",1699999999L);
+        assertFalse(OfferLifecycleReducer.apply(error,gson.fromJson(foreign,OfferEvent.class)).isAccepted());
+    }
+    @Test public void malformedProofCannotClearTheSlot() {
+        for (String field : new String[]{"itemId","spent","totalQuantity","filledQuantity"}) {
+            JsonObject wire = gson.toJsonTree(live(event("EMPTY",0,3))).getAsJsonObject();
+            wire.addProperty(field,1);
+            assertFalse(field,OfferLifecycleReducer.apply(error(),gson.fromJson(wire,OfferEvent.class)).isAccepted());
+        }
+    }
+    @Test public void rejectedObservationAdvancesOnlyTheOrderingWatermark() {
+        var error = error();
+        assertEquals(2,error.getLastSequence()); assertEquals(1700000002L,error.getLastObservedAt());
+        assertEquals(561,error.getItemId()); assertEquals("buy",error.getOfferIdentity());
+        assertEquals(0,error.getFilledQuantity());
+        assertFalse(OfferLifecycleReducer.apply(error,live(event("BUYING",0,2))).isAccepted());
+        var stale = OfferLifecycleReducer.apply(error,live(event("BUYING",0,1)));
+        assertEquals(2,stale.getProjection().getLastSequence());
+        assertTrue(OfferLifecycleReducer.apply(stale.getProjection(),live(event("BUYING",0,3))).isAccepted());
+    }
+    @Test public void restartAndDeliveryReplayPreserveHistoricalGapAndNewFillAccounting() throws Exception {
+        Path db = folder.newFolder().toPath().resolve("fixture.db");
+        try (SqliteStore store = new SqliteStore(db)) {
+            accept(store,event("BUYING",0,1)); accept(store,event("BUYING",2,2));
+            accept(store,event("EMPTY",0,3));
+            assertTrue(accept(store,live(event("EMPTY",0,4))).transition.isAccepted());
+            accept(store,live(event("BUYING",0,5))); accept(store,live(event("BUYING",2,6)));
+            assertEquals(4,store.buyLimitProjections().get(0).getUsedQuantity());
+        }
+        try (SqliteStore store = new SqliteStore(db)) {
+            var duplicate = accept(store,live(event("BUYING",2,6)));
+            assertEquals(SqliteStore.EventAcceptance.DUPLICATE,duplicate.acceptance);
+            accept(store,live(event("BUYING",2,7)));
+            assertEquals(4,store.buyLimitProjections().get(0).getUsedQuantity());
+            assertEquals(3,store.positionEventCount()); // Two real acquisition deltas and the original gap.
+            var ledger = store.ledgerSnapshot(account);
+            assertTrue(ledger.isValid()); assertTrue(ledger.hasUnassignedReconciliation());
+            assertTrue(ledger.getTradingPositions().isEmpty()); assertEquals(1,ledger.getMissedFlips().size());
+            assertEquals(0,ledger.getSales());
+            assertNull(DurablePlanningExposure.from(store.planningProjections(),Collections.emptyMap(),true));
+        }
+    }
+}
