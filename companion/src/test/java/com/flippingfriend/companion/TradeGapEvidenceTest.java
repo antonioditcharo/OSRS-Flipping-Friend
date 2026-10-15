@@ -25,6 +25,13 @@ public class TradeGapEvidenceTest {
             e("collected","EMPTY",0,3,"s"),e("new","BUYING",562,4,"s"),e("gap","EMPTY",0,5,"s"));
         assertEquals(Set.of(562),TradeGapEvidence.scope(history,Map.of("gap",0)).get("gap"));
     }
+    @Test public void aRejectedEmptyCannotEraseContextForLaterRejectedEmptyEvents() {
+        var history=List.of(e("old","BUYING",561,1,"s"),e("change","BUYING",562,2,"s"),
+            e("terminal","BOUGHT",562,3,"s"),e("clear","EMPTY",0,4,"s"),e("again","EMPTY",0,5,"s"));
+        var scopes=TradeGapEvidence.scope(history,Map.of("change",562,"terminal",562,"clear",0,"again",0));
+        assertEquals(Set.of(561,562),scopes.get("clear"));
+        assertEquals(Set.of(561,562),scopes.get("again"));
+    }
     @Test public void sessionAndOrderingAmbiguityCannotBecomeItemProof() {
         for (OfferEvent gap:List.of(e("gap","EMPTY",0,2,"other"),e("gap","EMPTY",0,1,"s"))) {
             var scope=TradeGapEvidence.scope(List.of(e("old","BUYING",561,1,"s"),gap),Map.of("gap",0));
