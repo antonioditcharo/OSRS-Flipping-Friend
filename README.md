@@ -8,16 +8,18 @@ The goal is to match Flipping Copilot's player workflows and eventually exceed i
 account GP/hour. That result has not yet been demonstrated. The current priorities, source-backed
 assessment, feature matrix, and benchmark contract are in [Project direction](docs/project-direction.md).
 
-## Compact sidebar review
+## Compact sidebar and current client
 
 Returning to your home PC? Use [HOME TEST CHECKLIST.md](HOME%20TEST%20CHECKLIST.md) for the
-approved-merge gate, guarded checkout update, paired backup/install and ordered player tests.
+guarded checkout update, paired backup/install and ordered player tests.
 
-The pending combined review replaces the stacked sidebar with a Flipping Copilot-style action
+The merged PR #43 replaces the stacked sidebar with a Flipping Copilot-style action
 panel: current trade, graph/pause/block/skip, 5m/30m/2h/8h cadence, risk and durable recorded profit.
 Gear opens preferences; More opens holdings, history, plan, full recommendation and Missed flips.
-It includes pending automatic ownership, walkthrough and search/input changes; it is not installed
-or merged. See [workflow and acceptance](docs/architecture/compact-panel.md),
+It includes automatic ownership, walkthrough and search/input changes. Its pair was installed,
+but live acceptance awaits the subsequent **RuneLite 1.13.2** compatibility update. See
+[compatibility and update preflight](docs/architecture/runelite-compatibility.md),
+[workflow and acceptance](docs/architecture/compact-panel.md),
 [native visual QA](design-qa.md) and [rendered preview](docs/images/compact-buy.png).
 
 ## Current status
@@ -27,7 +29,7 @@ Continuing agents should start with [HANDOFF.md](HANDOFF.md), [AGENTS.md](AGENTS
 [TASKS.md](TASKS.md). The handoff identifies merged changes, verification, and remaining limitations.
 
 The takeover assessment started from `CoPilot's-Rebuild-from-Main` at Package 3.85 (`1a4c665`).
-The foundation is merged into that rebuild branch; the combined changes above remain in PR #43.
+The foundation and combined PR #43 are merged into that rebuild branch.
 `main` remains an earlier cleanup/revert baseline.
 Current continuation adds account isolation, the Copilot-history baseline, and durable sale
 accounting consumed by live Performance.
@@ -46,7 +48,7 @@ Implemented and exercised by automated tests:
 - Analytical price/fill models and real-execution timing calibration fed back into candidate planning.
 - Membership, risk, spending cap, skipped/blocked items, and sell-only preferences.
 - Physical inventory/equipment/bank observations remain independent of recommendation exclusions.
-  The combined candidate replaces legacy adoption with remaining observed-buy quantities;
+  The combined implementation replaces legacy adoption with remaining observed-buy quantities;
   routine personal belongings are ignored without player classification.
 
 Remaining correctness work includes a single authoritative
@@ -63,15 +65,14 @@ and [task list](TASKS.md) describe the work ahead.
 The parallel [trade walkthrough slice](docs/architecture/trade-ui-walkthrough.md) validates actual
 quantity/price inputs, keeps mismatched controls highlighted and guards normal Confirm. Right-click
 the native Confirm option to deliberately override for a personal trade. Its source and automated
-tests are ready; approval, paired installation and live verification are pending. Original PR #40
-and #41 remain unchanged/unmerged; combined PR #43 contains both. Use the combined candidate rather
-than installing these overlapping slices separately.
+tests are merged through PR #43, including #40/#41. Live verification remains pending; install
+the complete compatible pair rather than overlapping slices separately.
 
 The follow-up [input assistance slice](docs/architecture/trade-input-assistance.md) adds a selectable
 recommended BUY item in empty GE search and a configurable key to fill the already open quantity
 or price prompt. The key defaults to Not set; Enter and Confirm remain manual. This source is
-stacked on PR #41 originally and is now included in combined PR #43. Approval, paired installation
-and live player verification remain pending.
+stacked on PR #41 originally and is now merged through combined PR #43. Live player verification
+remains pending. All three original slices are integrated; #42 is closed as superseded.
 
 ## Running the existing development build
 
@@ -107,7 +108,10 @@ owned items from inventory, equipment, bank, or collection observations.
 
 Use an installed JDK compatible with Gradle 8.14. Compilation targets Java 11 bytecode; CI uses JDK 21.
 The RuneLite compile/test dependency is pinned in `build.gradle` and must be checked against the
-client actually used for live verification.
+client actually used for live verification. The current tested pin is 1.13.2. Setup/Update checks
+official release metadata before stopping the companion or replacing files; a release mismatch
+requires a tested source update. [Release readiness](docs/release-readiness.md) tracks publication
+gates separately from local build success.
 
 ```powershell
 .\gradlew.bat clean test jar :companion:shadowJar --console=plain

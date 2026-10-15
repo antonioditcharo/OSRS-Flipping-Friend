@@ -10,8 +10,8 @@ import net.runelite.api.gameval.VarPlayerID;
 
 /** One client-thread observation of the actual editor; no input writes or price narrowing. */
 final class GeEditorValues {
-    // RuneLite 1.13.1 leaves the post-max-cash GE setup price varp unnamed. Copilot reads 5753.
-    static final int PRICE_VARP = 5753;
+    // RuneLite 1.13.2 names the 64-bit GE setup price varp in the generated API.
+    static final int PRICE_VARP = VarPlayerID.GE_NEWOFFER_PRICE;
     final int item, quantity, type, slot;
     final long price;
     final boolean typing;

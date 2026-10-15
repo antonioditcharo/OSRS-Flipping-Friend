@@ -1,7 +1,8 @@
 # Manual trade walkthrough and confirmation
 
-14 October 2026. Source is implemented on `codex/trade-ui-walkthrough`; installation and live
-acceptance remain pending. This is a separate slice from automatic trade scope (PR #40).
+14 October 2026. Originally developed on `codex/trade-ui-walkthrough`, now merged with automatic
+trade scope through approved PR #43 at `440c44f`. Its pair was installed; live acceptance awaits
+the subsequent 1.13.2 paired update. See the newest [handoff](../../HANDOFF.md).
 
 ## Player workflow
 

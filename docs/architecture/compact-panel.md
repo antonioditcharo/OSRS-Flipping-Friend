@@ -1,8 +1,8 @@
 # Compact action panel
 
-14 October 2026. Source on `codex/copilot-panel`; paired installation and player acceptance are
-pending. The branch includes PR #40 automatic trade scope, #41 walkthrough and #42 input assistance.
-It does not merge those PRs into the rebuild branch.
+14 October 2026. Merged through approved PR #43 at `440c44f`, including #40 automatic trade scope,
+#41 walkthrough and #42 input assistance. That pair was installed; player acceptance awaits the
+subsequent 1.13.2 paired update. The newest [handoff](../../HANDOFF.md) supersedes earlier status.
 
 The sidebar is a compact Flipping Copilot-style action surface: one instruction, exact quantity
 and unit price, graph / pause / block / skip, four cadence presets, risk, durable recorded profit

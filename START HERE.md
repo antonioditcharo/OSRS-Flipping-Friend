@@ -4,8 +4,9 @@ Use these files from the **current rebuild folder**. An old desktop shortcut can
 previous checkout; re-setup replaces it after installing the current pair.
 
 For the compact sidebar and combined trade changes, start with
-[HOME TEST CHECKLIST.md](HOME%20TEST%20CHECKLIST.md). PR #43 must be approved/merged and this
-checkout updated before installing that candidate. The numbered Update wrapper does not fetch Git.
+[HOME TEST CHECKLIST.md](HOME%20TEST%20CHECKLIST.md). PR #43 is approved, merged and installed;
+the subsequent RuneLite 1.13.2 compatibility update requires another paired installation after
+its CI/merge. The numbered Update wrapper does not fetch Git.
 
 | What you need | Double-click |
 | --- | --- |
@@ -61,6 +62,13 @@ again. Backups remain available; never edit or restore databases to make the che
 `2 - Start` checks the installed pair, starts or reuses a healthy companion, then opens RuneLite.
 It does **not** rebuild or replace JARs. After fetching source changes, close RuneLite and use `4 - Update`.
 If the old task is disabled or belongs to another checkout, use `1b` instead of `4`.
+
+Setup, re-setup and Update first verify that the source API pin matches RuneLite's official release.
+The current tested pin is **1.13.2**. A mismatch, unavailable response or invalid release metadata
+blocks installation before backup, companion stopping or JAR replacement. Preserve that output
+and obtain a tested source update; do not edit the pin just to pass. Status and companion-only
+start do not depend on this installation preflight. See the
+[compatibility contract](docs/architecture/runelite-compatibility.md).
 
 The companion runs from `...\osrs-flipping-friend\runtime\flipping-friend-companion.jar`, independently
 of the source `build/` folders. A later development build cannot replace that installed JAR.

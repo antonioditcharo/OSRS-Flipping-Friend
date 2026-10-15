@@ -1,7 +1,8 @@
 # Automatic trade scope and player-started sales
 
-Accepted project direction, 14 October 2026. This records the owner's workflow correction;
-it is not a claim that the replacement is implemented or installed.
+Accepted project direction, 14 October 2026. Implementation is merged through approved PR #43
+at `440c44f` and its pair was installed. Live acceptance awaits the subsequent 1.13.2 paired update;
+see the newest [handoff](../../HANDOFF.md). The design below is not proof of live acceptance.
 
 ## Default workflow
 

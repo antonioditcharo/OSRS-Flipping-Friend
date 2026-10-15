@@ -1,7 +1,8 @@
 # Suggested GE search item and player-triggered input fill
 
-14 October 2026. This follow-up is stacked on the unmerged trade walkthrough PR #41. Automatic
-trade scope remains separate in PR #40. No pending PR is merged or installed by this work.
+14 October 2026. Originally stacked on walkthrough PR #41, now integrated with #40/#41 through
+approved PR #43 at `440c44f`. Its pair was installed; live acceptance awaits the subsequent 1.13.2
+paired update. PR #42 is closed as integrated. See the newest [handoff](../../HANDOFF.md).
 
 ## Player workflow
 

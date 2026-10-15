@@ -1,18 +1,55 @@
 # Tasks
 
+Updated 14 October 2026. The current checkpoint below supersedes historical runtime/review
+statements later in this file. Read [HANDOFF.md](HANDOFF.md) for exact evidence.
+
 ## Active
 
-- [ ] Make canonical durable positions, offers, costs, proceeds, and realized profit the shared
-      source for the planner, exits, inventory UI, calibration, and session risk.
-      Durable sale accounting, live Performance, and planner per-item exposure are implemented;
-      other consumers still use
-      local records and must migrate with positive reconciliation evidence.
+- [ ] Complete the RuneLite 1.13.2 compatibility delivery on `codex/runelite-1-13-2`, based on
+      rebuild merge `440c44f`. Regressions `6eadb7b` / `ccceff5` failed before production fix
+      `c32e728`. Final clean Java build: 1,278 passed, six skips; all 54 Python tests passed;
+      Java 11 project bytecode and both JARs verified. Actual launcher CheckOnly passed against
+      31 official cached artifacts in an isolated profile. Require both final-head CI checks,
+      merge and a clean fast-forward of the normal checkout. Then fresh backup review and paired
+      Update; real installed compatibility/status and login are still pending. The official client
+      was updated and closed by the owner. No live database changes or game input.
+- [ ] Complete player-operated live acceptance from HOME TEST CHECKLIST.md and the PR #31 checklist.
+      PR #43 is approved and merged at `440c44f`; #40/#41 are merged and #42 closed as integrated.
+      The #43 pair was installed after review of backup `20261014-174522-d5cd8522`; status passed,
+      but launch correctly rejected source/API 1.13.1 against official 1.13.2. Do not reinstall
+      individual overlapping slices. The new compatible pair is not installed yet; live pipeline
+      output, UI/search/key/Confirm/scope, partial-fill and restart outcomes remain unobserved.
+      Existing WAIT/UNAVAILABLE reconciliation faults are not presumed cleared.
+- [ ] Finish one authoritative ledger for planner, exits, inventory UI, calibration and session risk.
+      Durable accounting, Performance, exposure and managed trade quantities/exits are implemented;
+      audit remaining local consumers and preserve positive acquisition/cost evidence. Reproduce
+      real faults before fixes; never edit a database or bypass exposure guards to unblock advice.
 
 ## Next
-- [ ] Follow root HOME TEST CHECKLIST.md for the current combined candidate. The obsolete
+
+- [ ] Finish manual cancel -> collect -> revalidate -> replace and partial-fill protection as a
+      complete live workflow; migrate sell maintenance and exits to companion policies.
+- [ ] Build account-level chronological replay for 100M members at 5m, 30m, 2h, and 8h checks.
+      Include end-of-run inventory liquidation, cash, buy limits, tax, and missed visits.
+- [ ] Add prospective session/cadence measurement and full-account replay; historical CSVs do not
+      contain the session clocks needed for a fair GP/hour baseline.
+- [ ] Measure fill calibration, then add gated challenger learning and clearly separated paper data.
+- [ ] Close the feature-parity matrix in `docs/project-direction.md` and update user documentation.
+
+## Waiting
+
+- Historical session/cadence labels are unavailable. Do not infer them from execution timestamps.
+
+## Historical checkpoints
+
+These record earlier source and runtime states. They are evidence, not current installation or
+merge instructions. The Active section and newest HANDOFF entry take precedence. In particular,
+the former personal-item classification/review workflow is superseded by automatic trade scope.
+
+- Follow root HOME TEST CHECKLIST.md for the current combined candidate. The obsolete
       classification/review directions in START HERE have been replaced. Approval/merge, paired
       backup review/install and player-operated baseline/UI/trade/restart acceptance remain pending.
-- [ ] Review [consolidated PR #43](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/43)
+- Review [consolidated PR #43](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/43)
       on `codex/copilot-panel`, including pending PR #40/#41/#42
       plus the compact native sidebar. Original PRs remain unchanged/open; coordinate overlap
       before merging. Final Java source `7c213a5`: 1,278 passed, six existing skips; 48 Python
@@ -26,7 +63,7 @@
       search/key/Confirm and automatic ownership acceptance remain pending. Reconciliation faults
       and PR #31 checklist are not cleared. No database editing or game automation.
 
-- [ ] Review, merge/reconcile and live-verify the search/input follow-up on `codex/trade-input-assist`,
+- Review, merge/reconcile and live-verify the search/input follow-up on `codex/trade-input-assist`,
       stacked on pending PR #41 without changing either original PR. Test-first `b6bfe47` specifies
       new features; implementation `0abf74c` includes two failing queued-input regressions fixed at
       `648765b`. Recommended BUY appears as a native-selectable row in empty GE search, preserving
@@ -41,7 +78,7 @@
       player verifies actual chat row, assigned key, manual Enter/Confirm, normal typing, held key,
       wrong-context protection, disabled settings and editor/account boundaries. No DB repair.
 
-- [ ] Install and live-verify the separate trade walkthrough/confirmation slice after owner approval
+- Install and live-verify the separate trade walkthrough/confirmation slice after owner approval
       and final-head Ubuntu/Windows CI. Branch `codex/trade-ui-walkthrough`, from rebuild `5ac97048`;
       eight reproducing regressions at `52513d1`, implementation `b0ee05c`, final rendering check
       `10c4fe4`. Actual values govern both highlights and the normal Confirm lock; native right-click
@@ -55,7 +92,7 @@
       PR #31 and accounting reconciliation remain unfinished. Do not install from a temporary worktree.
 
 
-- [ ] Install and live-verify automatic trade scope from `codex/automatic-trade-scope`.
+- Install and live-verify automatic trade scope from `codex/automatic-trade-scope`.
       Regression-first commit `b25a358` reproduces three adoption/recount failures before code changes.
       Source now tracks remaining accepted acquisition quantities in the existing durable event
       ledger, preserves old records, removes adoption/review/dismiss controls, quotes a player-selected
@@ -72,7 +109,7 @@
       update, GET-only pipeline, then owner-operated sell editor/partial fill/restart acceptance.
       Do not claim these source tests completed the PR #31 live checklist or cleared existing faults.
 
-- [ ] Continue account reconciliation after the 14 October lifecycle-fault diagnosis. Source branch
+- Continue account reconciliation after the 14 October lifecycle-fault diagnosis. Source branch
       `codex/offer-observation-boundary` from rebuild `49934e44` reproduces five observation-boundary
       failures at `b8c679f`, then fixes them at `f58a0cf`. Copied client observations, ordered load
       replay, authenticated slot recovery, session generations and captured account payloads prevent
@@ -90,7 +127,7 @@
       next step is numbered Update, pause at INSTALL, and supply the fresh backup listing for review.
       Do not expect this prevention fix to clear existing live reconciliation faults automatically.
 
-- [ ] Live-retest explicit unpriced-stock review installed at rebuild `49934e44` (PR #37).
+- Live-retest explicit unpriced-stock review installed at rebuild `49934e44` (PR #37).
       Regressions preceded implementation (`932ab1f` / `1f728eb6`); local standard verification passed
       1,186 Java tests with six skips and all 48 Python tests. Final Windows/Linux CI at `0e38e070`
       passed before merge. Owner completed the supported paired update after review of backup
@@ -117,7 +154,7 @@
       Review saving, post-review buy readiness and controlled manual acceptance remain pending. Full single-authority
       exits/UI/risk migration and positive cost reconciliation are still prerequisites.
 
-- [ ] Complete live acceptance with the compatible pair installed at `cb203a83` (PR #36 merged after
+- Complete live acceptance with the compatible pair installed at `cb203a83` (PR #36 merged after
       final Windows/Linux CI passed at `10d1a4bc`). The earlier mixed 1.12.39/1.13.1 classpath and
       long GE getter linkage error were reproduced by regressions before the source fix. Standard
       local verification passed 1,168 Java tests with six skips and all 48 Python tests.
@@ -144,7 +181,7 @@
       Full 64-bit unit-price support remains pending; unsupported-price evidence pauses advice and
       accounting across restart. Preserve that evidence rather than manually clearing it.
 
-- [ ] Run the live verification checklist in HANDOFF.md for PR #31 (durable planner exposure)
+- Run the live verification checklist in HANDOFF.md for PR #31 (durable planner exposure)
       on the real account and RuneLite; record results before relying on it for trading.
       13 October checkpoint at `ee0d3aff`: build passed; installation and manual checks remain
       unperformed. The scheduled task is disabled and configured for another checkout; the expected
@@ -163,20 +200,7 @@
       display; read-only pipeline passed but buy plan remains reconciliation-blocked. Controlled manual
       trading acceptance remains pending, recorded above and in the latest HANDOFF continuation.
 
-- [ ] Finish manual cancel -> collect -> revalidate -> replace and partial-fill protection as a
-      complete live workflow; migrate sell maintenance and exits to companion policies.
-- [ ] Build account-level chronological replay for 100M members at 5m, 30m, 2h, and 8h checks.
-      Include end-of-run inventory liquidation, cash, buy limits, tax, and missed visits.
-- [ ] Add prospective session/cadence measurement and full-account replay; historical CSVs do not
-      contain the session clocks needed for a fair GP/hour baseline.
-- [ ] Measure fill calibration, then add gated challenger learning and clearly separated paper data.
-- [ ] Close the feature-parity matrix in `docs/project-direction.md` and update user documentation.
-
-## Waiting
-
-- Historical session/cadence labels are unavailable. Do not infer them from execution timestamps.
-
-## Done
+## Completed foundation (historical receipts)
 - Reproduced the missing plugin account backup before fixing it on `codex/plugin-account-backup`.
   The wrapper now preserves the separate profile records as `plugin-accounts/` before confirmation,
   retaining companion hashed scopes separately and rejecting links without importing data.

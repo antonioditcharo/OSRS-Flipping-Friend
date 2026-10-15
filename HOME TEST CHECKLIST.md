@@ -1,12 +1,14 @@
 # Home-PC test checklist
 
-Candidate: [combined PR #43](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/43).
-It contains the compact UI, automatic trade scope, walkthrough/Confirm protection and search/key
-assistance from #40/#41/#42. Source verification is complete; live acceptance is pending.
+The [combined PR #43](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/43) is approved,
+merged and installed. It contains the compact UI, automatic trade scope, walkthrough/Confirm
+protection and search/key assistance from #40/#41/#42. RuneLite then updated to 1.13.2, so the
+compatibility continuation requires a fresh paired update. Source tests and isolated cached-client
+compatibility pass; real 1.13.2 installation, login and live acceptance are pending.
 
 ## 1. Prepare the right checkout
 
-First approve and merge PR #43 after both checks pass on its current head. Do not install older
+Require both CI checks and merge of `codex/runelite-1-13-2` before installing. Do not install older
 individual slices separately. `main` is historical. Use the regular project folder, not a Codex
 temporary worktree or an old desktop shortcut. Close RuneLite yourself.
 
@@ -24,7 +26,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Status failed. Stop and report the output.' }
 if ($localChanges) { throw 'Local changes exist. Stop without discarding anything.' }
 git fetch origin
 if ($LASTEXITCODE -ne 0) { throw 'Fetch failed. Stop and report the output.' }
-git merge-base --is-ancestor 7c213a54ee3f2290e62506a8f360d2c09948dd9e "origin/CoPilot's-Rebuild-from-Main"
+git merge-base --is-ancestor c32e7289b1466b8348d581e7c75447714e497232 "origin/CoPilot's-Rebuild-from-Main"
 if ($LASTEXITCODE -ne 0) { throw 'The complete candidate is not on the rebuild branch. Do not install yet.' }
 git switch "CoPilot's-Rebuild-from-Main"
 if ($LASTEXITCODE -ne 0) { throw 'Switch failed. Stop and report the output.' }
@@ -36,17 +38,20 @@ git rev-parse HEAD
 
 The ancestry guard assumes the normal merge-commit strategy used for this combined PR. If someone
 squash-merges it, report the guard result for verification rather than bypassing it. The source
-anchor includes the final budget fix and all three integrated slices.
+anchor includes the 1.13.2 source pin, update preflight, final budget fix and all integrated slices.
 
 ## 2. Install the paired update
 
-1. From that updated folder, double-click **4 - Update.bat**. It builds/installs both supported JARs.
+1. From that updated folder, double-click **4 - Update.bat**. It checks the official RuneLite release,
+   then builds/installs both supported JARs. Expect `RuneLite release preflight passed: 1.13.2 matches the source API.`
    Existing data and saved login are retained; this is not a fresh installation.
 2. At **Type INSTALL**, stop. Send the fresh backup listing here, including paths and sizes, for
    the requested backup review. It is normal for the companion to be stopped at this point.
 3. After that review/go-ahead, type uppercase **INSTALL** and press Enter. Capture the final output
    before closing the window. Expect successful build, companion readiness and both JARs verified.
-4. Update does not start the game. Double-click **2 - Start Flipping Friend.bat**, then log in yourself.
+4. Update does not start the game. Before launching, run **3 - Status.bat** and the read-only
+   `tools/run-dev.ps1 -CheckOnly`. Both must pass on the real installed pair. Then double-click
+   **2 - Start Flipping Friend.bat** and log in yourself.
 
 If Update reports a disabled or foreign task, or any error, stop and send its output. Re-setup is
 the supported returning-user path when needed, but do not guess a repair or repeatedly install.
@@ -102,7 +107,7 @@ the durable evidence, preserving ranges and unavailable states.
 For restart, close RuneLite normally and use the supported Start wrapper again. Never kill it to
 simulate a crash during initial acceptance. Repeat the read-only pipeline after relevant changes.
 
-Stop at the first failure. Send the exact message, screenshot, pipeline output and the last manual
-step performed; avoid including login credentials. All game actions are yours. The agent records
+If a check fails, pause that game test and send the exact message, screenshot, pipeline output and
+the last manual step performed; avoid including login credentials. All game actions are yours. The agent records
 observed outcomes and reproduces a real bug in a regression before changing source. No live
 database repair, migration or deletion is part of this test.

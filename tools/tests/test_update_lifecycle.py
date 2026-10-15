@@ -150,6 +150,12 @@ function Register-ScheduledTask {
 }
 function Invoke-WebRequest {
     param([switch]$UseBasicParsing, $Uri, $Headers, $TimeoutSec)
+    if ($Uri -eq 'https://static.runelite.net/bootstrap.json') {
+        if ($scenario.releaseFails) { throw 'Synthetic release metadata connection failure.' }
+        $version = if ($scenario.officialVersion) { $scenario.officialVersion } else { '1.13.2' }
+        if ($scenario.releaseMalformed) { return [pscustomobject]@{ Content='{"version":"invalid","artifacts":[]}' } }
+        return [pscustomobject]@{ Content=(@{version=$version;artifacts=@(@{name="client-$version.jar"})} | ConvertTo-Json -Compress -Depth 4) }
+    }
     $protocol = if ($scenario.badHealth) { 'legacy-v0' } else { 'accounts-v1' }
     [pscustomobject]@{ Headers=@{ 'X-Flipping-Friend-Protocol'=$protocol }; Content='{"status":"READY"}' }
 }
@@ -257,6 +263,7 @@ class UpdateLifecycleTest(unittest.TestCase):
             "companionSha256": hashlib.sha256(self.installed_companion.read_bytes()).hexdigest()}), encoding="utf-8")
         tools = self.checkout / "tools"
         tools.mkdir()
+        (self.checkout / "build.gradle").write_text("ext.runeLiteVersion = '1.13.2'\n", encoding="utf-8")
         shutil.copyfile(Path(__file__).resolve().parents[1] / "apply-update.ps1", tools / "apply-update.ps1")
         shutil.copyfile(Path(__file__).resolve().parents[1] / "start.ps1", tools / "start.ps1")
         shutil.copyfile(Path(__file__).resolve().parents[1] / "setup.ps1", tools / "setup.ps1")
@@ -300,6 +307,20 @@ class UpdateLifecycleTest(unittest.TestCase):
         self.assertEqual([], result["events"], self.output)
         self.assertEqual(b"original-installed-plugin", self.installed.read_bytes())
         self.assertNotIn("Update applied.", self.output)
+
+    def test_new_official_release_blocks_update_before_task_backup_or_jar_changes(self):
+        self.scenario.update(officialVersion="1.13.3", alreadyRunning=True)
+        before = {p: p.read_bytes() for p in (self.installed, self.installed_companion, self.manifest)}
+        self.assert_rejected_without_changes("source targets 1.13.2")
+        self.assertEqual(before, {p: p.read_bytes() for p in before})
+
+    def test_release_lookup_failure_leaves_the_running_installation_alone(self):
+        self.scenario.update(releaseFails=True, alreadyRunning=True)
+        self.assert_rejected_without_changes("Could not verify official RuneLite release")
+
+    def test_invalid_release_metadata_cannot_install_any_pair(self):
+        self.scenario["releaseMalformed"] = True
+        self.assert_rejected_without_changes("RuneLite release metadata is invalid")
 
     def test_disabled_task_is_rejected_before_stopping_or_installing(self):
         self.scenario["state"] = "Disabled"
@@ -548,13 +569,13 @@ class UpdateLifecycleTest(unittest.TestCase):
         self.assertEqual(b"original-installed-plugin", self.installed.read_bytes())
 
     def test_start_reuses_healthy_listener_without_spawning_another_companion(self):
-        self.scenario.update(startOnly=True, alreadyRunning=True)
+        self.scenario.update(startOnly=True, alreadyRunning=True, releaseFails=True)
         result = self.run_update()
         self.assertIsNone(result["error"], self.output)
         self.assertEqual([], result["events"], self.output)
 
     def test_status_is_read_only_when_healthy(self):
-        self.scenario.update(entry="status.ps1", alreadyRunning=True)
+        self.scenario.update(entry="status.ps1", alreadyRunning=True, releaseFails=True)
         result = self.run_update()
         self.assertIsNone(result["error"], self.output)
         self.assertEqual([], result["events"], self.output)
