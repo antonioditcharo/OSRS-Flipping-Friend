@@ -25,6 +25,8 @@ public final class OfferEvent
 	private final String sessionId;
 	/** Stable identity of the observed offer instance, or null when not yet supplied. */
 	private final String offerIdentity;
+	/** Copied from an authenticated client slot, never reconstructed from a saved local offer. */
+	private final boolean authenticatedObservation;
 	private final long observedAt;
 	private final String eventType;
 	private final int slot;
@@ -67,6 +69,7 @@ public final class OfferEvent
 		this.eventId = builder.eventId;
 		this.sessionId = builder.sessionId;
 		this.offerIdentity = builder.offerIdentity;
+		this.authenticatedObservation = builder.authenticatedObservation;
 		this.observedAt = builder.observedAt;
 		this.eventType = builder.eventType;
 		this.slot = builder.slot;
@@ -104,12 +107,14 @@ public final class OfferEvent
 		if (!"1".equals(schemaVersion)) throw new IllegalArgumentException("unsupported offer schema");
 		return builder(correlationId, observedAt, eventType)
 			.accountId(AccountIdentity.require(accountId)).eventIdentity(eventId, sessionId, offerIdentity)
+			.authenticatedObservation(authenticatedObservation)
 			.slot(slot).item(itemId, itemName).buying(buying).price(price)
 			.quantities(totalQuantity, filledQuantity).spent(spent).sequence(sequence)
 			.firstSeenAt(firstSeenAt).recommendation(recommendationId, suggestedPrice, suggestedQuantity,
 				quoteAgeSeconds, predictedMinutes, predictedCompletion).build();
 	}
 	public String getOfferIdentity() { return offerIdentity; }
+	public boolean isAuthenticatedObservation() { return authenticatedObservation; }
 	public long getObservedAt() { return observedAt; }
 	public String getEventType() { return eventType; }
 	public int getSlot() { return slot; }
@@ -166,6 +171,7 @@ public final class OfferEvent
 		private String eventId;
 		private String sessionId;
 		private String offerIdentity;
+		private boolean authenticatedObservation;
 		private final long observedAt;
 		private final String eventType;
 		private int slot;
@@ -196,6 +202,7 @@ public final class OfferEvent
 		public Builder eventId(String value) { this.eventId = value; return this; }
 		public Builder sessionId(String value) { this.sessionId = value; return this; }
 		public Builder offerIdentity(String value) { this.offerIdentity = value; return this; }
+		public Builder authenticatedObservation(boolean value) { this.authenticatedObservation = value; return this; }
 		public Builder eventIdentity(String eventId, String sessionId, String offerIdentity)
 		{
 			this.eventId = eventId;

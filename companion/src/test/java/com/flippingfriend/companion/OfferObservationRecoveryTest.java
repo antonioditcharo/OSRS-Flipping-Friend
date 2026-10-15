@@ -4,6 +4,7 @@ import com.flippingfriend.core.*;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import java.nio.file.Path;
+import java.sql.DriverManager;
 import java.util.Collections;
 import org.junit.Rule;
 import org.junit.Test;
@@ -29,6 +30,11 @@ public class OfferObservationRecoveryTest {
         JsonObject wire = gson.toJsonTree(event).getAsJsonObject();
         wire.addProperty("authenticatedObservation", true);
         return gson.fromJson(wire, OfferEvent.class);
+    }
+    private OfferEvent currentPolicyTime(OfferEvent event) {
+        JsonObject wire=gson.toJsonTree(event).getAsJsonObject();
+        wire.addProperty("observedAt",SaleAccounting.CURRENT_POLICY_SAFE_FROM+event.getSequence());
+        return gson.fromJson(wire,OfferEvent.class);
     }
     private OfferLifecycleProjection error() {
         var open = OfferLifecycleReducer.apply(null,event("BUYING",0,1)).getProjection();
@@ -61,6 +67,8 @@ public class OfferObservationRecoveryTest {
         foreign.addProperty("sessionId","another-session");
         assertFalse(OfferLifecycleReducer.apply(error,gson.fromJson(foreign,OfferEvent.class)).isAccepted());
         foreign.addProperty("sessionId","session"); foreign.addProperty("observedAt",1699999999L);
+        assertFalse(OfferLifecycleReducer.apply(error,gson.fromJson(foreign,OfferEvent.class)).isAccepted());
+        foreign.addProperty("observedAt",1700000003L); foreign.addProperty("slot",1);
         assertFalse(OfferLifecycleReducer.apply(error,gson.fromJson(foreign,OfferEvent.class)).isAccepted());
     }
     @Test public void malformedProofCannotClearTheSlot() {
@@ -125,6 +133,50 @@ public class OfferObservationRecoveryTest {
             assertTrue("Recovered cumulative fills are incomplete execution evidence",store.executionStats().isEmpty());
             service.offer(live(event("BOUGHT",10,4)));
             assertTrue("A later terminal replay must not promote the incomplete offer",store.executionStats().isEmpty());
+        }
+    }
+    @Test public void recoveredReplacementSellDoesNotInheritPlacementTaxEvidence() throws Exception {
+        Path db=folder.newFolder().toPath().resolve("tax.db");
+        try (SqliteStore store=new SqliteStore(db)) {
+            accept(store,currentPolicyTime(event("EMPTY",0,1)));
+            OfferEvent sell=OfferEvent.builder("fixture",SaleAccounting.CURRENT_POLICY_SAFE_FROM+2,"SELLING").accountId(account)
+                .eventIdentity("old-sell","session","old-sell").slot(0).item(561,"Nature rune")
+                .price(100).quantities(10,0).sequence(2).build();
+            accept(store,sell);
+            try (var connection=DriverManager.getConnection("jdbc:sqlite:"+db);
+                 var statement=connection.createStatement();
+                 var rows=statement.executeQuery("SELECT sale_tax_policy FROM offer_projection WHERE slot=0")) {
+                assertTrue(rows.next()); assertEquals(SaleAccounting.CURRENT_POLICY,rows.getString(1));
+            }
+            accept(store,currentPolicyTime(event("EMPTY",0,3)));
+            JsonObject wire=gson.toJsonTree(sell).getAsJsonObject();
+            wire.addProperty("eventId","new-sell"); wire.addProperty("offerIdentity","new-sell");
+            wire.addProperty("sequence",4); wire.addProperty("observedAt",SaleAccounting.CURRENT_POLICY_SAFE_FROM+4);
+            assertTrue(accept(store,live(gson.fromJson(wire,OfferEvent.class))).transition.isAccepted());
+            try (var connection=DriverManager.getConnection("jdbc:sqlite:"+db);
+                 var statement=connection.createStatement();
+                 var rows=statement.executeQuery("SELECT sale_tax_policy FROM offer_projection WHERE slot=0")) {
+                assertTrue(rows.next()); assertEquals(SaleAccounting.UNPROVEN_PLACEMENT,rows.getString(1));
+            }
+        }
+    }
+    @Test public void recoveryAndItsEvidenceRollBackTogetherOnFailure() throws Exception {
+        Path db=folder.newFolder().toPath().resolve("rollback.db");
+        try (SqliteStore store=new SqliteStore(db)) {
+            accept(store,event("BUYING",0,1)); accept(store,event("EMPTY",0,2));
+        }
+        try (SqliteStore store=new SqliteStore(db,point->{
+            if ("POSITION_ACCOUNTING_APPLIED".equals(point)) throw new IllegalStateException("fixture interruption");
+        })) {
+            try { accept(store,live(event("BUYING",4,3))); fail("Expected interruption"); }
+            catch (IllegalStateException expected) { assertEquals("fixture interruption",expected.getMessage()); }
+        }
+        try (SqliteStore store=new SqliteStore(db)) {
+            assertEquals(OfferLifecycleState.ERROR_RECONCILIATION,store.offerProjections().get(0).getState());
+            assertEquals(1,store.positionEventCount()); assertTrue(store.buyLimitProjections().isEmpty());
+            assertEquals(SqliteStore.EventAcceptance.NEW,accept(store,live(event("BUYING",4,3))).acceptance);
+            assertEquals(OfferLifecycleState.BUY_PARTIAL,store.offerProjections().get(0).getState());
+            assertEquals(2,store.positionEventCount());
         }
     }
 }

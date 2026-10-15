@@ -246,7 +246,7 @@ final class SqliteStore implements AutoCloseable
 			PositionProjection position = automaticScope ? applyAutomaticPositionEffect(transition.getAccountingEffect(), event, previous, taxPolicy)
                 : applyPositionEffect(transition.getAccountingEffect(), event, previous, taxPolicy);
 			checkpoint.reached("POSITION_ACCOUNTING_APPLIED");
-			BuyLimitProjection buyLimit = applyBuyLimitEffect(event, transition);
+			BuyLimitProjection buyLimit = applyBuyLimitEffect(event, previous, transition);
 			checkpoint.reached("BUY_LIMIT_ACCOUNTING_APPLIED");
 			connection.commit();
 			return new ProjectedEventAcceptance(acceptance, transition, position, buyLimit);
@@ -403,6 +403,11 @@ final class SqliteStore implements AutoCloseable
 		OfferLifecycleTransition transition) throws Exception
 	{
 		if (event.isBuying() || transition.getNewState() == OfferLifecycleState.EMPTY) return null;
+		// A restored current slot is not proof of when a replacement sell was placed.
+		if (transition.isAccepted() && previous != null
+			&& previous.getState() == OfferLifecycleState.ERROR_RECONCILIATION)
+			return event.getObservedAt() >= SaleAccounting.CURRENT_POLICY_SAFE_FROM
+				? SaleAccounting.UNPROVEN_PLACEMENT : "HISTORICAL_RULE_UNPROVEN";
 		if (previous != null && previous.getState() != OfferLifecycleState.EMPTY)
 			try (PreparedStatement statement = connection.prepareStatement("SELECT sale_tax_policy FROM offer_projection WHERE slot=?"))
 			{
@@ -427,6 +432,16 @@ final class SqliteStore implements AutoCloseable
                 r.getLong(5), r.getLong(6), r.getString(7), r.getString(8));
         }
         return scope;
+    }
+
+    /** A current slot baseline cannot establish a complete historical timing/outcome sample. */
+    synchronized boolean hasOfferAccountingGap(String offerIdentity) throws Exception {
+        if (offerIdentity == null || offerIdentity.isBlank()) return false;
+        try (PreparedStatement s = connection.prepareStatement(
+                "SELECT 1 FROM position_event WHERE source_offer_identity=? AND effect_type='RECONCILE' LIMIT 1")) {
+            s.setString(1,offerIdentity);
+            try (ResultSet r = s.executeQuery()) { return r.next(); }
+        }
     }
 
     private java.util.List<com.flippingfriend.core.MissedFlipEvidence> missedFlipEvidence() throws Exception {
@@ -713,14 +728,18 @@ final class SqliteStore implements AutoCloseable
 		try (Statement s=connection.createStatement(); ResultSet r=s.executeQuery("SELECT COUNT(*) FROM reconciliation_event")) { return r.next()?r.getInt(1):0; }
 	}
 
-	private BuyLimitProjection applyBuyLimitEffect(OfferEvent event,
+	private BuyLimitProjection applyBuyLimitEffect(OfferEvent event, OfferLifecycleProjection previous,
 		OfferLifecycleTransition transition) throws Exception
 	{
 		if (event == null || transition == null || !transition.isAccepted()
 			|| !event.isBuying() || event.getFilledQuantity() <= 0) return null;
-		PositionAccountingEffect effect = transition.getAccountingEffect();
-		int quantity = effect != null && effect.getType() == PositionAccountingEffectType.ACQUIRE
-			? effect.getQuantity() : event.getFilledQuantity();
+		// Counters are cumulative, including repeated observations with distinct event IDs. An
+		// initial filled baseline is still evidence of limit use, even without known acquisition cost.
+		boolean sameOffer = previous != null && previous.isBuying()
+			&& previous.getItemId() == event.getItemId()
+			&& java.util.Objects.equals(previous.getOfferIdentity(), event.getOfferIdentity());
+		int quantity = sameOffer ? event.getFilledQuantity() - previous.getFilledQuantity()
+			: event.getFilledQuantity();
 		if (quantity <= 0) return null;
 		BuyLimitProjection current = buyLimitProjection(event.getItemId());
 		long started = current == null || current.hasExpired(event.getObservedAt())
@@ -728,7 +747,7 @@ final class SqliteStore implements AutoCloseable
 		int prior = current == null || current.hasExpired(event.getObservedAt())
 			? 0 : current.getUsedQuantity();
 		BuyLimitProjection next = new BuyLimitProjection(event.getItemId(), started,
-			prior + quantity, event.getObservedAt(), event.getEventId(), null);
+			Math.addExact(prior, quantity), event.getObservedAt(), event.getEventId(), null);
 		writeBuyLimit(next);
 		appendBuyLimitEvent(next, quantity, "CANONICAL_ACQUIRE", event.getEventId(),
 			null, event.getObservedAt());

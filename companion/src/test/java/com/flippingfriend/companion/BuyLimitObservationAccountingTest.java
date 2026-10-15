@@ -39,4 +39,16 @@ public class BuyLimitObservationAccountingTest {
             assertEquals(2,store.buyLimitEventCount());
         }
     }
+    @Test public void unchangedOldFillsDoNotStartAnotherFourHourWindow() throws Exception {
+        try (SqliteStore store=new SqliteStore(folder.newFolder().toPath().resolve("window.db"))) {
+            store.recordAndProjectOffer(buy(0,1),"fixture");
+            store.recordAndProjectOffer(buy(4,2),"fixture");
+            store.recordAndProjectOffer(buy(4,14403),"fixture");
+            assertEquals(1700000002L,store.buyLimitProjections().get(0).getStartedAt());
+            assertTrue(store.buyLimitProjections().get(0).hasExpired(1700014403L));
+            store.recordAndProjectOffer(buy(6,14404),"fixture");
+            assertEquals(2,store.buyLimitProjections().get(0).getUsedQuantity());
+            assertEquals(1700014404L,store.buyLimitProjections().get(0).getStartedAt());
+        }
+    }
 }
