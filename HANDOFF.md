@@ -58,7 +58,8 @@ entry approval, including loss freeze after store restart, forged client gains, 
 profit ranges, mixed stock, quote expiry and profile/session fences. A legacy health fixture needed
 positive observed cash to establish a window; the initial zero-cash version correctly abstained.
 Native RuneLiteLAF Plan rendering passed clipping assertions and was visually inspected; risk
-details remain outside the compact sidebar. Both artifacts built with RuneLite open.
+details remain outside the compact sidebar. The earlier complete 39s build passed with RuneLite
+open; the final 44s schema-corrected build ran after the observed normal close.
 
 The read-only pre-install check of the existing #49 pair returned status host exit 0 and API
 compatibility host exit 0. An initial launcher check named the wrong script directory and exited
