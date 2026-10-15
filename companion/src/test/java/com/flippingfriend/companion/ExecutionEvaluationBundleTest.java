@@ -131,7 +131,7 @@ public class ExecutionEvaluationBundleTest {
         catch(IllegalArgumentException expected){ }
         assertFalse(Files.exists(target));
     }
-    @Test public void recordedClearContextScopesAnUnnamedGapAndKeepsAnUnrelatedForecastEvaluable() {
+    @Test public void recordedClearContextScopesAnUnnamedGapAndKeepsAnUnrelatedForecastEvaluable()throws Exception {
         List<OfferEvent> events=new ArrayList<>(history(true));
         events.add(OfferEvent.builder("fixture",AT+201,"EMPTY").accountId(account).eventIdentity("clear","session",null)
             .sequence(5).slot(0).authenticatedObservation(true).build());
@@ -150,6 +150,16 @@ public class ExecutionEvaluationBundleTest {
         var evaluation=new ExecutionHorizonEvaluation(scoped.observations(),null);
         assertEquals(1,evaluation.eligible);assertEquals(1,evaluation.unqualified);
         assertEquals("birth-unrelated",evaluation.scores.get(0).sourceEventId);
+        Path database=folder.newFolder().toPath().resolve("scoped-clear.db");
+        try(var store=new SqliteStore(database)) {
+            for(var event:events)store.recordAndProjectOffer(event,gson.toJson(event),true);
+            try(var writer=java.sql.DriverManager.getConnection("jdbc:sqlite:"+database.toAbsolutePath());var s=writer.createStatement()) {
+                s.executeUpdate("INSERT INTO position_event(source_event_id,source_offer_identity,observed_at,effect_type,item_id,item_name,quantity,acquisition_cost,created_at) VALUES('clear',NULL,1700000201,'RECONCILE',0,'Fixture',0,0,1700000201)");
+            }
+            var report=store.executionLearningReport(account,AT+500);
+            assertEquals("OBSERVING",report.getStatus());assertEquals(1,report.getFullForecasts());
+            assertEquals(1,report.getComparableForecasts());assertEquals("HOLD_FOR_VALIDATION",report.getPromotionStatus());
+        }
     }
     @Test public void concurrentWalCommitCannotMixOfferAndReconciliationSnapshots()throws Exception {
         Path database=folder.newFolder().toPath().resolve("coherent.db");

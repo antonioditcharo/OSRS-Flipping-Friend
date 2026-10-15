@@ -338,8 +338,8 @@ final class SqliteStore implements AutoCloseable
             }
             checkpoint.reached("EXECUTION_SOURCE_OFFERS_READ");
             try(var s=connection.createStatement();var r=s.executeQuery(
-                    "SELECT id,observed_at,source_event_id,source_offer_identity FROM position_event WHERE effect_type='RECONCILE' ORDER BY id")) {
-                while(r.next())gaps.add(new ExecutionSourceSnapshot.Gap(r.getLong(1),r.getLong(2),r.getString(3),r.getString(4)));
+                    "SELECT id,observed_at,source_event_id,source_offer_identity,item_id FROM position_event WHERE effect_type='RECONCILE' ORDER BY id")) {
+                while(r.next())gaps.add(new ExecutionSourceSnapshot.Gap(r.getLong(1),r.getLong(2),r.getString(3),r.getString(4),r.getInt(5)));
             }
             var snapshot=new ExecutionSourceSnapshot(account,Instant.now().getEpochSecond(),offers,gaps);
             snapshot.observations(); // Validate before releasing the same coherent source snapshot.
@@ -350,22 +350,13 @@ final class SqliteStore implements AutoCloseable
 
     synchronized com.flippingfriend.core.ExecutionLearningReport executionLearningReport(String account,long now) throws Exception {
         com.flippingfriend.core.AccountIdentity.require(account);
-        boolean own=connection.getAutoCommit();if(own)connection.setAutoCommit(false);
         try {
-            List<OfferEvent> history=offerHistory(account);java.util.Set<String> gaps=new java.util.HashSet<>();
-            try(var sql=connection.createStatement();var rows=sql.executeQuery(
-                    "SELECT source_offer_identity FROM position_event WHERE effect_type='RECONCILE'")) {
-                while(rows.next())gaps.add(rows.getString(1));
-            }
-            long cursor;
-            try(var sql=connection.createStatement();var rows=sql.executeQuery(
-                    "SELECT COALESCE(MAX(id),0) FROM event_log WHERE event_id IS NOT NULL AND event_id<>''")) {
-                rows.next();cursor=rows.getLong(1);
-            }
-            var report=ExecutionObservationLedger.read(account,now,cursor,history,gaps);
-            if(own)connection.commit();return report;
-        }catch(Exception error) { if(own)connection.rollback();throw error; }
-        finally {if(own)connection.setAutoCommit(true);}
+            var snapshot=freezeExecutionSources(account);
+            return new com.flippingfriend.core.ExecutionLearningReport(account,now,snapshot.sourceCursor,"OBSERVING",
+                "Public-price baseline active. Timing intervals are diagnostic; no challenger has passed promotion gates.",snapshot.observations(now));
+        }catch(IllegalArgumentException invalid) {
+            return com.flippingfriend.core.ExecutionLearningReport.unavailable(account,now,invalid.getMessage());
+        }
     }
 
 	/** Positions and offers captured in the same database read transaction. */
