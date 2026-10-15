@@ -356,7 +356,7 @@ public class CompanionClient
                                         builder.recommendation(advice.getRecommendationId(), advice.getPrice(),
                                                 advice.getQuantity(), advice.getQuoteAgeSeconds(),
                                                 advice.getPredictedMinutes(), advice.getPredictedCompletion());
-                                        builder.predictionEvidence(null,advice.getSuggestedAt(),false);
+                                        builder.predictionEvidence(null,advice.getRecordedAt(),false);
                                 }
                                 return builder.build();
                         });

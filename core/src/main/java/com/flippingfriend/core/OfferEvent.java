@@ -10,8 +10,8 @@ package com.flippingfriend.core;
  * worth asking of this data is a comparison between what was suggested and what followed.
  * <p>
  * {@link #getRecommendationId()} carries the correlation id of the plan that advised the trade, so
- * outcomes land against the decision that caused them. It is null for offers the player placed on
- * their own, and those are worth keeping too — an unprompted trade that does well is evidence about
+	 * outcomes can be associated with the original observation. Association does not prove player
+	 * intent. Unknown associations are worth keeping too — an unprompted trade is evidence about
  * the market just as much as a prompted one.
  */
 public final class OfferEvent
@@ -196,7 +196,7 @@ public final class OfferEvent
 		return firstSeenAt <= 0 ? 0 : Math.max(0, observedAt - firstSeenAt);
 	}
 
-	/** True when the player acted on advice rather than independently. */
+	/** An advice association is present; this alone proves neither intent nor prediction comparability. */
 	public boolean wasRecommended()
 	{
 		return recommendationId != null && !recommendationId.isEmpty();

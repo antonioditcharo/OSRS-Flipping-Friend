@@ -177,6 +177,11 @@ public final class OfferEventOutbox
                 || !state.sessionId.equals(origin.getSessionId()) || origin.getSequence()<1
                 || origin.getSequence()>=state.nextSequence || blank(origin.getEventId()) || blank(origin.getOfferIdentity()))
                 throw new IllegalStateException("invalid prediction binding scope");
+            if(!"1".equals(origin.getSchemaVersion())
+                || (origin.getPredictionEvidenceVersion()!=null && !"1".equals(origin.getPredictionEvidenceVersion()))
+                || (!binding.invalidated && (!origin.isPredictionComparable()
+                    || !origin.getEventId().equals(origin.getPredictionSourceEventId()))))
+                throw new IllegalStateException("invalid prediction binding schema or source");
         }
 		if (upgraded) write(state);
 		return state;

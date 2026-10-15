@@ -74,4 +74,61 @@ public class ExecutionPredictionAuthorityTest {
             assertEquals(10,s.planningProjections(account).tradeScope.positions.get(561).getQuantity());
         }
     }
+    @Test public void invalidOptionalEvidenceDoesNotDiscardRealExecutions()throws Exception {
+        for(String mutation:new String[]{"future-schema","missing-source","different-price","different-quantity",
+                "incomparable","unauthenticated"}) {
+            try(var s=new SqliteStore(folder.newFolder().toPath().resolve("invalid.db"))) {
+                accept(s,event("birth",1,"BUYING",10,0,"original",12,"birth",at-1,true));
+                var raw=gson.toJsonTree(event("terminal",2,"BOUGHT",10,10,"original",12,"birth",at-1,true)).getAsJsonObject();
+                if(mutation.equals("future-schema"))raw.addProperty("predictionEvidenceVersion","2");
+                if(mutation.equals("missing-source"))raw.addProperty("predictionSourceEventId","missing");
+                if(mutation.equals("different-price")){raw.addProperty("price",101);raw.addProperty("spent",1010);}
+                if(mutation.equals("different-quantity")){raw.addProperty("totalQuantity",7);raw.addProperty("filledQuantity",7);raw.addProperty("spent",700);}
+                if(mutation.equals("incomparable"))raw.addProperty("predictionComparable",false);
+                if(mutation.equals("unauthenticated"))raw.addProperty("authenticatedObservation",false);
+                var terminal=gson.fromJson(raw,OfferEvent.class);accept(s,terminal);
+                if(mutation.startsWith("different-")) {
+                    // Economic contradictions retain their existing reconciliation guard.
+                    assertTrue(mutation,s.executionStats().isEmpty());
+                    assertTrue(mutation,s.planningProjections(account).tradeScope.unsafeItems.contains(561));
+                    assertEquals(gson.toJson(terminal),s.recentOfferEvents(at).get(1));continue;
+                }
+                assertEquals(mutation,0,s.executionStats().get(561).openObserved);
+                assertEquals(mutation,1,s.positionEventCount());
+                assertEquals(mutation,terminal.getFilledQuantity(),s.planningProjections(account).tradeScope.positions.get(561).getQuantity());
+            }
+        }
+    }
+    @Test public void incompleteOrCachedFirstObservationCannotQualifyAFullOrderPrediction()throws Exception {
+        for(String mutation:new String[]{"partial","cached","older-start"}) {
+            try(var s=new SqliteStore(folder.newFolder().toPath().resolve("birth.db"))) {
+                var raw=gson.toJsonTree(event("birth",1,"BUYING",10,0,"original",12,"birth",at-1,true)).getAsJsonObject();
+                if(mutation.equals("partial")){raw.addProperty("filledQuantity",3);raw.addProperty("spent",300);}
+                if(mutation.equals("cached"))raw.addProperty("authenticatedObservation",false);
+                if(mutation.equals("older-start"))raw.addProperty("firstSeenAt",at-60);
+                accept(s,gson.fromJson(raw,OfferEvent.class));
+                accept(s,event("terminal",2,"BOUGHT",10,10,"original",12,"birth",at-1,true));
+                if(mutation.equals("partial"))assertTrue("Incomplete first fill preserves the existing exclusion",s.executionStats().isEmpty());
+                else assertEquals(mutation,0,s.executionStats().get(561).openObserved);
+                assertEquals(mutation,2,s.recentOfferEvents(at).size());
+            }
+        }
+    }
+    @Test public void originalQualificationAndStatisticsRollBackAndRetryTogether()throws Exception {
+        Path db=folder.newFolder().toPath().resolve("rollback.db");
+        var first=event("birth",1,"BUYING",10,0,"original",12,"birth",at-1,true);
+        var terminal=event("terminal",2,"BOUGHT",10,10,"new",120,"birth",at-1,true);
+        try(var s=new SqliteStore(db)){accept(s,first);}
+        try(var s=new SqliteStore(db,stage->{if(stage.equals("EXECUTION_STATS_WRITTEN"))throw new IllegalStateException("fixture interruption");})) {
+            try {accept(s,terminal);fail("fixture interruption missing");}
+            catch(IllegalStateException expected){assertEquals("fixture interruption",expected.getMessage());}
+            assertEquals(0,s.positionEventCount());assertTrue(s.executionStats().isEmpty());assertEquals(0,s.eventCount("BOUGHT"));
+        }
+        try(var s=new SqliteStore(db)) {
+            accept(s,terminal);accept(s,terminal);
+            accept(s,event("heartbeat",3,"BOUGHT",10,10,"another",240,"birth",at-1,true));
+            assertEquals(1,s.executionStats().get(561).observed);assertEquals(12,s.executionStats().get(561).predictedMinutes,0);
+            assertEquals(1,s.positionEventCount());
+        }
+    }
 }

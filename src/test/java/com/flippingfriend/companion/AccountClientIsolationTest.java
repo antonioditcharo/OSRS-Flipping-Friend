@@ -74,7 +74,9 @@ public class AccountClientIsolationTest
         client.resumeOfferReplay();
         ledger.recorded("plan-one", 561, true, 100, 10, 0, 30);
         TrackedOffer offer = new TrackedOffer(0, 561, true, 100, 10, Instant.now().getEpochSecond());
-        offer.setState("BUYING"); client.publishOffer(offer);
+        offer.setState("BUYING");
+        var publish=CompanionClient.class.getDeclaredMethod("publishOffer",TrackedOffer.class,String.class,boolean.class,long.class,boolean.class);
+        publish.setAccessible(true);publish.invoke(client,offer,one,true,offer.getFirstSeen(),false);
         OfferEvent event = outbox.pending().get(0);
         assertEquals(one, event.getAccountId());
         assertNotNull(client.currentCanonicalOpenBuy());

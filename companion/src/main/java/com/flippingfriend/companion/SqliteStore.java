@@ -254,7 +254,7 @@ final class SqliteStore implements AutoCloseable
 			// Accept the real execution sample in the same transaction as its source event. A
 			// terminal replay cannot recover a sample lost after event acceptance has committed.
 			if (transition.isAccepted() && !hasOfferAccountingGap(event.getOfferIdentity()))
-				new ExecutionRecorder(this).record(event);
+				new ExecutionRecorder(this).record(event, executionPrediction(event));
 			connection.commit();
             ProjectedEventAcceptance result=new ProjectedEventAcceptance(acceptance, transition, position, buyLimit);
             result.planningStateChanged=!samePlanningState(previous,transition.getProjection());
@@ -270,6 +270,62 @@ final class SqliteStore implements AutoCloseable
 			connection.setAutoCommit(autoCommit);
 		}
 	}
+
+    /** Optional learning evidence never changes raw events or financial acceptance. Legacy totals
+     * and keys remain intact; this qualifies only new, explicitly versioned predictions. */
+    private double executionPrediction(OfferEvent event) throws Exception {
+        if (event.getPredictionEvidenceVersion()==null) return 0;
+        if (!("BOUGHT".equals(event.getEventType()) || "SOLD".equals(event.getEventType())
+                || "CANCELLED_BUY".equals(event.getEventType()) || "CANCELLED_SELL".equals(event.getEventType()))
+                || !"1".equals(event.getPredictionEvidenceVersion()) || !event.isPredictionComparable()
+                || !event.isAuthenticatedObservation()
+                || event.getPredictionSourceEventId()==null || event.getPredictionSourceEventId().isBlank()) return 0;
+        try (var sql=connection.prepareStatement("SELECT 1 FROM counted_offer WHERE identity=?")) {
+            sql.setString(1,ExecutionRecorder.identity(event));
+            try (var rows=sql.executeQuery()) { if (rows.next()) return 0; }
+        }
+        OfferEvent origin=null;
+        var parser=new com.google.gson.Gson();
+        try (var sql=connection.prepareStatement(
+                "SELECT event_id,payload FROM event_log WHERE event_id IS NOT NULL AND event_id<>'' ORDER BY id");
+                var rows=sql.executeQuery()) {
+            while (rows.next()) {
+                OfferEvent recorded;
+                try { recorded=parser.fromJson(rows.getString(2),OfferEvent.class); }
+                catch (RuntimeException malformed) { return 0; }
+                if (recorded==null || !rows.getString(1).equals(recorded.getEventId())) return 0;
+                boolean same=java.util.Objects.equals(event.getAccountId(),recorded.getAccountId())
+                    && java.util.Objects.equals(event.getSessionId(),recorded.getSessionId())
+                    && java.util.Objects.equals(event.getOfferIdentity(),recorded.getOfferIdentity())
+                    && event.getSlot()==recorded.getSlot();
+                if (same) {
+                    if (!TradeGapEvidence.valid(recorded) || recorded.getItemId()!=event.getItemId()
+                            || recorded.isBuying()!=event.isBuying() || recorded.getFirstSeenAt()!=event.getFirstSeenAt()
+                            || recorded.getPrice()!=event.getPrice() || recorded.getTotalQuantity()!=event.getTotalQuantity()
+                            || !"1".equals(recorded.getPredictionEvidenceVersion()) || !recorded.isPredictionComparable()
+                            || !event.getPredictionSourceEventId().equals(recorded.getPredictionSourceEventId())) return 0;
+                    if (origin==null) {
+                        origin=recorded;
+                        if (!origin.getEventId().equals(event.getPredictionSourceEventId())
+                                || !origin.isAuthenticatedObservation() || origin.getFilledQuantity()!=0
+                                || !(origin.isBuying()?"BUYING":"SELLING").equals(origin.getEventType())
+                                || origin.getFirstSeenAt()<=0 || origin.getFirstSeenAt()!=origin.getObservedAt()
+                                || origin.getAdviceObservedAt()<=0 || origin.getAdviceObservedAt()>origin.getFirstSeenAt()
+                                || origin.getFirstSeenAt()-origin.getAdviceObservedAt()>600
+                                || !origin.wasRecommended() || origin.getSuggestedPrice()!=origin.getPrice()
+                                || origin.getSuggestedQuantity()!=origin.getTotalQuantity()
+                                || !Double.isFinite(origin.getPredictedMinutes()) || origin.getPredictedMinutes()<=0
+                                || !Double.isFinite(origin.getPredictedCompletion()) || origin.getPredictedCompletion()<0
+                                || origin.getPredictedCompletion()>1) return 0;
+                    }
+                    if (recorded.getSequence()<origin.getSequence() || recorded.getObservedAt()<origin.getObservedAt()) return 0;
+                }
+                if (event.getEventId().equals(recorded.getEventId()))
+                    return origin==null?0:origin.getPredictedMinutes();
+            }
+        }
+        return 0;
+    }
 
     private static boolean samePlanningState(OfferLifecycleProjection a,OfferLifecycleProjection b) {
         return a!=null && b!=null && a.getState()==b.getState() && a.getSlot()==b.getSlot()

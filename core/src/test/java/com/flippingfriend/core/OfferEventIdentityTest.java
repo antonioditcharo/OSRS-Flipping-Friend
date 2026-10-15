@@ -75,4 +75,26 @@ public class OfferEventIdentityTest
         Assert.assertTrue(event.isComplete());
         Assert.assertFalse(event.wasRecommended());
     }
+    @Test public void predictionCopiesRetainEconomicIdentityAndAccountScope() {
+        String account=AccountIdentity.fromProfileKey("evidence");
+        OfferEvent origin=OfferEvent.builder("trace",100,"BUYING").accountId(account)
+            .eventIdentity("original","session","offer").authenticatedObservation(true).slot(2).item(561,"Nature rune")
+            .buying(true).price(100).quantities(10,0).sequence(1).firstSeenAt(100)
+            .recommendation("original-plan",100,10,3,12,.75).predictionEvidence("original",99,true).build();
+        OfferEvent later=OfferEvent.builder("other-trace",200,"BOUGHT").accountId(account)
+            .eventIdentity("later","session","offer").authenticatedObservation(true).slot(2).item(561,"Nature rune")
+            .buying(true).price(100).quantities(10,10).spent(990).sequence(2).firstSeenAt(100)
+            .recommendation("new-plan",100,10,0,120,.9).build();
+        OfferEvent bound=later.withBoundPrediction(origin,true).withAccountId(account);
+        Assert.assertEquals("original-plan",bound.getRecommendationId());Assert.assertEquals(12,bound.getPredictedMinutes(),0);
+        Assert.assertEquals("1",bound.getPredictionEvidenceVersion());Assert.assertEquals("original",bound.getPredictionSourceEventId());
+        Assert.assertTrue(bound.isPredictionComparable());Assert.assertEquals(99,bound.getAdviceObservedAt());
+        Assert.assertEquals(later.getEventId(),bound.getEventId());Assert.assertEquals(later.getSequence(),bound.getSequence());
+        Assert.assertEquals(later.getSpent(),bound.getSpent());Assert.assertEquals(later.getFilledQuantity(),bound.getFilledQuantity());
+        Assert.assertEquals(later.getObservedAt(),bound.getObservedAt());Assert.assertTrue(bound.isAuthenticatedObservation());
+        Assert.assertNull(later.getPredictionEvidenceVersion());
+        Assert.assertEquals(0,later.withBoundPrediction(null,false).getPredictedMinutes(),0);
+        try {later.withAccountId(AccountIdentity.fromProfileKey("foreign")).withBoundPrediction(origin,true);Assert.fail("foreign origin accepted");}
+        catch(IllegalArgumentException expected){ }
+    }
 }

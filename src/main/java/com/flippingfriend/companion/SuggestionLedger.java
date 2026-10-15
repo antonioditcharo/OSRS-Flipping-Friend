@@ -14,12 +14,14 @@ import javax.inject.Singleton;
  * one it recommended — and therefore whether its own fill estimates, prices and sizes were any good.
  * Every calibration question downstream reduces to comparing a recommendation with its outcome.
  * <p>
- * Attribution is deliberately loose on price and quantity but strict on item and side. Players round
+ * Candidate lookup is deliberately loose on price and quantity but strict on item and side. Players round
  * prices, buy half as many as suggested, or take the advice ten minutes late, and none of that means
  * the trade was unprompted — it means the advice was followed imperfectly, which is itself worth
  * recording. What is <em>not</em> assumed is that a matching offer proves the player was following
  * advice at all; a stale recommendation is dropped rather than credited with a coincidence, which is
- * what {@link #ATTRIBUTION_WINDOW_SECONDS} is for.
+ * what {@link #ATTRIBUTION_WINDOW_SECONDS} is for. OfferEventOutbox freezes the first prospective
+ * association separately, and only exact actual order inputs can carry a comparable prediction.
+ * A refreshed prediction has its own availability timestamp even when the display clock is retained.
  */
 @Singleton
 public class SuggestionLedger
@@ -81,7 +83,7 @@ public class SuggestionLedger
 			? previous.suggestedAt
 			: now;
 		outstanding.put(key, new Advice(recommendationId, price, quantity,
-			quoteAgeSeconds, predictedMinutes, predictedCompletion, since));
+			quoteAgeSeconds, predictedMinutes, predictedCompletion, since, now));
 	}
 
 	/** The advice this offer most plausibly acts on, or null when the player acted unprompted. */
@@ -92,6 +94,7 @@ public class SuggestionLedger
 		{
 			return null;
 		}
+		if (observedAt < advice.recordedAt) return null;
 		if (observedAt - advice.suggestedAt > ATTRIBUTION_WINDOW_SECONDS)
 		{
 			outstanding.remove(key(itemId, buying));
@@ -126,8 +129,14 @@ public class SuggestionLedger
 		private final double predictedMinutes;
 		private final double predictedCompletion;
 		private final long suggestedAt;
+		private final long recordedAt;
 		Advice(String recommendationId, int price, int quantity, long quoteAgeSeconds,
 			double predictedMinutes, double predictedCompletion, long suggestedAt)
+		{
+			this(recommendationId,price,quantity,quoteAgeSeconds,predictedMinutes,predictedCompletion,suggestedAt,suggestedAt);
+		}
+		private Advice(String recommendationId, int price, int quantity, long quoteAgeSeconds,
+			double predictedMinutes, double predictedCompletion, long suggestedAt, long recordedAt)
 		{
 			this.recommendationId = recommendationId;
 			this.price = price;
@@ -136,6 +145,7 @@ public class SuggestionLedger
 			this.predictedMinutes = predictedMinutes;
 			this.predictedCompletion = predictedCompletion;
 			this.suggestedAt = suggestedAt;
+			this.recordedAt = recordedAt;
 		}
 
 		/** Whether this is the same recommendation repeated, rather than a genuinely new one. */
@@ -151,5 +161,7 @@ public class SuggestionLedger
 		public double getPredictedMinutes() { return predictedMinutes; }
 		public double getPredictedCompletion() { return predictedCompletion; }
 		public long getSuggestedAt() { return suggestedAt; }
+		/** Availability of this prediction snapshot, distinct from the first identical order display. */
+		public long getRecordedAt() { return recordedAt; }
 	}
 }
