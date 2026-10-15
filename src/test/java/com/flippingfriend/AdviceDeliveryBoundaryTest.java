@@ -58,9 +58,12 @@ public class AdviceDeliveryBoundaryTest {
             ((AtomicBoolean)loaded.get(plugin)).set(true);
         }
         void set(String name,Object value)throws Exception {Field f=FlippingFriendPlugin.class.getDeclaredField(name);f.setAccessible(true);f.set(plugin,value);}
-        void queueAdvice()throws Exception {
+        void computeAdvice()throws Exception {
             Method m=FlippingFriendPlugin.class.getDeclaredMethod("requestEngineRefresh");m.setAccessible(true);m.invoke(plugin);
             clientQueue.remove().run();assertEquals(1,worker.tasks.size());worker.tasks.remove().run();
+        }
+        void queueAdvice()throws Exception {
+            computeAdvice();
             assertEquals("the completed recommendation awaits client-thread delivery",1,clientQueue.size());
         }
     }
@@ -81,5 +84,13 @@ public class AdviceDeliveryBoundaryTest {
         f.plugin.onItemContainerChanged(new ItemContainerChanged(93,mock(ItemContainer.class)));
         verify(f.guide).setSuggestion(argThat(s->s.getType()==SuggestionType.WAIT));
         verify(f.companion).invalidateEntryAdvice();
+    }
+    @Test public void queuedSellDoesNotEnterAdviceEvidenceBeforeClientDelivery()throws Exception {
+        Fixture f=new Fixture();when(f.guide.isPaused()).thenReturn(false);
+        f.set("notifier",mock(net.runelite.client.Notifier.class));
+        var sale=Suggestion.builder(SuggestionType.SELL).item(561,"Nature rune").quantity(10).price(100).build();
+        when(f.companion.nextAction()).thenReturn(sale);f.computeAdvice();
+        verify(f.guide,never()).setSuggestion(sale);
+        verify(f.companion,never()).recordSellAdvice(sale);
     }
 }
