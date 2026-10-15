@@ -24,6 +24,10 @@ are in `docs/project-direction.md`; historical package notes are not proof of ru
   workflow and regression gate. PR #45 is merged and installed; ledger HTTP reads now pass.
   Startup/UI and controlled trading acceptance remain pending; reconciliation guards remain active.
   Read the newest HANDOFF checkpoint before historical entries.
+- Current-slot recovery requires copied authenticated observations and durable ordering proof.
+  It must preserve historical gaps and exposure guards; never book a recovered cumulative baseline
+  as a new execution. See docs/architecture/offer-observation-recovery.md. Runtime remains PR #45
+  until the next supported paired update; source recovery alone does not establish buy readiness.
 - Keep the sidebar compact: current guided action, controls and durable recorded profit. Open
   explanations, holdings/history/plan and settings separately; do not restore the old accordion
   stack or label recorded totals as session profit. Preserve actual 5m/30m/2h/8h and visibly custom

@@ -5,17 +5,20 @@ statements later in this file. Read [HANDOFF.md](HANDOFF.md) for exact evidence.
 
 ## Active
 
-- [ ] Finish the low-interruption workflow on codex/streamline-update-workflow. Owner authorizes
-      routine agent-managed backup review/paired updates/launching and batched checks, superseding
-      one-response-per-step and INSTALL replies. Source 06f9a9e adds verified -Unattended updates
-      and keeps developer API JARs outside build outputs. Local checks: standard clean build passes,
-      all 61 Python tests pass. Require exact-head CI/merge and normal-checkout update. Runtime Java
-      source is unchanged from installed PR #45; another pair replacement is unnecessary for this batch.
+- [ ] Deliver authenticated current-offer recovery and delta-only durable buy limits on
+      codex/recommendation-recovery from 9cec7706. Regression-first 3bd02ea reproduces permanent
+      ERROR slots, ordering loss and repeated cumulative fills consuming the limit twice; 8b7e36e
+      adds learning exclusion evidence. Source 0832414 restores current slot observations without
+      inventing old fills/profit, keeps gap guards, and rejects stale/cached/cross-session recovery.
+      Standard clean build passes: 1,304 Java passed/six skips; both Java 11 JARs built, client open.
+      All 61 Python checks pass. Require exact-head CI. Runtime remains PR #45; batch a later
+      paired installation/restart. Safe historical exposure bounds remain needed for new-buy readiness.
 - [ ] Continue batched HOME TEST CHECKLIST.md and PR #31 live acceptance. PR #45 is merged at
       edf05a8 and installed after review of backup 20261014-183810-89356679. Actual installed/build/
       manifest comparisons, status and API 1.13.2 compatibility pass. GET-only pipeline now exits 0:
-      ledger reads four sales/two unresolved; current WAIT/UNAVAILABLE requests fresh coins/free slots
-      before login. No accounting guard is cleared. The agent reads subsequent logs/pipeline directly.
+      ledger reads four sales/two unresolved. Latest logged-in WAIT/UNAVAILABLE is historical
+      holdings/offer reconciliation despite fresh cash/eight free slots. No accounting guard is cleared.
+      The agent reads subsequent logs/pipeline directly.
       Startup/UI, search/key/Confirm and controlled trade/cancel/collect/relist/restart remain pending.
 - [ ] Finish one authoritative ledger for planner, exits, inventory UI, calibration and session risk.
       Durable accounting, Performance, exposure and managed trade quantities/exits are implemented;
@@ -36,6 +39,13 @@ statements later in this file. Read [HANDOFF.md](HANDOFF.md) for exact evidence.
 ## Waiting
 
 - Historical session/cadence labels are unavailable. Do not infer them from execution timestamps.
+
+## Completed current tooling
+
+- [x] Low-interruption workflow PR #46 merged as 9cec7706 after both checks at 4d76fad passed
+      (run 38678515832). Verified unattended fresh-backup updates and persistent developer API cache;
+      61 Python checks passed. Agent launch, compatibility and a full clean build while RuneLite
+      remained open passed. Runtime Java unchanged, so no additional pair install was needed.
 
 ## Historical checkpoints
 

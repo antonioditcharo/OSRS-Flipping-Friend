@@ -3,6 +3,74 @@
 Updated 14 October 2026 (America/Anchorage). Read this with [AGENTS.md](AGENTS.md) and
 [TASKS.md](TASKS.md) before continuing implementation.
 
+## Current offer recovery and buy-limit correction — 14 October 2026
+
+Newest source: `codex/recommendation-recovery`, from rebuild merge `9cec7706b9ce33529a279ba18e9ded37c43d7d3b`.
+The normal checkout was clean at that revision; historical main remains unchanged. The owner
+requested continuation after a usage outage. This is a recommendation-correctness batch; compact
+UI work is secondary. No client input, live database modification, migration or repair occurred.
+
+The low-interruption workflow [PR #46](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/46)
+is completed and merged as `9cec7706` after both exact-head checks passed at `4d76fad43a09b704455825567ecd83c3e659fdd9`
+in [run 38678515832](https://github.com/antonioditcharo/OSRS-Flipping-Friend/actions/runs/38678515832).
+The agent launched RuneLite through the supported wrapper with captured output and no game input.
+Its API classpath used the persistent cache. A standard clean build **with that client open**
+passed in 45s (all 18 tasks), one client before/after; final status/compatibility/pipeline exited 0.
+No redundant JAR install was needed for tooling-only PR #46. Its final receipt is on the PR.
+
+Read-only follow-up found fresh account cash/eight free slots but six durable ERROR offer slots.
+Their reducer state was permanent; later real fills were rejected indefinitely. Old observations
+do not prove the old offers' final execution or stock disposal. Private SELECT-only diagnostics
+remain under local-data/diagnostics; the unassigned legacy database was not opened or assigned.
+The GET-only installed-runtime check during this batch returned (only account identity redacted):
+
+```text
+PASS [Artifact] build\libs\osrs-flipping-friend.jar
+PASS [Artifact] companion\build\libs\flipping-friend-companion.jar
+PASS [Protocol] accounts-v1
+PASS [Market] Ready. Choosing which items to study.
+PASS [<account-id>] Ledger: 4 sale updates; 2 unresolved; 0 profit ranges.
+PASS [<account-id>] Action: WAIT. Plan: UNAVAILABLE. Durable holdings or offers require reconciliation before new buys.
+INFO [Accounting] No synthetic snapshots, offers, or trades were posted by this check.
+PIPELINE_EXIT=0
+```
+
+Regression-first `3bd02ea` reproduced six failures in eight cases: permanent current-slot errors,
+lost rejection ordering cursor and cumulative buy-limit recounts (four filled units counted as
+eight). Follow-up `8b7e36e` covers ordering/counter guards and reproduces incomplete recovery being
+accepted as a learning sample. Production `0832414` adds explicit authenticated client provenance,
+same-session/sequence/time recovery, an unknown economic baseline, delta-only limit counting and
+learning/tax guards. See [recovery contract](docs/architecture/offer-observation-recovery.md).
+The tax fixture was corrected to use the actual current-policy boundary and asserts the old rule
+before testing replacement recovery; no tax assertion was weakened.
+
+Current source preserves append-only history, original reconciliation guards and unknown profit.
+Fresh observations can restore current slots and future deltas; they do not prove old holdings
+were disposed of or unblock this account's new buys. Historical exposure bounds remain the next
+recommendation prerequisite. Startup/current UI, controlled trading/restart and the PR #31
+checklist remain uncompleted. Final standard verification and GitHub receipt follow below/on PR.
+Installed pair remains **PR #45** until a later supported paired update. RuneLite is open; batch
+remaining runtime work before one installation/restart instead of requesting another cycle now.
+
+Standard Windows verification at production `0832414`:
+
+```text
+.\gradlew.bat clean test jar :companion:shadowJar --console=plain
+BUILD SUCCESSFUL in 48s
+18 actionable tasks: 18 executed
+CLEAN_BUILD_EXIT=0
+Plugin: 570 tests; Core: 168; Companion: 572 including six existing skips
+Total: 1,304 passed; 6 skipped; 0 failures/errors
+Project class bytecode: major 55 (Java 11), both JARs
+Candidate plugin: 449,593 bytes; companion: 17,784,860 bytes
+```
+
+The test client remained open; no process was stopped. Logs remain outside build under ignored
+`.gradle/recovery-*`; raw live diagnostics remain private under local-data. Candidate sizes are
+build evidence, not installed-runtime verification. Python discovery passed all 61 tests in
+133.551s (`OK`, `PYTHON_EXIT=0`). Both current-head CI checks must pass before source merge;
+the exact final-head receipt belongs to the GitHub PR.
+
 ## Streamlined delivery and installed ledger fix — 14 October 2026
 
 **Current owner direction:** the agent handles routine diagnostics, automatic fresh-backup
