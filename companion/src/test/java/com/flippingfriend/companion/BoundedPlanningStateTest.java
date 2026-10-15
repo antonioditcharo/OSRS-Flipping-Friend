@@ -81,4 +81,26 @@ public class BoundedPlanningStateTest {
         return new PortfolioCandidate(item,"Item "+item,"",100,100,100,120,120,120,10,100000,200L,
             1,1,.95,.95,.4,.4,1.5,now+100);
     }
+    @Test public void entryPolicyRechecksPausedItemsInsteadOfTrustingACachedAllocation()throws Exception {
+        try(var s=new SqliteStore(folder.newFolder().toPath().resolve("policy.db"));var service=new CompanionService(gson,s)) {
+            var receipt=seed(s);set(service,"account",snapshot(receipt));
+            var market=(MarketIngestionService)get(service,"market");
+            var f=MarketIngestionService.class.getDeclaredField("state");f.setAccessible(true);
+            f.set(market,new MarketIngestionService.MarketState(Map.of(561,new MarketIngestionService.Item(561,"Item 561",10000),
+                562,new MarketIngestionService.Item(562,"Item 562",10000)),new com.google.gson.JsonObject(),
+                new com.google.gson.JsonObject(),new com.google.gson.JsonObject(),now));
+            set(service,"plan",new PortfolioPlan("policy",now,now+90,"READY","fixture",100,
+                List.of(new PortfolioAllocation(1,candidate(562),"BUY"))));
+            assertEquals(OfferLifecycleAction.PLACE_BUY,service.entryDecision("policy",1,now).getAction());
+            set(service,"plan",new PortfolioPlan("policy",now,now+90,"READY","fixture",100,
+                List.of(new PortfolioAllocation(1,candidate(561),"BUY"))));
+            assertNotEquals(OfferLifecycleAction.PLACE_BUY,service.entryDecision("policy",1,now).getAction());
+        }
+    }
+    Object get(Object target,String field)throws Exception {
+        var f=target.getClass().getDeclaredField(field);f.setAccessible(true);return f.get(target);
+    }
+    void set(Object target,String field,Object value)throws Exception {
+        var f=target.getClass().getDeclaredField(field);f.setAccessible(true);f.set(target,value);
+    }
 }
