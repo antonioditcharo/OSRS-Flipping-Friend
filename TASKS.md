@@ -15,25 +15,30 @@ statements later in this file. Read [HANDOFF.md](HANDOFF.md) for exact evidence.
       Read-only existing-account probe: all 1,252 gap scopes known; 1,260 records unchanged, old
       money and unknown sales retained, planner unavailable. Require exact-head CI. New buys remain blocked
       until conservative historical exposure bounds and a coherent current cash/slot read are implemented and observed live.
-- [ ] Deliver codex/bounded-entry-state from ea0b3b4: current acknowledged eight-slot/cash proof,
+- [x] Delivered codex/bounded-entry-state from ea0b3b4 in PR #49, merged as f600dae after both
+      checks at d2cbe00 passed (run 38711448474). Current acknowledged eight-slot/cash proof,
       conservative uncertain capital bounds, paused affected items, bank cash lower bound, stricter
       client/server limits, immediate cached/displayed-buy invalidation and final entry revalidation.
       Regression-first sources and contract are in newest HANDOFF and bounded-current-planning.md.
       Standard: 1,344 Java passed/six skips, both Java 11 JARs; 61 Python passed. Native Plan render
       passes. Existing-account SELECT-only probe preserves 1,260 events/four sales/two unresolved;
-      six old ERROR slots/no authenticated source observations still block entries. Require exact-head
-      CI, source delivery and one paired update before real observations/manual acceptance.
-- [ ] Batch PR #47 current-slot recovery/buy-limit fixes and subsequent recommendation work for one
+      six old ERROR slots/no authenticated source observations blocked entries before install.
+      Installed supported pair after verified backup 20261015-011945-07ffac76. Fresh post-login proof
+      and controlled acceptance remain pending; source delivery does not prove actual buy readiness.
+- [x] Batched PR #47 current-slot recovery/buy-limit fixes and subsequent recommendation work for one
       supported paired update. PR #47 merged as b390b35 after both checks at eef5661 passed (run
       38681167838); normal rebuild is clean and updated. Its 1,304 Java tests/six skips and 61 Python
-      tests passed. Runtime remains PR #45; neither current-slot recovery nor causal scope is installed.
-- [ ] Continue batched HOME TEST CHECKLIST.md and PR #31 live acceptance. PR #45 is merged at
-      edf05a8 and installed after review of backup 20261014-183810-89356679. Actual installed/build/
-      manifest comparisons, status and API 1.13.2 compatibility pass. GET-only pipeline now exits 0:
-      ledger reads four sales/two unresolved. Latest logged-in WAIT/UNAVAILABLE is historical
-      holdings/offer reconciliation despite fresh cash/eight free slots. No accounting guard is cleared.
-      The agent reads subsequent logs/pipeline directly.
+      tests passed. Runtime now includes PR #47/#48/#49 in the f600dae installation.
+- [ ] Continue batched HOME TEST CHECKLIST.md and PR #31 live acceptance. Actual installed/build/
+      manifest comparisons, status and API 1.13.2 compatibility pass. GET-only pipeline exits 0:
+      ledger reads four sales/two unresolved; WAIT/UNAVAILABLE awaits real login/current observations.
+      RuneLite was launched through the supported wrapper, one client observed. The agent reads
+      subsequent logs/pipeline directly; player logs in and opens GE once, without pasted output.
       Startup/UI, search/key/Confirm and controlled trade/cancel/collect/relist/restart remain pending.
+- [ ] Deliver PowerShell 5.1 pipeline compatibility and installed receipt on codex/bounded-entry-verification.
+      Regression 98c6016 precedes three basic-parsing JSON reads. Both PowerShell hosts now pass;
+      all 63 Python tests pass and account-scope failures still fail closed. Tooling/docs only;
+      no additional paired install is required. Require both exact-head CI checks before merge.
 - [ ] Finish one authoritative ledger for planner, exits, inventory UI, calibration and session risk.
       Durable accounting, Performance, exposure and managed trade quantities/exits are implemented;
       audit remaining local consumers and preserve positive acquisition/cost evidence. Reproduce

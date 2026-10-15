@@ -3,6 +3,70 @@
 Updated 15 October 2026 (America/Anchorage). Read this with [AGENTS.md](AGENTS.md) and
 [TASKS.md](TASKS.md) before continuing implementation.
 
+## Installed current-entry batch and diagnostic compatibility — 15 October 2026
+
+[PR #49](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/49) merged as
+`f600dae961fa51a60db3edd3085e5b4e56fa527d` after both Windows/Linux checks passed at
+`d2cbe00c8a360a75f30fcf075fb11bef5e381ebb` in
+[run 38711448474](https://github.com/antonioditcharo/OSRS-Flipping-Friend/actions/runs/38711448474).
+Normal rebuild was fast-forwarded cleanly, its tree matched the tested head, and ee0d3aff ancestry
+passed. Historical main remains `0cb8ef8`. The source checkpoint below records the tests/contracts.
+
+The first unattended install encountered `Disable-ScheduledTask: Access is denied` (0x80070005)
+before JAR replacement. Both installed hashes still matched the old manifest and the task remained
+Running. Partial backup `20261015-011840-610a5708` contains only the 1,895-byte task export and is
+preserved. Running the same supported wrapper with Windows elevation succeeded, without changing
+task permissions/configuration or game processes:
+
+```text
+RuneLite release preflight passed: 1.13.2 matches the source API.
+Backup complete: ...\backups\20261015-011945-07ffac76
+Backup verified: companion account files=3; plugin account files=22; JAR/manifest hashes and task export match.
+Backup verified; continuing unattended paired update.
+BUILD SUCCESSFUL in 7s
+8 actionable tasks: 7 executed, 1 up-to-date
+Companion ready (accounts-v1).
+Update applied. Both installed JARs verified. Restart RuneLite to pick up plugin changes.
+ELEVATED_UPDATE_EXIT=0
+```
+
+Backup receipt VERIFIED: three companion account files / 8,515,232 bytes and 22 plugin records /
+1,499,299 bytes, compared by relative names/sizes only. Prior plugin 448,467 bytes; companion
+17,783,446; manifest 458; task XML 1,895; verification receipt 335. Installed plugin is 461,863 bytes;
+companion 17,812,619. Both match normal checkout builds and installed manifest. All 211 plugin and
+429 companion project classes are byte-identical to the tested candidate. No account database was
+manually edited, repaired, migrated, moved or assigned by the agent.
+
+Status and API compatibility exit 0. GET-only pipeline on PowerShell 7.6.5 exits 0. Windows
+PowerShell 5.1 failed inside Invoke-WebRequest's legacy HTML parser: direct read-only proof yielded
+NullReferenceException without basic parsing and HTTP 200/accounts-v1 with it. Regression-first
+`98c6016` reproduces this using the real script with isolated files/HTTP responses. UseBasicParsing
+on the three JSON reads fixes it; wrong-account responses still fail and fixture account bytes
+remain unchanged. Both hosts now read the installed service successfully. All 63 Python tests
+pass in 122.576s. This follow-up is tooling/docs/tests only; no second JAR install is needed.
+Its exact-head CI/delivery receipt belongs to the follow-up PR.
+
+Post-install pipeline output (account identity redacted):
+
+```text
+PASS [Artifact] build\libs\osrs-flipping-friend.jar
+PASS [Artifact] companion\build\libs\flipping-friend-companion.jar
+PASS [Protocol] accounts-v1
+PASS [Market] Ready. Choosing which items to study.
+PASS [<account-id>] Ledger: 4 sale updates; 2 unresolved; 0 profit ranges.
+PASS [<account-id>] Action: WAIT. Plan: UNAVAILABLE. Waiting for the game client to report your coins and free slots.
+INFO [Accounting] No synthetic snapshots, offers, or trades were posted by this check.
+PIPELINE_EXIT=0
+```
+
+The agent launched tools/start.ps1 with captured output/hidden console. One RuneLite Java client
+was observed, API 1.13.2 matched and startup reached the injected client loader. No game input was
+sent. Login, fresh authenticated account proof, actual buy readiness and UI/trade/restart acceptance
+are unobserved. Player next step: log in and open GE/Flipping Friend once; the agent reads routine
+pipeline/logs directly. No log-paste, re-install or repeated close/open cycle is required. Private
+logs/receipts remain under the normal checkout's ignored .gradle/bounded-* and .gradle/paired-update-f600dae*.
+Full-account benchmarks and the other Active/Next tasks remain open.
+
 ## Current continuation: bounded exposure and current entry proof — 15 October 2026
 
 Resumed the interrupted `codex/bounded-entry-state` worktree without discarding changes. Base is

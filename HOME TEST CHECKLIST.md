@@ -4,8 +4,10 @@ The default assisted workflow is now batched: the agent handles GitHub, builds, 
 paired updates, status, compatibility, pipeline and logs. You do not need to paste console output,
 reply at INSTALL, or respond after every check. See [development workflow](docs/development-workflow.md).
 
-PR #45 is installed. Actual status, RuneLite 1.13.2 compatibility and ledger HTTP reads pass.
-Historical trade reconciliation and controlled trading acceptance remain unresolved.
+PR #49 is installed (source merge f600dae). Status, RuneLite 1.13.2 compatibility and ledger HTTP
+reads pass. RuneLite has been launched; log in yourself and open the GE/Flipping Friend once.
+The agent checks fresh current-slot/cash proof and reads logs directly. Historical gaps remain
+recorded; actual buy readiness and controlled trading acceptance still need live verification.
 
 ## 1. Prepare one candidate
 
