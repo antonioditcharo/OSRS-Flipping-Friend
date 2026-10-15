@@ -184,6 +184,7 @@ public class FlippingFriendPlugin extends Plugin
 
 	private final AtomicBoolean accountDataLoaded = new AtomicBoolean();
 	private final java.util.concurrent.atomic.AtomicLong offerObservationGeneration = new java.util.concurrent.atomic.AtomicLong();
+	private final java.util.concurrent.atomic.AtomicLong adviceObservationRevision = new java.util.concurrent.atomic.AtomicLong();
 	private volatile long lastAccountRefresh;
 	private volatile long lastEngineRefresh;
 	private volatile long lastPersist;
@@ -317,6 +318,8 @@ public class FlippingFriendPlugin extends Plugin
 		GrandExchangeOfferChanged captured = new GrandExchangeOfferChanged();
 		captured.setSlot(event.getSlot()); captured.setOffer(OfferObservation.copyOf(event.getOffer()));
 		event = captured;
+		invalidateAccountAdvice();
+		accountMonitor.observeOffer(event.getSlot(),event.getOffer());
 		// The game replays every slot on login, and it does so before this plugin knows which account
 		// it is looking at. Booking those fills against an offer book that has not been read off disk
 		// yet made every replayed offer look brand new, so its entire running total was counted as a
@@ -366,6 +369,8 @@ public class FlippingFriendPlugin extends Plugin
 	@Subscribe
 	public void onItemContainerChanged(ItemContainerChanged event)
 	{
+		invalidateAccountAdvice();
+        accountMonitor.observeBankContainer(event.getContainerId(),event.getItemContainer());
 		refreshAccountState();
 	}
 
@@ -430,6 +435,7 @@ public class FlippingFriendPlugin extends Plugin
 		{
 			return;
 		}
+		invalidateAccountAdvice();
 
         if ("fillRecommendedInputKey".equals(event.getKey()) || "showSuggestedSearchItem".equals(event.getKey())) {
             geInputAssist.reset();
@@ -713,6 +719,20 @@ public class FlippingFriendPlugin extends Plugin
 		panel.refresh();
 	}
 
+	/** Client-thread boundary: withdraw stale entries before deferred recomputation. */
+	private void invalidateAccountAdvice()
+	{
+		adviceObservationRevision.incrementAndGet();
+		companion.invalidateEntryAdvice();
+		Suggestion shown = stepGuide == null ? null : stepGuide.getSuggestion();
+		if (shown != null && shown.getType() == SuggestionType.BUY)
+		{
+			stepGuide.setSuggestion(Suggestion.waiting("Checking current account state",
+				"Cash, offers or preferences changed. Waiting for a fresh recommendation."));
+			if (panel != null) panel.refresh();
+		}
+	}
+
 	private void requestEngineRefresh()
 	{
 		ExecutorService executor = worker;
@@ -725,6 +745,9 @@ public class FlippingFriendPlugin extends Plugin
 
 		clientThread.invokeLater(() ->
 		{
+            if(!offerTracker.hasCompleteOfferEvidence()){withdrawUnsupportedPriceAdvice();return;}
+            if(client.getGameState()!=GameState.LOGGED_IN || !accountDataLoaded.get() || !hasProfile())return;
+            com.flippingfriend.session.AccountState observedState=accountMonitor.refresh();
 			boolean isSetupOpen = widgetResolver.isSetupOpen();
 			int setupItemId = isSetupOpen ? client.getVarpValue(VarPlayerID.TRADINGPOST_SEARCH) : -1;
 			Suggestion active = stepGuide.getSuggestion();
@@ -748,12 +771,21 @@ public class FlippingFriendPlugin extends Plugin
 			String observedAccount = observedProfile == null || observedProfile.isBlank() ? null
 				: com.flippingfriend.core.AccountIdentity.fromProfileKey(observedProfile);
 			long observedGeneration = offerObservationGeneration.get();
+            long observedRevision=adviceObservationRevision.get();
+            var planningObservation=com.flippingfriend.session.PlanningAccountObservation.capture(observedAccount,
+                observedState,client.getGrandExchangeOffers(),observedOffers,java.time.Instant.now().getEpochSecond());
+            if(planningObservation==null) {
+                companion.invalidateEntryAdvice();
+                stepGuide.setSuggestion(Suggestion.waiting("Waiting for complete account observations",
+                    "Cash and all Grand Exchange slots must agree before new advice is shown."));
+                panel.refresh();return;
+            }
 
 			executor.execute(() ->
 			{
 				try
 				{
-					if (observedGeneration != offerObservationGeneration.get()) return;
+					if (observedGeneration != offerObservationGeneration.get() || observedRevision!=adviceObservationRevision.get()) return;
 					if (!offerTracker.hasCompleteOfferEvidence())
 					{
 						clientThread.invokeLater(this::withdrawUnsupportedPriceAdvice);
@@ -765,7 +797,7 @@ public class FlippingFriendPlugin extends Plugin
 					long markedDrawdown = com.flippingfriend.session.SessionRisk.markedDrawdown(
 						journal.sessionStats(), engine.tradingPositions(), marketData.getSnapshot(), taxCalculator);
 
-					long bankroll = accountMonitor.getState().spendableCoins(config.includeBankValue(), config.bankrollCap());
+					long bankroll = observedState.spendableCoins(config.includeBankValue(), config.bankrollCap());
 					if (bankroll > 0 && markedDrawdown > bankroll * 0.15)
 					{
 						if (!drawdownAlerted)
@@ -787,10 +819,10 @@ public class FlippingFriendPlugin extends Plugin
 					// out rather than having them filtered off the card afterwards. They were only ever
 					// applied at selection, so the portfolio list went on showing a blocked item as the
 					// top-ranked trade and the headline rate was computed from trades never on offer.
-					companion.publishAccount(accountMonitor.getState(), config, markedDrawdown,
+					companion.publishAccount(observedState, config, markedDrawdown,
 						committedByItem(), buyLimits.activeWindows(java.time.Instant.now()),
 						com.flippingfriend.model.SuggestionEngine.parseBlocked(config.blockedItems()),
-						engine.skippedItems(), offerTracker.itemsWithOpenOffers(), engine.isSellOnly(), positions.all(), observedOffers, observedAccount);
+						engine.skippedItems(), offerTracker.itemsWithOpenOffers(), engine.isSellOnly(), positions.all(), observedOffers, observedAccount, planningObservation);
 
 					// The companion owns new-position selection and gets first chance to supply collect advice.
 					// The built-in engine remains as the collect fallback and still owns reprice and sell decisions.
@@ -882,20 +914,20 @@ public class FlippingFriendPlugin extends Plugin
 				Suggestion settled = suggestion;
 				clientThread.invokeLater(() ->
 				{
-                    if (observedGeneration != offerObservationGeneration.get()
+                    if (observedGeneration != offerObservationGeneration.get() || observedRevision!=adviceObservationRevision.get()
                         || !java.util.Objects.equals(observedProfile, configManager.getRSProfileKey())) return;
 					if (!offerTracker.hasCompleteOfferEvidence())
 					{
 						withdrawUnsupportedPriceAdvice();
 						return;
 					}
-                    if (observedGeneration != offerObservationGeneration.get()) return;
+                    if (observedGeneration != offerObservationGeneration.get() || observedRevision!=adviceObservationRevision.get()) return;
                     Suggestion current = settled;
 
 					stepGuide.setSuggestion(current);
 					panel.refresh();
 				});
-				if (!stepGuide.isPaused()) { notifyIfNeeded(suggestion); checkPriceDumps(); }
+				if (observedRevision==adviceObservationRevision.get() && !stepGuide.isPaused()) { notifyIfNeeded(suggestion); checkPriceDumps(); }
 
 			}
 			catch (Exception ex)
@@ -919,6 +951,9 @@ public class FlippingFriendPlugin extends Plugin
 							+ "the details.");
 					clientThread.invokeLater(() ->
 					{
+						if (observedGeneration != offerObservationGeneration.get()
+							|| observedRevision != adviceObservationRevision.get()
+							|| !java.util.Objects.equals(observedProfile, configManager.getRSProfileKey())) return;
 						stepGuide.setSuggestion(problem);
 						panel.refresh();
 					});
@@ -958,8 +993,9 @@ public class FlippingFriendPlugin extends Plugin
 		if (profile == null || profile.isBlank()) return;
 		String account = com.flippingfriend.core.AccountIdentity.fromProfileKey(profile);
 		long generation = offerObservationGeneration.get();
+        long observedAt=java.time.Instant.now().getEpochSecond();
 		executor.execute(() -> {
-			if (generation == offerObservationGeneration.get()) companion.publishObservedOffer(observation, account);
+			if (generation == offerObservationGeneration.get()) companion.publishObservedOffer(observation, account, observedAt);
 		});
 	}
 
@@ -974,8 +1010,9 @@ public class FlippingFriendPlugin extends Plugin
 		if (profile == null || profile.isBlank()) return;
 		String account = com.flippingfriend.core.AccountIdentity.fromProfileKey(profile);
 		long generation = offerObservationGeneration.get();
+        long observedAt=java.time.Instant.now().getEpochSecond();
 		executor.execute(() -> {
-			if (generation == offerObservationGeneration.get()) companion.publishObservedOfferCleared(slot, account);
+			if (generation == offerObservationGeneration.get()) companion.publishObservedOfferCleared(slot, account, observedAt);
 		});
 	}
 

@@ -20,6 +20,7 @@ public class AccountState
 	private final boolean ironman;
 	private final long inventoryCoins;
 	private final long bankCoins;
+	private final long bankSpendableFloor;
 	private final long collectionBoxCoins;
 	private final int freeSlots;
 	private final int totalSlots;
@@ -33,6 +34,16 @@ public class AccountState
 		long bankCoins, long collectionBoxCoins, int freeSlots, int totalSlots, long committedCoins,
 		boolean bankSeen, Map<Integer, Integer> holdings, Map<Integer, Integer> inventoryHoldings, Map<Integer, Integer> bankHoldings)
 	{
+		this(loggedIn,membersWorld,ironman,inventoryCoins,bankCoins,collectionBoxCoins,freeSlots,totalSlots,
+			committedCoins,bankSeen,holdings,inventoryHoldings,bankHoldings,Math.max(0,bankCoins-committedCoins));
+	}
+
+	public AccountState(boolean loggedIn, boolean membersWorld, boolean ironman, long inventoryCoins,
+		long bankCoins, long collectionBoxCoins, int freeSlots, int totalSlots, long committedCoins,
+		boolean bankSeen, Map<Integer, Integer> holdings, Map<Integer, Integer> inventoryHoldings,
+		Map<Integer, Integer> bankHoldings, long bankSpendableFloor)
+	{
+		this.bankSpendableFloor=Math.max(0,Math.min(bankCoins,bankSpendableFloor));
 		this.committedCoins = committedCoins;
 		this.bankSeen = bankSeen;
 		this.loggedIn = loggedIn;
@@ -153,22 +164,21 @@ public class AccountState
 	 * Coins the plugin is willing to plan around.
 	 * <p>
 	 * Bank coins count because the Grand Exchange has drawn buy offers from the bank since 2023, so
-	 * excluding them would understate what the account can trade with. But that same change is why
-	 * open offers have to be deducted from the bank figure.
+	 * excluding them would understate what the account can trade with. The monitor supplies a
+	 * conservative lower bound from fresh bank evidence and subsequent possible buy funding.
 	 * <p>
 	 * Coins in an open buy offer have already left the <em>inventory</em>, so the inventory number is
 	 * self-correcting. The bank number is not: it is a snapshot from the last time the bank happened
 	 * to be open, and an offer placed since then has quietly drawn from it. Counting that money twice
-	 * is how an account ends up with eight offers it cannot actually fund. Deducting the full value of
-	 * open offers slightly understates the bank when the offers predate the snapshot, and erring
-	 * towards under-committing is the right direction to be wrong in.
+	 * is how an account ends up with offers it cannot fund. Filling or collecting an offer does not
+	 * restore the debited bank balance. Only a fresh bank observation can establish more bank cash.
 	 *
 	 * @param includeBank  user setting, in case they want the bank left alone
-	 * @param reservedCoins  user spending cap, or 0 for no cap
+	 * @param cap  user spending cap, or 0 for no cap
 	 */
 	public long spendableCoins(boolean includeBank, long cap)
 	{
-		long bank = includeBank ? Math.max(0, bankCoins - committedCoins) : 0;
+		long bank = includeBank ? bankSpendableFloor : 0;
 		long total = inventoryCoins + collectionBoxCoins + bank;
 		if (cap > 0)
 		{

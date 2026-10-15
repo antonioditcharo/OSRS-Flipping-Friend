@@ -1,11 +1,12 @@
 # Tasks
 
-Updated 14 October 2026. The current checkpoint below supersedes historical runtime/review
+Updated 15 October 2026. The current checkpoint below supersedes historical runtime/review
 statements later in this file. Read [HANDOFF.md](HANDOFF.md) for exact evidence.
 
 ## Active
 
-- [ ] Finish causal trade-gap scope on codex/scoped-trade-uncertainty from b390b35. Regression-first
+- [x] Source causal trade-gap scope merged in PR #48 as ea0b3b4; both checks passed at e6fb786
+      (run 38683353210). The following details are its source receipt, not installed acceptance:
       342aa1a reproduces lost unrelated managed ownership and rejected/malformed client scope proof.
       Source 774fe04 scopes gaps by recorded account/offer episodes, preserves raw history and future
       clean sale cost matching. Read-only follow-up found 24 context losses; cf7898b reproduces them,
@@ -13,7 +14,15 @@ statements later in this file. Read [HANDOFF.md](HANDOFF.md) for exact evidence.
       build passes: 1,321 Java passed/six skips, both Java 11 JARs; all 61 Python tests pass.
       Read-only existing-account probe: all 1,252 gap scopes known; 1,260 records unchanged, old
       money and unknown sales retained, planner unavailable. Require exact-head CI. New buys remain blocked
-      until conservative historical exposure bounds and a coherent current cash/slot read are implemented.
+      until conservative historical exposure bounds and a coherent current cash/slot read are implemented and observed live.
+- [ ] Deliver codex/bounded-entry-state from ea0b3b4: current acknowledged eight-slot/cash proof,
+      conservative uncertain capital bounds, paused affected items, bank cash lower bound, stricter
+      client/server limits, immediate cached/displayed-buy invalidation and final entry revalidation.
+      Regression-first sources and contract are in newest HANDOFF and bounded-current-planning.md.
+      Standard: 1,344 Java passed/six skips, both Java 11 JARs; 61 Python passed. Native Plan render
+      passes. Existing-account SELECT-only probe preserves 1,260 events/four sales/two unresolved;
+      six old ERROR slots/no authenticated source observations still block entries. Require exact-head
+      CI, source delivery and one paired update before real observations/manual acceptance.
 - [ ] Batch PR #47 current-slot recovery/buy-limit fixes and subsequent recommendation work for one
       supported paired update. PR #47 merged as b390b35 after both checks at eef5661 passed (run
       38681167838); normal rebuild is clean and updated. Its 1,304 Java tests/six skips and 61 Python

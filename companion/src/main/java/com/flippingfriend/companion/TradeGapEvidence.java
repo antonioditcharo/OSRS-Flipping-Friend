@@ -53,7 +53,7 @@ final class TradeGapEvidence {
         }
         return result;
     }
-    private static boolean valid(OfferEvent e) {
+    static boolean valid(OfferEvent e) {
         if (e==null || !"1".equals(e.getSchemaVersion()) || blank(e.getEventId()) || blank(e.getSessionId())
                 || e.getSequence()<=0 || e.getObservedAt()<0 || e.getSlot()<0 || e.getSlot()>=8) return false;
         try { AccountIdentity.require(e.getAccountId()); } catch (IllegalArgumentException invalid) { return false; }

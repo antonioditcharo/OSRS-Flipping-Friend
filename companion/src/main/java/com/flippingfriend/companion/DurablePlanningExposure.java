@@ -9,10 +9,27 @@ import java.util.Map;
 final class DurablePlanningExposure {
     final Map<Integer, Long> committedByItem;
     final long reservedBuyCoins;
+    final java.util.Set<Integer> unavailableEntryItems;
 
     private DurablePlanningExposure(Map<Integer, Long> byItem, long reserved) {
+        this(byItem,reserved,java.util.Collections.emptySet());
+    }
+    DurablePlanningExposure(Map<Integer,Long> byItem,long reserved,java.util.Set<Integer> paused) {
+        unavailableEntryItems=java.util.Collections.unmodifiableSet(new java.util.HashSet<>(paused));
         committedByItem = Collections.unmodifiableMap(new HashMap<>(byItem));
         reservedBuyCoins = reserved;
+    }
+    static DurablePlanningExposure forAccount(SqliteStore.PlanningProjections read,
+            com.flippingfriend.core.AccountSnapshot account,long now) {
+        if(account==null)return null;
+        if(!account.isAutomaticTradeScope())return null; // Old publishers cannot authorize current entries.
+        if(!CurrentOfferReadSet.valid(read,account,now) || read.tradeScope==null || read.tradeScope.hasUnboundedReconciliation)return null;
+        DurablePlanningExposure result=read.tradeScope.hasUnassignedReconciliation || !read.tradeScope.unsafeItems.isEmpty()
+            ? BoundedHistoricalExposure.calculate(read):from(read,account.getStockDeclarations(),true);
+        if(result==null)return null;
+        try{long total=account.getSpendableCoins();for(long value:result.committedByItem.values())total=Math.addExact(total,value);}
+        catch(ArithmeticException unrepresentable){return null;}
+        return result;
     }
 
     static DurablePlanningExposure from(SqliteStore.PlanningProjections read) {

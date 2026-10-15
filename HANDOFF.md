@@ -1,7 +1,79 @@
 # Agent handoff
 
-Updated 14 October 2026 (America/Anchorage). Read this with [AGENTS.md](AGENTS.md) and
+Updated 15 October 2026 (America/Anchorage). Read this with [AGENTS.md](AGENTS.md) and
 [TASKS.md](TASKS.md) before continuing implementation.
+
+## Current continuation: bounded exposure and current entry proof — 15 October 2026
+
+Resumed the interrupted `codex/bounded-entry-state` worktree without discarding changes. Base is
+rebuild `ea0b3b42a58ba920a2823d2765f346046f498c36`, the PR #48 merge. Both PR #48 checks passed at
+`e6fb7864fc06824e8ca8d334d21f4c7b90fa4c8c` in
+[run 38683353210](https://github.com/antonioditcharo/OSRS-Flipping-Friend/actions/runs/38683353210).
+Primary checkout was clean, matched origin after fetch, and historical main remains `0cb8ef8`.
+Runtime still PR #45 at this source checkpoint; PR #47/#48 and this candidate are batched for
+one later supported paired install. Zero RuneLite clients were observed; none was stopped.
+
+Implemented the [current cash/slot and historical bounds contract](docs/architecture/bounded-current-planning.md).
+Only an acknowledged, authenticated eight-slot capture matching current durable sources can authorize
+entries. Old item-scoped uncertainty remains recorded, with conservative capital bounds and affected
+items paused; unrelated candidates still require all normal checks. Unknown scope/current errors
+remain blocking. Bank cash cannot reappear after fill/collection or from a cached closed-bank container.
+Final approval rechecks current resources and stricter client/server buy-limit evidence. Economic
+changes immediately withdraw cached/displayed buys and fence queued delivery. Uncertain bounds open
+in Plan; no sidebar classifications were restored. No database was edited or repaired by the agent,
+and no game input or synthetic live event was sent.
+
+Reproducing commits: `a23b1b5` spent bank cash, `805d6a7` stale plan under spacing, `72d0427` cached bank,
+`64b03a5` paused-item approval and exposure overflow, `fcd9071` ignored client buy-limit floor,
+`9149791`/fixture correction `75526a9` stale displayed buy, `6ff0744` malformed capture and contradictory
+funding. `2b7989c` is a new-feature contract, not a bug reproduction. Additional proof/legacy/funding
+tests use disposable account stores. Existing obsolete manual-review positive-entry fixtures now
+expect abstention without current proof; modern positive entry and scoped-history behavior are tested.
+The inactive replacement observer remains inactive: its overly broad method-name grep was narrowed
+to actual observer type names when the existing BuyLimitLedger read method gained a current-entry caller.
+
+Standard Windows verification of the production candidate:
+
+```text
+.\gradlew.bat clean test jar :companion:shadowJar --console=plain
+BUILD SUCCESSFUL in 48s
+18 actionable tasks: 18 executed
+CLEAN_BUILD_EXIT=0
+Plugin: 586 tests; Core: 170; Companion: 594 including six existing skips
+Total: 1,344 passed; 6 skipped; 0 failures/errors
+Python: Ran 61 tests in 123.765s / OK / PYTHON_EXIT=0
+Both project JARs: bytecode major 55 (Java 11)
+Candidate plugin: 461,843 bytes; companion: 17,812,599 bytes
+```
+
+A follow-up test-only native RuneLiteLAF render includes Plan with uncertain bounds, passes clipping
+checks and renders readable wrapped explanations (`RENDER_EXIT=0`). Images remain in ignored build/ui.
+An intermediate filtered invocation failed because unqualified `test` applied root filters to core;
+the full standard build above passed. Build/regression logs remain outside build in ignored
+`.gradle/bounded-*`. No raw personal data was added to Git.
+
+Candidate SqliteStore.openReadOnly inspected the existing scoped account only, without a service or
+writable constructor. No synthetic current receipt was manufactured. Exact output:
+
+```text
+LEDGER_VALID=true
+SALES=4 UNRESOLVED_SALES=2
+GAP_SCOPES=1252 UNBOUNDED_SCOPES=0
+CURRENT_ERROR_SLOTS=6
+CURRENT_AUTHENTICATED_SOURCES=0
+HISTORICAL_BOUND_WITH_CURRENT_ERRORS=false
+POSITION_EVENTS_BEFORE=1260 AFTER=1260
+READ_ONLY_ONLY=true NO_SERVICE_STARTED=true
+READ_ONLY_EXIT=0
+```
+
+This preserves the old guards until actual new-client observations arrive. It is not a successful
+live buy test. Exact-head CI, merge, paired installation and GET-only pipeline receipts follow on
+the delivery PR and in the next checkpoint. After deployment, the only required player work is
+manual login followed by the batched HOME TEST CHECKLIST. The agent reads routine diagnostics.
+Controlled trade/restart, PR #31 live acceptance, remaining authoritative-ledger migration,
+whole-account replay and measured 100M cadence benchmarks remain unfinished. No profit superiority
+claim is supported yet.
 
 ## Current continuation: causal scope for old trade gaps — 14 October 2026
 

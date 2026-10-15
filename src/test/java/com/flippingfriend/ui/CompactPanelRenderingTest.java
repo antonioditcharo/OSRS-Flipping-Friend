@@ -37,9 +37,12 @@ public class CompactPanelRenderingTest {
             when(f.guide.getSuggestion()).thenReturn(buy); f.refresh();
             capture(f.panel,239,499,"compact-buy.png");
             verify(sprite,atLeastOnce()).addTo(any(JLabel.class));
+            when(f.companion.lastPlan()).thenReturn(PortfolioPlan.unavailable("fixture",
+                PortfolioPlanOutcome.NO_ELIGIBLE_CANDIDATE,"No eligible candidate in this fixture.",java.time.Instant.now().getEpochSecond())
+                .withUncertainCapitalBounds(java.util.Map.of(561,1000000L,562,24000000L)));
             final JComponent[] opened = new JComponent[1];
             f.panel.setWindowPresenter((name,view)->opened[0]=view);
-            for(String view:new String[]{"Recommendation","Holdings","Performance","Settings"}) {
+            for(String view:new String[]{"Recommendation","Holdings","Performance","Settings","Plan"}) {
                 SwingUtilities.invokeAndWait(()->f.panel.detailsComponent(view));
                 SwingUtilities.invokeAndWait(()->{
                     for(Component entry:f.panel.detailsMenu().getComponents()) if(entry instanceof JMenuItem && view.equals(((JMenuItem)entry).getText())) ((JMenuItem)entry).doClick();

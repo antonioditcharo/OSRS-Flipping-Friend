@@ -16,6 +16,7 @@ import net.runelite.api.ItemComposition;
 import net.runelite.api.ItemContainer;
 import net.runelite.api.WorldType;
 import net.runelite.api.gameval.InventoryID;
+import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.api.gameval.VarbitID;
 import net.runelite.client.game.ItemManager;
@@ -43,8 +44,9 @@ public class AccountMonitor
 	private final AtomicReference<AccountState> state = new AtomicReference<>(AccountState.loggedOut());
 
 	/**
-	 * The bank container only exists while the bank is open, so the last seen contents are remembered
-	 * for the session.
+	 * Last observed bank contents are remembered for the session. A cached container alone does not
+	 * establish that its coin balance is fresh; spendable bank cash needs a visible bank view or a
+	 * new bank-container event and is reduced by subsequent possible buy funding.
 	 * <p>
 	 * Remembered as <b>evidence of presence, never of absence</b>. The game stops syncing this
 	 * container the moment the interface closes, so what is held here is a photograph: it can prove an
@@ -56,6 +58,7 @@ public class AccountMonitor
 	private long lastSeenBankCoins;
 	private Map<Integer, Integer> lastSeenBankItems = new HashMap<>();
 	private boolean bankSeen;
+	private final BankCashEvidence bankCash=new BankCashEvidence();
 
 	@Inject
 	public AccountMonitor(Client client, ItemManager itemManager, FlippingFriendConfig config)
@@ -75,8 +78,17 @@ public class AccountMonitor
 		lastSeenBankCoins = 0;
 		lastSeenBankItems = new HashMap<>();
 		bankSeen = false;
+		bankCash.reset();
 		state.set(AccountState.loggedOut());
 	}
+
+	/** Preserve every client callback, including terminal then EMPTY before a scheduled refresh. */
+	public void observeOffer(int slot,GrandExchangeOffer observation) { bankCash.observe(slot,observation); }
+    public void observeBankContainer(int id,ItemContainer container) {
+        if(id!=InventoryID.BANK || container==null || client.getGameState()!=GameState.LOGGED_IN)return;
+        long coins=0;for(Item item:container.getItems())if(item.getId()==995 && item.getQuantity()>0)coins+=item.getQuantity();
+        bankCash.rebase(coins,client.getGrandExchangeOffers());
+    }
 
 	/** Must be called on the client thread. */
 	public AccountState refresh()
@@ -111,6 +123,9 @@ public class AccountMonitor
 		merge(holdings, inventoryHoldings);
 
 		ItemContainer bank = client.getItemContainer(InventoryID.BANK);
+		GrandExchangeOffer[] currentOffers=client.getGrandExchangeOffers();
+        var bankWidget=client.getWidget(InterfaceID.Bankmain.ITEMS);
+        boolean freshBankView=bankWidget!=null && !bankWidget.isHidden();
 		if (bank != null)
 		{
 			Map<Integer, Integer> bankItems = new HashMap<>();
@@ -118,6 +133,8 @@ public class AccountMonitor
 			lastSeenBankItems = bankItems;
 			bankSeen = true;
 		}
+        if(bank!=null && freshBankView)bankCash.rebase(lastSeenBankCoins,currentOffers);
+        else bankCash.observeAll(currentOffers);
 		merge(holdings, lastSeenBankItems);
 
 		long collectionCoins = 0;
@@ -131,7 +148,8 @@ public class AccountMonitor
 		long committed = committedToBuyOffers();
 
 		AccountState updated = new AccountState(true, members, ironman, inventoryCoins, lastSeenBankCoins,
-			collectionCoins, freeSlots, totalSlots, committed, bankSeen, holdings, inventoryHoldings, lastSeenBankItems);
+			collectionCoins, freeSlots, totalSlots, committed, bankSeen, holdings, inventoryHoldings, lastSeenBankItems,
+			bankCash.available());
 		state.set(updated);
 		return updated;
 	}

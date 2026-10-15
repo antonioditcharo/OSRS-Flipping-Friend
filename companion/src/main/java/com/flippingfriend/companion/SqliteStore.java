@@ -39,6 +39,7 @@ final class SqliteStore implements AutoCloseable
 		final OfferLifecycleTransition transition;
 		final PositionProjection positionProjection;
 		final BuyLimitProjection buyLimitProjection;
+        boolean planningStateChanged;
 		ProjectedEventAcceptance(EventAcceptance acceptance, OfferLifecycleTransition transition,
 			PositionProjection positionProjection, BuyLimitProjection buyLimitProjection)
 		{
@@ -249,7 +250,9 @@ final class SqliteStore implements AutoCloseable
 			BuyLimitProjection buyLimit = applyBuyLimitEffect(event, previous, transition);
 			checkpoint.reached("BUY_LIMIT_ACCOUNTING_APPLIED");
 			connection.commit();
-			return new ProjectedEventAcceptance(acceptance, transition, position, buyLimit);
+            ProjectedEventAcceptance result=new ProjectedEventAcceptance(acceptance, transition, position, buyLimit);
+            result.planningStateChanged=!samePlanningState(previous,transition.getProjection());
+            return result;
 		}
 		catch (Exception failure)
 		{
@@ -262,12 +265,21 @@ final class SqliteStore implements AutoCloseable
 		}
 	}
 
+    private static boolean samePlanningState(OfferLifecycleProjection a,OfferLifecycleProjection b) {
+        return a!=null && b!=null && a.getState()==b.getState() && a.getSlot()==b.getSlot()
+            && java.util.Objects.equals(a.getOfferIdentity(),b.getOfferIdentity()) && a.getItemId()==b.getItemId()
+            && a.isBuying()==b.isBuying() && a.getPrice()==b.getPrice() && a.getTotalQuantity()==b.getTotalQuantity()
+            && a.getFilledQuantity()==b.getFilledQuantity() && a.getSpent()==b.getSpent();
+    }
+
 	/** Positions and offers captured in the same database read transaction. */
 	static final class PlanningProjections
 	{
 		final List<PositionProjection> positions;
 		final List<OfferLifecycleProjection> offers;
         AutomaticTradeScope tradeScope;
+        Map<Integer,OfferEvent> currentEvents=java.util.Collections.emptyMap();
+        List<OfferEvent> history;
 		PlanningProjections(List<PositionProjection> positions,
 			List<OfferLifecycleProjection> offers)
 		{
@@ -290,6 +302,8 @@ final class SqliteStore implements AutoCloseable
 			PlanningProjections result = new PlanningProjections(
 				positionProjections(), offerProjections());
             result.tradeScope = automaticTradeScope(expectedAccountId);
+            result.currentEvents=currentOfferEvidence(expectedAccountId);
+            if (!result.tradeScope.unsafeItems.isEmpty()) result.history=offerHistory(expectedAccountId);
 			connection.commit();
 			return result;
 		}
@@ -447,6 +461,11 @@ final class SqliteStore implements AutoCloseable
             while (r.next()) gaps.put(r.getString(1),r.getInt(2));
         }
         if (gaps.isEmpty()) return java.util.Collections.emptyMap();
+        List<OfferEvent> history=offerHistory(expectedAccountId);
+        return history==null?TradeGapEvidence.unknown(gaps):TradeGapEvidence.scope(history,gaps,expectedAccountId);
+    }
+    private List<OfferEvent> offerHistory(String expectedAccountId) throws Exception {
+        if (expectedAccountId==null) return null;
         List<OfferEvent> history=new ArrayList<>();
         com.google.gson.Gson parser=new com.google.gson.Gson();
         try (Statement s=connection.createStatement(); ResultSet r=s.executeQuery(
@@ -454,12 +473,30 @@ final class SqliteStore implements AutoCloseable
             while (r.next()) {
                 OfferEvent event;
                 try { event=parser.fromJson(r.getString(2),OfferEvent.class); }
-                catch (RuntimeException incomplete) { return TradeGapEvidence.unknown(gaps); }
-                if (event==null || !r.getString(1).equals(event.getEventId())) return TradeGapEvidence.unknown(gaps);
+                catch (RuntimeException incomplete) { return null; }
+                if (event==null || !r.getString(1).equals(event.getEventId())
+                        || !expectedAccountId.equals(event.getAccountId()) || !TradeGapEvidence.valid(event)) return null;
                 history.add(event);
             }
         }
-        return TradeGapEvidence.scope(history,gaps,expectedAccountId);
+        return java.util.Collections.unmodifiableList(history);
+    }
+    private Map<Integer,OfferEvent> currentOfferEvidence(String expectedAccountId) throws Exception {
+        Map<Integer,OfferEvent> result=new HashMap<>();
+        com.google.gson.Gson parser=new com.google.gson.Gson();
+        try (Statement s=connection.createStatement(); ResultSet r=s.executeQuery(
+                "SELECT p.slot,p.source_event_id,e.payload FROM offer_projection p LEFT JOIN event_log e ON e.event_id=p.source_event_id")) {
+            while(r.next()) {
+                OfferEvent event;
+                try { event=parser.fromJson(r.getString(3),OfferEvent.class); }
+                catch(RuntimeException invalid){return java.util.Collections.emptyMap();}
+                if(event==null || expectedAccountId==null || !expectedAccountId.equals(event.getAccountId())
+                        || !java.util.Objects.equals(r.getString(2),event.getEventId()) || r.getInt(1)!=event.getSlot())
+                    return java.util.Collections.emptyMap();
+                result.put(event.getSlot(),event);
+            }
+        }
+        return java.util.Collections.unmodifiableMap(result);
     }
 
     /** A current slot baseline cannot establish a complete historical timing/outcome sample. */

@@ -7,6 +7,8 @@ import java.util.Map;
 public final class AccountSnapshot
 {
 	private final String accountId;
+    private Map<Integer,String> offerReadSet;
+    private java.util.Set<Integer> unavailableEntryItems;
     private final boolean automaticTradeScope;
 	private final Map<Integer, StockDeclaration> stockDeclarations;
 	private final String correlationId;
@@ -89,7 +91,7 @@ public final class AccountSnapshot
 	private final java.util.Set<String> blockedItems;
 	private final java.util.Set<Integer> skippedItems;
 	/** Items with a live offer: suggesting one again is telling the player to buy what they just bought. */
-	private final java.util.Set<Integer> itemsOnOffer;
+	private java.util.Set<Integer> itemsOnOffer;
         /** Durable positions published for future companion-owned sell, collect, and reprice decisions. */
         private final java.util.List<PositionSnapshot> positions;
 
@@ -233,6 +235,8 @@ public final class AccountSnapshot
 
 	private AccountSnapshot(AccountSnapshot source, String accountId)
 	{
+        this.offerReadSet=source.offerReadSet==null?null:source.getOfferReadSet();
+        this.unavailableEntryItems=source.unavailableEntryItems==null?null:source.getUnavailableEntryItems();
 		this.accountId = AccountIdentity.require(accountId);
         this.automaticTradeScope = source.automaticTradeScope;
 		this.stockDeclarations = source.getStockDeclarations();
@@ -262,6 +266,8 @@ public final class AccountSnapshot
     private AccountSnapshot(AccountSnapshot source, Map<Integer, Long> exposure,
             Map<Integer, StockDeclaration> declarations, boolean automaticScope)
     {
+        this.offerReadSet=source.offerReadSet==null?null:source.getOfferReadSet();
+        this.unavailableEntryItems=source.unavailableEntryItems==null?null:source.getUnavailableEntryItems();
 		this.accountId = source.accountId;
         this.automaticTradeScope = automaticScope;
 		this.stockDeclarations = Collections.unmodifiableMap(new java.util.HashMap<>(declarations));
@@ -289,6 +295,32 @@ public final class AccountSnapshot
 		return new AccountSnapshot(this, exposure);
 	}
 	public AccountSnapshot withAccountId(String accountId) { return new AccountSnapshot(this, accountId); }
+    /** Eight exact source observations, captured with the cash/slot state on the client thread. */
+    public AccountSnapshot withOfferReadSet(Map<Integer,String> evidence) {
+        if (evidence==null || evidence.size()!=8 || new java.util.HashSet<>(evidence.values()).size()!=8)
+            throw new IllegalArgumentException("complete offer read set required");
+        for (int i=0;i<8;i++) if (evidence.get(i)==null || evidence.get(i).isBlank())
+            throw new IllegalArgumentException("invalid offer read set");
+        AccountSnapshot copy=new AccountSnapshot(this,getCommittedByItem());
+        copy.offerReadSet=Collections.unmodifiableMap(new java.util.HashMap<>(evidence)); return copy;
+    }
+    public Map<Integer,String> getOfferReadSet() {
+        return offerReadSet==null?Collections.emptyMap():Collections.unmodifiableMap(new java.util.HashMap<>(offerReadSet));
+    }
+    public java.util.Set<Integer> getUnavailableEntryItems() {
+        return unavailableEntryItems==null?Collections.emptySet():Collections.unmodifiableSet(new java.util.HashSet<>(unavailableEntryItems));
+    }
+    public AccountSnapshot withPlanningRestrictions(Map<Integer,Long> exposure,java.util.Set<Integer> paused) {
+        if (paused==null || paused.stream().anyMatch(id->id==null || id<=0))
+            throw new IllegalArgumentException("invalid paused entry items");
+        AccountSnapshot copy=withPlanningExposure(exposure);
+        copy.unavailableEntryItems=Collections.unmodifiableSet(new java.util.HashSet<>(paused)); return copy;
+    }
+    public AccountSnapshot withPlanningOffers(java.util.Set<Integer> current) {
+        if(current==null || current.stream().anyMatch(id->id==null || id<=0))throw new IllegalArgumentException("invalid offer items");
+        AccountSnapshot copy=new AccountSnapshot(this,getCommittedByItem());
+        copy.itemsOnOffer=Collections.unmodifiableSet(new java.util.HashSet<>(current));return copy;
+    }
 	public AccountSnapshot withStockDeclarations(Map<Integer, StockDeclaration> declarations)
 	{
 		if (declarations == null) throw new IllegalArgumentException("stock declarations required");

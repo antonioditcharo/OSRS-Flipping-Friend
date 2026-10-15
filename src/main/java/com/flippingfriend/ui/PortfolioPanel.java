@@ -85,6 +85,14 @@ class PortfolioPanel extends JPanel
 				add(row(allocation));
 			}
 		}
+		if (plan != null && !plan.getUncertainCapitalBounds().isEmpty())
+		{
+			add(UiUtils.gap(UiUtils.SPACE_S));
+			add(UiUtils.mutedText("Old trade gaps: new buys of these items are paused. The amounts below "
+				+ "are conservative capital bounds, not confirmed holdings or profit. See Missed flips for evidence."));
+			plan.getUncertainCapitalBounds().forEach((item, coins) ->
+				add(UiUtils.mutedText("Item " + item + ": up to " + explainer.formatNumber(coins) + " gp.")));
+		}
 		revalidate(); repaint();
 	}
 

@@ -83,6 +83,7 @@ final class CompanionService implements AutoCloseable
 	private volatile AccountSnapshot account;
 	/** When the last plan was built, and against how many free slots, for the spacing rule below. */
 	private volatile long lastPlanAt;
+    private final java.util.concurrent.atomic.AtomicLong planningInputRevision=new java.util.concurrent.atomic.AtomicLong();
 	private volatile int lastPlanFreeSlots = -1;
 	/** What the last plan was built under, so a change of intent is not held behind the spacing. */
 	private volatile boolean lastPlanSellOnly;
@@ -379,7 +380,7 @@ final class CompanionService implements AutoCloseable
 		}
 	}
 
-	void account(AccountSnapshot snapshot) throws Exception
+	synchronized void account(AccountSnapshot snapshot) throws Exception
 	{
 		if (snapshot == null || (accountId != null && !accountId.equals(snapshot.getAccountId())))
 			throw new IllegalArgumentException("snapshot account identity mismatch");
@@ -392,7 +393,9 @@ final class CompanionService implements AutoCloseable
 				"Holding review changed; recomputing the buy plan.", Instant.now().getEpochSecond());
 			lastPlanAt = 0;
 		}
+        boolean changed=!samePlanningInputs(account,snapshot);
 		account = snapshot;
+        if(changed){planningInputRevision.incrementAndGet();plan=null;lastPlanAt=0;}
 		// The plugin's ledger is durable; this one is rebuilt from events that can go missing. Take
 		// the higher of the two so a dropped fill is corrected on the next cycle rather than never.
 		buyLimits.restore(store.buyLimitProjections());
@@ -416,7 +419,7 @@ final class CompanionService implements AutoCloseable
 		return PositionStateView.from(account);
 	}
 
-	SqliteStore.EventAcceptance offer(OfferEvent event) throws Exception
+	synchronized SqliteStore.EventAcceptance offer(OfferEvent event) throws Exception
 	{
 		if (event == null || (accountId != null && !accountId.equals(event.getAccountId())))
 			throw new IllegalArgumentException("offer account identity mismatch");
@@ -427,6 +430,7 @@ final class CompanionService implements AutoCloseable
 			return projected.acceptance;
 		}
 		OfferLifecycleTransition transition = projected.transition;
+        if(projected.planningStateChanged){planningInputRevision.incrementAndGet();plan=null;lastPlanAt=0;}
 		if (!transition.isAccepted())
 		{
 			fault("Offer projection slot " + event.getSlot(), transition.getReason(), null);
@@ -478,10 +482,13 @@ final class CompanionService implements AutoCloseable
 		return Math.max(0, Math.min(1, event.getPredictedCompletion()));
 	}
 
-	PortfolioPlan plan()
+	synchronized PortfolioPlan plan()
 	{
 		PortfolioPlan current = plan;
 		long now = Instant.now().getEpochSecond();
+        if(current!=null && "READY".equals(current.getStatus()) && !currentPlanningProof(now))
+            return PortfolioPlan.unavailable(current.getCorrelationId(),PortfolioPlanOutcome.COMPANION_STATE_UNAVAILABLE,
+                "Waiting for consistent current cash and Grand Exchange observations.",now);
 		if (current == null || current.getExpiresAt() <= now)
 		{
 			return PortfolioPlan.unavailable("none", PortfolioPlanOutcome.COMPANION_STATE_UNAVAILABLE,
@@ -491,9 +498,13 @@ final class CompanionService implements AutoCloseable
 		return current;
 	}
 
-	PolicyDecision entryDecision(String planId, int allocationRank, long decidedAt)
+	synchronized PolicyDecision entryDecision(String planId, int allocationRank, long decidedAt)
 	{
+        long revision=planningInputRevision.get();
 		PortfolioPlan current = plan;
+        if(current!=null && "READY".equals(current.getStatus()) && !currentPlanningProof(decidedAt))
+            return entryPolicy.decide(new EntryPolicyContext(PortfolioPlan.unavailable(current.getCorrelationId(),
+                PortfolioPlanOutcome.COMPANION_STATE_UNAVAILABLE,"Current account evidence changed.",decidedAt),null,decidedAt));
 		if (current == null || current.getExpiresAt() <= decidedAt)
 		{
 			PortfolioPlan unavailable = PortfolioPlan.unavailable("none",
@@ -526,6 +537,31 @@ final class CompanionService implements AutoCloseable
 		if (selected == null)
 			return CompanionEntryPolicy.abstain(recommendationId, decidedAt, observedAt,
 				com.flippingfriend.core.PolicyAbstentionReason.NO_ELIGIBLE_CANDIDATE, "ALLOCATION_NOT_FOUND");
+        try {
+            AccountSnapshot snapshot=account;
+            var read=store.planningProjections(snapshot==null?null:snapshot.getAccountId());
+            var exposure=DurablePlanningExposure.forAccount(read,snapshot,decidedAt);
+            var candidate=selected.getCandidate();
+            if(exposure==null || candidate==null)throw new IllegalStateException("entry exposure unavailable");
+            java.util.Set<Integer> occupied=new java.util.HashSet<>();
+            for(var p:read.offers)if(p.getState()!=com.flippingfriend.core.OfferLifecycleState.EMPTY)occupied.add(p.getItemId());
+            var planning=snapshot.withPlanningRestrictions(exposure.committedByItem,exposure.unavailableEntryItems).withPlanningOffers(occupied);
+            var metadata=market.state().mapping.get(candidate.getItemId());
+            if(planning.isSellOnly() || PortfolioPlanner.lossBudgetFor(planning)<=0
+                    || PortfolioPlanner.rejected(candidate,planning) || metadata==null
+                    || (metadata.members && !planning.isMembers())
+                    || remainingBuyLimits(planning,decidedAt).getOrDefault(candidate.getItemId(),0)<candidate.getQuantity())
+                throw new IllegalStateException("item eligibility or buy limit changed");
+            var constraints=PortfolioPlanner.constraintsFor(planning,com.flippingfriend.model.RiskAppetite.forName(planning.getRiskAppetite()),
+                PortfolioPlanner.lossBudgetFor(planning),PortfolioPlanner.committedByGroupFor(planning,market.state().mapping));
+            var feasible=new com.flippingfriend.core.PortfolioOptimizer().optimize(java.util.List.of(candidate),constraints,
+                current.getCorrelationId(),decidedAt);
+            if(feasible.getAllocations().isEmpty() || revision!=planningInputRevision.get())
+                throw new IllegalStateException("current resource constraints changed");
+        }catch(Exception unsafe){
+            return CompanionEntryPolicy.abstain(recommendationId,decidedAt,observedAt,
+                com.flippingfriend.core.PolicyAbstentionReason.ACCOUNT_STATE_INCONSISTENT,"ENTRY_CONSTRAINTS_CHANGED");
+        }
 		return entryPolicy.decide(new EntryPolicyContext(current, selected, decidedAt));
 	}
 	PolicyDecision buyMaintenanceDecision(long decidedAt)
@@ -596,7 +632,7 @@ final class CompanionService implements AutoCloseable
 		if (fresh && account != null && faults.keySet().stream().allMatch(key ->
 			key.startsWith("Position projection item ") || key.equals("Snapshot reconciliation") || key.equals("Planning exposure")))
 		{
-			try { planningAvailable = DurablePlanningExposure.from(store.planningProjections(), account.getStockDeclarations(), account.isAutomaticTradeScope()) != null; }
+			try { planningAvailable = currentPlanningProof(now); }
 			catch (Exception unavailable) { /* Keep the planning gate closed. */ }
 		}
 		return new CompanionHealth(status, detail, marketAt, modelVersion, now, planningAvailable);
@@ -604,6 +640,33 @@ final class CompanionService implements AutoCloseable
 
 
 	/** Asks for a re-plan without waiting for it, dropping the request if one is already queued. */
+    private boolean samePlanningInputs(AccountSnapshot first,AccountSnapshot second) {
+        if(first==null || second==null)return first==second;
+        var a=gson.toJsonTree(first).getAsJsonObject();var b=gson.toJsonTree(second).getAsJsonObject();
+        for(String field:java.util.List.of("observedAt","correlationId","offerReadSet")){a.remove(field);b.remove(field);}
+        return a.equals(b);
+    }
+    private boolean currentPlanningProof(long now) {
+        AccountSnapshot snapshot=account;
+        if(snapshot==null)return false;
+        if(!snapshot.isAutomaticTradeScope())return false;
+        var currentMarket=market.state();
+        if(currentMarket==null || currentMarket.observedAt<=0 || currentMarket.observedAt>now
+                || now-currentMarket.observedAt>STALE_MARKET_SECONDS)return false;
+        try{return DurablePlanningExposure.forAccount(store.planningProjections(snapshot.getAccountId()),snapshot,now)!=null;}
+        catch(Exception unavailable){return false;}
+    }
+    /** Neither a dropped client fill nor a dropped companion fill can increase the known limit. */
+    Map<Integer,Integer> remainingBuyLimits(AccountSnapshot snapshot,long at) {
+        Map<Integer,Integer> remaining=new java.util.HashMap<>();
+        for(var item:market.state().mapping.values()) {
+            int used=Math.max(0,snapshot.getBuyLimitUsed().getOrDefault(item.id,0));
+            int clientRemaining=Math.max(0,item.buyLimit-used);
+            remaining.put(item.id,Math.min(clientRemaining,
+                buyLimits.remainingAt(item.id,item.buyLimit,java.time.Instant.ofEpochSecond(at))));
+        }
+        return remaining;
+    }
 	private void requestPlan()
 	{
 		if (account == null)
@@ -631,7 +694,7 @@ final class CompanionService implements AutoCloseable
 		int freeSlots = snapshot == null ? -1 : snapshot.getFreeSlots();
 		boolean sellOnly = snapshot != null && snapshot.isSellOnly();
 		long now = Instant.now().getEpochSecond();
-		if (freeSlots == lastPlanFreeSlots && sellOnly == lastPlanSellOnly
+		if (plan!=null && freeSlots == lastPlanFreeSlots && sellOnly == lastPlanSellOnly
 			&& now - lastPlanAt < MIN_PLAN_SPACING_SECONDS)
 		{
 			return;
@@ -665,24 +728,33 @@ final class CompanionService implements AutoCloseable
 
 	private void refreshPlan()
 	{
+        long revision=planningInputRevision.get();
 		AccountSnapshot snapshot = account;
 		if (snapshot == null)
 		{
 			return;
 		}
 		AccountSnapshot sourceSnapshot = snapshot;
+		Map<Integer,Long> bounds = new java.util.HashMap<>();
 		try
 		{
+			var read = store.planningProjections(snapshot.getAccountId());
 			DurablePlanningExposure exposure =
-				DurablePlanningExposure.from(store.planningProjections(snapshot.getAccountId()), snapshot.getStockDeclarations(), snapshot.isAutomaticTradeScope());
+				DurablePlanningExposure.forAccount(read, snapshot,Instant.now().getEpochSecond());
 			if (exposure == null)
 				throw new IllegalStateException("durable exposure requires reconciliation");
-			snapshot = snapshot.withPlanningExposure(exposure.committedByItem);
+			snapshot = snapshot.withPlanningRestrictions(exposure.committedByItem,exposure.unavailableEntryItems);
+			for (int item : exposure.unavailableEntryItems)
+				bounds.put(item, exposure.committedByItem.getOrDefault(item, 0L));
+            java.util.Set<Integer> occupied=new java.util.HashSet<>();
+            for(var p:read.offers)if(p.getState()!=com.flippingfriend.core.OfferLifecycleState.EMPTY)occupied.add(p.getItemId());
+            snapshot=snapshot.withPlanningOffers(occupied);
 			resolved("Planning exposure");
 		}
 		catch (Exception unavailable)
 		{
-			if (account != sourceSnapshot) return;
+			synchronized (this) {
+			if (revision!=planningInputRevision.get() || !samePlanningInputs(account,sourceSnapshot)) return;
 			fault("Planning exposure", String.valueOf(unavailable.getMessage()), unavailable);
 			plan = PortfolioPlan.unavailable(
 				snapshot.getCorrelationId() == null ? "none" : snapshot.getCorrelationId(),
@@ -690,11 +762,16 @@ final class CompanionService implements AutoCloseable
 				"Durable holdings or offers require reconciliation before new buys.",
 				Instant.now().getEpochSecond());
 			return;
+			}
 		}
 		PortfolioPlan computed = planner.plan(market.state(), snapshot,
-			buyLimits.remaining(market.state().mapping), activeOffers.getActiveOffers());
-		if (account != sourceSnapshot) return;
+			remainingBuyLimits(snapshot,Instant.now().getEpochSecond()), activeOffers.getActiveOffers())
+			.withUncertainCapitalBounds(bounds);
+        synchronized (this) {
+		if (revision!=planningInputRevision.get() || !samePlanningInputs(account,sourceSnapshot)
+            || (sourceSnapshot.isAutomaticTradeScope() && !currentPlanningProof(Instant.now().getEpochSecond()))) return;
 		plan = computed;
+        }
 		try
 		{
 			store.savePlan(computed.getCreatedAt(), computed.getExpiresAt(),
