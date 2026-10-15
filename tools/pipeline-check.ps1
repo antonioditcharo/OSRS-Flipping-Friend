@@ -39,7 +39,7 @@ if (-not $tokenLine) { throw 'Local token configuration is invalid.' }
 $headers = @{'X-Flipping-Friend-Token' = $tokenLine.Substring(6)}
 $base = 'http://127.0.0.1:37777/v1/'
 try {
-    $response = Invoke-WebRequest -Uri ($base + 'health') -Headers $headers -TimeoutSec 10
+    $response = Invoke-WebRequest -UseBasicParsing -Uri ($base + 'health') -Headers $headers -TimeoutSec 10
     $health = $response.Content | ConvertFrom-Json
     if ($response.Headers['X-Flipping-Friend-Protocol'] -ne 'accounts-v1') {
         Report 'Protocol' 'FAIL' 'The running companion needs the account-scoped build.'
@@ -61,11 +61,11 @@ foreach ($directory in $directories) {
     $accountHeaders['X-Flipping-Friend-Account'] = $id
     try {
         $endpoint = $base + 'accounts/' + $id + '/'
-        $response = Invoke-WebRequest -Uri ($endpoint + 'action') -Headers $accountHeaders -TimeoutSec 10
+        $response = Invoke-WebRequest -UseBasicParsing -Uri ($endpoint + 'action') -Headers $accountHeaders -TimeoutSec 10
         if ($response.Headers['X-Flipping-Friend-Account'] -ne $id) { throw 'Response account identity mismatch.' }
         $action = $response.Content | ConvertFrom-Json
         $plan = Invoke-RestMethod -Uri ($endpoint + 'portfolio/current') -Headers $accountHeaders -TimeoutSec 10
-        $ledgerResponse = Invoke-WebRequest -Uri ($endpoint + 'ledger/current') -Headers $accountHeaders -TimeoutSec 10
+        $ledgerResponse = Invoke-WebRequest -UseBasicParsing -Uri ($endpoint + 'ledger/current') -Headers $accountHeaders -TimeoutSec 10
         $ledger = $ledgerResponse.Content | ConvertFrom-Json
         if ($ledgerResponse.Headers['X-Flipping-Friend-Account'] -ne $id -or $ledger.accountId -ne $id -or @('1', '2') -notcontains $ledger.schemaVersion) {
             throw 'Ledger scope or schema mismatch; update both supported JARs.'
