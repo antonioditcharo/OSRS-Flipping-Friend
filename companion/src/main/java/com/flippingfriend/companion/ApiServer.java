@@ -66,6 +66,7 @@ final class ApiServer implements AutoCloseable
 		{
 			case "portfolio/current": portfolio(exchange); break;
 			case "ledger/current": ledger(exchange); break;
+			case "learning/current": learning(exchange); break;
 			case "action": action(exchange); break;
 			case "policy/entry": entryDecision(exchange); break;
 			case "policy/buy-maintenance": buyMaintenanceDecision(exchange); break;
@@ -125,6 +126,13 @@ final class ApiServer implements AutoCloseable
 		if (service == null) return;
 		respond(exchange, 200, gson.toJson(service.action()));
 	}
+
+    private void learning(HttpExchange exchange) throws IOException {
+        if(!authorized(exchange))return;
+        if(!"GET".equals(exchange.getRequestMethod())) {respond(exchange,405,"{\"error\":\"GET required\"}");return;}
+        CompanionService scoped=accountService(exchange);
+        if(scoped!=null)respond(exchange,200,gson.toJson(scoped.learningEvidence()));
+    }
 
 	private void buyMaintenanceDecision(HttpExchange exchange) throws IOException
 	{

@@ -739,15 +739,9 @@ final class CandidateFactory
 				long unwindLoss = unwindCost(itemId, buyPrice, screened.price.getLow(),
 					quantity, features, horizonHours);
 
-				// Where everything that has been learned re-enters the decision -- which, until this
-				// line was written, it did not. See the calibration field.
-				//
-				// Only the waiting is corrected. A predicted duration is a wait for the first
-				// counterparty plus the time to work through the size ordered, and every observation
-				// behind the multiplier was recorded while sizing was broken and orders were a single
-				// unit. The throughput half of that history describes a market absorbing one item at
-				// a time; the wait half is how long it takes anybody to turn up at the price, which
-				// is the same whether the order is for one or two thousand.
+				// Waiting and working time are separate. Historical total durations do not identify
+				// a waiting multiplier. Runtime supplies the uncorrected baseline until a prospective
+				// challenger passes chronological account return/loss/calibration gates.
 				FillCalibration learned = learningDisabled ? FillCalibration.NEUTRAL : calibration;
 				double buyHours = correctedHours(buyFill, learned.waitMultiplier(itemId));
 				double sellHours = correctedHours(sellFill, learned.waitMultiplier(itemId));

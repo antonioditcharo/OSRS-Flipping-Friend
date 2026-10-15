@@ -326,23 +326,16 @@ final class CompanionService implements AutoCloseable
 	}
 
 	/**
-	 * How long the learned timings are kept before being re-read from the recorder.
-	 * <p>
-	 * The totals only move when an offer settles, which is a handful of times an hour at most, so
-	 * re-reading them every planning cycle would be a query a minute to learn nothing. Ten minutes is
-	 * far inside the rate at which the numbers can meaningfully change and far outside the rate at
-	 * which they do.
+	 * Bounds repeated diagnostic source scans. The account-scoped readout endpoint reads a fresh
+	 * snapshot on request; no elapsed wall time becomes an observation through this timer.
 	 */
 	private static final long CALIBRATION_INTERVAL_SECONDS = 600;
 
 	private volatile long lastCalibratedAt;
 
 	/**
-	 * Re-reads what the account's own settled offers say about the model's timings.
-	 * <p>
-	 * Never fatal. A calibration that cannot be loaded leaves the planner on whatever it had, which
-	 * at worst is the raw model -- the same thing it ran on for the whole time this table was being
-	 * written and never read.
+	 * Refreshes prospective readout evidence. Legacy totals do not identify wait versus work or
+	 * establish a validated challenger. Keep the public-price baseline until promotion gates exist.
 	 */
 	private void refreshCalibration()
 	{
@@ -352,20 +345,28 @@ final class CompanionService implements AutoCloseable
 			return;
 		}
 		lastCalibratedAt = now;
+		planner.setCalibration(FillCalibration.NEUTRAL);
 		try
 		{
-			FillCalibration calibration = FillCalibration.from(store.executionStats());
-			planner.setCalibration(calibration);
-			log.info("calibrated fill timings from settled offers: {} items with their own "
-				+ "correction, overall {}", calibration.itemsLearned(),
-				String.format("%.2fx", calibration.overall()));
+			var report=learningEvidence();
+			log.info("execution evidence: {} completed intervals, {} canceled censored; {} / {}",
+				report.getCompletedIntervals(),report.getCancelledCensored(),report.getStatus(),report.getPromotionStatus());
 		}
 		catch (Exception ex)
 		{
-			log.warn("could not read execution statistics; planning on uncalibrated timings: {}",
+			log.warn("could not read execution evidence; public-price baseline remains active: {}",
 				String.valueOf(ex.getMessage()));
 		}
 	}
+
+    com.flippingfriend.core.ExecutionLearningReport learningEvidence() {
+        long now=Instant.now().getEpochSecond();
+        if(accountId==null)return com.flippingfriend.core.ExecutionLearningReport.unavailable(null,now,
+            "An account-scoped source ledger is required; unassigned history is not learning evidence.");
+        try { return store.executionLearningReport(accountId,now); }
+        catch(Exception unavailable) { return com.flippingfriend.core.ExecutionLearningReport.unavailable(accountId,now,
+            "Execution evidence could not be read; the public-price baseline remains active."); }
+    }
 
 	private void refreshPositionFaults() throws Exception
 	{
