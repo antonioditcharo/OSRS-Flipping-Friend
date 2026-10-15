@@ -1,81 +1,40 @@
 # Home-PC test checklist
 
-The [combined PR #43](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/43) is approved,
-merged and installed. It contains the compact UI, automatic trade scope, walkthrough/Confirm
-protection and search/key assistance from #40/#41/#42. Compatibility PR #44 is also merged and
-installed; real 1.13.2 status, compatibility and manual login pass. The live pipeline found a ledger
-HTTP 500, and startup search read an uninitialised variable. The current regression-first follow-up
-is `codex/live-ledger-startup`. Install it only after CI/merge, then retest the observed failures.
-Previous reconciliation blocks and controlled trading acceptance remain unresolved.
+The default assisted workflow is now batched: the agent handles GitHub, builds, backup verification,
+paired updates, status, compatibility, pipeline and logs. You do not need to paste console output,
+reply at INSTALL, or respond after every check. See [development workflow](docs/development-workflow.md).
 
-## 1. Prepare the right checkout
+PR #45 is installed. Actual status, RuneLite 1.13.2 compatibility and ledger HTTP reads pass.
+Historical trade reconciliation and controlled trading acceptance remain unresolved.
 
-Require both CI checks and merge of `codex/live-ledger-startup` before installing. Do not install older
-individual slices separately. `main` is historical. Use the regular project folder, not a Codex
-temporary worktree or an old desktop shortcut. Close RuneLite yourself.
+## 1. Prepare one candidate
 
-If the regular checkout has not already been updated, open PowerShell and use this guarded block.
-It stops for local changes, a missing candidate on the rebuild branch, or any Git failure.
-It does not reset, stash, force, delete branches or discard files.
+The agent batches related fixes, runs regression and standard checks, waits for exact-head CI,
+merges and updates the normal rebuild checkout. Historical main is preserved. Tooling/documentation
+changes alone do not require another JAR installation when runtime code is unchanged.
 
-```powershell
-$ErrorActionPreference = 'Stop'
-Set-Location -LiteralPath 'C:\Users\Antonio\OSRS Flipping Friend Rebuild'
-git status --short --branch
-if ($LASTEXITCODE -ne 0) { throw 'Status failed. Stop and report the output.' }
-$localChanges = git status --porcelain
-if ($LASTEXITCODE -ne 0) { throw 'Status failed. Stop and report the output.' }
-if ($localChanges) { throw 'Local changes exist. Stop without discarding anything.' }
-git fetch origin
-if ($LASTEXITCODE -ne 0) { throw 'Fetch failed. Stop and report the output.' }
-git merge-base --is-ancestor ff2754bda273e593657a639699cd7257d8332bb8 "origin/CoPilot's-Rebuild-from-Main"
-if ($LASTEXITCODE -ne 0) { throw 'The complete candidate is not on the rebuild branch. Do not install yet.' }
-git switch "CoPilot's-Rebuild-from-Main"
-if ($LASTEXITCODE -ne 0) { throw 'Switch failed. Stop and report the output.' }
-git merge --ff-only "origin/CoPilot's-Rebuild-from-Main"
-if ($LASTEXITCODE -ne 0) { throw 'Fast-forward failed. Stop; do not reset or force.' }
-git status --short --branch
-git rev-parse HEAD
-```
+## 2. Update and start once
 
-The ancestry guard assumes the normal merge-commit strategy used for this combined PR. If someone
-squash-merges it, report the guard result for verification rather than bypassing it. The source
-anchor includes the ledger-read/startup fix, 1.13.2 source pin, update preflight and integrated UI slices.
+When runtime code changes, the agent uses the supported paired updater with -Unattended. It creates
+and verifies a fresh backup, records a receipt and installs both JARs. The installer still requires
+RuneLite closed for replacement, but development clean builds no longer require a logout. Group
+changes into one final restart. The agent starts the client; you log in yourself.
 
-## 2. Install the paired update
+The numbered wrappers remain available if you choose self-service. First setup/re-setup retains
+its interactive flow; ordinary agent-managed updates require no separate INSTALL confirmation.
+Saved login and account data are retained. No database repair, reset or one-JAR copy is part of this.
 
-1. From that updated folder, double-click **4 - Update.bat**. It checks the official RuneLite release,
-   then builds/installs both supported JARs. Expect `RuneLite release preflight passed: 1.13.2 matches the source API.`
-   Existing data and saved login are retained; this is not a fresh installation.
-2. At **Type INSTALL**, stop. Send the fresh backup listing here, including paths and sizes, for
-   the requested backup review. It is normal for the companion to be stopped at this point.
-3. After that review/go-ahead, type uppercase **INSTALL** and press Enter. Capture the final output
-   before closing the window. Expect successful build, companion readiness and both JARs verified.
-4. Update does not start the game. Before launching, run **3 - Status.bat** and the read-only
-   `tools/run-dev.ps1 -CheckOnly`. Both must pass on the real installed pair. Then double-click
-   **2 - Start Flipping Friend.bat** and log in yourself.
+## 3. Establish the baseline automatically
 
-If Update reports a disabled or foreign task, or any error, stop and send its output. Re-setup is
-the supported returning-user path when needed, but do not guess a repair or repeatedly install.
-Never copy just one JAR, replace a database, clear account state or use a first-time data reset.
-
-## 3. Establish the baseline before trading
-
-Run **3 - Status.bat** and save its output. After manual login, run this in PowerShell from the
-project folder:
-
-```powershell
-.\tools\pipeline-check.ps1 -SkipBuild
-```
-
-Send both outputs here before the trading tests. Pipeline makes GET-only requests and writes no
-synthetic trades. Exit zero verifies transport/ledger checks; it does not guarantee a buy plan is
-available. Preserve any WAIT, UNAVAILABLE or reconciliation reason. Existing account faults may
-still block entries and must not be cleared by editing records.
+The agent reads status, launcher CheckOnly, GET-only pipeline and logs directly. After login it
+checks fresh account observations before controlled trading. A successful pipeline confirms reads,
+not buy readiness. WAIT, UNAVAILABLE and reconciliation reasons remain meaningful evidence.
+No synthetic trades are posted. Report only unexpected UI behavior or another result the agent
+cannot observe directly; routine output copying is unnecessary.
 
 ## 4. Check the UI without placing an offer
 
-Perform one check at a time and report any unexpected result before continuing.
+Work through these as one acceptance batch. Report unexpected results together; no reply is needed after each row.
 
 | Check | Expected result |
 | --- | --- |
@@ -109,7 +68,8 @@ the durable evidence, preserving ranges and unavailable states.
 For restart, close RuneLite normally and use the supported Start wrapper again. Never kill it to
 simulate a crash during initial acceptance. Repeat the read-only pipeline after relevant changes.
 
-If a check fails, pause that game test and send the exact message, screenshot, pipeline output and
-the last manual step performed; avoid including login credentials. All game actions are yours. The agent records
+If a check fails, pause that game test and report the visible problem and last manual action.
+The agent collects logs and pipeline output directly; screenshots help only for otherwise unobservable UI issues.
+All game actions are yours. The agent records
 observed outcomes and reproduces a real bug in a regression before changing source. No live
 database repair, migration or deletion is part of this test.

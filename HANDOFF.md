@@ -3,7 +3,63 @@
 Updated 14 October 2026 (America/Anchorage). Read this with [AGENTS.md](AGENTS.md) and
 [TASKS.md](TASKS.md) before continuing implementation.
 
-## Live login: ledger read and startup guidance faults — 14 October 2026
+## Streamlined delivery and installed ledger fix — 14 October 2026
+
+**Current owner direction:** the agent handles routine diagnostics, automatic fresh-backup
+verification, paired updates, launching and GitHub delivery. Batch related fixes and acceptance
+checks; do not require pasted output, an INSTALL reply or a separate response for every step.
+This supersedes the earlier manual handoff routine. Login and all in-game input remain player
+actions. Do not force-kill RuneLite, modify databases or bypass accounting guards. See
+[development workflow](docs/development-workflow.md) and the revised root home checklist.
+
+[PR #45](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/45) passed both exact-head
+checks at `b22db0d` in [run 38671474499](https://github.com/antonioditcharo/OSRS-Flipping-Friend/actions/runs/38671474499)
+and merged as `edf05a85c8ff5fedd07f598829845893341a86bc`. The normal checkout is clean and updated.
+Owner completed its supported paired install after review of backup
+`20261014-183810-89356679` (three companion account files / 7,671,456 bytes; 22 plugin account files /
+1,601,253 bytes; names/sizes, prior JAR/manifest hashes and task identity matched). Build succeeded
+in 6s with seven tasks executed/one up-to-date. Actual installed plugin 448,467 bytes and companion
+17,783,446 bytes match their builds and manifest. The agent checked directly:
+
+```text
+STATUS_EXIT=0
+RuneLite 1.13.2 and the installed plugin API match; cached artifacts verified.
+Compatibility check passed. No client started and no files changed.
+COMPATIBILITY_EXIT=0
+Ledger: 4 sale updates; 2 unresolved; 0 profit ranges.
+Action: WAIT. Plan: UNAVAILABLE. Waiting for the game client to report your coins and free slots.
+PIPELINE_EXIT=0
+```
+
+The prior ledger HTTP 500 is fixed in the installed service. A pre-login plan is not trading
+readiness; existing reconciliation remains unresolved. Startup/UI and controlled trading checks
+remain incomplete. No synthetic account events or game input were sent, and no database was changed.
+
+Workflow source is `codex/streamline-update-workflow` from `edf05a8`. Regression/feature commit
+`04261a2` demonstrates the missing unattended behavior and the launcher's build-directory cache
+dependency. Production `06f9a9e08c92c616207b7169067e03a6f17e00e7` adds opt-in `-Unattended` to the
+supported wrapper: require a verified existing pair/task, create a fresh backup, verify JAR/manifest
+hashes and saved task export, compare account file names/sizes only, and write
+`backup-verification.json` before proceeding without Read-Host. First setup/reconfiguration remains
+interactive. Existing release, running-client, task, paired-copy and scoped-health guards remain.
+The default numbered self-service update still has its manual confirmation.
+
+The launcher now uses `%USERPROFILE%\.runelite\osrs-flipping-friend\developer-api\` for the public
+full API JAR. It no longer makes Gradle clean delete a library loaded by RuneLite. Tests remove
+disposable build outputs and verify all launched classpath files remain available; old caches and
+credentials remain untouched. No Java runtime source differs from installed PR #45 (diff exit 0),
+so this tooling-only batch requires no additional paired JAR installation.
+
+Local verification at production `06f9a9e`: standard clean build successful in 57s, all 18 tasks
+executed; all 61 Python tooling/import tests passed in 109.134s. The Java suite remains 1,288 passed
+with six existing skips and no failures/errors. Logs remain outside build under ignored
+`.gradle/workflow-*`. Tests cover no prompt, pending-data preservation, same-size JAR corruption,
+incomplete account copies, altered installed pair, invalid modes/tasks and a running game, in
+disposable fixtures with process/task/network operations mocked. No live unattended reinstall was
+needed or performed for this batch. Final-head CI/merge and live launch/clean-build receipts belong
+to its GitHub PR; require both checks before normal-checkout fast-forward.
+
+## Historical live login: ledger read and startup guidance faults — 14 October 2026
 
 **Current checkpoint; older "installation pending" statements below are historical.** Compatibility
 [PR #44](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/44) passed both exact-head

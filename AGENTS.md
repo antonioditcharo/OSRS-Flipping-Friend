@@ -21,8 +21,8 @@ are in `docs/project-direction.md`; historical package notes are not proof of ru
   the observed sell offer through completion. Unknown acquisition cost/profit stays unknown.
   Put incomplete trade evidence in a separately opened Missed flips window, preserving live
   exposure guards and account data. See `docs/architecture/automatic-trade-scope.md` for the target
-  workflow and regression gate. PR #43/#44 are merged and the 1.13.2 pair is installed. Login
-  exposed ledger/startup faults; the regression-first follow-up and live acceptance remain pending.
+  workflow and regression gate. PR #45 is merged and installed; ledger HTTP reads now pass.
+  Startup/UI and controlled trading acceptance remain pending; reconciliation guards remain active.
   Read the newest HANDOFF checkpoint before historical entries.
 - Keep the sidebar compact: current guided action, controls and durable recorded profit. Open
   explanations, holdings/history/plan and settings separately; do not restore the old accordion
@@ -42,6 +42,12 @@ are in `docs/project-direction.md`; historical package notes are not proof of ru
   only with chronological evaluation against a frozen baseline and loss/return guardrails.
 - Prefer complete player workflows and behavioral regression tests over new inactive scaffolding.
   Preserve manual game interaction while preparing feature parity.
+- The owner authorizes agent-managed routine backup verification, paired updates and launching.
+  Batch fixes and acceptance checks; do not require a response, pasted log or INSTALL confirmation
+  for each routine step. Use tools/apply-update.ps1 -Unattended for a verified existing installation.
+  Collect status, compatibility, pipeline and logs directly. Tooling/docs-only changes need no JAR
+  reinstall when runtime source is unchanged. See docs/development-workflow.md. Login and in-game
+  actions remain manual; never force-kill the client or change databases to unblock advice.
 - The owner explicitly authorizes a configured player key to fill one already open, matching GE
   quantity/price prompt. Keep this narrow exception in GeInputAssist with lifecycle/context tests;
   Enter, confirmation, placement, cancellation and collection remain player actions. The assistant
