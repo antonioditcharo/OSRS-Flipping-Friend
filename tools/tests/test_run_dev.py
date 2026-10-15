@@ -76,7 +76,7 @@ class RunDevTest(unittest.TestCase):
         (self.checkout / "build.gradle").write_text("ext.runeLiteVersion = '1.13.1'\n", encoding="utf-8")
         self.plugin = self.fixture / "profile/.runelite/sideloaded-plugins/osrs-flipping-friend.jar"
         self.write_plugin("1.13.1")
-        extras = self.checkout / "build/runtime-extras"
+        extras = self.fixture / "profile/.runelite/osrs-flipping-friend/developer-api"
         extras.mkdir(parents=True)
         (extras / "runelite-api-1.13.1.jar").write_bytes(b"matching-full-api-fixture")
         credentials = self.fixture / "profile/.runelite/credentials.properties"
@@ -131,7 +131,7 @@ class RunDevTest(unittest.TestCase):
         classpath = arguments[arguments.index("-cp") + 1].split(";")
         expected = {str(self.repository / artifact["name"]) for artifact in self.bootstrap["artifacts"]
                     if artifact["name"] != "native-linux.jar"}
-        expected.add(str(self.checkout / "build/runtime-extras/runelite-api-1.13.1.jar"))
+        expected.add(str(self.fixture / "profile/.runelite/osrs-flipping-friend/developer-api/runelite-api-1.13.1.jar"))
         self.assertEqual(expected, set(classpath), self.output)
         self.assertEqual(len(expected), len(classpath))
         self.assertIn("--developer-mode", arguments)
@@ -151,7 +151,22 @@ class RunDevTest(unittest.TestCase):
         self.add_artifact("native-linux.jar", platform=[{"name": "linux", "arch": "amd64"}])
         shutil.copyfile(Path(__file__).resolve().parents[2] / "build.gradle", self.checkout / "build.gradle")
         self.write_plugin(version)
-        (self.checkout / f"build/runtime-extras/runelite-api-{version}.jar").write_bytes(b"current-full-api-fixture")
+        (self.fixture / f"profile/.runelite/osrs-flipping-friend/developer-api/runelite-api-{version}.jar").write_bytes(b"current-full-api-fixture")
+
+    def test_launched_client_uses_persistent_api_outside_outputs_removed_by_clean(self):
+        persistent = self.fixture / "profile/.runelite/osrs-flipping-friend/developer-api/runelite-api-1.13.1.jar"
+        persistent.parent.mkdir(parents=True, exist_ok=True)
+        persistent.write_bytes(b"persistent-public-api")
+        (self.checkout / "build").mkdir(exist_ok=True)
+        result = self.run_launcher()
+        self.assertIsNone(result["error"], self.output)
+        arguments = result["arguments"]
+        classpath = arguments[arguments.index("-cp") + 1].split(";")
+        self.assertIn(str(persistent), classpath, self.output)
+        self.assertFalse(any(Path(path).is_relative_to(self.checkout / "build") for path in classpath))
+        shutil.rmtree(self.checkout / "build")
+        self.assertTrue(all(Path(path).is_file() for path in classpath))
+        self.assertEqual(b"persistent-public-api", persistent.read_bytes())
 
     def test_current_release_uses_project_pin_and_excludes_the_previous_cached_client(self):
         self.configure_current_release()
@@ -162,7 +177,7 @@ class RunDevTest(unittest.TestCase):
         classpath = arguments[arguments.index("-cp") + 1].split(";")
         expected = {str(self.repository / artifact["name"]) for artifact in self.bootstrap["artifacts"]
                     if artifact["name"] != "native-linux.jar"}
-        expected.add(str(self.checkout / "build/runtime-extras/runelite-api-1.13.2.jar"))
+        expected.add(str(self.fixture / "profile/.runelite/osrs-flipping-friend/developer-api/runelite-api-1.13.2.jar"))
         self.assertEqual(expected, set(classpath), self.output)
         self.assertEqual(len(expected), len(classpath))
         self.assertEqual(before, {path.name: path.read_bytes() for path in self.repository.iterdir()})

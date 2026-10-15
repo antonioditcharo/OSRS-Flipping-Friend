@@ -11,14 +11,15 @@ assessment, feature matrix, and benchmark contract are in [Project direction](do
 ## Compact sidebar and current client
 
 Returning to your home PC? Use [HOME TEST CHECKLIST.md](HOME%20TEST%20CHECKLIST.md) for the
-guarded checkout update, paired backup/install and ordered player tests.
+batched player checks. The agent manages routine updates and reads diagnostics directly; see
+[the development workflow](docs/development-workflow.md).
 
 The merged PR #43 replaces the stacked sidebar with a Flipping Copilot-style action
 panel: current trade, graph/pause/block/skip, 5m/30m/2h/8h cadence, risk and durable recorded profit.
 Gear opens preferences; More opens holdings, history, plan, full recommendation and Missed flips.
 It includes automatic ownership, walkthrough and search/input changes. The **RuneLite 1.13.2**
-pair is installed and manual login works. Live acceptance found a ledger HTTP 500 and startup
-search exception; the regression-first follow-up is verified locally and awaits CI/paired update. See
+pair including PR #45 is installed. Status, compatibility and ledger HTTP reads pass; startup/UI
+and controlled trading acceptance remain pending. Reconciliation guards remain active. See
 [compatibility and update preflight](docs/architecture/runelite-compatibility.md),
 [workflow and acceptance](docs/architecture/compact-panel.md),
 [native visual QA](design-qa.md) and [rendered preview](docs/images/compact-buy.png).

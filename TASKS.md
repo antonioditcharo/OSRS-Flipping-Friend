@@ -5,23 +5,18 @@ statements later in this file. Read [HANDOFF.md](HANDOFF.md) for exact evidence.
 
 ## Active
 
-- [ ] Deliver `codex/live-ledger-startup`, based on rebuild `be77e67`. Actual login succeeded,
-      but ledger GET returned HTTP 500 / "malformed trade scope event" and startup search read an
-      uninitialised varbit. Regressions `567132b` reproduced seven failures; `d39ee73` reproduced
-      holdings falsely reporting availability. Production `ff2754b` preserves item-zero non-economic
-      reconciliation as Unidentified offer, keeps buy/exit guards and cost uncertainty, and fences
-      search reads before login. Clean build: 1,288 Java passed, six skips; all 54 Python tests passed;
-      Java 11 project bytecode, API 1.13.2 and both JARs verified. Candidate openReadOnly probe reads
-      the existing ledger successfully while preserving event count and planning unavailable.
-      Require final-head Windows/Linux CI, merge, normal-checkout fast-forward, fresh reviewed backup
-      and paired Update. The candidate is not installed; no live database changes or game input.
-- [ ] Continue HOME TEST CHECKLIST.md and PR #31 live acceptance after installing that fix.
-      PR #43 and compatibility #44 are merged. The 1.13.2 pair at `be77e67` was installed after review
-      of backup `20261014-181307-eeed5a5b`; actual status/compatibility passed and manual login/compact
-      panel are observed. Pipeline exited 1: market/protocol passed, ledger HTTP 500. Action WAIT /
-      portfolio UNAVAILABLE remain reconciliation-blocked. Do not confuse the read-only candidate
-      probe with an installed HTTP/UI pass. Search/key/Confirm, partial trade/cancel/collect/relist
-      and restart acceptance remain pending; existing accounting faults are not cleared.
+- [ ] Finish the low-interruption workflow on codex/streamline-update-workflow. Owner authorizes
+      routine agent-managed backup review/paired updates/launching and batched checks, superseding
+      one-response-per-step and INSTALL replies. Source 06f9a9e adds verified -Unattended updates
+      and keeps developer API JARs outside build outputs. Local checks: standard clean build passes,
+      all 61 Python tests pass. Require exact-head CI/merge and normal-checkout update. Runtime Java
+      source is unchanged from installed PR #45; another pair replacement is unnecessary for this batch.
+- [ ] Continue batched HOME TEST CHECKLIST.md and PR #31 live acceptance. PR #45 is merged at
+      edf05a8 and installed after review of backup 20261014-183810-89356679. Actual installed/build/
+      manifest comparisons, status and API 1.13.2 compatibility pass. GET-only pipeline now exits 0:
+      ledger reads four sales/two unresolved; current WAIT/UNAVAILABLE requests fresh coins/free slots
+      before login. No accounting guard is cleared. The agent reads subsequent logs/pipeline directly.
+      Startup/UI, search/key/Confirm and controlled trade/cancel/collect/relist/restart remain pending.
 - [ ] Finish one authoritative ledger for planner, exits, inventory UI, calibration and session risk.
       Durable accounting, Performance, exposure and managed trade quantities/exits are implemented;
       audit remaining local consumers and preserve positive acquisition/cost evidence. Reproduce

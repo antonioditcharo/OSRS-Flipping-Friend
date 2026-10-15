@@ -4,10 +4,11 @@ Use these files from the **current rebuild folder**. An old desktop shortcut can
 previous checkout; re-setup replaces it after installing the current pair.
 
 For the compact sidebar and combined trade changes, start with
-[HOME TEST CHECKLIST.md](HOME%20TEST%20CHECKLIST.md). PR #43/#44 are merged and the 1.13.2 pair
-is installed. Login exposed a ledger-read fault and startup search exception; the current follow-up
-requires CI/merge and a fresh paired update. See the newest [HANDOFF.md](HANDOFF.md) checkpoint.
-The numbered Update wrapper does not fetch Git.
+[HOME TEST CHECKLIST.md](HOME%20TEST%20CHECKLIST.md). PR #45 is installed; status, compatibility
+and the ledger pipeline pass. UI/trading acceptance remains in progress. In assisted development,
+the agent handles routine diagnostics, backup verification, paired updates and launching without
+requiring pasted output or INSTALL replies. See [the development workflow](docs/development-workflow.md).
+The numbered wrappers below retain the interactive self-service path; Update does not fetch Git.
 
 | What you need | Double-click |
 | --- | --- |

@@ -202,6 +202,13 @@ function Copy-Item {
         if ($scenario.failCompanionCopy) { throw 'Synthetic companion copy failed.' }
     }
     Microsoft.PowerShell.Management\Copy-Item -LiteralPath $Path -Destination $Destination -Force:$Force -Recurse:$Recurse
+    if ($scenario.tamperBackupJar -and $Destination -match 'backups[\\/].*osrs-flipping-friend.jar$') {
+        $bytes = [IO.File]::ReadAllBytes($Destination); $bytes[0] = $bytes[0] -bxor 1
+        [IO.File]::WriteAllBytes($Destination, $bytes)
+    }
+    if ($scenario.truncateBackupAccount -and $Destination -match 'backups[\\/].*[\\/]plugin-accounts$') {
+        [IO.File]::WriteAllBytes((Join-Path $Destination 'fixture/offer-event-outbox.json'), [byte[]]@(1))
+    }
 }
 
 $failure = $null
@@ -212,6 +219,7 @@ try {
         $options.SkipBuild = (-not $scenario.buildRequested)
         if ($scenario.setup) { $options.ConfigureCompanionTask = $true }
         if ($scenario.startOnly) { $options.StartOnly = $true }
+        if ($scenario.unattended) { $options.Unattended = $true }
     }
     if ($entry -eq 'setup.ps1') {
         $options.SkipBuild = $true
@@ -351,6 +359,70 @@ class UpdateLifecycleTest(unittest.TestCase):
         self.assertNotIn("start-process", result["events"])
         self.assertLess(result["events"].index("copy-plugin"), result["events"].index("start-task"))
         self.assertIn("Update applied.", self.output)
+
+    def make_pending_account_record(self):
+        pending = self.properties.parent.parent / "accounts/fixture/offer-event-outbox.json"
+        pending.parent.mkdir(parents=True)
+        pending.write_bytes(b"pending-event-sentinel")
+        return pending
+
+    def test_unattended_update_verifies_backup_preserves_pending_data_and_never_prompts(self):
+        pending = self.make_pending_account_record()
+        self.scenario.update(unattended=True, decline=True)
+        result = self.run_update()
+        self.assertIsNone(result["error"], self.output)
+        self.assertFalse(any(e.startswith("prompt:") for e in result["events"]), self.output)
+        backup = next((self.properties.parent.parent / "backups").iterdir())
+        self.assertEqual(pending.read_bytes(), (backup / "plugin-accounts/fixture/offer-event-outbox.json").read_bytes())
+        receipt = json.loads((backup / "backup-verification.json").read_text(encoding="utf-8-sig"))
+        self.assertEqual("VERIFIED", receipt["status"])
+        self.assertEqual(1, receipt["pluginAccountFiles"])
+        self.assertEqual(b"pending-event-sentinel", pending.read_bytes())
+        self.assertEqual(b"new-plugin", self.installed.read_bytes())
+        self.assertEqual(b"new-companion", self.installed_companion.read_bytes())
+        self.assertIn("Backup verified; continuing unattended paired update.", self.output)
+
+    def test_unattended_update_rejects_same_size_backup_jar_corruption_before_installation(self):
+        self.scenario.update(unattended=True, tamperBackupJar=True)
+        before = self.manifest.read_bytes()
+        result = self.run_update()
+        self.assertIn("Backup verification failed", result["error"], self.output)
+        self.assertNotIn("copy-plugin", result["events"])
+        self.assertNotIn("start-task", result["events"])
+        self.assertEqual(b"original-installed-plugin", self.installed.read_bytes())
+        self.assertEqual(before, self.manifest.read_bytes())
+
+    def test_unattended_update_rejects_incomplete_account_backup_without_editing_source(self):
+        pending = self.make_pending_account_record()
+        self.scenario.update(unattended=True, truncateBackupAccount=True)
+        result = self.run_update()
+        self.assertIn("Backup verification failed", result["error"], self.output)
+        self.assertNotIn("copy-plugin", result["events"])
+        self.assertEqual(b"pending-event-sentinel", pending.read_bytes())
+
+    def test_unattended_requires_a_verified_installed_pair_before_stopping_or_backing_up(self):
+        self.installed.write_bytes(b"changed-installation")
+        self.scenario["unattended"] = True
+        result = self.run_update()
+        self.assertIn("Installed JAR pair", result["error"], self.output)
+        self.assertEqual([], result["events"])
+        self.assertEqual(b"changed-installation", self.installed.read_bytes())
+
+    def test_unattended_is_only_for_routine_updates_with_an_existing_task(self):
+        for mode in ("setup", "startOnly"):
+            self.scenario.update(unattended=True, **{mode: True})
+            result = self.run_update()
+            self.assertIn("Unattended is only supported for routine updates", result["error"], self.output)
+            self.assertEqual([], result["events"])
+            self.scenario[mode] = False
+        self.scenario["taskPresent"] = False
+        result = self.run_update()
+        self.assertIn("Unattended update requires the existing companion task", result["error"], self.output)
+        self.assertEqual([], result["events"])
+
+    def test_unattended_still_rejects_running_runelite_without_stopping_the_game(self):
+        self.scenario.update(unattended=True, gameRunning=True)
+        self.assert_rejected_without_changes("Close RuneLite")
 
     def test_no_task_uses_direct_companion_launch(self):
         self.scenario["taskPresent"] = False

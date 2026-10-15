@@ -99,7 +99,8 @@ if ($CheckOnly) {
 # Appending the full API jar fixes that. It is appended rather than prepended so the launcher's own
 # jars still win for everything they both define.
 if ($installed) {
-    $extras = Join-Path $root 'build\runtime-extras'
+    # Keep launched-client libraries outside Gradle outputs so clean builds do not require a logout.
+    $extras = Join-Path $env:USERPROFILE '.runelite\osrs-flipping-friend\developer-api'
     $apiJar = Join-Path $extras "runelite-api-$installed.jar"
 
     if (-not (Test-Path $apiJar)) {
