@@ -20,7 +20,8 @@ public class OfferObservationRecoveryTest {
         OfferEvent.Builder b = OfferEvent.builder("fixture", 1700000000L + sequence, state)
             .accountId(account).eventIdentity("event-" + sequence, "session", "buy")
             .slot(0).sequence(sequence);
-        if (!"EMPTY".equals(state)) b.item(561,"Nature rune").buying(true).price(100)
+        if ("EMPTY".equals(state)) b.offerIdentity(null);
+        else b.item(561,"Nature rune").buying(true).price(100)
             .quantities(10,filled).spent(filled * 100L);
         return b.build();
     }
@@ -79,6 +80,21 @@ public class OfferObservationRecoveryTest {
         assertEquals(2,stale.getProjection().getLastSequence());
         assertTrue(OfferLifecycleReducer.apply(stale.getProjection(),live(event("BUYING",0,3))).isAccepted());
     }
+    @Test public void recoveryCannotRewindCountersOfTheSameOffer() {
+        var partial = OfferLifecycleReducer.apply(null,event("BUYING",4,1)).getProjection();
+        var error = OfferLifecycleReducer.apply(partial,event("EMPTY",0,2)).getProjection();
+        assertFalse(OfferLifecycleReducer.apply(error,live(event("BUYING",2,3))).isAccepted());
+        assertTrue(OfferLifecycleReducer.apply(error,live(event("BUYING",4,3))).isAccepted());
+    }
+    @Test public void authenticatedStaleEventsCannotRollBackAnEmptySlotOrAnotherOffer() {
+        var empty = OfferLifecycleReducer.apply(error(),live(event("EMPTY",0,4))).getProjection();
+        var old = OfferLifecycleReducer.apply(empty,live(event("BUYING",0,3)));
+        assertFalse(old.isAccepted()); assertEquals(4,old.getProjection().getLastSequence());
+        var current = OfferLifecycleReducer.apply(empty,live(event("BUYING",0,5))).getProjection();
+        var lateEmpty = OfferLifecycleReducer.apply(current,live(event("EMPTY",0,4)));
+        assertFalse(lateEmpty.isAccepted()); assertEquals(561,lateEmpty.getProjection().getItemId());
+        assertEquals(5,lateEmpty.getProjection().getLastSequence());
+    }
     @Test public void restartAndDeliveryReplayPreserveHistoricalGapAndNewFillAccounting() throws Exception {
         Path db = folder.newFolder().toPath().resolve("fixture.db");
         try (SqliteStore store = new SqliteStore(db)) {
@@ -99,6 +115,16 @@ public class OfferObservationRecoveryTest {
             assertTrue(ledger.getTradingPositions().isEmpty()); assertEquals(1,ledger.getMissedFlips().size());
             assertEquals(0,ledger.getSales());
             assertNull(DurablePlanningExposure.from(store.planningProjections(),Collections.emptyMap(),true));
+        }
+    }
+    @Test public void recoveredOffersDoNotBecomeCompleteLearningSamplesOnLaterReplay() throws Exception {
+        try (SqliteStore store = new SqliteStore(folder.newFolder().toPath().resolve("learning.db"));
+             CompanionService service = new CompanionService(gson,store)) {
+            service.offer(event("BUYING",0,1)); service.offer(event("EMPTY",0,2));
+            service.offer(live(event("BOUGHT",10,3)));
+            assertTrue("Recovered cumulative fills are incomplete execution evidence",store.executionStats().isEmpty());
+            service.offer(live(event("BOUGHT",10,4)));
+            assertTrue("A later terminal replay must not promote the incomplete offer",store.executionStats().isEmpty());
         }
     }
 }
