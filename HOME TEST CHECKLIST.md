@@ -5,9 +5,10 @@ paired updates, status, compatibility, pipeline and logs. You do not need to pas
 reply at INSTALL, or respond after every check. See [development workflow](docs/development-workflow.md).
 
 PR #49 is installed (source merge f600dae). Status, RuneLite 1.13.2 compatibility and ledger HTTP
-reads pass. RuneLite has been launched; log in yourself and open the GE/Flipping Friend once.
-The agent checks fresh current-slot/cash proof and reads logs directly. Historical gaps remain
-recorded; actual buy readiness and controlled trading acceptance still need live verification.
+reads pass. Fresh eight-slot/cash proof recovered, but planner timing fixes (#51), atomic execution
+evidence (#52) and durable risk (#53) are queued for one paired update. RuneLite is now closed.
+After the verified update/agent launch, log in and open GE once. The agent
+reads diagnostics directly. Historical gaps, actual buy readiness and controlled acceptance remain.
 
 ## 1. Prepare one candidate
 
@@ -42,6 +43,7 @@ Work through these as one acceptance batch. Report unexpected results together; 
 | --- | --- |
 | Sidebar | One compact Suggested Action, action icons, cadence/risk, Recorded profit and spendable budget/free slots; no old accordion or classification controls. |
 | Preferences and records | Gear opens Settings. More opens Recommendation, graph, Plan, Holdings, Performance, Local history, Bank estimate and Missed flips. Close/reopen works; long text is readable at your normal UI scale. |
+| Account risk in Plan | Fresh evidence shows a loss bound, remaining allowance, uncertainty reserve and tracking start. Missing data says unavailable. Restart preserves the same window and recorded losses; do not create losses just to test the breaker. |
 | Presets | 5m, 30m, 2h and 8h persist as their real intervals. A retained custom setting shows its actual minutes. Return to 5m for the initial manual test. |
 | Search | With actionable BUY advice, an empty GE BUY search shows Suggested: item. You click to select it. Typing another query hides it; native previous-search/results still work. If no buy is available, record this check as blocked. |
 | Input key | In RuneLite > Flipping Friend > Guidance, assign Fill recommended price/quantity to a spare key, for example E. Enter is not a valid fill key. Open quantity, press/release your key, inspect, then manually Enter. Repeat for price. |

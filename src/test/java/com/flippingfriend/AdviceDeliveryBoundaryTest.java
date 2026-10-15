@@ -66,6 +66,10 @@ public class AdviceDeliveryBoundaryTest {
     }
     @Test public void unchangedCaptureCanDeliverAdvice()throws Exception {
         Fixture f=new Fixture();f.queueAdvice();f.clientQueue.remove().run();verify(f.guide).setSuggestion(f.advice);
+        verify((TradeJournal)getField(f.plugin,"journal"),never()).sessionStats();
+    }
+    private Object getField(Object target,String name)throws Exception {
+        var field=target.getClass().getDeclaredField(name);field.setAccessible(true);return field.get(target);
     }
     @Test public void changingSettingsBeforeDeliveryWithdrawsQueuedOldAdvice()throws Exception {
         Fixture f=new Fixture();f.queueAdvice();var e=new ConfigChanged();e.setGroup(FlippingFriendConfig.GROUP);e.setKey("riskProfile");

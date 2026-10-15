@@ -75,7 +75,9 @@ public class StockReviewHealthTest {
         }
         var wire=gson.toJsonTree(raw).getAsJsonObject();wire.addProperty("observedAt",now);
         wire.addProperty("freeSlots",8);wire.addProperty("totalSlots",8);wire.addProperty("committedCoins",0);
-        return gson.fromJson(wire,AccountSnapshot.class).withAccountId(id).withAutomaticTradeScope().withOfferReadSet(receipt);
+        wire.addProperty("spendableCoins",1000000);
+        var captured=gson.fromJson(wire,AccountSnapshot.class).withAccountId(id).withAutomaticTradeScope().withOfferReadSet(receipt);
+        store.recordAndReconcileAccount(captured,PositionStateView.from(captured),gson.toJson(captured));return captured;
     }
     private static void set(Object target, String field, Object value) throws Exception {
         Field f = CompanionService.class.getDeclaredField(field); f.setAccessible(true); f.set(target, value);

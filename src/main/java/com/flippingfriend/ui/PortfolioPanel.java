@@ -34,10 +34,12 @@ class PortfolioPanel extends JPanel
 	 */
 	private PortfolioPlan lastDrawn;
 	private boolean everDrawn;
+    private com.flippingfriend.core.AccountRiskSnapshot lastRiskDrawn;
 
 	void refresh()
 	{
 		PortfolioPlan plan = companion.lastPlan();
+        var risk=companion.currentRisk();
 		// An expired plan is not a plan. nextBuySuggestion has always checked this; the list did not,
 		// so when the companion stopped producing them the panel kept displaying the last one it saw
 		// with nothing to indicate the prices were hours old.
@@ -46,11 +48,12 @@ class PortfolioPanel extends JPanel
 		{
 			plan = null;
 		}
-		if (everDrawn && plan == lastDrawn)
+		if (everDrawn && plan == lastDrawn && risk == lastRiskDrawn)
 		{
 			return;
 		}
 		lastDrawn = plan;
+        lastRiskDrawn=risk;
 		everDrawn = true;
 
 		removeAll();
@@ -93,6 +96,17 @@ class PortfolioPanel extends JPanel
 			plan.getUncertainCapitalBounds().forEach((item, coins) ->
 				add(UiUtils.mutedText("Item " + item + ": up to " + explainer.formatNumber(coins) + " gp.")));
 		}
+        add(UiUtils.gap(UiUtils.SPACE_S));
+        if(risk==null) {
+            add(UiUtils.mutedText("Account risk: unavailable; waiting for fresh durable evidence."));
+        }else {
+            add(UiUtils.mutedText("Account loss bound: " + explainer.formatNumber(risk.getDrawdownUpper())
+                + " gp. Remaining loss allowance: " + explainer.formatNumber(risk.getRemainingLossBudget()) + " gp."));
+            add(UiUtils.mutedText("Possible loss reserved for incomplete trades: "
+                + explainer.formatNumber(risk.getUncertainLossReserve()) + " gp. This is not recorded profit."));
+            add(UiUtils.mutedText("Risk tracking began " + java.time.Instant.ofEpochSecond(risk.getWindowStartedAt())
+                + "; restarting does not reset it."));
+        }
 		revalidate(); repaint();
 	}
 

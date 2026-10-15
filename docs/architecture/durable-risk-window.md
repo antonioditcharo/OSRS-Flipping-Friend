@@ -1,0 +1,67 @@
+# Durable recommendation risk
+
+Implementation contract, 15 October 2026, for the active recommendation breaker. Local
+journal/session figures remain explicitly local estimates and cannot authorize new buys.
+
+## Tracking window
+
+The first fresh authenticated cash/eight-slot account observation with positive known trading
+capital starts a prospective risk window for that explicit account and durable outbox session.
+Its start time, starting capital and position-event cursor are recorded with the account snapshot
+in the existing event log. There is no new database schema, historical profit backfill or inferred
+session clock. A companion/client restart loads the same window; it does not reset realized losses.
+Different accounts have separate stores/windows. Missing, malformed or contradictory window
+evidence withholds entries. It never assigns the old unscoped database to an account.
+The original eight authenticated source IDs are validated when the marker is reloaded. Financial
+event identities and risk markers do not expire with old diagnostic account snapshots. No live
+retention task or database repair is introduced.
+
+This is a risk tracking period, not a benchmark session or a claim of measured GP/hour. Existing
+unknown history remains in Missed flips. New manual trading before the first observable window
+is not retroactively assigned a session. Once a window exists, its ledger cursor survives restart.
+
+## Money and uncertainty
+
+Realized profit ranges come from the authoritative position-event ledger after the window cursor.
+Use the lower bound for the breaker; do not substitute journal profit, a rounded average or the
+upper bound. An unrelated unpriced personal sale is not trading profit. An unresolved sale which
+consumed observed trading stock retains unknown profit and reserves its possible lost cost for
+risk, rather than manufacturing zero-cost profit. New reconciliation uncertainty reserves the
+affected observed-capital envelope; old pre-window gaps remain exposure guards and paused items.
+These reserves are possible losses, not reported realized losses or historical repairs.
+
+Open managed stock is marked to a fresh instant-sell quote after current-rule hypothetical sale
+tax. These marks are estimates, not realized proceeds or a promise of immediate execution.
+Absent/stale/malformed quotes cannot silently mark stock flat. Pre-existing personal inventory
+is not enrolled. Historical capital upper bounds are not account equity or spendable cash.
+Quotes must be numeric exact integers; fractional values and numeric strings are refused. The
+published risk expires with the earliest cash/slot, global-market or individual quote deadline.
+
+Known capital is observed spendable cash plus current buy reservations plus clean managed stock
+at known acquisition cost. The 15% base is capped by starting capital and a conservative current
+capital-before-recorded-profit estimate: subtract the bounded realized profit upper value from
+currently known capital, floored at zero. This avoids counting a known loss twice, treats deployed
+stock as capital, and lets external withdrawals reduce the base without granting value from
+uncertain historical capital. Use checked integer arithmetic.
+
+The conservative drawdown is the negative part of bounded realized profit plus marked open-stock
+profit, with unresolved-loss reserves deducted. The remaining loss allowance is 15% of the risk
+base minus that drawdown. Positive marks can offset observed losses, but unknown profits cannot.
+Overflow or inconsistent provenance makes risk unavailable rather than clipping to a safe-looking
+number. Preferences, item/group exposure, actual cash/slots and buy limits still gate each entry.
+
+## Consumers and verification
+
+Plan computation and final entry approval use the same fresh account/read-set/risk input. The
+companion owns the arithmetic; client-supplied local drawdown is not an authority. The plan's risk
+diagnostic/notification reads this result, and the compact sidebar remains an action surface.
+Plan details show the loss bound, remaining allowance, uncertainty reserve and tracking start.
+Unavailable money stays unavailable. The notification latch is scoped to the durable window;
+missing evidence does not silently rearm it. The window has no automatic login/restart reset.
+Missing risk affects new entries, not evidence ingestion, personal sell quotes or collection.
+
+Regression gates include foreign local-session profit, persistent losses across restart,
+realized tax/profit ranges, unknown historical versus new managed/untracked sales, missing quotes,
+uncertainty reserves, account/session fences, arithmetic overflow and first-window transaction
+rollback. Source tests are not live trading acceptance or a profitability comparison. Runtime
+remains the last verified paired install until the normal close and supported update are observed.

@@ -3,7 +3,91 @@
 Updated 15 October 2026 (America/Anchorage). Read this with [AGENTS.md](AGENTS.md) and
 [TASKS.md](TASKS.md) before continuing implementation.
 
-## Atomic execution-evidence continuation — 15 October 2026
+## Durable recommendation risk continuation — 15 October 2026
+
+Resumed the interrupted `codex/durable-risk-authority` worktree from rebuild
+`598fed3967d3387c1b8f885a06eb7df931493204`. PR #52 is merged there after both exact-head checks
+at `e2b51c54f81240a92324648837dac3ed99ad6ba4` passed in
+[run 38716858569](https://github.com/antonioditcharo/OSRS-Flipping-Friend/actions/runs/38716858569).
+The normal checkout is clean and current; historical main remains `0cb8ef8`. Runtime is still
+the verified PR #49 pair. The player has now confirmed the normal close, and process inspection
+observed zero RuneLite clients. Do not ask for another INSTALL/log-paste cycle or bypass the updater.
+
+Regression `774a521` reproduced local journal-session profit leaking across account switches;
+`bb4339d` scopes that local compatibility/history view per profile. Source
+`a97e692dee5cc61baa651420f4ac689c19d5e3f8` implements the active risk migration: planner, final
+entry approval, health, client alert and separate Plan details consume one fresh durable account
+risk result. Automatic runtime accounts cannot fall back to client journal drawdown. Forged
+client risk is ignored/replaced during computation and approval. Local journals are not profit
+authority and no longer feed the live breaker. Final review reproduced a JSON schema-validation
+fault in both new DTOs at `02744c7`: field-initialized final string constants were inlined by Java.
+Final source `ef4d863bff77dfbf0355fa2f399688833b0b818e` initializes them in constructors so loaded
+unknown/missing versions really abstain. Both regressions failed before the correction and pass.
+Delivery is [PR #53](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/53).
+
+The first proven positive-capital eight-slot/cash snapshot atomically appends a prospective risk
+window to existing event-log metadata. Its account, durable outbox session, starting capital,
+position-event cursor and original authenticated source receipt survive restart. No schema change,
+past-profit backfill, inferred session clock or database repair is introduced. New managed unknown
+sales reserve possible cost loss, while unrelated unknown sales remain unpriced. Recorded profit
+ranges remain ranges. Fresh taxed instant-sell marks and checked integer arithmetic determine the
+remaining 15% allowance. Missing/fractional/stale quotes, overflow and inconsistent proof abstain.
+See [durable risk contract](docs/architecture/durable-risk-window.md) for the exact capital formula,
+uncertainty treatment and deadlines. This risk window is not benchmark session time or GP/hour.
+
+The retention regression failed before its fix: expiring all old event rows let a previously counted
+terminal event return NEW instead of DUPLICATE. Retention now expires only diagnostic account
+snapshots, preserving financial IDs and risk anchors. No live pruning was run. Regression/foundation
+logs remain ignored under .gradle/durable-risk-*. Disposable test stores alone contain injected
+failures/metadata. Live account databases and the unassigned legacy database were not edited.
+
+```text
+.\gradlew.bat clean test jar :companion:shadowJar --console=plain
+BUILD SUCCESSFUL in 44s
+18 actionable tasks: 18 executed
+RISK_FINAL_STANDARD_EXIT=0
+Plugin: 591; Core: 175; Companion: 613 including six existing skips
+Total: 1,373 passed; 6 skipped; 0 failures/errors
+Python: Ran 63 tests in 48.631s / OK / RISK_PYTHON_EXIT=0
+Both project JARs: class major 55 (Java 11)
+Candidate plugin: 469,003 bytes; companion: 17,832,034 bytes
+```
+
+The complete active workflow is exercised through real fixture offer/account acceptance and final
+entry approval, including loss freeze after store restart, forged client gains, rollback/replay,
+profit ranges, mixed stock, quote expiry and profile/session fences. A legacy health fixture needed
+positive observed cash to establish a window; the initial zero-cash version correctly abstained.
+Native RuneLiteLAF Plan rendering passed clipping assertions and was visually inspected; risk
+details remain outside the compact sidebar. The earlier complete 39s build passed with RuneLite
+open; the final 44s schema-corrected build ran after the observed normal close.
+
+The read-only pre-install check of the existing #49 pair returned status host exit 0 and API
+compatibility host exit 0. An initial launcher check named the wrong script directory and exited
+-196608; the corrected tools/run-dev.ps1 CheckOnly invocation passed without changing files.
+GET-only pipeline (opaque account ID redacted) returned:
+
+```text
+PASS [Artifact] build\libs\osrs-flipping-friend.jar
+PASS [Artifact] companion\build\libs\flipping-friend-companion.jar
+PASS [Protocol] accounts-v1
+PASS [Market] Ready. Choosing which items to study.
+PASS [<account-id>] Ledger: 4 sale updates; 2 unresolved; 0 profit ranges.
+PASS [<account-id>] Action: WAIT. Plan: UNAVAILABLE. Working out the best use of your slots.
+INFO [Accounting] No synthetic snapshots, offers, or trades were posted by this check.
+PIPELINE_EXIT=0
+```
+
+This is the old installed runtime, not acceptance of #51/#52/#53. Private exact output remains
+in local-data/diagnostics/risk-batch-preinstall-pipeline-20261015.txt in the normal checkout.
+Require both final-head CI checks before merge, then fast-forward the normal rebuild checkout.
+Batch PR #51/#52 and this runtime change into one supported unattended paired update after the
+now observed normal client close. Fresh backup verification, installed hashes, status,
+compatibility and GET-only pipeline belong to that installation receipt. No new pipeline result
+or live BUY/UI/trade/restart acceptance is claimed by this source verification. Remaining work:
+authoritative calibration audit, companion sell/replacement workflows, chronological whole-account
+replay at the four separate cadences, prospective measurement and controlled live acceptance.
+
+## Atomic execution-evidence continuation — 15 October 2026 (source receipt; #52 now merged)
 
 Previous turn made verified progress: PR #49's paired install recovered current slots and bounded
 exposure; #50 fixed Windows PowerShell JSON reads; [PR #51](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/51)

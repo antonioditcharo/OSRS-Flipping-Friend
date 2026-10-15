@@ -83,13 +83,13 @@ final class PortfolioPlanner
 				nowSeconds), account);
 		}
 
-		long equity = account.getSpendableCoins() + account.getCommittedCoins();
+		long equity = equityFor(account);
 		long lossBudget = lossBudgetFor(account);
 		if (lossBudget <= 0)
 		{
 			return describing(PortfolioPlan.unavailable(correlationId, PortfolioPlanOutcome.DRAWDOWN_LIMIT_REACHED,
-				"Session drawdown has reached 15%. New buys are frozen; selling and collecting are "
-					+ "unaffected. The freeze clears when a new session starts.",
+				account.getCanonicalRisk() == null ? "Account risk is unavailable or its loss allowance is exhausted."
+                    : account.getCanonicalRisk().getReason(),
 				nowSeconds), account);
 		}
 
@@ -306,14 +306,28 @@ final class PortfolioPlanner
 	}
 
 	/**
-	 * The session loss budget the planner enforces: the drawdown share of equity, less what the
-	 * session has already marked down. Zero or below means new buys are frozen.
+	 * Runtime loss allowance from the durable account window. Legacy nonautomatic fixtures retain
+     * their compatibility arithmetic; automatic runtime accounts have no journal fallback.
 	 */
 	static long lossBudgetFor(AccountSnapshot account)
 	{
-		long equity = account.getSpendableCoins() + account.getCommittedCoins();
+        var risk=account.getCanonicalRisk();
+        if(risk!=null) return validRisk(account,risk) ? risk.getRemainingLossBudget() : 0;
+        // Automatic runtime accounts must never use client journal estimates as authorization.
+        if(account.isAutomaticTradeScope())return 0;
+		long equity = equityFor(account);
 		return (long) (equity * DRAWDOWN_LIMIT) - (long) account.getMarkedSessionDrawdown();
 	}
+    private static boolean validRisk(AccountSnapshot account,com.flippingfriend.core.AccountRiskSnapshot risk) {
+        long now=Instant.now().getEpochSecond();
+        return risk.isAvailable() && java.util.Objects.equals(account.getAccountId(),risk.getAccountId())
+            && risk.getEvaluatedAt()>=account.getObservedAt() && risk.getEvaluatedAt()<=now && risk.getValidUntil()>=now;
+    }
+    static long equityFor(AccountSnapshot account) {
+        var risk=account.getCanonicalRisk();
+        if(risk!=null)return validRisk(account,risk)?risk.getCurrentCapital():0;
+        return account.isAutomaticTradeScope()?0:Math.addExact(account.getSpendableCoins(),account.getCommittedCoins());
+    }
 	/** Committed capital per item rolled up into the item groups the candidates use. */
 	static Map<String, Long> committedByGroupFor(AccountSnapshot account,
 		Map<Integer, MarketIngestionService.Item> mapping)
@@ -331,7 +345,7 @@ final class PortfolioPlanner
 	static PortfolioConstraints constraintsFor(AccountSnapshot account, RiskAppetite appetite,
 		long lossBudget, Map<String, Long> committedByGroup)
 	{
-		long equity = account.getSpendableCoins() + account.getCommittedCoins();
+		long equity = equityFor(account);
 		return new PortfolioConstraints(account.getFreeSlots(),
 			account.getSpendableCoins(), lossBudget,
 			(long) (equity * appetite.getItemExposureLimit()),

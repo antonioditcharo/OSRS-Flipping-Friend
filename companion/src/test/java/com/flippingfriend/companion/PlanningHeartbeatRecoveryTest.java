@@ -36,6 +36,7 @@ public class PlanningHeartbeatRecoveryTest {
     void seed(SqliteStore store,CompanionService service,long at)throws Exception {
         for(int slot=0;slot<8;slot++) {var e=empty(slot,0,at);store.recordAndProjectOffer(e,gson.toJson(e),true);}
         set(service,"account",account(0,at));
+        var captured=account(0,at);store.recordAndReconcileAccount(captured,PositionStateView.from(captured),gson.toJson(captured));
         var market=get(service,"market");
         set(market,"state",new MarketIngestionService.MarketState(Map.of(),new JsonObject(),new JsonObject(),new JsonObject(),at));
         set(service,"lastPlanFreeSlots",8);set(service,"lastPlanSellOnly",false);

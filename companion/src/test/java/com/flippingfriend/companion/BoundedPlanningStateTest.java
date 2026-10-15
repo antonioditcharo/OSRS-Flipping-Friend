@@ -13,7 +13,7 @@ public class BoundedPlanningStateTest {
     @Rule public TemporaryFolder folder=new TemporaryFolder();
     final String account=AccountIdentity.fromProfileKey("bounded");
     final Gson gson=new Gson();
-    final long now=1700000100L;
+    final long now=java.time.Instant.now().getEpochSecond()-10;
     OfferEvent offer(String id,int slot,int item,String type,int filled,long seq,long at,boolean auth) {
         var b=OfferEvent.builder("fixture",at,type).accountId(account).eventIdentity(id,"s",item==0?null:"offer-"+slot)
             .authenticatedObservation(auth).slot(slot).sequence(seq);
@@ -83,7 +83,9 @@ public class BoundedPlanningStateTest {
     }
     @Test public void entryPolicyRechecksPausedItemsInsteadOfTrustingACachedAllocation()throws Exception {
         try(var s=new SqliteStore(folder.newFolder().toPath().resolve("policy.db"));var service=new CompanionService(gson,s)) {
-            var receipt=seed(s);set(service,"account",snapshot(receipt));
+            var receipt=seed(s);var accountState=snapshot(receipt);
+            s.recordAndReconcileAccount(accountState,PositionStateView.from(accountState),gson.toJson(accountState));
+            set(service,"account",accountState);
             var market=(MarketIngestionService)get(service,"market");
             var f=MarketIngestionService.class.getDeclaredField("state");f.setAccessible(true);
             f.set(market,new MarketIngestionService.MarketState(Map.of(561,new MarketIngestionService.Item(561,"Item 561",10000),

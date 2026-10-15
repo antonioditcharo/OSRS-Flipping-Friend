@@ -25,6 +25,7 @@ public class PlanningStateInvalidationTest {
             }
             var account=new AccountSnapshot("snapshot",now,1000000,0,8,8,true,false,0).withAccountId(identity)
                 .withAutomaticTradeScope().withOfferReadSet(receipt);
+            store.recordAndReconcileAccount(account,PositionStateView.from(account),new Gson().toJson(account));
             var candidate=new PortfolioCandidate(562,"Clean item","",100,100,100,120,120,120,10,100000,200L,
                 1,1,.95,.95,.4,.4,1.5,now+100);
             set(service,"account",account);set(service,"lastPlanAt",now);set(service,"lastPlanFreeSlots",8);
