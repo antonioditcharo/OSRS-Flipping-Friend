@@ -61,7 +61,10 @@ classification controls are added and unknown sale profit remains unknown.
 
 An economic offer/cash/preference change invalidates cached buy advice immediately, even during
 plan spacing. An identical heartbeat changes its source receipt without forcing a structural
-replan. Client advice revisions fence both queued work and final UI delivery; durable offer
+replan. It must not compute against the preceding account receipt while that rotation is in flight.
+A new account publication retries a transient COMPANION_STATE_UNAVAILABLE result immediately,
+even when its economic fields are unchanged; an old capture's failed computation cannot replace
+the new state. Client advice revisions fence both queued work and final UI delivery; durable offer
 delivery uses a separate lifecycle generation so a terminal observation followed by EMPTY is not
 dropped. A displayed BUY becomes WAIT when account evidence changes.
 

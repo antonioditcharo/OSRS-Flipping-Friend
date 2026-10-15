@@ -5,6 +5,15 @@ statements later in this file. Read [HANDOFF.md](HANDOFF.md) for exact evidence.
 
 ## Active
 
+- [ ] Deliver planner-heartbeat follow-up on codex/coherent-plan-heartbeat from 70d8453.
+      Live PR #49 observations recovered all current slots: zero ERROR/eight authenticated sources,
+      matching current cash/slot proof and bounded historical exposure available; ledger records
+      unchanged. Installed planner still retained a transient reconciliation refusal. Regression
+      025ed19 reproduces same-economics receipt rotation and spacing failures before source fixes.
+      Standard: 1,346 Java passed/six skips, both JARs, 44s. Require exact-head CI then one supported
+      paired update; RuneLite is open and must be closed normally by the player, never force-killed.
+      No live current BUY, game trade or restart acceptance has been established yet.
+
 - [x] Source causal trade-gap scope merged in PR #48 as ea0b3b4; both checks passed at e6fb786
       (run 38683353210). The following details are its source receipt, not installed acceptance:
       342aa1a reproduces lost unrelated managed ownership and rejected/malformed client scope proof.
@@ -35,10 +44,11 @@ statements later in this file. Read [HANDOFF.md](HANDOFF.md) for exact evidence.
       RuneLite was launched through the supported wrapper, one client observed. The agent reads
       subsequent logs/pipeline directly; player logs in and opens GE once, without pasted output.
       Startup/UI, search/key/Confirm and controlled trade/cancel/collect/relist/restart remain pending.
-- [ ] Deliver PowerShell 5.1 pipeline compatibility and installed receipt on codex/bounded-entry-verification.
+- [x] Delivered PowerShell 5.1 pipeline compatibility and installed receipt in PR #50, merged as
+      70d8453 after both checks at 3c8006c passed (run 38713257067).
       Regression 98c6016 precedes three basic-parsing JSON reads. Both PowerShell hosts now pass;
       all 63 Python tests pass and account-scope failures still fail closed. Tooling/docs only;
-      no additional paired install is required. Require both exact-head CI checks before merge.
+      no additional paired install was required for this tooling-only change.
 - [ ] Finish one authoritative ledger for planner, exits, inventory UI, calibration and session risk.
       Durable accounting, Performance, exposure and managed trade quantities/exits are implemented;
       audit remaining local consumers and preserve positive acquisition/cost evidence. Reproduce
