@@ -310,7 +310,7 @@ final class SqliteStore implements AutoCloseable
                                 || !origin.isAuthenticatedObservation() || origin.getFilledQuantity()!=0
                                 || !(origin.isBuying()?"BUYING":"SELLING").equals(origin.getEventType())
                                 || origin.getFirstSeenAt()<=0 || origin.getFirstSeenAt()!=origin.getObservedAt()
-                                || origin.getAdviceObservedAt()<=0 || origin.getAdviceObservedAt()>origin.getFirstSeenAt()
+                                || origin.getAdviceObservedAt()<=0 || origin.getAdviceObservedAt()>=origin.getFirstSeenAt()
                                 || origin.getFirstSeenAt()-origin.getAdviceObservedAt()>600
                                 || !origin.wasRecommended() || origin.getSuggestedPrice()!=origin.getPrice()
                                 || origin.getSuggestedQuantity()!=origin.getTotalQuantity()

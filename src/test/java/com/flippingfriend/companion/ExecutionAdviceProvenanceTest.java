@@ -16,11 +16,11 @@ import static org.junit.Assert.*;
 public class ExecutionAdviceProvenanceTest {
     @Rule public TemporaryFolder folder=new TemporaryFolder();
     final Gson gson=new Gson();
-    final long now=Instant.now().getEpochSecond();
+    static final long now=1_700_000_000;
     static final class Fixture {
         final PluginStorage storage;
         final OfferEventOutbox outbox;
-        final SuggestionLedger ledger=new SuggestionLedger();
+        final SuggestionLedger ledger=new SuggestionLedger(java.time.Clock.fixed(Instant.ofEpochSecond(now-1),java.time.ZoneOffset.UTC));
         final CompanionClient client;
         Fixture(Path root) {
             storage=TestStorage.rootedAt(root,"execution-advice");outbox=new OfferEventOutbox(storage);

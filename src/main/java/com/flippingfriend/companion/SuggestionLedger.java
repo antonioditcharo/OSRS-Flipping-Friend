@@ -1,6 +1,6 @@
 package com.flippingfriend.companion;
 
-import java.time.Instant;
+import java.time.Clock;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import javax.inject.Singleton;
@@ -46,6 +46,9 @@ public class SuggestionLedger
 		};
 
 	private long sequence;
+	private final Clock clock;
+	public SuggestionLedger() { this(Clock.systemUTC()); }
+	SuggestionLedger(Clock clock) { this.clock=java.util.Objects.requireNonNull(clock); }
 
 
 
@@ -65,7 +68,7 @@ public class SuggestionLedger
 		}
 		long key = key(itemId, buying);
 		Advice previous = outstanding.get(key);
-		long now = Instant.now().getEpochSecond();
+		long now = clock.instant().getEpochSecond();
 
 		// The clock starts when the advice appears, not when it was last repeated. The panel
 		// re-records the same recommendation every refresh -- every thirty seconds by default -- and

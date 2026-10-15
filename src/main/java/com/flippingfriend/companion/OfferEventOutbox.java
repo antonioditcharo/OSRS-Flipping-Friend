@@ -73,7 +73,8 @@ public final class OfferEventOutbox
                 && event.getFirstSeenAt()>0 && event.getFirstSeenAt()==event.getObservedAt()
                 && event.getAdviceObservedAt()>0 && event.getAdviceObservedAt()<=event.getFirstSeenAt()
                 && event.getFirstSeenAt()-event.getAdviceObservedAt()<=SuggestionLedger.ATTRIBUTION_WINDOW_SECONDS;
-            OfferEvent bound=event.withBoundPrediction(timely?event:null,timely);
+            // Equal second timestamps preserve diagnostic association, not ordering proof.
+            OfferEvent bound=event.withBoundPrediction(timely?event:null,timely && event.getAdviceObservedAt()<event.getFirstSeenAt());
             updated.predictions.put(event.getSlot(),new PredictionBinding(bound,!bound.isPredictionComparable()));
             return bound;
         }
