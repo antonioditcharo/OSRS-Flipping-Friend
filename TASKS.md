@@ -5,6 +5,13 @@ statements later in this file. Read [HANDOFF.md](HANDOFF.md) for exact evidence.
 
 ## Active
 
+- [x] Source prospective execution prediction bindings on codex/execution-advice-provenance from
+      b516b7e. Regression commits are in HANDOFF.md. Existing outbox persists original/unknown
+      bindings atomically; companion validates the first recorded source before learning. Restart,
+      late/mismatched advice, failed writes, legacy queues, account scope and rollback are covered.
+      Standard: 1,397 Java passed/six skips, both Java 11 JARs, 49s. This source is not installed;
+      current live runtime remains #53. Batch the next update. Censoring/model evaluation remains #56.
+
 - [x] Install the combined #51/#52/#53 pair through the supported administrator Update shortcut.
       Earlier agent helper was canceled before starting; owner opened the interactive updater.
       Fresh backup 20261015-080957-c3a069ab verified before INSTALL: prior hashes, task action/owner,
@@ -84,6 +91,7 @@ statements later in this file. Read [HANDOFF.md](HANDOFF.md) for exact evidence.
 ## Next
 
 - [ ] Audit calibration prediction provenance and cancellation censoring before changing strategy.
+      Prospective attribution is now source-verified above; original timing/censoring bias remains.
       Current execution aggregates pool open time from completed/canceled offers; canceled time is
       a lower bound, not an observed fill duration. Preserve existing data/dedup keys and separate
       real/paper evidence. Reproduce concrete faults first; promotion requires chronological held-out

@@ -59,6 +59,10 @@ are in `docs/project-direction.md`; historical package notes are not proof of ru
   Eligible execution samples and their deduplication claims must commit with canonical source
   acceptance/accounting; never backfill old aggregate samples or change legacy keys to recount
   history. See docs/architecture/execution-evidence-atomicity.md.
+  Freeze prospective prediction bindings with the existing account outbox; qualify against the
+  earliest recorded source before pairing execution statistics. Unknown or mismatched original
+  advice stays unpaired. This is observational association, not proven intent or exact fill timing.
+  See docs/architecture/execution-prediction-provenance.md; censoring/evaluation remain open in #56.
 - Automatic runtime entry risk must use the durable prospective account window, realized profit
   bounds, uncertainty reserves and fresh taxed marks. Restart cannot reset its loss allowance.
   Client journal drawdown or wire-supplied canonicalRisk cannot authorize buys. Unknown profit stays
