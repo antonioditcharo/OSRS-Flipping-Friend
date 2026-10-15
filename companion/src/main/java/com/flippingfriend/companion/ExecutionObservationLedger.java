@@ -29,16 +29,26 @@ final class ExecutionObservationLedger {
         return Set.of("BOUGHT","SOLD","CANCELLED_BUY","CANCELLED_SELL").contains(e.getEventType());
     }
     static ExecutionLearningReport read(String account,long now,long cursor,List<OfferEvent> history,Set<String> gaps) {
+        try {
+            return new ExecutionLearningReport(account,now,cursor,"OBSERVING",
+                "Public-price baseline active. Timing intervals are diagnostic; no challenger has passed promotion gates.",
+                compile(account,now,history,gaps));
+        } catch(IllegalArgumentException | ArithmeticException invalid) {
+            return ExecutionLearningReport.unavailable(account,now,invalid.getMessage());
+        }
+    }
+    /** Complete observations for offline evaluation; HTTP readouts remain bounded separately. */
+    static List<ExecutionTimingObservation> compile(String account,long now,List<OfferEvent> history,Set<String> gaps) {
         if(account==null || history==null || gaps==null || gaps.stream().anyMatch(Objects::isNull))
-            return ExecutionLearningReport.unavailable(account,now,"Recorded source scope is incomplete.");
+            throw new IllegalArgumentException("Recorded source scope is incomplete.");
         Map<List<Object>,Episode> episodes=new LinkedHashMap<>();
         Map<Integer,Episode> latest=new HashMap<>();Map<Integer,OfferEvent> empty=new HashMap<>();
         Map<List<Object>,OfferEvent> ordered=new HashMap<>();Set<String> ids=new HashSet<>();
         for(OfferEvent e:history) {
             if(!TradeGapEvidence.valid(e) || !account.equals(e.getAccountId()) || !ids.add(e.getEventId()))
-                return ExecutionLearningReport.unavailable(account,now,"Recorded source identity is inconsistent.");
+                throw new IllegalArgumentException("Recorded source identity is inconsistent.");
             if(e.getPredictionEvidenceVersion()!=null && e.getObservedAt()>now)
-                return ExecutionLearningReport.unavailable(account,now,"A prospective observation is in the future.");
+                throw new IllegalArgumentException("A prospective observation is in the future.");
             List<Object> scope=List.of(e.getSessionId(),e.getSlot());OfferEvent prior=ordered.get(scope);
             boolean order=prior==null || (e.getSequence()>prior.getSequence() && e.getObservedAt()>=prior.getObservedAt());
             if(order)ordered.put(scope,e);
@@ -95,10 +105,9 @@ final class ExecutionObservationLedger {
                     e.lastZero,e.firstPositive,e.terminal,e.ended,!e.invalid,qualified,reason));
             }
         }catch(ArithmeticException overflow) {
-            return ExecutionLearningReport.unavailable(account,now,"Observation time cannot be bounded safely.");
+            throw new IllegalArgumentException("Observation time cannot be bounded safely.",overflow);
         }
-        return new ExecutionLearningReport(account,now,cursor,"OBSERVING",
-            "Public-price baseline active. Timing intervals are diagnostic; no challenger has passed promotion gates.",observations);
+        return Collections.unmodifiableList(observations);
     }
     private static final class Episode {
         final OfferEvent original;
