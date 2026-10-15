@@ -3,6 +3,8 @@ package com.flippingfriend.companion;
 import com.flippingfriend.core.*;
 import com.google.gson.Gson;
 import java.nio.file.Path;
+import java.sql.DriverManager;
+import java.sql.SQLException;
 import java.time.Instant;
 import org.junit.Rule;
 import org.junit.Test;
@@ -20,31 +22,33 @@ public class ExecutionEvidenceAtomicityTest {
             .quantities(10,filled).spent(filled*100L).sequence(sequence).firstSeenAt(at)
             .recommendation("advice",100,10,0,1,.9).build();
     }
-    static final class FailingStore extends SqliteStore {
-        boolean failNext;
-        FailingStore(Path path)throws Exception {super(path);}
-        @Override synchronized void recordExecution(int item,boolean complete,double fill,double prediction,
-                double open,double openPrediction)throws Exception {
-            if(failNext){failNext=false;throw new IllegalStateException("fixture execution write failure");}
-            super.recordExecution(item,complete,fill,prediction,open,openPrediction);
+    void failWrites(Path fixtureDatabase,boolean enabled)throws Exception {
+        try(var connection=DriverManager.getConnection("jdbc:sqlite:"+fixtureDatabase);var sql=connection.createStatement()) {
+            if(enabled)sql.execute("CREATE TRIGGER fixture_fail_execution BEFORE INSERT ON execution_stat "
+                +"BEGIN SELECT RAISE(ABORT,'fixture execution write failure'); END");
+            else sql.execute("DROP TRIGGER fixture_fail_execution");
         }
     }
     @Test public void failedStatisticsWriteCannotLeaveAPermanentDeduplicationClaim()throws Exception {
-        try(var store=new FailingStore(folder.newFolder().toPath().resolve("claim.db"))) {
-            var terminal=event("done","BOUGHT",10,2);store.failNext=true;
+        Path db=folder.newFolder().toPath().resolve("claim.db");
+        try(var store=new SqliteStore(db)) {
+            var terminal=event("done","BOUGHT",10,2);failWrites(db,true);
             try {new ExecutionRecorder(store).record(terminal);fail("fixture failure missing");}
-            catch(IllegalStateException expected){assertEquals("fixture execution write failure",expected.getMessage());}
+            catch(SQLException expected){assertTrue(expected.getMessage().contains("fixture execution write failure"));}
+            failWrites(db,false);
             assertTrue(store.executionStats().isEmpty());
             assertTrue("A retry must recover the lost learning observation",new ExecutionRecorder(store).record(terminal));
             assertEquals(1,store.executionStats().get(561).observed);
         }
     }
     @Test public void canonicalTerminalRetryRecoversAccountingAndLearningTogether()throws Exception {
-        try(var store=new FailingStore(folder.newFolder().toPath().resolve("offer.db"));var service=new CompanionService(new Gson(),store)) {
-            service.offer(event("open","BUYING",0,1));store.failNext=true;
+        Path db=folder.newFolder().toPath().resolve("offer.db");
+        try(var store=new SqliteStore(db);var service=new CompanionService(new Gson(),store)) {
+            service.offer(event("open","BUYING",0,1));failWrites(db,true);
             var terminal=event("done","BOUGHT",10,2);
             try {service.offer(terminal);fail("fixture failure missing");}
-            catch(IllegalStateException expected){assertEquals("fixture execution write failure",expected.getMessage());}
+            catch(SQLException expected){assertTrue(expected.getMessage().contains("fixture execution write failure"));}
+            failWrites(db,false);
             assertEquals("The failed offer must remain retryable instead of being accepted without its learning record",
                 SqliteStore.EventAcceptance.NEW,service.offer(terminal));
             assertEquals(1,store.executionStats().get(561).observed);
