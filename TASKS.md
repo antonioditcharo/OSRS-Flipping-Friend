@@ -5,13 +5,21 @@ statements later in this file. Read [HANDOFF.md](HANDOFF.md) for exact evidence.
 
 ## Active
 
+- [ ] Deliver atomic execution-evidence transaction on codex/atomic-execution-evidence from c915ea8.
+      Verified write-failure regressions at e34927a precede fixes. Canonical acceptance, accounting,
+      limits, dedup claim and eligible execution statistics now commit/roll back together. Existing
+      keys/stats and incomplete-offer exclusions are preserved; no historical backfill/schema change.
+      Standard: 1,350 Java passed/six skips, both JARs, 52s. Require exact-head CI, then batch with
+      PR #51 in one supported paired update after the already requested normal RuneLite close.
+
 - [ ] Deliver planner-heartbeat follow-up on codex/coherent-plan-heartbeat from 70d8453.
       Live PR #49 observations recovered all current slots: zero ERROR/eight authenticated sources,
       matching current cash/slot proof and bounded historical exposure available; ledger records
       unchanged. Installed planner still retained a transient reconciliation refusal. Regression
       025ed19 reproduces same-economics receipt rotation and spacing failures before source fixes.
-      Standard: 1,346 Java passed/six skips, both JARs, 44s. Require exact-head CI then one supported
-      paired update; RuneLite is open and must be closed normally by the player, never force-killed.
+      Standard: 1,346 Java passed/six skips, both JARs, 44s. PR #51 merged as c915ea8 after both
+      checks at e6ecb10 passed (run 38714913420). Supported paired update remains pending the normal
+      RuneLite close already requested from the player; never force-kill it.
       No live current BUY, game trade or restart acceptance has been established yet.
 
 - [x] Source causal trade-gap scope merged in PR #48 as ea0b3b4; both checks passed at e6fb786
