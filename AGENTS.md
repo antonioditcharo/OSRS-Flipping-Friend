@@ -72,6 +72,10 @@ are in `docs/project-direction.md`; historical package notes are not proof of ru
   probability and exact displayed order. Preserve immutable model/config/horizon/wait-work context
   through the original outbox binding; missing legacy context stays missing. Read
   docs/architecture/immutable-execution-forecasts.md. Forecast identity is not validated learning.
+  Offline evaluation uses complete frozen source prefixes, reproducible manifests and conservative
+  horizon-score bounds. Early cancellations and ambiguous intervals remain unknown; do not drop
+  them or count them as failures. See docs/architecture/frozen-execution-evaluation.md. The CLI
+  reads only explicitly scoped existing databases; unassigned legacy data stays untouched.
 - Automatic runtime entry risk must use the durable prospective account window, realized profit
   bounds, uncertainty reserves and fresh taxed marks. Restart cannot reset its loss allowance.
   Client journal drawdown or wire-supplied canonicalRisk cannot authorize buys. Unknown profit stays

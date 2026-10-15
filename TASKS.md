@@ -5,11 +5,22 @@ statements later in this file. Read [HANDOFF.md](HANDOFF.md) for exact evidence.
 
 ## Active
 
+- [x] Complete offline frozen execution capture/verification/recorded-prefix comparison on
+      codex/frozen-execution-evaluation from #59 merge 0fba976. Regressions 3b71dec/25f5bec/7115219
+      precede fixes. Complete canonical sources and proven reconciliation item scope feed horizon
+      outcome/Brier bounds; uncertain cancellations stay in the denominator as unknown. Actual
+      evaluator artifact retained; later cohort excludes older settlements and changed prefixes.
+      Source through 39569c2: 1,458 Java passed/six existing skips, 63 Python passed, both Java 11
+      JARs, 39s. Packaged PS5.1 read-only capture: 4,651 rows/cursor 5573/zero prospective forecasts;
+      retained-artifact replay verifies. No backfill or database repair. Not installed; batch update.
+      This is evaluation infrastructure, not fitted/promoted learning or measured higher returns.
+
 - [x] Source immutable leg forecasts and accepted-guidance publication on
       codex/immutable-execution-forecasts from #58 merge f161a39. Regressions 9471568/8ffb3b2 and
       the active entry-policy metadata failure precede fixes. Source a18210f shares actual entry
       conversion, preserves exact managed sell guidance and original model/config/horizon/wait-work
       context across publisher/outbox/restart/canonical readout. Missing context stays unknown.
+      Merged in #59 as 0fba976 after both checks at 2b31e06 passed (run 38810497176).
       Standard: 1,437 Java passed/six existing skips, 63 Python passed, both Java 11 JARs, 39s.
       Not installed; batch with #57/#58. Held promotion, fitting/evaluation remain #56.
 
@@ -112,7 +123,8 @@ statements later in this file. Read [HANDOFF.md](HANDOFF.md) for exact evidence.
       Attribution, observed intervals and the runtime promotion fence are source-verified above.
       Historical execution aggregates still pool censored/completed times but no longer authorize
       runtime correction in the new source. Forecast decomposition is source-verified above;
-      finish censor-aware fitting and frozen evaluation inputs.
+      complete frozen source captures and conservative horizon scoring are source-verified above.
+      Finish supported censor-aware fitting, frozen challenger/training artifacts and promotion gates.
       Preserve existing data/dedup keys and separate
       real/paper evidence. Reproduce concrete faults first; promotion requires chronological held-out
       evaluation against a frozen baseline with return/loss/calibration guardrails.
