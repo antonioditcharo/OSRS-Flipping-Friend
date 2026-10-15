@@ -38,7 +38,7 @@ public class ExecutionPredictionAuthorityTest {
             accept(s,event("birth",1,"BUYING",10,0,null,0,null,0,false));
             accept(s,event("terminal",2,"BOUGHT",10,10,"late",12,"birth",at,true));
             assertEquals(0,s.executionStats().get(561).openObserved);assertEquals(0,s.executionStats().get(561).predictedMinutes,0);
-            assertEquals(10,s.positionProjections().get(0).getQuantity());
+            assertEquals(10,s.planningProjections(account).tradeScope.positions.get(561).getQuantity());
         }
     }
     @Test public void manualDifferentQuantityIsNotAnExactPredictionEvenIfWireClaimsComparability()throws Exception {
@@ -46,7 +46,7 @@ public class ExecutionPredictionAuthorityTest {
             accept(s,event("birth",1,"BUYING",7,0,"ten-units",12,"birth",at-1,true));
             accept(s,event("terminal",2,"BOUGHT",7,7,"ten-units",12,"birth",at-1,true));
             assertEquals(0,s.executionStats().get(561).openObserved);
-            assertEquals(7,s.positionProjections().get(0).getQuantity());
+            assertEquals(7,s.planningProjections(account).tradeScope.positions.get(561).getQuantity());
         }
     }
     @Test public void aSameSecondHeartbeatCannotDeclareItselfTheOriginalSource()throws Exception {
@@ -62,6 +62,16 @@ public class ExecutionPredictionAuthorityTest {
             accept(s,event("birth",1,"BUYING",10,0,"future",12,"birth",at+1,true));
             accept(s,event("terminal",2,"BOUGHT",10,10,"future",12,"birth",at+1,true));
             assertEquals(0,s.executionStats().get(561).openObserved);
+        }
+    }
+    @Test public void missingProvenanceCannotInventAnOriginalPrediction()throws Exception {
+        try(var s=new SqliteStore(folder.newFolder().toPath().resolve("legacy-wire.db"))) {
+            accept(s,event("birth",1,"BUYING",10,0,"original",12,"birth",at-1,true));
+            var json=gson.toJsonTree(event("terminal",2,"BOUGHT",10,10,"late",120,"birth",at,true)).getAsJsonObject();
+            for(String name:new String[]{"predictionEvidenceVersion","predictionSourceEventId","adviceObservedAt","predictionComparable"})json.remove(name);
+            accept(s,gson.fromJson(json,OfferEvent.class));
+            assertEquals(0,s.executionStats().get(561).openObserved);
+            assertEquals(10,s.planningProjections(account).tradeScope.positions.get(561).getQuantity());
         }
     }
 }
