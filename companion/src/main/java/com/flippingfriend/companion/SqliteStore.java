@@ -307,16 +307,7 @@ final class SqliteStore implements AutoCloseable
                     if (origin==null) {
                         origin=recorded;
                         if (!origin.getEventId().equals(event.getPredictionSourceEventId())
-                                || !origin.isAuthenticatedObservation() || origin.getFilledQuantity()!=0
-                                || !(origin.isBuying()?"BUYING":"SELLING").equals(origin.getEventType())
-                                || origin.getFirstSeenAt()<=0 || origin.getFirstSeenAt()!=origin.getObservedAt()
-                                || origin.getAdviceObservedAt()<=0 || origin.getAdviceObservedAt()>=origin.getFirstSeenAt()
-                                || origin.getFirstSeenAt()-origin.getAdviceObservedAt()>600
-                                || !origin.wasRecommended() || origin.getSuggestedPrice()!=origin.getPrice()
-                                || origin.getSuggestedQuantity()!=origin.getTotalQuantity()
-                                || !Double.isFinite(origin.getPredictedMinutes()) || origin.getPredictedMinutes()<=0
-                                || !Double.isFinite(origin.getPredictedCompletion()) || origin.getPredictedCompletion()<0
-                                || origin.getPredictedCompletion()>1) return 0;
+                                || !ExecutionObservationLedger.qualifiesOriginal(origin)) return 0;
                     }
                     if (recorded.getSequence()<origin.getSequence() || recorded.getObservedAt()<origin.getObservedAt()) return 0;
                 }
@@ -332,6 +323,27 @@ final class SqliteStore implements AutoCloseable
             && java.util.Objects.equals(a.getOfferIdentity(),b.getOfferIdentity()) && a.getItemId()==b.getItemId()
             && a.isBuying()==b.isBuying() && a.getPrice()==b.getPrice() && a.getTotalQuantity()==b.getTotalQuantity()
             && a.getFilledQuantity()==b.getFilledQuantity() && a.getSpent()==b.getSpent();
+    }
+
+    /** One SELECT-only snapshot. Existing aggregates, source rows and counted-offer keys are untouched. */
+    synchronized com.flippingfriend.core.ExecutionLearningReport executionLearningReport(String account,long now) throws Exception {
+        com.flippingfriend.core.AccountIdentity.require(account);
+        boolean own=connection.getAutoCommit();if(own)connection.setAutoCommit(false);
+        try {
+            List<OfferEvent> history=offerHistory(account);java.util.Set<String> gaps=new java.util.HashSet<>();
+            try(var sql=connection.createStatement();var rows=sql.executeQuery(
+                    "SELECT source_offer_identity FROM position_event WHERE effect_type='RECONCILE'")) {
+                while(rows.next())gaps.add(rows.getString(1));
+            }
+            long cursor;
+            try(var sql=connection.createStatement();var rows=sql.executeQuery(
+                    "SELECT COALESCE(MAX(id),0) FROM event_log WHERE event_id IS NOT NULL AND event_id<>''")) {
+                rows.next();cursor=rows.getLong(1);
+            }
+            var report=ExecutionObservationLedger.read(account,now,cursor,history,gaps);
+            if(own)connection.commit();return report;
+        }catch(Exception error) { if(own)connection.rollback();throw error; }
+        finally {if(own)connection.setAutoCommit(true);}
     }
 
 	/** Positions and offers captured in the same database read transaction. */

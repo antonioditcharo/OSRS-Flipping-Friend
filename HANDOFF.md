@@ -3,9 +3,46 @@
 Updated 15 October 2026 (America/Anchorage). Read this with [AGENTS.md](AGENTS.md) and
 [TASKS.md](TASKS.md) before continuing implementation.
 
+## Observation intervals and calibration fence source — 15 October 2026
+
+`codex/execution-observation-intervals` starts from #57 merge `58480d6`. Regression `d209012`
+reproduces the actual account planner halving waiting estimates from forty canceled offers, or
+from forty completed offers available only as aggregate totals. Prospective source reads now keep
+placement, first-fill and full-completion intervals, censor canceled/ended observations, preserve
+the first authenticated terminal bound across reconnects and fail closed on inconsistent clocks
+or source scope. Account API GET learning/current exposes bounded diagnostic rows/full counts;
+account/header/token/method isolation and SELECT-only reopening pass. The service reads this
+canonical evidence and keeps the public-price baseline active pending challenger validation.
+
+This is a promotion fence and real observation pipeline, not completed learning. Even forty
+qualified completions cannot promote without forecast decomposition and chronological account
+return/loss/calibration gates. Historical aggregates/claims, financial source rows, uncertain sales
+and all exposure guards remain unchanged. Read [the contract](docs/architecture/execution-observation-intervals.md).
+
+```text
+.\gradlew.bat clean test jar :companion:shadowJar --console=plain
+BUILD SUCCESSFUL in 48s / 18 actionable tasks: 18 executed / exit 0
+Plugin: 606; Core: 176; Companion: 641 including six existing skips
+Total: 1,417 passed; 6 skipped; 0 failures/errors
+Python: Ran 63 tests in 49.946s / OK / exit 0
+Candidate plugin: 477,859 bytes; companion: 17,848,203 bytes
+Both project JARs: class major 55 (Java 11)
+```
+
+New-path identity collision, contradictory-clock, source-cursor and terminal-quantity edge failures
+were also observed before correction; private logs are .gradle/execution-observation-*.log in the
+reusable worktree. Source is not installed; runtime remains the #53 pair below. Batch #57 and this
+change with the next supported paired update. No manual live database write or agent game input
+occurred. Issue #56 remains open: immutable model/horizon/wait-work forecast context, censor-aware
+fitting, frozen manifests/baseline, held-out evaluation, full-account four-cadence replay and promotion.
+
 ## Execution prediction provenance source — 15 October 2026
 
-New branch `codex/execution-advice-provenance` starts at rebuild `b516b7e` (#55). The installed
+PR #57 merged as `58480d679981e7156f979c2ff89134401aa40579` after both checks at
+`b37a19d9bc0da34ab811c443a240825d7dcd84c1` passed in
+[run 38772952899](https://github.com/antonioditcharo/OSRS-Flipping-Friend/actions/runs/38772952899).
+[Exact receipt](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/57#issuecomment-6197609988).
+Branch `codex/execution-advice-provenance` started at rebuild `b516b7e` (#55). The installed
 runtime remains through #53, with the live READY/entry GET receipt below; this source work is not
 installed or live-accepted. Batch a later paired update, without another immediate login cycle.
 
@@ -38,8 +75,8 @@ promotion. Issue #56 remains open for those gates and chronological full-account
 
 ## Installed #51/#52/#53 pair; live entry read passes — 15 October 2026
 
-Current normal rebuild is `33f4dc0f18ab6505edb16b54d7c77da3b60b6f6f` (documentation #54), clean
-and current with origin. Runtime source is the tested #53 merge `3362b62`; no runtime source changed
+At this installation checkpoint, normal rebuild was `33f4dc0f18ab6505edb16b54d7c77da3b60b6f6f`
+(documentation #54). Installed runtime source is the tested #53 merge `3362b62`; no runtime source changed
 in #54 or this receipt. #53 CI and full verification are recorded below. #54 passed both checks
 at `37a7bd184a4b7e66595477f25e0d9ad5ffa9860e` in
 [run 38765010660](https://github.com/antonioditcharo/OSRS-Flipping-Friend/actions/runs/38765010660).

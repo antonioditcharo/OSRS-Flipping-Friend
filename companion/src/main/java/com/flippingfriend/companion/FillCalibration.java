@@ -5,41 +5,17 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * How wrong the fill model's own timings have been, per item, from this account's real offers.
- * <p>
- * The companion has been recording every settled offer since it was built — 1,386 of them across 280
- * items on the account this was written against — into {@code execution_stat}, alongside what it had
- * predicted at the time. Nothing ever read them back. {@code SqliteStore.executionStats()} existed
- * with no callers, {@link CandidateFactory} carried a javadoc for a learned-model field that had been
- * deleted out from under it, and the line marked "where everything that has been learned re-enters
- * the decision" sat above four assignments that came straight from the raw model. The loop was open
- * at the last inch.
- * <p>
- * It is worth closing because the recorded error is not small or random. On that account the model
- * predicted 234 minutes for an item that took 47, and 264 for one that took 73 — a factor of three
- * to five, consistently long, on the items traded most.
+ * Bounded timing corrections and legacy aggregate diagnostics.
  *
- * <h2>What this deliberately does not do</h2>
- * <p>
- * <b>Only the waiting is corrected.</b> An offer's predicted duration is a wait for the first
- * counterparty plus the time to work through the size ordered, and those two do not transfer
- * equally. Every observation in the table was recorded while order sizing was broken — the plan of
- * the day was seven trades of <em>one unit each</em> — so the throughput half of those measurements
- * describes a market absorbing single items and says nothing about one absorbing two thousand. The
- * wait, on the other hand, is how long it takes anybody at all to turn up at your price, which does
- * not depend on how many you asked for. So the multiplier is applied to the wait and the throughput
- * term is left alone. The table has no quantity column, so this cannot be checked after the fact; it
- * is reasoning about which half of a measurement survives a change in the thing measured.
- * <p>
- * <b>Completion rates are not touched.</b> The table counts them, and the inference is tempting —
- * things that fill faster than predicted presumably also complete more often. But a cancelled offer
- * is an unknown outcome rather than a failed one, that distinction has already been got wrong three
- * times in this codebase, and one of those times it was training a live model. Duration is the part
- * where the evidence is unambiguous.
+ * <p>The historical aggregate ratio mixes completed and canceled observations, lacks placement
+ * and completion intervals, and cannot separate waiting from order-size work. It is retained for
+ * explicit diagnostic comparisons and compatibility, not used to authorize live learning.
+ * Runtime remains on NEUTRAL until a prospective challenger passes chronological account
+ * return, loss and calibration gates. See docs/architecture/execution-observation-intervals.md.
  */
 final class FillCalibration
 {
-	/** No history: every multiplier is exactly 1.0, so the calibrated model equals the raw one. */
+	/** No timing correction: every multiplier is exactly 1.0, preserving the public-price baseline. */
 	static final FillCalibration NEUTRAL = new FillCalibration(Collections.emptyMap(), 1.0);
 
 	/**
@@ -121,7 +97,7 @@ final class FillCalibration
 	}
 
 	/**
-	 * Builds the corrections from what has actually been observed.
+	 * Legacy aggregate diagnostic only. These totals do not authorize runtime calibration.
 	 *
 	 * @param stats per-item running totals, as {@code execution_stat} keeps them
 	 */

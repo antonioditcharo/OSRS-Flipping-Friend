@@ -85,6 +85,38 @@ public class AccountApiIsolationTest
         }
     }
 
+    @Test public void executionLearningReadoutRequiresExactAccountScopeAndAllowsNoWrites()throws Exception {
+        Gson gson=new Gson();Path root=folder.newFolder().toPath();
+        String one=AccountIdentity.fromProfileKey("timing-one"),two=AccountIdentity.fromProfileKey("timing-two");
+        try(var legacy=new SqliteStore(root.resolve("legacy.db"));var market=new CompanionService(gson,legacy);
+            var accounts=new CompanionAccounts(root.resolve("accounts"),market);
+            var api=new ApiServer("test-token",gson,market,accounts,new InetSocketAddress("127.0.0.1",0))) {
+            api.start();long at=Instant.now().getEpochSecond()-100;
+            var birth=OfferEvent.builder("fixture",at,"BUYING").accountId(one).eventIdentity("birth","s","o")
+                .authenticatedObservation(true).sequence(1).slot(0).item(561,"Nature rune").buying(true).price(100)
+                .quantities(10,0).firstSeenAt(at).recommendation("p",100,10,0,12,.75).predictionEvidence("birth",at-2,true).build();
+            var done=OfferEvent.builder("fixture",at+50,"BOUGHT").accountId(one).eventIdentity("done","s","o")
+                .authenticatedObservation(true).sequence(2).slot(0).item(561,"Nature rune").buying(true).price(100)
+                .quantities(10,10).spent(1000).firstSeenAt(at).recommendation("p",100,10,0,12,.75).predictionEvidence("birth",at-2,true).build();
+            assertEquals(202,request(api,"accounts/"+one+"/events/ge-offer",one,gson.toJson(birth)));
+            assertEquals(202,request(api,"accounts/"+one+"/events/ge-offer",one,gson.toJson(done)));
+            String endpoint="accounts/"+one+"/learning/current";
+            assertEquals(400,request(api,endpoint,two,null));assertEquals(400,request(api,endpoint,null,null));
+            var unauthorized=connection(api,endpoint,one);unauthorized.setRequestProperty("X-Flipping-Friend-Token","wrong");
+            try {assertEquals(401,unauthorized.getResponseCode());}finally{unauthorized.disconnect();}
+            assertEquals(405,request(api,endpoint,one,"{}"));
+            var report=gson.fromJson(body(api,endpoint,one),com.flippingfriend.core.ExecutionLearningReport.class);
+            assertEquals("1",report.getSchemaVersion());assertEquals(one,report.getAccountId());
+            assertEquals("PUBLIC_PRICE_BASELINE",report.getActiveModel());assertEquals("HOLD_FOR_VALIDATION",report.getPromotionStatus());
+            assertEquals(1,report.getCompletedIntervals());assertEquals(1,report.getComparableForecasts());
+            assertNull(report.getObservations().get(0).getDurationUpperSeconds()); // No observed EMPTY placement bound.
+            var other=gson.fromJson(body(api,"accounts/"+two+"/learning/current",two),com.flippingfriend.core.ExecutionLearningReport.class);
+            assertEquals(two,other.getAccountId());assertTrue(other.getObservations().isEmpty());
+            var ledger=gson.fromJson(body(api,"accounts/"+one+"/ledger/current",one),com.flippingfriend.core.AccountLedgerSnapshot.class);
+            assertEquals(10,ledger.getPositions().get(0).getQuantity());assertEquals(0,ledger.getSales());
+        }
+    }
+
     private HttpURLConnection connection(ApiServer api, String endpoint, String account) throws Exception
     {
         HttpURLConnection connection = (HttpURLConnection) new URL("http://127.0.0.1:" + api.port() + "/v1/" + endpoint).openConnection();

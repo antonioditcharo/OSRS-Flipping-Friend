@@ -5,8 +5,17 @@ statements later in this file. Read [HANDOFF.md](HANDOFF.md) for exact evidence.
 
 ## Active
 
+- [x] Source observation intervals and promotion fence on codex/execution-observation-intervals
+      from #57 merge 58480d6. Regression d209012 precedes active-consumer fixes. Canonical source
+      readouts retain placement/first-fill/completion bounds and censoring, with scoped read-only API,
+      contradictory/unknown evidence held, bounded diagnostic rows and complete prefix counts.
+      Historical aggregate ratios no longer activate live correction; counts alone cannot promote.
+      Standard: 1,417 Java passed/six skips, 63 Python passed, both Java 11 JARs, 48s. Not installed;
+      batch with #57. This is not finished learning; forecast contracts, fitting/evaluation remain #56.
+
 - [x] Source prospective execution prediction bindings on codex/execution-advice-provenance from
-      b516b7e. Regression commits are in HANDOFF.md. Existing outbox persists original/unknown
+      b516b7e, merged in PR #57 as 58480d6 after both checks at b37a19d passed (run 38772952899).
+      Regression commits are in HANDOFF.md. Existing outbox persists original/unknown
       bindings atomically; companion validates the first recorded source before learning. Restart,
       late/mismatched advice, failed writes, legacy queues, account scope and rollback are covered.
       Standard: 1,399 Java passed/six skips, 63 Python passed, both Java 11 JARs, 46s. This source is not installed;
@@ -91,9 +100,10 @@ statements later in this file. Read [HANDOFF.md](HANDOFF.md) for exact evidence.
 ## Next
 
 - [ ] Audit calibration prediction provenance and cancellation censoring before changing strategy.
-      Prospective attribution is now source-verified above; original timing/censoring bias remains.
-      Current execution aggregates pool open time from completed/canceled offers; canceled time is
-      a lower bound, not an observed fill duration. Preserve existing data/dedup keys and separate
+      Attribution, observed intervals and the runtime promotion fence are source-verified above.
+      Historical execution aggregates still pool censored/completed times but no longer authorize
+      runtime correction in the new source. Finish forecast decomposition and censor-aware fitting.
+      Preserve existing data/dedup keys and separate
       real/paper evidence. Reproduce concrete faults first; promotion requires chronological held-out
       evaluation against a frozen baseline with return/loss/calibration guardrails.
 - [ ] Finish manual cancel -> collect -> revalidate -> replace and partial-fill protection as a
