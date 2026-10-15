@@ -100,6 +100,22 @@ public class BoundedPlanningStateTest {
     Object get(Object target,String field)throws Exception {
         var f=target.getClass().getDeclaredField(field);f.setAccessible(true);return f.get(target);
     }
+    @Test public void currentClientBuyLimitFloorAlsoConstrainsFinalAuthorization()throws Exception {
+        try(var s=new SqliteStore(folder.newFolder().toPath().resolve("limit.db"));var service=new CompanionService(gson,s)) {
+            var receipt=seed(s);
+            var body=gson.toJsonTree(snapshot(receipt)).getAsJsonObject();
+            body.add("buyLimitUsed",gson.toJsonTree(Map.of(562,9995)));
+            set(service,"account",gson.fromJson(body,AccountSnapshot.class));
+            var market=(MarketIngestionService)get(service,"market");
+            var f=MarketIngestionService.class.getDeclaredField("state");f.setAccessible(true);
+            f.set(market,new MarketIngestionService.MarketState(Map.of(562,new MarketIngestionService.Item(562,"Item 562",10000)),
+                new com.google.gson.JsonObject(),new com.google.gson.JsonObject(),new com.google.gson.JsonObject(),now));
+            set(service,"plan",new PortfolioPlan("limit",now,now+90,"READY","fixture",100,
+                List.of(new PortfolioAllocation(1,candidate(562),"BUY"))));
+            assertNotEquals("Only five units remain under the fresh client limit floor",OfferLifecycleAction.PLACE_BUY,
+                service.entryDecision("limit",1,now).getAction());
+        }
+    }
     void set(Object target,String field,Object value)throws Exception {
         var f=target.getClass().getDeclaredField(field);f.setAccessible(true);f.set(target,value);
     }
