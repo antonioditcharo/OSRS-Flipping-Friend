@@ -131,4 +131,12 @@ public class ExecutionPredictionAuthorityTest {
             assertEquals(1,s.positionEventCount());
         }
     }
+    @Test public void sameSecondClaimDoesNotProveTheOriginalForecastExistedFirst()throws Exception {
+        try(var s=new SqliteStore(folder.newFolder().toPath().resolve("ambiguous-second.db"))) {
+            accept(s,event("birth",1,"BUYING",10,0,"same-second",12,"birth",at,true));
+            accept(s,event("terminal",2,"BOUGHT",10,10,"same-second",12,"birth",at,true));
+            assertEquals(0,s.executionStats().get(561).openObserved);
+            assertEquals(10,s.planningProjections(account).tradeScope.positions.get(561).getQuantity());
+        }
+    }
 }

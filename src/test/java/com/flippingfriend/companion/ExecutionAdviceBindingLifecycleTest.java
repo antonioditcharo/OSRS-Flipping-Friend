@@ -103,4 +103,14 @@ public class ExecutionAdviceBindingLifecycleTest {
             assertArrayEquals(before,Files.readAllBytes(f.file));
         }
     }
+    @Test public void sameSecondAdviceMayRemainDiagnosticButCannotProveTemporalComparability()throws Exception {
+        Fixture f=new Fixture(folder.newFolder().toPath(),"one");
+        var event=f.outbox.enqueueObservedOffer((id,session,seq)->OfferEvent.builder("fixture",AT,"BUYING")
+            .eventIdentity(id,session,"offer").authenticatedObservation(true).sequence(seq).slot(0)
+            .item(561,"Nature rune").buying(true).price(100).quantities(10,0).firstSeenAt(AT)
+            .recommendation("same-second",100,10,0,12,.75).predictionEvidence(null,AT,false).build());
+        assertEquals("same-second",event.getRecommendationId());
+        assertFalse("Seconds cannot establish advice came first",event.isPredictionComparable());
+        assertEquals(0,event.getPredictedMinutes(),0);
+    }
 }
