@@ -1,8 +1,8 @@
 # Compact action panel
 
 14 October 2026. Merged through approved PR #43 at `440c44f`, including #40 automatic trade scope,
-#41 walkthrough and #42 input assistance. That pair was installed; player acceptance awaits the
-subsequent 1.13.2 paired update. The newest [handoff](../../HANDOFF.md) supersedes earlier status.
+#41 walkthrough and #42 input assistance. The 1.13.2 pair is installed and manual login works.
+The live ledger/startup follow-up and remaining acceptance are in the newest [handoff](../../HANDOFF.md).
 
 The sidebar is a compact Flipping Copilot-style action surface: one instruction, exact quantity
 and unit price, graph / pause / block / skip, four cadence presets, risk, durable recorded profit

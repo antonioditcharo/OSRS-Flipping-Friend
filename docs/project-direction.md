@@ -15,7 +15,8 @@ Historical session/cadence labels are unavailable; GP/hour remains unmeasured.
 ## Current continuation — 14 October 2026
 
 PRs #31/#33–#38 and combined #43 are merged into the rebuild branch. The #43 pair was installed;
-the next delivery is tested RuneLite 1.13.2 compatibility and a fresh paired update. Compact UI,
+the 1.13.2 pair is installed and login works. The next delivery fixes the observed ledger HTTP 500
+and pre-login search exception without clearing existing accounting guards. Compact UI,
 real cadence presets, automatic managed quantities, personal sell setup quotes, Missed flips,
 walkthrough protection and player-triggered input assistance are implemented, with live acceptance
 still pending. The assessment tables below describe their original revisions. See the newest
@@ -31,7 +32,7 @@ local companion; repair their authority and accounting boundaries before replaci
 The owner specified 100M GP, a members account, and checks every 5 minutes, 30 minutes, 2 hours,
 and 8 hours. These are four separate benchmark scenarios, each with eight GE slots. The current
 merged #43 source exposes actual 5m, 30m, 2h and 8h settings and preserves legacy custom values.
-Its pair was installed, with live acceptance pending the 1.13.2 update; earlier builds had only 3h
+Its 1.13.2 pair is installed, with live acceptance in progress; earlier builds had only 3h
 as their long-interval option. Never substitute 3h for either benchmark cadence.
 
 Primary operational metric: realized net trading profit / measured elapsed session hours,
@@ -206,7 +207,7 @@ belong in a separately opened Missed flips window, with scoped evidence and cove
 The [accepted workflow](architecture/automatic-trade-scope.md) supersedes the earlier Review holdings
 and adoption approach. Its source implementation migrates trade quantity ownership, exits and Holding
 UI to accepted durable executions, and replaces review rows with a read-only Missed flips window.
-The #43 pair was installed; compatible 1.13.2 reinstallation and manual acceptance remain pending.
+The compatible 1.13.2 pair is installed; live ledger/startup fixes and manual acceptance remain pending.
 Realized session risk and calibration
 still require migration. Historical/account data and active exposure protections remain
 intact. This UI/ownership correction does not establish feature parity, learning improvement or

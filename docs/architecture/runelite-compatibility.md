@@ -53,8 +53,8 @@ Run updates from the normal rebuild checkout; do not install from a temporary de
 | Standard clean Java build, all modules | 1,278 passed, six existing skips; both JARs built; Java 11 project bytecode |
 | Full Python tooling suite | 54 tests pass |
 | Candidate against 31 actual official cached Windows artifacts | Isolated profile, actual run-dev CheckOnly exit zero; no client launch |
-| Real installed 1.13.2 pair and login | Pending fresh backup review and paired update |
-| Live pipeline and manual trade/UI/restart tests | Pending; no success inferred from build or isolated validation |
+| Real installed 1.13.2 pair and login | PASS at rebuild be77e67 after fresh reviewed backup and paired update; actual status/CheckOnly exit zero and manual login observed |
+| Live pipeline and manual trade/UI/restart tests | Pipeline FAIL: ledger HTTP 500 at be77e67; startup search exception also observed. Follow-up on codex/live-ledger-startup; controlled trading acceptance pending |
 
 Disposable validation copies contain only public JARs and candidate source. Login files, live
 account records and databases are not copied. Logs stay in ignored `.gradle/` outside build.

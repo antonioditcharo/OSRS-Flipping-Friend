@@ -1,10 +1,19 @@
 # Automatic trade scope and player-started sales
 
 Accepted project direction, 14 October 2026. Implementation is merged through approved PR #43
-at `440c44f` and its pair was installed. Live acceptance awaits the subsequent 1.13.2 paired update;
-see the newest [handoff](../../HANDOFF.md). The design below is not proof of live acceptance.
+at `440c44f`; the 1.13.2 pair is installed. The live ledger/startup follow-up and remaining acceptance
+are in the newest [handoff](../../HANDOFF.md). The design below is not proof of live acceptance.
 
 ## Default workflow
+
+The live continuation at `ff2754b` handles an existing read boundary: rejected EMPTY observations
+can record RECONCILE with item ID zero, quantity zero and no economic effect. The read-only scope
+view preserves this as account-level uncertainty; Missed flips labels it **Unidentified offer**
+with unavailable money. It does not infer the previous item or erase the record. Other effect
+types still require a positive item ID. Unassigned uncertainty withholds managed exit advice and
+new buys, and later sales cannot claim cost through that gap. Holdings availability reports
+uncertainty rather than claiming all purchases were sold. Recorded bounded sale totals remain
+readable independently. No schema change, database migration or live record repair is involved.
 
 The plugin maintains its expected trading stock from observed executions. Inventory, equipment,
 bank observations and collection boxes provide physical evidence independently. They do not
