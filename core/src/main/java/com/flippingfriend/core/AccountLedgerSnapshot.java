@@ -10,6 +10,8 @@ public final class AccountLedgerSnapshot
     private String schemaVersion;
     private List<PositionProjection> tradingPositions;
     private List<MissedFlipEvidence> missedFlips;
+    /** Optional source-event scope. Empty item sets mean the gap still has account-wide uncertainty. */
+    private java.util.Map<String, java.util.Set<Integer>> reconciliationScope;
     private final String accountId;
     private final long observedAt, sales, boundedSales, uncertainSales, unresolvedSales;
     private final long taxBoundedSales, unresolvedTaxSales;
@@ -44,6 +46,24 @@ public final class AccountLedgerSnapshot
         if (!copy.isValid()) throw new IllegalArgumentException("invalid trade evidence");
         return copy;
     }
+    public AccountLedgerSnapshot withTradeEvidence(List<PositionProjection> trades, List<MissedFlipEvidence> missed,
+            java.util.Map<String, java.util.Set<Integer>> scope) {
+        AccountLedgerSnapshot copy=withTradeEvidence(trades,missed);
+        if (scope == null) throw new IllegalArgumentException("reconciliation scope required");
+        copy.reconciliationScope=copyScope(scope);
+        if (!copy.isValid()) throw new IllegalArgumentException("invalid reconciliation scope");
+        return copy;
+    }
+    public java.util.Map<String, java.util.Set<Integer>> getReconciliationScope() {
+        return reconciliationScope == null ? null : copyScope(reconciliationScope);
+    }
+    private static java.util.Map<String, java.util.Set<Integer>> copyScope(
+            java.util.Map<String, java.util.Set<Integer>> source) {
+        java.util.Map<String,java.util.Set<Integer>> copy=new java.util.HashMap<>();
+        source.forEach((key,items)->copy.put(key,items==null?null:
+            Collections.unmodifiableSet(new java.util.HashSet<>(items))));
+        return Collections.unmodifiableMap(copy);
+    }
     /** Null on old servers: missing acquisition evidence must never enroll legacy positions. */
     public List<PositionProjection> getTradingPositions() { return tradingPositions; }
     public List<MissedFlipEvidence> getMissedFlips() { return missedFlips; }
@@ -51,6 +71,29 @@ public final class AccountLedgerSnapshot
     public boolean hasUnassignedReconciliation() {
         return missedFlips != null && missedFlips.stream().anyMatch(e -> e != null
             && e.getItemId() == 0 && "RECONCILE".equals(e.getType()));
+    }
+    /** Historic item-zero rows remain unchanged; source proof may limit their affected items. */
+    public boolean hasUnboundedReconciliation() {
+        if (reconciliationScope == null) return hasUnassignedReconciliation();
+        return missedFlips == null || missedFlips.stream().filter(e->e!=null && "RECONCILE".equals(e.getType()))
+            .anyMatch(e->reconciliationScope.get(e.getEventId())==null
+                || reconciliationScope.get(e.getEventId()).isEmpty());
+    }
+    private boolean validReconciliationScope() {
+        if (reconciliationScope == null) return true; // Older servers keep the conservative global guard.
+        if (!"2".equals(schemaVersion) || missedFlips == null || tradingPositions == null) return false;
+        java.util.Set<String> expected=new java.util.HashSet<>();
+        java.util.Set<Integer> affected=new java.util.HashSet<>();
+        for (MissedFlipEvidence e:missedFlips) if ("RECONCILE".equals(e.getType())) {
+            expected.add(e.getEventId());
+            java.util.Set<Integer> items=reconciliationScope.get(e.getEventId());
+            if (items==null || items.stream().anyMatch(item->item==null || item<=0)) return false;
+            if (!items.isEmpty() && e.getItemId()>0 && !items.contains(e.getItemId())) return false;
+            affected.addAll(items);
+        }
+        return expected.equals(reconciliationScope.keySet())
+            && tradingPositions.stream().noneMatch(p->affected.contains(p.getItemId()))
+            && (!hasUnboundedReconciliation() || tradingPositions.isEmpty());
     }
     public String getSchemaVersion() { return schemaVersion; }
     public String getAccountId() { return accountId; }
@@ -82,6 +125,7 @@ public final class AccountLedgerSnapshot
             && uncertainSales >= 0 && uncertainSales <= boundedSales && unresolvedSales == sales - boundedSales
             && taxBoundedSales >= boundedSales && taxBoundedSales <= sales && unresolvedTaxSales == sales - taxBoundedSales
             && profitLower <= profitUpper && taxLower >= 0 && taxLower <= taxUpper
+            && validReconciliationScope()
             && positions != null && positions.stream().allMatch(position -> position != null
                 && position.getItemId() > 0 && position.getQuantity() >= 0 && position.getTotalCost() >= 0
                 && position.getConsistencyState() != null);

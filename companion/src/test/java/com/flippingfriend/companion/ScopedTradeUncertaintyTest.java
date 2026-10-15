@@ -76,4 +76,23 @@ public class ScopedTradeUncertaintyTest {
             assertTrue(ledger.hasUnassignedReconciliation());
         }
     }
+    @Test public void readOnlyLedgerScopesEvidenceWithoutRewritingIt() throws Exception {
+        Path db=folder.newFolder().toPath().resolve("read-only.db");
+        int records;
+        try (SqliteStore store=new SqliteStore(db)) {
+            oldGap(store); accept(store,event("new-open",1,562,"BUYING",true,0,4));
+            accept(store,event("new-fill",1,562,"BOUGHT",true,10,5)); records=store.positionEventCount();
+        }
+        try (SqliteStore store=SqliteStore.openReadOnly(db)) {
+            var ledger=store.ledgerSnapshot(account);
+            assertEquals(records,store.positionEventCount()); assertTrue(ledger.isValid());
+            assertTrue(ledger.hasUnassignedReconciliation()); assertFalse(ledger.hasUnboundedReconciliation());
+            assertEquals(java.util.Set.of(561),ledger.getReconciliationScope().get("old-clear"));
+            assertEquals(1,ledger.getTradingPositions().size()); assertEquals(0,ledger.getSales());
+            assertEquals("old-clear",ledger.getMissedFlips().get(0).getEventId());
+            assertNull(ledger.getMissedFlips().get(0).getProfitLower());
+            var decoded=gson.fromJson(gson.toJson(ledger),AccountLedgerSnapshot.class);
+            assertTrue(decoded.isValid()); assertFalse(decoded.hasUnboundedReconciliation());
+        }
+    }
 }

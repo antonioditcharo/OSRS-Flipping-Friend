@@ -40,4 +40,29 @@ public class ScopedTradeEvidenceClientTest {
             assertFalse(gson.fromJson(wire,AccountLedgerSnapshot.class).isValid());
         }
     }
+    @Test public void uncertainOnlyHoldingsAreNotReportedAsNoPurchasesRemaining() throws Exception {
+        JsonObject wire=ledger(); wire.add("tradingPositions",gson.toJsonTree(List.of()));
+        wire.add("reconciliationScope",gson.toJsonTree(java.util.Map.of("gap",java.util.Set.of(561))));
+        var value=gson.fromJson(wire,AccountLedgerSnapshot.class); assertTrue(value.isValid());
+        var engine=new SuggestionEngine(null,null,null,null,null,null,null,null,null,mock(PositionBook.class),null,null,
+            mock(TradePlans.class),null,null,null);
+        CompanionClient companion=mock(CompanionClient.class);
+        var field=SuggestionEngine.class.getDeclaredField("companion"); field.setAccessible(true); field.set(engine,companion);
+        when(companion.tradingLedger()).thenReturn(value);
+        assertFalse(engine.hasTradeEvidence()); assertTrue(engine.tradingPositions().isEmpty());
+    }
+    @Test public void anUnboundedScopeCannotPublishApparentlyCleanStock() {
+        JsonObject wire=ledger(); wire.add("reconciliationScope",gson.toJsonTree(java.util.Map.of("gap",java.util.Set.of())));
+        assertFalse(gson.fromJson(wire,AccountLedgerSnapshot.class).isValid());
+        wire.add("tradingPositions",gson.toJsonTree(List.of()));
+        var unavailable=gson.fromJson(wire,AccountLedgerSnapshot.class);
+        assertTrue(unavailable.isValid()); assertTrue(unavailable.hasUnboundedReconciliation());
+    }
+    @Test public void scopeCopiesAreImmutableAndDoNotMutateTheResponse() {
+        JsonObject wire=ledger(); wire.add("reconciliationScope",gson.toJsonTree(java.util.Map.of("gap",java.util.Set.of(561))));
+        var value=gson.fromJson(wire,AccountLedgerSnapshot.class);
+        try { value.getReconciliationScope().clear(); fail(); } catch (UnsupportedOperationException expected) { }
+        try { value.getReconciliationScope().get("gap").clear(); fail(); } catch (UnsupportedOperationException expected) { }
+        assertTrue(value.isValid());
+    }
 }

@@ -171,7 +171,9 @@ public class SuggestionEngine
 
     public boolean hasTradeEvidence() {
         var ledger = companion == null ? null : companion.tradingLedger();
-        return ledger != null && ledger.getTradingPositions() != null && !ledger.hasUnassignedReconciliation();
+        return ledger != null && ledger.getTradingPositions() != null && !ledger.hasUnboundedReconciliation()
+            && (!ledger.getTradingPositions().isEmpty() || ledger.getMissedFlips() == null
+                || ledger.getMissedFlips().stream().noneMatch(e -> "RECONCILE".equals(e.getType())));
     }
     public Collection<Position> tradingPositions()
     {
@@ -182,7 +184,7 @@ public class SuggestionEngine
             return fixtures;
         }
         var ledger = companion.tradingLedger();
-        if (ledger == null || ledger.getTradingPositions() == null || ledger.hasUnassignedReconciliation())
+        if (ledger == null || ledger.getTradingPositions() == null || ledger.hasUnboundedReconciliation())
             return Collections.emptyList();
         List<Position> held = new ArrayList<>();
         for (var p : ledger.getTradingPositions()) {
