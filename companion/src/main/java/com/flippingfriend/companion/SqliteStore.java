@@ -103,9 +103,8 @@ final class SqliteStore implements AutoCloseable
 		{
 			// The driver rejects the extra immutable/nolock parameters that look like they belong
 			// here; mode=ro on a file: URL is the form it accepts.
-			String path = database.toAbsolutePath().toString()
-				.replace(java.io.File.separatorChar, '/');
-			connection = DriverManager.getConnection("jdbc:sqlite:file:" + path + "?mode=ro");
+            if (!Files.isRegularFile(database)) throw new IllegalArgumentException("existing database is required");
+            connection = DriverManager.getConnection("jdbc:sqlite:" + database.toAbsolutePath().toUri().toASCIIString() + "?mode=ro");
 			return;
 		}
 		Files.createDirectories(database.getParent());
@@ -326,24 +325,38 @@ final class SqliteStore implements AutoCloseable
     }
 
     /** One SELECT-only snapshot. Existing aggregates, source rows and counted-offer keys are untouched. */
+    synchronized ExecutionSourceSnapshot freezeExecutionSources(String account) throws Exception {
+        com.flippingfriend.core.AccountIdentity.require(account);
+        if(!connection.getAutoCommit())throw new IllegalStateException("A separate snapshot transaction is required");
+        connection.setAutoCommit(false);
+        try {
+            List<ExecutionSourceSnapshot.Row> offers=new ArrayList<>();
+            List<ExecutionSourceSnapshot.Gap> gaps=new ArrayList<>();
+            try(var s=connection.createStatement();var r=s.executeQuery(
+                    "SELECT id,observed_at,event_id,event_type,payload FROM event_log WHERE event_id IS NOT NULL AND event_id<>'' ORDER BY id")) {
+                while(r.next())offers.add(new ExecutionSourceSnapshot.Row(r.getLong(1),r.getLong(2),r.getString(3),r.getString(4),r.getString(5)));
+            }
+            checkpoint.reached("EXECUTION_SOURCE_OFFERS_READ");
+            try(var s=connection.createStatement();var r=s.executeQuery(
+                    "SELECT id,observed_at,source_event_id,source_offer_identity,item_id FROM position_event WHERE effect_type='RECONCILE' ORDER BY id")) {
+                while(r.next())gaps.add(new ExecutionSourceSnapshot.Gap(r.getLong(1),r.getLong(2),r.getString(3),r.getString(4),r.getInt(5)));
+            }
+            var snapshot=new ExecutionSourceSnapshot(account,Instant.now().getEpochSecond(),offers,gaps);
+            snapshot.observations(); // Validate before releasing the same coherent source snapshot.
+            connection.commit();return snapshot;
+        }catch(Exception invalid){connection.rollback();throw invalid;}
+        finally{connection.setAutoCommit(true);}
+    }
+
     synchronized com.flippingfriend.core.ExecutionLearningReport executionLearningReport(String account,long now) throws Exception {
         com.flippingfriend.core.AccountIdentity.require(account);
-        boolean own=connection.getAutoCommit();if(own)connection.setAutoCommit(false);
         try {
-            List<OfferEvent> history=offerHistory(account);java.util.Set<String> gaps=new java.util.HashSet<>();
-            try(var sql=connection.createStatement();var rows=sql.executeQuery(
-                    "SELECT source_offer_identity FROM position_event WHERE effect_type='RECONCILE'")) {
-                while(rows.next())gaps.add(rows.getString(1));
-            }
-            long cursor;
-            try(var sql=connection.createStatement();var rows=sql.executeQuery(
-                    "SELECT COALESCE(MAX(id),0) FROM event_log WHERE event_id IS NOT NULL AND event_id<>''")) {
-                rows.next();cursor=rows.getLong(1);
-            }
-            var report=ExecutionObservationLedger.read(account,now,cursor,history,gaps);
-            if(own)connection.commit();return report;
-        }catch(Exception error) { if(own)connection.rollback();throw error; }
-        finally {if(own)connection.setAutoCommit(true);}
+            var snapshot=freezeExecutionSources(account);
+            return new com.flippingfriend.core.ExecutionLearningReport(account,now,snapshot.sourceCursor,"OBSERVING",
+                "Public-price baseline active. Timing intervals are diagnostic; no challenger has passed promotion gates.",snapshot.observations(now));
+        }catch(IllegalArgumentException invalid) {
+            return com.flippingfriend.core.ExecutionLearningReport.unavailable(account,now,invalid.getMessage());
+        }
     }
 
 	/** Positions and offers captured in the same database read transaction. */

@@ -3,7 +3,59 @@
 Updated 15 October 2026 (America/Anchorage). Read this with [AGENTS.md](AGENTS.md) and
 [TASKS.md](TASKS.md) before continuing implementation.
 
+## Frozen evaluation and read-only account capture — 15 October 2026
+
+`codex/frozen-execution-evaluation` starts at #59 merge `0fba976`. Runtime/tool source through
+`39569c2` implements a complete offline freeze -> verify -> recorded-prefix comparison workflow.
+Regressions `3b71dec` (literal-hash read-only path), `25f5bec` (unassigned named gap ignored) and
+`7115219` (proven clear context globally refused) precede fixes. Existing TradeGapEvidence source
+proof now scopes evaluation uncertainty by affected items; unknown source scope remains held.
+The read-only HTTP learning report and offline evaluator use the same complete source snapshot.
+
+Captures retain all source rows, raw reconciliation evidence, original forecasts, hashes and the
+actual executing evaluator artifact. Verification reproduces scores without opening a database.
+Horizon Brier/completion-rate bounds retain early cancellations and uncertain readout intervals as
+unknown. Comparison rejects changed/reversed/foreign prefixes and excludes older offers settling
+later. This is not fitted learning or measured account returns. See
+[the contract and commands](docs/architecture/frozen-execution-evaluation.md).
+
+```text
+.\gradlew.bat clean test jar :companion:shadowJar --console=plain
+BUILD SUCCESSFUL in 39s / 18 actionable tasks: 18 executed / exit 0
+Plugin: 623; Core: 176; Companion: 665 including six existing skips
+Total: 1,458 passed; 6 skipped; 0 failures/errors
+Python: Ran 63 tests in 57.643s / OK / exit 0
+Candidate plugin: 485,476 bytes / 218 project classes
+Candidate companion: 17,876,458 bytes / 452 project classes
+Both project JARs: class major 55 (Java 11)
+```
+
+Packaged PowerShell 5.1 read-only capture of the explicitly scoped existing account passed, then
+the retained evaluator.jar.bin independently verified its capture without reopening that database:
+
+```text
+status=VERIFIED / sourceCursor=5573 / sourceRows=4651
+totalObservations=0 / eligible=0 / promotionStatus=HOLD_FOR_VALIDATION
+manifestSha256=a4f47e35bc4a296c9854a1204384faded28edb48d3fb9f4feeac3deb475d1da6
+READ_ONLY_CAPTURE_EXIT=0 / RETAINED_ARTIFACT_VERIFY_EXIT=0
+```
+
+Zero prospective observations reflects the installed #53 source; older rows were not backfilled.
+The first capture attempt safely refused unnamed historical gaps; a reproduced source-scope fix,
+not a database change, allowed capture. No rows were repaired, assigned or removed. Private data:
+reusable worktree local-data/execution-evaluation/baseline-20261015-retained; logs are ignored
+.gradle/frozen-evaluation-*.log. The earlier first capture remains private historical evidence.
+No new runtime installation, live pipeline result or game action is claimed. Runtime remains #53;
+batch #57/#58/#59 and this source for the next paired update. Issue #56 remains open for supported
+censor-aware fitting, frozen challenger/training artifacts, chronological calibration/return/loss
+gates and full-account replay at all four cadences. Hashes alone do not authenticate historical time.
+
 ## Accepted guidance and immutable leg forecasts — 15 October 2026
+
+PR #59 merged as `0fba976167b310f5fb800dfe635764ba7290c1b2` after both checks at
+`2b31e06d8bf3431d3319f9869dd9a314d1588114` passed in
+[run 38810497176](https://github.com/antonioditcharo/OSRS-Flipping-Friend/actions/runs/38810497176).
+[Exact receipt](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/59#issuecomment-6202774257).
 
 `codex/immutable-execution-forecasts` starts at rebuild `f161a39` (#58 merge). Regression `9471568`
 reproduces premature proposal attribution, whole-flip probability used for a buy, and missing sell
