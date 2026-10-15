@@ -154,20 +154,9 @@ public interface FlippingFriendConfig extends Config
 		return true;
 	}
 
-	@ConfigItem(
-		keyName = "adoptExistingItems",
-		name = "Also sell items I already own",
-		description = "Off by default. When on, tradeable items already in your bank and inventory "
-			+ "are treated as things to sell. Most people do not want this: your bank is your gear "
-			+ "and supplies, not flipping stock. Items the plugin buys for you are always tracked "
-			+ "either way.",
-		position = 5,
-		section = tradingSection
-	)
-	default boolean adoptExistingItems()
-	{
-		return false;
-	}
+    /** Retained for old saved configuration; no longer used or exposed as a setting. */
+    @Deprecated
+    default boolean adoptExistingItems() { return false; }
 
 	@ConfigItem(
 		keyName = "blockedItems",
@@ -218,6 +207,25 @@ public interface FlippingFriendConfig extends Config
 	{
 		return true;
 	}
+
+    @ConfigItem(keyName = "protectTradeConfirmation", name = "Protect trade confirmation",
+        description = "Confirm normally only when the recommended item, quantity and price match. "
+            + "Right-click Confirm to place a personal trade with different values.",
+        position = 8, section = guidanceSection)
+    default boolean protectTradeConfirmation() { return true; }
+
+    @ConfigItem(keyName = "showSuggestedSearchItem", name = "Suggested item in GE search",
+        description = "Show the current recommended buy as a selectable item in an empty GE search.",
+        position = 9, section = guidanceSection)
+    default boolean showSuggestedSearchItem() { return true; }
+
+    @ConfigItem(keyName = "fillRecommendedInputKey", name = "Fill recommended price/quantity",
+        description = "Choose a key to fill the open GE quantity or price prompt. "
+            + "Press Enter yourself to accept it. Enter cannot be used as this key.",
+        position = 10, section = guidanceSection)
+    default net.runelite.client.config.Keybind fillRecommendedInputKey() {
+        return net.runelite.client.config.Keybind.NOT_SET;
+    }
 
 	@ConfigItem(
 		keyName = "highlightColor",
@@ -326,6 +334,7 @@ public interface FlippingFriendConfig extends Config
 		keyName = "showOnboarding",
 		name = "Show the intro card",
 		description = "Show the short explanation of what flipping is at the top of the panel.",
+		hidden = true,
 		position = 4,
 		section = advancedSection
 	)

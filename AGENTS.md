@@ -21,7 +21,11 @@ are in `docs/project-direction.md`; historical package notes are not proof of ru
   the observed sell offer through completion. Unknown acquisition cost/profit stays unknown.
   Put incomplete trade evidence in a separately opened Missed flips window, preserving live
   exposure guards and account data. See `docs/architecture/automatic-trade-scope.md` for the target
-  workflow and regression gate; it is not yet implemented.
+  workflow and regression gate. Source implementation is present; paired installation and live acceptance remain pending.
+- Keep the sidebar compact: current guided action, controls and durable recorded profit. Open
+  explanations, holdings/history/plan and settings separately; do not restore the old accordion
+  stack or label recorded totals as session profit. Preserve actual 5m/30m/2h/8h and visibly custom
+  legacy intervals. See docs/architecture/compact-panel.md.
 - Keep account-scoped API/database isolation intact. The old unscoped database is preserved and
   unassigned; do not infer its owner or merge it into a live account. One authoritative ledger
   for the planner, exits, UI, and reporting remains the next prerequisite for strategy tuning.
@@ -36,6 +40,10 @@ are in `docs/project-direction.md`; historical package notes are not proof of ru
   only with chronological evaluation against a frozen baseline and loss/return guardrails.
 - Prefer complete player workflows and behavioral regression tests over new inactive scaffolding.
   Preserve manual game interaction while preparing feature parity.
+- The owner explicitly authorizes a configured player key to fill one already open, matching GE
+  quantity/price prompt. Keep this narrow exception in GeInputAssist with lifecycle/context tests;
+  Enter, confirmation, placement, cancellation and collection remain player actions. The assistant
+  must never send input to the real game. See docs/architecture/trade-input-assistance.md.
 - Standard verification: `gradlew.bat clean test jar :companion:shadowJar` on Windows;
   `bash ./gradlew clean test jar :companion:shadowJar` on Linux. Java bytecode targets 11.
   Save redirected clean-build logs outside `build/` to avoid Windows file locks.

@@ -9,17 +9,68 @@
       local records and must migrate with positive reconciliation evidence.
 
 ## Next
-- [ ] Replace routine holdings review/adoption with automatic trade scope and player-started sale
-      guidance, as requested 14 October. Accepted contract: docs/architecture/automatic-trade-scope.md.
-      Match outstanding quantities/provenance from observed buys, including manual buys; keep personal
-      extras independent. Recommend an external owned item's price only when selected in sell setup,
-      then maintain the actual sell offer. Unknown cost/profit remains unavailable. Add a separately
-      opened Missed flips window backed by scoped row-level ledger evidence. Migrate the active planner,
-      exits, maintenance and holding UI coherently; do not introduce another ledger or bypass unbounded
-      active exposure. Reproduce old workflow with behavior tests before source changes. Source/UI
-      replacement is not implemented yet; current installed/source records remain unchanged.
-      Earlier personal/no-longer-held classification retests and standalone PR #38 update instruction
-      below are superseded as the immediate next step; preserve their historical evidence.
+- [ ] Follow root HOME TEST CHECKLIST.md for the current combined candidate. The obsolete
+      classification/review directions in START HERE have been replaced. Approval/merge, paired
+      backup review/install and player-operated baseline/UI/trade/restart acceptance remain pending.
+- [ ] Review [consolidated PR #43](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/43)
+      on `codex/copilot-panel`, including pending PR #40/#41/#42
+      plus the compact native sidebar. Original PRs remain unchanged/open; coordinate overlap
+      before merging. Final Java source `7c213a5`: 1,278 passed, six existing skips; 48 Python
+      tooling tests passed earlier in this slice with tooling unchanged afterward.
+      Java 11 JARs built, RuneLiteLAF renders and connected controls verified. One current action,
+      real cadence presets, risk and durable recorded profit replace the accordion stack.
+      Settings/records/graphs open separately. See docs/architecture/compact-panel.md and design-qa.md.
+      Earlier Ubuntu/Windows passed at `5c6159d` (run 38652952390), before the final budget fix.
+      Latest-head checks/receipt are on PR #43; require both checks and owner approval, then a fresh backup/paired
+      update from the normal checkout. Live pipeline, scaling/window behavior, pause/resume,
+      search/key/Confirm and automatic ownership acceptance remain pending. Reconciliation faults
+      and PR #31 checklist are not cleared. No database editing or game automation.
+
+- [ ] Review, merge/reconcile and live-verify the search/input follow-up on `codex/trade-input-assist`,
+      stacked on pending PR #41 without changing either original PR. Test-first `b6bfe47` specifies
+      new features; implementation `0abf74c` includes two failing queued-input regressions fixed at
+      `648765b`. Recommended BUY appears as a native-selectable row in empty GE search, preserving
+      previous item/results. A configured player key fills one open matching quantity/price prompt;
+      key defaults Not set, Enter/Confirm remain manual, held keys do not continue a sequence.
+      One scoped INPUT_TEXT write is permitted; no programmatic selection/submission or agent game input.
+      Standalone standard: 1,239 Java passed, six skipped, zero failures/errors; 48 Python passed.
+      Combined with PR #40/#41 at `d0bbef8`: 1,260 Java passed, six skipped, both JARs built, including
+      personal sale quote/unknown-profit/input/Confirm behavior. See docs/architecture/trade-input-assistance.md.
+      Await exact-head CI and owner approval; retarget against current rebuild after PR #41 merges.
+      Runtime stays PR #37 and live pipeline was not run for this slice. After paired backup/update,
+      player verifies actual chat row, assigned key, manual Enter/Confirm, normal typing, held key,
+      wrong-context protection, disabled settings and editor/account boundaries. No DB repair.
+
+- [ ] Install and live-verify the separate trade walkthrough/confirmation slice after owner approval
+      and final-head Ubuntu/Windows CI. Branch `codex/trade-ui-walkthrough`, from rebuild `5ac97048`;
+      eight reproducing regressions at `52513d1`, implementation `b0ee05c`, final rendering check
+      `10c4fe4`. Actual values govern both highlights and the normal Confirm lock; native right-click
+      Confirm permits deliberate personal inputs. No game-input automation or database changes.
+      Standard local build: 1,221 Java passed, six skipped, zero failures/errors; 48 Python passed.
+      Combined preview with unmerged PR #40 at `22985fa` passed 1,241 Java with six skips and both
+      JARs built. Keep quote-refresh and guard handlers, clear both on session reset, and preserve
+      lock rendering on a personal item during merge resolution. See
+      docs/architecture/trade-ui-walkthrough.md for verified behavior and player acceptance cases.
+      Installed runtime remains PR #37. Live pipeline-check was not run for this source slice;
+      PR #31 and accounting reconciliation remain unfinished. Do not install from a temporary worktree.
+
+
+- [ ] Install and live-verify automatic trade scope from `codex/automatic-trade-scope`.
+      Regression-first commit `b25a358` reproduces three adoption/recount failures before code changes.
+      Source now tracks remaining accepted acquisition quantities in the existing durable event
+      ledger, preserves old records, removes adoption/review/dismiss controls, quotes a player-selected
+      sell setup and maintains unknown-cost actual sell offers without inventing profit. Exact-offer
+      cancel/collect/relist guidance survives restart; Missed flips is a separately opened read-only
+      evidence table. Scope API schema 2 is understood by the plugin and pipeline checker.
+      Personal snapshots and unrelated unpriced sales do not require player classification; real
+      execution/offer faults and unresolved known-cost exposure remain protected. Installed runtime
+      is still PR #37 (`49934e44`); no installation, database editing or game action occurred here.
+      Final clean verification and GitHub checks are recorded in HANDOFF.md. PR #40 is open;
+      Ubuntu/Windows checks passed at 16222f0 (run 38598173659). UTF-8 and delayed relist-account fixes are
+      verified by final clean build (1,217 passed, six skipped, zero failures/errors). Final-head CI
+      must also pass both checks; merge remains subject to owner approval. Next: reviewed paired
+      update, GET-only pipeline, then owner-operated sell editor/partial fill/restart acceptance.
+      Do not claim these source tests completed the PR #31 live checklist or cleared existing faults.
 
 - [ ] Continue account reconciliation after the 14 October lifecycle-fault diagnosis. Source branch
       `codex/offer-observation-boundary` from rebuild `49934e44` reproduces five observation-boundary

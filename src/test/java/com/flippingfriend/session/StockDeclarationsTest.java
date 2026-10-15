@@ -37,7 +37,7 @@ public class StockDeclarationsTest {
         catch (Exception expected) { }
         assertEquals("malformed", Files.readString(storage.accountDir().resolve("stock-declarations.json")));
     }
-    @Test public void sellFilteringPreservesOwnershipAndInvalidatesAfterNewAcquisition() throws Exception {
+    @Test public void legacyReviewsRemainPreservedWithoutPricingPersonalUnitsFromANewPurchase() throws Exception {
         PluginStorage storage = TestStorage.rootedAt(folder.newFolder().toPath(), "one");
         StockDeclarations review = new StockDeclarations(storage);
         review.record(storage.accountId(), 100, new StockDeclaration(row(), StockDeclaration.Use.PERSONAL));
@@ -46,7 +46,8 @@ public class StockDeclarationsTest {
         assertTrue(review.excludesLocal(positions.get(100)));
         assertEquals(3, positions.get(100).getQuantity());
         positions.recordBuy(100, "Example supplies", 1, 100, java.time.Instant.ofEpochSecond(30));
-        assertFalse(review.excludesLocal(positions.get(100)));
-        assertEquals(4, positions.get(100).getQuantity());
+        assertTrue(review.excludesLocal(positions.get(100)));
+        assertFalse(positions.get(100).isCostKnown());
+        assertEquals(3, positions.get(100).getQuantity());
     }
 }

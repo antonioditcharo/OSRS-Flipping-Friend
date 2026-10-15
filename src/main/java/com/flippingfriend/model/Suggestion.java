@@ -43,6 +43,7 @@ public class Suggestion
 	 * the player places a sell offer to do it. So it stays a SELL and says what it is here.
 	 */
 	private boolean lossCut;
+    private boolean profitKnown = true;
 
 	private Suggestion(SuggestionType type, int itemId, String itemName, int price, int quantity, int slot,
 		long expectedProfit, double confidence, double expectedMinutes, double buyFillMinutes,
@@ -114,6 +115,8 @@ public class Suggestion
 	{
 		return slot;
 	}
+
+	public boolean isProfitKnown() { return profitKnown; }
 
 	public long getExpectedProfit()
 	{
@@ -195,7 +198,7 @@ public class Suggestion
 			&& other.itemId == itemId
 			&& other.price == price
 			&& other.quantity == quantity
-			&& other.slot == slot;
+			&& other.slot == slot && other.profitKnown == profitKnown;
 	}
 
 	/**
@@ -262,6 +265,8 @@ public class Suggestion
 		}
 
 		private boolean lossCut;
+        private boolean profitKnown = true;
+        public Builder profitKnown(boolean known) { profitKnown = known; return this; }
 
 		public Builder lossCut(boolean lossCut)
 		{
@@ -327,6 +332,7 @@ public class Suggestion
 				expectedProfit, confidence, expectedMinutes, buyFillMinutes, sellFillMinutes,
 				breakEvenPrice, targetSellPrice, headline, detail);
 			suggestion.lossCut = lossCut;
+            suggestion.profitKnown = profitKnown;
 			return suggestion;
 		}
 	}

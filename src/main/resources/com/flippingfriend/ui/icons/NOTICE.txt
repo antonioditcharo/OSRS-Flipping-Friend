@@ -1,0 +1,9 @@
+Material Design icons, Copyright Google LLC. Apache License 2.0; see LICENSE.
+Unmodified 24dp black PNG source images from https://github.com/google/material-design-icons
+settings: png/action/settings/materialicons/24dp/1x/baseline_settings_black_24dp.png
+pause, play_arrow, skip_next: png/av/<name>/materialicons/24dp/1x/baseline_<name>_black_24dp.png
+block: png/content/block/materialicons/24dp/1x/baseline_block_black_24dp.png
+show_chart: png/editor/show_chart/materialicons/24dp/1x/baseline_show_chart_black_24dp.png
+more_horiz: png/navigation/more_horiz/materialicons/24dp/1x/baseline_more_horiz_black_24dp.png
+open_in_new: png/action/open_in_new/materialicons/24dp/1x/baseline_open_in_new_black_24dp.png
+Runtime tinting supplies foreground colors. No Flipping Copilot brand assets are packaged.

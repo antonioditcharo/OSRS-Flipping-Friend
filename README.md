@@ -8,6 +8,18 @@ The goal is to match Flipping Copilot's player workflows and eventually exceed i
 account GP/hour. That result has not yet been demonstrated. The current priorities, source-backed
 assessment, feature matrix, and benchmark contract are in [Project direction](docs/project-direction.md).
 
+## Compact sidebar review
+
+Returning to your home PC? Use [HOME TEST CHECKLIST.md](HOME%20TEST%20CHECKLIST.md) for the
+approved-merge gate, guarded checkout update, paired backup/install and ordered player tests.
+
+The pending combined review replaces the stacked sidebar with a Flipping Copilot-style action
+panel: current trade, graph/pause/block/skip, 5m/30m/2h/8h cadence, risk and durable recorded profit.
+Gear opens preferences; More opens holdings, history, plan, full recommendation and Missed flips.
+It includes pending automatic ownership, walkthrough and search/input changes; it is not installed
+or merged. See [workflow and acceptance](docs/architecture/compact-panel.md),
+[native visual QA](design-qa.md) and [rendered preview](docs/images/compact-buy.png).
+
 ## Current status
 
 The GitHub default and active development branch is **`CoPilot's-Rebuild-from-Main`**.
@@ -15,7 +27,8 @@ Continuing agents should start with [HANDOFF.md](HANDOFF.md), [AGENTS.md](AGENTS
 [TASKS.md](TASKS.md). The handoff identifies merged changes, verification, and remaining limitations.
 
 The takeover assessment started from `CoPilot's-Rebuild-from-Main` at Package 3.85 (`1a4c665`).
-The fixes below are merged into that rebuild branch; `main` remains an earlier cleanup/revert baseline.
+The foundation is merged into that rebuild branch; the combined changes above remain in PR #43.
+`main` remains an earlier cleanup/revert baseline.
 Current continuation adds account isolation, the Copilot-history baseline, and durable sale
 accounting consumed by live Performance.
 
@@ -32,8 +45,9 @@ Implemented and exercised by automated tests:
 - Shared sale-tax rules for homogeneous prices, including integer flooring, caps, and exemptions.
 - Analytical price/fill models and real-execution timing calibration fed back into candidate planning.
 - Membership, risk, spending cap, skipped/blocked items, and sell-only preferences.
-- Personal inventory/equipment/bank stock requires the existing adoption opt-in; blocked items
-  remain physically visible and are excluded from adoption.
+- Physical inventory/equipment/bank observations remain independent of recommendation exclusions.
+  The combined candidate replaces legacy adoption with remaining observed-buy quantities;
+  routine personal belongings are ignored without player classification.
 
 Remaining correctness work includes a single authoritative
 ledger for planning, exits, inventory, calibration, and session risk and complete replacement/sell
@@ -45,6 +59,19 @@ Shadow trading, online logistic learning, exploration, automatic challenger prom
 synchronization, and an independent always-on learner are not implemented as earlier documentation
 claimed. Historical roadmaps and package records are retained as references; the current direction
 and [task list](TASKS.md) describe the work ahead.
+
+The parallel [trade walkthrough slice](docs/architecture/trade-ui-walkthrough.md) validates actual
+quantity/price inputs, keeps mismatched controls highlighted and guards normal Confirm. Right-click
+the native Confirm option to deliberately override for a personal trade. Its source and automated
+tests are ready; approval, paired installation and live verification are pending. Original PR #40
+and #41 remain unchanged/unmerged; combined PR #43 contains both. Use the combined candidate rather
+than installing these overlapping slices separately.
+
+The follow-up [input assistance slice](docs/architecture/trade-input-assistance.md) adds a selectable
+recommended BUY item in empty GE search and a configurable key to fill the already open quantity
+or price prompt. The key defaults to Not set; Enter and Confirm remain manual. This source is
+stacked on PR #41 originally and is now included in combined PR #43. Approval, paired installation
+and live player verification remain pending.
 
 ## Running the existing development build
 
