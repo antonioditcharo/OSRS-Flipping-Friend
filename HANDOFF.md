@@ -11,22 +11,23 @@ installed or live-accepted. Batch a later paired update, without another immedia
 
 Regressions `d1d18dd` (six publisher failures), `43f5c34` (five companion failures), `942fcbe`
 (refreshed forecast borrowing an older clock), `878db45` (missing provenance) and `32a567d`
-(saved binding schema) preceded their fixes. Original advice and negative bindings now persist
+(saved binding schema) and `2980fa5` (same-second ambiguity) preceded their fixes. Original advice and negative bindings now persist
 atomically with the existing account outbox and survive ACK/restart. The companion validates the
 earliest original source and uses its prediction without rewriting raw events. Unknown/mismatched
 evidence remains unpaired; existing accounting, dedup keys, gaps and historical totals remain.
 See [the provenance contract](docs/architecture/execution-prediction-provenance.md).
-Runtime implementation is `c595c42` plus `08d4832`; current advice time and companion qualification
-are included in the latter. Positive maintenance fixtures now begin with a real authenticated,
+Runtime implementation is `c595c42`, `08d4832` and the subsequent strict same-second fix. Current
+forecast time must strictly precede first observation to train timing; same-second association can
+remain diagnostic. Positive maintenance fixtures now begin with a real authenticated,
 zero-fill source before a partial observation; cached or already partial starts cannot invent lineage.
 
 ```text
 .\gradlew.bat clean test jar :companion:shadowJar --console=plain
-BUILD SUCCESSFUL in 49s / 18 actionable tasks: 18 executed / exit 0
-Plugin: 605; Core: 176; Companion: 622 including six existing skips
-Total: 1,397 passed; 6 skipped; 0 failures/errors
+BUILD SUCCESSFUL in 46s / 18 actionable tasks: 18 executed / exit 0
+Plugin: 606; Core: 176; Companion: 623 including six existing skips
+Total: 1,399 passed; 6 skipped; 0 failures/errors
 Python: Ran 63 tests in 59.273s / OK / exit 0
-Candidate plugin: 473,027 bytes; companion: 17,837,334 bytes
+Candidate plugin: 473,199 bytes; companion: 17,837,507 bytes
 Both project JARs: class major 55 (Java 11)
 ```
 

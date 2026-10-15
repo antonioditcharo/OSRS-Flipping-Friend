@@ -23,7 +23,10 @@ Acknowledgement removes the pending event and retains its offer binding across r
 
 Only an authenticated first observation of an open, zero-fill offer can begin a comparable binding.
 Its first-seen second must equal that observation, and the prediction must already have been
-available within the attribution window. The timestamp of the current forecast is distinct from
+available within the attribution window. Comparable evidence requires the forecast's recorded
+second to strictly precede the first observed offer second. A same-second association can remain
+diagnostic for maintenance, but cannot establish that the forecast came first or train timing.
+The timestamp of the current forecast is distinct from
 the first display of identical order inputs. Matching requires actual price and quantity to equal
 the suggested inputs and finite valid prediction values. Divergence retains diagnostic advice
 metadata but contributes no comparable prediction. An initially unknown offer stays unknown;
@@ -36,7 +39,7 @@ The pre-existing account-scope upgrade is retained; it is not an upgrade of pred
 Invalid saved identity, account or schema fails closed without overwriting the queue. No live
 account file is manually repaired by this work.
 
-These conditions are conservative observational association. Second-resolution timestamps and
+These conditions are conservative observational association. Even strictly ordered timestamps and
 matching inputs do not prove that the player saw or followed the recommendation, or that first
 observation was placement. No automatic game input is used to strengthen the association.
 

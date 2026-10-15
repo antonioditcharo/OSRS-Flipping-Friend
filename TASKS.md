@@ -9,7 +9,7 @@ statements later in this file. Read [HANDOFF.md](HANDOFF.md) for exact evidence.
       b516b7e. Regression commits are in HANDOFF.md. Existing outbox persists original/unknown
       bindings atomically; companion validates the first recorded source before learning. Restart,
       late/mismatched advice, failed writes, legacy queues, account scope and rollback are covered.
-      Standard: 1,397 Java passed/six skips, both Java 11 JARs, 49s. This source is not installed;
+      Standard: 1,399 Java passed/six skips, 63 Python passed, both Java 11 JARs, 46s. This source is not installed;
       current live runtime remains #53. Batch the next update. Censoring/model evaluation remains #56.
 
 - [x] Install the combined #51/#52/#53 pair through the supported administrator Update shortcut.
