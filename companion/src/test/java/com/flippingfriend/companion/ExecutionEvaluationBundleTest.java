@@ -122,6 +122,15 @@ public class ExecutionEvaluationBundleTest {
         catch(IllegalArgumentException expected){ }
         assertFalse(Files.exists(target));
     }
+    @Test public void aNamedGapWithoutAnyRecordedOfferCannotBeSilentlyIgnored()throws Exception {
+        var source=snapshot(250,history(true));
+        var unknown=new ExecutionSourceSnapshot(account,AT+250,source.offers,
+            List.of(new ExecutionSourceSnapshot.Gap(1,AT+200,"missing-source","never-observed-offer")));
+        Path target=folder.getRoot().toPath().resolve("local-data/unassigned");
+        try{ExecutionEvaluationMain.writeSnapshot(unknown,target,REVISION);fail("unassigned named gap was ignored");}
+        catch(IllegalArgumentException expected){ }
+        assertFalse(Files.exists(target));
+    }
     @Test public void concurrentWalCommitCannotMixOfferAndReconciliationSnapshots()throws Exception {
         Path database=folder.newFolder().toPath().resolve("coherent.db");
         try(var store=new SqliteStore(database)) {
