@@ -4,6 +4,8 @@ import com.flippingfriend.*;
 import java.util.EnumSet;
 import net.runelite.api.*;
 import net.runelite.api.gameval.InventoryID;
+import net.runelite.api.gameval.InterfaceID;
+import net.runelite.api.widgets.Widget;
 import net.runelite.client.game.ItemManager;
 import org.junit.Test;
 import static org.junit.Assert.*;
@@ -27,7 +29,9 @@ public class BankCashObservationTest {
             ItemContainer bank=mock(ItemContainer.class);
             when(bank.getItems()).thenReturn(new Item[]{new Item(995,(int)coins)});
             when(client.getItemContainer(InventoryID.BANK)).thenReturn(bank);
+            Widget visible=mock(Widget.class);when(client.getWidget(InterfaceID.Bankmain.ITEMS)).thenReturn(visible);
             monitor.refresh(); when(client.getItemContainer(InventoryID.BANK)).thenReturn(null);
+            when(client.getWidget(InterfaceID.Bankmain.ITEMS)).thenReturn(null);
         }
         void update(GrandExchangeOfferState state,int filled) { slots[0]=offer(state,filled); monitor.refresh(); }
         long spendable() { return monitor.getState().spendableCoins(true,0); }
@@ -56,5 +60,13 @@ public class BankCashObservationTest {
         assertEquals(90_000_000,f.spendable());
         f.bank(91_000_000); assertEquals(91_000_000,f.spendable());
         f.monitor.reset(); assertEquals(0,f.spendable());
+    }
+    @Test public void aCachedContainerCannotResetBankSpendingEvidence() {
+        Fixture f=new Fixture();f.bank(100_000_000);
+        ItemContainer cached=mock(ItemContainer.class);when(cached.getItems()).thenReturn(new Item[]{new Item(995,100_000_000)});
+        when(f.client.getItemContainer(InventoryID.BANK)).thenReturn(cached);
+        f.update(GrandExchangeOfferState.BUYING,0);assertEquals(90_000_000,f.spendable());
+        f.update(GrandExchangeOfferState.BOUGHT,10);f.update(GrandExchangeOfferState.EMPTY,0);
+        assertEquals(90_000_000,f.spendable());
     }
 }
