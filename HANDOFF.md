@@ -3,6 +3,50 @@
 Updated 15 October 2026 (America/Anchorage). Read this with [AGENTS.md](AGENTS.md) and
 [TASKS.md](TASKS.md) before continuing implementation.
 
+## Live current proof and planner heartbeat follow-up — 15 October 2026
+
+[PR #50](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/50) merged as
+`70d8453161aa867c74bac64b83e469ca6dedb9a1` after both checks at
+`3c8006cd7acd90e91465602ac539760351ac17d0` passed in
+[run 38713257067](https://github.com/antonioditcharo/OSRS-Flipping-Friend/actions/runs/38713257067).
+Normal rebuild was fast-forwarded cleanly, matched the tested tree and retained required ancestry;
+historical main remains `0cb8ef8`. Tooling-only follow-up required no second JAR installation.
+
+Fresh client observations arrived after the agent's supported launch. Read-only inspection now
+finds zero current ERROR slots, eight authenticated sources and a valid matching eight-slot/cash
+read-set. Historical bounds compute and the current account exposure gate is available. The
+ledger remains valid: four sale updates, two unresolved sales, 1,252 known gap scopes, 1,260 position
+events before/after. No history was cleared or synthesized. Raw snapshots/GP/item evidence stay
+in ignored local diagnostics. UI login itself and game actions were not inspected or performed.
+
+The installed planner nevertheless retained a reconciliation refusal. Inspection and regression
+`025ed19` reproduced two timing faults before fixes on fresh `codex/coherent-plan-heartbeat` from
+current rebuild `70d8453`: an identical heartbeat triggered planning against the previous account
+receipt, then a new coherent account snapshot with unchanged economics retained the transient
+UNAVAILABLE result under plan spacing. Both tests failed before the source change.
+
+The follow-up schedules offer-driven plans only for economic changes, immediately retries a
+COMPANION_STATE_UNAVAILABLE plan on a new account publication, and discards an old snapshot's
+failed computation after replacement. Presentation/final authorization still reject incomplete
+or stale proof; new economic offers still invalidate cached buys immediately. No guard is relaxed.
+
+```text
+.\gradlew.bat clean test jar :companion:shadowJar --console=plain
+BUILD SUCCESSFUL in 44s
+18 actionable tasks: 18 executed
+HEARTBEAT_CLEAN_EXIT=0
+Plugin: 586; Core: 170; Companion: 596 including six existing skips
+Total: 1,346 passed; 6 skipped; 0 failures/errors
+```
+
+Python sources are unchanged from PR #50's 63 passing tests/exact-head CI. Both JARs built with
+RuneLite still open. Logs are ignored .gradle/heartbeat-*. Require both follow-up exact-head CI
+checks before merging. Runtime remains PR #49 pending a supported paired update; this timing fix
+is not installed. RuneLite is open. Never force-kill it, bypass the paired wrapper, edit a database
+or send game input. Finish delivery, then one normal player close is needed before the agent can
+update/relaunch. Recheck the actual plan afterward; valid source proof alone is not a BUY result.
+Controlled trading, UI/restart acceptance, full account replay and measured cadence results remain open.
+
 ## Installed current-entry batch and diagnostic compatibility — 15 October 2026
 
 [PR #49](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/49) merged as

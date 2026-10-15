@@ -395,7 +395,11 @@ final class CompanionService implements AutoCloseable
 		}
         boolean changed=!samePlanningInputs(account,snapshot);
 		account = snapshot;
-        if(changed){planningInputRevision.incrementAndGet();plan=null;lastPlanAt=0;}
+        // A complete new receipt must retry a transient proof failure even if cash/slots are
+        // unchanged. Otherwise plan spacing can retain the refusal from its in-flight offers.
+        boolean retryUnavailable = plan != null
+            && plan.getOutcome() == PortfolioPlanOutcome.COMPANION_STATE_UNAVAILABLE;
+        if(changed || retryUnavailable){planningInputRevision.incrementAndGet();plan=null;lastPlanAt=0;}
 		// The plugin's ledger is durable; this one is rebuilt from events that can go missing. Take
 		// the higher of the two so a dropped fill is corrected on the next cycle rather than never.
 		buyLimits.restore(store.buyLimitProjections());
@@ -455,7 +459,7 @@ final class CompanionService implements AutoCloseable
 		// An offer changing is the single most important reason to re-plan: a slot has just opened
 		// or closed, capital has moved, and a buy limit may have been consumed. Waiting for the next
 		// market poll would leave the panel telling the player to do something they have just done.
-		requestPlan();
+		if (projected.planningStateChanged) requestPlan();
 		return projected.acceptance;
 	}
 
@@ -754,7 +758,7 @@ final class CompanionService implements AutoCloseable
 		catch (Exception unavailable)
 		{
 			synchronized (this) {
-			if (revision!=planningInputRevision.get() || !samePlanningInputs(account,sourceSnapshot)) return;
+			if (revision!=planningInputRevision.get() || account != sourceSnapshot) return;
 			fault("Planning exposure", String.valueOf(unavailable.getMessage()), unavailable);
 			plan = PortfolioPlan.unavailable(
 				snapshot.getCorrelationId() == null ? "none" : snapshot.getCorrelationId(),
