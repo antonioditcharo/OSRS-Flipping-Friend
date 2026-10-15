@@ -6,8 +6,8 @@ reply at INSTALL, or respond after every check. See [development workflow](docs/
 
 PR #49 is installed (source merge f600dae). Status, RuneLite 1.13.2 compatibility and ledger HTTP
 reads pass. Fresh eight-slot/cash proof recovered, but planner timing fixes (#51), atomic execution
-evidence (#52) and durable risk are queued for one paired update. The normal RuneLite close has
-already been requested. After the verified update/agent launch, log in and open GE once. The agent
+evidence (#52) and durable risk (#53) are queued for one paired update. RuneLite is now closed.
+After the verified update/agent launch, log in and open GE once. The agent
 reads diagnostics directly. Historical gaps, actual buy readiness and controlled acceptance remain.
 
 ## 1. Prepare one candidate

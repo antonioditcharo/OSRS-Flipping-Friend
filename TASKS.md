@@ -7,12 +7,13 @@ statements later in this file. Read [HANDOFF.md](HANDOFF.md) for exact evidence.
 
 - [ ] Deliver durable recommendation risk on codex/durable-risk-authority from rebuild 598fed3.
       Regression 774a521 reproduces foreign local-session profit; bb4339d isolates the local cache.
-      Source a97e692 moves planner/final approval/health/alerts/Plan details to durable account risk,
+      Source ef4d863 moves planner/final approval/health/alerts/Plan details to durable account risk,
       with prospective atomic windows, bounded profit, unknown-cost reserves, fresh taxed marks,
       expiry and restart/duplicate protection. No journal fallback for automatic runtime entries.
-      Standard: 1,371 Java passed/six skips, both Java 11 JARs, 39s; all 63 Python tests pass.
-      Require exact-head CI/delivery, then batch #51/#52/this source in one paired update after the
-      already requested normal close. RuneLite remains open; runtime is #49. No live risk/BUY proof.
+      JSON schema regressions 02744c7 precede the final fix. Standard: 1,373 Java passed/six skips,
+      both Java 11 JARs, 44s; all 63 Python tests pass. PR #53 requires final-head CI/delivery, then
+      batch #51/#52/#53 in one paired update. Player confirmed normal close; zero clients observed.
+      Runtime is #49; pre-install status/compatibility/pipeline pass but no live risk/BUY proof.
 
 - [x] Deliver atomic execution-evidence transaction on codex/atomic-execution-evidence from c915ea8.
       Verified write-failure regressions at e34927a precede fixes. Canonical acceptance, accounting,

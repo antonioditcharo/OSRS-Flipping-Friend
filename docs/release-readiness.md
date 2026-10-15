@@ -1,13 +1,13 @@
 # Release readiness
 
-14 October 2026. This is the ordered completion plan for a publishable RuneLite assistant.
+15 October 2026. This is the ordered completion plan for a publishable RuneLite assistant.
 The [handoff](../HANDOFF.md) holds actual revision, installation and test receipts; historical
 package completion does not close these gates. No full parity or profit superiority is claimed.
 
 | Gate | Current evidence | Remaining acceptance |
 | --- | --- | --- |
-| Supported client and installation | PR #44 merged after Windows/Linux CI; 1.13.2 pair installed, real compatibility/status pass and manual login observed | Deliver the regression-first live ledger/startup follow-up through CI and a fresh paired update; retain release preflight |
-| Complete manual player workflow | Compact sidebar visible after login; ledger HTTP 500 and startup search exception observed. Workflow sources are merged through #43; regression-first fix is verified locally | Player-operated UI/focus/scaling checks, small intended buy/sell, partial cancel/collect/relist, pause/context changes and restart; record actual pipeline output |
+| Supported client and installation | Verified #49 pair on API 1.13.2; real status/compatibility pass; ledger reads and authenticated current proof recovered | Batch merged #51/#52 and #53 after exact-head CI into one fresh-backup paired update; retain release preflight |
+| Complete manual player workflow | Compact sidebar observed after login; former ledger HTTP/startup faults fixed in installed sources; current planner timing follow-up merged #51 and pending install | Player-operated UI/focus/scaling checks, small intended buy/sell, partial cancel/collect/relist, pause/context changes and restart; record actual pipeline output |
 | Accounting and one source of truth | Scoped durable events, proceeds/cost/tax bounds, duplicate/recovery, Performance and managed quantities implemented; atomic execution evidence merged #52 and durable recommendation risk source-verified | Batched paired install/live risk acceptance; calibration audit and remaining local consumers; preserve old uncertainty without database repair |
 | Reliable recommendations | Entry and buy-maintenance policies have tests and exposure guards | Complete sell/replacement authority and degraded-data behavior end to end; validate real readiness without bypassing unresolved exposure |
 | Reproducible performance | Copilot exports imported with preserved uncertainty and coverage limits | Prospective session clocks and chronological whole-account replay: 100M members, eight slots, separate 5m/30m/2h/8h visits, limits/tax/losses and ending inventory |
