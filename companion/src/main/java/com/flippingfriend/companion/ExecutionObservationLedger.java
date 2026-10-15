@@ -42,6 +42,7 @@ final class ExecutionObservationLedger {
         if(account==null || history==null || gaps==null || gaps.stream().anyMatch(Objects::isNull))
             throw new IllegalArgumentException("Recorded source scope is incomplete.");
         Map<List<Object>,Episode> episodes=new LinkedHashMap<>();
+        Set<String> knownOffers=new HashSet<>();
         Map<Integer,Episode> latest=new HashMap<>();Map<Integer,OfferEvent> empty=new HashMap<>();
         Map<List<Object>,OfferEvent> ordered=new HashMap<>();Set<String> ids=new HashSet<>();
         for(OfferEvent e:history) {
@@ -60,6 +61,7 @@ final class ExecutionObservationLedger {
                 }
                 continue;
             }
+            knownOffers.add(e.getOfferIdentity());
             List<Object> key=List.of(e.getSessionId(),e.getSlot(),e.getOfferIdentity());Episode episode=episodes.get(key);
             if(episode==null) {
                 episode=new Episode(e);episodes.put(key,episode);
@@ -92,6 +94,7 @@ final class ExecutionObservationLedger {
             }
             if(terminal(e))episode.terminal=e;
         }
+        if(!knownOffers.containsAll(gaps))throw new IllegalArgumentException("Recorded reconciliation scope has no matching offer source.");
         List<ExecutionTimingObservation> observations=new ArrayList<>();
         try {
             for(Episode e:episodes.values())if(e.prospective) {

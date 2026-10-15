@@ -10,6 +10,7 @@ import java.util.*;
 /** Explicit offline command. Never starts the service, writes a database, trains or promotes. */
 public final class ExecutionEvaluationMain {
     private static final Gson JSON=new Gson();
+    private static final long MAX_FILE_BYTES=256L*1024*1024;
     private ExecutionEvaluationMain(){ }
     public static void main(String[] args)throws Exception {
         if(args.length==5 && "freeze".equals(args[0])) {
@@ -44,6 +45,7 @@ public final class ExecutionEvaluationMain {
         if(Files.exists(target,LinkOption.NOFOLLOW_LINKS))throw new FileAlreadyExistsException(target.toString());
         var evaluation=new ExecutionHorizonEvaluation(snapshot.observations(),null);
         byte[] sources=bytes(snapshot),scores=bytes(evaluation);
+        if(sources.length>MAX_FILE_BYTES || scores.length>MAX_FILE_BYTES)throw new IllegalArgumentException("Evaluation exceeds the explicit 256 MiB file limit; no prefix was truncated");
         Manifest manifest=new Manifest(snapshot,revision,hash(sources),hash(scores),artifactHash());
         Files.createDirectories(target.getParent());Files.createDirectory(target);
         // A manifest appears last; interrupted/incomplete directories are never accepted by verify.
@@ -107,7 +109,7 @@ public final class ExecutionEvaluationMain {
     }
     private static byte[] read(Path directory,String name)throws Exception {
         Path file=directory.resolve(name);
-        if(!Files.isRegularFile(file,LinkOption.NOFOLLOW_LINKS) || Files.size(file)>256L*1024*1024)
+        if(!Files.isRegularFile(file,LinkOption.NOFOLLOW_LINKS) || Files.size(file)>MAX_FILE_BYTES)
             throw new IllegalArgumentException("Missing, linked or oversized evaluation file: "+name);
         return Files.readAllBytes(file);
     }

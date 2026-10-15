@@ -29,9 +29,12 @@ final class ExecutionSourceSnapshot {
             previous=row.rowId;history.add(event);
         }
         if(previous!=sourceCursor)throw new IllegalArgumentException("Source cursor does not match the complete prefix");
-        Set<String> identities=new HashSet<>();previous=0;
+        Set<String> identities=new HashSet<>(),sourceIds=new HashSet<>();previous=0;
+        for(var event:history)sourceIds.add(event.getEventId());
         for(Gap gap:gaps) {
             if(gap==null || gap.rowId<=previous)throw new IllegalArgumentException("Invalid reconciliation row order");
+            if(gap.sourceEventId==null || !sourceIds.contains(gap.sourceEventId))
+                throw new IllegalArgumentException("Reconciliation has no recorded canonical source in this account");
             previous=gap.rowId;identities.add(gap.offerIdentity);
         }
         return ExecutionObservationLedger.compile(accountId,capturedAt,history,identities);
