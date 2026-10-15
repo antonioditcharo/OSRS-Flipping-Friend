@@ -77,4 +77,13 @@ public class ExecutionAdviceProvenanceTest {
         OfferEvent terminal=f.publish(offer(now,100,10,"BOUGHT",10),now+601);
         assertEquals("original",terminal.getRecommendationId());assertEquals(12,terminal.getPredictedMinutes(),0);
     }
+    @Test public void refreshedPredictionCannotBorrowAnOlderIdenticalOrdersAdviceClock()throws Exception {
+        Fixture f=new Fixture(folder.newFolder().toPath());
+        var field=SuggestionLedger.class.getDeclaredField("outstanding");field.setAccessible(true);
+        @SuppressWarnings("unchecked") var advice=(java.util.Map<Long,SuggestionLedger.Advice>)field.get(f.ledger);
+        advice.put(((long)561<<1)|1,new SuggestionLedger.Advice("old",100,10,0,12,.75,now-60));
+        f.advice("future-prediction",100,10,120);
+        OfferEvent observed=f.publish(offer(now-30,100,10,"BUYING",0),now-30);
+        assertNull("A new prediction does not exist at the older display timestamp",observed.getRecommendationId());
+    }
 }
