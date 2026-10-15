@@ -51,6 +51,40 @@ public class AccountApiIsolationTest
         }
     }
 
+    @Test public void unidentifiedClearReturnsReadableScopedEvidenceInsteadOfHttp500() throws Exception
+    {
+        Gson gson = new Gson();
+        Path root = folder.newFolder().toPath();
+        String one = AccountIdentity.fromProfileKey("unidentified"), two = AccountIdentity.fromProfileKey("other");
+        try (SqliteStore legacy = new SqliteStore(root.resolve("legacy.db"));
+             CompanionService market = new CompanionService(gson, legacy);
+             CompanionAccounts accounts = new CompanionAccounts(root.resolve("accounts"), market);
+             ApiServer api = new ApiServer("test-token", gson, market, accounts, new InetSocketAddress("127.0.0.1", 0)))
+        {
+            api.start();
+            long now = Instant.now().getEpochSecond();
+            OfferEvent open = OfferEvent.builder("c",now,"BUYING").accountId(one)
+                .eventIdentity("open","session","buy").slot(0).item(561,"Nature rune")
+                .buying(true).price(100).quantities(10,0).spent(0).sequence(1).build();
+            OfferEvent clear = OfferEvent.builder("c",now,"EMPTY").accountId(one)
+                .eventIdentity("unidentified-clear","session",null).slot(0).sequence(2).build();
+            assertEquals(202,request(api,"events/ge-offer",one,gson.toJson(open)));
+            assertEquals(202,request(api,"events/ge-offer",one,gson.toJson(clear)));
+            assertEquals(200,request(api,"accounts/"+one+"/ledger/current",one,null));
+            var ledger = gson.fromJson(body(api,"accounts/"+one+"/ledger/current",one),
+                com.flippingfriend.core.AccountLedgerSnapshot.class);
+            assertTrue(ledger.isValid()); assertEquals(one,ledger.getAccountId());
+            assertEquals(0,ledger.getSales()); assertTrue(ledger.getTradingPositions().isEmpty());
+            assertEquals(1,ledger.getMissedFlips().size());
+            assertEquals("Unidentified offer",ledger.getMissedFlips().get(0).getItemName());
+            assertTrue(ledger.getMissedFlips().get(0).getReason().contains("before a terminal"));
+            var other = gson.fromJson(body(api,"accounts/"+two+"/ledger/current",two),
+                com.flippingfriend.core.AccountLedgerSnapshot.class);
+            assertTrue(other.isValid()); assertTrue(other.getMissedFlips().isEmpty());
+            assertEquals(400,request(api,"accounts/"+one+"/ledger/current",two,null));
+        }
+    }
+
     private HttpURLConnection connection(ApiServer api, String endpoint, String account) throws Exception
     {
         HttpURLConnection connection = (HttpURLConnection) new URL("http://127.0.0.1:" + api.port() + "/v1/" + endpoint).openConnection();

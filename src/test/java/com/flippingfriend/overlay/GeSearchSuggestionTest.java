@@ -76,4 +76,31 @@ public class GeSearchSuggestionTest {
         when(client.getWidget(InterfaceID.Chatbox.MES_LAYER_SCROLLCONTENTS)).thenReturn(null); search.refresh(true);
         assertTrue(children.isEmpty());
     }
+    @Test public void loginScreenNeverReadsUninitialisedSearchVariables() {
+        when(client.getGameState()).thenReturn(GameState.LOGIN_SCREEN);
+        when(client.getVarbitValue(anyInt())).thenThrow(new NullPointerException("client variables not initialised"));
+        search.refresh(true); // Stale readiness must not outrank the actual client lifecycle.
+        verify(client,never()).getVarbitValue(anyInt());
+        verify(client,never()).getVarcStrValue(anyInt());
+        verify(client,never()).getWidget(anyInt());
+        assertTrue(children.isEmpty());
+    }
+    @Test public void unreadyAccountDoesNotReadGameVariablesEvenWhileLoggedIn() {
+        when(client.getVarbitValue(anyInt())).thenThrow(new NullPointerException("account is not ready"));
+        search.refresh(false);
+        verify(client,never()).getVarbitValue(anyInt());
+        verify(client,never()).getVarcStrValue(anyInt());
+        assertTrue(children.isEmpty());
+    }
+    @Test public void leavingTheGameHidesTheExistingRowWithoutReadingGameVariables() {
+        search.refresh(true);
+        clearInvocations(client);
+        when(client.getGameState()).thenReturn(GameState.LOGIN_SCREEN);
+        when(client.getVarbitValue(anyInt())).thenThrow(new NullPointerException("client variables unloaded"));
+        search.refresh(true);
+        for (Widget row:children) verify(row).setHidden(true);
+        verify(client,never()).getVarbitValue(anyInt());
+        verify(client,never()).getVarcStrValue(anyInt());
+        verify(client,never()).runScript(anyInt(),any());
+    }
 }
