@@ -153,6 +153,20 @@ class RunDevTest(unittest.TestCase):
         self.write_plugin(version)
         (self.checkout / f"build/runtime-extras/runelite-api-{version}.jar").write_bytes(b"current-full-api-fixture")
 
+    def test_launched_client_uses_persistent_api_outside_outputs_removed_by_clean(self):
+        persistent = self.fixture / "profile/.runelite/osrs-flipping-friend/developer-api/runelite-api-1.13.1.jar"
+        persistent.parent.mkdir(parents=True)
+        persistent.write_bytes(b"persistent-public-api")
+        result = self.run_launcher()
+        self.assertIsNone(result["error"], self.output)
+        arguments = result["arguments"]
+        classpath = arguments[arguments.index("-cp") + 1].split(";")
+        self.assertIn(str(persistent), classpath, self.output)
+        self.assertFalse(any(Path(path).is_relative_to(self.checkout / "build") for path in classpath))
+        shutil.rmtree(self.checkout / "build")
+        self.assertTrue(all(Path(path).is_file() for path in classpath))
+        self.assertEqual(b"persistent-public-api", persistent.read_bytes())
+
     def test_current_release_uses_project_pin_and_excludes_the_previous_cached_client(self):
         self.configure_current_release()
         before = {path.name: path.read_bytes() for path in self.repository.iterdir()}
