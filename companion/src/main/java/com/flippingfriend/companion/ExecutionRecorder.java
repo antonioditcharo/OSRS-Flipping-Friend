@@ -47,6 +47,12 @@ final class ExecutionRecorder
 	 */
 	synchronized boolean record(OfferEvent event) throws Exception
 	{
+		return record(event, event == null ? 0 : event.getPredictedMinutes());
+	}
+
+	/** Canonical acceptance supplies the prediction qualified against its original source. */
+	synchronized boolean record(OfferEvent event, double sourcePrediction) throws Exception
+	{
 		if (event == null || event.getItemId() <= 0 || !SETTLED.contains(event.getEventType()))
 		{
 			return false;
@@ -61,7 +67,7 @@ final class ExecutionRecorder
 		// The prediction is only kept for offers that completed and carried one. Pairing a realised
 		// duration with a prediction from a different offer, or with no prediction at all, would
 		// corrupt the ratio the learner is built on.
-		double predicted = complete ? event.getPredictedMinutes() : 0;
+		double predicted = complete ? sourcePrediction : 0;
 
 		// And the same offer again, without the completion filter.
 		//
@@ -72,14 +78,15 @@ final class ExecutionRecorder
 		// minutes, and that is worth more to a duration model than silence.
 		double openMinutes = event.secondsOpen() / 60.0;
 		return store.recordExecutionObservation(identity(event), event.getObservedAt(), event.getItemId(),
-			complete, minutes, predicted, openMinutes, event.getPredictedMinutes());
+			complete, minutes, predicted, openMinutes, sourcePrediction);
 	}
 
 	/**
-	 * Identifies the offer rather than the event. The slot plus the moment the offer first appeared
-	 * is unique: a slot holds one offer at a time, and a replacement necessarily starts later.
+	 * Retains the shipped slot/first-seen/item key so upgrades cannot recount historical offers.
+	 * Second-resolution first-seen time is not proof of exact placement or universal uniqueness.
+	 * Prospective prediction qualification additionally uses canonical source-event identities.
 	 */
-	private static String identity(OfferEvent event)
+	static String identity(OfferEvent event)
 	{
 		long start = event.getFirstSeenAt() > 0 ? event.getFirstSeenAt() : event.getObservedAt();
 		return event.getSlot() + "@" + start + ":" + event.getItemId();

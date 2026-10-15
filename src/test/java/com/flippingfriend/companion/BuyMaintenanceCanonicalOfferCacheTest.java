@@ -14,10 +14,12 @@ public class BuyMaintenanceCanonicalOfferCacheTest
     {
         Fixture fixture = fixture();
         fixture.ledger.recorded("plan-1", 561, true, 100, 500, 0, 30);
-        fixture.client.publishOffer(offer(2, 561, 100, 500, 100, "BUYING", 10));
+        long at=java.time.Instant.now().getEpochSecond();
+        fixture.publish(offer(2,561,100,500,0,"BUYING",at),at);
+        fixture.publish(offer(2,561,100,500,100,"BUYING",at),at+10);
         OfferEvent event = fixture.client.currentCanonicalOpenBuy();
         Assert.assertNotNull(event);
-        Assert.assertEquals("2@10:561", event.getOfferIdentity());
+        Assert.assertEquals("2@"+at+":561", event.getOfferIdentity());
         Assert.assertEquals("plan-1", event.getRecommendationId());
         Assert.assertEquals(400, event.getTotalQuantity() - event.getFilledQuantity());
     }
@@ -27,10 +29,11 @@ public class BuyMaintenanceCanonicalOfferCacheTest
         Fixture fixture = fixture();
         fixture.ledger.recorded("plan-1", 561, true, 100, 5, 0, 30);
         fixture.ledger.recorded("plan-2", 562, true, 200, 5, 0, 30);
-        fixture.client.publishOffer(offer(5, 561, 100, 5, 0, "BUYING", 10));
-        fixture.client.publishOffer(offer(1, 562, 200, 5, 0, "BUYING", 20));
+        long at=java.time.Instant.now().getEpochSecond();
+        fixture.publish(offer(5,561,100,5,0,"BUYING",at),at);
+        fixture.publish(offer(1,562,200,5,0,"BUYING",at),at);
         Assert.assertEquals(1, fixture.client.currentCanonicalOpenBuy().getSlot());
-        fixture.client.publishOffer(offer(1, 562, 200, 5, 5, "BOUGHT", 20));
+        fixture.publish(offer(1,562,200,5,5,"BOUGHT",at),at+10);
         Assert.assertEquals(5, fixture.client.currentCanonicalOpenBuy().getSlot());
     }
 
@@ -38,7 +41,8 @@ public class BuyMaintenanceCanonicalOfferCacheTest
     {
         Fixture fixture = fixture();
         fixture.ledger.recorded("plan-1", 561, true, 100, 5, 0, 30);
-        fixture.client.publishOffer(offer(1, 561, 100, 5, 0, "BUYING", 10));
+        long at=java.time.Instant.now().getEpochSecond();
+        fixture.publish(offer(1,561,100,5,0,"BUYING",at),at);
         Assert.assertNotNull(fixture.client.currentCanonicalOpenBuy());
         fixture.client.publishOfferCleared(1);
         Assert.assertNull(fixture.client.currentCanonicalOpenBuy());
@@ -86,6 +90,11 @@ public class BuyMaintenanceCanonicalOfferCacheTest
         {
             this.client = client;
             this.ledger = ledger;
+        }
+        void publish(TrackedOffer offer,long at)throws Exception {
+            var method=CompanionClient.class.getDeclaredMethod("publishOffer",TrackedOffer.class,String.class,boolean.class,long.class,boolean.class);
+            method.setAccessible(true);
+            method.invoke(client,offer,com.flippingfriend.core.AccountIdentity.fromProfileKey("test"),true,at,false);
         }
     }
 }

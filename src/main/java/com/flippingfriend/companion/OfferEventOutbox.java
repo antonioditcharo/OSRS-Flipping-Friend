@@ -35,6 +35,15 @@ public final class OfferEventOutbox
 
 	public synchronized OfferEvent enqueue(EventFactory factory) throws Exception
 	{
+        return enqueue(factory,false);
+    }
+    /** Offer attribution and its delivery event share one account-file replacement. */
+    public synchronized OfferEvent enqueueObservedOffer(EventFactory factory) throws Exception
+	{
+        return enqueue(factory,true);
+    }
+    private OfferEvent enqueue(EventFactory factory,boolean bindPrediction) throws Exception
+	{
 		if (factory == null) throw new IllegalArgumentException("factory is required");
 		State state = loadRequired();
 		long sequence = state.nextSequence;
@@ -46,10 +55,44 @@ public final class OfferEventOutbox
 		event = event.withAccountId(state.accountId);
 		State updated = state.copy();
 		updated.nextSequence = sequence + 1;
+        if(bindPrediction)event=bindPrediction(event,updated);
 		updated.pending.add(event);
 		write(updated);
 		return event;
 	}
+    private OfferEvent bindPrediction(OfferEvent event,State updated) {
+        if(event.getSlot()<0 || event.getSlot()>=8)throw new IllegalArgumentException("invalid observation slot");
+        if("EMPTY".equals(event.getEventType())) {
+            if(event.isAuthenticatedObservation())updated.predictions.remove(event.getSlot());
+            return event.withBoundPrediction(null,false);
+        }
+        PredictionBinding previous=updated.predictions.get(event.getSlot());
+        if(previous==null || !sameOffer(previous.origin,event)) {
+            boolean timely=event.isAuthenticatedObservation() && event.getFilledQuantity()==0
+                && ("BUYING".equals(event.getEventType()) || "SELLING".equals(event.getEventType()))
+                && event.getFirstSeenAt()>0 && event.getFirstSeenAt()==event.getObservedAt()
+                && event.getAdviceObservedAt()>0 && event.getAdviceObservedAt()<=event.getFirstSeenAt()
+                && event.getFirstSeenAt()-event.getAdviceObservedAt()<=SuggestionLedger.ATTRIBUTION_WINDOW_SECONDS;
+            // Equal second timestamps preserve diagnostic association, not ordering proof.
+            OfferEvent bound=event.withBoundPrediction(timely?event:null,timely && event.getAdviceObservedAt()<event.getFirstSeenAt());
+            updated.predictions.put(event.getSlot(),new PredictionBinding(bound,!bound.isPredictionComparable()));
+            return bound;
+        }
+        boolean changed=previous.origin.getPrice()!=event.getPrice() || previous.origin.getTotalQuantity()!=event.getTotalQuantity();
+        PredictionBinding binding=new PredictionBinding(previous.origin,previous.invalidated||changed);
+        updated.predictions.put(event.getSlot(),binding);
+        return event.withBoundPrediction(binding.origin,!binding.invalidated);
+    }
+    private static boolean sameOffer(OfferEvent a,OfferEvent b) {
+        return same(a.getAccountId(),b.getAccountId()) && same(a.getSessionId(),b.getSessionId())
+            && same(a.getOfferIdentity(),b.getOfferIdentity()) && a.getSlot()==b.getSlot()
+            && a.getItemId()==b.getItemId() && a.isBuying()==b.isBuying() && a.getFirstSeenAt()==b.getFirstSeenAt();
+    }
+    private static final class PredictionBinding {
+        private final OfferEvent origin;
+        private final boolean invalidated;
+        PredictionBinding(OfferEvent origin,boolean invalidated){this.origin=origin;this.invalidated=invalidated;}
+    }
 
 	public synchronized List<OfferEvent> pending() throws Exception
 	{
@@ -118,6 +161,29 @@ public final class OfferEventOutbox
 			else if (!accountId.equals(event.getAccountId()))
 				throw new IllegalStateException("pending event belongs to another account");
 		}
+        if(state.predictions==null) {
+            state.predictions=new java.util.HashMap<>();
+            // Interpret only already validated/scoped pending identities; never rewrite their claims.
+            List<OfferEvent> ordered=new ArrayList<>(state.pending);ordered.sort(Comparator.comparingLong(OfferEvent::getSequence));
+            for(OfferEvent pending:ordered) if(pending.getSlot()>=0 && pending.getSlot()<8) {
+                if("EMPTY".equals(pending.getEventType())) {
+                    if(pending.isAuthenticatedObservation())state.predictions.remove(pending.getSlot());
+                }else if(!blank(pending.getOfferIdentity()))state.predictions.put(pending.getSlot(),new PredictionBinding(pending,true));
+            }
+        }
+        for(var entry:state.predictions.entrySet()) {
+            PredictionBinding binding=entry.getValue();OfferEvent origin=binding==null?null:binding.origin;
+            if(entry.getKey()==null || entry.getKey()<0 || entry.getKey()>=8 || origin==null
+                || origin.getSlot()!=entry.getKey() || !accountId.equals(origin.getAccountId())
+                || !state.sessionId.equals(origin.getSessionId()) || origin.getSequence()<1
+                || origin.getSequence()>=state.nextSequence || blank(origin.getEventId()) || blank(origin.getOfferIdentity()))
+                throw new IllegalStateException("invalid prediction binding scope");
+            if(!"1".equals(origin.getSchemaVersion())
+                || (origin.getPredictionEvidenceVersion()!=null && !"1".equals(origin.getPredictionEvidenceVersion()))
+                || (!binding.invalidated && (!origin.isPredictionComparable()
+                    || !origin.getEventId().equals(origin.getPredictionSourceEventId()))))
+                throw new IllegalStateException("invalid prediction binding schema or source");
+        }
 		if (upgraded) write(state);
 		return state;
 	}
@@ -172,14 +238,16 @@ public final class OfferEventOutbox
 		private transient Path file;
 		private long nextSequence = 1;
 		private List<OfferEvent> pending = new ArrayList<>();
+        private java.util.Map<Integer,PredictionBinding> predictions;
 		private State() { }
 		private State(String sessionId, String accountId, Path file)
-		{ this.sessionId = sessionId; this.accountId = accountId; this.file = file; }
+		{ this.sessionId = sessionId; this.accountId = accountId; this.file = file; this.predictions=new java.util.HashMap<>(); }
 		private State copy()
 		{
 			State copy = new State(sessionId, accountId, file);
 			copy.nextSequence = nextSequence;
 			copy.pending = new ArrayList<>(pending);
+            copy.predictions=new java.util.HashMap<>(predictions);
 			return copy;
 		}
 	}

@@ -10,8 +10,8 @@ package com.flippingfriend.core;
  * worth asking of this data is a comparison between what was suggested and what followed.
  * <p>
  * {@link #getRecommendationId()} carries the correlation id of the plan that advised the trade, so
- * outcomes land against the decision that caused them. It is null for offers the player placed on
- * their own, and those are worth keeping too — an unprompted trade that does well is evidence about
+	 * outcomes can be associated with the original observation. Association does not prove player
+	 * intent. Unknown associations are worth keeping too — an unprompted trade is evidence about
  * the market just as much as a prompted one.
  */
 public final class OfferEvent
@@ -60,6 +60,11 @@ public final class OfferEvent
 	private final double predictedCompletion;
 	/** When this offer first appeared, so elapsed fill time is computable from any later event. */
 	private final long firstSeenAt;
+    /** Optional prospective provenance. Missing legacy fields do not invent an original prediction. */
+    private final String predictionEvidenceVersion;
+    private final String predictionSourceEventId;
+    private final Long adviceObservedAt;
+    private final Boolean predictionComparable;
 
 	private OfferEvent(Builder builder)
 	{
@@ -88,6 +93,10 @@ public final class OfferEvent
 		this.predictedMinutes = builder.predictedMinutes;
 		this.predictedCompletion = builder.predictedCompletion;
 		this.firstSeenAt = builder.firstSeenAt;
+        this.predictionEvidenceVersion=builder.predictionEvidenceVersion;
+        this.predictionSourceEventId=builder.predictionSourceEventId;
+        this.adviceObservedAt=builder.adviceObservedAt;
+        this.predictionComparable=builder.predictionComparable;
 	}
 
 	public static Builder builder(String correlationId, long observedAt, String eventType)
@@ -105,7 +114,7 @@ public final class OfferEvent
 	public OfferEvent withAccountId(String accountId)
 	{
 		if (!"1".equals(schemaVersion)) throw new IllegalArgumentException("unsupported offer schema");
-		return builder(correlationId, observedAt, eventType)
+		return copyBuilder()
 			.accountId(AccountIdentity.require(accountId)).eventIdentity(eventId, sessionId, offerIdentity)
 			.authenticatedObservation(authenticatedObservation)
 			.slot(slot).item(itemId, itemName).buying(buying).price(price)
@@ -135,6 +144,41 @@ public final class OfferEvent
 	/** Zero when no model-produced probability accompanied the advice, in which case do not calibrate. */
 	public double getPredictedCompletion() { return predictedCompletion; }
 	public long getFirstSeenAt() { return firstSeenAt; }
+    public String getPredictionEvidenceVersion() { return predictionEvidenceVersion; }
+    public String getPredictionSourceEventId() { return predictionSourceEventId; }
+    public long getAdviceObservedAt() { return adviceObservedAt==null?0:adviceObservedAt; }
+    public boolean isPredictionComparable() { return Boolean.TRUE.equals(predictionComparable); }
+
+    private Builder copyBuilder() {
+        Builder copy=builder(correlationId,observedAt,eventType).eventIdentity(eventId,sessionId,offerIdentity)
+            .authenticatedObservation(authenticatedObservation).slot(slot).item(itemId,itemName).buying(buying)
+            .price(price).quantities(totalQuantity,filledQuantity).spent(spent).sequence(sequence).firstSeenAt(firstSeenAt)
+            .recommendation(recommendationId,suggestedPrice,suggestedQuantity,quoteAgeSeconds,predictedMinutes,predictedCompletion);
+        if(accountId!=null)copy.accountId(accountId);
+        copy.predictionEvidenceVersion=predictionEvidenceVersion;copy.predictionSourceEventId=predictionSourceEventId;
+        copy.adviceObservedAt=adviceObservedAt;copy.predictionComparable=predictionComparable;
+        return copy;
+    }
+    /** Freezes observational attribution, not proof of player intent. Economic/delivery fields stay intact. */
+    public OfferEvent withBoundPrediction(OfferEvent origin,boolean comparable) {
+        Builder copy=copyBuilder();
+        boolean matched=origin!=null && origin.wasRecommended();
+        if(origin!=null && (!java.util.Objects.equals(accountId,origin.accountId)
+            || !java.util.Objects.equals(sessionId,origin.sessionId)
+            || !java.util.Objects.equals(offerIdentity,origin.offerIdentity) || slot!=origin.slot
+            || itemId!=origin.itemId || buying!=origin.buying || firstSeenAt!=origin.firstSeenAt))
+            throw new IllegalArgumentException("prediction origin belongs to another offer");
+        comparable=comparable && matched && origin.price==price && origin.totalQuantity==totalQuantity
+            && origin.suggestedPrice==price && origin.suggestedQuantity==totalQuantity
+            && Double.isFinite(origin.predictedMinutes) && origin.predictedMinutes>0
+            && Double.isFinite(origin.predictedCompletion) && origin.predictedCompletion>=0 && origin.predictedCompletion<=1;
+        copy.recommendation(matched?origin.recommendationId:null,matched?origin.suggestedPrice:0,
+            matched?origin.suggestedQuantity:0,matched?origin.quoteAgeSeconds:0,
+            comparable?origin.predictedMinutes:0,comparable?origin.predictedCompletion:0);
+        copy.predictionEvidence(matched?(origin.predictionSourceEventId==null?origin.eventId:origin.predictionSourceEventId):null,
+            matched?origin.getAdviceObservedAt():0,comparable);
+        return copy.build();
+    }
 
 	/**
 	 * What the fills actually averaged, which is not the offer price: a buy at 100 can fill cheaper
@@ -152,7 +196,7 @@ public final class OfferEvent
 		return firstSeenAt <= 0 ? 0 : Math.max(0, observedAt - firstSeenAt);
 	}
 
-	/** True when the player acted on advice rather than independently. */
+	/** An advice association is present; this alone proves neither intent nor prediction comparability. */
 	public boolean wasRecommended()
 	{
 		return recommendationId != null && !recommendationId.isEmpty();
@@ -190,6 +234,9 @@ public final class OfferEvent
 		private double predictedMinutes;
 		private double predictedCompletion;
 		private long firstSeenAt;
+        private String predictionEvidenceVersion,predictionSourceEventId;
+        private Long adviceObservedAt;
+        private Boolean predictionComparable;
 
 		private Builder(String correlationId, long observedAt, String eventType)
 		{
@@ -223,6 +270,10 @@ public final class OfferEvent
 		public Builder spent(long value) { this.spent = value; return this; }
 		public Builder sequence(long value) { this.sequence = value; return this; }
 		public Builder firstSeenAt(long value) { this.firstSeenAt = value; return this; }
+        public Builder predictionEvidence(String source,long advisedAt,boolean comparable) {
+            predictionEvidenceVersion="1";predictionSourceEventId=source;adviceObservedAt=advisedAt;
+            predictionComparable=comparable;return this;
+        }
 
 		/** Links this offer to the advice that prompted it. */
 		public Builder recommendation(String id, int price, int quantity, long quoteAge,

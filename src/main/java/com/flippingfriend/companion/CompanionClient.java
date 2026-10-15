@@ -339,7 +339,7 @@ public class CompanionClient
                 SuggestionLedger.Advice advice = ledger.attribute(offer.getItemId(), offer.isBuying(), now);
                 try
                 {
-                        OfferEvent event = outbox.enqueue((eventId, sessionId, sequence) ->
+                        OfferEvent event = outbox.enqueueObservedOffer((eventId, sessionId, sequence) ->
                         {
                                 long start = offer.getFirstSeen() > 0 ? offer.getFirstSeen() : now;
                                 OfferEvent.Builder builder = OfferEvent.builder(UUID.randomUUID().toString(), now, state)
@@ -356,6 +356,7 @@ public class CompanionClient
                                         builder.recommendation(advice.getRecommendationId(), advice.getPrice(),
                                                 advice.getQuantity(), advice.getQuoteAgeSeconds(),
                                                 advice.getPredictedMinutes(), advice.getPredictedCompletion());
+                                        builder.predictionEvidence(null,advice.getRecordedAt(),false);
                                 }
                                 return builder.build();
                         });
@@ -399,7 +400,7 @@ public class CompanionClient
                 { lastError = "Could not persist offer event: account identity changed or unavailable"; return null; }
                 try
                 {
-                        OfferEvent event = outbox.enqueue((eventId, sessionId, sequence) ->
+                        OfferEvent event = outbox.enqueueObservedOffer((eventId, sessionId, sequence) ->
                                 OfferEvent.builder(UUID.randomUUID().toString(), now, "EMPTY")
                                         .accountId(expectedAccountId)
                                         .authenticatedObservation(authenticated)

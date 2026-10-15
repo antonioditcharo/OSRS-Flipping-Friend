@@ -3,6 +3,39 @@
 Updated 15 October 2026 (America/Anchorage). Read this with [AGENTS.md](AGENTS.md) and
 [TASKS.md](TASKS.md) before continuing implementation.
 
+## Execution prediction provenance source — 15 October 2026
+
+New branch `codex/execution-advice-provenance` starts at rebuild `b516b7e` (#55). The installed
+runtime remains through #53, with the live READY/entry GET receipt below; this source work is not
+installed or live-accepted. Batch a later paired update, without another immediate login cycle.
+
+Regressions `d1d18dd` (six publisher failures), `43f5c34` (five companion failures), `942fcbe`
+(refreshed forecast borrowing an older clock), `878db45` (missing provenance) and `32a567d`
+(saved binding schema) and `2980fa5` (same-second ambiguity) preceded their fixes. Original advice and negative bindings now persist
+atomically with the existing account outbox and survive ACK/restart. The companion validates the
+earliest original source and uses its prediction without rewriting raw events. Unknown/mismatched
+evidence remains unpaired; existing accounting, dedup keys, gaps and historical totals remain.
+See [the provenance contract](docs/architecture/execution-prediction-provenance.md).
+Runtime implementation is `c595c42`, `08d4832` and the subsequent strict same-second fix. Current
+forecast time must strictly precede first observation to train timing; same-second association can
+remain diagnostic. Positive maintenance fixtures now begin with a real authenticated,
+zero-fill source before a partial observation; cached or already partial starts cannot invent lineage.
+
+```text
+.\gradlew.bat clean test jar :companion:shadowJar --console=plain
+BUILD SUCCESSFUL in 46s / 18 actionable tasks: 18 executed / exit 0
+Plugin: 606; Core: 176; Companion: 623 including six existing skips
+Total: 1,399 passed; 6 skipped; 0 failures/errors
+Python: Ran 63 tests in 59.273s / OK / exit 0
+Candidate plugin: 473,199 bytes; companion: 17,837,507 bytes
+Both project JARs: class major 55 (Java 11)
+```
+
+Private evidence is in the reusable worktree's ignored .gradle/execution-*.log. No live database
+was changed by the agent, no new installation occurred and no game input was sent. This repairs
+prediction attribution, not cancellation censoring, offline completion intervals or calibration
+promotion. Issue #56 remains open for those gates and chronological full-account evaluation.
+
 ## Installed #51/#52/#53 pair; live entry read passes — 15 October 2026
 
 Current normal rebuild is `33f4dc0f18ab6505edb16b54d7c77da3b60b6f6f` (documentation #54), clean
