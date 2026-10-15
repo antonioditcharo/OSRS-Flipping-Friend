@@ -131,6 +131,26 @@ public class ExecutionEvaluationBundleTest {
         catch(IllegalArgumentException expected){ }
         assertFalse(Files.exists(target));
     }
+    @Test public void recordedClearContextScopesAnUnnamedGapAndKeepsAnUnrelatedForecastEvaluable() {
+        List<OfferEvent> events=new ArrayList<>(history(true));
+        events.add(OfferEvent.builder("fixture",AT+201,"EMPTY").accountId(account).eventIdentity("clear","session",null)
+            .sequence(5).slot(0).authenticatedObservation(true).build());
+        for(var original:history(true)) {
+            var raw=gson.toJsonTree(original).getAsJsonObject();raw.addProperty("eventId",original.getEventId()+"-unrelated");
+            raw.addProperty("sessionId","unrelated-session");raw.addProperty("slot",1);
+            if(original.getOfferIdentity()!=null) {
+                raw.addProperty("itemId",562);raw.addProperty("offerIdentity","unrelated-offer");
+                raw.addProperty("predictionSourceEventId","birth-unrelated");raw.getAsJsonObject("executionForecast").addProperty("itemId",562);
+            }
+            events.add(gson.fromJson(raw,OfferEvent.class));
+        }
+        var source=snapshot(500,events);
+        var scoped=new ExecutionSourceSnapshot(account,AT+500,source.offers,
+            List.of(new ExecutionSourceSnapshot.Gap(1,AT+201,"clear",null)));
+        var evaluation=new ExecutionHorizonEvaluation(scoped.observations(),null);
+        assertEquals(1,evaluation.eligible);assertEquals(1,evaluation.unqualified);
+        assertEquals("birth-unrelated",evaluation.scores.get(0).sourceEventId);
+    }
     @Test public void concurrentWalCommitCannotMixOfferAndReconciliationSnapshots()throws Exception {
         Path database=folder.newFolder().toPath().resolve("coherent.db");
         try(var store=new SqliteStore(database)) {
