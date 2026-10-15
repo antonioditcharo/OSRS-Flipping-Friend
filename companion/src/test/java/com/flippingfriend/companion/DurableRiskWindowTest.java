@@ -242,4 +242,16 @@ public class DurableRiskWindowTest {
     private void set(Object target,String field,Object value)throws Exception {
         var f=target.getClass().getDeclaredField(field);f.setAccessible(true);f.set(target,value);
     }
+    @Test public void unknownWindowSchemaCannotBeLoadedAsAValidRiskAnchor()throws Exception {
+        try(var s=new SqliteStore(folder.newFolder().toPath().resolve("schema.db"))) {
+            Map<Integer,String> receipt=new HashMap<>();
+            for(int slot=0;slot<8;slot++){var e=event(slot,"EMPTY",null,0,0,0,0);accept(s,e);receipt.put(slot,e.getEventId());}
+            var a=new AccountSnapshot("window",at,100000000,0,8,8,true,false,0)
+                .withAccountId(account).withAutomaticTradeScope().withOfferReadSet(receipt);
+            var wire=gson.toJsonTree(new RiskWindow(a,session,0,100000000)).getAsJsonObject();wire.addProperty("schemaVersion","2");
+            s.recordEvent(at,RiskWindow.correlation(session),RiskWindow.EVENT_TYPE,gson.toJson(wire));
+            try{capture(s,100000000);fail("Unknown window schema must be rejected");}
+            catch(IllegalStateException expected){assertEquals("Risk window provenance is inconsistent.",expected.getMessage());}
+        }
+    }
 }

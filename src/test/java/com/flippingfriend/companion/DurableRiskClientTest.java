@@ -47,4 +47,15 @@ public class DurableRiskClientTest {
         assertFalse(client.acceptFetchedPlan(gson.fromJson(body,PortfolioPlan.class),storage.accountId(),0));
         assertNull(client.lastPlan());
     }
+    @Test public void unknownOrMissingRiskSchemaCannotBeAcceptedFromTheWire()throws Exception {
+        var storage=TestStorage.rootedAt(folder.newFolder().toPath(),"schema-risk");
+        var client=new CompanionClient(storage,gson,new SuggestionLedger());long now=Instant.now().getEpochSecond();
+        var risk=AccountRiskSnapshot.builder(storage.accountId(),"window","s",now-1,0,now,now).capital(100,100).build();
+        for(String schema:new String[]{"2",null}) {
+            var body=gson.toJsonTree(new PortfolioPlan("fixture",now,now+90,"READY","fixture",0,List.of()).withCanonicalRisk(risk)).getAsJsonObject();
+            if(schema==null)body.getAsJsonObject("canonicalRisk").remove("schemaVersion");
+            else body.getAsJsonObject("canonicalRisk").addProperty("schemaVersion",schema);
+            assertFalse("Unknown/missing risk schema must fail closed",client.acceptFetchedPlan(gson.fromJson(body,PortfolioPlan.class),storage.accountId(),0));
+        }
+    }
 }
