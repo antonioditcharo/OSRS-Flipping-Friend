@@ -25,6 +25,7 @@ public final class PortfolioPlan
 	private final PlanDiagnostics diagnostics;
 	/** Conservative capital guards for paused items; these are not proven holdings or profit. */
 	private java.util.Map<Integer,Long> uncertainCapitalBounds;
+	private AccountRiskSnapshot canonicalRisk;
 
 	/**
 	 * What the best full board of trades would earn, whether or not any of it can be placed yet.
@@ -89,6 +90,7 @@ public final class PortfolioPlan
 		copy.bench = bench;
 		copy.outcome = getOutcome();
 		copy.uncertainCapitalBounds = uncertainCapitalBounds;
+		copy.canonicalRisk = canonicalRisk;
 		return copy;
 	}
 
@@ -117,6 +119,7 @@ public final class PortfolioPlan
 		copy.bench = queue == null ? bench : Collections.unmodifiableList(queue);
 		copy.outcome = getOutcome();
 		copy.uncertainCapitalBounds = uncertainCapitalBounds;
+		copy.canonicalRisk = canonicalRisk;
 		return copy;
 	}
 
@@ -135,6 +138,15 @@ public final class PortfolioPlan
 		return uncertainCapitalBounds == null ? Collections.emptyMap()
 			: Collections.unmodifiableMap(new java.util.TreeMap<>(uncertainCapitalBounds));
 	}
+
+	public PortfolioPlan withCanonicalRisk(AccountRiskSnapshot risk)
+	{
+		if (risk == null || !risk.isValid()) throw new IllegalArgumentException("invalid risk diagnostic");
+		PortfolioPlan copy = withDiagnostics(diagnostics);
+		copy.canonicalRisk = risk;
+		return copy;
+	}
+	public AccountRiskSnapshot getCanonicalRisk() { return canonicalRisk; }
 
 	/**
 	 * A refusal to plan, which is a decision and must be readable for as long as any other.

@@ -179,6 +179,7 @@ public class FlippingFriendPlugin extends Plugin
 	private NavigationButton navigationButton;
 	private ExecutorService worker;
 	private boolean drawdownAlerted = false;
+    private String drawdownAlertWindow;
 
 	private final java.util.Set<Integer> alertedDumps = new java.util.concurrent.ConcurrentSkipListSet<>();
 
@@ -794,24 +795,6 @@ public class FlippingFriendPlugin extends Plugin
 
 					// The companion owns new-entry portfolio selection. The legacy engine remains here only
 					// for collect/sell recovery while its equivalent companion workflows are introduced.
-					long markedDrawdown = com.flippingfriend.session.SessionRisk.markedDrawdown(
-						journal.sessionStats(), engine.tradingPositions(), marketData.getSnapshot(), taxCalculator);
-
-					long bankroll = observedState.spendableCoins(config.includeBankValue(), config.bankrollCap());
-					if (bankroll > 0 && markedDrawdown > bankroll * 0.15)
-					{
-						if (!drawdownAlerted)
-						{
-							notifier.notify("CRITICAL: 15% Session Drawdown Breaker tripped!");
-							clientThread.invokeLater(() -> client.playSoundEffect(2289)); // Urgent Horn
-							drawdownAlerted = true;
-						}
-					}
-					else
-					{
-						drawdownAlerted = false;
-					}
-
 					// The buy-limit ledger travels too. Offer events are fire-and-forget over loopback, so
 					// one lost while the companion restarts is lost to it for good -- and the next plan
 					// then orders over the limit, which stops filling part-way with no error at all.
@@ -819,7 +802,7 @@ public class FlippingFriendPlugin extends Plugin
 					// out rather than having them filtered off the card afterwards. They were only ever
 					// applied at selection, so the portfolio list went on showing a blocked item as the
 					// top-ranked trade and the headline rate was computed from trades never on offer.
-					companion.publishAccount(observedState, config, markedDrawdown,
+					companion.publishAccount(observedState, config, 0,
 						committedByItem(), buyLimits.activeWindows(java.time.Instant.now()),
 						com.flippingfriend.model.SuggestionEngine.parseBlocked(config.blockedItems()),
 						engine.skippedItems(), offerTracker.itemsWithOpenOffers(), engine.isSellOnly(), positions.all(), observedOffers, observedAccount, planningObservation);
@@ -831,6 +814,19 @@ public class FlippingFriendPlugin extends Plugin
 					// cycle the portfolio list kept rendering an ever-older plan with nothing to say it
 					// was stale.
 					companion.refreshPlan();
+                    var risk=companion.currentRisk();
+                    if(observedGeneration!=offerObservationGeneration.get() || observedRevision!=adviceObservationRevision.get())return;
+                    if(risk!=null) {
+                        if(!java.util.Objects.equals(drawdownAlertWindow,risk.getWindowId())) {
+                            drawdownAlertWindow=risk.getWindowId();drawdownAlerted=false;
+                        }
+                        if(risk.getDrawdownUpper()>0 && risk.getRemainingLossBudget()<=0) {
+                            if(!drawdownAlerted) {
+                                notifier.notify("Account risk has reached its 15% loss allowance. New buys are paused.");
+                                drawdownAlerted=true;
+                            }
+                        }else drawdownAlerted=false;
+                    }
 
 					// The decision chain: companion collect, then built-in recovery, then companion buy, then fallback buy.
 

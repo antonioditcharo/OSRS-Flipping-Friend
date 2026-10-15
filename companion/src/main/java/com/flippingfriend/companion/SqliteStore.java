@@ -65,6 +65,8 @@ final class SqliteStore implements AutoCloseable
 	private static final TransactionCheckpoint NO_CHECKPOINT = checkpoint -> { };
 	private final Connection connection;
 	private final TransactionCheckpoint checkpoint;
+	/** Immutable metadata is cached only after its transaction commits. No cached absence. */
+	private final Map<String,RiskWindow> riskWindows = new HashMap<>();
 
 	/**
 	 * Opens an existing database for reading only, creating and altering nothing.
@@ -284,6 +286,7 @@ final class SqliteStore implements AutoCloseable
         AutomaticTradeScope tradeScope;
         Map<Integer,OfferEvent> currentEvents=java.util.Collections.emptyMap();
         List<OfferEvent> history;
+        RiskLedgerEvidence riskEvidence;
 		PlanningProjections(List<PositionProjection> positions,
 			List<OfferLifecycleProjection> offers)
 		{
@@ -303,12 +306,9 @@ final class SqliteStore implements AutoCloseable
 		connection.setAutoCommit(false);
 		try
 		{
-			PlanningProjections result = new PlanningProjections(
-				positionProjections(), offerProjections());
-            result.tradeScope = automaticTradeScope(expectedAccountId);
-            result.currentEvents=currentOfferEvidence(expectedAccountId);
-            if (!result.tradeScope.unsafeItems.isEmpty()) result.history=offerHistory(expectedAccountId);
+			PlanningProjections result = readPlanningProjections(expectedAccountId);
 			connection.commit();
+			cacheRiskWindow(result.riskEvidence.window);
 			return result;
 		}
 		catch (Exception failure)
@@ -320,6 +320,111 @@ final class SqliteStore implements AutoCloseable
 		{
 			connection.setAutoCommit(true);
 		}
+	}
+
+	/** Caller owns the read/write transaction; no nested commit or live-state rewrite. */
+	private PlanningProjections readPlanningProjections(String expectedAccountId) throws Exception
+	{
+		PlanningProjections result = new PlanningProjections(positionProjections(), offerProjections());
+		result.tradeScope = automaticTradeScope(expectedAccountId);
+		result.currentEvents = currentOfferEvidence(expectedAccountId);
+		if (!result.tradeScope.unsafeItems.isEmpty()) result.history = offerHistory(expectedAccountId);
+		String session = result.currentEvents.isEmpty() ? null : result.currentEvents.values().iterator().next().getSessionId();
+		result.riskEvidence = riskLedgerEvidence(result.tradeScope, riskWindow(expectedAccountId, session));
+		return result;
+	}
+
+	private RiskWindow riskWindow(String expectedAccountId, String session) throws Exception
+	{
+		if (expectedAccountId == null || session == null || session.isBlank()) return null;
+		RiskWindow cached = riskWindows.get(expectedAccountId + ":" + session);
+		if (cached != null) return cached;
+		RiskWindow result = null;
+		try (PreparedStatement sql = connection.prepareStatement(
+			"SELECT observed_at,payload,event_id FROM event_log WHERE event_type=? AND correlation_id=? ORDER BY id"))
+		{
+			sql.setString(1, RiskWindow.EVENT_TYPE); sql.setString(2, RiskWindow.correlation(session));
+			try (ResultSet rows = sql.executeQuery())
+			{
+				while (rows.next())
+				{
+					RiskWindow window = new com.google.gson.Gson().fromJson(rows.getString(2), RiskWindow.class);
+					if (result != null || window == null || !window.isValid()
+						|| !expectedAccountId.equals(window.accountId) || !session.equals(window.sessionId)
+						|| rows.getLong(1) != window.startedAt || rows.getString(3) != null)
+						throw new IllegalStateException("Risk window provenance is inconsistent.");
+					result = window;
+				}
+			}
+		}
+		if (result != null) validateRiskWindowSources(result);
+		return result;
+	}
+	private void validateRiskWindowSources(RiskWindow window) throws Exception
+	{
+        var parser=new com.google.gson.Gson();
+        try(var sql=connection.prepareStatement("SELECT observed_at,payload FROM event_log WHERE event_id=?")) {
+            for(int slot=0;slot<8;slot++) {
+                sql.setString(1,window.sourceForSlot(slot));
+                try(var rows=sql.executeQuery()) {
+                    if(!rows.next())throw new IllegalStateException("Risk window source receipt is missing.");
+                    var source=parser.fromJson(rows.getString(2),OfferEvent.class);
+                    if(source==null || !TradeGapEvidence.valid(source) || !source.isAuthenticatedObservation()
+                        || !window.accountId.equals(source.getAccountId()) || !window.sessionId.equals(source.getSessionId())
+                        || !window.sourceForSlot(slot).equals(source.getEventId()) || source.getSlot()!=slot
+                        || source.getObservedAt()!=window.startedAt || rows.getLong(1)!=window.startedAt || rows.next())
+                        throw new IllegalStateException("Risk window source receipt is inconsistent.");
+                }
+            }
+        }
+	}
+	private void cacheRiskWindow(RiskWindow window)
+	{
+		if (window != null) riskWindows.put(window.accountId + ":" + window.sessionId, window);
+	}
+
+	private RiskLedgerEvidence riskLedgerEvidence(AutomaticTradeScope current, RiskWindow window) throws Exception
+	{
+		RiskLedgerEvidence result = new RiskLedgerEvidence(window);
+		AutomaticTradeScope replay = new AutomaticTradeScope();
+		try (Statement sql = connection.createStatement(); ResultSet rows = sql.executeQuery(
+			"SELECT id,effect_type,item_id,item_name,quantity,acquisition_cost,observed_at,source_event_id," +
+			"source_offer_identity,profit_lower,profit_upper FROM position_event ORDER BY id"))
+		{
+			while (rows.next())
+			{
+				String type = rows.getString(2); int item = rows.getInt(3);
+				var affected = current.reconciliationScope.get(rows.getString(8));
+				result.apply(rows.getLong(1), type, item, rows.getInt(5), nullableLong(rows,10), nullableLong(rows,11),
+					replay.positions.get(item), affected);
+				replay.apply(type,item,rows.getString(4),rows.getInt(5),rows.getLong(6),rows.getLong(7),rows.getString(8),rows.getString(9),affected);
+			}
+		}
+		if (window != null && window.positionCursor > result.maxPositionCursor)
+			throw new IllegalStateException("Risk cursor exceeds the recorded ledger.");
+		return result;
+	}
+
+	private RiskWindow startRiskWindowIfProven(AccountSnapshot snapshot) throws Exception
+	{
+		if (!snapshot.isAutomaticTradeScope()) return null;
+		var sources = currentOfferEvidence(snapshot.getAccountId());
+		if (!sources.isEmpty())
+		{
+			String session = sources.values().iterator().next().getSessionId();
+			RiskWindow committed = riskWindows.get(snapshot.getAccountId() + ":" + session);
+			if (committed != null) return committed;
+		}
+		long now = Instant.now().getEpochSecond();
+		var read = readPlanningProjections(snapshot.getAccountId());
+		if (!CurrentOfferReadSet.valid(read, snapshot, now) || read.riskEvidence.window != null) return read.riskEvidence.window;
+		long capital = DurableRisk.knownCapital(read, snapshot, now);
+		if (capital <= 0) return null;
+		String session = read.currentEvents.values().iterator().next().getSessionId();
+		RiskWindow window = new RiskWindow(snapshot, session, read.riskEvidence.maxPositionCursor, capital);
+		recordEvent(window.startedAt, RiskWindow.correlation(session), RiskWindow.EVENT_TYPE, new com.google.gson.Gson().toJson(window));
+		checkpoint.reached("RISK_WINDOW_RECORDED");
+		return window;
 	}
 	synchronized List<OfferLifecycleProjection> offerProjections() throws Exception
 	{
@@ -690,7 +795,9 @@ final class SqliteStore implements AutoCloseable
 			checkpoint.reached("SNAPSHOT_POSITIONS_RECONCILED");
 			reconcileBuyLimits(snapshot, result);
 			checkpoint.reached("SNAPSHOT_BUY_LIMITS_RECONCILED");
+			RiskWindow window = startRiskWindowIfProven(snapshot);
 			connection.commit();
+			cacheRiskWindow(window);
 			return result;
 		}
 		catch (Exception failure)
@@ -964,18 +1071,18 @@ final class SqliteStore implements AutoCloseable
 	}
 
 	/**
-	 * Bounds the event log.
+	 * Bounds old observation snapshots, preserving financial identities and risk anchors.
 	 * <p>
-	 * It was the last table in the schema with no retention at all. Most of its rows are account
-	 * snapshots, which the only query against it explicitly excludes -- they are kept because they are
-	 * the forensic record of what the companion was told, which is how several faults in this project
-	 * were eventually explained, but there is no reason to keep them for ever.
+     * Account snapshots are a forensic record and can expire. Accepted financial identities, offer
+     * provenance and risk markers cannot: removing them could recount a duplicate or reset losses.
+     * This helper does not prune financial history or rewrite any projection.
 	 */
 	synchronized int pruneEvents(int keepDays) throws Exception
 	{
 		long cutoff = Instant.now().getEpochSecond() - (long) keepDays * 86_400;
 		try (PreparedStatement statement = connection.prepareStatement(
-			"DELETE FROM event_log WHERE observed_at < ?"))
+			"DELETE FROM event_log WHERE observed_at < ? AND event_type='ACCOUNT_STATE' "
+				+ "AND (event_id IS NULL OR event_id='')"))
 		{
 			statement.setLong(1, cutoff);
 			return statement.executeUpdate();
@@ -1312,7 +1419,7 @@ final class SqliteStore implements AutoCloseable
 		List<String> payloads = new ArrayList<>();
 		try (PreparedStatement statement = connection.prepareStatement(
 			"SELECT payload FROM event_log WHERE observed_at >= ? AND event_type <> 'ACCOUNT_STATE' "
-				+ "AND event_type <> 'LEGACY_IMPORT' ORDER BY observed_at ASC, id ASC"))
+				+ "AND event_type <> 'LEGACY_IMPORT' AND event_type <> 'RISK_WINDOW_V1' ORDER BY observed_at ASC, id ASC"))
 		{
 			statement.setLong(1, since);
 			try (ResultSet result = statement.executeQuery())

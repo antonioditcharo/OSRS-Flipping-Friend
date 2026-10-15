@@ -543,9 +543,17 @@ final class CompanionService implements AutoCloseable
             var exposure=DurablePlanningExposure.forAccount(read,snapshot,decidedAt);
             var candidate=selected.getCandidate();
             if(exposure==null || candidate==null)throw new IllegalStateException("entry exposure unavailable");
+            var risk=DurableRisk.evaluate(read,snapshot,exposure,market.state(),decidedAt);
+            if(!risk.isAvailable())
+                return CompanionEntryPolicy.abstain(recommendationId,decidedAt,observedAt,
+                    com.flippingfriend.core.PolicyAbstentionReason.ACCOUNT_STATE_UNAVAILABLE,"DURABLE_RISK_UNAVAILABLE");
+            if(risk.getRemainingLossBudget()<=0)
+                return CompanionEntryPolicy.abstain(recommendationId,decidedAt,observedAt,
+                    com.flippingfriend.core.PolicyAbstentionReason.DRAWDOWN_LIMIT_REACHED,"DRAWDOWN_LIMIT_REACHED");
             java.util.Set<Integer> occupied=new java.util.HashSet<>();
             for(var p:read.offers)if(p.getState()!=com.flippingfriend.core.OfferLifecycleState.EMPTY)occupied.add(p.getItemId());
-            var planning=snapshot.withPlanningRestrictions(exposure.committedByItem,exposure.unavailableEntryItems).withPlanningOffers(occupied);
+            var planning=snapshot.withPlanningRestrictions(exposure.committedByItem,exposure.unavailableEntryItems)
+                .withPlanningOffers(occupied).withCanonicalRisk(risk);
             var metadata=market.state().mapping.get(candidate.getItemId());
             if(planning.isSellOnly() || PortfolioPlanner.lossBudgetFor(planning)<=0
                     || PortfolioPlanner.rejected(candidate,planning) || metadata==null
@@ -643,7 +651,7 @@ final class CompanionService implements AutoCloseable
     private boolean samePlanningInputs(AccountSnapshot first,AccountSnapshot second) {
         if(first==null || second==null)return first==second;
         var a=gson.toJsonTree(first).getAsJsonObject();var b=gson.toJsonTree(second).getAsJsonObject();
-        for(String field:java.util.List.of("observedAt","correlationId","offerReadSet")){a.remove(field);b.remove(field);}
+        for(String field:java.util.List.of("observedAt","correlationId","offerReadSet","canonicalRisk","markedSessionDrawdown")){a.remove(field);b.remove(field);}
         return a.equals(b);
     }
     private boolean currentPlanningProof(long now) {
@@ -653,7 +661,11 @@ final class CompanionService implements AutoCloseable
         var currentMarket=market.state();
         if(currentMarket==null || currentMarket.observedAt<=0 || currentMarket.observedAt>now
                 || now-currentMarket.observedAt>STALE_MARKET_SECONDS)return false;
-        try{return DurablePlanningExposure.forAccount(store.planningProjections(snapshot.getAccountId()),snapshot,now)!=null;}
+        try {
+            var read=store.planningProjections(snapshot.getAccountId());
+            var exposure=DurablePlanningExposure.forAccount(read,snapshot,now);
+            return exposure!=null && DurableRisk.evaluate(read,snapshot,exposure,currentMarket,now).isAvailable();
+        }
         catch(Exception unavailable){return false;}
     }
     /** Neither a dropped client fill nor a dropped companion fill can increase the known limit. */
@@ -736,6 +748,7 @@ final class CompanionService implements AutoCloseable
 		}
 		AccountSnapshot sourceSnapshot = snapshot;
 		Map<Integer,Long> bounds = new java.util.HashMap<>();
+		com.flippingfriend.core.AccountRiskSnapshot risk = null;
 		try
 		{
 			var read = store.planningProjections(snapshot.getAccountId());
@@ -743,12 +756,21 @@ final class CompanionService implements AutoCloseable
 				DurablePlanningExposure.forAccount(read, snapshot,Instant.now().getEpochSecond());
 			if (exposure == null)
 				throw new IllegalStateException("durable exposure requires reconciliation");
+            risk=DurableRisk.evaluate(read,snapshot,exposure,market.state(),Instant.now().getEpochSecond());
+            if(!risk.isAvailable()) {
+                synchronized(this) {
+                    if(revision!=planningInputRevision.get() || account!=sourceSnapshot)return;
+                    plan=PortfolioPlan.unavailable(snapshot.getCorrelationId(),PortfolioPlanOutcome.COMPANION_STATE_UNAVAILABLE,
+                        risk.getReason(),risk.getEvaluatedAt()).withCanonicalRisk(risk);
+                }
+                return;
+            }
 			snapshot = snapshot.withPlanningRestrictions(exposure.committedByItem,exposure.unavailableEntryItems);
 			for (int item : exposure.unavailableEntryItems)
 				bounds.put(item, exposure.committedByItem.getOrDefault(item, 0L));
             java.util.Set<Integer> occupied=new java.util.HashSet<>();
             for(var p:read.offers)if(p.getState()!=com.flippingfriend.core.OfferLifecycleState.EMPTY)occupied.add(p.getItemId());
-            snapshot=snapshot.withPlanningOffers(occupied);
+            snapshot=snapshot.withPlanningOffers(occupied).withCanonicalRisk(risk);
 			resolved("Planning exposure");
 		}
 		catch (Exception unavailable)
@@ -766,7 +788,7 @@ final class CompanionService implements AutoCloseable
 		}
 		PortfolioPlan computed = planner.plan(market.state(), snapshot,
 			remainingBuyLimits(snapshot,Instant.now().getEpochSecond()), activeOffers.getActiveOffers())
-			.withUncertainCapitalBounds(bounds);
+			.withUncertainCapitalBounds(bounds).withCanonicalRisk(risk);
         synchronized (this) {
 		if (revision!=planningInputRevision.get() || !samePlanningInputs(account,sourceSnapshot)
             || (sourceSnapshot.isAutomaticTradeScope() && !currentPlanningProof(Instant.now().getEpochSecond()))) return;

@@ -94,6 +94,10 @@ public class CompanionClient
 	{
 		if (!java.util.Objects.equals(requestedAccount, accountContext())
 			|| requestedReview != stockReviewGeneration.get()) return false;
+        var risk=plan==null?null:plan.getCanonicalRisk();
+        if(risk!=null && (!risk.isValid() || !java.util.Objects.equals(requestedAccount,risk.getAccountId()))) {
+            lastPlan=null;return false;
+        }
 		acceptPlan(plan);
 		return true;
 	}
@@ -965,6 +969,23 @@ public class CompanionClient
 
 	/** Last plan fetched by the engine thread; Swing reads this cached immutable object only. */
 	public PortfolioPlan lastPlan() { accountContext(); return lastPlan; }
+
+    /** Fresh companion arithmetic only; local journal profit is never a risk fallback. */
+    public com.flippingfriend.core.AccountRiskSnapshot currentRisk() {
+        String account=accountContext();
+        PortfolioPlan plan=lastPlan;
+        var risk=plan==null?null:plan.getCanonicalRisk();
+        long now=Instant.now().getEpochSecond();
+        try {
+            if(offerEvidencePending() || risk==null || !risk.isAvailable() || plan.getExpiresAt()<=now
+                || !java.util.Objects.equals(account,risk.getAccountId())
+                || !java.util.Objects.equals(outbox.sessionId(),risk.getSessionId())
+                || risk.getEvaluatedAt()>now || now-risk.getEvaluatedAt()>150
+                || risk.getValidUntil()<now
+                || risk.getMarketObservedAt()>now || now-risk.getMarketObservedAt()>120)return null;
+            return risk;
+        }catch(Exception unavailable){return null;}
+    }
 	public CompanionHealth lastHealth() { accountContext(); return lastHealth; }
 
 	/**

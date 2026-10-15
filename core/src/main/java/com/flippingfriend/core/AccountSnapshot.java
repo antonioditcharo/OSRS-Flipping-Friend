@@ -7,6 +7,7 @@ import java.util.Map;
 public final class AccountSnapshot
 {
 	private final String accountId;
+    private AccountRiskSnapshot canonicalRisk;
     private Map<Integer,String> offerReadSet;
     private java.util.Set<Integer> unavailableEntryItems;
     private final boolean automaticTradeScope;
@@ -235,6 +236,7 @@ public final class AccountSnapshot
 
 	private AccountSnapshot(AccountSnapshot source, String accountId)
 	{
+        this.canonicalRisk=source.canonicalRisk;
         this.offerReadSet=source.offerReadSet==null?null:source.getOfferReadSet();
         this.unavailableEntryItems=source.unavailableEntryItems==null?null:source.getUnavailableEntryItems();
 		this.accountId = AccountIdentity.require(accountId);
@@ -266,6 +268,7 @@ public final class AccountSnapshot
     private AccountSnapshot(AccountSnapshot source, Map<Integer, Long> exposure,
             Map<Integer, StockDeclaration> declarations, boolean automaticScope)
     {
+        this.canonicalRisk=source.canonicalRisk;
         this.offerReadSet=source.offerReadSet==null?null:source.getOfferReadSet();
         this.unavailableEntryItems=source.unavailableEntryItems==null?null:source.getUnavailableEntryItems();
 		this.accountId = source.accountId;
@@ -295,6 +298,13 @@ public final class AccountSnapshot
 		return new AccountSnapshot(this, exposure);
 	}
 	public AccountSnapshot withAccountId(String accountId) { return new AccountSnapshot(this, accountId); }
+    /** Server-derived planning override. A wire-supplied value is never an authority. */
+    public AccountSnapshot withCanonicalRisk(AccountRiskSnapshot risk) {
+        if(risk==null || !risk.isAvailable() || !java.util.Objects.equals(accountId,risk.getAccountId())
+                || risk.getEvaluatedAt()<observedAt)throw new IllegalArgumentException("invalid canonical risk override");
+        AccountSnapshot copy=new AccountSnapshot(this,getCommittedByItem());copy.canonicalRisk=risk;return copy;
+    }
+    public AccountRiskSnapshot getCanonicalRisk() { return canonicalRisk; }
     /** Eight exact source observations, captured with the cash/slot state on the client thread. */
     public AccountSnapshot withOfferReadSet(Map<Integer,String> evidence) {
         if (evidence==null || evidence.size()!=8 || new java.util.HashSet<>(evidence.values()).size()!=8)

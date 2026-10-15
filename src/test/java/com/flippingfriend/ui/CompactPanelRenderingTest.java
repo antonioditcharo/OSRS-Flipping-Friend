@@ -40,6 +40,10 @@ public class CompactPanelRenderingTest {
             when(f.companion.lastPlan()).thenReturn(PortfolioPlan.unavailable("fixture",
                 PortfolioPlanOutcome.NO_ELIGIBLE_CANDIDATE,"No eligible candidate in this fixture.",java.time.Instant.now().getEpochSecond())
                 .withUncertainCapitalBounds(java.util.Map.of(561,1000000L,562,24000000L)));
+            long riskAt=java.time.Instant.now().getEpochSecond();
+            when(f.companion.currentRisk()).thenReturn(AccountRiskSnapshot.builder(AccountIdentity.fromProfileKey("synthetic"),
+                "window","session",riskAt-3600,0,riskAt,riskAt).capital(100000000,98765433)
+                .realized(-1234567,-1234567,2).uncertainty(123456,1,0).build());
             final JComponent[] opened = new JComponent[1];
             f.panel.setWindowPresenter((name,view)->opened[0]=view);
             for(String view:new String[]{"Recommendation","Holdings","Performance","Settings","Plan"}) {
