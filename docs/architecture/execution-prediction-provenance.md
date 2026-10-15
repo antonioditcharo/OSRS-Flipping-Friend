@@ -64,6 +64,12 @@ after restart or a new terminal heartbeat; no key change or historical backfill 
 
 ## Limits and next gate
 
+The subsequent [immutable forecast contract](immutable-execution-forecasts.md) moves publication
+to actual guide acceptance, separates leg probability from whole-flip confidence, and carries exact
+model/horizon/wait-work context through this same binding. Missing older context stays missing.
+The [observation readout](execution-observation-intervals.md) holds automatic calibration at the
+public-price baseline pending chronological promotion gates; historical ratios are diagnostic.
+
 Existing aggregate statistics remain historical data with their original limitations. Completion
 observation may follow an offline interval, cancellation is a censored observation, and the existing
 timing ratio does not become a validated waiting-time model through this change. No strategy weight,
