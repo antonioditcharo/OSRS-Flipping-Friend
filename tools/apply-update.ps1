@@ -1,6 +1,11 @@
 # One paired lifecycle for setup, re-setup, update and start. Never operates game input.
-param([switch] $SkipBuild, [switch] $ConfigureCompanionTask, [switch] $StartOnly, [switch] $CheckOnly)
+[CmdletBinding()]
+param([switch] $SkipBuild, [switch] $ConfigureCompanionTask, [switch] $StartOnly, [switch] $CheckOnly,
+    [switch] $Unattended)
 $ErrorActionPreference = 'Stop'
+if ($Unattended -and ($ConfigureCompanionTask -or $StartOnly -or $CheckOnly)) {
+    throw 'Unattended is only supported for routine updates of an existing installation.'
+}
 if ($StartOnly -and $ConfigureCompanionTask) { throw 'Start cannot configure an installation.' }
 if ($CheckOnly -and ($StartOnly -or $ConfigureCompanionTask)) { throw 'Check-only cannot start or configure an installation.' }
 $root = Split-Path -Parent $PSScriptRoot
@@ -78,11 +83,54 @@ function Assert-SourceRuneLiteRelease {
     Write-Host "RuneLite release preflight passed: $release matches the source API."
 }
 function Get-ArtifactSha256([string] $path) {
-    # Only installed JARs are hashed; account/database files are never opened here.
+    # Only JARs and the installation manifest are hashed; account/database contents are never opened.
     $stream = [IO.File]::OpenRead($path)
     $hasher = [Security.Cryptography.SHA256]::Create()
     try { return [BitConverter]::ToString($hasher.ComputeHash($stream)).Replace('-', '') }
     finally { $hasher.Dispose(); $stream.Dispose() }
+}
+function Get-AccountBackupMetadata([string] $directory) {
+    $metadata = @{}
+    if (-not (Test-Path -LiteralPath $directory)) { return $metadata }
+    if (-not (Test-Path -LiteralPath $directory -PathType Container)) { throw 'Backup verification failed: account directory is not a folder.' }
+    $folder = (Get-Item -LiteralPath $directory -Force).FullName.TrimEnd([char[]]@('\','/'))
+    $entries = @((Get-Item -LiteralPath $directory -Force)) + @(Get-ChildItem -LiteralPath $directory -Recurse -Force)
+    foreach ($entry in $entries) {
+        if ($entry.Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Backup verification failed: account tree contains a link.' }
+        if (-not $entry.PSIsContainer) { $metadata[$entry.FullName.Substring($folder.Length + 1)] = $entry.Length }
+    }
+    return $metadata
+}
+function Assert-UnattendedBackup([string] $backup, [string] $priorCompanion, [string] $taskDefinition) {
+    foreach ($pair in @(@($installed, 'osrs-flipping-friend.jar'), @($priorCompanion, 'flipping-friend-companion.jar'), @($manifestPath, 'installation.json'))) {
+        $saved = Join-Path $backup $pair[1]
+        if (-not (Test-Path -LiteralPath $saved -PathType Leaf) -or
+            (Get-ArtifactSha256 $pair[0]) -ne (Get-ArtifactSha256 $saved)) {
+            throw "Backup verification failed: $($pair[1]) is missing or differs from its source."
+        }
+    }
+    $taskBackup = Join-Path $backup 'companion-task.xml'
+    if (-not (Test-Path -LiteralPath $taskBackup -PathType Leaf) -or
+        (Get-Content -LiteralPath $taskBackup -Raw).TrimEnd() -ne $taskDefinition.TrimEnd()) {
+        throw 'Backup verification failed: scheduled-task export differs.'
+    }
+    $counts = @()
+    foreach ($pair in @(@((Join-Path $logDir 'accounts'), 'accounts'), @((Join-Path $dataRoot 'accounts'), 'plugin-accounts'))) {
+        $sourceMetadata = Get-AccountBackupMetadata $pair[0]
+        $savedMetadata = Get-AccountBackupMetadata (Join-Path $backup $pair[1])
+        if ($sourceMetadata.Count -ne $savedMetadata.Count) { throw "Backup verification failed: $($pair[1]) file count differs." }
+        foreach ($relative in $sourceMetadata.Keys) {
+            if (-not $savedMetadata.ContainsKey($relative) -or $savedMetadata[$relative] -ne $sourceMetadata[$relative]) {
+                throw "Backup verification failed: $($pair[1]) file names or sizes differ."
+            }
+        }
+        $counts += $sourceMetadata.Count
+    }
+    @{ status='VERIFIED'; verifiedAtUtc=[DateTime]::UtcNow.ToString('o'); checkout=$root
+        companionAccountFiles=$counts[0]; pluginAccountFiles=$counts[1]
+        accountVerification='Relative names and sizes only; no account/database contents read or hashed.'
+    } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $backup 'backup-verification.json') -Encoding UTF8
+    Write-Host "Backup verified: companion account files=$($counts[0]); plugin account files=$($counts[1]); JAR/manifest hashes and task export match."
 }
 function Assert-InstalledPair {
     if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) { throw 'Installation requires setup or re-setup. Run 1 or 1b in this folder.' }
@@ -149,6 +197,10 @@ function Start-Companion($candidate, [string] $java) {
 $task = Get-CompanionTask
 if (-not $ConfigureCompanionTask) { Assert-Task $task }
 elseif ($task) { $oldCompanion = Get-TaskJar $task }
+if ($Unattended) {
+    if (-not $task) { throw 'Unattended update requires the existing companion task.' }
+    Assert-InstalledPair
+}
 if ($CheckOnly) {
     Assert-InstalledPair
     if ((Get-CompanionPid) -eq 0) { throw 'Installed pair verified, but companion is not running. Run 2 - Start.' }
@@ -183,11 +235,13 @@ try {
     # Re-read after acquiring the lock: another checkout may have reconfigured the task meanwhile.
     $task = Get-CompanionTask
     if (-not $ConfigureCompanionTask) { Assert-Task $task }
+    if ($Unattended) { Assert-InstalledPair }
     $oldCompanion = if ($task) { Get-TaskJar $task } else { $companionInstalled }
     $backup = Join-Path $dataRoot ('backups\' + (Get-Date).ToString('yyyyMMdd-HHmmss') + '-' + [Guid]::NewGuid().ToString('N').Substring(0,8))
     New-Item -ItemType Directory -Path $backup | Out-Null
     if ($task) {
-        Export-ScheduledTask -TaskName $taskName -TaskPath '\' | Set-Content -LiteralPath (Join-Path $backup 'companion-task.xml') -Encoding UTF8
+        $savedTaskDefinition = Export-ScheduledTask -TaskName $taskName -TaskPath '\'
+        $savedTaskDefinition | Set-Content -LiteralPath (Join-Path $backup 'companion-task.xml') -Encoding UTF8
         Disable-ScheduledTask -TaskName $taskName -TaskPath '\' | Out-Null
         Stop-ScheduledTask -TaskName $taskName -TaskPath '\'
     }
@@ -241,9 +295,14 @@ try {
         }
     } else { Write-Host 'No scoped accounts directory observed. Legacy databases are left untouched and unassigned.' }
     Write-Host "Backup complete: $backup"
-    Get-ChildItem -LiteralPath $backup -File -Recurse | ForEach-Object { Write-Host "$($_.FullName)  $($_.Length) bytes" }
-    Write-Host 'The companion is stopped. Existing task remains disabled until installation completes.'
-    if ((Read-Host 'Review the backup above. Type INSTALL to install both JARs') -cne 'INSTALL') {
+    if ($Unattended) {
+        Assert-UnattendedBackup $backup $oldCompanion $savedTaskDefinition
+        Write-Host 'Backup verified; continuing unattended paired update.'
+    } else {
+        Get-ChildItem -LiteralPath $backup -File -Recurse | ForEach-Object { Write-Host "$($_.FullName)  $($_.Length) bytes" }
+        Write-Host 'The companion is stopped. Existing task remains disabled until installation completes.'
+    }
+    if (-not $Unattended -and (Read-Host 'Review the backup above. Type INSTALL to install both JARs') -cne 'INSTALL') {
         throw 'Installation cancelled. JARs and account data were not changed; companion remains stopped.'
     }
     if (-not $SkipBuild) {
