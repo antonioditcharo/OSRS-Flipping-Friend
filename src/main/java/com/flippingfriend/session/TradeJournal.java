@@ -16,9 +16,8 @@ import java.util.Map;
 /**
  * Append-only record of every completed flip, one JSON object per line.
  * <p>
- * Append-only matters: this file is the plugin's only source of ground truth about how its own
- * predictions turned out, so it is never rewritten in place and a corrupt line is skipped rather
- * than allowed to take the rest of the history with it.
+	 * This is a local history/compatibility cache. The companion ledger is authoritative for money.
+	 * It is never rewritten in place; a corrupt line cannot discard the rest of the local history.
  */
 @Singleton
 public class TradeJournal
@@ -33,7 +32,13 @@ public class TradeJournal
 	private final AccountMonitor accountMonitor;
 
 	private final List<FlipRecord> history = Collections.synchronizedList(new ArrayList<>());
-	private final List<FlipRecord> session = Collections.synchronizedList(new ArrayList<>());
+	private static final class LocalSession
+	{
+		final List<FlipRecord> flips = new ArrayList<>();
+		final Instant startedAt = Instant.now();
+	}
+	/** Per-run local views only; durable recommendation risk has its own account window. */
+	private final Map<Path, LocalSession> sessions = new java.util.HashMap<>();
 
 	private int lifetimeFlips = 0;
 	private int lifetimeWins = 0;
@@ -100,6 +105,7 @@ public class TradeJournal
 			}
 		}
 		loadedFrom = file;
+		sessions.computeIfAbsent(file, ignored -> new LocalSession());
 	}
 
 	private void accumulateLifetime(FlipRecord record)
@@ -119,18 +125,21 @@ public class TradeJournal
 		lifetimeSectorProfits.put(sector, lifetimeSectorProfits.getOrDefault(sector, 0L) + record.getProfit());
 	}
 
-	public void record(FlipRecord record)
+	public synchronized void record(FlipRecord record)
 	{
+		Path file = storage.accountDir().resolve(FILE_NAME);
+		if (loadedFrom == null) load();
+		if (!file.equals(loadedFrom))
+		{
+			log.warn("not recording a local journal update across an unbound account switch");
+			return;
+		}
 		long liquidValue = calculateLiquidValue();
 		record.setLiquidValue(liquidValue);
-
-		synchronized (this)
-		{
-			accumulateLifetime(record);
-		}
+		accumulateLifetime(record);
 		history.add(record);
-		session.add(record);
-		storage.appendLine(storage.accountDir().resolve(FILE_NAME), storage.gson().toJson(record));
+		sessions.get(file).flips.add(record);
+		storage.appendLine(file, storage.gson().toJson(record));
 	}
 
 	private long calculateLiquidValue()
@@ -154,21 +163,19 @@ public class TradeJournal
 		}
 	}
 
-	public List<FlipRecord> getSessionFlips()
+	public synchronized List<FlipRecord> getSessionFlips()
 	{
-		synchronized (session)
-		{
-			return new ArrayList<>(session);
-		}
+		LocalSession current = sessions.get(loadedFrom);
+		return current == null ? Collections.emptyList() : new ArrayList<>(current.flips);
 	}
 
-	public void startSession()
+	public synchronized void startSession()
 	{
-		session.clear();
+		if (loadedFrom != null) sessions.put(loadedFrom, new LocalSession());
 		sessionStart = Instant.now();
 	}
 
-	public SessionStats sessionStats()
+	public synchronized SessionStats sessionStats()
 	{
 		int flips = 0;
 		int wins = 0;
@@ -192,7 +199,7 @@ public class TradeJournal
 			sectorProfits.put(sector, sectorProfits.getOrDefault(sector, 0L) + record.getProfit());
 		}
 
-		long elapsed = Instant.now().getEpochSecond() - sessionStart.getEpochSecond();
+		long elapsed = Instant.now().getEpochSecond() - getSessionStart().getEpochSecond();
 		return new SessionStats(flips, wins, profit, tax, minutes, elapsed, sectorProfits);
 	}
 
@@ -228,8 +235,9 @@ public class TradeJournal
 		return !history.isEmpty();
 	}
 
-	public Instant getSessionStart()
+	public synchronized Instant getSessionStart()
 	{
-		return sessionStart;
+		LocalSession current = sessions.get(loadedFrom);
+		return current == null ? sessionStart : current.startedAt;
 	}
 }
