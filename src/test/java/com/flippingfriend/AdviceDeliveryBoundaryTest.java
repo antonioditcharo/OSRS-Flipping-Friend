@@ -48,7 +48,8 @@ public class AdviceDeliveryBoundaryTest {
             var market=mock(MarketDataService.class);when(market.getSnapshot()).thenReturn(MarketSnapshot.empty());
             when(companion.nextAction()).thenReturn(advice);when(guide.isPaused()).thenReturn(true);
             set("client",client);set("clientThread",thread);set("worker",worker);set("accountMonitor",monitor);
-            set("configManager",manager);set("config",mock(FlippingFriendConfig.class,CALLS_REAL_METHODS));
+            var config=mock(FlippingFriendConfig.class);when(config.riskProfile()).thenReturn(RiskProfile.MODERATE);
+            set("configManager",manager);set("config",config);
             set("offerTracker",tracker);set("companion",companion);set("stepGuide",guide);
             set("widgetResolver",mock(GeWidgetResolver.class));set("panel",mock(FlippingFriendPanel.class));
             set("engine",mock(SuggestionEngine.class));set("journal",mock(TradeJournal.class));set("positions",mock(PositionBook.class));
