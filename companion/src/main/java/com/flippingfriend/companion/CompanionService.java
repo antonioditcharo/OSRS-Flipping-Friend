@@ -446,8 +446,7 @@ final class CompanionService implements AutoCloseable
 		activeOffers.apply(event);
 		// Settled offers are the only direct evidence of how our own orders behave in the queue,
 		// as opposed to what the public price history says the market did.
-		boolean settled = executions.record(event);
-		double claimed = predictedCompletion(event);
+		if (!store.hasOfferAccountingGap(event.getOfferIdentity())) executions.record(event);
 
 		// An offer changing is the single most important reason to re-plan: a slot has just opened
 		// or closed, capital has moved, and a buy limit may have been consumed. Waiting for the next

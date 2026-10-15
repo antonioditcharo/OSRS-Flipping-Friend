@@ -283,6 +283,17 @@ public class CompanionClient
         /** A delayed observation must retain the account captured by the client thread. */
         public void publishOffer(TrackedOffer offer, String expectedAccountId)
         {
+                publishOffer(offer, expectedAccountId, false);
+        }
+
+        /** Called only for copied, authenticated client observations, not account cache replay. */
+        public void publishObservedOffer(TrackedOffer offer, String expectedAccountId)
+        {
+                publishOffer(offer, expectedAccountId, true);
+        }
+
+        private void publishOffer(TrackedOffer offer, String expectedAccountId, boolean authenticated)
+        {
                 if (offer == null) return;
                 if (expectedAccountId == null || !expectedAccountId.equals(accountContext()))
                 { lastError = "Could not persist offer event: account identity changed or unavailable"; return; }
@@ -296,6 +307,7 @@ public class CompanionClient
                                 long start = offer.getFirstSeen() > 0 ? offer.getFirstSeen() : now;
                                 OfferEvent.Builder builder = OfferEvent.builder(UUID.randomUUID().toString(), now, state)
                                         .accountId(expectedAccountId)
+                                        .authenticatedObservation(authenticated)
                                         .eventIdentity(eventId, sessionId,
                                                 offer.getSlot() + "@" + start + ":" + offer.getItemId())
                                         .slot(offer.getSlot()).item(offer.getItemId(), offer.getItemName())
@@ -327,6 +339,16 @@ public class CompanionClient
 
         public void publishOfferCleared(int slot, String expectedAccountId)
         {
+                publishOfferCleared(slot, expectedAccountId, false);
+        }
+
+        public void publishObservedOfferCleared(int slot, String expectedAccountId)
+        {
+                publishOfferCleared(slot, expectedAccountId, true);
+        }
+
+        private void publishOfferCleared(int slot, String expectedAccountId, boolean authenticated)
+        {
                 if (slot < 0) return;
                 if (expectedAccountId == null || !expectedAccountId.equals(accountContext()))
                 { lastError = "Could not persist offer event: account identity changed or unavailable"; return; }
@@ -336,6 +358,7 @@ public class CompanionClient
                         OfferEvent event = outbox.enqueue((eventId, sessionId, sequence) ->
                                 OfferEvent.builder(UUID.randomUUID().toString(), now, "EMPTY")
                                         .accountId(expectedAccountId)
+                                        .authenticatedObservation(authenticated)
                                         .eventIdentity(eventId, sessionId, null).slot(slot)
                                         .sequence(sequence).build());
                         lastLedger = null;

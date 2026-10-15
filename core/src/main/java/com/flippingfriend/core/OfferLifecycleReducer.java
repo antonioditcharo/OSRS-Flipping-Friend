@@ -13,9 +13,41 @@ public final class OfferLifecycleReducer
         {
             return rejected(previous, event, "invalid source observation");
         }
+        if (event.isAuthenticatedObservation())
+        {
+            if (!validCurrentObservation(event, incoming))
+                return rejected(previous, event, "invalid authenticated slot observation");
+            if (previous != null && (previous.getSlot() != event.getSlot()
+                || differentKnown(previous.getSessionId(), event.getSessionId())
+                || event.getObservedAt() < previous.getLastObservedAt()
+                || (sameKnown(previous.getSessionId(), event.getSessionId())
+                    && event.getSequence() <= previous.getLastSequence())))
+                return rejected(previous, event, "authenticated observation is not newer in this session");
+        }
         if (previous == null)
         {
             return accepted(null, projection(incoming, event), event, false, true);
+        }
+        if (before == OfferLifecycleState.ERROR_RECONCILIATION
+            && event.isAuthenticatedObservation()
+            && sameKnown(previous.getSessionId(), event.getSessionId()))
+        {
+            // Restore only the current slot. The append-only gap remains unresolved; cumulative
+            // counters establish a baseline and must never be booked as a recovered execution.
+            if (incoming != OfferLifecycleState.EMPTY
+                && sameKnown(previous.getOfferIdentity(), event.getOfferIdentity())
+                && (incompatible(previous, event) != null
+                    || event.getFilledQuantity() < previous.getFilledQuantity()
+                    || event.getSpent() < previous.getSpent()))
+                return rejected(previous, event, "same offer regressed during recovery");
+            OfferLifecycleProjection next = incoming == OfferLifecycleState.EMPTY
+                ? empty(event) : projection(incoming, event);
+            PositionAccountingEffect effect = incoming == OfferLifecycleState.EMPTY
+                ? PositionAccountingEffect.none(event)
+                : PositionAccountingEffect.reconcile(event,
+                    "authenticated slot baseline; earlier executions remain unresolved");
+            return new OfferLifecycleTransition(before, incoming, action(incoming), next, event,
+                true, false, "current slot observed; historical gap preserved", effect);
         }
         if (incoming == OfferLifecycleState.EMPTY)
         {
@@ -111,18 +143,39 @@ public final class OfferLifecycleReducer
     private static OfferLifecycleTransition rejected(OfferLifecycleProjection previous,
         OfferEvent event, String reason)
     {
+        // Retain the last economic counters but fence observations older than this rejection.
+        // A rejected observation cannot switch the durable session or move its cursor backwards.
+        boolean advance = previous != null && event != null
+            && sameKnown(previous.getSessionId(), event.getSessionId())
+            && event.getSequence() > previous.getLastSequence()
+            && event.getObservedAt() >= previous.getLastObservedAt();
         OfferLifecycleProjection error = previous == null
             ? new OfferLifecycleProjection(OfferLifecycleState.ERROR_RECONCILIATION,
                 event == null ? -1 : event.getSlot(), null, null, 0, 0, 0, null, false, 0, 0, 0, 0, null)
             : new OfferLifecycleProjection(OfferLifecycleState.ERROR_RECONCILIATION,
                 previous.getSlot(), previous.getOfferIdentity(), previous.getSessionId(),
-                previous.getLastSequence(), previous.getLastObservedAt(), previous.getItemId(),
+                advance ? event.getSequence() : previous.getLastSequence(),
+                advance ? event.getObservedAt() : previous.getLastObservedAt(), previous.getItemId(),
                 previous.getItemName(), previous.isBuying(), previous.getPrice(),
                 previous.getTotalQuantity(), previous.getFilledQuantity(), previous.getSpent(),
                 previous.getRecommendationId());
         return new OfferLifecycleTransition(previous == null ? null : previous.getState(),
             OfferLifecycleState.ERROR_RECONCILIATION, OfferLifecycleAction.RECONCILE,
             error, event, false, false, reason, PositionAccountingEffect.reconcile(event, reason));
+    }
+
+    private static boolean validCurrentObservation(OfferEvent event, OfferLifecycleState state)
+    {
+        if (event.getSlot() < 0 || event.getSlot() >= 8 || event.getObservedAt() <= 0
+            || event.getSequence() <= 0 || blank(event.getEventId()) || blank(event.getSessionId())) return false;
+        try { AccountIdentity.require(event.getAccountId()); }
+        catch (IllegalArgumentException invalid) { return false; }
+        if (state == OfferLifecycleState.EMPTY)
+            return event.getItemId() == 0 && event.getPrice() == 0 && event.getTotalQuantity() == 0
+                && event.getFilledQuantity() == 0 && event.getSpent() == 0 && !event.isBuying()
+                && blank(event.getOfferIdentity());
+        return event.getItemId() > 0 && event.getPrice() > 0 && !blank(event.getOfferIdentity())
+            && (event.getFilledQuantity() == 0 ? event.getSpent() == 0 : event.getSpent() > 0);
     }
 
     private static OfferLifecycleProjection projection(OfferLifecycleState state, OfferEvent event)

@@ -24,6 +24,8 @@ public class CapturedOfferAccountTest
         f.account.set(AccountIdentity.fromProfileKey("other"));
         f.client.publishOffer(offer(), f.original);
         f.client.publishOfferCleared(1, f.original);
+        f.client.publishObservedOffer(offer(), f.original);
+        f.client.publishObservedOfferCleared(1, f.original);
         assertTrue(f.outbox.pending().isEmpty());
     }
 
@@ -45,6 +47,33 @@ public class CapturedOfferAccountTest
         assertEquals(f.original, event.getAccountId()); assertNotNull(event.getEventId());
         assertEquals("1@100:4151", event.getOfferIdentity()); assertEquals(2, event.getFilledQuantity());
         assertEquals(2000, event.getSpent()); assertEquals(1, event.getSequence());
+        assertFalse(event.isAuthenticatedObservation());
+    }
+
+    @Test public void onlyClientObservationsCarryProofThroughTheDurableOutbox() throws Exception
+    {
+        Fixture f = fixture();
+        f.client.publishObservedOffer(offer(), f.original);
+        f.client.publishObservedOfferCleared(1, f.original);
+        f.client.publishOfferCleared(1, f.original);
+        var events = f.outbox.pending(); // Reloads serialized events, including withAccountId copies.
+        assertEquals(3,events.size());
+        assertTrue(events.get(0).isAuthenticatedObservation());
+        assertTrue(events.get(1).isAuthenticatedObservation());
+        assertFalse(events.get(2).isAuthenticatedObservation());
+        assertEquals("EMPTY",events.get(1).getEventType());
+        assertEquals(f.original,events.get(0).getAccountId());
+        assertEquals(2000,events.get(0).getSpent());
+        assertEquals(2,events.get(1).getSequence());
+    }
+
+    @Test public void accountSwitchDuringAuthenticatedEventConstructionStillRefusesTheWrite() throws Exception
+    {
+        Fixture f = fixture(); TrackedOffer offer = spy(offer());
+        doAnswer(call -> { f.account.set(AccountIdentity.fromProfileKey("other")); return "Abyssal whip"; })
+            .when(offer).getItemName();
+        f.client.publishObservedOffer(offer, f.original);
+        assertTrue(f.outbox.pending().isEmpty());
     }
 
     private Fixture fixture() throws Exception

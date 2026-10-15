@@ -959,7 +959,7 @@ public class FlippingFriendPlugin extends Plugin
 		String account = com.flippingfriend.core.AccountIdentity.fromProfileKey(profile);
 		long generation = offerObservationGeneration.get();
 		executor.execute(() -> {
-			if (generation == offerObservationGeneration.get()) companion.publishOffer(observation, account);
+			if (generation == offerObservationGeneration.get()) companion.publishObservedOffer(observation, account);
 		});
 	}
 
@@ -975,7 +975,7 @@ public class FlippingFriendPlugin extends Plugin
 		String account = com.flippingfriend.core.AccountIdentity.fromProfileKey(profile);
 		long generation = offerObservationGeneration.get();
 		executor.execute(() -> {
-			if (generation == offerObservationGeneration.get()) companion.publishOfferCleared(slot, account);
+			if (generation == offerObservationGeneration.get()) companion.publishObservedOfferCleared(slot, account);
 		});
 	}
 
