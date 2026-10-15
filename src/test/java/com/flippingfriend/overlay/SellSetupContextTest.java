@@ -8,6 +8,18 @@ import org.junit.Test;
 import static org.junit.Assert.*;
 import static org.mockito.Mockito.*;
 public class SellSetupContextTest {
+    @Test public void aMatchingManagedSaleKeepsItsPriceAndForecastWhenTheEditorOpens() {
+        var guide=new StepGuide(mock(Client.class),mock(GeWidgetResolver.class));
+        var managed=Suggestion.builder(SuggestionType.SELL).item(561,"Nature rune").quantity(10).price(120)
+            .fillMinutes(0,12).legCompletionProbability(.7).build();
+        guide.setSuggestion(managed);
+        var quote=Suggestion.builder(SuggestionType.SELL).item(561,"Nature rune").quantity(10).price(119).profitKnown(false).build();
+        guide.setEditorQuote(quote);
+        assertSame("A generic selected-sale quote must not erase managed advice",managed,guide.getSuggestion());
+        var otherQuantity=Suggestion.builder(SuggestionType.SELL).item(561,"Nature rune").quantity(11).price(119).profitKnown(false).build();
+        guide.setEditorQuote(otherQuantity);
+        assertSame("Other owned units cannot borrow the managed forecast",otherQuantity,guide.getSuggestion());
+    }
     @Test public void quoteContextRequiresActualSellEditorAndSelectedQuantity() {
         Client client=mock(Client.class); ItemManager items=mock(ItemManager.class);
         Widget setup=mock(Widget.class); when(client.getWidget(InterfaceID.GeOffers.SETUP)).thenReturn(setup);
