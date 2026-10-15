@@ -5,14 +5,23 @@ statements later in this file. Read [HANDOFF.md](HANDOFF.md) for exact evidence.
 
 ## Active
 
-- [ ] Deliver atomic execution-evidence transaction on codex/atomic-execution-evidence from c915ea8.
+- [ ] Deliver durable recommendation risk on codex/durable-risk-authority from rebuild 598fed3.
+      Regression 774a521 reproduces foreign local-session profit; bb4339d isolates the local cache.
+      Source a97e692 moves planner/final approval/health/alerts/Plan details to durable account risk,
+      with prospective atomic windows, bounded profit, unknown-cost reserves, fresh taxed marks,
+      expiry and restart/duplicate protection. No journal fallback for automatic runtime entries.
+      Standard: 1,371 Java passed/six skips, both Java 11 JARs, 39s; all 63 Python tests pass.
+      Require exact-head CI/delivery, then batch #51/#52/this source in one paired update after the
+      already requested normal close. RuneLite remains open; runtime is #49. No live risk/BUY proof.
+
+- [x] Deliver atomic execution-evidence transaction on codex/atomic-execution-evidence from c915ea8.
       Verified write-failure regressions at e34927a precede fixes. Canonical acceptance, accounting,
       limits, dedup claim and eligible execution statistics now commit/roll back together. Existing
       keys/stats and incomplete-offer exclusions are preserved; no historical backfill/schema change.
-      Standard: 1,350 Java passed/six skips, both JARs, 52s. Require exact-head CI, then batch with
-      PR #51 in one supported paired update after the already requested normal RuneLite close.
+      Standard: 1,350 Java passed/six skips, both JARs, 52s. PR #52 merged as 598fed3 after both
+      checks at e2b51c5 passed (run 38716858569). Installation remains batched/pending normal close.
 
-- [ ] Deliver planner-heartbeat follow-up on codex/coherent-plan-heartbeat from 70d8453.
+- [x] Deliver planner-heartbeat follow-up on codex/coherent-plan-heartbeat from 70d8453.
       Live PR #49 observations recovered all current slots: zero ERROR/eight authenticated sources,
       matching current cash/slot proof and bounded historical exposure available; ledger records
       unchanged. Installed planner still retained a transient reconciliation refusal. Regression
@@ -59,7 +68,8 @@ statements later in this file. Read [HANDOFF.md](HANDOFF.md) for exact evidence.
       no additional paired install was required for this tooling-only change.
 - [ ] Finish one authoritative ledger for planner, exits, inventory UI, calibration and session risk.
       Durable accounting, Performance, exposure and managed trade quantities/exits are implemented;
-      audit remaining local consumers and preserve positive acquisition/cost evidence. Reproduce
+      durable recommendation risk is source-verified above; finish calibration/remaining consumer audit
+      and preserve positive acquisition/cost evidence. Reproduce
       real faults before fixes; never edit a database or bypass exposure guards to unblock advice.
 
 ## Next

@@ -12,11 +12,12 @@ original assessment context. The supplied [Copilot baseline](benchmarks/copilot-
 contains 2,117 flip summaries across two accounts and 17,240 execution records for one account.
 Historical session/cadence labels are unavailable; GP/hour remains unmeasured.
 
-## Current continuation — 14 October 2026
+## Current continuation — 15 October 2026
 
-PRs #31/#33–#38 and combined #43 are merged into the rebuild branch. The #43 pair was installed;
-the 1.13.2 pair is installed and login works. The next delivery fixes the observed ledger HTTP 500
-and pre-login search exception without clearing existing accounting guards. Compact UI,
+PRs through #52 are merged into the rebuild branch. The verified installed 1.13.2 pair is #49;
+ledger HTTP reads and fresh current-slot/cash proof pass. #51 planner timing and #52 atomic execution
+evidence await the next batched paired update. Durable account risk is source-verified on
+codex/durable-risk-authority; live acceptance remains pending. Historical guards remain. Compact UI,
 real cadence presets, automatic managed quantities, personal sell setup quotes, Missed flips,
 walkthrough protection and player-triggered input assistance are implemented, with live acceptance
 still pending. The assessment tables below describe their original revisions. See the newest
