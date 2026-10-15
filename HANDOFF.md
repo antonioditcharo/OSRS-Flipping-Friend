@@ -43,7 +43,10 @@ NullReferenceException without basic parsing and HTTP 200/accounts-v1 with it. R
 `98c6016` reproduces this using the real script with isolated files/HTTP responses. UseBasicParsing
 on the three JSON reads fixes it; wrong-account responses still fail and fixture account bytes
 remain unchanged. Both hosts now read the installed service successfully. All 63 Python tests
-pass in 122.576s. This follow-up is tooling/docs/tests only; no second JAR install is needed.
+pass in 122.576s. The follow-up standard clean/test/JAR/shadowJar build passes in 56s with all
+18 tasks executed: 1,344 Java passed, six existing skips, no failures/errors, both JARs built.
+RuneLite remained open; no close/reopen was needed for this clean build.
+This follow-up is tooling/docs/tests only; no second JAR install is needed.
 Its exact-head CI/delivery receipt belongs to the follow-up PR.
 
 Post-install pipeline output (account identity redacted):
