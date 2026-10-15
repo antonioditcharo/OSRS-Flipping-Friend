@@ -2,7 +2,7 @@ package com.flippingfriend.core;
 
 /** Prospective ledger risk, not a session-profit estimate or historical repair. */
 public final class AccountRiskSnapshot {
-    private final String schemaVersion = "1";
+    private final String schemaVersion;
     private final String accountId, status, reason, windowId, sessionId;
     private final long evaluatedAt;
     private final Long validUntil;
@@ -12,6 +12,7 @@ public final class AccountRiskSnapshot {
     private final long boundedSaleUpdates, unresolvedManagedSaleUpdates, untrackedUnpricedSaleUpdates;
 
     private AccountRiskSnapshot(String accountId, long at, String reason) {
+        schemaVersion = "1";
         this.accountId = AccountIdentity.require(accountId); evaluatedAt = at;
         status = "UNAVAILABLE"; this.reason = reason; windowId = null; sessionId = null;
         validUntil = null;
@@ -22,6 +23,7 @@ public final class AccountRiskSnapshot {
         if (!isValid()) throw new IllegalArgumentException("invalid unavailable risk state");
     }
     private AccountRiskSnapshot(Builder b) {
+        schemaVersion = "1";
         accountId = AccountIdentity.require(b.accountId); windowId = b.windowId; sessionId = b.sessionId;
         windowStartedAt = b.startedAt; ledgerCursor = b.cursor; evaluatedAt = b.at; marketObservedAt = b.marketAt;
         validUntil = b.validUntil;

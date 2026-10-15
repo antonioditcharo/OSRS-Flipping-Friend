@@ -6,12 +6,13 @@ import java.util.*;
 /** Durable prospective cursor in existing event_log metadata, never a reconstructed session. */
 final class RiskWindow {
     static final String EVENT_TYPE="RISK_WINDOW_V1";
-    private final String schemaVersion="1";
+    private final String schemaVersion;
     final String accountId, windowId, sessionId;
     final long startedAt, positionCursor, startingCapital;
     private final Map<Integer,String> sourceReadSet;
 
     RiskWindow(AccountSnapshot snapshot,String session,long cursor,long capital) {
+        schemaVersion="1";
         accountId=AccountIdentity.require(snapshot.getAccountId());windowId=UUID.randomUUID().toString();sessionId=session;
         startedAt=snapshot.getObservedAt();positionCursor=cursor;startingCapital=capital;
         sourceReadSet=Collections.unmodifiableMap(new HashMap<>(snapshot.getOfferReadSet()));
