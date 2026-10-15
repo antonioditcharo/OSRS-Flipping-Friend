@@ -61,6 +61,22 @@ function Assert-Task($candidate, [switch] $AllowDisabled) {
         throw 'Companion task points to a different JAR. Run 1b - Re-setup Existing Installation.'
     }
 }
+function Assert-SourceRuneLiteRelease {
+    # Read-only preflight: fail before stopping the companion, creating backups or replacing files.
+    try {
+        $bootstrap = (Invoke-WebRequest -Uri 'https://static.runelite.net/bootstrap.json' -UseBasicParsing -TimeoutSec 20).Content | ConvertFrom-Json
+    } catch { throw "Could not verify official RuneLite release: $($_.Exception.Message). Installation was not changed." }
+    $release = [string]$bootstrap.version
+    if ($release -notmatch '^\d+(\.\d+)+$' -or -not $bootstrap.artifacts) {
+        throw 'RuneLite release metadata is invalid. Installation was not changed.'
+    }
+    $buildFile = Join-Path $root 'build.gradle'
+    $pinned = (Select-String -LiteralPath $buildFile -Pattern "runeLiteVersion\s*=\s*'([\d.]+)'").Matches.Groups[1].Value
+    if ($pinned -ne $release) {
+        throw "RuneLite release is $release but this source targets $pinned. A tested project update is required; installation was not changed."
+    }
+    Write-Host "RuneLite release preflight passed: $release matches the source API."
+}
 function Get-ArtifactSha256([string] $path) {
     # Only installed JARs are hashed; account/database files are never opened here.
     $stream = [IO.File]::OpenRead($path)
@@ -147,6 +163,8 @@ if ($StartOnly) {
     try { Start-Companion (Get-CompanionTask) $java } finally { $startLock.Dispose() }
     return
 }
+
+Assert-SourceRuneLiteRelease
 
 # Never close RuneLite or send game input. The player closes every client before installation.
 $processes = @(Get-CimInstance Win32_Process -ErrorAction Stop)
