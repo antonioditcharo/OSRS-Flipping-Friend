@@ -103,6 +103,17 @@ public class StepGuideInterruptionTest
 		assertNull(guide.getPending());
 	}
 
+    @Test public void identicalOrderRefreshesForecastWithoutLosingMidEntryProtection() {
+        Suggestion original=buy(4151,"Abyssal whip");guide.setSuggestion(original);beginEntry();
+        Suggestion refreshed=Suggestion.builder(SuggestionType.BUY).item(4151,"Abyssal whip").price(100).quantity(10)
+            .fillMinutes(12,30).legCompletionProbability(.6).build();
+        guide.setSuggestion(refreshed);
+        org.junit.Assert.assertSame(refreshed,guide.getSuggestion());
+        guide.setSuggestion(collect("Nature rune"));
+        org.junit.Assert.assertSame(refreshed,guide.getSuggestion());
+        assertNotNull("entry progress still protects this trade",guide.getPending());
+    }
+
 	@Test
 	public void adviceArrivingMidEntryIsHeldBack()
 	{

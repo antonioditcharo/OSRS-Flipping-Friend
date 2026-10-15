@@ -5,13 +5,22 @@ statements later in this file. Read [HANDOFF.md](HANDOFF.md) for exact evidence.
 
 ## Active
 
+- [x] Source immutable leg forecasts and accepted-guidance publication on
+      codex/immutable-execution-forecasts from #58 merge f161a39. Regressions 9471568/8ffb3b2 and
+      the active entry-policy metadata failure precede fixes. Source a18210f shares actual entry
+      conversion, preserves exact managed sell guidance and original model/config/horizon/wait-work
+      context across publisher/outbox/restart/canonical readout. Missing context stays unknown.
+      Standard: 1,437 Java passed/six existing skips, 63 Python passed, both Java 11 JARs, 39s.
+      Not installed; batch with #57/#58. Held promotion, fitting/evaluation remain #56.
+
 - [x] Source observation intervals and promotion fence on codex/execution-observation-intervals
-      from #57 merge 58480d6. Regression d209012 precedes active-consumer fixes. Canonical source
+      from #57 merge 58480d6, merged in #58 as f161a39 after both checks at 910a5c0 passed
+      (run 38777494280). Regression d209012 precedes active-consumer fixes. Canonical source
       readouts retain placement/first-fill/completion bounds and censoring, with scoped read-only API,
       contradictory/unknown evidence held, bounded diagnostic rows and complete prefix counts.
       Historical aggregate ratios no longer activate live correction; counts alone cannot promote.
       Standard: 1,417 Java passed/six skips, 63 Python passed, both Java 11 JARs, 48s. Not installed;
-      batch with #57. This is not finished learning; forecast contracts, fitting/evaluation remain #56.
+      batch with #57. This is not finished learning; fitting/evaluation remain #56.
 
 - [x] Source prospective execution prediction bindings on codex/execution-advice-provenance from
       b516b7e, merged in PR #57 as 58480d6 after both checks at b37a19d passed (run 38772952899).
@@ -102,7 +111,8 @@ statements later in this file. Read [HANDOFF.md](HANDOFF.md) for exact evidence.
 - [ ] Audit calibration prediction provenance and cancellation censoring before changing strategy.
       Attribution, observed intervals and the runtime promotion fence are source-verified above.
       Historical execution aggregates still pool censored/completed times but no longer authorize
-      runtime correction in the new source. Finish forecast decomposition and censor-aware fitting.
+      runtime correction in the new source. Forecast decomposition is source-verified above;
+      finish censor-aware fitting and frozen evaluation inputs.
       Preserve existing data/dedup keys and separate
       real/paper evidence. Reproduce concrete faults first; promotion requires chronological held-out
       evaluation against a frozen baseline with return/loss/calibration guardrails.

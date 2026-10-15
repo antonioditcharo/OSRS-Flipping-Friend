@@ -146,6 +146,16 @@ public class FillModel
 		return new FillModel(evidenceWeight, waitWeight, lumpyArrivals, newCaptureRate);
 	}
 
+    /** Captures this configured estimator's inputs and claim without recomputing or changing it. */
+    public com.flippingfriend.core.ExecutionForecast forecast(int item,boolean buying,FillCurve curve,int price,int quantity,
+            double horizonHours,double season,FillEstimate estimate,double correction,double totalHours) {
+        return new com.flippingfriend.core.ExecutionForecast(com.flippingfriend.core.ExecutionForecast.MODEL_VERSION,
+            captureRate,evidenceWeight,waitWeight,lumpyArrivals,item,buying,price,quantity,horizonHours,season,
+            curve.getWindowSeconds(),buying?curve.buyScoredBuckets():curve.sellScoredBuckets(),
+            buying?curve.buyReachableBuckets(price):curve.sellReachableBuckets(price),
+            buying?curve.buyVolumeAtOrBelow(price):curve.sellVolumeAtOrAbove(price),estimate,correction,totalHours);
+    }
+
 	/**
 	 * A buy offer completes when somebody sells into it, which the feed records as an instant-sell
 	 * at {@code avgLowPrice}. So we care about buckets whose low price came down to ours or below.

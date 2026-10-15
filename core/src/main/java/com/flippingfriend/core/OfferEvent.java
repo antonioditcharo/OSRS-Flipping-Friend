@@ -65,6 +65,7 @@ public final class OfferEvent
     private final String predictionSourceEventId;
     private final Long adviceObservedAt;
     private final Boolean predictionComparable;
+    private final ExecutionForecast executionForecast;
 
 	private OfferEvent(Builder builder)
 	{
@@ -97,6 +98,7 @@ public final class OfferEvent
         this.predictionSourceEventId=builder.predictionSourceEventId;
         this.adviceObservedAt=builder.adviceObservedAt;
         this.predictionComparable=builder.predictionComparable;
+        this.executionForecast=builder.executionForecast;
 	}
 
 	public static Builder builder(String correlationId, long observedAt, String eventType)
@@ -148,6 +150,7 @@ public final class OfferEvent
     public String getPredictionSourceEventId() { return predictionSourceEventId; }
     public long getAdviceObservedAt() { return adviceObservedAt==null?0:adviceObservedAt; }
     public boolean isPredictionComparable() { return Boolean.TRUE.equals(predictionComparable); }
+    public ExecutionForecast getExecutionForecast(){return executionForecast;}
 
     private Builder copyBuilder() {
         Builder copy=builder(correlationId,observedAt,eventType).eventIdentity(eventId,sessionId,offerIdentity)
@@ -157,6 +160,7 @@ public final class OfferEvent
         if(accountId!=null)copy.accountId(accountId);
         copy.predictionEvidenceVersion=predictionEvidenceVersion;copy.predictionSourceEventId=predictionSourceEventId;
         copy.adviceObservedAt=adviceObservedAt;copy.predictionComparable=predictionComparable;
+        copy.executionForecast=executionForecast;
         return copy;
     }
     /** Freezes observational attribution, not proof of player intent. Economic/delivery fields stay intact. */
@@ -172,6 +176,8 @@ public final class OfferEvent
             && origin.suggestedPrice==price && origin.suggestedQuantity==totalQuantity
             && Double.isFinite(origin.predictedMinutes) && origin.predictedMinutes>0
             && Double.isFinite(origin.predictedCompletion) && origin.predictedCompletion>=0 && origin.predictedCompletion<=1;
+        comparable=comparable && (origin.executionForecast==null || origin.executionForecast.matches(origin));
+        copy.executionForecast=matched?origin.executionForecast:null;
         copy.recommendation(matched?origin.recommendationId:null,matched?origin.suggestedPrice:0,
             matched?origin.suggestedQuantity:0,matched?origin.quoteAgeSeconds:0,
             comparable?origin.predictedMinutes:0,comparable?origin.predictedCompletion:0);
@@ -237,6 +243,7 @@ public final class OfferEvent
         private String predictionEvidenceVersion,predictionSourceEventId;
         private Long adviceObservedAt;
         private Boolean predictionComparable;
+        private ExecutionForecast executionForecast;
 
 		private Builder(String correlationId, long observedAt, String eventType)
 		{
@@ -274,6 +281,7 @@ public final class OfferEvent
             predictionEvidenceVersion="1";predictionSourceEventId=source;adviceObservedAt=advisedAt;
             predictionComparable=comparable;return this;
         }
+        public Builder executionForecast(ExecutionForecast forecast){executionForecast=forecast;return this;}
 
 		/** Links this offer to the advice that prompted it. */
 		public Builder recommendation(String id, int price, int quantity, long quoteAge,

@@ -754,6 +754,10 @@ final class CandidateFactory
 					quantity, screened.buyLimitRemaining, netProfit, worstLoss,
 					unwindLoss, buyProbability, sellProbability,
 					buyHours, sellHours, horizonHours, expiresAt)
+					.withForecasts(fillModel().forecast(itemId,true,curve,buyPrice,quantity,horizonHours,season,buyFill,
+                        learned.waitMultiplier(itemId),buyHours),
+                        fillModel().forecast(itemId,false,curve,sellPrice,quantity,horizonHours,season,sellFill,
+                        learned.waitMultiplier(itemId),sellHours))
 					.withDisplayProbability(displayBuyProbability));
 				}
 			}

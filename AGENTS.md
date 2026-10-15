@@ -68,6 +68,10 @@ are in `docs/project-direction.md`; historical package notes are not proof of ru
   ratios into exact fills or a waiting multiplier. Runtime uses the public-price baseline until
   chronological challenger promotion gates pass; counts alone cannot authorize learning. See
   docs/architecture/execution-observation-intervals.md. This promotion fence is not finished learning.
+  Commit prediction evidence only after client-thread guidance acceptance, using the actual leg's
+  probability and exact displayed order. Preserve immutable model/config/horizon/wait-work context
+  through the original outbox binding; missing legacy context stays missing. Read
+  docs/architecture/immutable-execution-forecasts.md. Forecast identity is not validated learning.
 - Automatic runtime entry risk must use the durable prospective account window, realized profit
   bounds, uncertainty reserves and fresh taxed marks. Restart cannot reset its loss allowance.
   Client journal drawdown or wire-supplied canonicalRisk cannot authorize buys. Unknown profit stays

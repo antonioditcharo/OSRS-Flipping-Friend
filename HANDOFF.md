@@ -3,7 +3,48 @@
 Updated 15 October 2026 (America/Anchorage). Read this with [AGENTS.md](AGENTS.md) and
 [TASKS.md](TASKS.md) before continuing implementation.
 
+## Accepted guidance and immutable leg forecasts — 15 October 2026
+
+`codex/immutable-execution-forecasts` starts at rebuild `f161a39` (#58 merge). Regression `9471568`
+reproduces premature proposal attribution, whole-flip probability used for a buy, and missing sell
+timing replaced by whole-flip timing. `8ffb3b2` reproduces the generic sell-editor quote overwriting
+managed guidance. The active entry-policy converter's missing leg metadata was also observed as
+a failing behavioral test before correction; it now shares conversion with the legacy adapter.
+Implementation is `a18210f1fac3e064cff82fdb3025ec91a118fb80`.
+
+Only client-thread accepted foreground guidance records evidence; paused, stale, foreign and
+deferred proposals do not. Buy/sell forecasts keep actual price/quantity, configured model/version,
+horizon, curve inputs, waiting, working, minimum overhead and probability. Original outbox binding
+survives ACK/restart/expiry. The canonical readout validates and exposes the original snapshot;
+missing older context stays missing. Managed sells recompute for actual displayed inputs; generic
+personal quotes stay unknown and cannot erase an exact managed instruction. See
+[the contract](docs/architecture/immutable-execution-forecasts.md).
+
+```text
+.\gradlew.bat clean test jar :companion:shadowJar --console=plain
+BUILD SUCCESSFUL in 39s / 18 actionable tasks: 17 executed, 1 up-to-date / exit 0
+Plugin: 623; Core: 176; Companion: 644 including six existing skips
+Total: 1,437 passed; 6 skipped; 0 failures/errors
+Python: Ran 63 tests in 49.509s / OK / exit 0
+Candidate plugin: 485,476 bytes / 218 project classes
+Candidate companion: 17,856,011 bytes / 441 project classes
+Both project JARs: class major 55 (Java 11)
+```
+
+Private regression/build evidence: reusable worktree .gradle/immutable-forecast-*.log. Full-suite
+source-hash/text guards were updated for reviewed metadata and converter changes; behavioral gates
+remain. Runtime is still the #53 pair below; #57/#58 and this source are not installed. Batch the
+next supported paired update and player acceptance. No new live pipeline or trade result is
+claimed; no manual database change or agent game input occurred. Promotion stays held. #56 remains
+open for censor-aware fitting, frozen baseline/manifests, chronological return/loss/calibration
+gates and full-account four-cadence evaluation.
+
 ## Observation intervals and calibration fence source — 15 October 2026
+
+PR #58 merged as `f161a3964da8e00d0f592d033eddc55e39e7231d` after both checks at
+`910a5c0e5161d3be5d54a1032d186227651c7bc3` passed in
+[run 38777494280](https://github.com/antonioditcharo/OSRS-Flipping-Friend/actions/runs/38777494280).
+[Exact receipt](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/58#issuecomment-6198271091).
 
 `codex/execution-observation-intervals` starts from #57 merge `58480d6`. Regression `d209012`
 reproduces the actual account planner halving waiting estimates from forty canceled offers, or

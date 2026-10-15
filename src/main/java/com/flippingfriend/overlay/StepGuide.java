@@ -95,6 +95,8 @@ public class StepGuide
 		Suggestion incoming = suggestion == null ? Suggestion.idle() : suggestion;
 		if (incoming.sameAs(tracked))
 		{
+            // Refresh the forecast payload while retaining progress on identical order inputs.
+            tracked = incoming;
 			pending = null;
 			return;
 		}
@@ -178,6 +180,9 @@ public class StepGuide
 
     public synchronized void setEditorQuote(Suggestion quote) {
         if (paused) return;
+        // The managed instruction already prices these exact units. Other quantities remain personal.
+        if (quote != null && tracked.getType() == SuggestionType.SELL && quote.getType() == SuggestionType.SELL
+            && tracked.getItemId() == quote.getItemId() && tracked.getQuantity() == quote.getQuantity()) quote = null;
         if (quote != null && (editorQuote == null || !quote.sameAs(editorQuote))) {
             quantityDone = true; priceDone = false;
         }

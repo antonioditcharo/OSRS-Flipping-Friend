@@ -125,6 +125,7 @@ public class CompanionClient
 	 * during one transition. Every one of those blips used to reach the player as a different answer.
 	 */
 	private volatile Suggestion lastBuy;
+    private Suggestion lastPresented;
 	private volatile String lastError = "Companion has not been contacted.";
 	private volatile PortfolioPlan lastPlan;
 	private volatile CompanionHealth lastHealth;
@@ -179,6 +180,7 @@ public class CompanionClient
 			clearIncumbent(); lastPlan = null; lastHealth = null;
 			lastLedger = null;
 			canonicalOffers.clear(); ledger.clear();
+            lastPresented = null;
 			observedAccountId = current;
 		}
 		return current;
@@ -357,6 +359,7 @@ public class CompanionClient
                                                 advice.getQuantity(), advice.getQuoteAgeSeconds(),
                                                 advice.getPredictedMinutes(), advice.getPredictedCompletion());
                                         builder.predictionEvidence(null,advice.getRecordedAt(),false);
+                                        builder.executionForecast(advice.getForecast());
                                 }
                                 return builder.build();
                         });
@@ -510,7 +513,7 @@ public class CompanionClient
 	public Suggestion nextBuySuggestion(Explainer explainer, Set<String> blocked, Set<Integer> skipped,
 		Set<Integer> onOffer)
 	{
-		accountContext();
+		String proposedAccount = accountContext();
 		try
 		{
 			PortfolioPlan plan = lastPlan;
@@ -538,44 +541,7 @@ public class CompanionClient
 			}
 			com.flippingfriend.core.PortfolioCandidate candidate = allocation.getCandidate();
 
-			// Remember what we advised before showing it, so whatever the player does next can be
-			// attributed to this plan rather than arriving as an anonymous offer.
-			long quoteAge = Math.max(0, Instant.now().getEpochSecond() - plan.getCreatedAt());
-			ledger.recorded(plan.getCorrelationId(), candidate.getItemId(), true,
-				candidate.getBuyPrice(), candidate.getQuantity(), quoteAge,
-				candidate.getBuyHours() * 60,
-				candidate.getDisplayCompletionProbability());
-
-			Suggestion suggestion = Suggestion.builder(SuggestionType.BUY)
-				.item(candidate.getItemId(), candidate.getItemName())
-				.price(candidate.getBuyPrice())
-				.quantity(candidate.getQuantity())
-				// What the trade makes if it works, which is what the same row means on every other
-				// card in the panel.
-				//
-				// This used to be candidate.expectedProfit(), a probability-weighted figure with the
-				// cost of a stranded position already netted out of it. Two problems. The built-in
-				// engine puts the if-it-works profit under the identical label, so the meaning of
-				// "Expected profit" changed depending on which engine had produced the card -- and
-				// the holding card that appears minutes later shows the if-it-works figure too, so
-				// a flip going exactly to plan looked like it had gained value on the way. And the
-				// card already draws a confidence bar from the same probabilities, so weighting the
-				// headline by them as well charged the player for the risk twice.
-				//
-				// The weighted figure is the right one for *ranking*, and it is still what ranks the
-				// plan: PortfolioCandidate.expectedGpPerSlotHour uses it and is untouched.
-				.expectedProfit(candidate.getNetProfit())
-				.confidence(candidate.getDisplayCompletionProbability())
-				.expectedMinutes(candidate.getSlotHours() * 60)
-				// Both legs, which the panel has always been able to show and was never given: the
-				// companion path never called this, so every companion-sourced suggestion rendered
-				// "not known" for the buy and the sell while the portfolio list two inches below
-				// printed both from the same candidate.
-				.fillMinutes(candidate.getBuyHours() * 60, candidate.getSellHours() * 60)
-				.targetSellPrice(candidate.getSellPrice())
-				// rather than against the combined figure, which carries the buy leg's difficulty too.
-				.headline("Buy " + explainer.formatNumber(candidate.getQuantity()) + " × " + candidate.getItemName())
-				.build();
+			Suggestion suggestion = EntryDecisionPresenter.buySuggestion(candidate,plan,explainer,proposedAccount);
 
 			lastBuy = suggestion;
 			return suggestion;
@@ -587,30 +553,36 @@ public class CompanionClient
 		}
 	}
 
-	/**
-	 * Records that the panel advised this sale, so the outcome can be scored against the prediction.
-	 * <p>
-	 * Only buy advice was ever recorded, with {@code buying = true} hardcoded at the single call site.
-	 * Everything downstream keys attribution on the leg, so every sell arrived at the companion with
-	 * no recommendation attached: {@code wasRecommended()} was false, {@code observeOutcome} was never
-	 * called for a sale, and the completion calibrator was trained entirely on buy legs and then
-	 * applied to both. The sell leg is the one carrying the real uncertainty -- a buy at the bid nearly
-	 * always fills -- so the half that was missing is the half worth learning from.
-	 */
-	public void recordSellAdvice(Suggestion suggestion)
-	{
-		if (suggestion == null || suggestion.getItemId() <= 0 || suggestion.getQuantity() <= 0)
-		{
-			return;
-		}
-		// The identity that matters is the trade, not the id: the ledger decides whether this is the
-		// same advice by comparing price and quantity, which is what keeps the attribution window
-		// from being restamped on every refresh.
-		ledger.recorded("sell-" + suggestion.getItemId(), suggestion.getItemId(), false,
-			suggestion.getPrice(), suggestion.getQuantity(), 0,
-			suggestion.getSellFillMinutes() > 0
-				? suggestion.getSellFillMinutes() : suggestion.getExpectedMinutes());
-	}
+    /** Called only after the client-thread guide accepts advice. This does not prove player intent. */
+    public synchronized void recordPresentedAdvice(Suggestion suggestion, String expectedAccount)
+    {
+        String account = accountContext();
+        if (account == null || !account.equals(expectedAccount) || suggestion == null || suggestion == lastPresented
+            || (suggestion.getAdviceAccountId() != null && !account.equals(suggestion.getAdviceAccountId()))
+            || (suggestion.getAdviceExpiresAt() > 0 && suggestion.getAdviceExpiresAt() <= Instant.now().getEpochSecond())
+            || (suggestion.getType() != SuggestionType.BUY && suggestion.getType() != SuggestionType.SELL)
+            || suggestion.getItemId() <= 0 || suggestion.getPrice() <= 0 || suggestion.getQuantity() <= 0) return;
+        boolean buying = suggestion.getType() == SuggestionType.BUY;
+        double minutes = buying ? suggestion.getBuyFillMinutes() : suggestion.getSellFillMinutes();
+        Double probability = suggestion.getLegCompletionProbability();
+        com.flippingfriend.core.ExecutionForecast forecast = suggestion.getExecutionForecast();
+        boolean scalarValid = probability != null && Double.isFinite(probability) && probability >= 0 && probability <= 1
+            && Double.isFinite(minutes) && minutes > 0;
+        if (forecast != null && (!scalarValid || !forecast.matches(suggestion.getItemId(),buying,suggestion.getPrice(),suggestion.getQuantity())
+            || Math.abs(forecast.getExpectedTotalSeconds()-minutes*60) > 1e-9*Math.max(1,minutes*60)
+            || Math.abs(forecast.getCompletionProbability()-probability) > 1e-12)) {
+            scalarValid = false; forecast = null;
+        }
+        String recommendation = suggestion.getRecommendationId();
+        if (recommendation == null || recommendation.isEmpty()) recommendation = (buying ? "buy-" : "sell-") + suggestion.getItemId();
+        ledger.recorded(recommendation,suggestion.getItemId(),buying,suggestion.getPrice(),suggestion.getQuantity(),
+            suggestion.getQuoteAgeSeconds(),scalarValid ? minutes : 0,scalarValid ? probability : 0,forecast);
+        lastPresented = suggestion;
+    }
+    /** Compatibility entry point for an already accepted sale; producers must not call this. */
+    public void recordSellAdvice(Suggestion suggestion) {
+        if (suggestion != null && suggestion.getType() == SuggestionType.SELL) recordPresentedAdvice(suggestion,accountContext());
+    }
 
 	/**
 	 * Prefers the trade already on screen, then the plan's own order.
@@ -711,7 +683,7 @@ public class CompanionClient
 		Set<String> blocked, Set<Integer> skipped, Set<Integer> onOffer,
 		EntryDecisionFetcher fetcher)
 	{
-		accountContext();
+		String requestedAccount = accountContext();
         if(offerEvidencePending()){lastPlan=null;return null;}
 		PortfolioPlan plan = lastPlan;
 		if (plan == null || plan.getExpiresAt() <= Instant.now().getEpochSecond()
@@ -728,7 +700,7 @@ public class CompanionClient
 		}
 		PolicyDecision decision = fetcher.fetch(plan.getCorrelationId(), rank);
 		if (decision == null) return null;
-		PresentedEntryDecision presented = EntryDecisionPresenter.present(decision, plan, explainer);
+		PresentedEntryDecision presented = EntryDecisionPresenter.present(decision, plan, explainer, requestedAccount);
 		if (presented == null)
 		{
 			lastError = "Companion entry decision did not match the current plan.";

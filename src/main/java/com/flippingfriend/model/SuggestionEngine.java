@@ -1638,6 +1638,8 @@ public class SuggestionEngine
 		// card whose number changes while the player is typing it reads as the plugin changing its
 		// mind about a trade it has not changed its mind about.
 		int sellPrice = advisedPrice(itemId, false, decision.getPrice(), now.getEpochSecond());
+        var forecast = sellTiming.forecastForOrder(itemId,sellPrice,best.quantity,marketData.getSeries(itemId,TIMESTEP),horizon);
+        double sellMinutes = forecast == null ? Double.NaN : forecast.getExpectedTotalSeconds()/60;
 
 		long profit = taxCalculator.netProfit(itemId, position.isCostKnown() ? position.getAverageCost() : 0, sellPrice,
 			best.quantity);
@@ -1665,8 +1667,10 @@ public class SuggestionEngine
 			.quantity(best.quantity)
 			.slot(collectionSlot)
 			.expectedProfit(profit)
-			.expectedMinutes(decision.getExpectedMinutes())
-			.fillMinutes(0, decision.getExpectedMinutes())
+			.expectedMinutes(sellMinutes)
+			.fillMinutes(0, sellMinutes)
+            .executionForecast(forecast)
+            .legCompletionProbability(forecast == null ? null : forecast.getCompletionProbability())
 			.headline((cut ? "Cut your losses on " : "Sell your ") + position.getItemName());
 
 

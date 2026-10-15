@@ -388,7 +388,14 @@ public class FlippingFriendPlugin extends Plugin
                 marketData.getSnapshot(), Instant.now());
         Suggestion previous = stepGuide.getSuggestion();
         stepGuide.setEditorQuote(quote);
+        recordVisibleAdvice();
         if (panel != null && !stepGuide.getSuggestion().sameAs(previous)) panel.refresh();
+    }
+    private void recordVisibleAdvice() {
+        if (client.getGameState() != GameState.LOGGED_IN || !accountDataLoaded.get()
+            || !hasProfile() || !offerTracker.hasCompleteOfferEvidence() || stepGuide.isPaused()) return;
+        companion.recordPresentedAdvice(stepGuide.getSuggestion(),
+            com.flippingfriend.core.AccountIdentity.fromProfileKey(configManager.getRSProfileKey()));
     }
     @Subscribe
     public void onMenuEntryAdded(net.runelite.api.events.MenuEntryAdded event) { tradeConfirmGuard.onMenuEntryAdded(event); }
@@ -424,6 +431,8 @@ public class FlippingFriendPlugin extends Plugin
 		if (event.getGroupId() == WidgetUtil.componentToInterface(InterfaceID.GeOffers.UNIVERSE))
 		{
 			stepGuide.onSetupClosed();
+            recordVisibleAdvice();
+            if (panel != null) panel.refresh();
             tradeConfirmGuard.reset();
             geInputAssist.reset();
 		}
@@ -898,14 +907,6 @@ public class FlippingFriendPlugin extends Plugin
 				// one. Nothing repainted the panel afterwards, so the two disagreed for a full
 				// refresh cycle -- which is what a player sees as the card and the walkthrough
 				// naming different items. Chaining them makes the order explicit.
-				// A sale is advice too, and until now it was the only kind nobody wrote down. Without
-				// this the offer that follows reaches the companion unattributed, so the sell leg --
-				// the one where the fill is genuinely in doubt -- never scored a single prediction.
-				if (!stepGuide.isPaused() && suggestion.getType() == SuggestionType.SELL)
-				{
-					companion.recordSellAdvice(suggestion);
-				}
-
 				consecutiveRefreshFailures.set(0);
 				Suggestion settled = suggestion;
 				clientThread.invokeLater(() ->
@@ -921,6 +922,7 @@ public class FlippingFriendPlugin extends Plugin
                     Suggestion current = settled;
 
 					stepGuide.setSuggestion(current);
+                    recordVisibleAdvice();
 					panel.refresh();
 				});
 				if (observedRevision==adviceObservationRevision.get() && !stepGuide.isPaused()) { notifyIfNeeded(suggestion); checkPriceDumps(); }

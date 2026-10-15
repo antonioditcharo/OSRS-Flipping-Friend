@@ -62,6 +62,11 @@ public class SuggestionLedger
 	public synchronized void recorded(String recommendationId, int itemId, boolean buying, int price,
 		int quantity, long quoteAgeSeconds, double predictedMinutes, double predictedCompletion)
 	{
+        recorded(recommendationId,itemId,buying,price,quantity,quoteAgeSeconds,predictedMinutes,predictedCompletion,null);
+    }
+    public synchronized void recorded(String recommendationId,int itemId,boolean buying,int price,int quantity,
+            long quoteAgeSeconds,double predictedMinutes,double predictedCompletion,com.flippingfriend.core.ExecutionForecast forecast)
+	{
 		if (recommendationId == null || recommendationId.isEmpty() || itemId <= 0)
 		{
 			return;
@@ -86,7 +91,7 @@ public class SuggestionLedger
 			? previous.suggestedAt
 			: now;
 		outstanding.put(key, new Advice(recommendationId, price, quantity,
-			quoteAgeSeconds, predictedMinutes, predictedCompletion, since, now));
+			quoteAgeSeconds, predictedMinutes, predictedCompletion, since, now,forecast));
 	}
 
 	/** The advice this offer most plausibly acts on, or null when the player acted unprompted. */
@@ -133,13 +138,15 @@ public class SuggestionLedger
 		private final double predictedCompletion;
 		private final long suggestedAt;
 		private final long recordedAt;
+        private final com.flippingfriend.core.ExecutionForecast forecast;
 		Advice(String recommendationId, int price, int quantity, long quoteAgeSeconds,
 			double predictedMinutes, double predictedCompletion, long suggestedAt)
 		{
-			this(recommendationId,price,quantity,quoteAgeSeconds,predictedMinutes,predictedCompletion,suggestedAt,suggestedAt);
+			this(recommendationId,price,quantity,quoteAgeSeconds,predictedMinutes,predictedCompletion,suggestedAt,suggestedAt,null);
 		}
 		private Advice(String recommendationId, int price, int quantity, long quoteAgeSeconds,
-			double predictedMinutes, double predictedCompletion, long suggestedAt, long recordedAt)
+			double predictedMinutes, double predictedCompletion, long suggestedAt, long recordedAt,
+            com.flippingfriend.core.ExecutionForecast forecast)
 		{
 			this.recommendationId = recommendationId;
 			this.price = price;
@@ -149,6 +156,7 @@ public class SuggestionLedger
 			this.predictedCompletion = predictedCompletion;
 			this.suggestedAt = suggestedAt;
 			this.recordedAt = recordedAt;
+            this.forecast=forecast;
 		}
 
 		/** Whether this is the same recommendation repeated, rather than a genuinely new one. */
@@ -166,5 +174,6 @@ public class SuggestionLedger
 		public long getSuggestedAt() { return suggestedAt; }
 		/** Availability of this prediction snapshot, distinct from the first identical order display. */
 		public long getRecordedAt() { return recordedAt; }
+        public com.flippingfriend.core.ExecutionForecast getForecast(){return forecast;}
 	}
 }

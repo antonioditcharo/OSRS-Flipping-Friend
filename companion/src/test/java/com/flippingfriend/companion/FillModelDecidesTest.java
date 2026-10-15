@@ -84,6 +84,12 @@ public class FillModelDecidesTest
 
 		for (PortfolioCandidate candidate : tactics)
 		{
+            assertTrue(candidate.getBuyForecast().matches(ITEM,true,candidate.getBuyPrice(),candidate.getQuantity()));
+            assertTrue(candidate.getSellForecast().matches(ITEM,false,candidate.getSellPrice(),candidate.getQuantity()));
+            assertEquals(candidate.getBuyHours()*3600,candidate.getBuyForecast().getExpectedTotalSeconds(),1e-8);
+            assertEquals(candidate.getSellHours()*3600,candidate.getSellForecast().getExpectedTotalSeconds(),1e-8);
+            assertEquals(2.5*3600,candidate.getBuyForecast().getHorizonSeconds(),0);
+            assertEquals(candidate.getBuyForecast().getFingerprint(),candidate.withDisplayProbability(.7).getBuyForecast().getFingerprint());
 			double measured = model
 				.estimateBuy(curve, candidate.getBuyPrice(), candidate.getQuantity(), 2.5, 1.0)
 				.getProbability();

@@ -44,6 +44,10 @@ public class Suggestion
 	 */
 	private boolean lossCut;
     private boolean profitKnown = true;
+    private String recommendationId,adviceAccountId;
+    private long quoteAgeSeconds,adviceExpiresAt;
+    private com.flippingfriend.core.ExecutionForecast executionForecast;
+    private Double legCompletionProbability;
 
 	private Suggestion(SuggestionType type, int itemId, String itemName, int price, int quantity, int slot,
 		long expectedProfit, double confidence, double expectedMinutes, double buyFillMinutes,
@@ -117,6 +121,12 @@ public class Suggestion
 	}
 
 	public boolean isProfitKnown() { return profitKnown; }
+    public String getRecommendationId(){return recommendationId;}
+    public String getAdviceAccountId(){return adviceAccountId;}
+    public long getQuoteAgeSeconds(){return quoteAgeSeconds;}
+    public long getAdviceExpiresAt(){return adviceExpiresAt;}
+    public com.flippingfriend.core.ExecutionForecast getExecutionForecast(){return executionForecast;}
+    public Double getLegCompletionProbability(){return legCompletionProbability;}
 
 	public long getExpectedProfit()
 	{
@@ -233,6 +243,10 @@ public class Suggestion
 		private int targetSellPrice;
 		private String headline = "";
 		private String detail = "";
+        private String recommendationId,adviceAccountId;
+        private long quoteAgeSeconds,adviceExpiresAt;
+        private com.flippingfriend.core.ExecutionForecast executionForecast;
+        private Double legCompletionProbability;
 
 		private Builder(SuggestionType type)
 		{
@@ -298,6 +312,11 @@ public class Suggestion
 			this.sellFillMinutes = sellMinutes;
 			return this;
 		}
+        public Builder adviceContext(String account,String recommendation,long quoteAge,long expiresAt) {
+            adviceAccountId=account;recommendationId=recommendation;quoteAgeSeconds=quoteAge;adviceExpiresAt=expiresAt;return this;
+        }
+        public Builder executionForecast(com.flippingfriend.core.ExecutionForecast forecast) {executionForecast=forecast;return this;}
+        public Builder legCompletionProbability(Double probability) {legCompletionProbability=probability;return this;}
 
 
 
@@ -333,6 +352,9 @@ public class Suggestion
 				breakEvenPrice, targetSellPrice, headline, detail);
 			suggestion.lossCut = lossCut;
             suggestion.profitKnown = profitKnown;
+            suggestion.recommendationId=recommendationId;suggestion.adviceAccountId=adviceAccountId;
+            suggestion.quoteAgeSeconds=quoteAgeSeconds;suggestion.adviceExpiresAt=adviceExpiresAt;
+            suggestion.executionForecast=executionForecast;suggestion.legCompletionProbability=legCompletionProbability;
 			return suggestion;
 		}
 	}

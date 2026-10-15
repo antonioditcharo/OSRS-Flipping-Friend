@@ -266,6 +266,17 @@ public class SellTimingEngine
 		return best == null ? fallback : best;
 	}
 
+    /** Re-evaluate the actual displayed order after quantity caps or price stabilization. */
+    public com.flippingfriend.core.ExecutionForecast forecastForOrder(int item, int price, int quantity,
+            List<Candle> series, TradingHorizon horizon) {
+        if (series == null || series.isEmpty() || item <= 0 || price <= 0 || quantity <= 0) return null;
+        FillCurve curve = FillCurve.overRecentHistory(series);
+        FillEstimate fill = fillModel.estimateSell(curve,price,quantity,horizon.legHorizonHours());
+        if (!fill.isPlausible()) return null;
+        var forecast = fillModel.forecast(item,false,curve,price,quantity,horizon.legHorizonHours(),1,fill,1,fill.getExpectedHours());
+        return forecast.isValid() ? forecast : null;
+    }
+
 	/**
 	 * The prices the exit search may consider.
 	 * <p>

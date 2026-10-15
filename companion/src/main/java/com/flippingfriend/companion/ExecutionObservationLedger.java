@@ -19,7 +19,8 @@ final class ExecutionObservationLedger {
             && origin.getSuggestedQuantity()==origin.getTotalQuantity()
             && Double.isFinite(origin.getPredictedMinutes()) && origin.getPredictedMinutes()>0
             && Double.isFinite(origin.getPredictedCompletion()) && origin.getPredictedCompletion()>=0
-            && origin.getPredictedCompletion()<=1;
+            && origin.getPredictedCompletion()<=1
+            && (origin.getExecutionForecast()==null || origin.getExecutionForecast().matches(origin));
     }
     private static boolean active(OfferEvent e) {
         return ("BUYING".equals(e.getEventType()) || "SELLING".equals(e.getEventType())) && !e.isComplete();
