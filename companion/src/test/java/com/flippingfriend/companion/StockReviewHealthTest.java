@@ -15,7 +15,7 @@ import static org.junit.Assert.*;
 
 public class StockReviewHealthTest {
     @Rule public TemporaryFolder folder = new TemporaryFolder();
-    @Test public void serviceSeparatesReviewedExposureFromUnresolvedHistoryAndOtherFaults() throws Exception {
+    @Test public void freshScopeSeparatesUnresolvedHistoryFromOtherFaults() throws Exception {
         SqliteStore store = new SqliteStore(folder.newFolder().toPath().resolve("test.db"));
         CompanionService service = new CompanionService(new Gson(), store);
         try {
@@ -33,7 +33,7 @@ public class StockReviewHealthTest {
             fault.setAccessible(true); fault.invoke(service, "Position projection item 100", "unknown cost", null);
             assertFalse(service.health().canReadPlan(now));
             PositionProjection p = store.positionProjections().get(0);
-            set(service, "account", raw.withStockDeclarations(Collections.singletonMap(100,
+            set(service, "account", current(store,raw).withStockDeclarations(Collections.singletonMap(100,
                 new StockDeclaration(p, StockDeclaration.Use.PERSONAL))));
             CompanionHealth health = service.health();
             assertEquals("DEGRADED", health.getStatus()); assertTrue(health.getReason().contains("unknown cost"));
@@ -49,18 +49,33 @@ public class StockReviewHealthTest {
             AccountSnapshot raw = SnapshotReconciliationTest.account(100,
                 new PositionSnapshot(100, "Synthetic supplies", 3, 0, false, 10, 0, 0, 0));
             store.recordAndReconcileAccount(raw, PositionStateView.from(raw), "raw");
-            set(service, "account", raw.withStockDeclarations(Collections.singletonMap(100,
+            set(service, "account", current(store,raw).withStockDeclarations(Collections.singletonMap(100,
                 new StockDeclaration(store.positionProjections().get(0), StockDeclaration.Use.PERSONAL))));
             PortfolioPlan ready = new PortfolioPlan("old", 0, Long.MAX_VALUE, "READY", "old review", 0, Collections.emptyList());
             set(service, "plan", ready); set(service, "planThread", new PausedExecutor());
-            service.account(SnapshotReconciliationTest.account(101,
-                new PositionSnapshot(100, "Synthetic supplies", 3, 0, false, 10, 0, 0, 0)));
+            var existing=(AccountSnapshot)get(service,"account");
+            service.account(existing.withStockDeclarations(Collections.emptyMap()));
             Field plan = CompanionService.class.getDeclaredField("plan"); plan.setAccessible(true);
-            PortfolioPlan withdrawn = (PortfolioPlan) plan.get(service);
+            PortfolioPlan withdrawn = service.plan();
             assertNotSame(ready, withdrawn);
             assertEquals(PortfolioPlanOutcome.COMPANION_STATE_UNAVAILABLE, withdrawn.getOutcome());
             assertTrue(withdrawn.getAllocations().isEmpty());
         } finally { service.close(); }
+    }
+    private static Object get(Object target,String name)throws Exception {
+        Field f=target.getClass().getDeclaredField(name);f.setAccessible(true);return f.get(target);
+    }
+    private static AccountSnapshot current(SqliteStore store,AccountSnapshot raw)throws Exception {
+        String id=AccountIdentity.fromProfileKey("current-health");long now=Instant.now().getEpochSecond();
+        java.util.Map<Integer,String> receipt=new java.util.HashMap<>();Gson gson=new Gson();
+        for(int slot=0;slot<8;slot++) {
+            var e=OfferEvent.builder("fixture",now,"EMPTY").accountId(id).authenticatedObservation(true)
+                .eventIdentity("current-"+slot,"health",null).slot(slot).sequence(slot+1).build();
+            store.recordAndProjectOffer(e,gson.toJson(e),true);receipt.put(slot,e.getEventId());
+        }
+        var wire=gson.toJsonTree(raw).getAsJsonObject();wire.addProperty("observedAt",now);
+        wire.addProperty("freeSlots",8);wire.addProperty("totalSlots",8);wire.addProperty("committedCoins",0);
+        return gson.fromJson(wire,AccountSnapshot.class).withAccountId(id).withAutomaticTradeScope().withOfferReadSet(receipt);
     }
     private static void set(Object target, String field, Object value) throws Exception {
         Field f = CompanionService.class.getDeclaredField(field); f.setAccessible(true); f.set(target, value);

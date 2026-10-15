@@ -32,6 +32,12 @@ are in `docs/project-direction.md`; historical package notes are not proof of ru
   unassigned rows and unknown money intact; affected items remain paused, while provably unrelated
   acquisitions can remain manageable. Unknown scope stays global. Item scope is not exposure value
   or permission to buy; see docs/architecture/trade-gap-scoping.md for the separate remaining gates.
+- New entries require a fresh client cash/eight-slot capture tied to acknowledged durable event IDs.
+  Known old gaps may contribute conservative capital upper bounds while affected items stay paused;
+  unknown scope, current errors, contradictory funding and overflow still block buys. Bank cash is a
+  session-local lower bound and must not return on fill/collection or cached-container reads. Keep
+  queued advice invalidation separate from ordered offer delivery. See
+  docs/architecture/bounded-current-planning.md; source tests do not establish live buy readiness.
 - Keep the sidebar compact: current guided action, controls and durable recorded profit. Open
   explanations, holdings/history/plan and settings separately; do not restore the old accordion
   stack or label recorded totals as session profit. Preserve actual 5m/30m/2h/8h and visibly custom

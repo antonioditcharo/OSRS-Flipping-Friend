@@ -25,10 +25,11 @@ import static org.mockito.Mockito.mock;
 public class EntryDecisionOrchestrationTest
 {
     private CompanionClient client;
+    @org.junit.Rule public org.junit.rules.TemporaryFolder folder=new org.junit.rules.TemporaryFolder();
 
-    @Before public void setUp()
+    @Before public void setUp() throws Exception
     {
-        client = new CompanionClient(mock(PluginStorage.class), new Gson(), new SuggestionLedger());
+        client = new CompanionClient(com.flippingfriend.data.TestStorage.rootedAt(folder.newFolder().toPath(),"fixture"), new Gson(), new SuggestionLedger());
     }
 
     @Test public void readyPlanSelectsRankRetrievesDecisionAndPresentsIt()

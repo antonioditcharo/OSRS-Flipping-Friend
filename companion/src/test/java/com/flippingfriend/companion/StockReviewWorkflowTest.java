@@ -14,14 +14,14 @@ public class StockReviewWorkflowTest {
     @Rule public TemporaryFolder folder = new TemporaryFolder();
     private final Gson gson = new Gson();
 
-    @Test public void personalSnapshotHoldingDoesNotBlockOtherBuysOrChangeLedger() throws Exception {
-        checkReview("PERSONAL", false, true);
+    @Test public void legacyPersonalDeclarationCannotReplaceCurrentObservationProof() throws Exception {
+        checkReview("PERSONAL", false, false);
     }
-    @Test public void playerRetiredOldHoldingDoesNotCreateDisposalOrProfit() throws Exception {
-        checkReview("NO_LONGER_HELD", false, true);
+    @Test public void legacyRetiredHoldingCannotAuthorizeEntriesOrInventDisposal() throws Exception {
+        checkReview("NO_LONGER_HELD", false, false);
     }
-    @Test public void retiredUnpricedFullSaleRemainsUnresolvedWithoutBlockingPlanning() throws Exception {
-        checkReview("NO_LONGER_HELD", true, true);
+    @Test public void legacyRetiredSaleRemainsUnresolvedAndCannotAuthorizeEntries() throws Exception {
+        checkReview("NO_LONGER_HELD", true, false);
     }
     @Test public void unclassifiedUnknownHoldingStillBlocksPlanning() throws Exception {
         checkReview(null, false, false);

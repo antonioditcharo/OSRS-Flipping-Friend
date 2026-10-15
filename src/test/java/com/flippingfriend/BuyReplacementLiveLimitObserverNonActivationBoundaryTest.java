@@ -8,7 +8,9 @@ public class BuyReplacementLiveLimitObserverNonActivationBoundaryTest {
         Path root = Path.of("").toAbsolutePath();
         while (root != null && !Files.exists(root.resolve("settings.gradle"))) root = root.getParent();
         assertNotNull(root);
-        String[] tokens = {"BuyReplacementLiveLimitObservation", "BuyReplacementLiveLimitObserver", "remainingAt"};
+        // BuyLimitLedger.remainingAt is now shared by current new-entry validation. The separate
+        // replacement observer remains inactive; a generic method name cannot prove its activation.
+        String[] tokens = {"BuyReplacementLiveLimitObservation", "BuyReplacementLiveLimitObserver"};
         assertTrue(Files.isRegularFile(root.resolve(
                 "companion/src/main/java/com/flippingfriend/companion/BuyReplacementLiveLimitObserver.java")));
         for (String file : new String[] {

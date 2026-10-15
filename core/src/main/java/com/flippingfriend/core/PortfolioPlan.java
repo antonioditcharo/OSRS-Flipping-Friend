@@ -23,6 +23,8 @@ public final class PortfolioPlan
 	private final List<PortfolioAlert> alerts;
 	/** Why the plan is what it is; null on plans built before diagnostics were attached. */
 	private final PlanDiagnostics diagnostics;
+	/** Conservative capital guards for paused items; these are not proven holdings or profit. */
+	private java.util.Map<Integer,Long> uncertainCapitalBounds;
 
 	/**
 	 * What the best full board of trades would earn, whether or not any of it can be placed yet.
@@ -86,6 +88,7 @@ public final class PortfolioPlan
 		copy.boardSize = boardSize;
 		copy.bench = bench;
 		copy.outcome = getOutcome();
+		copy.uncertainCapitalBounds = uncertainCapitalBounds;
 		return copy;
 	}
 
@@ -113,7 +116,24 @@ public final class PortfolioPlan
 		copy.boardSize = Math.max(0, size);
 		copy.bench = queue == null ? bench : Collections.unmodifiableList(queue);
 		copy.outcome = getOutcome();
+		copy.uncertainCapitalBounds = uncertainCapitalBounds;
 		return copy;
+	}
+
+	public PortfolioPlan withUncertainCapitalBounds(java.util.Map<Integer,Long> bounds)
+	{
+		if (bounds == null || bounds.entrySet().stream().anyMatch(e -> e.getKey() == null
+			|| e.getKey() <= 0 || e.getValue() == null || e.getValue() < 0))
+			throw new IllegalArgumentException("invalid uncertain capital bounds");
+		PortfolioPlan copy = withDiagnostics(diagnostics);
+		copy.uncertainCapitalBounds = Collections.unmodifiableMap(new java.util.TreeMap<>(bounds));
+		return copy;
+	}
+
+	public java.util.Map<Integer,Long> getUncertainCapitalBounds()
+	{
+		return uncertainCapitalBounds == null ? Collections.emptyMap()
+			: Collections.unmodifiableMap(new java.util.TreeMap<>(uncertainCapitalBounds));
 	}
 
 	/**

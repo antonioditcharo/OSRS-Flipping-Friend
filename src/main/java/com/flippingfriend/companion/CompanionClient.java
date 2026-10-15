@@ -82,6 +82,8 @@ public class CompanionClient
 		lastBuy = null;
 	}
 
+    public void invalidateEntryAdvice() { lastPlan=null; lastHealth=null; clearIncumbent(); }
+
 	/** The single point where a plan becomes the one in force, so tests can reach the same state. */
 	void acceptPlan(PortfolioPlan plan)
 	{
@@ -230,20 +232,45 @@ public class CompanionClient
 		java.util.Set<String> blocked, java.util.Set<Integer> skipped, java.util.Set<Integer> onOffer,
 		boolean sellOnly, java.util.Collection<Position> positions, java.util.Collection<TrackedOffer> offers,
 		String expectedAccountId)
+    {
+        publishAccount(state,config,markedDrawdown,committedByItem,buyLimitUsed,blocked,skipped,onOffer,
+            sellOnly,positions,offers,expectedAccountId,null);
+    }
+    public void publishAccount(AccountState state, FlippingFriendConfig config, long markedDrawdown,
+        java.util.Map<Integer,Long> committedByItem,java.util.Map<Integer,Integer> buyLimitUsed,
+        java.util.Set<String> blocked,java.util.Set<Integer> skipped,java.util.Set<Integer> onOffer,
+        boolean sellOnly,java.util.Collection<Position> positions,java.util.Collection<TrackedOffer> offers,
+        String expectedAccountId,com.flippingfriend.session.PlanningAccountObservation observation)
 	{
 		if (!state.isLoggedIn()) return;
 		String accountId = accountContext();
 		if (accountId == null || !accountId.equals(expectedAccountId)) { lastError = "Waiting for current account identity"; return; }
-		// Publish current offer high-water marks before adopting their filled stock from a snapshot.
-		for (TrackedOffer offer : new java.util.ArrayList<>(offers))
-			if (!canonicalOffers.containsKey(offer.getSlot())) publishOffer(offer, expectedAccountId);
+        java.util.Map<Integer,String> receipt=new java.util.HashMap<>();
+        if(observation!=null) {
+            long age=Instant.now().getEpochSecond()-observation.getObservedAt();
+            if(!expectedAccountId.equals(observation.getAccountId()) || state!=observation.getState() || age<0 || age>150)return;
+            java.util.List<TrackedOffer> observed=observation.getSlots();
+            onOffer=new java.util.HashSet<>();
+            for(int slot=0;slot<8;slot++) {
+                if(observed.get(slot)!=null)onOffer.add(observed.get(slot).getItemId());
+                OfferEvent event=observed.get(slot)==null
+                    ? publishOfferCleared(slot,expectedAccountId,true,observation.getObservedAt(),false)
+                    : publishOffer(observed.get(slot),expectedAccountId,true,observation.getObservedAt(),false);
+                if(event==null)return;
+                receipt.put(slot,event.getEventId());
+            }
+        }else {
+            // Legacy callers cannot supply current-read proof or release bounded-history planning.
+            for (TrackedOffer offer : new java.util.ArrayList<>(offers))
+                if (!canonicalOffers.containsKey(offer.getSlot())) publishOffer(offer, expectedAccountId);
+        }
 		replayPendingOffers();
 		try
 		{
 			if (!outbox.pending().isEmpty()) { lastError = "Waiting for durable offer acknowledgements"; return; }
 		}
 		catch (Exception error) { lastError = error.getMessage(); return; }
-		long now = Instant.now().getEpochSecond();
+		long now = observation==null ? Instant.now().getEpochSecond() : observation.getObservedAt();
                 java.util.List<PositionSnapshot> positionSnapshots = new java.util.ArrayList<>();
 		for (Position position : positions == null
 				? java.util.Collections.<Position>emptyList()
@@ -272,6 +299,7 @@ public class CompanionClient
 			// short or long a flip the player had asked for.
 			config.targetHoldMinutes(), positionSnapshots).withAccountId(accountId)
 			.withAutomaticTradeScope();
+		if(observation!=null) snapshot=snapshot.withOfferReadSet(receipt);
 		post("events/account-state", snapshot);
 	}
 
@@ -291,13 +319,18 @@ public class CompanionClient
         {
                 publishOffer(offer, expectedAccountId, true);
         }
+        public void publishObservedOffer(TrackedOffer offer,String expectedAccountId,long observedAt)
+        { publishOffer(offer,expectedAccountId,true,observedAt,true); }
 
-        private void publishOffer(TrackedOffer offer, String expectedAccountId, boolean authenticated)
+        private OfferEvent publishOffer(TrackedOffer offer, String expectedAccountId, boolean authenticated)
         {
-                if (offer == null) return;
+                return publishOffer(offer,expectedAccountId,authenticated,Instant.now().getEpochSecond(),true);
+        }
+        private OfferEvent publishOffer(TrackedOffer offer, String expectedAccountId, boolean authenticated,long now,boolean replay)
+        {
+                if (offer == null) return null;
                 if (expectedAccountId == null || !expectedAccountId.equals(accountContext()))
-                { lastError = "Could not persist offer event: account identity changed or unavailable"; return; }
-                long now = Instant.now().getEpochSecond();
+                { lastError = "Could not persist offer event: account identity changed or unavailable"; return null; }
                 String state = offer.getState() == null ? "OBSERVED" : offer.getState();
                 SuggestionLedger.Advice advice = ledger.attribute(offer.getItemId(), offer.isBuying(), now);
                 try
@@ -324,11 +357,13 @@ public class CompanionClient
                         });
                         lastLedger = null;
                         rememberCanonicalOffer(event);
-                        replayPendingOffers();
+                        if(replay) replayPendingOffers();
+                        return event;
                 }
                 catch (Exception ex)
                 {
                         lastError = "Could not persist offer event: " + ex.getMessage();
+                        return null;
                 }
         }
 
@@ -346,13 +381,18 @@ public class CompanionClient
         {
                 publishOfferCleared(slot, expectedAccountId, true);
         }
+        public void publishObservedOfferCleared(int slot,String expectedAccountId,long observedAt)
+        { publishOfferCleared(slot,expectedAccountId,true,observedAt,true); }
 
-        private void publishOfferCleared(int slot, String expectedAccountId, boolean authenticated)
+        private OfferEvent publishOfferCleared(int slot, String expectedAccountId, boolean authenticated)
         {
-                if (slot < 0) return;
+                return publishOfferCleared(slot,expectedAccountId,authenticated,Instant.now().getEpochSecond(),true);
+        }
+        private OfferEvent publishOfferCleared(int slot, String expectedAccountId, boolean authenticated,long now,boolean replay)
+        {
+                if (slot < 0) return null;
                 if (expectedAccountId == null || !expectedAccountId.equals(accountContext()))
-                { lastError = "Could not persist offer event: account identity changed or unavailable"; return; }
-                long now = Instant.now().getEpochSecond();
+                { lastError = "Could not persist offer event: account identity changed or unavailable"; return null; }
                 try
                 {
                         OfferEvent event = outbox.enqueue((eventId, sessionId, sequence) ->
@@ -363,11 +403,13 @@ public class CompanionClient
                                         .sequence(sequence).build());
                         lastLedger = null;
                         canonicalOffers.remove(slot);
-                        replayPendingOffers();
+                        if(replay) replayPendingOffers();
+                        return event;
                 }
                 catch (Exception ex)
                 {
                         lastError = "Could not persist offer event: " + ex.getMessage();
+                        return null;
                 }
         }
 
@@ -385,6 +427,7 @@ public class CompanionClient
 	{
 		long requestedReview = stockReviewGeneration.get();
 		String requestedAccount = accountContext();
+        if(offerEvidencePending()){lastPlan=null;lastLedger=null;return null;}
 		refreshLedger(requestedAccount);
 		try
 		{
@@ -664,6 +707,7 @@ public class CompanionClient
 		EntryDecisionFetcher fetcher)
 	{
 		accountContext();
+        if(offerEvidencePending()){lastPlan=null;return null;}
 		PortfolioPlan plan = lastPlan;
 		if (plan == null || plan.getExpiresAt() <= Instant.now().getEpochSecond()
 			|| fetcher == null)
@@ -692,6 +736,11 @@ public class CompanionClient
 	{
 		PolicyDecision fetch(String planId, int allocationRank);
 	}
+    private boolean offerEvidencePending() {
+        try { if(outbox.pending().isEmpty())return false; }
+        catch(Exception unavailable){ /* Missing delivery proof also withdraws entries. */ }
+        lastError="Waiting for durable offer acknowledgements";return true;
+    }
 
 	public PolicyDecision fetchEntryDecision(String planId, int allocationRank)
 	{

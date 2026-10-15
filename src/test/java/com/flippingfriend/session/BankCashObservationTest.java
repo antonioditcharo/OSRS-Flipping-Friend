@@ -69,4 +69,11 @@ public class BankCashObservationTest {
         f.update(GrandExchangeOfferState.BOUGHT,10);f.update(GrandExchangeOfferState.EMPTY,0);
         assertEquals(90_000_000,f.spendable());
     }
+    @Test public void terminalAndEmptyCallbacksBeforeRefreshStillDebitBankCash() {
+        Fixture f=new Fixture();f.bank(100_000_000);
+        f.monitor.observeOffer(0,offer(GrandExchangeOfferState.BOUGHT,10));
+        f.monitor.observeOffer(0,offer(GrandExchangeOfferState.EMPTY,0));
+        f.monitor.refresh();assertEquals(90_000_000,f.spendable());
+        f.monitor.observeOffer(0,null);f.monitor.refresh();assertEquals(0,f.spendable());
+    }
 }

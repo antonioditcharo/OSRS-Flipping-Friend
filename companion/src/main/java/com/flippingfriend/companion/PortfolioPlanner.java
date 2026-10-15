@@ -341,6 +341,7 @@ final class PortfolioPlanner
 	/** Whether the player has put this item out of bounds, by any of the three means available. */
 	static boolean rejected(PortfolioCandidate candidate, AccountSnapshot account)
 	{
+        if (account.getUnavailableEntryItems().contains(candidate.getItemId())) return true;
 		com.flippingfriend.core.StockDeclaration declaration = account.getStockDeclarations().get(candidate.getItemId());
 		if (declaration != null && declaration.isValid()
 			&& declaration.getUse() == com.flippingfriend.core.StockDeclaration.Use.PERSONAL

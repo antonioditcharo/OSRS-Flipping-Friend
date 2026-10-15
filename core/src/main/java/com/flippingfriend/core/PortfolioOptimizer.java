@@ -187,10 +187,15 @@ public final class PortfolioOptimizer
 		}
 
 		PortfolioCandidate candidate = candidates.get(index);
-		long nextCoins = coins + candidate.getCapitalRequired();
-		long nextLoss = loss + candidate.getWorstLoss();
-		long item = itemCapital.getOrDefault(candidate.getItemId(), 0L) + candidate.getCapitalRequired();
-		long group = groupCapital.getOrDefault(candidate.getGroup(), 0L) + candidate.getCapitalRequired();
+        long nextCoins,nextLoss,item,group;
+        try {
+            nextCoins=Math.addExact(coins,candidate.getCapitalRequired());
+            nextLoss=Math.addExact(loss,candidate.getWorstLoss());
+            item=Math.addExact(itemCapital.getOrDefault(candidate.getItemId(),0L),candidate.getCapitalRequired());
+            group=Math.addExact(groupCapital.getOrDefault(candidate.getGroup(),0L),candidate.getCapitalRequired());
+        }catch(ArithmeticException overflow){
+            search(candidates,index+1,limits,selected,itemCapital,groupCapital,itemIds,coins,loss,score,best);return;
+        }
 		boolean groupAllowed = candidate.getGroup().isEmpty() || limits.getPerGroupCapitalCap() == 0
 			|| group <= limits.getPerGroupCapitalCap();
 		boolean itemAllowed = limits.getPerItemCapitalCap() == 0 || item <= limits.getPerItemCapitalCap();

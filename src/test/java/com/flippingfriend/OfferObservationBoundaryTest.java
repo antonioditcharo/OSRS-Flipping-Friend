@@ -43,7 +43,7 @@ public class OfferObservationBoundaryTest
         f.plugin.onGrandExchangeOfferChanged(changed(2, observation(GrandExchangeOfferState.EMPTY, 0)));
         f.worker.runPending();
         verify(f.tracker, never()).onOfferChanged(anyInt(), any());
-        verify(f.companion, never()).publishObservedOfferCleared(anyInt(), anyString());
+        verify(f.companion, never()).publishObservedOfferCleared(anyInt(), anyString(), anyLong());
     }
 
     @Test public void queuedPublicationRetainsTheObservedPartialFill() throws Exception
@@ -58,7 +58,7 @@ public class OfferObservationBoundaryTest
         tracked.setQuantityFilled(10); tracked.setSpent(10000); tracked.setState("SOLD");
         f.worker.runPending();
         ArgumentCaptor<TrackedOffer> sent = ArgumentCaptor.forClass(TrackedOffer.class);
-        verify(f.companion).publishObservedOffer(sent.capture(), eq(com.flippingfriend.core.AccountIdentity.fromProfileKey("synthetic-profile")));
+        verify(f.companion).publishObservedOffer(sent.capture(), eq(com.flippingfriend.core.AccountIdentity.fromProfileKey("synthetic-profile")), anyLong());
         assertEquals("SELLING", sent.getValue().getState());
         assertEquals(2, sent.getValue().getQuantityFilled());
         assertEquals(2000, sent.getValue().getSpent());
@@ -104,7 +104,7 @@ public class OfferObservationBoundaryTest
         GameStateChanged logout = new GameStateChanged(); logout.setGameState(GameState.LOGIN_SCREEN);
         f.plugin.onGameStateChanged(logout);
         f.worker.runPending();
-        verify(f.companion, never()).publishObservedOffer(any(), anyString());
+        verify(f.companion, never()).publishObservedOffer(any(), anyString(), anyLong());
     }
 
     @Test public void loggedInCollectionStillPublishesEmpty() throws Exception
@@ -113,7 +113,7 @@ public class OfferObservationBoundaryTest
         f.plugin.onGrandExchangeOfferChanged(changed(2, observation(GrandExchangeOfferState.EMPTY, 0)));
         f.worker.runPending();
         verify(f.tracker).onOfferChanged(eq(2), any());
-        verify(f.companion).publishObservedOfferCleared(2, com.flippingfriend.core.AccountIdentity.fromProfileKey("synthetic-profile"));
+        verify(f.companion).publishObservedOfferCleared(eq(2), eq(com.flippingfriend.core.AccountIdentity.fromProfileKey("synthetic-profile")), anyLong());
     }
 
     @Test public void bufferedTerminalAndCollectionBothReachCompanionInOrder() throws Exception
@@ -128,8 +128,8 @@ public class OfferObservationBoundaryTest
         when(f.configManager.getRSProfileKey()).thenReturn("synthetic-profile");
         f.setLoaded(true); f.drain(); f.worker.runPending();
         org.mockito.InOrder order = inOrder(f.companion);
-        order.verify(f.companion).publishObservedOffer(argThat(o -> "BOUGHT".equals(o.getState()) && o.getSpent() == 10000), anyString());
-        order.verify(f.companion).publishObservedOfferCleared(eq(1), anyString());
+        order.verify(f.companion).publishObservedOffer(argThat(o -> "BOUGHT".equals(o.getState()) && o.getSpent() == 10000), anyString(), anyLong());
+        order.verify(f.companion).publishObservedOfferCleared(eq(1), anyString(), anyLong());
     }
 
     @Test public void authenticatedSlotArrayRestoresMissedOfflineCompletion() throws Exception
