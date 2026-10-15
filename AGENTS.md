@@ -55,6 +55,9 @@ are in `docs/project-direction.md`; historical package notes are not proof of ru
   diagnostic inputs, not a performance claim.
 - Keep real executions separate from simulated price-touch evidence. Promote learning changes
   only with chronological evaluation against a frozen baseline and loss/return guardrails.
+  Eligible execution samples and their deduplication claims must commit with canonical source
+  acceptance/accounting; never backfill old aggregate samples or change legacy keys to recount
+  history. See docs/architecture/execution-evidence-atomicity.md.
 - Prefer complete player workflows and behavioral regression tests over new inactive scaffolding.
   Preserve manual game interaction while preparing feature parity.
 - The owner authorizes agent-managed routine backup verification, paired updates and launching.

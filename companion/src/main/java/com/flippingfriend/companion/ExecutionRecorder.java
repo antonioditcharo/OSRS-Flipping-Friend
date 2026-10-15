@@ -52,11 +52,6 @@ final class ExecutionRecorder
 			return false;
 		}
 
-		if (!store.claimOffer(identity(event), event.getObservedAt()))
-		{
-			return false;
-		}
-
 		// Only a completed offer has a meaningful fill time. An offer cancelled after ten minutes
 		// did not take ten minutes to fill; it never filled, and averaging it in as though it had
 		// would drag the mean towards whatever the player's patience happens to be.
@@ -76,9 +71,8 @@ final class ExecutionRecorder
 		// missing observation but a censored one: whatever its true fill time was, it exceeded forty
 		// minutes, and that is worth more to a duration model than silence.
 		double openMinutes = event.secondsOpen() / 60.0;
-		store.recordExecution(event.getItemId(), complete, minutes, predicted, openMinutes,
-			event.getPredictedMinutes());
-		return true;
+		return store.recordExecutionObservation(identity(event), event.getObservedAt(), event.getItemId(),
+			complete, minutes, predicted, openMinutes, event.getPredictedMinutes());
 	}
 
 	/**

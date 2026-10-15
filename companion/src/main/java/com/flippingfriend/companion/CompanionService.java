@@ -51,7 +51,6 @@ final class CompanionService implements AutoCloseable
 	private final CompanionEntryPolicy entryPolicy = new CompanionEntryPolicy();
 	/** Buy-limit windows are per account and reset four hours after the first purchase in them. */
 	private final BuyLimitLedger buyLimits = new BuyLimitLedger();
-	private final ExecutionRecorder executions;
 
 
 	/** Single thread, so plans are computed one at a time and in order. */
@@ -172,7 +171,6 @@ final class CompanionService implements AutoCloseable
 		this.market = market;
 		this.series = series;
 		this.planner = new PortfolioPlanner(series);
-		this.executions = new ExecutionRecorder(store);
 		this.warmShortlist = planner::shortlistIds;
 	}
 
@@ -452,9 +450,7 @@ final class CompanionService implements AutoCloseable
 		}
 		buyLimits.restore(store.buyLimitProjections());
 		activeOffers.apply(event);
-		// Settled offers are the only direct evidence of how our own orders behave in the queue,
-		// as opposed to what the public price history says the market did.
-		if (!store.hasOfferAccountingGap(event.getOfferIdentity())) executions.record(event);
+		// Execution evidence committed atomically with the canonical event above.
 
 		// An offer changing is the single most important reason to re-plan: a slot has just opened
 		// or closed, capital has moved, and a buy limit may have been consumed. Waiting for the next

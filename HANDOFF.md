@@ -3,6 +3,52 @@
 Updated 15 October 2026 (America/Anchorage). Read this with [AGENTS.md](AGENTS.md) and
 [TASKS.md](TASKS.md) before continuing implementation.
 
+## Atomic execution-evidence continuation — 15 October 2026
+
+Previous turn made verified progress: PR #49's paired install recovered current slots and bounded
+exposure; #50 fixed Windows PowerShell JSON reads; [PR #51](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/51)
+fixed the coherent-heartbeat planning refusal. PR #51 passed both exact-head checks at
+`e6ecb10b32da9bf20be01872a7d7b983358a4338` in
+[run 38714913420](https://github.com/antonioditcharo/OSRS-Flipping-Friend/actions/runs/38714913420),
+merged as `c915ea8752cbe699735d0510ea6645bac609a1a6`, and the normal rebuild checkout is clean,
+fast-forwarded and matches that tested tree. Historical main remains `0cb8ef8`. One RuneLite client
+is still open; installation is pending the already requested normal close. Do not ask for a second
+INSTALL/log-paste cycle or force-kill it. Runtime remains PR #49.
+
+While waiting, continued the recommendation authority audit on fresh `codex/atomic-execution-evidence`
+from `c915ea8`. Found that canonical acceptance committed before the calibration sample, and its
+deduplication claim also committed before the statistics write. Regression-first `0ec0c56` initially
+used an invalid subclass fixture (SqliteStore is final); corrected fixture `e34927a` uses an actual
+SQLite failure trigger in disposable test stores. It reproduces both failures before source changes:
+standalone retry is rejected after a consumed claim, and canonical retry returns DUPLICATE without
+the missing sample.
+
+Source now writes eligible execution evidence inside canonical offer acceptance; standalone
+recording joins an existing transaction or owns one for claim/statistics. There is no post-commit
+CompanionService learning write. Original keys, accounting gaps, real-vs-paper distinctions and
+statistics are preserved. No schema change, live database modification, repair or historical
+backfill is performed. See [transaction contract](docs/architecture/execution-evidence-atomicity.md).
+Duration semantics and identity provenance remain separate audit work; this is not a profitability
+or model-quality claim.
+
+```text
+.\gradlew.bat clean test jar :companion:shadowJar --console=plain
+BUILD SUCCESSFUL in 52s
+18 actionable tasks: 18 executed
+ATOMIC_CLEAN_EXIT=0
+Plugin: 586; Core: 170; Companion: 600 including six existing skips
+Total: 1,350 passed; 6 skipped; 0 failures/errors
+```
+
+The four added tests cover actual write failure, both execution checkpoints, full accounting/
+limit rollback, close/reopen, duplicate/terminal replay and existing legacy claims. Incomplete
+recovery samples remain excluded. Python sources are unchanged from PR #51's 63 passing CI checks;
+delivery CI reruns them. Both JARs built while RuneLite stayed open. Logs are ignored
+.gradle/execution-atomic-*. No live service was started from the worktree and no game input occurred.
+Require both exact-head checks before merge; batch this with PR #51 in the next supported paired
+update once RuneLite is closed normally. Post-update actual plan, UI/trade/restart acceptance,
+canonical session risk/calibration migration, account replay and measured cadence results remain open.
+
 ## Live current proof and planner heartbeat follow-up — 15 October 2026
 
 [PR #50](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/50) merged as

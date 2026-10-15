@@ -249,6 +249,10 @@ final class SqliteStore implements AutoCloseable
 			checkpoint.reached("POSITION_ACCOUNTING_APPLIED");
 			BuyLimitProjection buyLimit = applyBuyLimitEffect(event, previous, transition);
 			checkpoint.reached("BUY_LIMIT_ACCOUNTING_APPLIED");
+			// Accept the real execution sample in the same transaction as its source event. A
+			// terminal replay cannot recover a sample lost after event acceptance has committed.
+			if (transition.isAccepted() && !hasOfferAccountingGap(event.getOfferIdentity()))
+				new ExecutionRecorder(this).record(event);
 			connection.commit();
             ProjectedEventAcceptance result=new ProjectedEventAcceptance(acceptance, transition, position, buyLimit);
             result.planningStateChanged=!samePlanningState(previous,transition.getProjection());
@@ -926,6 +930,36 @@ final class SqliteStore implements AutoCloseable
 			statement.setString(1, identity);
 			statement.setLong(2, countedAt);
 			return statement.executeUpdate() > 0;
+		}
+	}
+
+	/** Joins canonical acceptance, or owns a transaction for a standalone observation. */
+	synchronized boolean recordExecutionObservation(String identity, long observedAt, int itemId,
+		boolean completed, double fillMinutes, double predictedMinutes, double openMinutes,
+		double openPredictedMinutes) throws Exception
+	{
+		boolean ownsTransaction = connection.getAutoCommit();
+		if (ownsTransaction) connection.setAutoCommit(false);
+		try
+		{
+			boolean claimed = claimOffer(identity, observedAt);
+			if (claimed)
+			{
+				checkpoint.reached("EXECUTION_CLAIM_RECORDED");
+				recordExecution(itemId, completed, fillMinutes, predictedMinutes, openMinutes, openPredictedMinutes);
+				checkpoint.reached("EXECUTION_STATS_WRITTEN");
+			}
+			if (ownsTransaction) connection.commit();
+			return claimed;
+		}
+		catch (Exception failure)
+		{
+			if (ownsTransaction) connection.rollback();
+			throw failure;
+		}
+		finally
+		{
+			if (ownsTransaction) connection.setAutoCommit(true);
 		}
 	}
 

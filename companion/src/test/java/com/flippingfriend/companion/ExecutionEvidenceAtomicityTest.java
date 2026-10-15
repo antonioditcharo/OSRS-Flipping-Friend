@@ -59,4 +59,41 @@ public class ExecutionEvidenceAtomicityTest {
             assertEquals(1,store.executionStats().get(561).observed);
         }
     }
+    @Test public void interruptionAtEitherExecutionCheckpointRollsBackTheWholeOfferAcrossRestart()throws Exception {
+        for(String point:new String[]{"EXECUTION_CLAIM_RECORDED","EXECUTION_STATS_WRITTEN"}) {
+            Path db=folder.newFolder().toPath().resolve("checkpoint.db");var gson=new Gson();
+            var open=event("open","BUYING",0,1);var terminal=event("done","BOUGHT",10,2);
+            try(var store=new SqliteStore(db)){store.recordAndProjectOffer(open,gson.toJson(open),true);}
+            try(var store=new SqliteStore(db,stage->{if(point.equals(stage))throw new IllegalStateException("fixture "+point);})) {
+                try {store.recordAndProjectOffer(terminal,gson.toJson(terminal),true);fail("checkpoint failure missing");}
+                catch(IllegalStateException expected){assertEquals("fixture "+point,expected.getMessage());}
+                assertEquals(0,store.eventCount("BOUGHT"));assertEquals(0,store.positionEventCount());
+                assertTrue(store.buyLimitProjections().isEmpty());assertTrue(store.executionStats().isEmpty());
+                assertEquals(OfferLifecycleState.BUY_OPEN,store.offerProjections().get(0).getState());
+            }
+            try(var store=new SqliteStore(db)) {
+                assertEquals(SqliteStore.EventAcceptance.NEW,store.recordAndProjectOffer(terminal,gson.toJson(terminal),true).acceptance);
+                assertEquals(1,store.executionStats().get(561).observed);
+                assertEquals(1,store.executionStats().get(561).completed);
+                assertEquals(1,store.positionEventCount());assertEquals(10,store.buyLimitProjections().get(0).getUsedQuantity());
+            }
+            try(var store=new SqliteStore(db)) {
+                assertEquals(SqliteStore.EventAcceptance.DUPLICATE,store.recordAndProjectOffer(terminal,gson.toJson(terminal),true).acceptance);
+                var replay=event("terminal-heartbeat","BOUGHT",10,3);
+                store.recordAndProjectOffer(replay,gson.toJson(replay),true);
+                assertEquals(1,store.executionStats().get(561).observed);assertEquals(1,store.positionEventCount());
+            }
+        }
+    }
+    @Test public void existingLegacyDeduplicationKeyIsPreservedWithoutRecounting()throws Exception {
+        try(var store=new SqliteStore(folder.newFolder().toPath().resolve("legacy.db"))) {
+            var terminal=event("done","BOUGHT",10,2);var gson=new Gson();
+            assertTrue(new ExecutionRecorder(store).record(terminal));
+            var open=event("open","BUYING",0,1);
+            store.recordAndProjectOffer(open,gson.toJson(open),true);
+            store.recordAndProjectOffer(terminal,gson.toJson(terminal),true);
+            assertEquals(1,store.executionStats().get(561).observed);
+            assertEquals(1,store.positionEventCount());
+        }
+    }
 }
