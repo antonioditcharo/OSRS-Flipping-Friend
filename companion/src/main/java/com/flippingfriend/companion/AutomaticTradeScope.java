@@ -16,9 +16,15 @@ final class AutomaticTradeScope {
     final Map<String, PositionProjection> positionsAtEvent = new HashMap<>();
     final Set<Integer> unsafeItems = new HashSet<>();
     boolean hasUnassignedReconciliation;
+    boolean hasUnboundedReconciliation;
+    final Map<String,Set<Integer>> reconciliationScope = new HashMap<>();
 
     void apply(String type, int item, String name, int quantity, long cost, long when,
             String event, String offer) {
+        apply(type,item,name,quantity,cost,when,event,offer,null);
+    }
+    void apply(String type, int item, String name, int quantity, long cost, long when,
+            String event, String offer, Set<Integer> affectedItems) {
         if (item < 0 || event == null || event.isBlank() || when < 0 || quantity < 0
                 || (item == 0 && !"RECONCILE".equals(type))) {
             throw new IllegalArgumentException("malformed trade scope event");
@@ -29,6 +35,8 @@ final class AutomaticTradeScope {
             // it cannot create an item, consume stock or silently release exposure protection.
             if (item == 0) hasUnassignedReconciliation = true;
             else unsafeItems.add(item);
+            if (affectedItems != null && !affectedItems.isEmpty()) unsafeItems.addAll(affectedItems);
+            else if (item == 0 || affectedItems != null) hasUnboundedReconciliation = true;
             return;
         }
         PositionProjection prior = positions.get(item);
@@ -54,7 +62,7 @@ final class AutomaticTradeScope {
         if (positions.containsKey(item)) positionsAtEvent.put(event, positions.get(item));
     }
     List<PositionProjection> readyPositions() {
-        if (hasUnassignedReconciliation) return java.util.Collections.emptyList();
+        if (hasUnboundedReconciliation) return java.util.Collections.emptyList();
         List<PositionProjection> result = new ArrayList<>();
         for (PositionProjection p : positions.values()) if (!unsafeItems.contains(p.getItemId())) result.add(p);
         result.sort(java.util.Comparator.comparingInt(PositionProjection::getItemId));

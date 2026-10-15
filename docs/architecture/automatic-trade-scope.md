@@ -6,6 +6,13 @@ are in the newest [handoff](../../HANDOFF.md). The design below is not proof of 
 
 ## Default workflow
 
+The causal-scope continuation is documented in [trade gap scoping](trade-gap-scoping.md). Positive
+source-event proof can limit an old item's uncertainty without editing the original item-zero row.
+Unrelated fully observed acquisitions/exits and future cost matching may then remain available;
+unbounded scope still withholds them. This supersedes the blanket ownership guard described in the
+historical PR #45 paragraph below. Historical exposure and current cash/slot gates still block new
+buys; item scope alone cannot release them. Source installation/acceptance is recorded in HANDOFF.
+
 The live continuation at `ff2754b` handles an existing read boundary: rejected EMPTY observations
 can record RECONCILE with item ID zero, quantity zero and no economic effect. The read-only scope
 view preserves this as account-level uncertainty; Missed flips labels it **Unidentified offer**

@@ -674,7 +674,7 @@ final class CompanionService implements AutoCloseable
 		try
 		{
 			DurablePlanningExposure exposure =
-				DurablePlanningExposure.from(store.planningProjections(), snapshot.getStockDeclarations(), snapshot.isAutomaticTradeScope());
+				DurablePlanningExposure.from(store.planningProjections(snapshot.getAccountId()), snapshot.getStockDeclarations(), snapshot.isAutomaticTradeScope());
 			if (exposure == null)
 				throw new IllegalStateException("durable exposure requires reconciliation");
 			snapshot = snapshot.withPlanningExposure(exposure.committedByItem);

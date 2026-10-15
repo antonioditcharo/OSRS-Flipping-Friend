@@ -3,7 +3,83 @@
 Updated 14 October 2026 (America/Anchorage). Read this with [AGENTS.md](AGENTS.md) and
 [TASKS.md](TASKS.md) before continuing implementation.
 
-## Current offer recovery and buy-limit correction — 14 October 2026
+## Current continuation: causal scope for old trade gaps — 14 October 2026
+
+Previous goal turn made verified progress: [PR #47](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/47)
+merged as `b390b35d17b74ce99f3caa2b658201d22125687b` after both exact-head checks at
+`eef5661d30faaec606de9ff21ed25e1d14022c0e` passed in
+[run 38681167838](https://github.com/antonioditcharo/OSRS-Flipping-Friend/actions/runs/38681167838).
+The normal rebuild checkout was clean and fast-forwarded, matched the tested tree, and retained
+required ancestry. Historical main remains `0cb8ef8`. Installed pair is still PR #45; PR #47 has
+not been installed. Status remained PAIR VERIFIED / COMPANION RESPONDING. No game input occurred.
+
+Current source branch `codex/scoped-trade-uncertainty` starts at that rebuild merge. Recommendation
+work remains first priority. Inspection found that account-wide gap uncertainty also suppresses
+unrelated known acquisitions/exits and future sale cost matching. Regression-first `342aa1a`
+reproduced that workflow loss and two client proof-validation failures before production changes.
+Production `774fe04` follows recorded source event IDs and conservative slot episodes into an
+ephemeral item scope. It preserves original item-zero Missed flips rows, old recorded money,
+unresolved profit and known costs. See [causal scope contract](docs/architecture/trade-gap-scoping.md).
+
+A read-only candidate probe on the existing scoped account found 1,252 gap records, with 24
+remaining unbounded. SELECT-only investigation showed all 24 followed an EMPTY that was itself
+recorded RECONCILE: the candidate reader had cleared its causal context. Regression `cf7898b`
+reproduces this before `e4cbbd4` retains that context. Follow-up regressions `10ee83a` exposed a null
+state read exception and scope inference without the requested account; production `0fb6059`
+adds an explicit account fence and malformed-state abstention. No existing record was changed.
+
+The new optional schema-2 reconciliationScope map is validated by the client. Unknown/missing
+scope still withholds all managed stock; affected items remain excluded. Clean acquisitions and
+future cost matching can continue independently only with positive source proof. Older servers
+retain the conservative guard. Empty clean holdings plus unresolved gaps is not reported as
+"all purchases sold". The planner's historical exposure guard remains intact; this scope is a
+prerequisite for bounds, not a new-buy release. Current cash/slot ordering still needs its own gate.
+
+All development remains in the reusable worktree. No account database was edited, moved, migrated,
+rewritten or repaired. No synthetic events were posted to the live service. Pipeline remains the
+installed PR #45 WAIT/UNAVAILABLE receipt below; source behavior is not installed acceptance.
+The player has since closed RuneLite (zero clients observed); the agent did not close it. Batch
+the remaining recommendation changes before one supported paired update and manual login.
+
+Final local verification, read-only probe and GitHub receipts follow below/on the PR.
+
+Final production `0fb6059` verification:
+
+```text
+.\gradlew.bat clean test jar :companion:shadowJar --console=plain
+BUILD SUCCESSFUL in 32s
+18 actionable tasks: 18 executed
+VERIFIED_CLEAN_BUILD_EXIT=0
+Plugin: 575 tests; Core: 168; Companion: 584 including six existing skips
+Total: 1,321 passed; 6 skipped; 0 failures/errors
+Python: Ran 61 tests in 110.727s / OK / PYTHON_EXIT=0
+Both project JARs: bytecode major 55 (Java 11)
+Candidate plugin: 451,426 bytes; companion: 17,791,902 bytes
+```
+
+Python tooling sources did not change after that run. Intermediate/final build, regression and
+probe logs remain outside build under ignored `.gradle/scoped-gaps-*`. The final candidate's
+SqliteStore.openReadOnly probe inspected only the existing scoped account, without a service or
+writable constructor. Output:
+
+```text
+LEDGER_VALID=true
+SALES=4 UNRESOLVED_SALES=2
+GAP_SCOPES=1252 UNBOUNDED_SCOPES=0
+UNASSIGNED_HISTORY=true UNBOUNDED_HISTORY=false
+CLEAN_TRADING_POSITIONS=0
+POSITION_EVENTS_BEFORE=1260 AFTER=1260
+PLANNING_AVAILABLE=false
+READ_ONLY_PROBE_EXIT=0
+```
+
+Scope proof does not turn those old records into managed stock. There are no currently proven
+clean trading positions in this data. All original gaps remain in Missed flips and both unknown
+sales remain unresolved. The synthetic future-purchase/sale test proves clean-item workflow,
+not an observed real trade. Require both exact-head CI checks before merge; its receipt belongs
+to the PR. No source candidate has been installed during this continuation.
+
+## Offer recovery and buy-limit correction — 14 October 2026
 
 Newest source: `codex/recommendation-recovery`, from rebuild merge `9cec7706b9ce33529a279ba18e9ded37c43d7d3b`.
 The normal checkout was clean at that revision; historical main remains unchanged. The owner

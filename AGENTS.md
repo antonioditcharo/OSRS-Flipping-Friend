@@ -28,6 +28,10 @@ are in `docs/project-direction.md`; historical package notes are not proof of ru
   It must preserve historical gaps and exposure guards; never book a recovered cumulative baseline
   as a new execution. See docs/architecture/offer-observation-recovery.md. Runtime remains PR #45
   until the next supported paired update; source recovery alone does not establish buy readiness.
+- Scope trade uncertainty only through recorded source events in the requested account. Keep
+  unassigned rows and unknown money intact; affected items remain paused, while provably unrelated
+  acquisitions can remain manageable. Unknown scope stays global. Item scope is not exposure value
+  or permission to buy; see docs/architecture/trade-gap-scoping.md for the separate remaining gates.
 - Keep the sidebar compact: current guided action, controls and durable recorded profit. Open
   explanations, holdings/history/plan and settings separately; do not restore the old accordion
   stack or label recorded totals as session profit. Preserve actual 5m/30m/2h/8h and visibly custom

@@ -278,6 +278,10 @@ final class SqliteStore implements AutoCloseable
 	/** Does not change durable rows or participate in an existing write transaction. */
 	synchronized PlanningProjections planningProjections() throws Exception
 	{
+		return planningProjections(null);
+	}
+	synchronized PlanningProjections planningProjections(String expectedAccountId) throws Exception
+	{
 		if (!connection.getAutoCommit())
 			throw new IllegalStateException("planning read requires its own transaction");
 		connection.setAutoCommit(false);
@@ -285,7 +289,7 @@ final class SqliteStore implements AutoCloseable
 		{
 			PlanningProjections result = new PlanningProjections(
 				positionProjections(), offerProjections());
-            result.tradeScope = automaticTradeScope();
+            result.tradeScope = automaticTradeScope(expectedAccountId);
 			connection.commit();
 			return result;
 		}
@@ -423,15 +427,39 @@ final class SqliteStore implements AutoCloseable
 			? SaleAccounting.UNPROVEN_PLACEMENT : "HISTORICAL_RULE_UNPROVEN";
 	}
 
-    private AutomaticTradeScope automaticTradeScope() throws Exception {
+    private AutomaticTradeScope automaticTradeScope(String expectedAccountId) throws Exception {
         AutomaticTradeScope scope = new AutomaticTradeScope();
+        scope.reconciliationScope.putAll(reconciliationScope(expectedAccountId));
         try (PreparedStatement s = connection.prepareStatement(
             "SELECT effect_type,item_id,item_name,quantity,acquisition_cost,observed_at,source_event_id,source_offer_identity FROM position_event ORDER BY id");
              ResultSet r = s.executeQuery()) {
             while (r.next()) scope.apply(r.getString(1), r.getInt(2), r.getString(3), r.getInt(4),
-                r.getLong(5), r.getLong(6), r.getString(7), r.getString(8));
+                r.getLong(5), r.getLong(6), r.getString(7), r.getString(8),
+                scope.reconciliationScope.get(r.getString(7)));
         }
         return scope;
+    }
+
+    private Map<String,java.util.Set<Integer>> reconciliationScope(String expectedAccountId) throws Exception {
+        Map<String,Integer> gaps=new HashMap<>();
+        try (Statement s=connection.createStatement(); ResultSet r=s.executeQuery(
+                "SELECT source_event_id,item_id FROM position_event WHERE effect_type='RECONCILE'")) {
+            while (r.next()) gaps.put(r.getString(1),r.getInt(2));
+        }
+        if (gaps.isEmpty()) return java.util.Collections.emptyMap();
+        List<OfferEvent> history=new ArrayList<>();
+        com.google.gson.Gson parser=new com.google.gson.Gson();
+        try (Statement s=connection.createStatement(); ResultSet r=s.executeQuery(
+                "SELECT event_id,payload FROM event_log WHERE event_id IS NOT NULL AND event_id<>'' ORDER BY id")) {
+            while (r.next()) {
+                OfferEvent event;
+                try { event=parser.fromJson(r.getString(2),OfferEvent.class); }
+                catch (RuntimeException incomplete) { return TradeGapEvidence.unknown(gaps); }
+                if (event==null || !r.getString(1).equals(event.getEventId())) return TradeGapEvidence.unknown(gaps);
+                history.add(event);
+            }
+        }
+        return TradeGapEvidence.scope(history,gaps,expectedAccountId);
     }
 
     /** A current slot baseline cannot establish a complete historical timing/outcome sample. */
@@ -469,12 +497,12 @@ final class SqliteStore implements AutoCloseable
     private PositionProjection applyAutomaticPositionEffect(PositionAccountingEffect effect, OfferEvent event,
             OfferLifecycleProjection previous, String taxPolicy) throws Exception {
         if (effect == null || effect.getType() == PositionAccountingEffectType.NONE) return null;
-        AutomaticTradeScope scope = automaticTradeScope();
+        AutomaticTradeScope scope = automaticTradeScope(event.getAccountId());
         PositionProjection current = scope.positions.get(effect.getItemId());
         Long cost = null;
         String reason = effect.getReason();
         if (effect.getType() == PositionAccountingEffectType.DISPOSE) {
-            if (current != null && !scope.hasUnassignedReconciliation && !scope.unsafeItems.contains(effect.getItemId())
+            if (current != null && !scope.hasUnboundedReconciliation && !scope.unsafeItems.contains(effect.getItemId())
                     && effect.getQuantity() <= current.getQuantity())
                 cost = SaleAccounting.allocateCost(current.getTotalCost(), current.getQuantity(), effect.getQuantity());
             else reason = "Sale lacks complete observed acquisition coverage";
@@ -588,10 +616,11 @@ final class SqliteStore implements AutoCloseable
 			"COALESCE(SUM(tax_lower),0),COALESCE(SUM(tax_upper),0) FROM position_event WHERE effect_type='DISPOSE'"))
 		{
 			row.next();
+            AutomaticTradeScope scope=automaticTradeScope(accountId);
 			return new AccountLedgerSnapshot(accountId, Instant.now().getEpochSecond(), row.getLong(1),
 				row.getLong(2), row.getLong(3), row.getLong(4), row.getLong(5), row.getLong(6),
 				row.getLong(7), row.getLong(8), positionProjections())
-                .withTradeEvidence(automaticTradeScope().readyPositions(), missedFlipEvidence());
+                .withTradeEvidence(scope.readyPositions(), missedFlipEvidence(), scope.reconciliationScope);
 		}
 	}
 

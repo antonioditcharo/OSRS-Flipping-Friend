@@ -5,14 +5,19 @@ statements later in this file. Read [HANDOFF.md](HANDOFF.md) for exact evidence.
 
 ## Active
 
-- [ ] Deliver authenticated current-offer recovery and delta-only durable buy limits on
-      codex/recommendation-recovery from 9cec7706. Regression-first 3bd02ea reproduces permanent
-      ERROR slots, ordering loss and repeated cumulative fills consuming the limit twice; 8b7e36e
-      adds learning exclusion evidence. Source 0832414 restores current slot observations without
-      inventing old fills/profit, keeps gap guards, and rejects stale/cached/cross-session recovery.
-      Standard clean build passes: 1,304 Java passed/six skips; both Java 11 JARs built, client open.
-      All 61 Python checks pass. Require exact-head CI. Runtime remains PR #45; batch a later
-      paired installation/restart. Safe historical exposure bounds remain needed for new-buy readiness.
+- [ ] Finish causal trade-gap scope on codex/scoped-trade-uncertainty from b390b35. Regression-first
+      342aa1a reproduces lost unrelated managed ownership and rejected/malformed client scope proof.
+      Source 774fe04 scopes gaps by recorded account/offer episodes, preserves raw history and future
+      clean sale cost matching. Read-only follow-up found 24 context losses; cf7898b reproduces them,
+      e4cbbd4 fixes them. 10ee83a/0fb6059 add null-state/account-fence regressions/fixes. Final standard
+      build passes: 1,321 Java passed/six skips, both Java 11 JARs; all 61 Python tests pass.
+      Read-only existing-account probe: all 1,252 gap scopes known; 1,260 records unchanged, old
+      money and unknown sales retained, planner unavailable. Require exact-head CI. New buys remain blocked
+      until conservative historical exposure bounds and a coherent current cash/slot read are implemented.
+- [ ] Batch PR #47 current-slot recovery/buy-limit fixes and subsequent recommendation work for one
+      supported paired update. PR #47 merged as b390b35 after both checks at eef5661 passed (run
+      38681167838); normal rebuild is clean and updated. Its 1,304 Java tests/six skips and 61 Python
+      tests passed. Runtime remains PR #45; neither current-slot recovery nor causal scope is installed.
 - [ ] Continue batched HOME TEST CHECKLIST.md and PR #31 live acceptance. PR #45 is merged at
       edf05a8 and installed after review of backup 20261014-183810-89356679. Actual installed/build/
       manifest comparisons, status and API 1.13.2 compatibility pass. GET-only pipeline now exits 0:
