@@ -46,4 +46,10 @@ public class TradeGapEvidenceTest {
         var foreign=e("gap","EMPTY",0,2,"s").withAccountId(AccountIdentity.fromProfileKey("other"));
         assertTrue(TradeGapEvidence.scope(List.of(e("old","BUYING",561,1,"s"),foreign),Map.of("gap",0)).get("gap").isEmpty());
     }
+    @Test public void missingStateCannotBreakTheReadOnlyScopeView() {
+        var malformed=OfferEvent.builder("fixture",101,null).accountId(AccountIdentity.fromProfileKey("fixture"))
+            .eventIdentity("old","s","offer").slot(0).sequence(1).item(561,"Item").buying(true)
+            .price(100).quantities(10,0).build();
+        assertTrue(TradeGapEvidence.scope(List.of(malformed,e("gap","EMPTY",0,2,"s")),Map.of("gap",0)).get("gap").isEmpty());
+    }
 }

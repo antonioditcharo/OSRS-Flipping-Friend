@@ -95,4 +95,13 @@ public class ScopedTradeUncertaintyTest {
             assertTrue(decoded.isValid()); assertFalse(decoded.hasUnboundedReconciliation());
         }
     }
+    @Test public void anotherAccountsHistoryCannotProveOwnershipInThisLedgerScope() throws Exception {
+        try (SqliteStore store=new SqliteStore(folder.newFolder().toPath().resolve("foreign.db"))) {
+            oldGap(store); accept(store,event("new-open",1,562,"BUYING",true,0,4));
+            accept(store,event("new-fill",1,562,"BOUGHT",true,10,5));
+            var foreign=store.ledgerSnapshot(AccountIdentity.fromProfileKey("other"));
+            assertTrue(foreign.isValid()); assertTrue(foreign.hasUnboundedReconciliation());
+            assertTrue(foreign.getTradingPositions().isEmpty());
+        }
+    }
 }
