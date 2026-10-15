@@ -21,7 +21,8 @@ are in `docs/project-direction.md`; historical package notes are not proof of ru
   the observed sell offer through completion. Unknown acquisition cost/profit stays unknown.
   Put incomplete trade evidence in a separately opened Missed flips window, preserving live
   exposure guards and account data. See `docs/architecture/automatic-trade-scope.md` for the target
-  workflow and regression gate. Source implementation is present; paired installation and live acceptance remain pending.
+  workflow and regression gate. PR #43 is merged and its pair installed; the 1.13.2 paired update
+  and live acceptance remain pending. Read the newest HANDOFF checkpoint before historical entries.
 - Keep the sidebar compact: current guided action, controls and durable recorded profit. Open
   explanations, holdings/history/plan and settings separately; do not restore the old accordion
   stack or label recorded totals as session profit. Preserve actual 5m/30m/2h/8h and visibly custom

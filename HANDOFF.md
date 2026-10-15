@@ -3,7 +3,93 @@
 Updated 14 October 2026 (America/Anchorage). Read this with [AGENTS.md](AGENTS.md) and
 [TASKS.md](TASKS.md) before continuing implementation.
 
-## Compact sidebar and combined review — 14 October 2026
+## RuneLite 1.13.2 continuation — 14 October 2026
+
+**This checkpoint supersedes the source/runtime status in the older entries below.** PR #43 was
+approved by the owner and merged as `440c44fd115e7ab016a000f5c71d79d8b2a7f4c9`. Both checks passed
+on approved head `860cad83970cf401242db7e3672de17a55205b14` in
+[run 38660675992](https://github.com/antonioditcharo/OSRS-Flipping-Friend/actions/runs/38660675992).
+The normal checkout was fast-forwarded cleanly to that merge and its tree matched the approved
+head. PR #40/#41 are merged; #42 was closed as integrated into #43. Historical `main` remains
+`0cb8ef8aab9114f02b16d2eca4433c0f7e010894` and must not be changed.
+
+The owner completed the supported paired update from the normal checkout after review of backup
+`C:\Users\Antonio\.runelite\osrs-flipping-friend\backups\20261014-174522-d5cd8522`.
+Companion account metadata matched: three files / 7,671,456 bytes; plugin account metadata matched:
+22 files / 1,502,023 bytes. Prior JAR/manifest hashes and the task action/owner were verified;
+database contents were not opened. Owner output reported BUILD SUCCESSFUL in 7s, companion ready
+(accounts-v1), and both installed JARs verified. Read-only status subsequently exited zero.
+Observed installed sizes: plugin 448,134 bytes; companion 17,782,902 bytes. This is the #43 pair
+compiled for API 1.13.1, **not the new 1.13.2 candidate**.
+
+The launch preflight then reported exactly:
+
+```text
+RuneLite is 1.13.2 but this source targets 1.13.1. A compatible project update is required. No client was launched.
+COMPATIBILITY_EXIT=1
+```
+
+The owner reaffirmed autonomous project management and explicitly revoked the earlier rule to stop
+on every failure. Continue diagnosis and regression-first source fixes without repeatedly asking
+for management permission. Player-only game actions, backup review before paired installation,
+and no live database modification remain in force. Never bypass compatibility/accounting guards.
+
+Compatibility source is on `codex/runelite-1-13-2`, based on `440c44f`. Launcher regressions
+`6eadb7b` reproduced three failures using the real build pin and synthetic current-release JARs.
+Updater regressions `ccceff5` reproduced three failures: a newer official release, unavailable
+release metadata, and malformed metadata all previously allowed installation to proceed.
+Production source `c32e7289b1466b8348d581e7c75447714e497232` pins compile/test/manifest to
+1.13.2, uses the new official `VarPlayerID.GE_NEWOFFER_PRICE` name for unchanged varp 5753, and
+checks official release metadata before backup, task stopping or file replacement. Start/status
+retain their separate paths; cached artifact/version guards are preserved. See
+[compatibility contract](docs/architecture/runelite-compatibility.md).
+
+Final local verification at source `c32e728`:
+
+```text
+.\gradlew.bat clean test jar :companion:shadowJar --console=plain
+BUILD SUCCESSFUL in 50s
+18 actionable tasks: 18 executed
+CLEAN_BUILD_EXIT=0
+Root: 563 tests, 0 failures, 0 errors, 0 skipped
+Core: 166 tests, 0 failures, 0 errors, 0 skipped
+Companion: 555 tests, 0 failures, 0 errors, 6 skipped
+Total: 1,278 passed, 6 skipped, 0 failures/errors
+python -m unittest discover -s tools/tests -v
+Ran 54 tests in 92.231s
+OK
+PYTHON_EXIT=0
+Plugin candidate JAR: 448,117 bytes; RuneLite-Api-Version: 1.13.2
+Companion candidate JAR: 17,782,885 bytes
+Project class bytecode: major 55 (Java 11), both JARs
+```
+
+Logs remain outside build under `.gradle/runelite-1.13.2-*`. The owner updated RuneLite through
+the official launcher and confirmed it closed; a subsequent process check observed zero RuneLite
+processes. A separate disposable profile copied 31 public official Windows client artifacts and
+the candidate plugin, with no login/account/database files. The actual launcher CheckOnly returned:
+
+```text
+Copied 31 official client artifacts into an isolated validation profile.
+Only public JARs were copied; no login credentials, account records or databases were accessed.
+RuneLite 1.13.2 and the installed plugin API match; cached artifacts verified.
+Compatibility check passed. No client started and no files changed.
+CANDIDATE_COMPATIBILITY_EXIT=0
+```
+
+Here "installed plugin" means the candidate in that isolated profile. The real installed pair is
+still the earlier API 1.13.1 pair. GitHub checks/merge receipts belong to the compatibility PR;
+require both checks on its final head, then fast-forward the normal rebuild checkout. Next owner
+action is **4 - Update.bat**, fresh backup review at INSTALL, then paired installation. Do not
+reuse the prior backup approval. Run real status and launcher CheckOnly afterward, before Start.
+
+Live pipeline-check output for the 1.13.2 pair: **not run; pair not yet installed**. Compact UI,
+search/key/Confirm, automatic scope, controlled partial-fill/cancel/collect/restart and PR #31 live
+checks remain pending. Existing reconciliation faults are not presumed fixed. No client was
+launched or game input sent, and no live database was modified by this compatibility work.
+Publication gates are tracked in [release readiness](docs/release-readiness.md).
+
+## Historical compact sidebar review — 14 October 2026
 
 Completeness follow-up: root [HOME TEST CHECKLIST.md](HOME%20TEST%20CHECKLIST.md) gives the
 approved-merge gate, guarded regular-checkout update, backup-review pause and ordered live checks.
