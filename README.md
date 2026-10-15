@@ -16,8 +16,9 @@ guarded checkout update, paired backup/install and ordered player tests.
 The merged PR #43 replaces the stacked sidebar with a Flipping Copilot-style action
 panel: current trade, graph/pause/block/skip, 5m/30m/2h/8h cadence, risk and durable recorded profit.
 Gear opens preferences; More opens holdings, history, plan, full recommendation and Missed flips.
-It includes automatic ownership, walkthrough and search/input changes. Its pair was installed,
-but live acceptance awaits the subsequent **RuneLite 1.13.2** compatibility update. See
+It includes automatic ownership, walkthrough and search/input changes. The **RuneLite 1.13.2**
+pair is installed and manual login works. Live acceptance found a ledger HTTP 500 and startup
+search exception; the regression-first follow-up is verified locally and awaits CI/paired update. See
 [compatibility and update preflight](docs/architecture/runelite-compatibility.md),
 [workflow and acceptance](docs/architecture/compact-panel.md),
 [native visual QA](design-qa.md) and [rendered preview](docs/images/compact-buy.png).

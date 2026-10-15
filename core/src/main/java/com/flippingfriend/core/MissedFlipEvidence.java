@@ -18,7 +18,12 @@ public final class MissedFlipEvidence {
         if (!isValid()) throw new IllegalArgumentException("invalid missed trade evidence");
     }
     public boolean isValid() {
-        return eventId != null && !eventId.isBlank() && itemId > 0 && quantity >= 0
+        // Rejected EMPTY observations legitimately have no item and no economic effect.
+        // Keep that evidence visible without accepting unidentified acquisitions or money.
+        boolean unidentified = itemId == 0 && "RECONCILE".equals(type) && quantity == 0
+            && acquisitionCost == null && grossProceeds == null && taxLower == null && taxUpper == null
+            && profitLower == null && profitUpper == null;
+        return eventId != null && !eventId.isBlank() && (itemId > 0 || unidentified) && quantity >= 0
             && observedAt >= 0 && type != null && reason != null && !reason.isBlank()
             && (acquisitionCost == null || acquisitionCost >= 0)
             && (grossProceeds == null || grossProceeds >= 0)
@@ -28,7 +33,7 @@ public final class MissedFlipEvidence {
     public String getEventId() { return eventId; }
     public String getOfferIdentity() { return offerIdentity; }
     public int getItemId() { return itemId; }
-    public String getItemName() { return itemName == null ? "Item " + itemId : itemName; }
+    public String getItemName() { return itemId == 0 ? "Unidentified offer" : itemName == null ? "Item " + itemId : itemName; }
     public String getType() { return type; }
     public int getQuantity() { return quantity; }
     public long getObservedAt() { return observedAt; }

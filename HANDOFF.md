@@ -3,7 +3,103 @@
 Updated 14 October 2026 (America/Anchorage). Read this with [AGENTS.md](AGENTS.md) and
 [TASKS.md](TASKS.md) before continuing implementation.
 
-## RuneLite 1.13.2 continuation — 14 October 2026
+## Live login: ledger read and startup guidance faults — 14 October 2026
+
+**Current checkpoint; older "installation pending" statements below are historical.** Compatibility
+[PR #44](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/44) passed both exact-head
+Windows/Linux checks at `b51b54233cbf7720e439b8d1534cd09bb4882554` in
+[run 38669254087](https://github.com/antonioditcharo/OSRS-Flipping-Friend/actions/runs/38669254087)
+and merged as `be77e67bb43e932496d2a2cccf4fe4d5e85186f7`. The normal rebuild checkout was
+fast-forwarded cleanly; tested-tree diff and required `ee0d3aff` ancestry checks exited zero.
+Historical `main` remains `0cb8ef8` and is untouched.
+
+The owner completed another supported paired update after fresh backup review:
+`C:\Users\Antonio\.runelite\osrs-flipping-friend\backups\20261014-181307-eeed5a5b`.
+Account metadata matched (companion: three files / 7,671,456 bytes; plugin: 22 / 1,502,023 bytes).
+Prior JAR/manifest hashes, task action and owner matched. Owner output: BUILD SUCCESSFUL in 6s,
+eight tasks (three executed/five up-to-date), companion ready (accounts-v1), both JARs verified.
+Installed plugin 448,137 bytes and companion 17,782,905 bytes matched their builds and manifest.
+Real status and launcher CheckOnly both exited zero with API 1.13.2. Full receipts are on PR #44.
+
+The owner then launched/logged in manually. Screenshot shows the compact sidebar, cadence/risk,
+Collect advice and "Recorded profit / Unavailable / Waiting for account ledger". Collection
+highlight is visible; no collection action or other controlled trade acceptance is inferred.
+The launch log records this plugin exception before login:
+
+```text
+java.lang.NullPointerException: null
+    at client.getVarbitValue(client.java:3327)
+    at client.getVarbitValue(client.java:62148)
+    at com.flippingfriend.overlay.GeSearchSuggestion.refresh(GeSearchSuggestion.java:35)
+    at com.flippingfriend.overlay.GeInputAssist.refresh(GeInputAssist.java:80)
+```
+
+The announced GET-only `tools/pipeline-check.ps1 -SkipBuild` failed. Output below redacts only the
+opaque account ID; the exact output and route responses are private in the normal checkout's
+`local-data/diagnostics/pr44-*` files:
+
+```text
+PASS [Artifact] build\libs\osrs-flipping-friend.jar
+PASS [Artifact] companion\build\libs\flipping-friend-companion.jar
+PASS [Protocol] accounts-v1
+PASS [Market] Ready. Choosing which items to study.
+FAIL [<account ID redacted>] Response status code does not indicate success: 500 (Internal Server Error).
+INFO [Accounting] No synthetic snapshots, offers, or trades were posted by this check.
+PIPELINE_EXIT=1
+```
+
+Separate authenticated GETs: action HTTP 200 / WAIT; portfolio HTTP 200 / UNAVAILABLE with
+"Durable holdings or offers require reconciliation before new buys."; ledger HTTP 500 with
+`{"error":"malformed trade scope event"}`. SELECT-only diagnosis (`mode=ro`, SQLite authorizer
+rejecting non-read operations) found 21 item-zero RECONCILE effects. These are recorded rejected
+EMPTY observations with zero quantity/cost, not unidentified acquisitions. No live record was
+edited, deleted, migrated or repaired. Old companion.log/err files date from earlier launches and
+were not treated as current failure evidence. Owner confirmed RuneLite closed before clean build.
+
+New branch `codex/live-ledger-startup` starts at current rebuild `be77e67`. Regressions `567132b`
+reproduced seven failures across startup lifecycle, evidence validation, scope replay and HTTP.
+Follow-up `d39ee73` reproduced a holdings availability error after the initial ledger fix. Source
+`ff2754bda273e593657a639699cd7257d8332bb8` fixes both live failures and that UI boundary:
+
+- Search guidance checks client/account/editor readiness before reading game variables.
+- Item-zero RECONCILE with no economic fields remains visible as **Unidentified offer** in Missed
+  flips. Economic effects still require a real item; unknown money stays unavailable.
+- Unassigned reconciliation withholds managed exit advice and new buys. Raw acquisitions and
+  recorded sale totals stay intact. Later sales cannot borrow cost through that unresolved gap.
+- Holdings availability reports uncertainty rather than "No tracked purchases remain". No new
+  position book, database schema/migration, input automation or guard bypass is introduced.
+
+Standard clean verification on that production source:
+
+```text
+.\gradlew.bat clean test jar :companion:shadowJar --console=plain
+BUILD SUCCESSFUL in 37s
+18 actionable tasks: 18 executed
+CLEAN_BUILD_EXIT=0
+Plugin: 568 tests; Core: 168 tests; Companion: 558 tests including 6 skips
+Total: 1,288 passed; 6 skipped; 0 failures/errors
+python -m unittest discover -s tools/tests -v
+Ran 54 tests in 84.637s
+OK
+PYTHON_EXIT=0
+Candidate plugin: 448,447 bytes; companion: 17,783,426 bytes
+Project class bytecode: major 55 (Java 11), both JARs; plugin API 1.13.2
+```
+
+A local probe used the candidate's **SqliteStore.openReadOnly** on the existing scoped database,
+without starting a service or running a writable constructor. It returned a valid schema-2 ledger,
+four sale updates (two bounded/two unresolved), 1,028 missed rows including 21 unidentified rows,
+and planning unavailable. Position-event count remained 1,034 before/after. Exit zero. This confirms
+the candidate can read the observed data; it is not an installed HTTP/UI acceptance result.
+Logs/scripts remain outside build in ignored `.gradle/`; private row/probe evidence stays local.
+
+Next: both exact-head CI checks, merge this candidate, fast-forward the normal checkout, then a
+fresh reviewed backup/paired update. Installed runtime remains **PR #44 at be77e67** until that
+update; its live ledger still fails. Retest login/startup log and GET-only pipeline after installing.
+The candidate intentionally preserves existing reconciliation blocks. Source tests or a valid
+ledger read do not establish buy readiness, complete PR #31, or validate trade/restart workflows.
+
+## Historical RuneLite 1.13.2 source continuation — 14 October 2026
 
 **This checkpoint supersedes the source/runtime status in the older entries below.** PR #43 was
 approved by the owner and merged as `440c44fd115e7ab016a000f5c71d79d8b2a7f4c9`. Both checks passed
@@ -373,7 +469,8 @@ Continue the outstanding checks below before relying on it for trading.
 
 1. **Build first.** From an up-to-date `CoPilot's-Rebuild-from-Main` (at `6b4140109de6a63d93614740c87b32f72cfe171d` or later):
    `.\gradlew.bat clean test jar :companion:shadowJar --console=plain` and
-   `python -m unittest discover -s tools/tests -v`. Stop on any failure.
+   `python -m unittest discover -s tools/tests -v`. Preserve failures and reproduce bugs before
+   source fixes; follow the owner's current autonomous-management direction in the newest checkpoint.
 2. **Back up before installing.** Stop RuneLite and the companion. Copy (never edit or move) the
    account directory `companion/accounts/<accountId>/`, the plugin's separate `accounts/` records,
    and the currently installed plugin and companion JARs to a dated backup folder. Preserve the two

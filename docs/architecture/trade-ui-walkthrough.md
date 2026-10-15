@@ -1,8 +1,8 @@
 # Manual trade walkthrough and confirmation
 
 14 October 2026. Originally developed on `codex/trade-ui-walkthrough`, now merged with automatic
-trade scope through approved PR #43 at `440c44f`. Its pair was installed; live acceptance awaits
-the subsequent 1.13.2 paired update. See the newest [handoff](../../HANDOFF.md).
+trade scope through approved PR #43 at `440c44f`. The 1.13.2 pair is installed; live acceptance is
+in progress. See the newest [handoff](../../HANDOFF.md) for the ledger/startup follow-up.
 
 ## Player workflow
 

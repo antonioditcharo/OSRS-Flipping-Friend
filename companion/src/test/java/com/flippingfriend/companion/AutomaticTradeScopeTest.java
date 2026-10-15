@@ -106,4 +106,61 @@ public class AutomaticTradeScopeTest {
         scope.apply("DISPOSE",561,"Nature rune",60,0,3,"sold","sell-offer");
         assertTrue(DurablePlanningExposure.from(read,Collections.emptyMap(),true).committedByItem.isEmpty());
     }
+
+    @Test public void unidentifiedReconciliationBlocksAdviceWithoutDiscardingKnownAcquisitions() {
+        var scope = new AutomaticTradeScope();
+        scope.apply("ACQUIRE",561,"Nature rune",100,10000,1,"buy","buy-offer");
+        scope.apply("RECONCILE",0,null,0,0,2,"unidentified-clear",null);
+        assertTrue(scope.readyPositions().isEmpty());
+        assertEquals(100,scope.positions.get(561).getQuantity());
+        assertEquals(10000,scope.positions.get(561).getTotalCost());
+        var read = new SqliteStore.PlanningProjections(Collections.emptyList(),Collections.emptyList());
+        read.tradeScope=scope;
+        assertNull(DurablePlanningExposure.from(read,Collections.emptyMap(),true));
+    }
+
+    @Test public void unidentifiedClearRemainsReadableAcrossRestartAndCannotManufactureLaterProfit() throws Exception {
+        Path db = folder.newFolder().toPath().resolve("unidentified.db");
+        long recordedProfitLower, recordedProfitUpper;
+        int recordedEvents;
+        try (SqliteStore store = new SqliteStore(db)) {
+            accept(store,offer("open","buy","BUYING",true,100,0,0,1));
+            accept(store,offer("buy","buy","BOUGHT",true,100,100,10000,2)); clear(store,"clear",3);
+            accept(store,offer("sell","sell","SELLING",false,100,0,0,4));
+            accept(store,offer("partial","sell","SELLING",false,100,40,4800,5));
+            var before = store.ledgerSnapshot(account);
+            recordedProfitLower=before.getProfitLower(); recordedProfitUpper=before.getProfitUpper();
+            OfferEvent open = OfferEvent.builder("fixture",1700000006L,"BUYING").accountId(account)
+                .eventIdentity("other-open","session","other-buy").slot(1).item(562,"Chaos rune")
+                .buying(true).price(100).quantities(10,0).spent(0).sequence(6).build();
+            accept(store,open);
+            OfferEvent unassigned = OfferEvent.builder("fixture",1700000007L,"EMPTY").accountId(account)
+                .eventIdentity("unidentified-clear","session",null).slot(1).sequence(7).build();
+            accept(store,unassigned); accept(store,unassigned);
+            int beforeRead = store.positionEventCount();
+            var after = store.ledgerSnapshot(account);
+            assertTrue(after.isValid()); assertTrue(after.getTradingPositions().isEmpty());
+            assertEquals(before.getSales(),after.getSales());
+            assertEquals(recordedProfitLower,after.getProfitLower()); assertEquals(recordedProfitUpper,after.getProfitUpper());
+            var evidence = after.getMissedFlips().stream().filter(e->e.getItemId()==0).findFirst().orElseThrow();
+            assertEquals("unidentified-clear",evidence.getEventId());
+            assertEquals("RECONCILE",evidence.getType()); assertEquals(0,evidence.getQuantity());
+            assertEquals("Unidentified offer",evidence.getItemName());
+            assertNull(evidence.getGrossProceeds()); assertNull(evidence.getProfitLower());
+            assertEquals(beforeRead,store.positionEventCount()); // Reading did not repair or delete evidence.
+            assertNull(DurablePlanningExposure.from(store.planningProjections(),Collections.emptyMap(),true));
+            accept(store,offer("later-partial","sell","SELLING",false,100,80,9600,8));
+            var later = store.ledgerSnapshot(account);
+            assertEquals(2,later.getSales()); assertEquals(1,later.getUnresolvedSales());
+            assertEquals(recordedProfitLower,later.getProfitLower()); assertEquals(recordedProfitUpper,later.getProfitUpper());
+            recordedEvents=store.positionEventCount();
+        }
+        try (SqliteStore readOnly = SqliteStore.openReadOnly(db)) {
+            var ledger=readOnly.ledgerSnapshot(account);
+            assertTrue(ledger.isValid()); assertTrue(ledger.getTradingPositions().isEmpty());
+            assertEquals(recordedEvents,readOnly.positionEventCount());
+            assertEquals(recordedProfitLower,ledger.getProfitLower()); assertEquals(recordedProfitUpper,ledger.getProfitUpper());
+            assertEquals(1,ledger.getMissedFlips().stream().filter(e->e.getItemId()==0).count());
+        }
+    }
 }

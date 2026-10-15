@@ -47,6 +47,11 @@ public final class AccountLedgerSnapshot
     /** Null on old servers: missing acquisition evidence must never enroll legacy positions. */
     public List<PositionProjection> getTradingPositions() { return tradingPositions; }
     public List<MissedFlipEvidence> getMissedFlips() { return missedFlips; }
+    /** Totals remain readable, but an unidentified lifecycle gap cannot establish safe holdings. */
+    public boolean hasUnassignedReconciliation() {
+        return missedFlips != null && missedFlips.stream().anyMatch(e -> e != null
+            && e.getItemId() == 0 && "RECONCILE".equals(e.getType()));
+    }
     public String getSchemaVersion() { return schemaVersion; }
     public String getAccountId() { return accountId; }
     public long getObservedAt() { return observedAt; }

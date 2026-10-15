@@ -31,12 +31,16 @@ final class GeSearchSuggestion {
 
     void refresh(boolean accountReady) {
         if (!client.isClientThread()) return;
+        // BeforeRender also runs before login, when the client's varbit backing arrays are absent.
+        if (!accountReady || client.getGameState() != GameState.LOGGED_IN || !config.showSuggestedSearchItem()
+                || !resolver.isSetupOpen()) {
+            hide(); return;
+        }
         Suggestion advice = guide.getSuggestion();
         int slot = client.getVarbitValue(VarbitID.GE_SELECTEDSLOT);
         String query = client.getVarcStrValue(VarClientStr.INPUT_TEXT);
         Widget root = client.getWidget(InterfaceID.Chatbox.MES_LAYER_SCROLLCONTENTS);
-        if (!accountReady || client.getGameState() != GameState.LOGGED_IN || !config.showSuggestedSearchItem()
-            || !resolver.isSetupOpen() || client.getVarcIntValue(VarClientInt.INPUT_TYPE) != 14
+        if (client.getVarcIntValue(VarClientInt.INPUT_TYPE) != 14
             || client.getVarbitValue(VarbitID.GE_NEWOFFER_TYPE) != 0 || slot < 1 || slot > 8
             || (query != null && !query.isEmpty()) || !GeEditorValues.isOffer(advice)
             || (advice.getType() != SuggestionType.BUY && advice.getType() != SuggestionType.MODIFY_BUY)

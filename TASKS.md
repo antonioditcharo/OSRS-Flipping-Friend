@@ -5,21 +5,23 @@ statements later in this file. Read [HANDOFF.md](HANDOFF.md) for exact evidence.
 
 ## Active
 
-- [ ] Complete the RuneLite 1.13.2 compatibility delivery on `codex/runelite-1-13-2`, based on
-      rebuild merge `440c44f`. Regressions `6eadb7b` / `ccceff5` failed before production fix
-      `c32e728`. Final clean Java build: 1,278 passed, six skips; all 54 Python tests passed;
-      Java 11 project bytecode and both JARs verified. Actual launcher CheckOnly passed against
-      31 official cached artifacts in an isolated profile. Require both final-head CI checks,
-      merge and a clean fast-forward of the normal checkout. Then fresh backup review and paired
-      Update; real installed compatibility/status and login are still pending. The official client
-      was updated and closed by the owner. No live database changes or game input.
-- [ ] Complete player-operated live acceptance from HOME TEST CHECKLIST.md and the PR #31 checklist.
-      PR #43 is approved and merged at `440c44f`; #40/#41 are merged and #42 closed as integrated.
-      The #43 pair was installed after review of backup `20261014-174522-d5cd8522`; status passed,
-      but launch correctly rejected source/API 1.13.1 against official 1.13.2. Do not reinstall
-      individual overlapping slices. The new compatible pair is not installed yet; live pipeline
-      output, UI/search/key/Confirm/scope, partial-fill and restart outcomes remain unobserved.
-      Existing WAIT/UNAVAILABLE reconciliation faults are not presumed cleared.
+- [ ] Deliver `codex/live-ledger-startup`, based on rebuild `be77e67`. Actual login succeeded,
+      but ledger GET returned HTTP 500 / "malformed trade scope event" and startup search read an
+      uninitialised varbit. Regressions `567132b` reproduced seven failures; `d39ee73` reproduced
+      holdings falsely reporting availability. Production `ff2754b` preserves item-zero non-economic
+      reconciliation as Unidentified offer, keeps buy/exit guards and cost uncertainty, and fences
+      search reads before login. Clean build: 1,288 Java passed, six skips; all 54 Python tests passed;
+      Java 11 project bytecode, API 1.13.2 and both JARs verified. Candidate openReadOnly probe reads
+      the existing ledger successfully while preserving event count and planning unavailable.
+      Require final-head Windows/Linux CI, merge, normal-checkout fast-forward, fresh reviewed backup
+      and paired Update. The candidate is not installed; no live database changes or game input.
+- [ ] Continue HOME TEST CHECKLIST.md and PR #31 live acceptance after installing that fix.
+      PR #43 and compatibility #44 are merged. The 1.13.2 pair at `be77e67` was installed after review
+      of backup `20261014-181307-eeed5a5b`; actual status/compatibility passed and manual login/compact
+      panel are observed. Pipeline exited 1: market/protocol passed, ledger HTTP 500. Action WAIT /
+      portfolio UNAVAILABLE remain reconciliation-blocked. Do not confuse the read-only candidate
+      probe with an installed HTTP/UI pass. Search/key/Confirm, partial trade/cancel/collect/relist
+      and restart acceptance remain pending; existing accounting faults are not cleared.
 - [ ] Finish one authoritative ledger for planner, exits, inventory UI, calibration and session risk.
       Durable accounting, Performance, exposure and managed trade quantities/exits are implemented;
       audit remaining local consumers and preserve positive acquisition/cost evidence. Reproduce

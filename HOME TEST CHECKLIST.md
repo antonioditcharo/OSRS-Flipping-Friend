@@ -2,13 +2,15 @@
 
 The [combined PR #43](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/43) is approved,
 merged and installed. It contains the compact UI, automatic trade scope, walkthrough/Confirm
-protection and search/key assistance from #40/#41/#42. RuneLite then updated to 1.13.2, so the
-compatibility continuation requires a fresh paired update. Source tests and isolated cached-client
-compatibility pass; real 1.13.2 installation, login and live acceptance are pending.
+protection and search/key assistance from #40/#41/#42. Compatibility PR #44 is also merged and
+installed; real 1.13.2 status, compatibility and manual login pass. The live pipeline found a ledger
+HTTP 500, and startup search read an uninitialised variable. The current regression-first follow-up
+is `codex/live-ledger-startup`. Install it only after CI/merge, then retest the observed failures.
+Previous reconciliation blocks and controlled trading acceptance remain unresolved.
 
 ## 1. Prepare the right checkout
 
-Require both CI checks and merge of `codex/runelite-1-13-2` before installing. Do not install older
+Require both CI checks and merge of `codex/live-ledger-startup` before installing. Do not install older
 individual slices separately. `main` is historical. Use the regular project folder, not a Codex
 temporary worktree or an old desktop shortcut. Close RuneLite yourself.
 
@@ -26,7 +28,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Status failed. Stop and report the output.' }
 if ($localChanges) { throw 'Local changes exist. Stop without discarding anything.' }
 git fetch origin
 if ($LASTEXITCODE -ne 0) { throw 'Fetch failed. Stop and report the output.' }
-git merge-base --is-ancestor c32e7289b1466b8348d581e7c75447714e497232 "origin/CoPilot's-Rebuild-from-Main"
+git merge-base --is-ancestor ff2754bda273e593657a639699cd7257d8332bb8 "origin/CoPilot's-Rebuild-from-Main"
 if ($LASTEXITCODE -ne 0) { throw 'The complete candidate is not on the rebuild branch. Do not install yet.' }
 git switch "CoPilot's-Rebuild-from-Main"
 if ($LASTEXITCODE -ne 0) { throw 'Switch failed. Stop and report the output.' }
@@ -38,7 +40,7 @@ git rev-parse HEAD
 
 The ancestry guard assumes the normal merge-commit strategy used for this combined PR. If someone
 squash-merges it, report the guard result for verification rather than bypassing it. The source
-anchor includes the 1.13.2 source pin, update preflight, final budget fix and all integrated slices.
+anchor includes the ledger-read/startup fix, 1.13.2 source pin, update preflight and integrated UI slices.
 
 ## 2. Install the paired update
 

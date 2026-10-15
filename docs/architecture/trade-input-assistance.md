@@ -1,10 +1,15 @@
 # Suggested GE search item and player-triggered input fill
 
 14 October 2026. Originally stacked on walkthrough PR #41, now integrated with #40/#41 through
-approved PR #43 at `440c44f`. Its pair was installed; live acceptance awaits the subsequent 1.13.2
-paired update. PR #42 is closed as integrated. See the newest [handoff](../../HANDOFF.md).
+approved PR #43 at `440c44f`. The 1.13.2 pair is installed; live acceptance is in progress. PR #42
+is closed as integrated. See the newest [handoff](../../HANDOFF.md) for the ledger/startup follow-up.
 
 ## Player workflow
+
+BeforeRender runs before login as well as in game. The startup follow-up at `ff2754b` checks
+client-thread, account, logged-in state and editor readiness before reading search variables.
+On a login/logout boundary it hides existing suggestion rows without reading unloaded varbits.
+This addresses the observed pre-login NullPointerException; it adds no game input or selection.
 
 When the player opens a BUY item search with an empty query, the current recommendation appears
 as a **Suggested: item name** row with its item icon and a native **Select** action. The player
