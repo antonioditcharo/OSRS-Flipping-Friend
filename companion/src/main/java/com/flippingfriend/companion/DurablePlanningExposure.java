@@ -30,7 +30,8 @@ final class DurablePlanningExposure {
             Map<Integer, Long> byItem = new HashMap<>();
             long reserved = 0;
             if (automatic) {
-                if (read.tradeScope == null || !read.tradeScope.unsafeItems.isEmpty()) return null;
+                if (read.tradeScope == null || read.tradeScope.hasUnassignedReconciliation
+                        || !read.tradeScope.unsafeItems.isEmpty()) return null;
                 for (var p : read.tradeScope.readyPositions()) byItem.put(p.getItemId(), p.getTotalCost());
             }
             for (var position : read.positions) {

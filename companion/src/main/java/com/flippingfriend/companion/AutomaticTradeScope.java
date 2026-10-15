@@ -15,13 +15,22 @@ final class AutomaticTradeScope {
     final Set<Integer> acquiredItems = new HashSet<>();
     final Map<String, PositionProjection> positionsAtEvent = new HashMap<>();
     final Set<Integer> unsafeItems = new HashSet<>();
+    boolean hasUnassignedReconciliation;
 
     void apply(String type, int item, String name, int quantity, long cost, long when,
             String event, String offer) {
-        if (item <= 0 || event == null || event.isBlank() || when < 0 || quantity < 0) {
+        if (item < 0 || event == null || event.isBlank() || when < 0 || quantity < 0
+                || (item == 0 && !"RECONCILE".equals(type))) {
             throw new IllegalArgumentException("malformed trade scope event");
         }
-        if ("RECONCILE".equals(type)) { unsafeItems.add(item); return; }
+        if ("RECONCILE".equals(type)) {
+            if (quantity != 0 || cost != 0) throw new IllegalArgumentException("economic reconciliation effect");
+            // A rejected EMPTY observation has no item. Preserve it as account-level uncertainty;
+            // it cannot create an item, consume stock or silently release exposure protection.
+            if (item == 0) hasUnassignedReconciliation = true;
+            else unsafeItems.add(item);
+            return;
+        }
         PositionProjection prior = positions.get(item);
         if ("ACQUIRE".equals(type)) {
             acquiredItems.add(item);
@@ -45,6 +54,7 @@ final class AutomaticTradeScope {
         if (positions.containsKey(item)) positionsAtEvent.put(event, positions.get(item));
     }
     List<PositionProjection> readyPositions() {
+        if (hasUnassignedReconciliation) return java.util.Collections.emptyList();
         List<PositionProjection> result = new ArrayList<>();
         for (PositionProjection p : positions.values()) if (!unsafeItems.contains(p.getItemId())) result.add(p);
         result.sort(java.util.Comparator.comparingInt(PositionProjection::getItemId));

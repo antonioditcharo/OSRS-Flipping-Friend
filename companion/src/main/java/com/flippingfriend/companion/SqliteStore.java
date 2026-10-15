@@ -459,7 +459,7 @@ final class SqliteStore implements AutoCloseable
         Long cost = null;
         String reason = effect.getReason();
         if (effect.getType() == PositionAccountingEffectType.DISPOSE) {
-            if (current != null && !scope.unsafeItems.contains(effect.getItemId())
+            if (current != null && !scope.hasUnassignedReconciliation && !scope.unsafeItems.contains(effect.getItemId())
                     && effect.getQuantity() <= current.getQuantity())
                 cost = SaleAccounting.allocateCost(current.getTotalCost(), current.getQuantity(), effect.getQuantity());
             else reason = "Sale lacks complete observed acquisition coverage";
