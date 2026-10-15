@@ -35,7 +35,10 @@ function Invoke-WebRequest {
     throw 'Unexpected download in isolated launcher test.'
 }
 $failure = $null
-try { & (Join-Path $fixture 'checkout/tools/run-dev.ps1') }
+try {
+    if ($scenario.checkOnly) { & (Join-Path $fixture 'checkout/tools/run-dev.ps1') -CheckOnly }
+    else { & (Join-Path $fixture 'checkout/tools/run-dev.ps1') }
+}
 catch { $failure = $_.Exception.Message }
 Write-Output ('LAUNCH_TEST_RESULT=' + (@{
     error = $failure; arguments = @($global:ffLaunchArguments); requests = @($global:ffLaunchRequests)
@@ -136,6 +139,50 @@ class RunDevTest(unittest.TestCase):
         self.assertEqual(before, {path.name: path.read_bytes() for path in self.repository.iterdir()})
         self.assertEqual(b"login-sentinel-never-read",
                          (self.fixture / "profile/.runelite/credentials.properties").read_bytes())
+
+    def configure_current_release(self):
+        """Frozen official release fixture; source pin is copied from the real project."""
+        version = "1.13.2"
+        self.bootstrap = {"version": version, "artifacts": []}
+        for name in (f"client-{version}.jar", f"injected-client-{version}.jar",
+                     f"runelite-api-{version}-runtime.jar", "support-2.jar"):
+            self.add_artifact(name)
+        self.add_artifact("native-windows.jar", platform=[{"name": "win", "arch": "amd64"}])
+        self.add_artifact("native-linux.jar", platform=[{"name": "linux", "arch": "amd64"}])
+        shutil.copyfile(Path(__file__).resolve().parents[2] / "build.gradle", self.checkout / "build.gradle")
+        self.write_plugin(version)
+        (self.checkout / f"build/runtime-extras/runelite-api-{version}.jar").write_bytes(b"current-full-api-fixture")
+
+    def test_current_release_uses_project_pin_and_excludes_the_previous_cached_client(self):
+        self.configure_current_release()
+        before = {path.name: path.read_bytes() for path in self.repository.iterdir()}
+        result = self.run_launcher()
+        self.assertIsNone(result["error"], self.output)
+        arguments = result["arguments"]
+        classpath = arguments[arguments.index("-cp") + 1].split(";")
+        expected = {str(self.repository / artifact["name"]) for artifact in self.bootstrap["artifacts"]
+                    if artifact["name"] != "native-linux.jar"}
+        expected.add(str(self.checkout / "build/runtime-extras/runelite-api-1.13.2.jar"))
+        self.assertEqual(expected, set(classpath), self.output)
+        self.assertEqual(len(expected), len(classpath))
+        self.assertEqual(before, {path.name: path.read_bytes() for path in self.repository.iterdir()})
+        self.assertEqual(b"login-sentinel-never-read",
+                         (self.fixture / "profile/.runelite/credentials.properties").read_bytes())
+
+    def test_current_release_check_only_validates_without_launch_or_download(self):
+        self.configure_current_release()
+        self.scenario["checkOnly"] = True
+        before = {path.name: path.read_bytes() for path in self.repository.iterdir()}
+        result = self.run_launcher()
+        self.assertIsNone(result["error"], self.output)
+        self.assertEqual([], result["arguments"], self.output)
+        self.assertEqual(["https://static.runelite.net/bootstrap.json"], result["requests"], self.output)
+        self.assertEqual(before, {path.name: path.read_bytes() for path in self.repository.iterdir()})
+
+    def test_current_release_rejects_the_pre_update_installed_plugin(self):
+        self.configure_current_release()
+        self.write_plugin("1.13.1")
+        self.assert_no_launch("installed plugin targets 1.13.1")
 
     def test_source_api_mismatch_stops_instead_of_warn_and_launch(self):
         (self.checkout / "build.gradle").write_text("ext.runeLiteVersion = '1.12.39'\n", encoding="utf-8")
