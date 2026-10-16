@@ -763,11 +763,13 @@ public class SuggestionEngine
 				// cuts when it is not. Say nothing here and let it answer.
 				Position position = tradingPosition(offer.getItemId());
 				boolean costKnown = position != null && position.isCostKnown()
-					&& position.getAverageCost() > 0 && remaining <= position.getQuantity();
+					&& remaining <= position.getQuantity();
+                long allocatedCost=costKnown?com.flippingfriend.core.SaleAccounting.allocateCost(
+                    position.getTotalCost(),position.getQuantity(),remaining):0;
 				int breakEven = costKnown
-					? taxCalculator.breakEvenSellPrice(offer.getItemId(), position.getAverageCost()) : 0;
+					? taxCalculator.breakEvenSellPriceForCost(offer.getItemId(),allocatedCost,remaining) : 0;
 				boolean isCut = false;
-				if (!repriceAllowed(newPrice, position, breakEven))
+				if (costKnown && (breakEven<=0 || !repriceAllowed(newPrice, position, breakEven)))
 				{
 					// Below break-even this stops being a repricing decision and becomes a decision to
 					// take a loss, and only one thing authorises that: the stop.
@@ -795,7 +797,7 @@ public class SuggestionEngine
 						newPrice = decision.getPrice();
 						isCut = true;
 					}
-					else if (breakEven < offer.getPrice())
+					else if (breakEven>0 && breakEven < offer.getPrice())
 					{
 						// Not through the stop: come down to the cheapest price that is not a loss.
 						// Better placed in the queue than it was, and costing nothing to get there.
@@ -817,7 +819,7 @@ public class SuggestionEngine
 				}
 
 				// What the new price is actually worth. The reprice card carried no figure at all, so a
-				long change = costKnown ? taxCalculator.netProfit(offer.getItemId(), position.getAverageCost(), newPrice, remaining) : 0;
+				long change = costKnown ? taxCalculator.netProceeds(offer.getItemId(),newPrice,remaining)-allocatedCost : 0;
                 if (sellRelist != null) sellRelist.advise(offer, observedAccount);
 				return Suggestion.builder(SuggestionType.MODIFY_SELL)
 					.item(offer.getItemId(), name)
@@ -1587,8 +1589,8 @@ public class SuggestionEngine
 			// is this worth a Grand Exchange slot -- and the player has already answered it by setting
 			// the minimum profit per flip. A genuine remainder passes easily; a trickle does not, and
 			// waits for the offer already running to clear.
-			long remainderProfit = taxCalculator.netProfit(itemId, position.isCostKnown() ? position.getAverageCost() : 0,
-				decision.getPrice(), quantity);
+			long remainderProfit = taxCalculator.netProceeds(itemId,decision.getPrice(),quantity)
+                -(position.isCostKnown()?com.flippingfriend.core.SaleAccounting.allocateCost(position.getTotalCost(),position.getQuantity(),quantity):0);
 			if (!remainderWarrantsItsOwnOffer(listed, remainderProfit, config.minProfitPerFlip()))
 			{
 				statuses.put(itemId, sellingStatus(itemId, quantity));
@@ -1638,11 +1640,18 @@ public class SuggestionEngine
 		// card whose number changes while the player is typing it reads as the plugin changing its
 		// mind about a trade it has not changed its mind about.
 		int sellPrice = advisedPrice(itemId, false, decision.getPrice(), now.getEpochSecond());
+        long allocatedCost=position.isCostKnown()?com.flippingfriend.core.SaleAccounting.allocateCost(
+            position.getTotalCost(),position.getQuantity(),best.quantity):0;
+        if(position.isCostKnown() && !cut && !sellOnly) {
+            int minimum=taxCalculator.breakEvenSellPriceForCost(itemId,allocatedCost,best.quantity);
+            if(minimum<=0)return Suggestion.waiting("No non-loss sell price is available",
+                "No legal Grand Exchange price covers the recorded cost of these units after tax.");
+            sellPrice=Math.max(sellPrice,minimum);
+        }
         var forecast = sellTiming.forecastForOrder(itemId,sellPrice,best.quantity,marketData.getSeries(itemId,TIMESTEP),horizon);
         double sellMinutes = forecast == null ? Double.NaN : forecast.getExpectedTotalSeconds()/60;
 
-		long profit = taxCalculator.netProfit(itemId, position.isCostKnown() ? position.getAverageCost() : 0, sellPrice,
-			best.quantity);
+		long profit = taxCalculator.netProceeds(itemId,sellPrice,best.quantity)-allocatedCost;
 
 		int collectionSlot = -1;
 		if (!best.inInventory)
@@ -1667,6 +1676,7 @@ public class SuggestionEngine
 			.quantity(best.quantity)
 			.slot(collectionSlot)
 			.expectedProfit(profit)
+            .profitKnown(position.isCostKnown())
 			.expectedMinutes(sellMinutes)
 			.fillMinutes(0, sellMinutes)
             .executionForecast(forecast)

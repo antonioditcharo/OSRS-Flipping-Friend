@@ -102,15 +102,17 @@ public class SellTimingEngine
 
 		int marketBuy = latest == null || latest.getLow() == null ? 0 : latest.getLow();
 		// Below this the sale realises a loss, whatever the fill model thinks of the price.
-		int breakEven = averageCost > 0 ? taxCalculator.breakEvenSellPrice(itemId, averageCost) : 0;
+		int breakEven = position.isCostKnown() ? taxCalculator.breakEvenSellPriceForCost(itemId,position.getTotalCost(),quantity) : 0;
 		// Only these two authorise one. Time passing does not: a position past its patience budget
 		// is still a position above its stop, and the stop is where the risk control lives.
 		boolean lossAllowed = throughStop || sellOnly;
+        if(position.isCostKnown() && breakEven==0 && !lossAllowed)
+            return SellDecision.hold("No legal Grand Exchange price covers this position's recorded cost after tax.",Double.NaN);
 		PricedExit exit = bestExit(series, itemId, marketSell, marketBuy, quantity, horizon,
-			averageCost, urgent, breakEven, position.getTargetSellPrice(), lossAllowed);
+			position.isCostKnown()?position.getTotalCost():0, urgent, breakEven, position.getTargetSellPrice(), lossAllowed);
 
 		long expectedProfit = position.isCostKnown()
-			? taxCalculator.netProfit(itemId, averageCost, exit.price, quantity)
+			? taxCalculator.netProceeds(itemId,exit.price,quantity)-position.getTotalCost()
 			: taxCalculator.netProceeds(itemId, exit.price, quantity);
 
 		if (throughStop)
@@ -200,7 +202,7 @@ public class SellTimingEngine
 	}
 
 	private PricedExit bestExit(List<Candle> series, int itemId, int marketSell, int marketBuy,
-		int quantity, TradingHorizon horizon, int averageCost, boolean urgent, int breakEven,
+		int quantity, TradingHorizon horizon, long totalCost, boolean urgent, int breakEven,
 		int target, boolean lossAllowed)
 	{
 		// The cheapest price this sale is allowed to name. See exitPrices: the grid is anchored on
@@ -239,7 +241,7 @@ public class SellTimingEngine
 			}
 
 			long proceeds = taxCalculator.netProceeds(itemId, price, quantity);
-			long gain = averageCost > 0 ? proceeds - (long) averageCost * quantity : proceeds;
+			long gain = proceeds-totalCost;
 			double hours = Math.max(fill.getExpectedHours(), 1.0 / 60.0);
 			double impatience = urgent ? 1.5 : 1.0;
 
