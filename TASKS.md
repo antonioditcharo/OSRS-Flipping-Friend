@@ -5,14 +5,20 @@ statements later in this file. Read [HANDOFF.md](HANDOFF.md) for exact evidence.
 
 ## Active
 
-- [ ] Deliver full-counter progress fix from #66 merge 2ebf9cb on codex/full-counter-progress.
+- [x] Deliver/install full-counter progress fix from #66 merge 2ebf9cb on codex/full-counter-progress.
       Live BUYING/full then BOUGHT created false source gaps and a 47,147,786 GP uncertainty reserve;
       bounded realized updates remain zero. Regression 8d1eb4e precedes the classifier fix. Full
       counters stay nonterminal; only proven deltas book once. Seven companion cases preserve
       cost/tax, restart/dedup, explicit terminal, initial uncertainty and immutable existing gaps.
       Final standard: 1,484 Java passed/six skips, 51s; 79 Python passed in 83.729s. Both JARs target
-      Java 11. Exact-head CI and supported paired installation are to be recorded at delivery.
+      Java 11. Merged #67 as e5bc8da after both checks at 98cb168 pass (run 38850014046; Windows
+      116808932982/Ubuntu 116808932841). Owner closed client; supported unattended pair installed
+      after verified backup 20261015-203043-87e9237b, helper exit 0. Installed 486,098/17,878,059-byte
+      JARs match manifest/build/all tested classes. Status/compatibility/GET pipeline pass; one
+      client launched, outbox zero. Exact outputs and private receipt locations are in newest HANDOFF.
       Existing live gaps/reserves remain; no database repair or historical financial backfill.
+- [ ] Observe fresh post-login capture and new full-counter/terminal handling after #67. Source
+      verification and paired-install proof do not establish a completed live trade or new buy budget.
 - [ ] Design an auditable evidence-based resolution for already recorded false progress gaps.
       Preserve the raw sources, financial identities, unknown cost/profit and durable risk window.
       No manual database edit, replay, adoption, risk reset or bypass to force advice.

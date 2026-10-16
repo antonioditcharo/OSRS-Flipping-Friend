@@ -3,6 +3,65 @@
 Updated 15 October 2026 (America/Anchorage). Read this with [AGENTS.md](AGENTS.md) and
 [TASKS.md](TASKS.md) before continuing implementation.
 
+## Full-counter pair installed and verified — 15 October 2026
+
+Normal rebuild is `e5bc8da6a41e38896fdec4c5a028b4bf3d757d9e` (#67 merge), clean/current.
+Both exact-head checks passed at `98cb168dc7e5337580087ed3982d6a64097d68e7` in
+[run 38850014046](https://github.com/antonioditcharo/OSRS-Flipping-Friend/actions/runs/38850014046):
+Windows 116808932982 and Ubuntu 116808932841.
+[Source delivery receipt](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/67#issuecomment-6208036733).
+Historical main remains 0cb8ef8 and required rebuild ancestry passes.
+
+The owner closed RuneLite normally; process inspection confirmed zero clients and no pending
+updater/elevation request. The elevated helper invoked supported tools/apply-update.ps1 -Unattended
+from the exact clean revision. A fresh backup verified before both JARs were replaced:
+
+```text
+C:\Users\Antonio\.runelite\osrs-flipping-friend\backups\20261015-203043-87e9237b
+backup-verification.json            335 bytes / status VERIFIED
+companion-task.xml                 1,895 bytes
+flipping-friend-companion.jar 17,878,060 bytes
+installation.json                   458 bytes
+osrs-flipping-friend.jar          486,099 bytes
+companion accounts: 3 files / 31,411,896 bytes
+plugin accounts:   22 files / 1,511,962 bytes
+```
+
+Backup verification checks the old JAR/manifest hashes, saved task export and account relative
+names/sizes without opening or hashing account contents. Helper success=true/exitCode=0 at
+04:30:59 UTC on 16 October (15 October local); sourceRevision=e5bc8da. Build: BUILD SUCCESSFUL
+in 5s, four tasks executed/four up-to-date. Installed plugin 486,098 bytes/218 project classes and
+companion 17,878,059 bytes/453 classes match manifest/normal build and every standard-tested
+candidate class; all major 55/Java 11. Packaging differs by 20 bytes per candidate JAR only.
+
+```text
+PAIRED_INSTALL_PROOF=PASS / PAIRED_PROOF_EXIT=0
+Overall status: PAIR VERIFIED / COMPANION RESPONDING / STATUS_HOST_EXIT=0
+RuneLite 1.13.2 and installed plugin API match; cached artifacts verified.
+COMPATIBILITY_HOST_EXIT=0
+PASS [Artifact] build\libs\osrs-flipping-friend.jar
+PASS [Artifact] companion\build\libs\flipping-friend-companion.jar
+PASS [Protocol] accounts-v1
+PASS [Market] Ready. Choosing which items to study.
+PASS [<account-id>] Ledger: 4 sale updates; 2 unresolved; 0 profit ranges.
+PASS [<account-id>] Action: COLLECT. Plan: UNAVAILABLE. Waiting for the game client to report your coins and free slots.
+INFO [Accounting] No synthetic snapshots, offers, or trades were posted by this check.
+PIPELINE_HOST_EXIT=0
+```
+
+The agent launched tools/start.ps1 after these checks. One client initialized in 8,223 ms;
+normal reflective-access warnings are retained. Outbox pending=0 after launch. Fresh post-login
+capture and a new full-progress/terminal execution have not yet been observed for this pair.
+Existing historical gaps, incomplete cost/profit, risk windows and uncertainty reserves remain
+intact. No new buy availability or repaired historical accounting is claimed. Login and all game
+input remain manual. No synthetic live POST, database edit, migration, repair, queue clearing,
+backfill, account assignment, preference change or force-kill occurred.
+
+Private normal-checkout receipts: .gradle/full-counter-{update*,install-proof,status,compatibility,
+launch.*} and local-data/diagnostics/full-counter-postinstall-pipeline-20261015.txt. The source
+verification (1,484 Java passed/six skips, 79 Python passed) remains valid; this receipt changes
+documentation only and requires no further JAR installation or client restart.
+
 ## Full-counter progress regression and preserved live gaps — 15 October 2026
 
 Normal rebuild is `2ebf9cbacd2b619d6619c41d7da80de3c7c7addc` (#66 documentation merge).
