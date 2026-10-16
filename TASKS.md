@@ -5,6 +5,14 @@ statements later in this file. Read [HANDOFF.md](HANDOFF.md) for exact evidence.
 
 ## Active
 
+- [ ] Deliver/retest recommendation latency fix on codex/recommendation-latency from e14121b.
+      Runtime portfolio GET timed out at 15,141 ms with 40 observations pending; companion dump
+      identifies the serialized evidence query. Regressions 17bf941/79555e1 precede existing-index
+      lookup and operation-local history-read fixes. Preserve fresh proof/unknown scope/accounting
+      and current 5m/Medium settings; no database/index migration or timeout bypass. Final standard:
+      1,477 Java passed/six skips, 57s; 79 Python passed, both Java 11 JARs. Same scoped read-only
+      planning probe improves from 2,052/866 ms to 555/196 ms (cold/warm); live acceptance is separate.
+      Exact-head CI, paired update and fresh live acknowledgement/advice checks are pending.
 - [x] Install the batched runtime through #61 at clean #62 merge fc62526 via supported
       -Unattended -ResumeBackup after verified pre-copy interruption proof. Fresh backup
       20261015-184127-76f3a3f8 verified: three companion/22 plugin account files; old artifacts/task

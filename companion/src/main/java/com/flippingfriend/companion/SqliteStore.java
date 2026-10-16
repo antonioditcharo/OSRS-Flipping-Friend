@@ -407,9 +407,10 @@ final class SqliteStore implements AutoCloseable
 	private PlanningProjections readPlanningProjections(String expectedAccountId) throws Exception
 	{
 		PlanningProjections result = new PlanningProjections(positionProjections(), offerProjections());
-		result.tradeScope = automaticTradeScope(expectedAccountId);
+        OfferHistoryRead history = new OfferHistoryRead(expectedAccountId);
+		result.tradeScope = automaticTradeScope(expectedAccountId, history);
 		result.currentEvents = currentOfferEvidence(expectedAccountId);
-		if (!result.tradeScope.unsafeItems.isEmpty()) result.history = offerHistory(expectedAccountId);
+		if (!result.tradeScope.unsafeItems.isEmpty()) result.history = history.get();
 		String session = result.currentEvents.isEmpty() ? null : result.currentEvents.values().iterator().next().getSessionId();
 		result.riskEvidence = riskLedgerEvidence(result.tradeScope, riskWindow(expectedAccountId, session));
 		return result;
@@ -444,7 +445,7 @@ final class SqliteStore implements AutoCloseable
 	private void validateRiskWindowSources(RiskWindow window) throws Exception
 	{
         var parser=new com.google.gson.Gson();
-        try(var sql=connection.prepareStatement("SELECT observed_at,payload FROM event_log WHERE event_id=?")) {
+        try(var sql=connection.prepareStatement("SELECT observed_at,payload FROM event_log WHERE event_id=? AND event_id IS NOT NULL AND event_id<>''")) {
             for(int slot=0;slot<8;slot++) {
                 sql.setString(1,window.sourceForSlot(slot));
                 try(var rows=sql.executeQuery()) {
@@ -631,9 +632,24 @@ final class SqliteStore implements AutoCloseable
 			? SaleAccounting.UNPROVEN_PLACEMENT : "HISTORICAL_RULE_UNPROVEN";
 	}
 
+    /** Only shares a complete immutable read inside one operation/transaction. Never cached across
+     * requests: new, missing, malformed or foreign canonical evidence must still be observed. */
+    private final class OfferHistoryRead {
+        private final String account;
+        private boolean loaded;
+        private List<OfferEvent> events;
+        OfferHistoryRead(String account) { this.account=account; }
+        List<OfferEvent> get() throws Exception {
+            if (!loaded) { events=offerHistory(account); loaded=true; }
+            return events;
+        }
+    }
     private AutomaticTradeScope automaticTradeScope(String expectedAccountId) throws Exception {
+        return automaticTradeScope(expectedAccountId, new OfferHistoryRead(expectedAccountId));
+    }
+    private AutomaticTradeScope automaticTradeScope(String expectedAccountId, OfferHistoryRead history) throws Exception {
         AutomaticTradeScope scope = new AutomaticTradeScope();
-        scope.reconciliationScope.putAll(reconciliationScope(expectedAccountId));
+        scope.reconciliationScope.putAll(reconciliationScope(expectedAccountId, history));
         try (PreparedStatement s = connection.prepareStatement(
             "SELECT effect_type,item_id,item_name,quantity,acquisition_cost,observed_at,source_event_id,source_offer_identity FROM position_event ORDER BY id");
              ResultSet r = s.executeQuery()) {
@@ -644,14 +660,14 @@ final class SqliteStore implements AutoCloseable
         return scope;
     }
 
-    private Map<String,java.util.Set<Integer>> reconciliationScope(String expectedAccountId) throws Exception {
+    private Map<String,java.util.Set<Integer>> reconciliationScope(String expectedAccountId, OfferHistoryRead read) throws Exception {
         Map<String,Integer> gaps=new HashMap<>();
         try (Statement s=connection.createStatement(); ResultSet r=s.executeQuery(
                 "SELECT source_event_id,item_id FROM position_event WHERE effect_type='RECONCILE'")) {
             while (r.next()) gaps.put(r.getString(1),r.getInt(2));
         }
         if (gaps.isEmpty()) return java.util.Collections.emptyMap();
-        List<OfferEvent> history=offerHistory(expectedAccountId);
+        List<OfferEvent> history=read.get();
         return history==null?TradeGapEvidence.unknown(gaps):TradeGapEvidence.scope(history,gaps,expectedAccountId);
     }
     private List<OfferEvent> offerHistory(String expectedAccountId) throws Exception {
@@ -674,8 +690,11 @@ final class SqliteStore implements AutoCloseable
     private Map<Integer,OfferEvent> currentOfferEvidence(String expectedAccountId) throws Exception {
         Map<Integer,OfferEvent> result=new HashMap<>();
         com.google.gson.Gson parser=new com.google.gson.Gson();
+        // Match the existing partial identity index. Without its nonblank predicate SQLite can
+        // rebuild an automatic covering index over the entire event history on each heartbeat.
+        // Keep the predicate in ON so a missing source still withdraws the whole eight-slot proof.
         try (Statement s=connection.createStatement(); ResultSet r=s.executeQuery(
-                "SELECT p.slot,p.source_event_id,e.payload FROM offer_projection p LEFT JOIN event_log e ON e.event_id=p.source_event_id")) {
+                "SELECT p.slot,p.source_event_id,e.payload FROM offer_projection p LEFT JOIN event_log e ON e.event_id=p.source_event_id AND e.event_id IS NOT NULL AND e.event_id<>''")) {
             while(r.next()) {
                 OfferEvent event;
                 try { event=parser.fromJson(r.getString(3),OfferEvent.class); }
