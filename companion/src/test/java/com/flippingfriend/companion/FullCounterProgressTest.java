@@ -46,6 +46,8 @@ public class FullCounterProgressTest {
             var progress=event("full-progress","BUYING",9,8991,3);
             var accepted=accept(store,progress);
             assertTrue(accepted.transition.isAccepted());
+            assertEquals(OfferLifecycleAction.WAIT,accepted.transition.getAction());
+            assertEquals("BUYING",accepted.transition.getSourceEvent().getEventType());
             assertEquals(OfferLifecycleState.BUY_PARTIAL,store.offerProjections().get(0).getState());
             assertOwned(store);assertEquals(2,store.positionEventCount());
             assertTrue("A progress frame cannot count as terminal learning",store.executionStats().isEmpty());
@@ -75,7 +77,10 @@ public class FullCounterProgressTest {
             accept(store,event("sell-open","SELLING",0,0,4));
             accept(store,event("sell-partial","SELLING",2,2401,5));
             var progress=event("sell-full-progress","SELLING",9,10802,6);
-            assertTrue(accept(store,progress).transition.isAccepted());
+            var accepted=accept(store,progress);
+            assertTrue(accepted.transition.isAccepted());
+            assertEquals(OfferLifecycleAction.WAIT,accepted.transition.getAction());
+            assertEquals("SELLING",accepted.transition.getSourceEvent().getEventType());
             assertEquals(OfferLifecycleState.SELL_PARTIAL,store.offerProjections().get(0).getState());
             var before=store.ledgerSnapshot(account);
             assertEquals(2,before.getSales());assertEquals(0,before.getUnresolvedSales());
@@ -118,5 +123,46 @@ public class FullCounterProgressTest {
                 assertFalse(accept(store,bad).transition.isAccepted());
                 assertFalse(store.ledgerSnapshot(account).getMissedFlips().isEmpty());
             }
+    }
+    @Test public void existingRejectedProgressHistoryIsNotRepairedOrBackfilled()throws Exception {
+        Path path=folder.newFolder().toPath().resolve("old-gap.db");
+        var rejected=event("old-full-progress","BUYING",9,8991,3);
+        String original=gson.toJson(rejected);
+        try(var store=new SqliteStore(path)) {
+            partialBuy(store);
+            // A disposable fixture of the earlier runtime's immutable rejection and high-water
+            // projection. Never seed or rewrite a real account to make this regression pass.
+            try(var connection=java.sql.DriverManager.getConnection("jdbc:sqlite:"+path)) {
+                try(var insert=connection.prepareStatement("INSERT INTO event_log(observed_at,correlation_id,event_id,event_type,payload) VALUES(?,?,?,?,?)")) {
+                    insert.setLong(1,at+3);insert.setString(2,"fixture");insert.setString(3,rejected.getEventId());
+                    insert.setString(4,"BUYING");insert.setString(5,original);insert.executeUpdate();
+                }
+                try(var insert=connection.prepareStatement("INSERT INTO position_event(source_event_id,source_offer_identity,observed_at,effect_type,item_id,item_name,quantity,acquisition_cost,transition_reason,created_at) VALUES(?,?,?,'RECONCILE',561,'Nature rune',0,0,'invalid source observation',?)")) {
+                    insert.setString(1,rejected.getEventId());insert.setString(2,"buy");insert.setLong(3,at+3);insert.setLong(4,at+3);insert.executeUpdate();
+                }
+                try(var update=connection.prepareStatement("UPDATE offer_projection SET lifecycle_state='ERROR_RECONCILIATION',last_sequence=3,last_observed_at=?,source_event_id=? WHERE slot=0")) {
+                    update.setLong(1,at+3);update.setString(2,rejected.getEventId());update.executeUpdate();
+                }
+            }
+        }
+        try(var store=new SqliteStore(path)) {
+            accept(store,event("later-terminal","BOUGHT",9,8991,4));
+            var ledger=store.ledgerSnapshot(account);
+            assertTrue(ledger.getTradingPositions().isEmpty());
+            assertFalse(ledger.getMissedFlips().isEmpty());
+            assertEquals(3,store.positionEventCount());
+            assertEquals(0,ledger.getSales());
+        }
+        try(var connection=java.sql.DriverManager.getConnection("jdbc:sqlite:"+path);
+                var sql=connection.prepareStatement("SELECT payload FROM event_log WHERE event_id=?")) {
+            sql.setString(1,rejected.getEventId());try(var rows=sql.executeQuery()) {assertTrue(rows.next());assertEquals(original,rows.getString(1));}
+            try(var totals=connection.createStatement();var rows=totals.executeQuery(
+                    "SELECT SUM(quantity),SUM(acquisition_cost) FROM position_event WHERE effect_type='ACQUIRE'")) {
+                assertTrue(rows.next());assertEquals(2,rows.getInt(1));assertEquals(1999,rows.getLong(2));
+            }
+            try(var gaps=connection.createStatement();var rows=gaps.executeQuery("SELECT COUNT(*) FROM position_event WHERE effect_type='RECONCILE'")) {
+                assertTrue(rows.next());assertEquals(2,rows.getInt(1));
+            }
+        }
     }
 }

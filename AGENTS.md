@@ -28,6 +28,8 @@ are in `docs/project-direction.md`; historical package notes are not proof of ru
   Recommendation-latency fixes are installed; post-update acknowledgement drain and fresh durable
   eight-slot proof pass. Sustained timing/final eligible entry remain open; all slots were occupied
   and a stale managed-price guard also appeared. Read the newest HANDOFF checkpoint before history.
+  Live full-counter BUYING frames before BOUGHT also created false gaps; the source fix is under
+  verification. Existing gaps and risk reserves stay intact; see docs/architecture/full-counter-progress.md.
 - Current-slot recovery requires copied authenticated observations and durable ordering proof.
   It must preserve historical gaps and exposure guards; never book a recovered cumulative baseline
   as a new execution. See docs/architecture/offer-observation-recovery.md. Runtime includes this

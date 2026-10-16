@@ -5,6 +5,17 @@ statements later in this file. Read [HANDOFF.md](HANDOFF.md) for exact evidence.
 
 ## Active
 
+- [ ] Deliver full-counter progress fix from #66 merge 2ebf9cb on codex/full-counter-progress.
+      Live BUYING/full then BOUGHT created false source gaps and a 47,147,786 GP uncertainty reserve;
+      bounded realized updates remain zero. Regression 8d1eb4e precedes the classifier fix. Full
+      counters stay nonterminal; only proven deltas book once. Seven companion cases preserve
+      cost/tax, restart/dedup, explicit terminal, initial uncertainty and immutable existing gaps.
+      Final standard: 1,484 Java passed/six skips, 51s; 79 Python passed in 83.729s. Both JARs target
+      Java 11. Exact-head CI and supported paired installation are to be recorded at delivery.
+      Existing live gaps/reserves remain; no database repair or historical financial backfill.
+- [ ] Design an auditable evidence-based resolution for already recorded false progress gaps.
+      Preserve the raw sources, financial identities, unknown cost/profit and durable risk window.
+      No manual database edit, replay, adoption, risk reset or bypass to force advice.
 - [x] Deliver/install recommendation latency fix on codex/recommendation-latency from e14121b.
       Runtime portfolio GET timed out at 15,141 ms with 40 observations pending; companion dump
       identifies the serialized evidence query. Regressions 17bf941/79555e1 precede existing-index
