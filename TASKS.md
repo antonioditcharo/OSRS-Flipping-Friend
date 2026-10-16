@@ -17,10 +17,16 @@ statements later in this file. Read [HANDOFF.md](HANDOFF.md) for exact evidence.
       unchanged CI retry are documented. Verified backup 20261015-194438-56468ed6 precedes supported
       unattended paired install; helper exit 0. Plugin 486,099/companion 17,878,060 bytes match all
       tested classes/manifest/build. Status/compatibility/GET pipeline pass; one client launched.
-- [ ] Verify fresh post-login acknowledgement drain, timing and resumed plan/risk/final entry after
-      #64. At 19:46 before fresh login proof, 32 observations remain queued and plan waits for
-      client cash/slots; initial cold reads exceed 750 ms and do not establish latency acceptance.
-      Preserve 5m/Medium and every financial guard. See newest HANDOFF for exact outputs.
+- [x] Verify post-login normal acknowledgement drain and fresh durable eight-slot proof after #64.
+      Old 32-event queue drains to zero; a later eight-event batch also drains. Packaged read-only
+      CurrentOfferReadSet.valid=true, eight matched sources, capture age four seconds, eight BUYING,
+      zero free slots, persisted 5m/MODERATE (Medium). Authenticated reads initially 94/16/218/532 ms
+      for portfolio/action/ledger/learning; risk AVAILABLE, plan NO_FREE_SLOT and Action WAIT.
+      GET-only pipeline exit 0 retains four sales/two unresolved. No data or game input changed.
+- [ ] Finish sustained latency/final eligible entry acceptance. Follow-up ledger read is 1,453 ms;
+      plan/risk also refuses a stale/unsupported managed instant-sell quote. Keep that guard and
+      current 5m/Medium. All slots are occupied; no current allocation exists for final entry proof.
+      Read newest HANDOFF for both passing evidence and retained refusals. No extra restart needed.
 - [x] Install the batched runtime through #61 at clean #62 merge fc62526 via supported
       -Unattended -ResumeBackup after verified pre-copy interruption proof. Fresh backup
       20261015-184127-76f3a3f8 verified: three companion/22 plugin account files; old artifacts/task

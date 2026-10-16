@@ -3,6 +3,63 @@
 Updated 15 October 2026 (America/Anchorage). Read this with [AGENTS.md](AGENTS.md) and
 [TASKS.md](TASKS.md) before continuing implementation.
 
+## Post-login acknowledgement and current-slot proof — 15 October 2026
+
+At clean normal rebuild `7bf45284db856f307f81fc43274d698f4f3a6ddc` (#65 documentation merge),
+the owner reports being logged in and trading. Installed runtime remains the verified #64 pair.
+Read-only 20:03 local authenticated GETs observed portfolio 94 ms, action 16 ms, ledger 218 ms
+and learning 532 ms. The old 32-event outbox drained normally to zero; eight original prediction
+bindings remain. No queue, database or accounting state was cleared. Risk was AVAILABLE and plan
+refused entries with NO_FREE_SLOT / "Every Grand Exchange slot is occupied."
+
+```text
+HTTP portfolio/current elapsedMs=94
+HTTP action elapsedMs=16
+HTTP ledger/current elapsedMs=218
+HTTP learning/current elapsedMs=532
+PLAN_STATUS=UNAVAILABLE / PLAN_OUTCOME=NO_FREE_SLOT / ALLOCATION_COUNT=0
+RISK_STATUS=AVAILABLE / RISK_REASON=Durable account risk available.
+ACTION=WAIT / OUTBOX_PENDING=0 / OUTBOX_PREDICTIONS=8
+```
+
+The subsequent GET-only pipeline exits 0, retains four sale updates/two unresolved/zero profit
+ranges, and reports Action WAIT / Plan UNAVAILABLE with
+"A managed item's instant-sell quote is stale or unsupported." This distinct financial refusal
+is retained, not bypassed or presented as a stalled HTTP request. DurableRisk requires each managed
+holding's instant-sell quote to be supported and no older than 120 seconds. No item or fallback price
+is inferred from the generic reason. The follow-up at 20:04 reports portfolio 110 ms, action 31 ms,
+ledger 1,453 ms and learning 453 ms; eight newly queued observations appear and then drain to zero
+on the next file read. One above-timeout ledger read means sustained latency acceptance remains open.
+No final entry GET is available without a current allocation; do not manufacture a free slot.
+
+The installed companion JAR itself validates the next durable read, in one explicitly scoped
+mode=ro transaction, using its packaged CurrentOfferReadSet.valid implementation:
+
+```text
+PACKAGED_CURRENT_READ_SET_VALID=true
+CURRENT_SOURCE_COUNT=8 CAPTURE_SOURCE_COUNT=8
+CAPTURE_AGE_SECONDS=4 FREE_SLOTS=0 TOTAL_SLOTS=8
+CHECK_INTERVAL_MINUTES=5 RISK=MODERATE
+CURRENT_EVENT_TYPES={BUYING=8}
+MODE_RO_TRANSACTION_COMPLETE=true / CURRENT_READ_PROOF_EXIT=0
+```
+
+MODERATE is the persisted Medium choice. The learning read now contains 15 episodes/13 full
+forecasts, seven canceled/censored and eight open/censored, with zero completed intervals.
+This proves current intake/association, not intent, successful fills, trained learning or profit.
+Promotion remains HOLD_FOR_VALIDATION with PUBLIC_PRICE_BASELINE. Existing recorded sales and
+unknown profit coverage remain intact. These are actual live-account checks, not the 100M benchmark.
+
+Private normal-checkout evidence: local-data/diagnostics/recommendation-{trading-probe,
+trading-pipeline,trading-followup,current-read-proof}-20261015.txt and raw
+recommendation-stall-20261015-200327.json / recommendation-stall-20261015-200415.json.
+Ignored .gradle/ReadOnlyTradingProof.java opens only the explicitly scoped existing account via the
+packaged openReadOnly method; it rolls back its read transaction and prints aggregate proof only.
+No game input, synthetic live POST, database change, account assignment, preference change or
+additional JAR installation occurred. Current acknowledgement/fresh eight-slot proof pass;
+sustained response timing, final entry when naturally eligible, full trade/partial cancel/collect/
+relist/restart and remaining UI acceptance stay open. Documentation needs no runtime restart.
+
 ## Recommendation latency pair installed; fresh login proof pending — 15 October 2026
 
 PR #64 merged as `a3ef954d6cb919a411bd8d982e30a6555a678f00`. Both checks passed at exact

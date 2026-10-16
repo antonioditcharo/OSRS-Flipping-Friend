@@ -25,8 +25,9 @@ are in `docs/project-direction.md`; historical package notes are not proof of ru
   ledger HTTP reads pass. Earlier fresh risk/final entry GET successes are recorded in HANDOFF;
   they are not controlled trading acceptance.
   UI and controlled trading acceptance remain pending; reconciliation guards remain active.
-  Recommendation-latency fixes are installed; fresh post-update acknowledgement/advice acceptance
-  remains pending. Read the newest HANDOFF checkpoint before historical entries.
+  Recommendation-latency fixes are installed; post-update acknowledgement drain and fresh durable
+  eight-slot proof pass. Sustained timing/final eligible entry remain open; all slots were occupied
+  and a stale managed-price guard also appeared. Read the newest HANDOFF checkpoint before history.
 - Current-slot recovery requires copied authenticated observations and durable ordering proof.
   It must preserve historical gaps and exposure guards; never book a recovered cumulative baseline
   as a new execution. See docs/architecture/offer-observation-recovery.md. Runtime includes this
