@@ -25,6 +25,8 @@ $global:ffUpdateTestStarted = $false
 $global:ffUpdateTestFixture = $fixture
 $global:ffUpdateTestTask = $null
 $global:ffUpdateTestClock = 0
+$global:ffProcessStopped = $false
+$global:ffSchedulerRaceInjected = $false
 $env:USERNAME = 'fixture-user'
 
 # Every command that can affect a real process, task or network connection is intercepted.
@@ -56,7 +58,15 @@ function Get-ScheduledTask {
 function Get-CimInstance {
     [CmdletBinding()] param($ClassName, $Filter)
     if ($scenario.gameRunning) { [pscustomobject]@{ ProcessId = 100; Name = 'RuneLite.exe'; CommandLine = 'RuneLite' } }
-    [pscustomobject]@{ ProcessId = 101; Name = 'java.exe'; CommandLine = 'java -jar flipping-friend-companion.jar' }
+    if ($scenario.userProcess -or $scenario.processManifest) {
+        if (-not $global:ffProcessStopped) {
+            [pscustomobject]@{ ProcessId=202; Name='java.exe'; CreationDate='fixture-start'; CommandLine=('java.exe '+$scenario.arguments) }
+        }
+    } else { [pscustomobject]@{ ProcessId = 101; Name = 'java.exe'; CommandLine = 'java -jar flipping-friend-companion.jar' } }
+}
+function Invoke-CimMethod {
+    [CmdletBinding()] param($InputObject, $MethodName)
+    [pscustomobject]@{ReturnValue=0;Sid=$(if($scenario.foreignProcessOwner){'foreign-sid'}else{'fixture-sid'})}
 }
 function Get-NetTCPConnection {
     [CmdletBinding()] param($LocalPort, $State)
@@ -67,6 +77,8 @@ function Stop-Process {
     [CmdletBinding()] param($Id, [switch]$Force)
     $global:ffUpdateTestEvents.Add('stop-process')
     $scenario.alreadyRunning = $false
+    $global:ffProcessStopped = $true
+    $global:ffUpdateTestStarted = $false
 }
 function Stop-ScheduledTask {
     [CmdletBinding()] param($TaskName, $TaskPath)
@@ -209,6 +221,11 @@ function Copy-Item {
         if ($scenario.failCompanionCopy) { throw 'Synthetic companion copy failed.' }
     }
     Microsoft.PowerShell.Management\Copy-Item -LiteralPath $Path -Destination $Destination -Force:$Force -Recurse:$Recurse
+    if ($scenario.schedulerRace -and -not $global:ffSchedulerRaceInjected -and $Destination -like '*.stage-*' -and $Path -eq (Join-Path $fixture 'checkout/companion/build/libs/flipping-friend-companion.jar')) {
+        $global:ffSchedulerRaceInjected=$true
+        $global:ffProcessStopped=$false
+        $scenario.alreadyRunning=$true
+    }
     if ($scenario.tamperBackupJar -and $Destination -match 'backups[\\/].*osrs-flipping-friend.jar$') {
         $bytes = [IO.File]::ReadAllBytes($Destination); $bytes[0] = $bytes[0] -bxor 1
         [IO.File]::WriteAllBytes($Destination, $bytes)
@@ -288,9 +305,11 @@ class UpdateLifecycleTest(unittest.TestCase):
         for name in ("uninstall.ps1", "uninstall-companion.ps1"):
             shutil.copyfile(Path(__file__).resolve().parents[1] / name, tools / name)
         shutil.copyfile(Path(__file__).resolve().parents[1] / "register-companion-task.ps1", tools / "register-companion-task.ps1")
+        shutil.copyfile(Path(__file__).resolve().parents[1] / "process-companion.ps1", tools / "process-companion.ps1")
         # This suite checks lifecycle ordering; native task ACL behavior has its own Windows tests.
         (tools / "enable-user-updates.ps1").write_text(
-            "param([switch]$CheckOnly,[switch]$RequireControl)\n"
+            "param([switch]$CheckOnly,[switch]$RequireControl,[switch]$PassThru)\n"
+            "if ($PassThru) { if ($scenario.foreignTaskPrincipal) { throw 'Task principal does not match' }; return [pscustomobject]@{Sid=[pscustomobject]@{Value='fixture-sid'};Xml='fixture-xml';Sddl='fixture-sddl'} }\n"
             "if ($CheckOnly) { if ($RequireControl -and $scenario.taskReadOnly) { throw 'Run the one-time task permission repair.' }; return }\n"
             "$global:ffUpdateTestEvents.Add('grant-task-access')\n", encoding="utf-8")
         (tools / "install.ps1").write_text("$global:ffUpdateTestEvents.Add('legacy-install')\n$global:LASTEXITCODE = 0\n", encoding="utf-8")
@@ -374,9 +393,63 @@ class UpdateLifecycleTest(unittest.TestCase):
         self.scenario['truncateBackupAccount'] = True
         result = self.run_update()
         self.assertIsNotNone(result['error'], self.output)
+        self.assertIn('Backup verification failed', result['error'], self.output)
         self.assertEqual(original, {p: p.read_bytes() for p in original})
         self.assertEqual(b'pending-event-sentinel', pending.read_bytes())
         self.assertNotIn('start-process', result['events'], self.output)
+
+    def test_user_process_drains_old_scheduler_race_before_account_backup(self):
+        self.process_candidate()
+        self.scenario['schedulerRace'] = True
+        self.make_pending_account_record()
+        result = self.run_update()
+        self.assertIsNone(result['error'], self.output)
+        self.assertEqual(2, result['events'].count('stop-process'), self.output)
+
+    def test_user_process_rejects_foreign_process_or_task_before_backup(self):
+        for flag in ['foreignProcessOwner', 'foreignTaskPrincipal']:
+            with self.subTest(flag=flag):
+                self.process_candidate()
+                self.scenario[flag] = True
+                result = self.run_update()
+                self.assertIsNotNone(result['error'], self.output)
+                self.assertEqual([], result['events'], self.output)
+                self.scenario[flag] = False
+
+    def test_process_lifecycle_manifest_reuses_direct_start_without_task_changes(self):
+        self.process_candidate()
+        self.assertIsNone(self.run_update()['error'], self.output)
+        self.scenario.update(userProcess=False, processManifest=True, alreadyRunning=False, startOnly=True, unattended=False)
+        result = self.run_update()
+        self.assertIsNone(result['error'], self.output)
+        self.assertEqual(['start-process'], result['events'], self.output)
+
+    def test_process_lifecycle_manifest_reuses_normal_unattended_update(self):
+        self.process_candidate()
+        self.assertIsNone(self.run_update()['error'], self.output)
+        self.scenario.update(userProcess=False, processManifest=True)
+        result = self.run_update()
+        self.assertIsNone(result['error'], self.output)
+        self.assertNotIn('disable-task', result['events'], self.output)
+        self.assertIn('start-process', result['events'], self.output)
+
+    def test_process_lifecycle_update_wrapper_needs_no_install_reply(self):
+        self.process_candidate()
+        self.assertIsNone(self.run_update()['error'], self.output)
+        self.scenario.update(userProcess=False, processManifest=True, unattended=False, decline=True)
+        result = self.run_update()
+        self.assertIsNone(result['error'], self.output)
+        self.assertFalse(any(event.startswith('prompt:') for event in result['events']), self.output)
+
+    def test_user_process_update_keeps_running_client_and_unknown_listener_guards(self):
+        for flag in ['gameRunning', 'opaquePort']:
+            with self.subTest(flag=flag):
+                self.process_candidate()
+                self.scenario[flag] = True
+                result = self.run_update()
+                self.assertIsNotNone(result['error'], self.output)
+                self.assertEqual([], result['events'], self.output)
+                self.scenario[flag] = False
 
     def test_registration_grants_own_user_access_before_installation_is_enabled(self):
         self.scenario.update(setup=True)

@@ -1,6 +1,6 @@
 # One-time, app-scoped task repair. Run elevated only if this existing task requires it.
 [CmdletBinding()]
-param([switch] $CheckOnly, [switch] $RequireControl)
+param([switch] $CheckOnly, [switch] $RequireControl, [switch] $PassThru)
 $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot\task-user-access.ps1"
 $root = Split-Path -Parent $PSScriptRoot
@@ -15,6 +15,7 @@ if ($CheckOnly) {
     if ($RequireControl -and -not $access.Ready -and -not $caller.IsAdministrator) {
         throw 'Run the one-time task permission repair: tools\enable-user-updates.ps1 as administrator. Routine updates then run normally.'
     }
+    if ($PassThru) { return $access }
     Write-Host "Task runs as this user without elevation. Normal-user maintenance ready: $($access.Ready)."
     return
 }

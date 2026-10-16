@@ -83,8 +83,8 @@ For an installation from a previous checkout, use `1b - Re-setup Existing Instal
 closing RuneLite. It reuses a saved login, backs up the prior installation/scoped account directories,
 shows paths/sizes for confirmation, installs both JARs and refreshes the task/desktop shortcut.
 Everyday start validates the installed pair without rebuilding. Updates use `4 - Update.bat`.
-If an older installation requests administrator access for each update, use the one-time
-`6 - Enable User Updates.bat` repair described in [Start here](START%20HERE.md). Routine updates
+If an older installation requests administrator access for each update, run
+`6 - Enable User Updates.bat` normally as described in [Start here](START%20HERE.md). Process updates
 then use your normal account; the companion continues to run without elevation.
 The supported artifacts are:
 

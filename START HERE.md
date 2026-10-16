@@ -18,7 +18,7 @@ The numbered wrappers below retain the interactive self-service path; Update doe
 | Read-only diagnostics | `3 - Status.bat` |
 | Update after changing/pulling source | `4 - Update.bat` |
 | Remove installed components while retaining data | `5 - Uninstall.bat` |
-| One-time repair for administrator prompts on an existing task | Right-click `6 - Enable User Updates.bat`, then **Run as administrator** |
+| Enable updates without administrator prompts on an existing installation | Run `6 - Enable User Updates.bat` normally |
 
 ## Setup or re-setup
 
@@ -33,12 +33,14 @@ The numbered wrappers below retain the interactive self-service path; Update doe
 5. Run `2 - Start`, log in yourself, and open the Flipping Friend coin panel. Use `3 - Status`, then
    the read-only pipeline check below, before the manual checks in [HANDOFF.md](HANDOFF.md).
 
-Run as your usual Windows user. For an older protected companion task, run `6 - Enable User Updates`
-as administrator once, under that same account. It backs up the task definition and permissions,
-then grants only that user control of this installation's non-elevated companion task. Later updates
-run normally without elevation. Fresh task registration sets this access automatically. Do not use
-a different Windows account, disable UAC or make the companion run as administrator. A read-only
-check is `tools/enable-user-updates.ps1 -CheckOnly`; live repair acceptance is in HANDOFF.
+Run as your usual Windows user. For an existing protected companion task, `6 - Enable User Updates`
+performs a verified paired update with normal-user process management. It leaves the task and its
+permissions unchanged, so no initial administrator approval is needed. Subsequent Update and Start
+recognize that mode automatically; updates require no INSTALL response. The agent can perform this
+directly. Startup/single-instance locks prevent the scheduled task from starting a second writer or
+opening stores during installation. Read [the lifecycle contract](docs/architecture/user-process-updates.md)
+and HANDOFF for actual delivery. Reconfiguring/removing a protected task is a separate operation;
+routine updates do not need it. Fresh task registration still grants its creator maintenance access.
 
 An installed JDK is needed to build; CI uses JDK 21 and local verification uses the existing JDK 23.
 The installer selects an available JDK from JAVA_HOME, Java's directory, or that existing JDK 23 path.

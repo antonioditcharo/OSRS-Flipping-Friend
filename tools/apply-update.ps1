@@ -1,7 +1,7 @@
 # One paired lifecycle for setup, re-setup, update and start. Never operates game input.
 [CmdletBinding()]
 param([switch] $SkipBuild, [switch] $ConfigureCompanionTask, [switch] $StartOnly, [switch] $CheckOnly,
-    [switch] $Unattended, [string] $ResumeBackup)
+    [switch] $Unattended, [string] $ResumeBackup, [switch] $UserProcess)
 $ErrorActionPreference = 'Stop'
 if ($ResumeBackup -and -not $Unattended) { throw 'ResumeBackup requires Unattended and a verified interrupted update.' }
 if ($Unattended -and ($ConfigureCompanionTask -or $StartOnly -or $CheckOnly)) {
@@ -102,11 +102,11 @@ function Get-AccountBackupMetadata([string] $directory) {
     }
     return $metadata
 }
-function Assert-UnattendedBackup([string] $backup, [string] $priorCompanion, [string] $taskDefinition) {
+function Assert-UnattendedBackup([string] $backup, [string] $priorCompanion, [string] $taskDefinition, [string] $priorCompanionHash) {
     foreach ($pair in @(@($installed, 'osrs-flipping-friend.jar'), @($priorCompanion, 'flipping-friend-companion.jar'), @($manifestPath, 'installation.json'))) {
         $saved = Join-Path $backup $pair[1]
-        if (-not (Test-Path -LiteralPath $saved -PathType Leaf) -or
-            (Get-ArtifactSha256 $pair[0]) -ne (Get-ArtifactSha256 $saved)) {
+        $expected = if ($priorCompanionHash -and $pair[1] -eq 'flipping-friend-companion.jar') { $priorCompanionHash } else { Get-ArtifactSha256 $pair[0] }
+        if (-not (Test-Path -LiteralPath $saved -PathType Leaf) -or $expected -ne (Get-ArtifactSha256 $saved)) {
             throw "Backup verification failed: $($pair[1]) is missing or differs from its source."
         }
     }
@@ -132,6 +132,46 @@ function Assert-UnattendedBackup([string] $backup, [string] $priorCompanion, [st
         accountVerification='Relative names and sizes only; no account/database contents read or hashed.'
     } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $backup 'backup-verification.json') -Encoding UTF8
     Write-Host "Backup verified: companion account files=$($counts[0]); plugin account files=$($counts[1]); JAR/manifest hashes and task export match."
+}
+function Copy-AccountTrees([string] $backup) {
+    # The plugin keeps its profile records beside companion/, not in the companion's hashed scopes.
+    # Preserve this tree as stored, including default/ and parked history, without interpreting it.
+    $pluginAccounts = Join-Path $dataRoot 'accounts'
+    if (Test-Path -LiteralPath $pluginAccounts) {
+        if (-not (Test-Path -LiteralPath $pluginAccounts -PathType Container)) { throw 'Plugin account data location is not a directory.' }
+        $pending = [System.Collections.Generic.Stack[string]]::new()
+        $pending.Push($pluginAccounts)
+        while ($pending.Count -gt 0) {
+            $directory = $pending.Pop()
+            if ((Get-Item -LiteralPath $directory -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) {
+                throw 'Plugin account backup contains a link; inspect it read-only before installing.'
+            }
+            foreach ($entry in @(Get-ChildItem -LiteralPath $directory -Force)) {
+                if ($entry.Attributes -band [IO.FileAttributes]::ReparsePoint) {
+                    throw 'Plugin account backup contains a link; inspect it read-only before installing.'
+                }
+                if ($entry.PSIsContainer) { $pending.Push($entry.FullName) }
+            }
+        }
+        Copy-Item -LiteralPath $pluginAccounts -Destination (Join-Path $backup 'plugin-accounts') -Recurse
+    } else { Write-Host 'No plugin account records directory observed.' }
+    $accounts = Join-Path $logDir 'accounts'
+    foreach ($directory in @($logDir, $accounts)) {
+        if ((Test-Path -LiteralPath $directory) -and
+            ((Get-Item -LiteralPath $directory -Force).Attributes -band [IO.FileAttributes]::ReparsePoint)) {
+            throw 'Account data location contains a link; inspect it read-only before installing.'
+        }
+    }
+    if (Test-Path -LiteralPath $accounts -PathType Container) {
+        foreach ($account in @(Get-ChildItem -LiteralPath $accounts -Directory -Force)) {
+            if ($account.Name -notmatch '^rs-[0-9a-f]{64}$') { continue }
+            $entries = @($account) + @(Get-ChildItem -LiteralPath $account.FullName -Recurse -Force)
+            if ($entries | Where-Object { $_.Attributes -band [IO.FileAttributes]::ReparsePoint }) { throw 'Account backup contains a link; inspect it read-only before installing.' }
+            $destination = Join-Path $backup 'accounts'
+            New-Item -ItemType Directory -Force -Path $destination | Out-Null
+            Copy-Item -LiteralPath $account.FullName -Destination $destination -Recurse -Force
+        }
+    } else { Write-Host 'No scoped accounts directory observed. Legacy databases are left untouched and unassigned.' }
 }
 function Assert-InterruptedUpdate($candidate) {
     # This is an explicit retry of a pre-copy interruption, never a disabled-task bypass.
@@ -236,7 +276,7 @@ function Test-Health {
             $health.status -in @('READY', 'DEGRADED'))
     } catch { return $false }
 }
-function Start-Companion($candidate, [string] $java) {
+function Start-Companion($candidate, [string] $java, [switch] $Direct) {
     Assert-InstalledPair
     Assert-Task $candidate
     if ((Get-CompanionPid) -ne 0) {
@@ -244,7 +284,7 @@ function Start-Companion($candidate, [string] $java) {
         throw 'The existing listener did not pass the scoped health check. Run 3 - Status; do not start a second copy.'
     }
     New-Item -ItemType Directory -Force -Path $logDir | Out-Null
-    if ($candidate) { Start-ScheduledTask -TaskName $taskName -TaskPath '\' }
+    if ($candidate -and -not $Direct) { Start-ScheduledTask -TaskName $taskName -TaskPath '\' }
     else {
         Start-Process -FilePath $java -ArgumentList '-jar', "`"$companionInstalled`"" `
             -WorkingDirectory $root -WindowStyle Hidden `
@@ -260,6 +300,19 @@ function Start-Companion($candidate, [string] $java) {
     throw "Companion did not pass its scoped health check within 60s. See $logDir\companion.log.err"
 }
 
+. "$PSScriptRoot\process-companion.ps1"
+$processLifecycle = $UserProcess.IsPresent
+if (Test-Path -LiteralPath $manifestPath -PathType Leaf) {
+    $existingManifest = Get-Content -Raw -LiteralPath $manifestPath | ConvertFrom-Json
+    $processLifecycle = $processLifecycle -or $existingManifest.processLifecycleVersion -eq 1
+}
+if ($processLifecycle -and -not $UserProcess -and -not ($ConfigureCompanionTask -or $ResumeBackup -or $StartOnly -or $CheckOnly)) {
+    # This installation already opted into verified agent-managed process updates.
+    $Unattended = $true
+}
+if ($UserProcess -and (-not $Unattended -or $ConfigureCompanionTask -or $ResumeBackup -or $StartOnly -or $CheckOnly)) {
+    throw 'UserProcess is only supported for an unattended update of an existing installation.'
+}
 $task = Get-CompanionTask
 if ($ResumeBackup) { Assert-InterruptedUpdate $task }
 elseif (-not $ConfigureCompanionTask) { Assert-Task $task }
@@ -273,13 +326,21 @@ if ($CheckOnly) {
     if ((Get-CompanionPid) -eq 0) { throw 'Installed pair verified, but companion is not running. Run 2 - Start.' }
     if (-not (Test-Health)) { throw 'Installed pair verified, but scoped health is unavailable. Run the pipeline check before trading.' }
     Write-Host 'Installed pair verified; companion responds with accounts-v1 (READY or DEGRADED).'
+    if ($processLifecycle) { Write-Host 'Companion lifecycle: normal-user process; protected startup task unchanged.' }
     return
 }
 $java = Find-Java
 if ($StartOnly) {
     Assert-InstalledPair
     $startLock = [IO.File]::Open((Join-Path $runtime 'installation.lock'), 'OpenOrCreate', 'ReadWrite', 'None')
-    try { Start-Companion (Get-CompanionTask) $java } finally { $startLock.Dispose() }
+    try {
+        Assert-InstalledPair
+        if ($processLifecycle) {
+            $null = & "$PSScriptRoot\enable-user-updates.ps1" -CheckOnly -PassThru
+            Assert-CompanionLifecycleGuard $companionInstalled
+        }
+    } finally { $startLock.Dispose() }
+    Start-Companion (Get-CompanionTask) $java -Direct:$processLifecycle
     return
 }
 
@@ -290,6 +351,7 @@ $processes = @(Get-CimInstance Win32_Process -ErrorAction Stop)
 if ($processes | Where-Object { $_.Name -eq 'RuneLite.exe' -or $_.CommandLine -match 'net\.runelite\.client\.RuneLite' }) {
     throw 'Close RuneLite before setup or updating. No game process was stopped.'
 }
+if ($processLifecycle -and -not $ConfigureCompanionTask -and -not $ResumeBackup) { Invoke-ProcessManagedUpdate; return }
 if ($task -and -not $ConfigureCompanionTask) {
     & "$PSScriptRoot\enable-user-updates.ps1" -CheckOnly -RequireControl
 }
@@ -327,44 +389,7 @@ try {
             Copy-Item -LiteralPath $entry[0] -Destination (Join-Path $backup $entry[1]) -Force
         } else { Write-Host "Backup source absent: $($entry[0])" }
     }
-    # The plugin keeps its profile records beside companion/, not in the companion's hashed scopes.
-    # Preserve this tree as stored, including default/ and parked history, without interpreting it.
-    $pluginAccounts = Join-Path $dataRoot 'accounts'
-    if (Test-Path -LiteralPath $pluginAccounts) {
-        if (-not (Test-Path -LiteralPath $pluginAccounts -PathType Container)) { throw 'Plugin account data location is not a directory.' }
-        $pending = [System.Collections.Generic.Stack[string]]::new()
-        $pending.Push($pluginAccounts)
-        while ($pending.Count -gt 0) {
-            $directory = $pending.Pop()
-            if ((Get-Item -LiteralPath $directory -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) {
-                throw 'Plugin account backup contains a link; inspect it read-only before installing.'
-            }
-            foreach ($entry in @(Get-ChildItem -LiteralPath $directory -Force)) {
-                if ($entry.Attributes -band [IO.FileAttributes]::ReparsePoint) {
-                    throw 'Plugin account backup contains a link; inspect it read-only before installing.'
-                }
-                if ($entry.PSIsContainer) { $pending.Push($entry.FullName) }
-            }
-        }
-        Copy-Item -LiteralPath $pluginAccounts -Destination (Join-Path $backup 'plugin-accounts') -Recurse
-    } else { Write-Host 'No plugin account records directory observed.' }
-    $accounts = Join-Path $logDir 'accounts'
-    foreach ($directory in @($logDir, $accounts)) {
-        if ((Test-Path -LiteralPath $directory) -and
-            ((Get-Item -LiteralPath $directory -Force).Attributes -band [IO.FileAttributes]::ReparsePoint)) {
-            throw 'Account data location contains a link; inspect it read-only before installing.'
-        }
-    }
-    if (Test-Path -LiteralPath $accounts -PathType Container) {
-        foreach ($account in @(Get-ChildItem -LiteralPath $accounts -Directory -Force)) {
-            if ($account.Name -notmatch '^rs-[0-9a-f]{64}$') { continue }
-            $entries = @($account) + @(Get-ChildItem -LiteralPath $account.FullName -Recurse -Force)
-            if ($entries | Where-Object { $_.Attributes -band [IO.FileAttributes]::ReparsePoint }) { throw 'Account backup contains a link; inspect it read-only before installing.' }
-            $destination = Join-Path $backup 'accounts'
-            New-Item -ItemType Directory -Force -Path $destination | Out-Null
-            Copy-Item -LiteralPath $account.FullName -Destination $destination -Recurse -Force
-        }
-    } else { Write-Host 'No scoped accounts directory observed. Legacy databases are left untouched and unassigned.' }
+    Copy-AccountTrees $backup
     Write-Host "Backup complete: $backup"
     if ($Unattended) {
         Assert-UnattendedBackup $backup $oldCompanion $savedTaskDefinition
@@ -405,6 +430,6 @@ try {
     Assert-InstalledPair
     if ($task) { Enable-ScheduledTask -TaskName $taskName -TaskPath '\' | Out-Null }
     $task = Get-CompanionTask
-    Start-Companion $task $java
-    Write-Host 'Update applied. Both installed JARs verified. Restart RuneLite to pick up plugin changes.'
 } finally { $lock.Dispose() }
+Start-Companion $task $java
+Write-Host 'Update applied. Both installed JARs verified. Restart RuneLite to pick up plugin changes.'

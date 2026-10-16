@@ -1,7 +1,7 @@
 @echo off
-title Flipping Friend - One-Time User Update Access
+title Flipping Friend - Normal User Updates
 cd /d "%~dp0"
-echo This grants your Windows user control of this installation's non-elevated companion task.
-echo For an existing protected task, right-click this file and choose Run as administrator once.
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0tools\enable-user-updates.ps1"
+echo Close RuneLite first. Run this normally; administrator approval is not required.
+echo This verifies a backup and updates both JARs using the current user's companion process.
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0tools\apply-update.ps1" -Unattended -UserProcess
 pause

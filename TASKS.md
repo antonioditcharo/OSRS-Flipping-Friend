@@ -11,12 +11,14 @@ statements later in this file. Read [HANDOFF.md](HANDOFF.md) for exact evidence.
       Standard 49s: 1,528 Java passed/six skips; 94 tooling tests pass in 76.495s; PowerShell 7
       native gate 13 passed. 462b39f reproduces CI's fake-task SID alias mismatch; fixture corrected,
       production rollback checks unchanged. Real scope is valid; maintenance/repair access is false.
-      See the branch PR for exact-head CI and delivery. No real permissions/JARs changed.
-- [ ] Apply the one-time task repair with Windows administrator approval, then verify a normal-user
-      unattended paired update and launch. Use 6 - Enable User Updates as administrator once under
-      the same account; never disable UAC or create an elevated unattended helper. RuneLite was
-      closed normally on the owner's explicit request; recheck rather than ask for another close.
-      Installed pair remains #69; batch the already merged #72/#75 runtime changes together.
+      Merged #76 as 51b69e4 after both checks at e158825 passed (run 38953016899).
+      Optional ACL repair was never applied and is not required by the new process workflow.
+- [ ] Deliver/verify a normal-user -Unattended -UserProcess paired update without any initial admin
+      approval. Source starts from #76/51b69e4; feature-first afd2b0d, protected task remains unchanged,
+      native startup/singleton/pair guards and runtime-only rollback. Root 6 runs normally now.
+      Standard 59s: 1,534 Java passed/six skips; 103 tooling / 99.585s / OK; PowerShell 7 ten passed.
+      RuneLite was closed normally on the owner's request; recheck rather than ask for another close.
+      Installed pair remains #69; batch #72/#75 with this guard, then record actual delivery.
 - [x] Reproduce misleading reserve/session-loss explanations in 945bf47, then correct the durable
       risk reason, waiting card and notification together. Fresh matching risk is required for its
       explanation; no accounting, risk arithmetic or refusal changes. Standard: 1,528 Java passed/
