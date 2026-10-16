@@ -3,6 +3,68 @@
 Updated 15 October 2026 (America/Anchorage). Read this with [AGENTS.md](AGENTS.md) and
 [TASKS.md](TASKS.md) before continuing implementation.
 
+## Recommendation latency pair installed; fresh login proof pending — 15 October 2026
+
+PR #64 merged as `a3ef954d6cb919a411bd8d982e30a6555a678f00`. Both checks passed at exact
+head `82645c0503b5127c959acce04633778e8902de2a` in
+[run 38845928840](https://github.com/antonioditcharo/OSRS-Flipping-Friend/actions/runs/38845928840):
+Windows job 116797969029 and Ubuntu job 116797970834. Original Windows job 116796334644
+hit one two-second socket read timeout on the first POST in AccountApiIsolationTest's
+unidentified-clear case. All three cases passed in a focused local recheck (23s/exit 0), and one
+unchanged CI retry passed. No test or production timeout was changed. The initial failure remains
+in [the delivery receipt](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/64#issuecomment-6207561445).
+
+The owner closed RuneLite normally. The first elevation request was canceled before the helper
+started; the owner requested another prompt. The second request launched supported
+tools/apply-update.ps1 -Unattended at 03:44:32 UTC on 16 October (15 October local).
+A fresh backup verified before paired replacement:
+
+```text
+C:\Users\Antonio\.runelite\osrs-flipping-friend\backups\20261015-194438-56468ed6
+backup-verification.json            335 bytes / status VERIFIED
+companion-task.xml                 1,895 bytes
+flipping-friend-companion.jar 17,877,081 bytes
+installation.json                   458 bytes
+osrs-flipping-friend.jar          486,099 bytes
+companion accounts: 3 files / 26,365,624 bytes
+plugin accounts:   22 files / 1,523,447 bytes
+```
+
+Helper success=true/exitCode=0 at 03:44:57 UTC. Supported build: BUILD SUCCESSFUL in 6s,
+three tasks executed/five up-to-date. Installed plugin 486,099 bytes/218 project classes and
+companion 17,878,060 bytes/453 classes match manifest/normal build and every standard-tested
+candidate class, all Java 11. Packaging is 20 bytes larger per candidate JAR without a class change.
+
+```text
+PAIRED_INSTALL_PROOF=PASS / PAIRED_PROOF_EXIT=0
+Overall status: PAIR VERIFIED / COMPANION RESPONDING / STATUS_HOST_EXIT=0
+RuneLite 1.13.2 and installed plugin API match; cached artifacts verified.
+COMPATIBILITY_HOST_EXIT=0
+PASS [Artifact] build\libs\osrs-flipping-friend.jar
+PASS [Artifact] companion\build\libs\flipping-friend-companion.jar
+PASS [Protocol] accounts-v1
+PASS [Market] Ready. Choosing which items to study.
+PASS [<account-id>] Ledger: 4 sale updates; 2 unresolved; 0 profit ranges.
+PASS [<account-id>] Action: WAIT. Plan: UNAVAILABLE. Waiting for the game client to report your coins and free slots.
+INFO [Accounting] No synthetic snapshots, offers, or trades were posted by this check.
+PIPELINE_HOST_EXIT=0
+```
+
+Agent launch through tools/start.ps1 initialized one RuneLite client in 8,308 ms. Normal reflective
+access warnings are retained. At 19:46 local, before fresh login evidence, portfolio/current took
+1,672 ms, action 0 ms, ledger/current 2,547 ms and learning/current 359 ms. Plan remained UNAVAILABLE
+waiting for client cash/slots. Outbox was 32 pending before installation and remained 32; the earlier
+diagnosis observed 40. Nothing was cleared or repaired. Learning retains seven censored
+episodes/six full forecasts/zero completed intervals and held public-price baseline promotion.
+These initial cold HTTP reads are not latency acceptance. Require fresh login, normal durable
+acknowledgement drain and current plan/risk/final-policy proof before claiming restored advice.
+
+Private normal-checkout receipts: .gradle/recommendation-latency-{update*,install-proof,status,
+compatibility,launch.*}; local-data/diagnostics/recommendation-postinstall-pipeline-20261015.txt,
+recommendation-postlogin-probe-20261015.txt and recommendation-stall-20261015-194602.json. No game
+input, synthetic live POST, manual database edit, schema/index migration, outbox reset, risk reset
+or preference change occurred. Controlled trading and remaining player UI checks stay open.
+
 ## Recommendation latency diagnosis and regression source — 15 October 2026
 
 Owner reports multi-minute gaps, then no buys after changing to 5m/Medium and following cancellation

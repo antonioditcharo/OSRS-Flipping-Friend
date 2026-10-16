@@ -5,14 +5,22 @@ statements later in this file. Read [HANDOFF.md](HANDOFF.md) for exact evidence.
 
 ## Active
 
-- [ ] Deliver/retest recommendation latency fix on codex/recommendation-latency from e14121b.
+- [x] Deliver/install recommendation latency fix on codex/recommendation-latency from e14121b.
       Runtime portfolio GET timed out at 15,141 ms with 40 observations pending; companion dump
       identifies the serialized evidence query. Regressions 17bf941/79555e1 precede existing-index
       lookup and operation-local history-read fixes. Preserve fresh proof/unknown scope/accounting
       and current 5m/Medium settings; no database/index migration or timeout bypass. Final standard:
       1,477 Java passed/six skips, 57s; 79 Python passed, both Java 11 JARs. Same scoped read-only
       planning probe improves from 2,052/866 ms to 555/196 ms (cold/warm); live acceptance is separate.
-      Exact-head CI, paired update and fresh live acknowledgement/advice checks are pending.
+      Merged #64 as a3ef954 after both checks at 82645c0 pass (Windows 116797969029/Ubuntu
+      116797970834, run 38845928840). Initial Windows socket timeout, passing local recheck and
+      unchanged CI retry are documented. Verified backup 20261015-194438-56468ed6 precedes supported
+      unattended paired install; helper exit 0. Plugin 486,099/companion 17,878,060 bytes match all
+      tested classes/manifest/build. Status/compatibility/GET pipeline pass; one client launched.
+- [ ] Verify fresh post-login acknowledgement drain, timing and resumed plan/risk/final entry after
+      #64. At 19:46 before fresh login proof, 32 observations remain queued and plan waits for
+      client cash/slots; initial cold reads exceed 750 ms and do not establish latency acceptance.
+      Preserve 5m/Medium and every financial guard. See newest HANDOFF for exact outputs.
 - [x] Install the batched runtime through #61 at clean #62 merge fc62526 via supported
       -Unattended -ResumeBackup after verified pre-copy interruption proof. Fresh backup
       20261015-184127-76f3a3f8 verified: three companion/22 plugin account files; old artifacts/task
