@@ -1,8 +1,9 @@
 # One paired lifecycle for setup, re-setup, update and start. Never operates game input.
 [CmdletBinding()]
 param([switch] $SkipBuild, [switch] $ConfigureCompanionTask, [switch] $StartOnly, [switch] $CheckOnly,
-    [switch] $Unattended)
+    [switch] $Unattended, [string] $ResumeBackup)
 $ErrorActionPreference = 'Stop'
+if ($ResumeBackup -and -not $Unattended) { throw 'ResumeBackup requires Unattended and a verified interrupted update.' }
 if ($Unattended -and ($ConfigureCompanionTask -or $StartOnly -or $CheckOnly)) {
     throw 'Unattended is only supported for routine updates of an existing installation.'
 }
@@ -132,6 +133,71 @@ function Assert-UnattendedBackup([string] $backup, [string] $priorCompanion, [st
     } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $backup 'backup-verification.json') -Encoding UTF8
     Write-Host "Backup verified: companion account files=$($counts[0]); plugin account files=$($counts[1]); JAR/manifest hashes and task export match."
 }
+function Assert-InterruptedUpdate($candidate) {
+    # This is an explicit retry of a pre-copy interruption, never a disabled-task bypass.
+    Assert-Task $candidate -AllowDisabled
+    if (-not $candidate -or $candidate.State -ne 'Disabled' -or $candidate.Settings.Enabled -ne $false) {
+        throw 'Interrupted update recovery requires the same disabled companion task.'
+    }
+    $backup = Normalize-AbsolutePath $ResumeBackup
+    $backups = Normalize-AbsolutePath (Join-Path $dataRoot 'backups')
+    if ((Normalize-AbsolutePath (Split-Path -Parent $backup)) -ne $backups -or
+        (Split-Path -Leaf $backup) -notmatch '^\d{8}-\d{6}-[0-9a-f]{8}$') {
+        throw 'Interrupted update backup must be an explicit dated backup in this installation.'
+    }
+    if (-not (Test-Path -LiteralPath $backup -PathType Container) -or
+        ((Get-Item -LiteralPath $backups).Attributes -band [IO.FileAttributes]::ReparsePoint)) {
+        throw 'Interrupted update backup location is missing or linked.'
+    }
+    $null = Get-AccountBackupMetadata $backup # Link checks and metadata only, no database reads.
+    $receiptPath = Join-Path $backup 'backup-verification.json'
+    if (-not (Test-Path -LiteralPath $receiptPath -PathType Leaf)) { throw 'Interrupted update backup receipt is missing.' }
+    $receipt = Get-Content -Raw -LiteralPath $receiptPath | ConvertFrom-Json
+    if ($receipt.status -ne 'VERIFIED' -or (Normalize-AbsolutePath $receipt.checkout) -ne (Normalize-AbsolutePath $root)) {
+        throw 'Interrupted update backup receipt does not verify this checkout.'
+    }
+    Assert-InstalledPair
+    foreach ($pair in @(@($installed, 'osrs-flipping-friend.jar'), @($companionInstalled, 'flipping-friend-companion.jar'), @($manifestPath, 'installation.json'))) {
+        $saved = Join-Path $backup $pair[1]
+        if (-not (Test-Path -LiteralPath $saved -PathType Leaf) -or
+            (Get-ArtifactSha256 $pair[0]) -ne (Get-ArtifactSha256 $saved)) {
+            throw 'Interrupted update backup differs from the unchanged installed pair/manifest.'
+        }
+    }
+    $taskBackup = Join-Path $backup 'companion-task.xml'
+    [xml]$savedTask = Get-Content -Raw -LiteralPath $taskBackup
+    [xml]$currentTask = Export-ScheduledTask -TaskName $taskName -TaskPath '\'
+    $taskNamespace = 'http://schemas.microsoft.com/windows/2004/02/mit/task'
+    foreach ($definition in @($savedTask, $currentTask)) {
+        if ($definition.DocumentElement.LocalName -ne 'Task' -or $definition.DocumentElement.NamespaceURI -ne $taskNamespace) {
+            throw 'Interrupted update task definition is invalid.'
+        }
+    }
+    $enabledPath = "/*[local-name()='Task']/*[local-name()='Settings']/*[local-name()='Enabled']"
+    $savedEnabled = $savedTask.SelectSingleNode($enabledPath)
+    if ($savedEnabled -and $savedEnabled.InnerText -ne 'true') { throw 'Interrupted update original task was not enabled.' }
+    # Ignore only the Enabled flag changed by the updater; principal/actions/triggers/settings
+    # and registration information must still match the original exported definition exactly.
+    foreach ($definition in @($savedTask, $currentTask)) {
+        $enabled = $definition.SelectSingleNode($enabledPath)
+        if ($enabled) { $null = $enabled.ParentNode.RemoveChild($enabled) }
+    }
+    if ($savedTask.OuterXml -ne $currentTask.OuterXml) { throw 'Interrupted update task definition changed.' }
+    $countIndex = 0
+    foreach ($pair in @(@((Join-Path $logDir 'accounts'), 'accounts'), @((Join-Path $dataRoot 'accounts'), 'plugin-accounts'))) {
+        $source = Get-AccountBackupMetadata $pair[0]
+        $saved = Get-AccountBackupMetadata (Join-Path $backup $pair[1])
+        $receiptCount = if ($countIndex -eq 0) { $receipt.companionAccountFiles } else { $receipt.pluginAccountFiles }
+        if ($source.Count -ne $saved.Count -or $saved.Count -ne $receiptCount) { throw 'Interrupted update account backup file count changed.' }
+        foreach ($relative in $source.Keys) {
+            if (-not $saved.ContainsKey($relative) -or $source[$relative] -ne $saved[$relative]) {
+                throw 'Interrupted update account file names/sizes changed.'
+            }
+        }
+        $countIndex++
+    }
+    Write-Host 'Interrupted update proof verified; task stays disabled until both JARs are installed.'
+}
 function Assert-InstalledPair {
     if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) { throw 'Installation requires setup or re-setup. Run 1 or 1b in this folder.' }
     $manifest = Get-Content -Raw -LiteralPath $manifestPath | ConvertFrom-Json
@@ -195,7 +261,8 @@ function Start-Companion($candidate, [string] $java) {
 }
 
 $task = Get-CompanionTask
-if (-not $ConfigureCompanionTask) { Assert-Task $task }
+if ($ResumeBackup) { Assert-InterruptedUpdate $task }
+elseif (-not $ConfigureCompanionTask) { Assert-Task $task }
 elseif ($task) { $oldCompanion = Get-TaskJar $task }
 if ($Unattended) {
     if (-not $task) { throw 'Unattended update requires the existing companion task.' }
@@ -234,7 +301,8 @@ $lock = [IO.File]::Open((Join-Path $runtime 'installation.lock'), 'OpenOrCreate'
 try {
     # Re-read after acquiring the lock: another checkout may have reconfigured the task meanwhile.
     $task = Get-CompanionTask
-    if (-not $ConfigureCompanionTask) { Assert-Task $task }
+    if ($ResumeBackup) { Assert-InterruptedUpdate $task }
+    elseif (-not $ConfigureCompanionTask) { Assert-Task $task }
     if ($Unattended) { Assert-InstalledPair }
     $oldCompanion = if ($task) { Get-TaskJar $task } else { $companionInstalled }
     $backup = Join-Path $dataRoot ('backups\' + (Get-Date).ToString('yyyyMMdd-HHmmss') + '-' + [Guid]::NewGuid().ToString('N').Substring(0,8))

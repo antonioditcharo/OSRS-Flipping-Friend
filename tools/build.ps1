@@ -9,8 +9,17 @@ $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
 
 Write-Host 'Building Flipping Friend...' -ForegroundColor Cyan
-& "$root\gradlew.bat" jar :companion:shadowJar --console=plain
-if ($LASTEXITCODE -ne 0) {
+# Windows PowerShell 5.1 turns redirected native stderr (including javac's ordinary
+# deprecation notes) into error records. Let Gradle's exit code decide success while
+# retaining every diagnostic; keep the caller's terminating-error policy elsewhere.
+$nativeErrorPreference = $ErrorActionPreference
+try {
+    $ErrorActionPreference = 'Continue'
+    $global:LASTEXITCODE = -1
+    & "$root\gradlew.bat" jar :companion:shadowJar --console=plain 2>&1 | ForEach-Object { $_.ToString() }
+    $buildExit = $LASTEXITCODE
+} finally { $ErrorActionPreference = $nativeErrorPreference }
+if ($buildExit -ne 0) {
     Write-Host 'Build failed.' -ForegroundColor Red
     exit 1
 }

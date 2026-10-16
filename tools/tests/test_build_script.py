@@ -9,7 +9,7 @@ import unittest
 
 
 class BuildScriptTest(unittest.TestCase):
-    def run_builder(self, exit_code=0, jar=True):
+    def run_builder(self, exit_code=0, jar=True, wrapper=True):
         shell = os.environ.get("FF_UPDATE_TEST_SHELL") or shutil.which("powershell") or shutil.which("pwsh")
         self.assertIsNotNone(shell, "PowerShell is required")
         with tempfile.TemporaryDirectory(prefix="flipping friend native build ") as temporary:
@@ -27,9 +27,13 @@ class BuildScriptTest(unittest.TestCase):
                  f"#!/bin/sh\necho 'Note: Some input files use or override a deprecated API.' >&2\nexit {exit_code}\n"),
                 encoding="utf-8")
             gradle.chmod(0o755)
+            if not wrapper:
+                gradle.unlink()
             (root / "harness.ps1").write_text(
                 "$ErrorActionPreference = 'Stop'\n"
+                "$global:LASTEXITCODE = 0\n"
                 "& (Join-Path $PSScriptRoot 'tools/build.ps1') *> (Join-Path $PSScriptRoot 'build.log')\n"
+                "if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }\n"
                 "if ($ErrorActionPreference -ne 'Stop') { throw 'Caller error policy changed.' }\n"
                 "Write-Output 'BUILDER_RETURNED'\n", encoding="utf-8")
             result = subprocess.run([shell, "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
@@ -55,6 +59,11 @@ class BuildScriptTest(unittest.TestCase):
         result, log = self.run_builder(jar=False)
         self.assertNotEqual(0, result.returncode, result.stdout + result.stderr + log)
         self.assertIn("Expected jar not found", log)
+        self.assertNotIn("Built ", log)
+
+    def test_missing_native_wrapper_cannot_reuse_a_previous_zero_exit(self):
+        result, log = self.run_builder(wrapper=False)
+        self.assertNotEqual(0, result.returncode, result.stdout + result.stderr + log)
         self.assertNotIn("Built ", log)
 
 

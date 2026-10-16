@@ -47,3 +47,26 @@ The installer still requires RuneLite closed before replacing the pair. Never fo
 or inject input to make an update convenient. Some UI acceptance genuinely needs a new client load;
 batch those checks rather than restarting after each test. The agent can start the client directly;
 login and all offers remain manual. The numbered wrappers retain their interactive self-service path.
+
+## Retrying an interrupted build
+
+The builder retains native compiler diagnostics in redirected logs and judges Gradle by its exit
+code. Windows PowerShell 5.1 otherwise treats a harmless javac deprecation notice as a terminating
+error under Stop. Nonzero Gradle exits, a missing wrapper and a missing output JAR still fail.
+
+An interruption after backup leaves the companion task disabled. Ordinary update/start/status
+continue to reject a disabled task. If the agent has identified the exact verified pre-copy backup,
+the supported updater can explicitly resume it:
+
+```powershell
+.\tools\apply-update.ps1 -Unattended -ResumeBackup '<absolute dated backup directory>'
+```
+
+Recovery requires that backup to be directly under this installation's backups directory, with a
+VERIFIED receipt for this checkout. Installed JARs and manifest must still match both the manifest
+and saved copies. The exported task must match the original enabled task except for Enabled;
+account relative names/sizes must match the saved metadata. Links, missing proof, foreign/changed
+tasks, changed account metadata and partially replaced pairs are refused. Original backup contents
+are never rewritten. Checks repeat under the installation lock; release and closed-client guards
+still apply. A fresh backup is verified, both JARs are installed together, then the task is enabled
+and the companion health checked. Do not manually enable a task or use this option as re-setup.

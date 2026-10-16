@@ -3,6 +3,30 @@
 Updated 15 October 2026 (America/Anchorage). Read this with [AGENTS.md](AGENTS.md) and
 [TASKS.md](TASKS.md) before continuing implementation.
 
+## Interrupted paired update and tooling regression — 15 October 2026
+
+At clean rebuild `75190a28a6b6f680ca616517aac61d2b01180574` (#61 merge), the owner approved
+Windows elevation. The supported -Unattended updater created and verified
+`C:\Users\Antonio\.runelite\osrs-flipping-friend\backups\20261015-181822-c05e3e5f`:
+three companion account files and 22 plugin account files; JAR/manifest hashes and task export match.
+It then stopped in tools/build.ps1 when PowerShell 5.1 redirected a normal javac deprecation note
+as a NativeCommandError under Stop. Receipt success=false/exitCode=1 at 02:18:33 UTC on 16 October
+(15 October local). Installed JARs/manifest were not replaced; the #53 task is disabled.
+
+`codex/update-build-recovery` starts at that rebuild. Regression `83abfda` reproduces the native
+warning abort and missing interrupted-update recovery before source changes. The builder now
+retains diagnostics and checks the native exit code; real build failures stay failures. Explicit
+-Unattended -ResumeBackup proves the unchanged pair/manifest, original task definition except
+Enabled, verified local backup and account names/sizes, then repeats proof under the lock. It never
+enables the task before both copies, changes a database or rewrites the old backup. Ordinary disabled
+tasks remain rejected. See [recovery workflow](docs/development-workflow.md).
+
+Standard verification: BUILD SUCCESSFUL in 49s, all 18 tasks executed; 1,469 Java passed, six existing
+skips, zero failures/errors. Python: Ran 79 tests in 71.147s / OK / exit 0. Exact-head CI is to be
+recorded at delivery.
+Runtime Java is unchanged from tested #61; installed runtime remains #53 until the supported retry.
+No live readiness, launch or trading acceptance is claimed by this checkpoint.
+
 ## Exact exit cost source; paired update not started — 15 October 2026
 
 `codex/exact-exit-costs` starts from #60 merge `36ee500`. Regression `f446c27` reproduces rounded

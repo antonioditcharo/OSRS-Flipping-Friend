@@ -417,6 +417,36 @@ class UpdateLifecycleTest(unittest.TestCase):
         self.assertNotIn("enable-task", result["events"])
         self.assertNotIn("copy-plugin", result["events"])
 
+    def test_resume_rejects_even_a_valid_new_pair_not_matching_original_backup(self):
+        self.interrupted_backup()
+        self.installed.write_bytes(b"another-plugin")
+        manifest = json.loads(self.manifest.read_text(encoding="utf-8-sig"))
+        manifest["pluginSha256"] = hashlib.sha256(self.installed.read_bytes()).hexdigest()
+        self.manifest.write_text(json.dumps(manifest), encoding="utf-8")
+        result = self.run_update()
+        self.assertIn("unchanged installed pair/manifest", result["error"], self.output)
+        self.assertNotIn("disable-task", result["events"])
+
+    def test_resume_rejects_a_backup_moved_outside_this_installation(self):
+        backup = self.interrupted_backup()
+        foreign = self.fixture / "foreign-backups" / backup.name
+        shutil.copytree(backup, foreign)
+        self.scenario["resumeBackup"] = str(foreign)
+        result = self.run_update()
+        self.assertIn("this installation", result["error"], self.output)
+        self.assertNotIn("disable-task", result["events"])
+
+    def test_resume_requires_receipt_and_does_not_accept_an_enabled_current_task(self):
+        backup = self.interrupted_backup()
+        (backup / "backup-verification.json").unlink()
+        result = self.run_update()
+        self.assertIn("receipt", result["error"].lower(), self.output)
+        self.assertNotIn("disable-task", result["events"])
+        self.scenario["state"] = "Ready"
+        result = self.run_update()
+        self.assertIn("disabled", result["error"].lower(), self.output)
+        self.assertEqual([], result["events"])
+
     def test_resume_rejects_changed_task_definition(self):
         backup = self.interrupted_backup()
         task = backup / "companion-task.xml"
