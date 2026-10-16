@@ -3,6 +3,48 @@
 Updated 15 October 2026 (America/Anchorage). Read this with [AGENTS.md](AGENTS.md) and
 [TASKS.md](TASKS.md) before continuing implementation.
 
+## Recommendation latency diagnosis and regression source — 15 October 2026
+
+Owner reports multi-minute gaps, then no buys after changing to 5m/Medium and following cancellation
+advice. Client remains open. Normal rebuild is clean at #63 merge
+`e14121b3d5c6fbf157fa4f255ee7b4c58bf72d66`; installed runtime is still #61 via tooling #62 below.
+Read-only probe: portfolio/current timed out at 15,141 ms; action took 3,516 ms. Forty pending
+outbox observations were preserved. Learning read showed seven canceled/censored episodes, six
+full forecasts, zero completed intervals; cancellations are not failed/completed fills.
+
+Companion-only JVM thread dump showed account ingestion holding service/store locks in
+SqliteStore.currentOfferEvidence while ledger reads waited. No game process was attached or stopped.
+Read-only query inspection found the existing identity index is partial. The JDBC runtime rebuilt
+an automatic covering index for the current-slot join because the nonblank predicate was missing.
+Same scoped database/query: original 387 ms; existing-index predicate 1 ms. Python's SQLite chose
+a different plan (full scan, 63 ms), so JDBC results are the relevant runtime evidence.
+
+`codex/recommendation-latency` starts at that rebuild. Regression `17bf941` reproduces heartbeat and
+restart reads exceeding deterministic SQLite VM budgets over 30,000 fixture rows; four source-guard
+cases already pass. `016018e` fixes current-slot and original risk-anchor lookups using the existing
+partial index, retaining LEFT JOIN missing-source failure. Regression `79555e1` separately
+reproduces reading full canonical history twice for gap scope and capital bounds. Operation-local
+history sharing fixes that duplication without a cross-request cache. A later-foreign-evidence
+test ensures a successful earlier read cannot hide new uncertainty. See
+[the evidence-read contract](docs/architecture/durable-risk-window.md#evidence-read-work-budget).
+
+Before-query-fix read-only full planning probes took 2,052/866 ms (cold/warm); the index-only
+candidate took 1,269/327 ms; the final shared-history candidate took 555/196 ms, retaining all eight
+current sources. These are local active-database measurements, not a latency guarantee. Final standard:
+BUILD SUCCESSFUL in 57s / all 18 tasks executed / exit 0; 1,477 Java passed, six existing skips,
+zero failures/errors. Python: Ran 79 tests in 100.299s / OK / exit 0 (tooling unchanged thereafter).
+Candidate plugin: 486,079 bytes / 218 project classes; companion: 17,878,040 bytes / 453 project
+classes; every project class targets Java 11. All probes use existing explicitly scoped data in mode=ro; raw source
+and row-level results stay in ignored local-data. No DDL/index migration, database repair, event
+drop, accounting/risk reset, timeout increase or game input is part of the fix. Current risk/cadence
+preferences stay as the owner selected them. Faster reads are not new buy authorization; require
+post-update fresh acknowledgement, current cash/slot/risk and final entry-policy proof.
+
+Private evidence: normal-checkout local-data/diagnostics/recommendation-*, companion-stall-threads-*
+and ignored .gradle read-only probes; reusable worktree .gradle/recommendation-*.log. Runtime update,
+live timing and resumed advice remain pending. Batch one supported paired update after both CI
+checks; player closes/logs in manually, agent handles backup/install/launch/diagnostics.
+
 ## Installed through #61; supported recovery and fresh entry read — 15 October 2026
 
 Normal rebuild is `fc62526a793e08a8a3b68320a14d2bf57edaa186` (#62 merge). Runtime Java is the

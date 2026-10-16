@@ -65,3 +65,23 @@ realized tax/profit ranges, unknown historical versus new managed/untracked sale
 uncertainty reserves, account/session fences, arithmetic overflow and first-window transaction
 rollback. Source tests are not live trading acceptance or a profitability comparison. Runtime
 remains the last verified paired install until the normal close and supported update are observed.
+
+## Evidence-read work budget
+
+Current slot and original risk-anchor lookups use the existing event_log_event_id_unique partial
+index. Their predicates explicitly require a non-null/nonblank identity, matching that index.
+Keep the source predicate in the LEFT JOIN condition: a missing source must still withdraw the
+whole current read set, rather than silently returning seven valid slots. No new index or schema
+migration is required. Anchor validation, identity/account/session/order checks remain mandatory.
+
+Gap scope and conservative capital bounds share a complete immutable history read within the
+same planning operation/transaction. This is a lazy operation-local value, including unavailable
+evidence; it does not survive another request. New, malformed or foreign source evidence must be
+seen on the next read. Current eight-slot evidence is still read fresh from the durable store.
+
+CurrentOfferReadLatencyTest bounds actual SQLite VM work over disposable 30,000-row histories,
+without a machine-speed timeout or a copied query-text assertion. It exercises heartbeat/restart,
+shared historical gap scope and capital bounds, broken source links/payloads, and foreign evidence
+arriving after a successful read. Actual latency and post-install advice remain separate live
+acceptance evidence. Preserve the client timeout, ordered acknowledgement/retry protocol and all
+financial guards; do not mask expensive reads by accepting stale advice or resetting account data.

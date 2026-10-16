@@ -161,4 +161,21 @@ public class CurrentOfferReadLatencyTest {
             .eventIdentity("latest-0","session",null).authenticatedObservation(true).slot(0).sequence(20).build());
         rejectBrokenCurrentSource("UPDATE event_log SET payload=? WHERE event_id='latest-0'",foreign);
     }
+
+    @Test public void aLaterHistoryReadMustObserveNewForeignEvidenceAndKeepTheGuard() throws Exception {
+        var f=new BoundedPlanningStateTest();
+        try (var store=new SqliteStore(folder.newFolder().toPath().resolve("fresh-history.db"))) {
+            var capture=f.snapshot(f.seed(store));
+            var before=store.planningProjections(f.account);
+            assertNotNull(DurablePlanningExposure.forAccount(before,capture,f.now));
+            var foreign=OfferEvent.builder("foreign",f.now,"EMPTY")
+                .accountId(AccountIdentity.fromProfileKey("foreign"))
+                .eventIdentity("foreign-source","foreign-session",null).slot(0).sequence(1).build();
+            store.recordEvent(f.now,"foreign",foreign.getEventId(),"EMPTY",gson.toJson(foreign));
+            var after=store.planningProjections(f.account);
+            assertTrue(after.tradeScope.hasUnboundedReconciliation);
+            assertNull(DurablePlanningExposure.forAccount(after,capture,f.now));
+            assertFalse("The earlier immutable read must not be mutated",before.tradeScope.hasUnboundedReconciliation);
+        }
+    }
 }
