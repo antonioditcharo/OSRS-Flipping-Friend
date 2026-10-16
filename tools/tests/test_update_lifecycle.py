@@ -105,7 +105,12 @@ function Get-Date {
 function Export-ScheduledTask {
     [CmdletBinding()] param($TaskName, $TaskPath)
     $global:ffUpdateTestEvents.Add('export-task')
-    return ($global:ffUpdateTestTask | ConvertTo-Json -Depth 5)
+    $action = $global:ffUpdateTestTask.Actions[0]
+    $enabled = if ($global:ffUpdateTestTask.Settings.Enabled) { 'true' } else { 'false' }
+    $execute = [Security.SecurityElement]::Escape($action.Execute)
+    $arguments = [Security.SecurityElement]::Escape($action.Arguments)
+    $working = [Security.SecurityElement]::Escape($action.WorkingDirectory)
+    return "<Task xmlns=`"http://schemas.microsoft.com/windows/2004/02/mit/task`"><Principals><Principal><UserId>fixture-user</UserId></Principal></Principals><Settings><Enabled>$enabled</Enabled></Settings><Actions><Exec><Command>$execute</Command><Arguments>$arguments</Arguments><WorkingDirectory>$working</WorkingDirectory></Exec></Actions></Task>"
 }
 function Disable-ScheduledTask {
     [CmdletBinding()] param($TaskName, $TaskPath)
@@ -220,6 +225,7 @@ try {
         if ($scenario.setup) { $options.ConfigureCompanionTask = $true }
         if ($scenario.startOnly) { $options.StartOnly = $true }
         if ($scenario.unattended) { $options.Unattended = $true }
+        if ($scenario.resumeBackup) { $options.ResumeBackup = $scenario.resumeBackup }
     }
     if ($entry -eq 'setup.ps1') {
         $options.SkipBuild = $true
@@ -381,6 +387,90 @@ class UpdateLifecycleTest(unittest.TestCase):
         self.assertEqual(b"new-plugin", self.installed.read_bytes())
         self.assertEqual(b"new-companion", self.installed_companion.read_bytes())
         self.assertIn("Backup verified; continuing unattended paired update.", self.output)
+
+    def interrupted_backup(self):
+        self.make_pending_account_record()
+        self.scenario.update(unattended=True, buildRequested=True, buildFails=True)
+        result = self.run_update()
+        self.assertIn("Build failed", result["error"], self.output)
+        backup = next((self.properties.parent.parent / "backups").iterdir())
+        self.scenario.update(state="Disabled", buildFails=False, resumeBackup=str(backup))
+        return backup
+
+    def test_verified_interruption_can_resume_without_enabling_before_both_copies(self):
+        backup = self.interrupted_backup()
+        before = {p: p.read_bytes() for p in backup.rglob("*") if p.is_file()}
+        result = self.run_update()
+        self.assertIsNone(result["error"], self.output)
+        self.assertIn("Interrupted update proof verified", self.output)
+        self.assertFalse(any(e.startswith("prompt:") for e in result["events"]))
+        self.assertLess(result["events"].index("copy-companion"), result["events"].index("enable-task"))
+        self.assertEqual(before, {p: p.read_bytes() for p in before})
+        self.assertEqual(2, len(list(backup.parent.iterdir())))
+
+    def test_resume_rejects_changed_pair_or_manifest_before_task_mutation(self):
+        self.interrupted_backup()
+        self.installed.write_bytes(b"changed-installation")
+        result = self.run_update()
+        self.assertIsNotNone(result["error"], self.output)
+        self.assertNotIn("disable-task", result["events"])
+        self.assertNotIn("enable-task", result["events"])
+        self.assertNotIn("copy-plugin", result["events"])
+
+    def test_resume_rejects_changed_task_definition(self):
+        backup = self.interrupted_backup()
+        task = backup / "companion-task.xml"
+        task.write_text(task.read_text(encoding="utf-8-sig").replace("fixture-user", "foreign-user"), encoding="utf-8")
+        result = self.run_update()
+        self.assertIn("task definition", result["error"], self.output)
+        self.assertNotIn("disable-task", result["events"])
+        self.assertNotIn("enable-task", result["events"])
+
+    def test_resume_rejects_corrupt_backup_jar(self):
+        backup = self.interrupted_backup()
+        (backup / "osrs-flipping-friend.jar").write_bytes(b"corrupt")
+        result = self.run_update()
+        self.assertIn("backup", result["error"].lower(), self.output)
+        self.assertNotIn("disable-task", result["events"])
+
+    def test_resume_requires_unchanged_account_file_names_and_sizes(self):
+        self.interrupted_backup()
+        (self.properties.parent.parent / "accounts/fixture/offer-event-outbox.json").write_bytes(b"changed")
+        result = self.run_update()
+        self.assertIn("account", result["error"].lower(), self.output)
+        self.assertNotIn("disable-task", result["events"])
+
+    def test_resume_requires_verified_receipt_in_this_checkouts_backup_directory(self):
+        backup = self.interrupted_backup()
+        receipt = backup / "backup-verification.json"
+        data = json.loads(receipt.read_text(encoding="utf-8-sig"))
+        data["checkout"] = str(self.fixture / "foreign-checkout")
+        receipt.write_text(json.dumps(data), encoding="utf-8")
+        result = self.run_update()
+        self.assertIn("receipt", result["error"].lower(), self.output)
+        self.assertNotIn("disable-task", result["events"])
+
+    def test_resume_rejects_previously_disabled_task_in_original_backup(self):
+        backup = self.interrupted_backup()
+        task = backup / "companion-task.xml"
+        task.write_text(task.read_text(encoding="utf-8-sig").replace("<Enabled>true</Enabled>", "<Enabled>false</Enabled>"), encoding="utf-8")
+        result = self.run_update()
+        self.assertIn("enabled", result["error"].lower(), self.output)
+        self.assertNotIn("disable-task", result["events"])
+
+    def test_resume_keeps_running_game_guard(self):
+        self.interrupted_backup()
+        self.scenario["gameRunning"] = True
+        result = self.run_update()
+        self.assertIn("Close RuneLite", result["error"], self.output)
+        self.assertNotIn("disable-task", result["events"])
+
+    def test_resume_is_explicit_and_only_for_unattended_disabled_task(self):
+        self.interrupted_backup()
+        self.scenario["unattended"] = False
+        result = self.run_update()
+        self.assertIn("Unattended", result["error"], self.output)
+        self.assertEqual([], result["events"])
 
     def test_unattended_update_rejects_same_size_backup_jar_corruption_before_installation(self):
         self.scenario.update(unattended=True, tamperBackupJar=True)
