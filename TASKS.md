@@ -13,18 +13,20 @@ statements later in this file. Read [HANDOFF.md](HANDOFF.md) for exact evidence.
       production rollback checks unchanged. Real scope is valid; maintenance/repair access is false.
       Merged #76 as 51b69e4 after both checks at e158825 passed (run 38953016899).
       Optional ACL repair was never applied and is not required by the new process workflow.
-- [ ] Deliver/verify a normal-user -Unattended -UserProcess paired update without any initial admin
-      approval. Source starts from #76/51b69e4; feature-first afd2b0d, protected task remains unchanged,
-      native startup/singleton/pair guards and runtime-only rollback. Root 6 runs normally now.
-      Standard 59s: 1,534 Java passed/six skips; 103 tooling / 99.585s / OK; PowerShell 7 ten passed.
-      RuneLite was closed normally on the owner's request; recheck rather than ask for another close.
-      Installed pair remains #69; batch #72/#75 with this guard, then record actual delivery.
+- [x] Deliver/verify a normal-user -Unattended -UserProcess paired update without any initial admin
+      approval. Installed #77/3dcd831 batches #72/#75; both checks at fdcaa94 pass in run 38955937701
+      (Windows 117160940451/Ubuntu 117160942779). Initial HTTP-test timeout passes on unchanged retry.
+      Task XML/SDDL unchanged, caller not elevated, task management remains read-only. Backup
+      20261016-114457-2a290e0e VERIFIED; both installed hashes/Java 11 and native status/compatibility/
+      StartOnly/scoped pipeline pass (each exit 0). Standard 59s: 1,534 Java passed/six skips;
+      103 tooling / 99.585s / OK; PowerShell 7 ten passed. RuneLite relaunched; login/UI/trading
+      unobserved. See docs/history/normal-user-update-2026-10-16.md. This receipt needs no reinstall.
 - [x] Reproduce misleading reserve/session-loss explanations in 945bf47, then correct the durable
       risk reason, waiting card and notification together. Fresh matching risk is required for its
       explanation; no accounting, risk arithmetic or refusal changes. Standard: 1,528 Java passed/
       six skips, 70s; 79 Python passed in 94.933s; both JARs Java 11. Merged #75 as 1f98391 after
       both checks at c038cab passed (run 38946004083; Windows 117125172627/Ubuntu 117125172354);
-      installed pair remains #69. This does not resolve stock, release a reserve or authorize buys.
+      now installed through #77. This does not resolve stock, release a reserve or authorize buys.
 - [x] Add/run an offline trade-source audit on codex/trade-evidence-audit from #72/eaa63b1.
       Verified parent capture, private report, retained actual auditor and full recomputation remain
       separate from financial authority. 35 observed identities/23 with flags over 11,598 rows;
@@ -39,7 +41,7 @@ statements later in this file. Read [HANDOFF.md](HANDOFF.md) for exact evidence.
       Collect cache on rejection. Standard 49s: 1,503 Java passed/six skips; 79 Python passed in
       85.639s; both JARs Java 11. Merged #72 as eaa63b1 after both checks at da449a7 passed
       (run 38876972197; Windows 116894240240/Ubuntu 116894240365). Read-only timing in HANDOFF;
-      installed runtime remains #69. Batch update with remaining work; no repeated client cycle.
+      now installed through #77. Controlled trading/recovery acceptance remains open.
 - [x] Observe fresh #69 login/current capture with no additional reconciliation gaps. Installed
       packaged read-only proof: valid=true, eight EMPTY/eight matched sources, age three seconds,
       5m/Medium. Outbox drains four -> zero normally. 30 post-risk-cursor gap rows remain unchanged;
@@ -69,8 +71,8 @@ statements later in this file. Read [HANDOFF.md](HANDOFF.md) for exact evidence.
       cleared reserve or additional restart to obtain a final eligible-entry response.
 - [ ] Finish search/player-key/pause/context acceptance; these are not established by screenshots.
       Controlled intended trade, partial cancel/collect/relist and restart still need real outcomes.
-- [ ] Continue batched HOME TEST CHECKLIST.md and PR #31 live acceptance. Installed #69 pair,
-      status, API 1.13.2 compatibility and fresh current-source proof pass; #72 remains queued.
+- [ ] Continue batched HOME TEST CHECKLIST.md and PR #31 live acceptance. Installed #77 pair,
+      status/API 1.13.2 compatibility and GET pipeline pass; fresh post-login source proof remains open.
       Confirm/highlight screenshot checks pass. Search/player-key/pause/context and controlled
       trade/cancel/collect/relist/restart still need outcomes. Agent collects logs directly; every
       game input remains manual. Earlier READY responses remain historical evidence only.
