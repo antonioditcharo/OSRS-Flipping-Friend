@@ -75,14 +75,36 @@ first login logs contain a RuneLite LootTrackerPlugin.onChatMessage NullPointerE
 claim or a reproduced Flipping Friend bug. Normal reflective-access warnings are also retained.
 
 The owner reports "everything looks good so far" and supplied two live screenshots. BUY guidance
-for nine Elemental amulets at 1,638,376 GP each matches the committed editor fields and a normal
-highlighted Confirm. The negative case has quantity eight and price 2,000,000: both input controls
-remain highlighted and Confirm says Locked-rightclick. Both show eight free slots, so no placement
+matches the committed editor quantity/price and a normal highlighted Confirm. In the negative case,
+both committed values differ: both input controls remain highlighted and Confirm says Locked-rightclick.
+Both show eight free slots, so no placement
 is established by those images. One image shows waiting for the account ledger; the other shows
 known recorded profit 6,480 GP with four sale updates/two unresolved. Screenshot order does not
 establish a timed availability sequence. Search and player key behavior are not visible in these
-images and remain specifically unverified. The next player-only step is a small intended trade
-using current advice, with direct agent-side observation of fills/accounting; no shutdown required.
+images and remain specifically unverified.
+
+Subsequent player offers reached canonical intake. The first read observed one open BUY with a
+full original forecast, predictionComparable=true and timingCoherent=true; no fill bound was present.
+A read-only complete-prefix freeze at 18:53 local then observed three episodes, two eligible
+forecasts and one unqualified episode. Both eligible horizon outcomes remain ambiguous, with zero
+known completions/incompletions; they are not labeled failed fills or successful flips. Packaged
+verification, independent retained-artifact verification and comparison against the pre-install
+frozen baseline all exit 0. The comparison confirms an unchanged training prefix and a later
+prospective cohort; promotion remains HOLD_FOR_VALIDATION, without fitting or return claims.
+
+```text
+status=VERIFIED / sourceCursor=6695 / sourceRows=5656
+totalObservations=3 / eligible=2 / knownCompleted=0 / knownIncomplete=0 / ambiguous=2
+manifestSha256=976e5d51f4b52db1a5eae7051587e2bb0bdb19fb39166c8a5d92daf775c5d785
+READ_ONLY_FREEZE_EXIT=0 / CAPTURE_VERIFY_EXIT=0 / RETAINED_ARTIFACT_VERIFY_EXIT=0
+FROZEN_PREFIX_COMPARE_EXIT=0 / status=RECORDED_PREFIX_COMPARISON
+```
+
+Private capture: normal checkout local-data/execution-evaluation/live-first-prospective-20261015-185318.
+Its evaluator.jar.bin is 17,877,081 bytes; baseline is the reusable worktree's
+local-data/execution-evaluation/baseline-20261015-retained. Raw sources, forecasts, scored rows and
+CLI logs remain in local-data. These reads do not edit the live database or require closing the game.
+Controlled fill/collection/sell completion, partial cancel/relist and restart remain pending.
 
 Private normal-checkout evidence: .gradle/batched-forecast-{update,retry}*, batched-install-*,
 batched-launch.* and local-data/diagnostics/batched-{postinstall,postlogin}-pipeline-20261015.txt,

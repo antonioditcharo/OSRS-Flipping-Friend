@@ -12,11 +12,15 @@ statements later in this file. Read [HANDOFF.md](HANDOFF.md) for exact evidence.
       tested project class, Java 11. Status/1.13.2 compatibility/GET pipeline exit 0; agent launch
       initialized one client and owner login produced fresh observations. Later plan READY/four
       allocations, risk AVAILABLE and final PLACE_BUY GET pass; the earlier WAIT read is retained.
-      Learning API observes zero prospective forecasts and holds baseline promotion. No game input
+      Initial learning API read observed zero prospective forecasts and held baseline promotion. No game input
       or database repair. Details and observed external Loot Tracker exception are in newest HANDOFF.
 - [x] Owner screenshot acceptance: matching recommended quantity/price show normal Confirm;
       mismatched quantity/price keep both controls highlighted and Confirm locked. Compact panel
       and known recorded-profit/unresolved coverage are visible; owner reports things look good.
+- [x] Observe real player offer intake with original full forecast/comparable/coherent timing.
+      Read-only 18:53 capture: 5,656 rows/cursor 6695, three episodes/two eligible forecasts; both
+      outcomes ambiguous. Packaged and retained artifact verification plus comparison to the frozen
+      pre-install prefix exit 0. Private evidence stays in local-data; promotion stays held.
 - [ ] Finish search/player-key/pause/context acceptance; these are not established by screenshots.
       Controlled intended trade, partial cancel/collect/relist and restart still need real outcomes.
 - [x] Reproduce the approved unattended update's logged javac-warning abort in 83abfda on

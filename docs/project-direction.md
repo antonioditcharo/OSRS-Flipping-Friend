@@ -21,8 +21,9 @@ controlled UI/trade/restart acceptance and measured returns remain pending. Hist
 real cadence presets, automatic managed quantities, personal sell setup quotes, Missed flips,
 walkthrough protection and player-triggered input assistance are implemented, with live acceptance
 still pending. Prospective forecast lineage, observation intervals, held promotion, frozen offline
-evaluation and exact acquisition-cost exits are installed; actual qualified forecasts are still
-zero. The assessment tables below describe their original revisions. See the newest
+evaluation and exact acquisition-cost exits are installed. Initial live prospective forecasts are
+captured/verified against the frozen earlier prefix; completion and performance gates remain open.
+The assessment tables below describe their original revisions. See the newest
 [handoff](../HANDOFF.md) and [release gates](release-readiness.md) for current evidence and work.
 
 ## Product and success criteria
