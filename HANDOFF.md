@@ -3,6 +3,119 @@
 Updated 15 October 2026 (America/Anchorage). Read this with [AGENTS.md](AGENTS.md) and
 [TASKS.md](TASKS.md) before continuing implementation.
 
+## Installed through #61; supported recovery and fresh entry read — 15 October 2026
+
+Normal rebuild is `fc62526a793e08a8a3b68320a14d2bf57edaa186` (#62 merge). Runtime Java is the
+tested #61 source; #62 changes tooling only. #61 passed both checks at
+`13e3ded155c6d485b8fa44f5f799086406434019` in
+[run 38828090222](https://github.com/antonioditcharo/OSRS-Flipping-Friend/actions/runs/38828090222).
+#62 passed Windows job 116781965493 and Ubuntu job 116781965138 at
+`e89323498d531b2edc022e71b86327a8022a88eb` in
+[run 38841359657](https://github.com/antonioditcharo/OSRS-Flipping-Friend/actions/runs/38841359657).
+[Tooling delivery receipt](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/62#issuecomment-6206825082).
+Historical main remains `0cb8ef8`; required rebuild ancestry is preserved.
+
+After Windows elevation, the supported updater used -Unattended -ResumeBackup with the exact
+verified interruption below. Its read-only proof passed before the retry and again under the
+installation lock. A fresh backup verified before both JARs were replaced:
+
+```text
+C:\Users\Antonio\.runelite\osrs-flipping-friend\backups\20261015-184127-76f3a3f8
+backup-verification.json            335 bytes / status VERIFIED
+companion-task.xml                 1,925 bytes
+flipping-friend-companion.jar 17,832,054 bytes
+installation.json                   458 bytes
+osrs-flipping-friend.jar          469,023 bytes
+companion accounts: 3 files / 13,000,352 bytes
+plugin accounts:   22 files / 1,498,001 bytes
+```
+
+The receipt checks old JAR/manifest hashes, task export and account relative names/sizes without
+opening or hashing account contents. The original failed-attempt backup and logs remain intact.
+The successful helper receipt names fc62526, success=true/exitCode=0, finishing at
+02:41:41 UTC on 16 October (15 October local). Supported build: BUILD SUCCESSFUL in 2s, eight tasks
+up-to-date. Installed plugin 486,099 bytes / 218 project classes and companion 17,877,081 bytes /
+452 classes match normal build and manifest hashes. Every project class matches the standard-tested
+candidate and targets Java 11; ZIP packaging is 20 bytes larger per JAR without a class change.
+
+```text
+PAIRED_INSTALL_PROOF=PASS / PAIRED_PROOF_EXIT=0
+Overall status: PAIR VERIFIED / COMPANION RESPONDING / STATUS_HOST_EXIT=0
+RuneLite 1.13.2 and the installed plugin API match; cached artifacts verified.
+COMPATIBILITY_HOST_EXIT=0
+PASS [Artifact] build\libs\osrs-flipping-friend.jar
+PASS [Artifact] companion\build\libs\flipping-friend-companion.jar
+PASS [Protocol] accounts-v1
+PASS [Market] Ready. Choosing which items to study.
+PASS [<account-id>] Ledger: 4 sale updates; 2 unresolved; 0 profit ranges.
+PASS [<account-id>] Action: WAIT. Plan: UNAVAILABLE. Waiting for the game client to report your coins and free slots.
+INFO [Accounting] No synthetic snapshots, offers, or trades were posted by this check.
+PIPELINE_HOST_EXIT=0
+```
+
+The agent started tools/start.ps1 with hidden console/log capture. One RuneLite client was observed;
+initialization completed in 9,302 ms. The owner logged in; fresh authenticated account observations
+arrived. Post-login pipeline exit 0 retains four sale updates/two unresolved and shows Action WAIT /
+Plan READY. Read-only plan/risk/final-policy checks observed:
+
+```text
+First capture: PLAN_STATUS=READY / ALLOCATION_COUNT=3
+RISK_STATUS=AVAILABLE / RISK_FRESH=True / RISK_BUDGET_POSITIVE=True
+ENTRY_ACTION=WAIT / ENTRY_REASON=COMPANION_STATE_UNAVAILABLE
+Later current-plan read: PLAN_STATUS=READY / ALLOCATION_COUNT=4 / RISK_STATUS=AVAILABLE
+ENTRY_ACTION=PLACE_BUY / ENTRY_REASON=ENTRY_CANDIDATE_SELECTED
+LEARNING_STATUS=OBSERVING / LEARNING_MODEL=PUBLIC_PRICE_BASELINE
+LEARNING_PROMOTION=HOLD_FOR_VALIDATION / LEARNING_OBSERVATIONS=0 / LEARNING_FULL_FORECASTS=0
+```
+
+Both entry responses are retained, including the initial refusal; no offer was placed by the
+agent. Fresh GET approval does not certify UI behavior, fills, profit or controlled restart. The
+first login logs contain a RuneLite LootTrackerPlugin.onChatMessage NullPointerException at
+18:43:20 local; the recorded stack contains no Flipping Friend frame. It is not a clean-exception
+claim or a reproduced Flipping Friend bug. Normal reflective-access warnings are also retained.
+
+The owner reports "everything looks good so far" and supplied two live screenshots. BUY guidance
+matches the committed editor quantity/price and a normal highlighted Confirm. In the negative case,
+both committed values differ: both input controls remain highlighted and Confirm says Locked-rightclick.
+Both show eight free slots, so no placement
+is established by those images. One image shows waiting for the account ledger; the other shows
+known recorded profit 6,480 GP with four sale updates/two unresolved. Screenshot order does not
+establish a timed availability sequence. Search and player key behavior are not visible in these
+images and remain specifically unverified.
+
+Subsequent player offers reached canonical intake. The first read observed one open BUY with a
+full original forecast, predictionComparable=true and timingCoherent=true; no fill bound was present.
+A read-only complete-prefix freeze at 18:53 local then observed three episodes, two eligible
+forecasts and one unqualified episode. Both eligible horizon outcomes remain ambiguous, with zero
+known completions/incompletions; they are not labeled failed fills or successful flips. Packaged
+verification, independent retained-artifact verification and comparison against the pre-install
+frozen baseline all exit 0. The comparison confirms an unchanged training prefix and a later
+prospective cohort; promotion remains HOLD_FOR_VALIDATION, without fitting or return claims.
+
+```text
+status=VERIFIED / sourceCursor=6695 / sourceRows=5656
+totalObservations=3 / eligible=2 / knownCompleted=0 / knownIncomplete=0 / ambiguous=2
+manifestSha256=976e5d51f4b52db1a5eae7051587e2bb0bdb19fb39166c8a5d92daf775c5d785
+READ_ONLY_FREEZE_EXIT=0 / CAPTURE_VERIFY_EXIT=0 / RETAINED_ARTIFACT_VERIFY_EXIT=0
+FROZEN_PREFIX_COMPARE_EXIT=0 / status=RECORDED_PREFIX_COMPARISON
+```
+
+Private capture: normal checkout local-data/execution-evaluation/live-first-prospective-20261015-185318.
+Its evaluator.jar.bin is 17,877,081 bytes; baseline is the reusable worktree's
+local-data/execution-evaluation/baseline-20261015-retained. Raw sources, forecasts, scored rows and
+CLI logs remain in local-data. These reads do not edit the live database or require closing the game.
+Controlled fill/collection/sell completion, partial cancel/relist and restart remain pending.
+
+Private normal-checkout evidence: .gradle/batched-forecast-{update,retry}*, batched-install-*,
+batched-launch.* and local-data/diagnostics/batched-{postinstall,postlogin}-pipeline-20261015.txt,
+batched-live-{plan,entry,learning}-20261015-*.json. No agent game input, synthetic live POST, manual
+database edit, migration, repair, assignment or historical backfill occurred. Normal application
+ingestion continues from real client observations. This documentation receipt changes no runtime
+source and requires no reinstall. Player UI/search/key/Confirm checks were requested as one batch;
+the screenshot Confirm/highlight checks above pass, with the remaining UI checks still open.
+controlled trade/partial cancel/collect/relist/restart acceptance remains pending. Next implementation
+work remains companion sell/replacement authority and #56 evaluation/learning gates.
+
 ## Interrupted paired update and tooling regression — 15 October 2026
 
 At clean rebuild `75190a28a6b6f680ca616517aac61d2b01180574` (#61 merge), the owner approved

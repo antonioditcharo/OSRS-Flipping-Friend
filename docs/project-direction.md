@@ -14,13 +14,16 @@ Historical session/cadence labels are unavailable; GP/hour remains unmeasured.
 
 ## Current continuation — 15 October 2026
 
-PRs through #54 are merged into the rebuild branch. The combined 1.13.2 runtime through #53 is
-installed after verified backup 20261015-080957-c3a069ab. Ledger reads, fresh account risk, a READY
+PRs through #62 are merged into the rebuild branch. The combined 1.13.2 runtime through #61 is
+installed via supported tooling #62 after verified backup 20261015-184127-76f3a3f8. Ledger reads, fresh account risk, a READY
 plan with four allocations and final ENTRY/PLACE_BUY GET pass. This is backend readiness evidence;
 controlled UI/trade/restart acceptance and measured returns remain pending. Historical guards remain. Compact UI,
 real cadence presets, automatic managed quantities, personal sell setup quotes, Missed flips,
 walkthrough protection and player-triggered input assistance are implemented, with live acceptance
-still pending. The assessment tables below describe their original revisions. See the newest
+still pending. Prospective forecast lineage, observation intervals, held promotion, frozen offline
+evaluation and exact acquisition-cost exits are installed. Initial live prospective forecasts are
+captured/verified against the frozen earlier prefix; completion and performance gates remain open.
+The assessment tables below describe their original revisions. See the newest
 [handoff](../HANDOFF.md) and [release gates](release-readiness.md) for current evidence and work.
 
 ## Product and success criteria
