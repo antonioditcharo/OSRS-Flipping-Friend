@@ -191,4 +191,15 @@ public class TaxCalculator
 
 		return (int) Math.min(Integer.MAX_VALUE, best == Long.MAX_VALUE ? capped : best);
 	}
+
+    /** Exact pool cost, including fractional unit averages. Zero means no legal non-loss price. */
+    public int breakEvenSellPriceForCost(int itemId,long totalCost,int quantity) {
+        if(totalCost<=0 || quantity<=0 || netProceeds(itemId,Integer.MAX_VALUE,quantity)<totalCost)return 0;
+        int low=1,high=Integer.MAX_VALUE;
+        while(low<high) {
+            int middle=low+(high-low)/2;
+            if(netProceeds(itemId,middle,quantity)>=totalCost)high=middle;else low=middle+1;
+        }
+        return low;
+    }
 }
