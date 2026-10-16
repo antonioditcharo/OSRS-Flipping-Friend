@@ -4,10 +4,13 @@ The default assisted workflow is now batched: the agent handles GitHub, builds, 
 paired updates, status, compatibility, pipeline and logs. You do not need to paste console output,
 reply at INSTALL, or respond after every check. See [development workflow](docs/development-workflow.md).
 
-The combined pair through PR #53 is installed. Fresh backup, installed/build/manifest hashes,
-tested classes, status, RuneLite 1.13.2 compatibility and GET-only pipeline pass. RuneLite was
-launched and fresh account observations arrived. Live reads show four planned buys, available
-account risk and final ENTRY/PLACE_BUY approval. No offer was placed by the agent.
+The combined runtime through PR #61 is installed using supported tooling #62, after fresh verified
+backup 20261015-184127-76f3a3f8. Installed/build/manifest hashes, every tested project class, status,
+RuneLite 1.13.2 compatibility and GET-only pipeline pass. RuneLite was launched and the owner logged
+in; fresh account observations arrived. Later live reads show four planned buys, available account
+risk and final ENTRY/PLACE_BUY approval; the first transient WAIT is retained in HANDOFF. No offer
+was placed by the agent. The prospective learning read is observing with zero qualified forecasts;
+the public-price baseline remains active and promotion held.
 Open the Flipping Friend panel and work through the acceptance batch below when convenient.
 The agent reads diagnostics directly; no additional install or pasted logs are needed.
 Historical gaps and controlled UI/trade/restart acceptance remain open.

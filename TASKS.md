@@ -5,21 +5,33 @@ statements later in this file. Read [HANDOFF.md](HANDOFF.md) for exact evidence.
 
 ## Active
 
+- [x] Install the batched runtime through #61 at clean #62 merge fc62526 via supported
+      -Unattended -ResumeBackup after verified pre-copy interruption proof. Fresh backup
+      20261015-184127-76f3a3f8 verified: three companion/22 plugin account files; old artifacts/task
+      preserved. Plugin 486,099 bytes and companion 17,877,081 bytes match manifest/build and every
+      tested project class, Java 11. Status/1.13.2 compatibility/GET pipeline exit 0; agent launch
+      initialized one client and owner login produced fresh observations. Later plan READY/four
+      allocations, risk AVAILABLE and final PLACE_BUY GET pass; the earlier WAIT read is retained.
+      Learning API observes zero prospective forecasts and holds baseline promotion. No game input
+      or database repair. Details and observed external Loot Tracker exception are in newest HANDOFF.
+- [ ] Complete the single player UI/search/key/Confirm acceptance batch now that the client is open.
+      Controlled intended trade, partial cancel/collect/relist and restart still need real outcomes.
 - [x] Reproduce the approved unattended update's logged javac-warning abort in 83abfda on
       codex/update-build-recovery from #61 merge 75190a2. Source preserves native diagnostics and
       checks Gradle exit status; explicit ResumeBackup proves a pre-copy interrupted update before
       retrying the supported paired lifecycle. Ordinary disabled/mismatched tasks remain rejected.
       Standard: 1,469 Java passed/six skips, 49s; all 79 Python tests passed in 71.147s. Java runtime
-      unchanged; exact-head CI and supported installation retry pending.
+      unchanged. Merged as #62/fc62526 after both checks at e893234 passed (run 38841359657);
+      guarded supported retry completed above.
 - [x] Source exact acquisition cost in initial exits and sell maintenance on codex/exact-exit-costs
       from #60 merge 36ee500. Regressions f446c27/fa31f49 precede source 4198a8c. Quotes and non-loss
       floors retain the exact acquisition pool and canonical proportional subset cost, including
       tax thresholds, exemptions, legal-price limits and price stabilization. Standard: 1,469 Java
-      passed/six existing skips, 63 Python passed, both Java 11 JARs, 48s. Not installed.
-- [ ] Complete one batched supported paired update for source #57 onward. At #61 merge 75190a2,
+      passed/six existing skips, 63 Python passed, both Java 11 JARs, 48s. Installed in the pair above.
+- [x] Complete one batched supported paired update for source #57 onward. At #61 merge 75190a2,
       the owner approved elevation; backup 20261015-181822-c05e3e5f verified (3 companion/22 plugin
-      account files) before a logged compiler note stopped the builder. Pair/manifest remain #53;
-      task is disabled. Deliver tooling regression above, then use the guarded supported retry.
+      account files) before a logged compiler note stopped the builder. Pair/manifest then remained #53;
+      task was disabled. Tooling #62 and the guarded supported retry above completed recovery.
       No manual INSTALL/log-paste routine, task guard bypass or database change.
 
 - [x] Complete offline frozen execution capture/verification/recorded-prefix comparison on
@@ -29,8 +41,9 @@ statements later in this file. Read [HANDOFF.md](HANDOFF.md) for exact evidence.
       evaluator artifact retained; later cohort excludes older settlements and changed prefixes.
       Source through 39569c2: 1,458 Java passed/six existing skips, 63 Python passed, both Java 11
       JARs, 39s. Packaged PS5.1 read-only capture: 4,651 rows/cursor 5573/zero prospective forecasts;
-      retained-artifact replay verifies. No backfill or database repair. Not installed; batch update.
-      This is evaluation infrastructure, not fitted/promoted learning or measured higher returns.
+      retained-artifact replay verifies. No backfill or database repair.
+      Installed in the combined pair above. This is evaluation infrastructure, not fitted/promoted
+      learning or measured higher returns.
       Merged in #60 as 36ee500 after both checks at 5993fc5 passed (run 38826360749).
 
 - [x] Source immutable leg forecasts and accepted-guidance publication on
@@ -40,7 +53,7 @@ statements later in this file. Read [HANDOFF.md](HANDOFF.md) for exact evidence.
       context across publisher/outbox/restart/canonical readout. Missing context stays unknown.
       Merged in #59 as 0fba976 after both checks at 2b31e06 passed (run 38810497176).
       Standard: 1,437 Java passed/six existing skips, 63 Python passed, both Java 11 JARs, 39s.
-      Not installed; batch with #57/#58. Held promotion, fitting/evaluation remain #56.
+      Installed in the combined pair above. Held promotion, fitting/evaluation remain #56.
 
 - [x] Source observation intervals and promotion fence on codex/execution-observation-intervals
       from #57 merge 58480d6, merged in #58 as f161a39 after both checks at 910a5c0 passed
@@ -48,16 +61,16 @@ statements later in this file. Read [HANDOFF.md](HANDOFF.md) for exact evidence.
       readouts retain placement/first-fill/completion bounds and censoring, with scoped read-only API,
       contradictory/unknown evidence held, bounded diagnostic rows and complete prefix counts.
       Historical aggregate ratios no longer activate live correction; counts alone cannot promote.
-      Standard: 1,417 Java passed/six skips, 63 Python passed, both Java 11 JARs, 48s. Not installed;
-      batch with #57. This is not finished learning; fitting/evaluation remain #56.
+      Standard: 1,417 Java passed/six skips, 63 Python passed, both Java 11 JARs, 48s. Installed in
+      the combined pair above. This is not finished learning; fitting/evaluation remain #56.
 
 - [x] Source prospective execution prediction bindings on codex/execution-advice-provenance from
       b516b7e, merged in PR #57 as 58480d6 after both checks at b37a19d passed (run 38772952899).
       Regression commits are in HANDOFF.md. Existing outbox persists original/unknown
       bindings atomically; companion validates the first recorded source before learning. Restart,
       late/mismatched advice, failed writes, legacy queues, account scope and rollback are covered.
-      Standard: 1,399 Java passed/six skips, 63 Python passed, both Java 11 JARs, 46s. This source is not installed;
-      current live runtime remains #53. Batch the next update. Censoring/model evaluation remains #56.
+      Standard: 1,399 Java passed/six skips, 63 Python passed, both Java 11 JARs, 46s. Installed in
+      the combined pair above. Censoring/model evaluation remains #56.
 
 - [x] Install the combined #51/#52/#53 pair through the supported administrator Update shortcut.
       Earlier agent helper was canceled before starting; owner opened the interactive updater.
