@@ -5,6 +5,16 @@ statements later in this file. Read [HANDOFF.md](HANDOFF.md) for exact evidence.
 
 ## Active
 
+- [x] Source exact acquisition cost in initial exits and sell maintenance on codex/exact-exit-costs
+      from #60 merge 36ee500. Regressions f446c27/fa31f49 precede source 4198a8c. Quotes and non-loss
+      floors retain the exact acquisition pool and canonical proportional subset cost, including
+      tax thresholds, exemptions, legal-price limits and price stabilization. Standard: 1,469 Java
+      passed/six existing skips, 63 Python passed, both Java 11 JARs, 48s. Not installed.
+- [ ] Complete one batched supported paired update for source #57 onward. The #60 administrator
+      launch was canceled by Windows before an updater PID/receipt appeared; no installation or
+      backup started. The verified installed pair remains #53. A successful Windows administrator
+      approval is required for the protected scheduled task; no manual INSTALL/log-paste routine.
+
 - [x] Complete offline frozen execution capture/verification/recorded-prefix comparison on
       codex/frozen-execution-evaluation from #59 merge 0fba976. Regressions 3b71dec/25f5bec/7115219
       precede fixes. Complete canonical sources and proven reconciliation item scope feed horizon
@@ -14,6 +24,7 @@ statements later in this file. Read [HANDOFF.md](HANDOFF.md) for exact evidence.
       JARs, 39s. Packaged PS5.1 read-only capture: 4,651 rows/cursor 5573/zero prospective forecasts;
       retained-artifact replay verifies. No backfill or database repair. Not installed; batch update.
       This is evaluation infrastructure, not fitted/promoted learning or measured higher returns.
+      Merged in #60 as 36ee500 after both checks at 5993fc5 passed (run 38826360749).
 
 - [x] Source immutable leg forecasts and accepted-guidance publication on
       codex/immutable-execution-forecasts from #58 merge f161a39. Regressions 9471568/8ffb3b2 and

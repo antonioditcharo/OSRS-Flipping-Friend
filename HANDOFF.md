@@ -3,7 +3,46 @@
 Updated 15 October 2026 (America/Anchorage). Read this with [AGENTS.md](AGENTS.md) and
 [TASKS.md](TASKS.md) before continuing implementation.
 
+## Exact exit cost source; paired update not started — 15 October 2026
+
+`codex/exact-exit-costs` starts from #60 merge `36ee500`. Regression `f446c27` reproduces rounded
+cost overstating actual initial sale guidance and allowing a fractional-average loss to look like
+break-even. `fa31f49` reproduces the same errors in sell maintenance. Source
+`4198a8cf84e53afd13314101940fb9ed96341e87` uses exact total acquisition costs in price ranking,
+the durable SaleAccounting.allocateCost convention for suggested/repriced subsets, and the lowest
+legal taxed quote covering those costs. Stabilization cannot defeat the exact floor; unreachable
+non-loss prices are reported rather than clamped to a false break-even. Read
+[the contract](docs/architecture/exact-exit-costs.md).
+
+```text
+.\gradlew.bat clean test jar :companion:shadowJar --console=plain
+BUILD SUCCESSFUL in 48s / 18 actionable tasks: 18 executed / exit 0
+Plugin: 631; Core: 179; Companion: 665 including six existing skips
+Total: 1,469 passed; 6 skipped; 0 failures/errors
+Python: Ran 63 tests in 56.930s / OK / exit 0
+Candidate plugin: 486,079 bytes / 218 project classes
+Candidate companion: 17,877,061 bytes / 452 project classes
+Both project JARs: class major 55 (Java 11)
+```
+
+All changes are source-only; no game input, manual financial-row write, historical profit rewrite
+or tax-rule migration occurred. Private evidence: reusable worktree .gradle/exact-exit-*.log.
+Companion exit-policy migration and full-account performance evaluation remain open.
+
+After #60 merge, status read verified the installed #53 pair/companion responding and no RuneLite
+process was observed. One hidden elevated helper was requested for the authorized -Unattended
+paired update. Windows returned "The operation was canceled by the user" before Start-Process
+returned a PID. No updater receipt/log or helper process appeared; installation never started.
+No backup or task/data change was performed by that attempt. Do not start a second simultaneous
+updater or claim #57 onward is installed. The next successful administrator launch must target the
+then-current clean rebuild revision. Login and every game action remain manual.
+
 ## Frozen evaluation and read-only account capture — 15 October 2026
+
+PR #60 merged as `36ee500dd0b682a786adc073cae2ffb6a8502e87` after both checks at
+`5993fc56eddbab1498250afef6259a5760867323` passed in
+[run 38826360749](https://github.com/antonioditcharo/OSRS-Flipping-Friend/actions/runs/38826360749).
+[Exact receipt](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/60#issuecomment-6204815483).
 
 `codex/frozen-execution-evaluation` starts at #59 merge `0fba976`. Runtime/tool source through
 `39569c2` implements a complete offline freeze -> verify -> recorded-prefix comparison workflow.

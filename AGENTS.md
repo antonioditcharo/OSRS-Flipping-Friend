@@ -51,6 +51,10 @@ are in `docs/project-direction.md`; historical package notes are not proof of ru
   backfill old unpriced sales, or infer placement/tax rules from first-seen timestamps. Preserve
   rule profiles and tax/profit ranges; a divisible average does not prove homogeneous fills.
   Details: `docs/architecture/durable-profit-ledger.md`.
+- Initial exit and sell-maintenance estimates use exact acquisition pool cost and the existing
+  SaleAccounting.allocateCost rule for subsets, not an integer unit average. Revalidate the exact
+  taxed non-loss floor after price stabilization; no legal break-even price is not a clamped
+  break-even claim. See docs/architecture/exact-exit-costs.md. Historical results stay unchanged.
 - Optimize and evaluate whole-account returns over elapsed time with realistic manual visits,
   capital, tax, buy limits, partial fills, losses, and remaining inventory. Slot-hour rates are
   diagnostic inputs, not a performance claim.
