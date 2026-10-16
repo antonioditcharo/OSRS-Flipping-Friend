@@ -35,6 +35,9 @@ public final class PlanningAccountObservation {
                 if(raw[slot]==null || raw[slot].getState()==null) return null;
                 OfferObservation observed=OfferObservation.copyOf(raw[slot]);
                 if(observed.getState()==GrandExchangeOfferState.EMPTY) {
+                    // Only a processed clear may remove an offer. A raw array can still contain
+                    // login defaults or lag behind the callback that established this identity.
+                    if(bySlot.containsKey(slot))return null;
                     slots.add(null);if(slot<state.getTotalSlots())free++;continue;
                 }
                 if(observed.getPrice()<=0 || observed.getPrice()>Integer.MAX_VALUE) return null;
@@ -42,8 +45,12 @@ public final class PlanningAccountObservation {
                     || observed.getState()==GrandExchangeOfferState.BOUGHT || observed.getState()==GrandExchangeOfferState.CANCELLED_BUY;
                 TrackedOffer previous=bySlot.get(slot);
                 if(previous==null || !previous.matches(observed.getItemId(),buy,(int)observed.getPrice(),observed.getTotalQuantity())) return null;
-                TrackedOffer next=previous.copyObservation();next.setState(observed.getState().name());
-                next.setQuantityFilled(observed.getQuantitySold());next.setSpent(observed.getSpent());
+                // A heartbeat confirms processed callbacks; it must never introduce a transition
+                // or fill ahead of (or behind) their ordered canonical publication.
+                if(!observed.getState().name().equals(previous.getState())
+                        || observed.getQuantitySold()!=previous.getQuantityFilled()
+                        || observed.getSpent()!=previous.getSpent())return null;
+                TrackedOffer next=previous.copyObservation();
                 var event=OfferEvent.builder("capture",at,next.getState()).slot(slot).item(next.getItemId(),next.getItemName())
                     .buying(buy).price(next.getPrice()).quantities(next.getTotalQuantity(),next.getQuantityFilled()).spent(next.getSpent()).build();
                 OfferLifecycleState classified=OfferLifecycleClassifier.classify(event);
