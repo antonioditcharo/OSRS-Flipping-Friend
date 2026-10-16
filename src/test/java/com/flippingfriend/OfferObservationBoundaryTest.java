@@ -110,10 +110,26 @@ public class OfferObservationBoundaryTest
     @Test public void loggedInCollectionStillPublishesEmpty() throws Exception
     {
         Fixture f = new Fixture();
+        f.plugin.onGameTick(new net.runelite.api.events.GameTick());
         f.plugin.onGrandExchangeOfferChanged(changed(2, observation(GrandExchangeOfferState.EMPTY, 0)));
         f.worker.runPending();
         verify(f.tracker).onOfferChanged(eq(2), any());
         verify(f.companion).publishObservedOfferCleared(eq(2), eq(com.flippingfriend.core.AccountIdentity.fromProfileKey("synthetic-profile")), anyLong());
+    }
+
+    @Test public void loggedInDefaultEmptyCallbacksCannotClearPersistedOffers() throws Exception
+    {
+        Fixture f = new Fixture();
+        for(int slot=0;slot<8;slot++)
+            f.plugin.onGrandExchangeOfferChanged(changed(slot, observation(GrandExchangeOfferState.EMPTY,0)));
+        f.worker.runPending();
+        verify(f.tracker,never()).onOfferChanged(anyInt(),any());
+        verify(f.companion,never()).publishObservedOfferCleared(anyInt(),anyString(),anyLong());
+        f.plugin.onGrandExchangeOfferChanged(changed(0,observation(GrandExchangeOfferState.BOUGHT,10)));
+        f.plugin.onGrandExchangeOfferChanged(changed(0,observation(GrandExchangeOfferState.EMPTY,0)));
+        org.mockito.InOrder order=inOrder(f.tracker);
+        order.verify(f.tracker).onOfferChanged(eq(0),argThat(o->o.getState()==GrandExchangeOfferState.BOUGHT));
+        order.verify(f.tracker).onOfferChanged(eq(0),argThat(o->o.getState()==GrandExchangeOfferState.EMPTY));
     }
 
     @Test public void bufferedTerminalAndCollectionBothReachCompanionInOrder() throws Exception
