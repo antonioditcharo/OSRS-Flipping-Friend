@@ -122,4 +122,16 @@ public class ClearedOfferIdentityTest {
             assertEquals(0,sum(path,"quantity","ACQUIRE"));
         }
     }
+    @Test public void contradictoryReuseKeepsBothRecordedItemsPaused()throws Exception {
+        Path path=folder.newFolder().toPath().resolve("collision.db");
+        try(var store=new SqliteStore(path)) {
+            buy(store);
+            var payload=gson.toJsonTree(event("collision","buy-a","BUYING",0,0,6)).getAsJsonObject();
+            payload.addProperty("itemId",562);payload.addProperty("itemName","Chaos rune");
+            var collision=gson.fromJson(payload,OfferEvent.class);
+            assertFalse(accept(store,collision).transition.isAccepted());
+            assertEquals(java.util.Set.of(561,562),store.ledgerSnapshot(account).getReconciliationScope().get("collision"));
+            assertEquals(9,sum(path,"quantity","ACQUIRE"));
+        }
+    }
 }
