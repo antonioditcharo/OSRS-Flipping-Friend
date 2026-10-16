@@ -872,7 +872,7 @@ public class FlippingFriendPlugin extends Plugin
                         }
                         if(risk.getDrawdownUpper()>0 && risk.getRemainingLossBudget()<=0) {
                             if(!drawdownAlerted) {
-                                notifier.notify("Account risk has reached its 15% loss allowance. New buys are paused.");
+                                notifier.notify("New buys are paused. " + risk.getReason());
                                 drawdownAlerted=true;
                             }
                         }else drawdownAlerted=false;

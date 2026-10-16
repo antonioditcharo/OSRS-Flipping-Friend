@@ -60,6 +60,13 @@ Unavailable money stays unavailable. The notification latch is scoped to the dur
 missing evidence does not silently rearm it. The window has no automatic login/restart reset.
 Missing risk affects new entries, not evidence ingestion, personal sell quotes or collection.
 
+Risk explanations distinguish a conservative loss bound from an uncertainty reserve. A reserve
+can exhaust the allowance with no recorded loss; it must not be described as confirmed loss or
+a resettable local session limit. The waiting card may use a risk reason only from the current
+account's fresh, blocking diagnostic. Missing/foreign/expired/nonblocking evidence keeps the
+generic durable-account refusal. Notifications use the same durable reason. This changes no
+financial value, risk-window lifetime, entry decision or exposure guard.
+
 Regression gates include foreign local-session profit, persistent losses across restart,
 realized tax/profit ranges, unknown historical versus new managed/untracked sales, missing quotes,
 uncertainty reserves, account/session fences, arithmetic overflow and first-window transaction

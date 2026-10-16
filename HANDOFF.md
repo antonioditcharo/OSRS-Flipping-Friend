@@ -3,9 +3,32 @@
 Updated 16 October 2026 (America/Anchorage). Read this with [AGENTS.md](AGENTS.md) and
 [TASKS.md](TASKS.md) before continuing implementation.
 
+## Durable risk pause explanations — 16 October 2026
+
+Primary rebuild is clean/current at #74 merge `337623613af67acf9d4bbf935646e76be48b0073`;
+#74 passed both checks at 85b4031 (run 38944731922; Windows 117120865906 / Ubuntu 117120866111).
+Source branch codex/risk-pause-explanations starts from #73 and includes current #74. Regression
+945bf47 reproduces five misleading waiting-card cases and two risk-message failures before fixes.
+The risk card and notification now distinguish uncertainty reserves from conservative loss bounds
+and use durable account wording. Only fresh, matching, blocking risk may supply the explanation;
+foreign/expired/unavailable/nonblocking risk cannot. Money, policy decisions and guards are unchanged.
+
+Standard: BUILD SUCCESSFUL in 1m 10s / 18 tasks executed / exit 0; 1,528 Java passed/six existing
+skips (647 plugin/181 core/706 companion), zero failures/errors. Python: 79 tests / 94.933s / OK.
+Plugin 487,383 bytes/218 project classes; companion 17,895,914 bytes/460 classes; all Java 11.
+The focused root tests passed; its unqualified Gradle task selector then matched an empty companion
+filter. The complete standard invocation above is authoritative. Logs: reusable .gradle/risk-pause-*.
+CI/delivery is pending for this source; installed runtime remains #69 and #72 stays queued.
+
+Fresh 10:07 local authenticated reads: portfolio/action/ledger/learning 1,062/79/1,765/703ms;
+outbox zero, ledger 11 sales/eight unresolved. This read has COMPANION_STATE_UNAVAILABLE and no
+canonical risk, so do not restate the earlier loss-budget refusal as its current result. Sustained
+latency and missing-stock resolution remain open. RuneLite is still running; no update/restart,
+database edit, financial replay or game input occurred. Batch the queued runtime changes together.
+
 ## Verified-capture trade evidence audit — 16 October 2026
 
-Primary rebuild is clean/current at #73 merge `cb25c1fbbe976c7f1ff2d1c5e4ed50ad69a1938b`.
+Audit milestone merged as #73/`cb25c1fbbe976c7f1ff2d1c5e4ed50ad69a1938b`.
 #73 passed both checks at `a63a74519f2099003a36e44b3037e69cd93ba4c3` in
 [run 38880832949](https://github.com/antonioditcharo/OSRS-Flipping-Friend/actions/runs/38880832949)
 (Windows 116906902979 / Ubuntu 116906902340). [Delivery receipt](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/73#issuecomment-6212586965).
