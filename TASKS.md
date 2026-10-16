@@ -9,7 +9,8 @@ statements later in this file. Read [HANDOFF.md](HANDOFF.md) for exact evidence.
       Verified parent capture, private report, retained actual auditor and full recomputation remain
       separate from financial authority. 35 observed identities/23 with flags over 11,598 rows;
       audit/wrapper verify/retained-artifact verify exit 0. Original rows and unknown money unchanged.
-      Standard 47s: 1,520 Java passed/six skips; 79 Python passed in 85.248s; Java 11. CI pending.
+      Standard 47s: 1,520 Java passed/six skips; 79 Python passed in 85.248s; Java 11. Merged #73
+      as cb25c1f after both exact-head checks at a63a745 pass (run 38880832949).
       Source references identify missing evidence; this does not resolve stock or authorize buys.
 - [x] Reproduce/prevent cumulative accounting replay after a cleared episode, source-only on
       codex/cleared-offer-accounting from #71/a4935b4. Regressions a63a534/cf94779/86137e3/1357b42
@@ -31,6 +32,9 @@ statements later in this file. Read [HANDOFF.md](HANDOFF.md) for exact evidence.
       Tracked in https://github.com/antonioditcharo/OSRS-Flipping-Friend/issues/70.
       Complete read-only canonical prefix retained/independently verified: 11,598 rows/cursor 13,221,
       six eligible forecasts with ambiguous horizon outcomes. No accounting or learning promotion.
+      Existing Copilot history was retrieved read-only without another owner export: 17,829 unique
+      transactions, latest 15 October 02:17:25 UTC. Only 16 overlap the retained Friend range;
+      3,037 nonempty Friend observations are later. This does not close the missing stock evidence.
 - [ ] Complete a controlled player-operated buy -> collect -> sell workflow, partial cancel/relist
       and restart. Fresh #69 capture/source tests do not establish live eligibility or acceptance.
 - [ ] Observe new full-counter/terminal buy accounting in a controlled trade. Fresh #69 capture

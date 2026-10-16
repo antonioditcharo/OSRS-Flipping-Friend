@@ -5,7 +5,10 @@ Updated 16 October 2026 (America/Anchorage). Read this with [AGENTS.md](AGENTS.m
 
 ## Verified-capture trade evidence audit — 16 October 2026
 
-Primary rebuild is clean/current at #72 merge `eaa63b1cfc11351fbe96bf75603fbcb29799cca4`.
+Primary rebuild is clean/current at #73 merge `cb25c1fbbe976c7f1ff2d1c5e4ed50ad69a1938b`.
+#73 passed both checks at `a63a74519f2099003a36e44b3037e69cd93ba4c3` in
+[run 38880832949](https://github.com/antonioditcharo/OSRS-Flipping-Friend/actions/runs/38880832949)
+(Windows 116906902979 / Ubuntu 116906902340). [Delivery receipt](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/73#issuecomment-6212586965).
 #72 passed both checks at `da449a7a6d7d801ef76a6dca4921027884dcf3e8` in
 [run 38876972197](https://github.com/antonioditcharo/OSRS-Flipping-Friend/actions/runs/38876972197)
 (Windows 116894240240 / Ubuntu 116894240365). [Delivery receipt](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/72#issuecomment-6211948560).
@@ -32,7 +35,7 @@ reproduces unsupported manifest versions being accepted in the new unshipped com
 constructor-field fix. Final standard: BUILD SUCCESSFUL in 47s / 18 tasks executed / exit 0;
 Java 1,520 passed/six existing skips, zero failures/errors (641 plugin/179 core/706 companion).
 Python: 79 tests in 85.248s / OK / exit 0. Plugin 486,838 bytes/218 project classes; companion
-17,895,369 bytes/460 classes; all project bytecode Java 11. Exact-head CI/delivery pending here.
+17,895,369 bytes/460 classes; all project bytecode Java 11. Both exact-head checks pass above.
 
 The packaged PowerShell 5.1 command audits the retained complete source prefix from 00:03 local,
 then wrapper verification and independent verification using its retained auditor.jar.bin pass:
@@ -65,6 +68,23 @@ investigation-20261016.json retain the exploratory calculation. No game input, d
 financial replay/backfill, risk reset, adoption, outbox clearing or player interaction occurred.
 
 ## Installed runtime and queued source
+
+An independent history read was completed at 09:37 UTC on 16 October, using the existing Copilot
+login internally and the official client's history-read routes at public revision
+`0aeeb3970e230d46668511b70d820c43c772ca75`. Authenticated account-name mapping selected only the
+display name supplied in the owner's screenshots. No credential, other account's transactions,
+sync/write request, database or game input is part of the capture. Private response bytes, decoded
+rows and a hash/provenance manifest are retained in primary
+`local-data/copilot-corroboration/20261016-093739`; diagnostic reader/comparison scripts and pinned
+public source stay in .gradle. Do not output saved login contents or put them in Git.
+
+The response has 17,829 unique transaction IDs, ending 15 October 02:17:25 UTC. Only 16 transactions
+overlap the retained Friend source time range; 3,037 nonempty Friend observations postdate that
+last Copilot transaction. Independent history therefore does not close the affected stock gaps.
+Response completeness, observed historical tax, exact fill times and acquisition/disposal coverage
+remain unproven; nothing was imported or used to authorize accounting/trading. A newer independent
+export may help, but do not ask for the already retrieved history or repeatedly recapture it without
+new evidence. This is investigation progress, not resolution of #70.
 
 Installed runtime is #69/86f69da, API 1.13.2: plugin 486,494 bytes/218 project classes and companion
 17,878,455 bytes/453 classes, all Java 11. Verified backup: 20261016-002238-6687103d. Status,
