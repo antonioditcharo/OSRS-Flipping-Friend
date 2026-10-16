@@ -1,10 +1,25 @@
 # Tasks
 
-Updated 15 October 2026. The current checkpoint below supersedes historical runtime/review
+Updated 16 October 2026. The current checkpoint below supersedes historical runtime/review
 statements later in this file. Read [HANDOFF.md](HANDOFF.md) for exact evidence.
 
 ## Active
 
+- [x] Reproduce startup/capture false lifecycle gaps on codex/startup-offer-evidence from #68/4e822ec.
+      Test-first eedb4c2/7cced9d precede corresponding producer fixes. RuneLite documents initial
+      EMPTY callbacks even when offers exist. Wait for the first logged-in server tick before
+      synthetic restoration/account publication; preserve real terminal-then-clear callbacks.
+      Periodic captures must match processed state/counters and cannot add transitions or fills.
+      Original profile/generation survive deferred retry (regression d5a2e30). Final standard 41s:
+      1,491 Java passed/six skips; 79 Python passed in 71.713s. CI/install pending.
+- [ ] Restore safe sell guidance for already affected stock through auditable evidence-based
+      resolution. Current ledger has zero eligible trading positions, nine sales/seven unresolved.
+      A nine-unit offer has 11 units in affected acquisition rows; old aggregate positions are
+      not safe fallback quantities. Preserve original rows, unknown costs/profit and risk window.
+      Prevention alone does not resolve this task. No manual database repair, replay or bypass.
+      Tracked in https://github.com/antonioditcharo/OSRS-Flipping-Friend/issues/70.
+- [ ] Verify post-update login does not emit false clears and complete a player-operated buy ->
+      collect -> sell workflow. Fresh capture/source tests do not establish live eligibility.
 - [x] Deliver/install full-counter progress fix from #66 merge 2ebf9cb on codex/full-counter-progress.
       Live BUYING/full then BOUGHT created false source gaps and a 47,147,786 GP uncertainty reserve;
       bounded realized updates remain zero. Regression 8d1eb4e precedes the classifier fix. Full

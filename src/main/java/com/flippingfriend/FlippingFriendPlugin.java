@@ -186,6 +186,12 @@ public class FlippingFriendPlugin extends Plugin
 	private final AtomicBoolean accountDataLoaded = new AtomicBoolean();
 	private final java.util.concurrent.atomic.AtomicLong offerObservationGeneration = new java.util.concurrent.atomic.AtomicLong();
 	private final java.util.concurrent.atomic.AtomicLong adviceObservationRevision = new java.util.concurrent.atomic.AtomicLong();
+	// Client-thread snapshot boundary. LOGGED_IN alone can precede server-populated slot data.
+	private boolean offerSnapshotReady;
+	private boolean restoreOffersPending;
+	private long pendingRestoreGeneration;
+	private String pendingRestoreProfile;
+	private final boolean[] nonemptyOfferSeen = new boolean[8];
 	private volatile long lastAccountRefresh;
 	private volatile long lastEngineRefresh;
 	private volatile long lastPersist;
@@ -247,6 +253,9 @@ public class FlippingFriendPlugin extends Plugin
         geInputAssist.stop();
         stepGuide.reset(); tradeConfirmGuard.reset();
 		offerObservationGeneration.incrementAndGet();
+		offerSnapshotReady = false;
+		restoreOffersPending = false;
+		java.util.Arrays.fill(nonemptyOfferSeen, false);
 		synchronized (pendingOffers) { pendingOffers.clear(); }
 		companion.pauseOfferReplay();
 		marketData.setUpdateListener(null);
@@ -291,6 +300,9 @@ public class FlippingFriendPlugin extends Plugin
 		if (state == GameState.LOGGED_IN)
 		{
 			offerObservationGeneration.incrementAndGet();
+			offerSnapshotReady = false;
+			restoreOffersPending = false;
+			java.util.Arrays.fill(nonemptyOfferSeen, false);
 			// The RuneLite profile key is not available the instant the game state flips, so the
 			// actual load is attempted from the scheduled tick until it succeeds.
 			accountDataLoaded.set(false);
@@ -303,6 +315,9 @@ public class FlippingFriendPlugin extends Plugin
 			|| state == GameState.LOGGING_IN || state == GameState.CONNECTION_LOST)
 		{
 			offerObservationGeneration.incrementAndGet();
+			offerSnapshotReady = false;
+			restoreOffersPending = false;
+			java.util.Arrays.fill(nonemptyOfferSeen, false);
 			synchronized (pendingOffers) { pendingOffers.clear(); }
 			companion.pauseOfferReplay();
 			persist();
@@ -319,6 +334,15 @@ public class FlippingFriendPlugin extends Plugin
 		GrandExchangeOfferChanged captured = new GrandExchangeOfferChanged();
 		captured.setSlot(event.getSlot()); captured.setOffer(OfferObservation.copyOf(event.getOffer()));
 		event = captured;
+		int observedSlot = event.getSlot();
+		if (observedSlot < 0 || observedSlot >= nonemptyOfferSeen.length) return;
+		// RuneLite initializes all slots with EMPTY callbacks on login before server data arrives.
+		// A terminal/nonempty callback followed by EMPTY in this same login is still real evidence.
+		if (event.getOffer().getState() == net.runelite.api.GrandExchangeOfferState.EMPTY)
+		{
+			if (!offerSnapshotReady && !nonemptyOfferSeen[observedSlot]) return;
+		}
+		else nonemptyOfferSeen[observedSlot] = true;
 		invalidateAccountAdvice();
 		accountMonitor.observeOffer(event.getSlot(),event.getOffer());
 		// The game replays every slot on login, and it does so before this plugin knows which account
@@ -376,7 +400,16 @@ public class FlippingFriendPlugin extends Plugin
 	}
 
     @Subscribe
-    public void onGameTick(net.runelite.api.events.GameTick event) { refreshSellSetupQuote(); }
+    public void onGameTick(net.runelite.api.events.GameTick event) {
+        if(client.getGameState()==GameState.LOGGED_IN) {
+            offerSnapshotReady=true;
+            if(restoreOffersPending) {
+                restoreOffersPending=false;
+                restoreCurrentOffers(pendingRestoreGeneration,pendingRestoreProfile);
+            }
+        }
+        refreshSellSetupQuote();
+    }
     @Subscribe
     public void onVarbitChanged(net.runelite.api.events.VarbitChanged event) { refreshSellSetupQuote(); }
 
@@ -587,6 +620,13 @@ public class FlippingFriendPlugin extends Plugin
 		if (generation != offerObservationGeneration.get() || !accountDataLoaded.get()
 			|| client.getGameState() != GameState.LOGGED_IN
 			|| !java.util.Objects.equals(profile, configManager.getRSProfileKey())) return;
+		if (!offerSnapshotReady) {
+			restoreOffersPending = true;
+			pendingRestoreGeneration = generation;
+			pendingRestoreProfile = profile;
+			return;
+		}
+		restoreOffersPending = false;
 		drainPendingOffers();
 		net.runelite.api.GrandExchangeOffer[] offers = client.getGrandExchangeOffers();
 		if (offers == null) return;
@@ -757,6 +797,7 @@ public class FlippingFriendPlugin extends Plugin
 		{
             if(!offerTracker.hasCompleteOfferEvidence()){withdrawUnsupportedPriceAdvice();return;}
             if(client.getGameState()!=GameState.LOGGED_IN || !accountDataLoaded.get() || !hasProfile())return;
+            if(!offerSnapshotReady)return;
             com.flippingfriend.session.AccountState observedState=accountMonitor.refresh();
 			boolean isSetupOpen = widgetResolver.isSetupOpen();
 			int setupItemId = isSetupOpen ? client.getVarpValue(VarPlayerID.TRADINGPOST_SEARCH) : -1;

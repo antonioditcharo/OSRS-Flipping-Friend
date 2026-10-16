@@ -110,10 +110,26 @@ public class OfferObservationBoundaryTest
     @Test public void loggedInCollectionStillPublishesEmpty() throws Exception
     {
         Fixture f = new Fixture();
+        f.plugin.onGameTick(new net.runelite.api.events.GameTick());
         f.plugin.onGrandExchangeOfferChanged(changed(2, observation(GrandExchangeOfferState.EMPTY, 0)));
         f.worker.runPending();
         verify(f.tracker).onOfferChanged(eq(2), any());
         verify(f.companion).publishObservedOfferCleared(eq(2), eq(com.flippingfriend.core.AccountIdentity.fromProfileKey("synthetic-profile")), anyLong());
+    }
+
+    @Test public void loggedInDefaultEmptyCallbacksCannotClearPersistedOffers() throws Exception
+    {
+        Fixture f = new Fixture();
+        for(int slot=0;slot<8;slot++)
+            f.plugin.onGrandExchangeOfferChanged(changed(slot, observation(GrandExchangeOfferState.EMPTY,0)));
+        f.worker.runPending();
+        verify(f.tracker,never()).onOfferChanged(anyInt(),any());
+        verify(f.companion,never()).publishObservedOfferCleared(anyInt(),anyString(),anyLong());
+        f.plugin.onGrandExchangeOfferChanged(changed(0,observation(GrandExchangeOfferState.BOUGHT,10)));
+        f.plugin.onGrandExchangeOfferChanged(changed(0,observation(GrandExchangeOfferState.EMPTY,0)));
+        org.mockito.InOrder order=inOrder(f.tracker);
+        order.verify(f.tracker).onOfferChanged(eq(0),argThat(o->o.getState()==GrandExchangeOfferState.BOUGHT));
+        order.verify(f.tracker).onOfferChanged(eq(0),argThat(o->o.getState()==GrandExchangeOfferState.EMPTY));
     }
 
     @Test public void bufferedTerminalAndCollectionBothReachCompanionInOrder() throws Exception
@@ -141,9 +157,53 @@ public class OfferObservationBoundaryTest
         verify(f.tracker, never()).onOfferChanged(anyInt(), any());
         when(f.client.getGameState()).thenReturn(GameState.LOGGED_IN);
         when(f.client.getGrandExchangeOffers()).thenReturn(new GrandExchangeOffer[] { terminal });
+        f.plugin.onGameTick(new net.runelite.api.events.GameTick());
         Method restore = FlippingFriendPlugin.class.getDeclaredMethod("restoreCurrentOffers", long.class, String.class);
         restore.setAccessible(true); restore.invoke(f.plugin, 0L, "synthetic-profile");
         verify(f.tracker).onOfferChanged(eq(0), argThat(o -> o.getState() == GrandExchangeOfferState.BOUGHT && o.getSpent() == 10000));
+    }
+
+    @Test public void startupArrayCannotPublishDefaultEmptiesBeforeFirstServerTick() throws Exception
+    {
+        Fixture f = new Fixture();
+        GrandExchangeOffer[] empty = { observation(GrandExchangeOfferState.EMPTY, 0) };
+        when(f.client.getGrandExchangeOffers()).thenReturn(empty);
+        f.restore(); f.worker.runPending();
+        verify(f.tracker, never()).onOfferChanged(anyInt(), any());
+        verify(f.companion, never()).publishObservedOfferCleared(anyInt(), anyString(), anyLong());
+        GrandExchangeOffer[] active = { observation(GrandExchangeOfferState.BUYING, 2) };
+        when(f.client.getGrandExchangeOffers()).thenReturn(active);
+        f.plugin.onGameTick(new net.runelite.api.events.GameTick());
+        f.restore();
+        verify(f.tracker, atLeastOnce()).onOfferChanged(eq(0), argThat(o -> o.getState() == GrandExchangeOfferState.BUYING));
+    }
+
+    @Test public void reloginResetsSnapshotBoundaryButRealCallbacksStillKeepTerminalThenClear() throws Exception
+    {
+        Fixture f = new Fixture(); f.plugin.onGameTick(new net.runelite.api.events.GameTick());
+        GameStateChanged login = new GameStateChanged(); login.setGameState(GameState.LOGGED_IN);
+        f.plugin.onGameStateChanged(login); f.setLoaded(true);
+        GrandExchangeOffer[] empty = { observation(GrandExchangeOfferState.EMPTY, 0) };
+        when(f.client.getGrandExchangeOffers()).thenReturn(empty);
+        f.restore(); verify(f.tracker, never()).onOfferChanged(anyInt(), any());
+        f.plugin.onGrandExchangeOfferChanged(changed(1, observation(GrandExchangeOfferState.BOUGHT, 10)));
+        f.plugin.onGrandExchangeOfferChanged(changed(1, observation(GrandExchangeOfferState.EMPTY, 0)));
+        org.mockito.InOrder order = inOrder(f.tracker);
+        order.verify(f.tracker).onOfferChanged(eq(1), argThat(o -> o.getState() == GrandExchangeOfferState.BOUGHT));
+        order.verify(f.tracker).onOfferChanged(eq(1), argThat(o -> o.getState() == GrandExchangeOfferState.EMPTY));
+    }
+
+    @Test public void deferredRestorationRetainsItsOriginalProfileFence() throws Exception
+    {
+        Fixture f=new Fixture();
+        GrandExchangeOffer[] active={observation(GrandExchangeOfferState.BUYING,2)};
+        when(f.client.getGrandExchangeOffers()).thenReturn(active);
+        f.restore();
+        when(f.configManager.getRSProfileKey()).thenReturn("another-profile");
+        f.plugin.onGameTick(new net.runelite.api.events.GameTick());
+        verify(f.tracker,never()).onOfferChanged(anyInt(),any());
+        f.worker.runPending();
+        verify(f.companion,never()).publishObservedOffer(any(),anyString(),anyLong());
     }
 
     @Test public void bufferedUnknownProfileEventsCannotCrossLogout() throws Exception
@@ -201,12 +261,20 @@ public class OfferObservationBoundaryTest
             inject(plugin, "buyLimits", mock(BuyLimitTracker.class)); inject(plugin, "skipList", mock(SkipList.class));
             inject(plugin, "positions", mock(PositionBook.class)); inject(plugin, "tradePlans", mock(TradePlans.class));
             inject(plugin, "calibrator", mock(Calibrator.class)); inject(plugin, "engine", mock(SuggestionEngine.class));
+            inject(plugin, "widgetResolver", mock(com.flippingfriend.overlay.GeWidgetResolver.class));
+            var guide=mock(com.flippingfriend.overlay.StepGuide.class);
+            when(guide.getSuggestion()).thenReturn(com.flippingfriend.model.Suggestion.idle());
+            when(guide.isPaused()).thenReturn(true);inject(plugin,"stepGuide",guide);
             setLoaded(true);
         }
         void setLoaded(boolean value) throws Exception
         { Field loaded = FlippingFriendPlugin.class.getDeclaredField("accountDataLoaded"); loaded.setAccessible(true); ((AtomicBoolean) loaded.get(plugin)).set(value); }
         void drain() throws Exception
         { Method drain = FlippingFriendPlugin.class.getDeclaredMethod("drainPendingOffers"); drain.setAccessible(true); drain.invoke(plugin); }
+        void restore() throws Exception
+        { Method restore=FlippingFriendPlugin.class.getDeclaredMethod("restoreCurrentOffers",long.class,String.class);
+          Field generation=FlippingFriendPlugin.class.getDeclaredField("offerObservationGeneration");generation.setAccessible(true);
+          restore.setAccessible(true);restore.invoke(plugin,((java.util.concurrent.atomic.AtomicLong)generation.get(plugin)).get(),"synthetic-profile"); }
     }
 
     private static final class PausedWorker extends AbstractExecutorService

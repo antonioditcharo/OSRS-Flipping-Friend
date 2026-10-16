@@ -19,6 +19,7 @@ public class PlanningAccountObservationTest {
         when(working.getPrice()).thenReturn(100L);when(working.getTotalQuantity()).thenReturn(10);
         when(working.getQuantitySold()).thenReturn(4);when(working.getSpent()).thenReturn(400L);
         var known=new TrackedOffer(0,561,true,100,10,50);known.setState("BUYING");
+        known.setQuantityFilled(4);known.setSpent(400);
         var observed=PlanningAccountObservation.capture(account,state(7,8,600),raw,List.of(known),100);
         assertNotNull(observed);known.setQuantityFilled(10);when(working.getQuantitySold()).thenReturn(10);
         var captured=observed.getSlots().get(0);assertEquals(4,captured.getQuantityFilled());
@@ -36,5 +37,32 @@ public class PlanningAccountObservationTest {
         var observed=PlanningAccountObservation.capture(account,state(3,3,0),slots(),List.of(),100);
         assertNotNull(observed);assertEquals(8,observed.getSlots().size());
         assertNull(PlanningAccountObservation.capture(account,state(3,3,0),new GrandExchangeOffer[3],List.of(),100));
+    }
+    @Test public void rawEmptyCannotClearAnUnprocessedKnownOffer() {
+        for(String phase:List.of("BUYING","BOUGHT","CANCELLED_BUY","SELLING","SOLD","CANCELLED_SELL")) {
+            var known=new TrackedOffer(0,561,phase.contains("BUY")||phase.equals("BOUGHT"),100,10,50);
+            known.setState(phase);
+            assertNull(phase,PlanningAccountObservation.capture(account,state(8,8,0),slots(),List.of(known),100));
+        }
+        assertNotNull("a processed real clear removes the known offer",
+            PlanningAccountObservation.capture(account,state(8,8,0),slots(),List.of(),100));
+    }
+    @Test public void rawArrayCannotReopenCancelledOfferOrBookUnprocessedFills() {
+        var raw=slots();var working=mock(GrandExchangeOffer.class);raw[0]=working;
+        when(working.getState()).thenReturn(GrandExchangeOfferState.BUYING);when(working.getItemId()).thenReturn(561);
+        when(working.getPrice()).thenReturn(100L);when(working.getTotalQuantity()).thenReturn(10);
+        when(working.getQuantitySold()).thenReturn(4);when(working.getSpent()).thenReturn(400L);
+        var known=new TrackedOffer(0,561,true,100,10,50);known.setState("CANCELLED_BUY");
+        known.setQuantityFilled(4);known.setSpent(400);
+        assertNull("stale active phase after cancellation",
+            PlanningAccountObservation.capture(account,state(7,8,600),raw,List.of(known),100));
+        known.setState("BUYING");known.setQuantityFilled(3);known.setSpent(300);
+        assertNull("snapshot must not overtake the fill callback",
+            PlanningAccountObservation.capture(account,state(7,8,600),raw,List.of(known),100));
+        known.setQuantityFilled(4);known.setSpent(399);
+        assertNull("same quantity cannot hide different cost",
+            PlanningAccountObservation.capture(account,state(7,8,600),raw,List.of(known),100));
+        known.setSpent(400);
+        assertNotNull(PlanningAccountObservation.capture(account,state(7,8,600),raw,List.of(known),100));
     }
 }

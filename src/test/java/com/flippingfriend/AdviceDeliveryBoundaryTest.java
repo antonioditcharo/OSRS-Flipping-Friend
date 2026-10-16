@@ -33,7 +33,8 @@ public class AdviceDeliveryBoundaryTest {
         final StepGuide guide=mock(StepGuide.class);final CompanionClient companion=mock(CompanionClient.class);
         final AccountMonitor monitor=mock(AccountMonitor.class);
         final Suggestion advice=Suggestion.builder(SuggestionType.BUY).item(562,"Fixture").quantity(10).price(100).build();
-        Fixture()throws Exception {
+        Fixture()throws Exception { this(true); }
+        Fixture(boolean serverTickObserved)throws Exception {
             var client=mock(Client.class);when(client.getGameState()).thenReturn(GameState.LOGGED_IN);
             GrandExchangeOffer[] slots=new GrandExchangeOffer[8];for(int i=0;i<8;i++) {
                 slots[i]=mock(GrandExchangeOffer.class);when(slots[i].getState()).thenReturn(GrandExchangeOfferState.EMPTY);
@@ -47,6 +48,7 @@ public class AdviceDeliveryBoundaryTest {
             var manager=mock(ConfigManager.class);when(manager.getRSProfileKey()).thenReturn("fixture");
             var market=mock(MarketDataService.class);when(market.getSnapshot()).thenReturn(MarketSnapshot.empty());
             when(companion.nextAction()).thenReturn(advice);when(guide.isPaused()).thenReturn(true);
+            when(guide.getSuggestion()).thenReturn(Suggestion.idle());
             set("client",client);set("clientThread",thread);set("worker",worker);set("accountMonitor",monitor);
             var config=mock(FlippingFriendConfig.class);when(config.riskProfile()).thenReturn(RiskProfile.MODERATE);
             set("configManager",manager);set("config",config);
@@ -56,6 +58,7 @@ public class AdviceDeliveryBoundaryTest {
             set("buyLimits",mock(BuyLimitTracker.class));set("tradePlans",mock(TradePlans.class));set("marketData",market);
             Field loaded=FlippingFriendPlugin.class.getDeclaredField("accountDataLoaded");loaded.setAccessible(true);
             ((AtomicBoolean)loaded.get(plugin)).set(true);
+            if(serverTickObserved)plugin.onGameTick(new net.runelite.api.events.GameTick());
         }
         void set(String name,Object value)throws Exception {Field f=FlippingFriendPlugin.class.getDeclaredField(name);f.setAccessible(true);f.set(plugin,value);}
         void computeAdvice()throws Exception {
@@ -66,6 +69,16 @@ public class AdviceDeliveryBoundaryTest {
             computeAdvice();
             assertEquals("the completed recommendation awaits client-thread delivery",1,clientQueue.size());
         }
+    }
+    @Test public void startupAccountSnapshotCannotPublishBeforeFirstLoggedInServerTick()throws Exception {
+        Fixture f=new Fixture(false);
+        Method refresh=FlippingFriendPlugin.class.getDeclaredMethod("requestEngineRefresh");refresh.setAccessible(true);
+        refresh.invoke(f.plugin);f.clientQueue.remove().run();
+        assertTrue("default empty array cannot reach worker publication",f.worker.tasks.isEmpty());
+        verify(f.companion,never()).publishAccount(any(),any(),anyLong(),anyMap(),anyMap(),anySet(),anySet(),anySet(),
+            anyBoolean(),anyCollection(),anyCollection(),anyString(),any());
+        f.plugin.onGameTick(new net.runelite.api.events.GameTick());
+        f.computeAdvice();assertFalse(f.clientQueue.isEmpty());
     }
     @Test public void unchangedCaptureCanDeliverAdvice()throws Exception {
         Fixture f=new Fixture();f.queueAdvice();f.clientQueue.remove().run();verify(f.guide).setSuggestion(f.advice);

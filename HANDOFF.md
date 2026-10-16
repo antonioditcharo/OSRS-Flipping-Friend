@@ -1,7 +1,65 @@
 # Agent handoff
 
-Updated 15 October 2026 (America/Anchorage). Read this with [AGENTS.md](AGENTS.md) and
+Updated 16 October 2026 (America/Anchorage). Read this with [AGENTS.md](AGENTS.md) and
 [TASKS.md](TASKS.md) before continuing implementation.
+
+## Missing sell guidance: startup evidence prevention — 16 October 2026
+
+Resume starts at clean/current rebuild `4e822ec99a1585fa2c5c17d4638ab6b2508065b1` (#68).
+Installed pair remains #67. RuneLite is closed; companion is responding. New branch
+`codex/startup-offer-evidence` starts from that rebuild. Historical main remains untouched.
+
+Read-only 00:03 local authenticated GETs take portfolio/action/ledger/learning 7,594/93/2,047/453 ms.
+Plan UNAVAILABLE/COMPANION_STATE_UNAVAILABLE and Action WAIT; no fresh logged-in account is claimed.
+Ledger has nine sale updates/seven unresolved, 23 aggregate positions, zero eligible trading
+positions and 1,290 Missed flips entries. Outbox pending=0; two prediction bindings. Learning has
+22 episodes/six full forecasts/six completed intervals/14 canceled-censored/two open-censored;
+public-price baseline promotion remains held. Current slots: six EMPTY/two SELL_OPEN.
+
+The earlier 15 October 20:42 read had zero eligible trading positions and a 365,478,028 GP
+uncertainty reserve with zero bounded realized updates. This is not a recorded realized loss.
+Beyond risk cursor 1260, the latest read retains 11 ACQUIRE/30 RECONCILE/five DISPOSE effects.
+Gap reasons: three invalid sources, 15 authenticated baselines, 11 clears before terminal and one
+invalid lifecycle transition. The 20:41 login sequence contains eight EMPTY events followed by
+old nonempty identities. RuneLite's API documentation confirms initial EMPTY callbacks on login;
+the old payloads cannot identify each event's callback-versus-snapshot origin. A cancelled-then-
+active observation is also retained. Do not relax reducer guards to accept that old sequence.
+
+Regression-first eedb4c2 reproduces five snapshot/restoration failures; 7cced9d separately reproduces
+logged-in default EMPTY callbacks. Producer changes wait for the first logged-in server tick before
+array restoration/account publication, ignore initial EMPTY callbacks without a same-login nonempty
+predecessor, and require snapshot identity/phase/fill/spend to match processed callbacks. Real
+terminal-then-clear delivery remains ordered, including pre-tick and buffered observations. Read
+[the contract](docs/architecture/startup-offer-evidence.md). This prevents new false gaps; it does
+not restore eligibility for the already affected stock or backfill accounting.
+
+Final review regression d5a2e30 also reproduces deferred restoration switching to a different
+profile. Its fix retains the original generation/profile across the first-tick retry; a changed
+profile cannot relabel the pending account read.
+
+Final standard: BUILD SUCCESSFUL in 41s / 18 tasks executed / exit 0; Java 1,491 passed/six existing
+skips, zero failures/errors (638 plugin/179 core/680 companion). Python: 79 tests in 71.713s / OK /
+exit 0; tooling unchanged afterward.
+Candidate plugin 486,474 bytes and companion 17,878,435 bytes, all project classes Java 11.
+Exact-head CI and installation are
+pending at this checkpoint; source verification is not live acceptance.
+
+Read-only evidence also finds an affected nine-unit buy whose accepted acquisition rows sum to
+11 units. Unknown/duplicated/missing history cannot safely be turned into sell quantities using
+the old aggregate positions. Already affected items stay paused pending auditable source-based
+resolution; do not clear rows, risk reserves, outboxes, or adopt physical/personal stock. Original
+financial records, incomplete sale costs and durable risk anchor remain unchanged. No database
+write/repair/migration, synthetic live POST, account assignment or game input occurred.
+
+Private primary-checkout evidence: local-data/diagnostics/recommendation-stall-20261016-000357.json,
+live-trade-gap-trace-20261016-000358.json and sell-guidance-evidence-20261016-000854.json. Helpers
+.gradle/trace-live-trade-gaps.py and sell-guidance-evidence.py use explicit scoped mode=ro,
+query_only and rolled-back read transactions. Reusable worktree .gradle/startup-*.log retains
+regressions/final verification. A focused command initially also selected a subproject with no
+matching tests; the final unfiltered standard above is authoritative. No latency acceptance or
+restored live sell recommendation is claimed. Batch any supported installation; no repeated player
+INSTALL/log-paste steps are required.
+Historical stock recovery is tracked in [issue #70](https://github.com/antonioditcharo/OSRS-Flipping-Friend/issues/70).
 
 ## Full-counter pair installed and verified — 15 October 2026
 
