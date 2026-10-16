@@ -145,4 +145,19 @@ public class ClearedOfferIdentityTest {
             assertEquals(CompanionActionType.WAIT,service.action().getType());
         }
     }
+    @Test public void rejectedActiveAfterCancellationWithdrawsCachedCollectionAdvice()throws Exception {
+        Path path=folder.newFolder().toPath().resolve("stale-advice.db");
+        try(var store=new SqliteStore(path);var service=new CompanionService(gson,store)) {
+            service.offer(event("open","buy-a","BUYING",0,0,1));
+            service.offer(event("partial","buy-a","BUYING",2,1999,2));
+            service.offer(event("cancel","buy-a","CANCELLED_BUY",2,1999,3));
+            assertEquals(CompanionActionType.COLLECT,service.action().getType());
+            service.offer(event("late-active","buy-a","BUYING",3,2998,4));
+            assertEquals(OfferLifecycleState.ERROR_RECONCILIATION,store.offerProjections().get(0).getState());
+            assertEquals(CompanionActionType.WAIT,service.action().getType());
+        }
+        try(var store=new SqliteStore(path);var service=new CompanionService(gson,store)) {
+            assertEquals(CompanionActionType.WAIT,service.action().getType());
+        }
+    }
 }
