@@ -30,7 +30,10 @@ Native tests 26fe7c6 cover scoped permissions, preservation, owner/admin/idempot
 write failure/rollback and Windows' omitted XML RunLevel. Typed native level 0/logon 3 is required;
 missing XML alone is not authorization. Early PS5.1 enum/hash issues and the native/snapshot cases
 were caught in the new unshipped helper before fixes; they are not claimed as shipped regressions.
-Final tooling: 93 tests / 85.524s / OK / exit 0. Additional PowerShell 7 gate: 14 / 17.049s / OK.
+Windows CI initially exposed a fake-task SDDL spelling mismatch for the built-in Administrator SID.
+462b39f reproduces it locally; the fixture now returns native-rendered aliases before and after writes.
+Production rollback checks are unchanged. Final tooling: 94 tests / 76.495s / OK / exit 0;
+PowerShell 7 native gate: 13 / 13.727s / OK. See [#76](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/76) for final exact-head CI.
 Standard clean build: BUILD SUCCESSFUL in 49s / 18 tasks / exit 0; 1,528 Java passed/six existing
 skips, zero failures/errors. Java source is unchanged by this tooling slice. Logs: reusable
 .gradle/task-access-*. Real scope inspection changes no permissions; full repair and a following

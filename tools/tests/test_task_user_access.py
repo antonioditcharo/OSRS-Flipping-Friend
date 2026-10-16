@@ -19,6 +19,9 @@ $owner=if($scenario.ownerIsUser){$sid.Value}else{'BA'}
 $global:originalSddl="O:$($owner)G:SYD:(A;;FA;;;SY)(A;;FA;;;BA)(A;;FR;;;$($sid.Value))"
 if($scenario.alreadyReady){$global:originalSddl="O:$($owner)G:SYD:(A;;FA;;;SY)(A;;FA;;;BA)(A;;FA;;;$($sid.Value))"}
 if($scenario.deny){$global:originalSddl="O:$($owner)G:SYD:(D;;FW;;;$($sid.Value))(A;;FA;;;SY)(A;;FA;;;BA)(A;;FR;;;$($sid.Value))"}
+# Native task reads already render SID aliases (for example RID 500 as LA). The fake must
+# return that same representation before and after SetSecurityDescriptor, including rollback.
+$global:originalSddl=([Security.AccessControl.RawSecurityDescriptor]::new($global:originalSddl)).GetSddlForm([Security.AccessControl.AccessControlSections]::All)
 $global:currentSddl=$global:originalSddl
 $global:setCalls=0;$global:readCalls=0
 $java=[Security.SecurityElement]::Escape((Join-Path $fixture 'java.exe'))

@@ -8,8 +8,9 @@ statements later in this file. Read [HANDOFF.md](HANDOFF.md) for exact evidence.
 - [x] Source one-time, task-specific maintenance access on codex/user-owned-companion-updates
       from #75/1f98391. Regression-first 2c2a5ab reproduces late permission failure/missing setup
       access; native tests 26fe7c6 cover exact scope, least privilege, preservation and rollback.
-      Standard 49s: 1,528 Java passed/six skips; 93 tooling tests pass in 85.524s; PowerShell 7
-      focused gate 14 passed. Read-only real scope is valid; maintenance/repair access is false.
+      Standard 49s: 1,528 Java passed/six skips; 94 tooling tests pass in 76.495s; PowerShell 7
+      native gate 13 passed. 462b39f reproduces CI's fake-task SID alias mismatch; fixture corrected,
+      production rollback checks unchanged. Real scope is valid; maintenance/repair access is false.
       See the branch PR for exact-head CI and delivery. No real permissions/JARs changed.
 - [ ] Apply the one-time task repair with Windows administrator approval, then verify a normal-user
       unattended paired update and launch. Use 6 - Enable User Updates as administrator once under
