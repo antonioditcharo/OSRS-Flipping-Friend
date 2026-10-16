@@ -13,6 +13,7 @@ $fixture=$env:FF_TASK_ACCESS_TEST_ROOT
 $scenario=Get-Content -Raw (Join-Path $fixture 'scenario.json') | ConvertFrom-Json
 . (Join-Path $fixture 'task-user-access.ps1')
 $sid=[Security.Principal.WindowsIdentity]::GetCurrent().User
+if($scenario.builtinAdminSid){$sid=[Security.Principal.SecurityIdentifier]::new($sid.AccountDomainSid.Value+'-500')}
 $caller=[pscustomobject]@{Sid=$sid;IsAdministrator=[bool]$scenario.admin}
 $owner=if($scenario.ownerIsUser){$sid.Value}else{'BA'}
 $global:originalSddl="O:$($owner)G:SYD:(A;;FA;;;SY)(A;;FA;;;BA)(A;;FR;;;$($sid.Value))"
@@ -166,6 +167,12 @@ class TaskUserAccessTest(unittest.TestCase):
 
     def test_failed_postcondition_restores_original_acl(self):
         value = self.run_case(admin=True, ignoreFirstSet=True)
+        self.assertIn('postcondition failed', value['error'], self.output)
+        self.assertEqual(2, value['setCalls']); self.assertTrue(value['originalAclRestored'])
+        self.assertTrue(value['xmlUnchanged'])
+
+    def test_builtin_admin_sid_alias_preserves_exact_native_rollback_snapshot(self):
+        value = self.run_case(admin=True, builtinAdminSid=True, ignoreFirstSet=True)
         self.assertIn('postcondition failed', value['error'], self.output)
         self.assertEqual(2, value['setCalls']); self.assertTrue(value['originalAclRestored'])
         self.assertTrue(value['xmlUnchanged'])
