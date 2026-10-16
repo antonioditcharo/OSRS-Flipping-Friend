@@ -34,10 +34,13 @@ public final class OfferLifecycleClassifier
         switch (state)
         {
             case "BUYING":
-                if (!event.isBuying() || filled >= total)
+                if (!event.isBuying())
                 {
                     return OfferLifecycleState.ERROR_RECONCILIATION;
                 }
+                // The client can publish the final cumulative counters before its terminal state.
+                // Retain the raw progress state; full counters do not authorize collection or
+                // terminal learning. The reducer still books only a proven monotone delta.
                 return filled == 0 ? OfferLifecycleState.BUY_OPEN : OfferLifecycleState.BUY_PARTIAL;
             case "BOUGHT":
                 return event.isBuying() && filled == total
@@ -48,7 +51,7 @@ public final class OfferLifecycleClassifier
                     ? OfferLifecycleState.BUY_CANCELLED_UNCOLLECTED
                     : OfferLifecycleState.ERROR_RECONCILIATION;
             case "SELLING":
-                if (event.isBuying() || filled >= total)
+                if (event.isBuying())
                 {
                     return OfferLifecycleState.ERROR_RECONCILIATION;
                 }

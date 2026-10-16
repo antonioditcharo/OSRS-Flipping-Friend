@@ -23,6 +23,7 @@ public class OfferLifecycleClassifierTest
     {
         assertState(OfferLifecycleState.BUY_OPEN, event("BUYING", true, 10, 0));
         assertState(OfferLifecycleState.BUY_PARTIAL, event("BUYING", true, 10, 4));
+        assertState(OfferLifecycleState.BUY_PARTIAL, event("BUYING", true, 10, 10));
         assertState(OfferLifecycleState.BUY_FILLED_UNCOLLECTED, event("BOUGHT", true, 10, 10));
         assertState(OfferLifecycleState.BUY_CANCELLED_UNCOLLECTED, event("CANCELLED_BUY", true, 10, 0));
         assertState(OfferLifecycleState.BUY_CANCELLED_UNCOLLECTED, event("CANCELLED_BUY", true, 10, 4));
@@ -34,6 +35,7 @@ public class OfferLifecycleClassifierTest
     {
         assertState(OfferLifecycleState.SELL_OPEN, event("SELLING", false, 10, 0));
         assertState(OfferLifecycleState.SELL_PARTIAL, event("SELLING", false, 10, 4));
+        assertState(OfferLifecycleState.SELL_PARTIAL, event("SELLING", false, 10, 10));
         assertState(OfferLifecycleState.SELL_FILLED_UNCOLLECTED, event("SOLD", false, 10, 10));
         assertState(OfferLifecycleState.SELL_CANCELLED_UNCOLLECTED, event("CANCELLED_SELL", false, 10, 0));
         assertState(OfferLifecycleState.SELL_CANCELLED_UNCOLLECTED, event("CANCELLED_SELL", false, 10, 4));
@@ -55,8 +57,6 @@ public class OfferLifecycleClassifierTest
         assertState(OfferLifecycleState.ERROR_RECONCILIATION, event("UNKNOWN", true, 10, 0));
         assertState(OfferLifecycleState.ERROR_RECONCILIATION, event("BUYING", false, 10, 0));
         assertState(OfferLifecycleState.ERROR_RECONCILIATION, event("SELLING", true, 10, 0));
-        assertState(OfferLifecycleState.ERROR_RECONCILIATION, event("BUYING", true, 10, 10));
-        assertState(OfferLifecycleState.ERROR_RECONCILIATION, event("SELLING", false, 10, 10));
         assertState(OfferLifecycleState.ERROR_RECONCILIATION, event("BOUGHT", true, 10, 9));
         assertState(OfferLifecycleState.ERROR_RECONCILIATION, event("SOLD", false, 10, 9));
         assertState(OfferLifecycleState.ERROR_RECONCILIATION, event("BUYING", true, 0, 0));

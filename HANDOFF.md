@@ -3,6 +3,48 @@
 Updated 15 October 2026 (America/Anchorage). Read this with [AGENTS.md](AGENTS.md) and
 [TASKS.md](TASKS.md) before continuing implementation.
 
+## Full-counter progress regression and preserved live gaps — 15 October 2026
+
+Normal rebuild is `2ebf9cbacd2b619d6619c41d7da80de3c7c7addc` (#66 documentation merge).
+Installed runtime remains #64. After the earlier acknowledgement proof below, six file-only
+samples at ten-second intervals from 20:07:31 to 20:08:21 local all retain pending=0 and eight
+prediction bindings. A later authenticated probe takes portfolio/action/ledger/learning
+484/0/406/391 ms and returns Action COLLECT, with entries refused by DRAWDOWN_LIMIT_REACHED.
+The risk body contains zero bounded realized updates, marked unrealized profit 4,380 GP and
+uncertainLossReserve=47,147,786 GP. This is an uncertainty reserve, not a recorded realized loss.
+
+Read-only source tracing finds two full-counter BUYING observations immediately before matching
+BOUGHT confirmations. They produced "invalid source observation" gaps, followed by the expected
+"authenticated slot baseline; earlier executions remain unresolved" recovery gaps. Current
+accounting contains six new ACQUIRE effects and four RECONCILE records beyond the risk cursor.
+The classifier's filled>=total rejection caused the first gaps, and existing guards correctly
+preserved them afterward. Raw item/row-level traces stay private in local-data.
+
+`codex/full-counter-progress` starts at that current rebuild. Test-first commit `8d1eb4e` reproduces
+two classifier and five companion failures. The fix accepts bounded full counters as nonterminal
+BUY_PARTIAL/SELL_PARTIAL progress, leaving the raw BUYING/SELLING type untouched. Existing reducer
+delta accounting, source identity/order, exact costs, tax ranges, terminal collection and all
+contradictory-data checks remain in force. Seven companion cases cover buy/sell conservation,
+duplicates, restart, missing terminal, first-seen baseline, bad counters and preserved legacy gaps.
+See [the contract](docs/architecture/full-counter-progress.md).
+
+The first full build found a bad assertion in the added legacy fixture: uncertain positions are
+withheld from the public ledger. The corrected fixture instead verifies unchanged original source
+payload, original acquisition quantity/cost rows and both retained reconciliation records. Runtime
+guards were not changed to satisfy that test. Final standard verification passes: BUILD SUCCESSFUL
+in 51s, all 18 tasks executed, exit 0. Java: 1,484 passed/six existing skips, zero failures/errors
+(631 plugin/179 core/680 companion tests). Python: 79 tests in 83.729s / OK / exit 0. Candidate
+plugin 486,078 bytes/218 project classes, companion 17,878,039 bytes/453 classes; all class major 55
+(Java 11). Exact-head CI and delivery are to be recorded on the PR.
+The fix is not installed yet and does not clear the existing live uncertainty reserve or invent
+the missing historical acquisition effects. No manual database change or event replay occurred.
+
+Private evidence: normal-checkout local-data/diagnostics/recommendation-ack-window-20261015-200821.json,
+recommendation-stall-20261015-200846.json and live-trade-gap-trace-20261015-200949.json; ignored
+.gradle/trace-live-trade-gaps.py uses mode=ro/query_only/one read transaction. Reusable worktree
+.gradle/full-counter-*.log records failures and verification. Player can keep the client running
+during source verification. Any later supported paired installation requires a normal manual close.
+
 ## Post-login acknowledgement and current-slot proof — 15 October 2026
 
 At clean normal rebuild `7bf45284db856f307f81fc43274d698f4f3a6ddc` (#65 documentation merge),
