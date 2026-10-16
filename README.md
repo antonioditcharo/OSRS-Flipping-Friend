@@ -18,7 +18,7 @@ The merged PR #43 replaces the stacked sidebar with a Flipping Copilot-style act
 panel: current trade, graph/pause/block/skip, 5m/30m/2h/8h cadence, risk and durable recorded profit.
 Gear opens preferences; More opens holdings, history, plan, full recommendation and Missed flips.
 It includes automatic ownership, walkthrough and search/input changes. The **RuneLite 1.13.2**
-pair including PR #45 is installed. Status, compatibility and ledger HTTP reads pass; startup/UI
+installed pair and queued updates are identified in [HANDOFF.md](HANDOFF.md). Startup/UI
 and controlled trading acceptance remain pending. Reconciliation guards remain active. See
 [compatibility and update preflight](docs/architecture/runelite-compatibility.md),
 [workflow and acceptance](docs/architecture/compact-panel.md),
@@ -83,6 +83,9 @@ For an installation from a previous checkout, use `1b - Re-setup Existing Instal
 closing RuneLite. It reuses a saved login, backs up the prior installation/scoped account directories,
 shows paths/sizes for confirmation, installs both JARs and refreshes the task/desktop shortcut.
 Everyday start validates the installed pair without rebuilding. Updates use `4 - Update.bat`.
+If an older installation requests administrator access for each update, use the one-time
+`6 - Enable User Updates.bat` repair described in [Start here](START%20HERE.md). Routine updates
+then use your normal account; the companion continues to run without elevation.
 The supported artifacts are:
 
 | Component | Build task | Artifact |

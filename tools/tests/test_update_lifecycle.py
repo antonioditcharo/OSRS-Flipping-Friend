@@ -114,6 +114,7 @@ function Export-ScheduledTask {
 }
 function Disable-ScheduledTask {
     [CmdletBinding()] param($TaskName, $TaskPath)
+    if ($scenario.taskReadOnly) { throw 'Access is denied to the protected companion task.' }
     $global:ffUpdateTestEvents.Add('disable-task')
     $global:ffUpdateTestTask.State = 'Disabled'
     $global:ffUpdateTestTask.Settings.Enabled = $false
@@ -285,6 +286,11 @@ class UpdateLifecycleTest(unittest.TestCase):
         for name in ("uninstall.ps1", "uninstall-companion.ps1"):
             shutil.copyfile(Path(__file__).resolve().parents[1] / name, tools / name)
         shutil.copyfile(Path(__file__).resolve().parents[1] / "register-companion-task.ps1", tools / "register-companion-task.ps1")
+        # This suite checks lifecycle ordering; native task ACL behavior has its own Windows tests.
+        (tools / "enable-user-updates.ps1").write_text(
+            "param([switch]$CheckOnly,[switch]$RequireControl)\n"
+            "if ($CheckOnly) { if ($RequireControl -and $scenario.taskReadOnly) { throw 'Run the one-time task permission repair.' }; return }\n"
+            "$global:ffUpdateTestEvents.Add('grant-task-access')\n", encoding="utf-8")
         (tools / "install.ps1").write_text("$global:ffUpdateTestEvents.Add('legacy-install')\n$global:LASTEXITCODE = 0\n", encoding="utf-8")
         (tools / "run-dev.ps1").write_text("$global:ffUpdateTestEvents.Add('launch-runelite')\n", encoding="utf-8")
         (tools / "build.ps1").write_text(
@@ -327,6 +333,19 @@ class UpdateLifecycleTest(unittest.TestCase):
         before = {p: p.read_bytes() for p in (self.installed, self.installed_companion, self.manifest)}
         self.assert_rejected_without_changes("source targets 1.13.2")
         self.assertEqual(before, {p: p.read_bytes() for p in before})
+
+    def test_protected_read_only_task_is_rejected_before_backup_or_mutation(self):
+        self.scenario.update(taskReadOnly=True, unattended=True, alreadyRunning=True)
+        self.assert_rejected_without_changes("one-time task permission repair")
+        self.assertFalse((self.manifest.parent.parent / "backups").exists())
+
+    def test_registration_grants_own_user_access_before_installation_is_enabled(self):
+        self.scenario.update(setup=True)
+        result = self.run_update()
+        self.assertIsNone(result["error"], self.output)
+        self.assertIn("grant-task-access", result["events"], self.output)
+        self.assertLess(result["events"].index("register-task"), result["events"].index("grant-task-access"))
+        self.assertLess(result["events"].index("grant-task-access"), result["events"].index("copy-plugin"))
 
     def test_release_lookup_failure_leaves_the_running_installation_alone(self):
         self.scenario.update(releaseFails=True, alreadyRunning=True)

@@ -17,4 +17,5 @@ $settings = New-ScheduledTaskSettingsSet -Disable -AllowStartIfOnBatteries -Dont
     -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew
 Register-ScheduledTask -TaskName $taskName -TaskPath '\' -Action $action -Trigger @($logon,$watchdog) `
     -Principal $principal -Settings $settings -Force -Description 'Flipping Friend paired local companion' | Out-Null
+& "$PSScriptRoot\enable-user-updates.ps1"
 Write-Host 'Companion task configured for this installation (starts after both JARs are installed).'
