@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+import zipfile
 
 
 HARNESS = r"""
@@ -226,6 +227,7 @@ try {
         if ($scenario.setup) { $options.ConfigureCompanionTask = $true }
         if ($scenario.startOnly) { $options.StartOnly = $true }
         if ($scenario.unattended) { $options.Unattended = $true }
+        if ($scenario.userProcess) { $options.UserProcess = $true }
         if ($scenario.resumeBackup) { $options.ResumeBackup = $scenario.resumeBackup }
     }
     if ($entry -eq 'setup.ps1') {
@@ -338,6 +340,43 @@ class UpdateLifecycleTest(unittest.TestCase):
         self.scenario.update(taskReadOnly=True, unattended=True, alreadyRunning=True)
         self.assert_rejected_without_changes("one-time task permission repair")
         self.assertFalse((self.manifest.parent.parent / "backups").exists())
+
+    def process_candidate(self):
+        self.scenario.update(taskReadOnly=True, unattended=True, alreadyRunning=True, userProcess=True)
+        with zipfile.ZipFile(self.companion, 'w') as jar:
+            jar.writestr('META-INF/MANIFEST.MF', 'Manifest-Version: 1.0\nFF-Lifecycle-Guard: 1\n\n')
+            jar.writestr('com/flippingfriend/companion/CompanionLifecycle.class', b'fixture')
+
+    def test_user_process_update_preserves_protected_task_without_approval(self):
+        self.process_candidate()
+        pending = self.make_pending_account_record()
+        result = self.run_update()
+        self.assertIsNone(result['error'], self.output)
+        self.assertTrue(pending.exists())
+        self.assertEqual(self.companion.read_bytes(), self.installed_companion.read_bytes())
+        self.assertEqual(b'new-plugin', self.installed.read_bytes())
+        self.assertIn('start-process', result['events'])
+        for event in ['disable-task', 'stop-task', 'enable-task', 'start-task', 'grant-task-access', 'register-task']:
+            self.assertNotIn(event, result['events'], self.output)
+        self.assertFalse(any(e.startswith('prompt:') for e in result['events']))
+        self.assertEqual(1, json.loads(self.manifest.read_text(encoding='utf-8-sig'))['processLifecycleVersion'])
+
+    def test_user_process_rejects_unprotected_candidate_before_stopping(self):
+        self.scenario.update(taskReadOnly=True, unattended=True, userProcess=True)
+        result = self.run_update()
+        self.assertIn('lifecycle guard', result['error'], self.output)
+        self.assertEqual([], result['events'], self.output)
+
+    def test_user_process_account_backup_failure_restores_only_runtime_artifacts(self):
+        self.process_candidate()
+        original = {p: p.read_bytes() for p in [self.installed, self.installed_companion, self.manifest]}
+        pending = self.make_pending_account_record()
+        self.scenario['truncateBackupAccount'] = True
+        result = self.run_update()
+        self.assertIsNotNone(result['error'], self.output)
+        self.assertEqual(original, {p: p.read_bytes() for p in original})
+        self.assertEqual(b'pending-event-sentinel', pending.read_bytes())
+        self.assertNotIn('start-process', result['events'], self.output)
 
     def test_registration_grants_own_user_access_before_installation_is_enabled(self):
         self.scenario.update(setup=True)
