@@ -14,7 +14,10 @@ statements later in this file. Read [HANDOFF.md](HANDOFF.md) for exact evidence.
       allocations, risk AVAILABLE and final PLACE_BUY GET pass; the earlier WAIT read is retained.
       Learning API observes zero prospective forecasts and holds baseline promotion. No game input
       or database repair. Details and observed external Loot Tracker exception are in newest HANDOFF.
-- [ ] Complete the single player UI/search/key/Confirm acceptance batch now that the client is open.
+- [x] Owner screenshot acceptance: matching recommended quantity/price show normal Confirm;
+      mismatched quantity/price keep both controls highlighted and Confirm locked. Compact panel
+      and known recorded-profit/unresolved coverage are visible; owner reports things look good.
+- [ ] Finish search/player-key/pause/context acceptance; these are not established by screenshots.
       Controlled intended trade, partial cancel/collect/relist and restart still need real outcomes.
 - [x] Reproduce the approved unattended update's logged javac-warning abort in 83abfda on
       codex/update-build-recovery from #61 merge 75190a2. Source preserves native diagnostics and

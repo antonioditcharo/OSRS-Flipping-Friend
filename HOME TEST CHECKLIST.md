@@ -15,6 +15,10 @@ Open the Flipping Friend panel and work through the acceptance batch below when 
 The agent reads diagnostics directly; no additional install or pasted logs are needed.
 Historical gaps and controlled UI/trade/restart acceptance remain open.
 
+Owner screenshots on 15 October verify the quantity/price highlights and Confirm lock for mismatched
+inputs, and normal Confirm for matching inputs. The compact panel and recorded-profit coverage are
+visible. Search, player key and controlled trade/recovery outcomes still need explicit acceptance.
+
 ## 1. Prepare one candidate
 
 The agent batches related fixes, runs regression and standard checks, waits for exact-head CI,

@@ -74,12 +74,23 @@ first login logs contain a RuneLite LootTrackerPlugin.onChatMessage NullPointerE
 18:43:20 local; the recorded stack contains no Flipping Friend frame. It is not a clean-exception
 claim or a reproduced Flipping Friend bug. Normal reflective-access warnings are also retained.
 
+The owner reports "everything looks good so far" and supplied two live screenshots. BUY guidance
+for nine Elemental amulets at 1,638,376 GP each matches the committed editor fields and a normal
+highlighted Confirm. The negative case has quantity eight and price 2,000,000: both input controls
+remain highlighted and Confirm says Locked-rightclick. Both show eight free slots, so no placement
+is established by those images. One image shows waiting for the account ledger; the other shows
+known recorded profit 6,480 GP with four sale updates/two unresolved. Screenshot order does not
+establish a timed availability sequence. Search and player key behavior are not visible in these
+images and remain specifically unverified. The next player-only step is a small intended trade
+using current advice, with direct agent-side observation of fills/accounting; no shutdown required.
+
 Private normal-checkout evidence: .gradle/batched-forecast-{update,retry}*, batched-install-*,
 batched-launch.* and local-data/diagnostics/batched-{postinstall,postlogin}-pipeline-20261015.txt,
 batched-live-{plan,entry,learning}-20261015-*.json. No agent game input, synthetic live POST, manual
 database edit, migration, repair, assignment or historical backfill occurred. Normal application
 ingestion continues from real client observations. This documentation receipt changes no runtime
 source and requires no reinstall. Player UI/search/key/Confirm checks were requested as one batch;
+the screenshot Confirm/highlight checks above pass, with the remaining UI checks still open.
 controlled trade/partial cancel/collect/relist/restart acceptance remains pending. Next implementation
 work remains companion sell/replacement authority and #56 evaluation/learning gates.
 
