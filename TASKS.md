@@ -5,15 +5,22 @@ statements later in this file. Read [HANDOFF.md](HANDOFF.md) for exact evidence.
 
 ## Active
 
+- [x] Reproduce the approved unattended update's logged javac-warning abort in 83abfda on
+      codex/update-build-recovery from #61 merge 75190a2. Source preserves native diagnostics and
+      checks Gradle exit status; explicit ResumeBackup proves a pre-copy interrupted update before
+      retrying the supported paired lifecycle. Ordinary disabled/mismatched tasks remain rejected.
+      Standard: 1,469 Java passed/six skips, 49s; all 79 Python tests passed in 71.147s. Java runtime
+      unchanged; exact-head CI and supported installation retry pending.
 - [x] Source exact acquisition cost in initial exits and sell maintenance on codex/exact-exit-costs
       from #60 merge 36ee500. Regressions f446c27/fa31f49 precede source 4198a8c. Quotes and non-loss
       floors retain the exact acquisition pool and canonical proportional subset cost, including
       tax thresholds, exemptions, legal-price limits and price stabilization. Standard: 1,469 Java
       passed/six existing skips, 63 Python passed, both Java 11 JARs, 48s. Not installed.
-- [ ] Complete one batched supported paired update for source #57 onward. The #60 administrator
-      launch was canceled by Windows before an updater PID/receipt appeared; no installation or
-      backup started. The verified installed pair remains #53. A successful Windows administrator
-      approval is required for the protected scheduled task; no manual INSTALL/log-paste routine.
+- [ ] Complete one batched supported paired update for source #57 onward. At #61 merge 75190a2,
+      the owner approved elevation; backup 20261015-181822-c05e3e5f verified (3 companion/22 plugin
+      account files) before a logged compiler note stopped the builder. Pair/manifest remain #53;
+      task is disabled. Deliver tooling regression above, then use the guarded supported retry.
+      No manual INSTALL/log-paste routine, task guard bypass or database change.
 
 - [x] Complete offline frozen execution capture/verification/recorded-prefix comparison on
       codex/frozen-execution-evaluation from #59 merge 0fba976. Regressions 3b71dec/25f5bec/7115219
