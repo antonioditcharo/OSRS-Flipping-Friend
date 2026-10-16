@@ -240,6 +240,11 @@ final class SqliteStore implements AutoCloseable
 			}
 			OfferLifecycleProjection previous = offerProjection(event.getSlot());
 			OfferLifecycleTransition transition = OfferLifecycleReducer.apply(previous, event);
+			if (transition.isAccepted()) {
+				String episodeGap = episodeReconciliationReason(previous, event, transition);
+				if (episodeGap != null)
+					transition = OfferLifecycleReducer.rejectForReconciliation(previous, event, episodeGap);
+			}
 			String taxPolicy = saleTaxPolicy(previous, event, transition);
 			writeProjection(transition.getProjection(), event.getEventId(), transition.getReason());
 			try (PreparedStatement statement = connection.prepareStatement("UPDATE offer_projection SET sale_tax_policy=? WHERE slot=?"))
@@ -269,6 +274,46 @@ final class SqliteStore implements AutoCloseable
 			connection.setAutoCommit(autoCommit);
 		}
 	}
+
+    private static final String REUSED_EPISODE = "offer identity reappeared outside its current slot episode";
+    private static final String UNKNOWN_EPISODE_HISTORY = "offer identity history is incomplete";
+
+    /** Only a prospective guard. Reads retained canonical sources; never replays/revises old money.
+     * New-episode checks use SQLite JSON filtering rather than parsing the entire history in Java.
+     * Ordinary unchanged heartbeats need neither a history scan nor a cross-request cache. */
+    private String episodeReconciliationReason(OfferLifecycleProjection previous, OfferEvent event,
+            OfferLifecycleTransition transition) throws Exception {
+        String identity = event.getOfferIdentity();
+        if ("EMPTY".equals(event.getEventType()) || identity == null || identity.isBlank()) return null;
+        boolean continuation = previous != null && previous.getState() != OfferLifecycleState.EMPTY
+            && identity.equals(previous.getOfferIdentity());
+        if ((previous != null && previous.getState() == OfferLifecycleState.ERROR_RECONCILIATION)
+                || transition.getAccountingEffect().getType() != PositionAccountingEffectType.NONE) {
+            try (var sql = connection.prepareStatement("SELECT transition_reason FROM position_event "
+                    + "WHERE source_offer_identity=? AND effect_type='RECONCILE' AND transition_reason IN (?,?) LIMIT 1")) {
+                sql.setString(1, identity); sql.setString(2, REUSED_EPISODE); sql.setString(3, UNKNOWN_EPISODE_HISTORY);
+                try (var rows = sql.executeQuery()) { if (rows.next()) return rows.getString(1); }
+            }
+        }
+        if (continuation) return null;
+        // CASE protects json_extract from malformed legacy payloads; missing nonempty identity is
+        // uncertainty, not proof that a key is new. Account snapshots have no canonical event ID.
+        try (var sql = connection.prepareStatement("SELECT payload FROM event_log WHERE event_id IS NOT NULL "
+                + "AND event_id<>'' AND event_id<>? AND CASE WHEN json_valid(payload)=0 THEN 1 "
+                + "WHEN json_type(payload)<>'object' THEN 1 "
+                + "WHEN json_type(payload,'$.offerIdentity')='text' THEN json_extract(payload,'$.offerIdentity')=? "
+                + "WHEN event_type='EMPTY' THEN 0 ELSE 1 END ORDER BY id DESC LIMIT 1")) {
+            sql.setString(1, event.getEventId()); sql.setString(2, identity);
+            try (var rows = sql.executeQuery()) {
+                if (!rows.next()) return null;
+                try {
+                    OfferEvent old = new com.google.gson.Gson().fromJson(rows.getString(1), OfferEvent.class);
+                    if (old != null && identity.equals(old.getOfferIdentity())) return REUSED_EPISODE;
+                } catch (RuntimeException unreadable) { /* preserve unknown identity evidence */ }
+                return UNKNOWN_EPISODE_HISTORY;
+            }
+        }
+    }
 
     /** Optional learning evidence never changes raw events or financial acceptance. Legacy totals
      * and keys remain intact; this qualifies only new, explicitly versioned predictions. */

@@ -311,8 +311,11 @@ public class OfferTracker
 			// observed event is already fully filled, is read as a replay and its purchase is missed.
 			// Reaching that state needs every intermediate update to have gone unseen, which is what
 			// the pending-offer buffer in the plugin now prevents.
+			// An active zero-fill observation starts a new episode, including after a zero-fill
+			// cancellation. It must not inherit the retired offer's persistent identity.
 			if (previous != null && previous.matches(itemId, buying, price, total)
-				&& filled >= previous.getRecordedQuantity())
+				&& filled >= previous.getRecordedQuantity()
+				&& !(filled == 0 && (state == GrandExchangeOfferState.BUYING || state == GrandExchangeOfferState.SELLING)))
 			{
 				// The same offer being announced again -- a login replay, or an event arriving after
 				// the collect. It is already accounted for, so take back the record of that rather
@@ -341,6 +344,7 @@ public class OfferTracker
 				}
 				settled.remove(slot);
 				tracked = new TrackedOffer(slot, itemId, buying, price, total, now.getEpochSecond());
+				tracked.startEpisodeIdentity();
 				tracked.setItemName(market.getItemName(itemId));
 				bySlot.put(slot, tracked);
 			}

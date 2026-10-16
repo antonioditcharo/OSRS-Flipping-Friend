@@ -18,6 +18,7 @@ final class TradeGapEvidence {
         Map<String,Set<Integer>> result=unknown(gaps);
         try { AccountIdentity.require(account); } catch (IllegalArgumentException unavailable) { return result; }
         Map<Integer,Slot> slots=new HashMap<>();
+        Map<String,Set<Integer>> episodeItems=new HashMap<>();
         Set<String> eventIds=new HashSet<>();
         for (OfferEvent e:history) {
             if (!valid(e) || !eventIds.add(e.getEventId())) return unknown(gaps);
@@ -29,6 +30,7 @@ final class TradeGapEvidence {
                 Set<Integer> possible=new HashSet<>();
                 if (prior!=null) possible.addAll(prior.items);
                 if (e.getItemId()>0) possible.add(e.getItemId());
+                if (e.getOfferIdentity()!=null) possible.addAll(episodeItems.getOrDefault(e.getOfferIdentity(),Set.of()));
                 if (!possible.isEmpty()) result.put(e.getEventId(),Collections.unmodifiableSet(possible));
             }
             Slot next=prior==null?new Slot(e.getSessionId()):prior;
@@ -40,7 +42,9 @@ final class TradeGapEvidence {
                 if (ordered && next.terminal && !gaps.containsKey(e.getEventId())) next.items.clear();
                 next.terminal=false;
             } else {
+                next.items.addAll(episodeItems.getOrDefault(e.getOfferIdentity(),Set.of()));
                 next.items.add(e.getItemId());
+                episodeItems.computeIfAbsent(e.getOfferIdentity(),id->new HashSet<>()).add(e.getItemId());
                 OfferLifecycleState state=OfferLifecycleClassifier.classify(e);
                 next.terminal=state==OfferLifecycleState.BUY_FILLED_UNCOLLECTED
                     || state==OfferLifecycleState.BUY_CANCELLED_UNCOLLECTED

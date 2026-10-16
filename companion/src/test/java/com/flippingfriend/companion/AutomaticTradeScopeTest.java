@@ -17,7 +17,7 @@ public class AutomaticTradeScopeTest {
             .price(buying ? 100 : 120).quantities(total,filled).spent(paid).sequence(sequence).build();
     }
     private void accept(SqliteStore store, OfferEvent event) throws Exception {
-        store.recordAndProjectOffer(event, "fixture", true);
+        store.recordAndProjectOffer(event, new com.google.gson.Gson().toJson(event), true);
     }
     private void clear(SqliteStore store, String id, long sequence) throws Exception {
         accept(store, OfferEvent.builder("fixture",1700000000L+sequence,"EMPTY").accountId(account)
@@ -133,7 +133,9 @@ public class AutomaticTradeScopeTest {
             OfferEvent open = OfferEvent.builder("fixture",1700000006L,"BUYING").accountId(account)
                 .eventIdentity("other-open","session","other-buy").slot(1).item(562,"Chaos rune")
                 .buying(true).price(100).quantities(10,0).spent(0).sequence(6).build();
-            accept(store,open);
+            // This fixture specifically needs an unidentified legacy predecessor. Other events
+            // retain canonical JSON; a fully recorded predecessor would correctly scope this gap.
+            store.recordAndProjectOffer(open,"unavailable legacy payload",true);
             OfferEvent unassigned = OfferEvent.builder("fixture",1700000007L,"EMPTY").accountId(account)
                 .eventIdentity("unidentified-clear","session",null).slot(1).sequence(7).build();
             accept(store,unassigned); accept(store,unassigned);

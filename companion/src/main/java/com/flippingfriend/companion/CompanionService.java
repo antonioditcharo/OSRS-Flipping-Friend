@@ -436,6 +436,7 @@ final class CompanionService implements AutoCloseable
         if(projected.planningStateChanged){planningInputRevision.incrementAndGet();plan=null;lastPlanAt=0;}
 		if (!transition.isAccepted())
 		{
+			activeOffers.invalidateSlot(event.getSlot());
 			fault("Offer projection slot " + event.getSlot(), transition.getReason(), null);
 			return projected.acceptance;
 		}

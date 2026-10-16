@@ -55,6 +55,10 @@ public class CurrentPlanningEvidenceTest {
             f.seed(s);var receipt=new HashMap<Integer,String>();
             for(int slot=0;slot<8;slot++) {
                 var e=f.offer("partial-current-"+slot,slot,slot==0?561:0,slot==0?"BUYING":"EMPTY",slot==0?4:0,30+slot,f.now+1,true);
+                if(slot==0) {
+                    var fresh=f.gson.toJsonTree(e).getAsJsonObject();fresh.addProperty("offerIdentity","new-partial-offer");
+                    e=f.gson.fromJson(fresh,OfferEvent.class);
+                }
                 f.accept(s,e);receipt.put(slot,e.getEventId());
             }
             var snapshot=change(change(change(f.snapshot(receipt),"observedAt",f.now+1),"freeSlots",7),"committedCoins",600);

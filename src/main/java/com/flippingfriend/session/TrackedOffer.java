@@ -25,6 +25,8 @@ public class TrackedOffer
 	private String state;
 	private long firstSeen;
 	private long lastChanged;
+	/** Additive identity for new episodes. Missing legacy identities keep the shipped key. */
+	private String episodeIdentity;
 
 	/**
 	 * The journal entry this offer is accruing, held here until the offer finishes.
@@ -75,8 +77,16 @@ public class TrackedOffer
 		TrackedOffer copy = new TrackedOffer(slot, itemId, buying, price, totalQuantity, firstSeen);
 		copy.itemName = itemName; copy.quantityFilled = quantityFilled; copy.spent = spent;
 		copy.state = state; copy.lastChanged = lastChanged;
+		copy.episodeIdentity = episodeIdentity;
 		return copy;
 	}
+
+	void startEpisodeIdentity()
+	{
+		if (episodeIdentity == null) episodeIdentity = "ge-" + java.util.UUID.randomUUID();
+	}
+
+	public String getEpisodeIdentity() { return episodeIdentity; }
 
 	public int getSlot()
 	{
