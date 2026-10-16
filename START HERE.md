@@ -4,8 +4,8 @@ Use these files from the **current rebuild folder**. An old desktop shortcut can
 previous checkout; re-setup replaces it after installing the current pair.
 
 For the compact sidebar and combined trade changes, start with
-[HOME TEST CHECKLIST.md](HOME%20TEST%20CHECKLIST.md). PR #45 is installed; status, compatibility
-and the ledger pipeline pass. UI/trading acceptance remains in progress. In assisted development,
+[HOME TEST CHECKLIST.md](HOME%20TEST%20CHECKLIST.md). [HANDOFF.md](HANDOFF.md) identifies the installed
+pair, queued updates and current evidence. UI/trading acceptance remains in progress. In assisted development,
 the agent handles routine diagnostics, backup verification, paired updates and launching without
 requiring pasted output or INSTALL replies. See [the development workflow](docs/development-workflow.md).
 The numbered wrappers below retain the interactive self-service path; Update does not fetch Git.
@@ -18,6 +18,7 @@ The numbered wrappers below retain the interactive self-service path; Update doe
 | Read-only diagnostics | `3 - Status.bat` |
 | Update after changing/pulling source | `4 - Update.bat` |
 | Remove installed components while retaining data | `5 - Uninstall.bat` |
+| One-time repair for administrator prompts on an existing task | Right-click `6 - Enable User Updates.bat`, then **Run as administrator** |
 
 ## Setup or re-setup
 
@@ -32,9 +33,12 @@ The numbered wrappers below retain the interactive self-service path; Update doe
 5. Run `2 - Start`, log in yourself, and open the Flipping Friend coin panel. Use `3 - Status`, then
    the read-only pipeline check below, before the manual checks in [HANDOFF.md](HANDOFF.md).
 
-Run as your usual Windows user. If Windows refuses access to the old scheduled task, preserve the
-error output; running re-setup as administrator for that same user may be necessary. Do not use a
-different Windows account to work around it.
+Run as your usual Windows user. For an older protected companion task, run `6 - Enable User Updates`
+as administrator once, under that same account. It backs up the task definition and permissions,
+then grants only that user control of this installation's non-elevated companion task. Later updates
+run normally without elevation. Fresh task registration sets this access automatically. Do not use
+a different Windows account, disable UAC or make the companion run as administrator. A read-only
+check is `tools/enable-user-updates.ps1 -CheckOnly`; live repair acceptance is in HANDOFF.
 
 An installed JDK is needed to build; CI uses JDK 21 and local verification uses the existing JDK 23.
 The installer selects an available JDK from JAVA_HOME, Java's directory, or that existing JDK 23 path.

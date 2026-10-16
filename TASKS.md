@@ -5,10 +5,22 @@ statements later in this file. Read [HANDOFF.md](HANDOFF.md) for exact evidence.
 
 ## Active
 
+- [x] Source one-time, task-specific maintenance access on codex/user-owned-companion-updates
+      from #75/1f98391. Regression-first 2c2a5ab reproduces late permission failure/missing setup
+      access; native tests 26fe7c6 cover exact scope, least privilege, preservation and rollback.
+      Standard 49s: 1,528 Java passed/six skips; 93 tooling tests pass in 85.524s; PowerShell 7
+      focused gate 14 passed. Read-only real scope is valid; maintenance/repair access is false.
+      See the branch PR for exact-head CI and delivery. No real permissions/JARs changed.
+- [ ] Apply the one-time task repair with Windows administrator approval, then verify a normal-user
+      unattended paired update and launch. Use 6 - Enable User Updates as administrator once under
+      the same account; never disable UAC or create an elevated unattended helper. RuneLite was
+      closed normally on the owner's explicit request; recheck rather than ask for another close.
+      Installed pair remains #69; batch the already merged #72/#75 runtime changes together.
 - [x] Reproduce misleading reserve/session-loss explanations in 945bf47, then correct the durable
       risk reason, waiting card and notification together. Fresh matching risk is required for its
       explanation; no accounting, risk arithmetic or refusal changes. Standard: 1,528 Java passed/
-      six skips, 70s; 79 Python passed in 94.933s; both JARs Java 11. CI/source delivery pending;
+      six skips, 70s; 79 Python passed in 94.933s; both JARs Java 11. Merged #75 as 1f98391 after
+      both checks at c038cab passed (run 38946004083; Windows 117125172627/Ubuntu 117125172354);
       installed pair remains #69. This does not resolve stock, release a reserve or authorize buys.
 - [x] Add/run an offline trade-source audit on codex/trade-evidence-audit from #72/eaa63b1.
       Verified parent capture, private report, retained actual auditor and full recomputation remain

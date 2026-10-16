@@ -290,6 +290,9 @@ $processes = @(Get-CimInstance Win32_Process -ErrorAction Stop)
 if ($processes | Where-Object { $_.Name -eq 'RuneLite.exe' -or $_.CommandLine -match 'net\.runelite\.client\.RuneLite' }) {
     throw 'Close RuneLite before setup or updating. No game process was stopped.'
 }
+if ($task -and -not $ConfigureCompanionTask) {
+    & "$PSScriptRoot\enable-user-updates.ps1" -CheckOnly -RequireControl
+}
 if ($SkipBuild) {
     if (-not (Test-Path -LiteralPath $built -PathType Leaf)) { throw "Plugin jar not found at $built" }
     if (-not (Test-Path -LiteralPath $companionBuilt -PathType Leaf)) { throw "Companion jar not found at $companionBuilt" }

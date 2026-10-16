@@ -35,6 +35,33 @@ unchanged and the installed pair remains valid. Summarize the result and ask for
 when it requires login, a game action or an otherwise unobservable UI result. Keep personal output
 in ignored local-data. Do not claim live UI/trading acceptance from offline or transport checks.
 
+## One-time task permissions, then normal-user updates
+
+An older companion task can run as the correct limited user but be owned by Administrators with
+only read access for that user. It then requires elevation to pause/restart during every update.
+Run `6 - Enable User Updates.bat` as administrator once, using the same Windows account. The agent
+can prepare/check this without elevation; approval of an existing protected task repair remains a
+Windows boundary. Do not use old ad hoc helpers that unconditionally demand administrator rights.
+
+`tools/enable-user-updates.ps1` validates the exact Java action, runtime JAR, checkout and current
+principal. Both native task properties and XML must establish an interactive, non-elevated task;
+Windows may omit the default XML RunLevel, so absence alone is not accepted as proof. It backs up
+the task XML and owner/group/DACL, verifies their bytes/hashes, and adds control for that one user
+on that one task. Original rules, owner/group, action, triggers and enabled state are preserved.
+Denied/conditional rules and foreign/elevated tasks require inspection instead of a forced repair.
+A changed task aborts before writing; a failed postcondition restores the original DACL.
+
+Fresh registration performs the same grant before the paired installer copies/enables the new
+pair. Routine updates check access before creating a backup or stopping anything. Once enabled,
+run `tools/apply-update.ps1 -Unattended` directly in a normal shell. No elevated background updater,
+saved administrator password, global task-folder permission or UAC/security-setting change is used.
+The metadata repair itself does not install JARs, stop processes or open account/database files.
+
+This uses Microsoft's supported [task-specific permissions](https://learn.microsoft.com/en-us/windows/win32/taskschd/security-contexts-for-running-tasks)
+and [SetSecurityDescriptor API](https://learn.microsoft.com/en-us/windows/win32/taskschd/registeredtask-setsecuritydescriptor).
+Source tests and a read-only access check do not establish that a real repair/update has completed;
+record the owner-approved repair and a subsequent normal-user paired update before claiming that.
+
 For historical trade-gap investigation, [audit a verified source capture](architecture/trade-evidence-audit.md)
 with tools/audit-trades.ps1. It creates a private reproducible observation report without opening a
 database or client. The report cannot authorize accounting changes or release trading guards.
