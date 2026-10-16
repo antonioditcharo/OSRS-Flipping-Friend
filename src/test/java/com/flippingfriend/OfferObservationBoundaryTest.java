@@ -193,6 +193,19 @@ public class OfferObservationBoundaryTest
         order.verify(f.tracker).onOfferChanged(eq(1), argThat(o -> o.getState() == GrandExchangeOfferState.EMPTY));
     }
 
+    @Test public void deferredRestorationRetainsItsOriginalProfileFence() throws Exception
+    {
+        Fixture f=new Fixture();
+        GrandExchangeOffer[] active={observation(GrandExchangeOfferState.BUYING,2)};
+        when(f.client.getGrandExchangeOffers()).thenReturn(active);
+        f.restore();
+        when(f.configManager.getRSProfileKey()).thenReturn("another-profile");
+        f.plugin.onGameTick(new net.runelite.api.events.GameTick());
+        verify(f.tracker,never()).onOfferChanged(anyInt(),any());
+        f.worker.runPending();
+        verify(f.companion,never()).publishObservedOffer(any(),anyString(),anyLong());
+    }
+
     @Test public void bufferedUnknownProfileEventsCannotCrossLogout() throws Exception
     {
         Fixture f = new Fixture();
