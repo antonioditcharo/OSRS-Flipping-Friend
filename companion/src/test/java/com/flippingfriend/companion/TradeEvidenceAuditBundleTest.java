@@ -66,4 +66,14 @@ public class TradeEvidenceAuditBundleTest {
         Files.writeString(report.resolve("audit.json"),"{}");
         try{TradeEvidenceAuditMain.verify(fresh,report);fail("missing final manifest");}catch(IllegalArgumentException expected){}
     }
+    @Test public void unsupportedManifestVersionsCannotMasqueradeAsTheCurrentAuditor()throws Exception {
+        Path root=folder.newFolder("local-data").toPath(),capture=capture(root,"capture","open"),report=root.resolve("audit");
+        TradeEvidenceAuditMain.create(capture,report);
+        var manifest=json.fromJson(Files.readString(report.resolve("manifest.json")),JsonObject.class);
+        for(String field:List.of("schemaVersion","auditorVersion")) {
+            var bad=manifest.deepCopy();bad.addProperty(field,"unsupported");
+            Files.writeString(report.resolve("manifest.json"),json.toJson(bad));
+            try{TradeEvidenceAuditMain.verify(capture,report);fail("unsupported "+field);}catch(IllegalArgumentException expected){}
+        }
+    }
 }
