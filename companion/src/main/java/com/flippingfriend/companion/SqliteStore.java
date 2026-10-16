@@ -444,7 +444,7 @@ final class SqliteStore implements AutoCloseable
 	private void validateRiskWindowSources(RiskWindow window) throws Exception
 	{
         var parser=new com.google.gson.Gson();
-        try(var sql=connection.prepareStatement("SELECT observed_at,payload FROM event_log WHERE event_id=?")) {
+        try(var sql=connection.prepareStatement("SELECT observed_at,payload FROM event_log WHERE event_id=? AND event_id IS NOT NULL AND event_id<>''")) {
             for(int slot=0;slot<8;slot++) {
                 sql.setString(1,window.sourceForSlot(slot));
                 try(var rows=sql.executeQuery()) {
@@ -674,8 +674,11 @@ final class SqliteStore implements AutoCloseable
     private Map<Integer,OfferEvent> currentOfferEvidence(String expectedAccountId) throws Exception {
         Map<Integer,OfferEvent> result=new HashMap<>();
         com.google.gson.Gson parser=new com.google.gson.Gson();
+        // Match the existing partial identity index. Without its nonblank predicate SQLite can
+        // rebuild an automatic covering index over the entire event history on each heartbeat.
+        // Keep the predicate in ON so a missing source still withdraws the whole eight-slot proof.
         try (Statement s=connection.createStatement(); ResultSet r=s.executeQuery(
-                "SELECT p.slot,p.source_event_id,e.payload FROM offer_projection p LEFT JOIN event_log e ON e.event_id=p.source_event_id")) {
+                "SELECT p.slot,p.source_event_id,e.payload FROM offer_projection p LEFT JOIN event_log e ON e.event_id=p.source_event_id AND e.event_id IS NOT NULL AND e.event_id<>''")) {
             while(r.next()) {
                 OfferEvent event;
                 try { event=parser.fromJson(r.getString(3),OfferEvent.class); }
