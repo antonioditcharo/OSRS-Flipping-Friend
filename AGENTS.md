@@ -21,15 +21,16 @@ are in `docs/project-direction.md`; historical package notes are not proof of ru
   the observed sell offer through completion. Unknown acquisition cost/profit stays unknown.
   Put incomplete trade evidence in a separately opened Missed flips window, preserving live
   exposure guards and account data. See `docs/architecture/automatic-trade-scope.md` for the target
-  workflow and regression gate. Runtime through PR #64 is installed via the supported updater;
+  workflow and regression gate. Runtime through PR #67 is installed via the supported updater;
   ledger HTTP reads pass. Earlier fresh risk/final entry GET successes are recorded in HANDOFF;
   they are not controlled trading acceptance.
   UI and controlled trading acceptance remain pending; reconciliation guards remain active.
   Recommendation-latency fixes are installed; post-update acknowledgement drain and fresh durable
   eight-slot proof pass. Sustained timing/final eligible entry remain open; all slots were occupied
   and a stale managed-price guard also appeared. Read the newest HANDOFF checkpoint before history.
-  Live full-counter BUYING frames before BOUGHT also created false gaps; the source fix is under
-  verification. Existing gaps and risk reserves stay intact; see docs/architecture/full-counter-progress.md.
+  Live full-counter BUYING frames before BOUGHT also created false gaps; the tested fix is installed,
+  with fresh post-update/full-progress acceptance still pending. Existing gaps and risk reserves
+  stay intact; see docs/architecture/full-counter-progress.md.
 - Current-slot recovery requires copied authenticated observations and durable ordering proof.
   It must preserve historical gaps and exposure guards; never book a recovered cumulative baseline
   as a new execution. See docs/architecture/offer-observation-recovery.md. Runtime includes this
