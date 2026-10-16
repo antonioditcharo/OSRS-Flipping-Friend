@@ -22,7 +22,7 @@ public class DurableProfitLedgerTest
             .buying(buying).price(buying ? 101 : 100).quantities(3, filled).spent(spent).sequence(sequence).build();
     }
     private void accept(SqliteStore store, OfferEvent event) throws Exception
-    { store.recordAndProjectOffer(event, "fixture"); }
+    { store.recordAndProjectOffer(event, new com.google.gson.Gson().toJson(event)); }
     private void buy(SqliteStore store) throws Exception
     {
         accept(store, event("buy-open", "BUYING", true, 0, 0, 1, "buy"));
@@ -76,7 +76,7 @@ public class DurableProfitLedgerTest
         }
         try (SqliteStore store = new SqliteStore(database))
         {
-            assertEquals(SqliteStore.EventAcceptance.NEW, store.recordAndProjectOffer(partial, "fixture").acceptance);
+            assertEquals(SqliteStore.EventAcceptance.NEW, store.recordAndProjectOffer(partial, new com.google.gson.Gson().toJson(partial)).acceptance);
             assertEquals(1, store.ledgerSnapshot(account).getSales());
         }
     }

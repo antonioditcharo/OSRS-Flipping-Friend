@@ -5,6 +5,17 @@ statements later in this file. Read [HANDOFF.md](HANDOFF.md) for exact evidence.
 
 ## Active
 
+- [x] Reproduce/prevent cumulative accounting replay after a cleared episode, source-only on
+      codex/cleared-offer-accounting from #71/a4935b4. Regressions a63a534/cf94779/86137e3/1357b42
+      precede fixes. Persist new episode UUIDs, preserve legacy wire/learning keys, reject reused
+      identity via retained canonical sources, keep contradictory items paused and withdraw stale
+      Collect cache on rejection. Standard 49s: 1,503 Java passed/six skips; 79 Python passed in
+      85.639s; both JARs Java 11. Read-only guard timing recorded in HANDOFF. CI/delivery pending;
+      installed runtime remains #69. Batch update with remaining work; no repeated client cycle.
+- [x] Observe fresh #69 login/current capture with no additional reconciliation gaps. Installed
+      packaged read-only proof: valid=true, eight EMPTY/eight matched sources, age three seconds,
+      5m/Medium. Outbox drains four -> zero normally. 30 post-risk-cursor gap rows remain unchanged;
+      ledger now 11 sales/eight unresolved. Risk still refuses entries on existing reserves.
 - [x] Reproduce startup/capture false lifecycle gaps on codex/startup-offer-evidence from #68/4e822ec.
       Test-first eedb4c2/7cced9d precede corresponding producer fixes. RuneLite documents initial
       EMPTY callbacks even when offers exist. Wait for the first logged-in server tick before
@@ -24,8 +35,8 @@ statements later in this file. Read [HANDOFF.md](HANDOFF.md) for exact evidence.
       Tracked in https://github.com/antonioditcharo/OSRS-Flipping-Friend/issues/70.
       Complete read-only canonical prefix retained/independently verified: 11,598 rows/cursor 13,221,
       six eligible forecasts with ambiguous horizon outcomes. No accounting or learning promotion.
-- [ ] Verify post-update login does not emit false clears and complete a player-operated buy ->
-      collect -> sell workflow. Fresh capture/source tests do not establish live eligibility.
+- [ ] Complete a controlled player-operated buy -> collect -> sell workflow, partial cancel/relist
+      and restart. Fresh #69 capture/source tests do not establish live eligibility or acceptance.
 - [x] Deliver/install full-counter progress fix from #66 merge 2ebf9cb on codex/full-counter-progress.
       Live BUYING/full then BOUGHT created false source gaps and a 47,147,786 GP uncertainty reserve;
       bounded realized updates remain zero. Regression 8d1eb4e precedes the classifier fix. Full

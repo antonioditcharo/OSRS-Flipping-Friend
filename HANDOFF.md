@@ -3,6 +3,77 @@
 Updated 16 October 2026 (America/Anchorage). Read this with [AGENTS.md](AGENTS.md) and
 [TASKS.md](TASKS.md) before continuing implementation.
 
+## Cleared-offer accounting guard source and fresh #69 proof — 16 October 2026
+
+Primary rebuild is clean/current at `a4935b4118a46124ab2957e6cb8a1b876a6ea8e0` (#71 docs merge).
+Installed pair remains #69/86f69da. `codex/cleared-offer-accounting` starts from that rebuild;
+its changes below are source-only until a supported paired update. Historical main is untouched.
+
+The previous goal turn made progress: #69 was merged/installed, #71 records verification, and an
+independent complete source freeze exposed terminal -> clear -> repeated original terminal identity.
+Pure offline replay compares 46 recorded effects, with six changed by current full-counter rules;
+replaying raw inputs still duplicates a cumulative terminal after EMPTY. It is not a safe historical
+recovery algorithm. [Evidence](https://github.com/antonioditcharo/OSRS-Flipping-Friend/issues/70#issuecomment-6211380958).
+
+Regression-first a63a534 reproduces five durable accounting/restart/unknown-source failures;
+cf94779 reproduces two producer identity failures, 86137e3 adds contradictory item scope and
+1357b42 reproduces cached COLLECT after a rejected cancelled-to-active transition. Positive service
+coverage 7d09a08 verifies an already rejected old terminal is withheld before/after restart.
+New local episodes now persist a random ge-UUID through copies/account reload/late terminal replay.
+An active zero-fill replacement gets a new ID after zero-fill cancellation. Existing saved offers
+and outbox events retain their shipped identities; ExecutionRecorder's learning key is unchanged.
+
+The store checks new/switched episodes against retained canonical JSON in its existing accounting
+transaction. Reused or unknown identity evidence appends RECONCILE with no new economic or limit
+effect. A durable reason prevents later recovery frames bypassing the guard. Scope retains every
+item recorded against the reused ID; unknown source scope stays global. Rejection withdraws that
+slot's cached action, without asserting a physical collection. See
+[the contract](docs/architecture/offer-episode-identity.md).
+
+The first broader run exposes ten older fixtures using placeholder source payloads or one ID for
+an intentionally new episode. Their setup now serializes canonical events/distinct new identities;
+the specifically opaque legacy-source fixture remains explicit and preserves global uncertainty.
+Financial/recovery assertions are retained. A second run catches that explicit fixture still
+needing opaque predecessor evidence; its corrected setup passes. No live source was normalized.
+Final standard: BUILD SUCCESSFUL in 49s / 18 tasks executed / exit 0; Java 1,503 passed/six existing
+skips, zero failures/errors (641 plugin/179 core/689 companion). Python: 79 tests in 85.639s / OK /
+exit 0; tooling unchanged afterward. Candidate plugin 486,838 bytes/218 project classes and companion
+17,879,995 bytes/453 classes; all major 55/Java 11. Exact-head CI and delivery pending here.
+
+Read-only packaged candidate guard probe opens the explicit scoped database with mode=ro, performs
+only SELECTs and rolls back. Original native lookup: novel identity 759ms cold, 114/138ms warm.
+Descending row order avoids random UUID-index reads: final novel identity 586ms cold, 48/42ms warm;
+known old identity 135ms cold, 17/13ms warm. This measures only the guard, not full HTTP ingestion or
+a latency guarantee. No cache, index/table/schema migration or real event POST is introduced.
+
+The running #69 client has independently supplied fresh observations. At 00:48 local,
+portfolio/action/ledger/learning GETs take 141/16/218/719ms. Plan UNAVAILABLE/DRAWDOWN_LIMIT_REACHED,
+risk AVAILABLE with negative remaining allowance, Action WAIT. Ledger: 11 sales/eight unresolved;
+22 timing episodes/six full forecasts/eight completed intervals/14 canceled-censored/zero open.
+Original learning promotion stays held. New position effects beyond risk cursor: 11 ACQUIRE /
+30 RECONCILE / seven DISPOSE. The 30-gap count and reason breakdown are unchanged from before
+the startup fix; two new disposals are retained without assigning unknown costs. No controlled
+buy/sell success or realized-loss amount is inferred. Outbox four pending at the GET later drains
+normally to zero; predictions zero. Installed #69's packaged read-only proof then reports:
+
+```text
+PACKAGED_CURRENT_READ_SET_VALID=true
+CURRENT_SOURCE_COUNT=8 CAPTURE_SOURCE_COUNT=8
+CAPTURE_AGE_SECONDS=3 FREE_SLOTS=8 TOTAL_SLOTS=8
+CHECK_INTERVAL_MINUTES=5 RISK=MODERATE
+CURRENT_EVENT_TYPES={EMPTY=8}
+MODE_RO_TRANSACTION_COMPLETE=true / STARTUP_CURRENT_PROOF_EXIT=0
+```
+
+Fresh #69 capture/ACK proof and unchanged new-gap count pass. Existing affected stock/risk reserves
+remain unresolved in #70; this guard is prevention, not historical reconciliation. Batch installation
+with the remaining work while the client stays open; no additional close/login request is needed
+for source verification. No game input, database repair/replay, financial backfill or risk reset.
+Private evidence: reusable worktree .gradle/{cleared-offer*,episode-identity*,episode-scope*,
+stale-collection*,rejected-terminal*}; primary local-data/diagnostics/{episode-guard-*,
+startup-current-proof-20261016.txt,recommendation-stall-20261016-004854.json,
+live-trade-gap-trace-20261016-004855.json}. Probe sources remain in primary .gradle.
+
 ## Startup prevention pair installed; stock recovery remains open — 16 October 2026
 
 PR #69 merged as `86f69dabf9f32652872da0635c451f4b2bbefb5d`; primary rebuild is clean/current

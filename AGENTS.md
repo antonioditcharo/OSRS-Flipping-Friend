@@ -35,6 +35,10 @@ are in `docs/project-direction.md`; historical package notes are not proof of ru
   callbacks without a current-login nonempty predecessor, and requires periodic captures to agree
   with processed callbacks. Read docs/architecture/startup-offer-evidence.md and newest HANDOFF for
   delivery state. Existing affected stock remains paused; this is not historical gap resolution.
+  Cleared-episode prevention source additionally persists IDs for new episodes while preserving
+  legacy wire/learning keys, checks retained source identity inside canonical acceptance and
+  withdraws rejected slots from cached actions. Read docs/architecture/offer-episode-identity.md
+  and newest HANDOFF for delivery; never replay old financial rows to activate this guard.
 - Current-slot recovery requires copied authenticated observations and durable ordering proof.
   It must preserve historical gaps and exposure guards; never book a recovered cumulative baseline
   as a new execution. See docs/architecture/offer-observation-recovery.md. Runtime includes this

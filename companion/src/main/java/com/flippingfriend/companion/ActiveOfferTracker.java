@@ -35,4 +35,7 @@ public class ActiveOfferTracker
 	{
 		return Collections.unmodifiableCollection(activeOffers.values());
 	}
+
+	/** Withdraw cached guidance when durable evidence is contradictory. No physical clear is inferred. */
+	void invalidateSlot(int slot) { activeOffers.remove(slot); }
 }

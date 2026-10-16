@@ -348,7 +348,9 @@ public class CompanionClient
                                         .accountId(expectedAccountId)
                                         .authenticatedObservation(authenticated)
                                         .eventIdentity(eventId, sessionId,
-                                                offer.getSlot() + "@" + start + ":" + offer.getItemId())
+                                                offer.getEpisodeIdentity() == null
+                                                    ? offer.getSlot() + "@" + start + ":" + offer.getItemId()
+                                                    : offer.getEpisodeIdentity())
                                         .slot(offer.getSlot()).item(offer.getItemId(), offer.getItemName())
                                         .buying(offer.isBuying()).price(offer.getPrice())
                                         .quantities(offer.getTotalQuantity(), offer.getQuantityFilled())

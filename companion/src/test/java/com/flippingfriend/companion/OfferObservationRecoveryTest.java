@@ -109,13 +109,13 @@ public class OfferObservationRecoveryTest {
             accept(store,event("BUYING",0,1)); accept(store,event("BUYING",2,2));
             accept(store,event("EMPTY",0,3));
             assertTrue(accept(store,live(event("EMPTY",0,4))).transition.isAccepted());
-            accept(store,live(event("BUYING",0,5))); accept(store,live(event("BUYING",2,6)));
+            accept(store,fresh(live(event("BUYING",0,5)))); accept(store,fresh(live(event("BUYING",2,6))));
             assertEquals(4,store.buyLimitProjections().get(0).getUsedQuantity());
         }
         try (SqliteStore store = new SqliteStore(db)) {
-            var duplicate = accept(store,live(event("BUYING",2,6)));
+            var duplicate = accept(store,fresh(live(event("BUYING",2,6))));
             assertEquals(SqliteStore.EventAcceptance.DUPLICATE,duplicate.acceptance);
-            accept(store,live(event("BUYING",2,7)));
+            accept(store,fresh(live(event("BUYING",2,7))));
             assertEquals(4,store.buyLimitProjections().get(0).getUsedQuantity());
             assertEquals(3,store.positionEventCount()); // Two real acquisition deltas and the original gap.
             var ledger = store.ledgerSnapshot(account);
@@ -124,6 +124,10 @@ public class OfferObservationRecoveryTest {
             assertEquals(0,ledger.getSales());
             assertNull(DurablePlanningExposure.from(store.planningProjections(),Collections.emptyMap(),true));
         }
+    }
+    private OfferEvent fresh(OfferEvent event) {
+        var wire=gson.toJsonTree(event).getAsJsonObject();wire.addProperty("offerIdentity","new-buy");
+        return gson.fromJson(wire,OfferEvent.class);
     }
     @Test public void recoveredOffersDoNotBecomeCompleteLearningSamplesOnLaterReplay() throws Exception {
         try (SqliteStore store = new SqliteStore(folder.newFolder().toPath().resolve("learning.db"));

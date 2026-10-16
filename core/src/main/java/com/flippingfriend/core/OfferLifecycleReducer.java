@@ -140,6 +140,13 @@ public final class OfferLifecycleReducer
             idempotent ? "observation already projected" : "accepted", effect);
     }
 
+    /** Additional durable episode evidence can reject a locally coherent slot transition. */
+    public static OfferLifecycleTransition rejectForReconciliation(OfferLifecycleProjection previous,
+        OfferEvent event, String reason)
+    {
+        return rejected(previous, event, reason);
+    }
+
     private static OfferLifecycleTransition rejected(OfferLifecycleProjection previous,
         OfferEvent event, String reason)
     {
