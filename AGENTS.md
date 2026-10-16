@@ -2,6 +2,9 @@
 
 Active development/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 Read `HANDOFF.md` for merged PRs, verified behavior, source locations, and unfinished work.
+Keep root HANDOFF/TASKS concise and current. Preserve detailed older receipts in linked docs/history
+files, keep every unchecked release requirement visible, and distinguish installed runtime from
+queued source. Do not require future agents to reread all historical checkpoints to find current state.
 
 Build an OSRS flipping assistant that matches Flipping Copilot's useful player workflows and
 eventually exceeds its measured net account profit per hour. The current priorities and evidence
@@ -39,6 +42,9 @@ are in `docs/project-direction.md`; historical package notes are not proof of ru
   legacy wire/learning keys, checks retained source identity inside canonical acceptance and
   withdraws rejected slots from cached actions. Read docs/architecture/offer-episode-identity.md
   and newest HANDOFF for delivery; never replay old financial rows to activate this guard.
+  Offline trade-evidence audits use tools/audit-trades.ps1 with a verified frozen capture. They
+  authorize neither accounting nor trading; raw counter maxima and unflagged identities are not
+  remaining holdings, known costs or permission to reduce risk. See docs/architecture/trade-evidence-audit.md.
 - Current-slot recovery requires copied authenticated observations and durable ordering proof.
   It must preserve historical gaps and exposure guards; never book a recovered cumulative baseline
   as a new execution. See docs/architecture/offer-observation-recovery.md. Runtime includes this
