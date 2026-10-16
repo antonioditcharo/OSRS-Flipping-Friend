@@ -28,7 +28,7 @@ final class EntryDecisionPresenter
         if (plan != null && !same(decision.getRecommendationId(), plan.getCorrelationId())) return null;
         if (decision.getAction() == OfferLifecycleAction.WAIT)
         {
-            return new PresentedEntryDecision(decision, waiting(decision.getAbstentionReason()));
+            return new PresentedEntryDecision(decision, waiting(decision.getAbstentionReason(),plan,account));
         }
         if (plan == null || explainer == null || blank(decision.getCandidateId())) return null;
         PortfolioCandidate matched = null;
@@ -89,7 +89,7 @@ final class EntryDecisionPresenter
             + candidate.getSellPrice() + ":" + candidate.getQuantity();
     }
 
-    private static Suggestion waiting(PolicyAbstentionReason reason)
+    private static Suggestion waiting(PolicyAbstentionReason reason,PortfolioPlan plan,String account)
     {
         switch (reason)
         {
@@ -111,10 +111,22 @@ final class EntryDecisionPresenter
             case NO_ELIGIBLE_CANDIDATE:
                 return Suggestion.waiting("Nothing worth buying right now",
                     "The companion found no eligible entry candidate under the current settings.");
-            case RISK_CONSTRAINT:
             case DRAWDOWN_LIMIT_REACHED:
+                var risk=plan==null?null:plan.getCanonicalRisk();
+                long now=java.time.Instant.now().getEpochSecond();
+                if(risk!=null && risk.isAvailable() && account!=null && account.equals(risk.getAccountId())
+                    && plan.getCreatedAt()<=now && plan.getExpiresAt()>now
+                    && risk.getEvaluatedAt()<=now && now-risk.getEvaluatedAt()<=150
+                    && risk.getValidUntil()>=now && risk.getRemainingLossBudget()<=0) {
+                    String headline=risk.getRiskCapital()>0 && risk.getUncertainLossReserve()>0
+                        ? "Trade evidence affects account risk" : "New buys are paused";
+                    return Suggestion.waiting(headline,risk.getReason());
+                }
+                // A missing/foreign/expired diagnostic cannot explain this account's refusal.
+                // The policy still abstains; never turn missing explanatory data into a buy.
+            case RISK_CONSTRAINT:
                 return Suggestion.waiting("New buys are paused",
-                    "No new entry fits the current session risk limits.");
+                    "No new entry fits the account's durable risk limits.");
             case SELL_ONLY_MODE:
                 return Suggestion.waiting("Sell-only mode is on",
                     "No new buy will be suggested while sell-only mode is active.");

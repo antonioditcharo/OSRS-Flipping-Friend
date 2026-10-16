@@ -5,6 +5,11 @@ statements later in this file. Read [HANDOFF.md](HANDOFF.md) for exact evidence.
 
 ## Active
 
+- [x] Reproduce misleading reserve/session-loss explanations in 945bf47, then correct the durable
+      risk reason, waiting card and notification together. Fresh matching risk is required for its
+      explanation; no accounting, risk arithmetic or refusal changes. Standard: 1,528 Java passed/
+      six skips, 70s; 79 Python passed in 94.933s; both JARs Java 11. CI/source delivery pending;
+      installed pair remains #69. This does not resolve stock, release a reserve or authorize buys.
 - [x] Add/run an offline trade-source audit on codex/trade-evidence-audit from #72/eaa63b1.
       Verified parent capture, private report, retained actual auditor and full recomputation remain
       separate from financial authority. 35 observed identities/23 with flags over 11,598 rows;
@@ -42,9 +47,10 @@ statements later in this file. Read [HANDOFF.md](HANDOFF.md) for exact evidence.
 - [ ] Design an auditable evidence-based resolution for already recorded false progress gaps.
       Preserve the raw sources, financial identities, unknown cost/profit and durable risk window.
       No manual database edit, replay, adoption, risk reset or bypass to force advice.
-- [ ] Finish sustained latency/final eligible entry acceptance. Latest portfolio/action/ledger/
-      learning reads are 141/16/218/719ms, with eight free slots and no allocation while risk refuses
-      old uncertainty. Retain freshness/funding/loss guards and 5m/Medium. No manufactured funds,
+- [ ] Finish sustained latency/final eligible entry acceptance. Latest 10:07 portfolio/action/ledger/
+      learning reads are 1,062/79/1,765/703ms, outbox zero, plan COMPANION_STATE_UNAVAILABLE and no
+      canonical risk. Earlier fresh eight-slot/risk evidence remains historical. Retain freshness/
+      funding/loss guards and 5m/Medium. No manufactured funds,
       cleared reserve or additional restart to obtain a final eligible-entry response.
 - [ ] Finish search/player-key/pause/context acceptance; these are not established by screenshots.
       Controlled intended trade, partial cancel/collect/relist and restart still need real outcomes.

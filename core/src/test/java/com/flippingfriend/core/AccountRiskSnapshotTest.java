@@ -36,4 +36,20 @@ public class AccountRiskSnapshotTest {
         try {risk().realized(Long.MIN_VALUE,Long.MIN_VALUE,1).build();fail("unrepresentable loss");}
         catch(ArithmeticException expected) { }
     }
+    @Test public void aReserveOnlyPauseMustNotDescribeTheReserveAsConfirmedLoss() {
+        var risk=risk().uncertainty(20000000,1,0).build();
+        assertTrue(risk.isAvailable());
+        assertEquals(Long.valueOf(0),risk.getBoundedRealizedProfitLower());
+        assertEquals(Long.valueOf(20000000),risk.getUncertainLossReserve());
+        assertEquals(Long.valueOf(-5000000),risk.getRemainingLossBudget());
+        assertTrue(risk.getReason(),risk.getReason().contains("uncertainty reserve"));
+        assertTrue(risk.getReason(),risk.getReason().contains("not a confirmed loss"));
+    }
+    @Test public void riskWordingSeparatesLossBoundsAvailableCapitalAndUnspentAllowance() {
+        var loss=risk().realized(-16000000,-16000000,1).build();
+        assertTrue(loss.getReason(),loss.getReason().contains("loss bound"));
+        assertFalse(loss.getReason(),loss.getReason().contains("uncertainty reserve"));
+        assertTrue(risk().capital(100000000,0).build().getReason().contains("No observed trading capital"));
+        assertFalse(risk().uncertainty(100,1,0).build().getReason().contains("paused"));
+    }
 }

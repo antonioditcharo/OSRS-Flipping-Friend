@@ -38,7 +38,10 @@ public final class AccountRiskSnapshot {
         status = "AVAILABLE";
         reason = remainingLossBudget > 0 ? "Durable account risk available."
             : riskCapital == 0 ? "No observed trading capital is available."
-            : "The conservative account loss has reached its 15% risk allowance.";
+            : uncertainLossReserve > 0
+                ? "Unresolved trade evidence contributes an uncertainty reserve to the account's 15% risk allowance. "
+                    + "This reserve is not a confirmed loss."
+                : "The conservative account loss bound has reached its 15% risk allowance.";
         if (!isValid()) throw new IllegalArgumentException("invalid available risk state");
     }
     public static AccountRiskSnapshot unavailable(String account, long at, String reason) {
