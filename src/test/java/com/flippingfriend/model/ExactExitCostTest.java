@@ -31,21 +31,39 @@ public class ExactExitCostTest {
         assertTrue(decision.isSell());assertTrue(tax.netProceeds(561,decision.getPrice(),2)>=81);
     }
     Suggestion actualGuidance(int quantity,long cost,int inInventory,int price)throws Exception {
+        return actualGuidance(quantity,cost,inInventory,price,false);
+    }
+    Suggestion actualGuidance(int quantity,long cost,int inInventory,int price,boolean heldPrice)throws Exception {
+        return actualGuidance(quantity,cost,inInventory,price,heldPrice,false);
+    }
+    Suggestion actualGuidance(int quantity,long cost,int inInventory,int price,boolean heldPrice,boolean adjustment)throws Exception {
         var market=mock(MarketDataService.class);when(market.getSeries(anyInt(),anyString())).thenReturn(List.of());
         var offers=mock(OfferTracker.class);when(offers.listedForSale()).thenReturn(Map.of());
         when(offers.itemsBeingBought()).thenReturn(Set.of());when(offers.getOffers()).thenReturn(List.of());
         var skipped=mock(SkipList.class);when(skipped.skipped(any())).thenReturn(Set.of());
         var config=mock(FlippingFriendConfig.class);when(config.riskProfile()).thenReturn(RiskProfile.MODERATE);
         var plans=mock(TradePlans.class);
-        var engine=new SuggestionEngine(market,mock(FeatureEngine.class),null,null,new Explainer(),null,tax,null,null,
+        var monitor=mock(AccountMonitor.class);
+        var engine=new SuggestionEngine(market,mock(FeatureEngine.class),null,null,new Explainer(),null,tax,monitor,null,
             mock(PositionBook.class),offers,new SellTimingEngine(new FillModel(),tax),plans,config,skipped,null);
         var companion=mock(CompanionClient.class);Field field=SuggestionEngine.class.getDeclaredField("companion");
         field.setAccessible(true);field.set(engine,companion);
         var ledger=new AccountLedgerSnapshot(AccountIdentity.fromProfileKey("exact-cost"),now.getEpochSecond(),0,0,0,0,0,0,0,0,List.of())
             .withTradeEvidence(List.of(PositionProjection.ready(561,"Nature rune",quantity,cost,now.getEpochSecond(),now.getEpochSecond(),"buy","offer")),List.of());
         when(companion.tradingLedger()).thenReturn(ledger);
+        if(heldPrice) {
+            Method pin=SuggestionEngine.class.getDeclaredMethod("advisedPrice",int.class,boolean.class,int.class,long.class);
+            pin.setAccessible(true);pin.invoke(engine,561,false,price,now.getEpochSecond());
+        }
         var snapshot=new MarketSnapshot(Map.of(),Map.of(561,new LatestPrice(price,now.getEpochSecond(),price,now.getEpochSecond())),Map.of(),Map.of(),now);
         var account=new AccountState(true,true,false,100000000,0,0,8,8,0,false,Map.of(561,inInventory),Map.of(561,inInventory),Map.of());
+        when(monitor.getState()).thenReturn(account);
+        if(adjustment) {
+            var tracked=new TrackedOffer(0,561,false,1200,inInventory,now.getEpochSecond()-100000);
+            tracked.setState("SELLING");when(offers.getOffers()).thenReturn(List.of(tracked));
+            Method method=SuggestionEngine.class.getDeclaredMethod("adjustSuggestion",MarketSnapshot.class,TradingHorizon.class,Instant.class);
+            method.setAccessible(true);return (Suggestion)method.invoke(engine,snapshot,horizon,now);
+        }
         Method method=SuggestionEngine.class.getDeclaredMethod("sellSuggestion",MarketSnapshot.class,TradingHorizon.class,AccountState.class,Instant.class);
         method.setAccessible(true);return (Suggestion)method.invoke(engine,snapshot,horizon,account,now);
     }
@@ -58,5 +76,30 @@ public class ExactExitCostTest {
         var suggestion=actualGuidance(3,125,2,44);
         assertNotNull(suggestion);assertEquals(2,suggestion.getQuantity());
         assertEquals(5,suggestion.getExpectedProfit()); // 88 proceeds - floor(125 * 2 / 3) cost.
+    }
+    @Test public void aStabilizedPriceCannotOverrideTheExactNonLossFloor()throws Exception {
+        var suggestion=actualGuidance(2,1961,2,1000,true);
+        assertNotNull(suggestion);assertTrue(suggestion.getPrice()>=1001);
+        assertTrue(tax.netProceeds(561,suggestion.getPrice(),suggestion.getQuantity())>=1961);
+        assertEquals(tax.netProceeds(561,suggestion.getPrice(),2)-1961,suggestion.getExpectedProfit());
+    }
+    @Test public void anUnreachableBreakEvenDoesNotAuthorizeAnUnforcedLoss() {
+        Position position=position(2,2L*Integer.MAX_VALUE);
+        assertFalse(decide(position,Integer.MAX_VALUE).isSell());
+        var forced=new SellTimingEngine(new FillModel(),tax).evaluate(position,
+            new LatestPrice(Integer.MAX_VALUE,now.getEpochSecond(),Integer.MAX_VALUE,now.getEpochSecond()),
+            null,List.of(),horizon,now,true,true);
+        assertTrue(forced.isSell());assertEquals(-10000000,forced.getExpectedProfit());
+    }
+    @Test public void sellMaintenanceKeepsTheExactNonLossFloor()throws Exception {
+        var suggestion=actualGuidance(2,1961,2,1001,false,true);
+        assertNotNull(suggestion);assertEquals(SuggestionType.MODIFY_SELL,suggestion.getType());
+        assertTrue(tax.netProceeds(561,suggestion.getPrice(),2)>=1961);
+    }
+    @Test public void sellMaintenanceAndItsRemainderProfitUseExactAllocatedCost()throws Exception {
+        var full=actualGuidance(2,1961,2,1050,false,true);
+        assertNotNull(full);assertEquals(97,full.getExpectedProfit());
+        var partial=actualGuidance(3,125,2,44,false,true);
+        assertNotNull(partial);assertEquals(2,partial.getQuantity());assertEquals(3,partial.getExpectedProfit());
     }
 }
