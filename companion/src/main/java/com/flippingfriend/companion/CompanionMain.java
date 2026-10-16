@@ -36,6 +36,21 @@ public final class CompanionMain
 	public static void main(String[] args) throws Exception
 	{
 		Path root = Paths.get(System.getProperty("user.home"), ".runelite", "osrs-flipping-friend");
+		try (CompanionLifecycle lifecycle = CompanionLifecycle.tryStart(root))
+		{
+			if (lifecycle == null)
+			{
+				System.out.println("Companion startup refused: installation/startup lock unavailable or another instance exists.");
+				return;
+			}
+			CompanionLifecycle.verifyInstalledPair(root,
+				Paths.get(CompanionMain.class.getProtectionDomain().getCodeSource().getLocation().toURI()));
+			run(root, lifecycle);
+		}
+	}
+
+	private static void run(Path root, CompanionLifecycle lifecycle) throws Exception
+	{
 		Path companion = root.resolve("companion");
 		Files.createDirectories(companion);
 		String token = token(companion.resolve("companion.properties"));
@@ -99,6 +114,7 @@ public final class CompanionMain
 		CompanionAccounts accounts = new CompanionAccounts(companion.resolve("accounts"), service);
 		ApiServer api = new ApiServer(token, gson, service, accounts);
 		api.start();
+		lifecycle.started();
 		ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(2, r -> { Thread t = new Thread(r, "flipping-friend-market"); t.setDaemon(true); return t; });
 		scheduler.scheduleWithFixedDelay(guarded(accounts::refreshMarket), 60, 60, TimeUnit.SECONDS);
 		// A second timer that only asks whether the first one is still alive. A scheduled task takes

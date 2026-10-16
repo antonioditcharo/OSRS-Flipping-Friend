@@ -113,6 +113,12 @@ are in `docs/project-direction.md`; historical package notes are not proof of ru
   Collect status, compatibility, pipeline and logs directly. Tooling/docs-only changes need no JAR
   reinstall when runtime source is unchanged. See docs/development-workflow.md. Login and in-game
   actions remain manual; never force-kill the client or change databases to unblock advice.
+  For a verified existing limited task which cannot be maintained without elevation, the supported
+  wrapper's -Unattended -UserProcess transition leaves task XML/ACLs unchanged. It requires the
+  tested companion startup guard, exact current-user process ownership, atomic runtime replacement,
+  a second old-process drain before account backup, and runtime-artifact-only rollback. Later
+  updates/start read processLifecycleVersion from the verified manifest. No initial UAC approval is
+  required; do not substitute an elevated helper. Read docs/architecture/user-process-updates.md.
 - The owner explicitly authorizes a configured player key to fill one already open, matching GE
   quantity/price prompt. Keep this narrow exception in GeInputAssist with lifecycle/context tests;
   Enter, confirmation, placement, cancellation and collection remain player actions. The assistant

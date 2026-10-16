@@ -39,7 +39,7 @@ tasks.register('shadowJar', Jar) {
     archiveBaseName = 'flipping-friend-companion'
     archiveVersion = ''
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-    manifest { attributes 'Main-Class': application.mainClass.get() }
+    manifest { attributes 'Main-Class': application.mainClass.get(), 'FF-Lifecycle-Guard': '1' }
     dependsOn ':core:jar'
     from sourceSets.main.output
     from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }

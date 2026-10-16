@@ -35,32 +35,30 @@ unchanged and the installed pair remains valid. Summarize the result and ask for
 when it requires login, a game action or an otherwise unobservable UI result. Keep personal output
 in ignored local-data. Do not claim live UI/trading acceptance from offline or transport checks.
 
-## One-time task permissions, then normal-user updates
+## Updates without administrator approval
 
-An older companion task can run as the correct limited user but be owned by Administrators with
-only read access for that user. It then requires elevation to pause/restart during every update.
-Run `6 - Enable User Updates.bat` as administrator once, using the same Windows account. The agent
-can prepare/check this without elevation; approval of an existing protected task repair remains a
-Windows boundary. Do not use old ad hoc helpers that unconditionally demand administrator rights.
+An older task may run as this limited user but allow only read access to its management. Do not
+request a one-time elevation merely to continue routine work. After tests and both CI checks pass,
+the supported wrapper can enable normal-user process management from the primary checkout:
 
-`tools/enable-user-updates.ps1` validates the exact Java action, runtime JAR, checkout and current
-principal. Both native task properties and XML must establish an interactive, non-elevated task;
-Windows may omit the default XML RunLevel, so absence alone is not accepted as proof. It backs up
-the task XML and owner/group/DACL, verifies their bytes/hashes, and adds control for that one user
-on that one task. Original rules, owner/group, action, triggers and enabled state are preserved.
-Denied/conditional rules and foreign/elevated tasks require inspection instead of a forced repair.
-A changed task aborts before writing; a failed postcondition restores the original DACL.
+```powershell
+.\tools\apply-update.ps1 -Unattended -UserProcess
+```
 
-Fresh registration performs the same grant before the paired installer copies/enables the new
-pair. Routine updates check access before creating a backup or stopping anything. Once enabled,
-run `tools/apply-update.ps1 -Unattended` directly in a normal shell. No elevated background updater,
-saved administrator password, global task-folder permission or UAC/security-setting change is used.
-The metadata repair itself does not install JARs, stop processes or open account/database files.
+Root `6 - Enable User Updates.bat` invokes the same transition normally. It validates exact task
+scope and current-user process ownership, leaves task XML/permissions unchanged, and requires
+tested startup/singleton/pair guards before first cutover. Original JARs/manifest are verified before
+changes; old processes are drained again after atomic guarded-code replacement, before account
+backup. Backup verification and runtime-artifact-only rollback preserve all account data.
+Read [the lifecycle contract](architecture/user-process-updates.md) for ordering and failure behavior.
 
-This uses Microsoft's supported [task-specific permissions](https://learn.microsoft.com/en-us/windows/win32/taskschd/security-contexts-for-running-tasks)
-and [SetSecurityDescriptor API](https://learn.microsoft.com/en-us/windows/win32/taskschd/registeredtask-setsecuritydescriptor).
-Source tests and a read-only access check do not establish that a real repair/update has completed;
-record the owner-approved repair and a subsequent normal-user paired update before claiming that.
+The verified manifest's processLifecycleVersion=1 makes later ordinary Update and Start use that
+workflow automatically, without INSTALL replies or task management. Reconfiguring/removing the
+protected task is separate from routine maintenance. Fresh registration still grants its creator
+maintenance access; #76's optional explicit ACL repair is not needed for process updates. No new
+task, elevated background updater, saved administrator password or UAC/security change is used.
+Record the actual first normal-user update, unchanged task metadata and installed/transport proof
+before claiming delivery. Every login and game action remains manual.
 
 For historical trade-gap investigation, [audit a verified source capture](architecture/trade-evidence-audit.md)
 with tools/audit-trades.ps1. It creates a private reproducible observation report without opening a

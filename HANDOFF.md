@@ -3,41 +3,38 @@
 Updated 16 October 2026 (America/Anchorage). Read [AGENTS.md](AGENTS.md) and [TASKS.md](TASKS.md).
 Root notes describe the current workflow; detailed prior receipts remain in linked history.
 
-## Normal-user companion updates
+## Companion updates without administrator approval
 
-Source branch codex/user-owned-companion-updates starts from #75/1f98391. Read its PR for exact-head
-Windows/Linux checks and the merge receipt. The real permission repair has not been applied.
-The owner is away; no UAC prompt, permission write or paired installation was started.
+Current source branch codex/companion-process-updates starts from #76/51b69e4. #76 passed both
+checks at e158825 in run 38953016899 (Windows 117148852473 / Ubuntu 117148852517). Its optional
+ACL repair was never applied. The owner explicitly requires maintenance without even one UAC reply.
 
-The current task already runs as this user, Interactive/Limited, but Administrators owns it and
-its explicit user ACE permits reads only. A real read-only native scope check reports
-NORMAL_USER_MAINTENANCE_READY=False / CURRENT_CALLER_CAN_REPAIR=False. The user's existing shortcuts
-do not request elevation; task maintenance is the confirmed permission boundary.
+The protected task already runs as this user, native Limited/Interactive, while allowing only read
+access to task management. Read-only process inspection also confirms its JVM belongs to this user.
+The new supported -Unattended -UserProcess transition leaves task XML/ACLs unchanged and manages
+only exact installed-JAR companion processes owned by this user. No administrator approval, new
+task, elevated helper, credential store or global security change is required. Root 6 now invokes
+this transition normally; it no longer asks to Run as administrator. Do not use old elevated helpers.
 
-`6 - Enable User Updates.bat`, run as administrator once under the same Windows account, backs up
-and verifies the task XML/SDDL before granting that one user control of this one limited task.
-It preserves the other access rules, owner/group, action, triggers and enabled state. It creates
-no elevated updater or password store, changes no global Windows security setting, and opens no
-database/account records. Foreign/elevated/credentialed tasks and denying/unsupported ACLs fail.
-Snapshot changes abort before write; a failed postcondition restores the original DACL.
-Fresh registration performs this grant before the pair is copied/enabled. Ordinary updates check
-access before backup/stopping; after repair, invoke tools/apply-update.ps1 -Unattended normally,
-not an old ad hoc helper which unconditionally requires administrator rights. Read
-[the workflow](docs/development-workflow.md) and [Start here](START%20HERE.md).
+The companion takes an installation/startup gate and lifetime singleton before any token/database
+or retention work. It verifies its installed pair before store access. Windows native sharing,
+two child JVMs, real-main refusal and incomplete-pair behavior are tested with disposable files.
+The updater backs up original runtime artifacts before cutover, atomically installs guarded code,
+drains old JVMs a second time before account backup, verifies the backup and installs the plugin.
+Pre-commit rollback restores runtime JARs/manifest only; account/database files are never restored
+or repaired. Unknown listeners, owners/tasks, missing guard and a running client still refuse.
+Persistent processLifecycleVersion=1 selects ordinary unattended updates and direct Start later.
 
-Regression-first 2c2a5ab reproduces late access denial and missing setup maintenance rights.
-Native tests 26fe7c6 cover scoped permissions, preservation, owner/admin/idempotent repair, races,
-write failure/rollback and Windows' omitted XML RunLevel. Typed native level 0/logon 3 is required;
-missing XML alone is not authorization. Early PS5.1 enum/hash issues and the native/snapshot cases
-were caught in the new unshipped helper before fixes; they are not claimed as shipped regressions.
-Windows CI initially exposed a fake-task SDDL spelling mismatch for the built-in Administrator SID.
-462b39f reproduces it locally; the fixture now returns native-rendered aliases before and after writes.
-Production rollback checks are unchanged. Final tooling: 94 tests / 76.495s / OK / exit 0;
-PowerShell 7 native gate: 13 / 13.727s / OK. See [#76](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/76) for final exact-head CI.
-Standard clean build: BUILD SUCCESSFUL in 49s / 18 tasks / exit 0; 1,528 Java passed/six existing
-skips, zero failures/errors. Java source is unchanged by this tooling slice. Logs: reusable
-.gradle/task-access-*. Real scope inspection changes no permissions; full repair and a following
-normal-user paired update remain explicit acceptance gates.
+Feature-first afd2b0d specifies the new process lifecycle; it initially fails for the unsupported
+UserProcess option, rather than proving that old code already had this feature. Existing protected
+task denial is reproduced by #76's earlier regression. Local and exact-head CI/delivery receipts
+are in the branch PR; real cutover remains pending until its supported primary-checkout update.
+Standard: BUILD SUCCESSFUL in 59s / 18 tasks / exit 0; 1,534 Java passed/six existing skips,
+zero failures/errors. Tooling: 103 / 99.585s / OK; PowerShell 7 process gate: ten / 25.351s / OK.
+The BOM manifest/native/singleton focused gate also passes. Plugin 487,383 bytes/218 project classes;
+companion 17,900,140 bytes/461 classes; all Java 11. Logs: reusable .gradle/process-update-*.
+Read [the lifecycle contract](docs/architecture/user-process-updates.md),
+[workflow](docs/development-workflow.md) and [Start here](START%20HERE.md).
 
 ## Installed runtime and queued source
 
@@ -46,7 +43,7 @@ all project bytecode Java 11. Backup 20261016-002238-6687103d and earlier status
 GET pipeline proof are preserved in history. They do not establish current trading eligibility.
 
 #72/eaa63b1 (episode replay prevention) and #75/1f98391 (accurate durable-risk explanations) are
-merged/CI-passed, queued together for one supported paired update after task permission repair.
+merged/CI-passed, queued together with this startup guard for one supported normal-user paired update.
 #75 passed at c038cab in run 38946004083: Windows 117125172627 / Ubuntu 117125172354.
 [Delivery](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/75#issuecomment-6221973637).
 #72 passed at da449a7 in run 38876972197: Windows 116894240240 / Ubuntu 116894240365.
@@ -108,6 +105,7 @@ Active contracts: [trade scope](docs/architecture/automatic-trade-scope.md),
 [offline audit](docs/architecture/trade-evidence-audit.md), [compact UI](docs/architecture/compact-panel.md)
 and [manual assistance](docs/architecture/trade-input-assistance.md).
 
-Full prior receipts are retained in [latest history](docs/history/handoff-through-2026-10-16-risk-pauses.md),
+Full prior receipts are retained in [task-access history](docs/history/handoff-through-2026-10-16-user-task-access.md),
+[risk history](docs/history/handoff-through-2026-10-16-risk-pauses.md),
 [source-audit history](docs/history/handoff-through-2026-10-16-source-audit.md) and
 [earlier history, including PR #31's checklist](docs/history/handoff-through-2026-10-15.md).
