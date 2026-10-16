@@ -3,6 +3,70 @@
 Updated 16 October 2026 (America/Anchorage). Read this with [AGENTS.md](AGENTS.md) and
 [TASKS.md](TASKS.md) before continuing implementation.
 
+## Startup prevention pair installed; stock recovery remains open — 16 October 2026
+
+PR #69 merged as `86f69dabf9f32652872da0635c451f4b2bbefb5d`; primary rebuild is clean/current
+at that revision. Historical main remains 0cb8ef8 and required ee0d3af ancestry passes. Both
+exact-head checks passed at `311b02d945db91d1292fec15a0bc4d6ac84aa739` in
+[run 38872839010](https://github.com/antonioditcharo/OSRS-Flipping-Friend/actions/runs/38872839010):
+Windows 116880770298 / Ubuntu 116880770698. The final profile-fence regression and 41s clean build
+below are included. Java 1,491 passed/six skips; Python 79 passed; source/tests are unchanged by
+this receipt. No further test suite or JAR reinstall is needed for these documentation changes.
+
+With zero RuneLite clients, one elevated helper invoked the supported updater -Unattended from
+the exact clean primary revision. Backup verified before paired replacement:
+
+```text
+C:\Users\Antonio\.runelite\osrs-flipping-friend\backups\20261016-002238-6687103d
+backup-verification.json            335 bytes / VERIFIED
+companion-task.xml                 1,895 bytes
+old companion JAR            17,878,059 bytes
+old installation.json                458 bytes
+old plugin JAR                  486,098 bytes
+companion accounts: 3 files / 32,890,552 bytes
+plugin accounts:   22 files / 1,507,868 bytes
+```
+
+Helper success=true/exitCode=0, sourceRevision=86f69da, finished 08:22:56 UTC / 00:22 local.
+Supported build: BUILD SUCCESSFUL in 6s, three tasks executed/five up-to-date. Installed plugin
+486,494 bytes/218 project classes and companion 17,878,455 bytes/453 classes match manifest and
+primary build hashes. Every project class matches the final standard-tested candidate and targets
+Java 11. Each JAR has a harmless 20-byte packaging difference from that candidate.
+
+```text
+PAIRED_INSTALL_PROOF=PASS / PAIRED_PROOF_EXIT=0
+Overall status: PAIR VERIFIED / COMPANION RESPONDING / STATUS_EXIT=0
+RuneLite 1.13.2 and installed plugin API match; cached artifacts verified.
+COMPATIBILITY_EXIT=0
+PASS [Artifact] build\libs\osrs-flipping-friend.jar
+PASS [Artifact] companion\build\libs\flipping-friend-companion.jar
+PASS [Protocol] accounts-v1
+PASS [Market] Ready. Choosing which items to study.
+PASS [<account-id>] Ledger: 9 sale updates; 7 unresolved; 0 profit ranges.
+PASS [<account-id>] Action: WAIT. Plan: UNAVAILABLE. Waiting for the game client to report your coins and free slots.
+INFO [Accounting] No synthetic snapshots, offers, or trades were posted by this check.
+PIPELINE_EXIT=0
+```
+
+Agent launch through tools/start.ps1 observes one client and the plugin side-load line. Fresh
+post-login first-tick evidence, restored sell guidance and controlled trading are not established.
+Existing stock remains paused by historical gaps; prevention is not recovery. See
+[issue #70](https://github.com/antonioditcharo/OSRS-Flipping-Friend/issues/70) for the next work.
+No game input, database repair/migration, financial backfill, risk reset, preference change or
+outbox clearing occurred. Original data and unknown sale profit remain intact.
+
+A complete canonical prefix was frozen read-only and independently verified with its retained
+evaluator artifact (no database reopened): 11,598 source rows/cursor 13,221, 22 episodes/six eligible
+forecasts, all six horizon outcomes ambiguous. Both commands exit 0; promotion remains held.
+Manifest SHA-256 003c8d207f1462215fe7455413c8223ee630032d419ee939ff945bae12bad3b6.
+This is reproducible evidence, not an accounting resolution or learning/performance claim.
+[Recovery evidence receipt](https://github.com/antonioditcharo/OSRS-Flipping-Friend/issues/70#issuecomment-6211234889).
+
+Private primary receipts: .gradle/startup-offer-{update*,install-proof,status,compatibility,launch.*};
+local-data/diagnostics/startup-offer-postinstall-pipeline-20261016.txt; complete frozen bundle
+local-data/execution-evaluation/sell-gap-evidence-20261016 and .gradle/sell-gap-*-20261016.log.
+Continue the source-proof recovery investigation before asking the owner to repeat trades/restarts.
+
 ## Missing sell guidance: startup evidence prevention — 16 October 2026
 
 Resume starts at clean/current rebuild `4e822ec99a1585fa2c5c17d4638ab6b2508065b1` (#68).
