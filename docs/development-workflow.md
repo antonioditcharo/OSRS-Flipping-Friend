@@ -35,6 +35,10 @@ unchanged and the installed pair remains valid. Summarize the result and ask for
 when it requires login, a game action or an otherwise unobservable UI result. Keep personal output
 in ignored local-data. Do not claim live UI/trading acceptance from offline or transport checks.
 
+For historical trade-gap investigation, [audit a verified source capture](architecture/trade-evidence-audit.md)
+with tools/audit-trades.ps1. It creates a private reproducible observation report without opening a
+database or client. The report cannot authorize accounting changes or release trading guards.
+
 ## Avoiding unnecessary close/reopen cycles
 
 The launcher's full developer API is cached under

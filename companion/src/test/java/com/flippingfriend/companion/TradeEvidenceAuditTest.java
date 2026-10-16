@@ -87,4 +87,20 @@ public class TradeEvidenceAuditTest {
         for(var row:report.identities)assertTrue(row.flags.isEmpty());
         assertFalse(report.authorizesAccounting);assertFalse(report.authorizesTrading);
     }
+    @Test public void orderSessionAndFutureClockConflictsRemainVisible() {
+        var first=event("open","BUYING",0,0,2);var earlier=event("earlier","BUYING",1,1000,1);
+        assertTrue(audit(first,earlier).identities.get(0).flags.contains("SOURCE_ORDER_CONFLICT"));
+        var wire=json.toJsonTree(event("session-change","BUYING",1,1000,3)).getAsJsonObject();wire.addProperty("sessionId","another-session");
+        var session=audit(first,json.fromJson(wire,OfferEvent.class)).identities.get(0);
+        assertTrue(session.flags.contains("SESSION_CHANGED"));assertTrue(session.flags.contains("SOURCE_ORDER_CONFLICT"));
+        var future=json.toJsonTree(event("future-clear","EMPTY",0,0,1)).getAsJsonObject();future.addProperty("observedAt",at+200);
+        assertEquals(1,audit(json.fromJson(future,OfferEvent.class)).unassignedProblems.size());
+    }
+    @Test public void invalidTerminalAndImpossibleFundingDoNotBecomeCleanEvidence() {
+        var invalid=audit(event("open","BUYING",0,0,1),event("bad-terminal","BOUGHT",2,1999,2)).identities.get(0);
+        assertTrue(invalid.flags.contains("INVALID_LIFECYCLE_OBSERVATION"));
+        var funding=audit(event("open","BUYING",0,0,1),event("overfunded","BUYING",1,10001,2)).identities.get(0);
+        assertTrue(funding.flags.contains("CONTRADICTORY_FUNDING"));
+        assertTrue(funding.problems.stream().anyMatch(row->row.eventId.equals("overfunded")));
+    }
 }
