@@ -100,6 +100,38 @@ public class CurrentOfferReadLatencyTest {
         }
     }
 
+    @Test public void historicalGapScopeAndCapitalBoundsShareOneCoherentHistoryRead() throws Exception {
+        var f=new BoundedPlanningStateTest();
+        try (var store=new SqliteStore(folder.newFolder().toPath().resolve("scoped-history.db"))) {
+            var capture=f.snapshot(f.seed(store));
+            Connection db=connection(store);
+            db.setAutoCommit(false);
+            try (var insert=db.prepareStatement("INSERT INTO event_log(observed_at,correlation_id,event_id,event_type,payload) VALUES(?,?,?,?,?)")) {
+                for (int i=0;i<30_000;i++) {
+                    var event=OfferEvent.builder("old",f.now-60,"EMPTY").accountId(f.account)
+                        .eventIdentity("older-"+i,"earlier-session",null).slot(i%8).sequence(i+1).build();
+                    insert.setLong(1,f.now-60);insert.setString(2,"old");insert.setString(3,event.getEventId());
+                    insert.setString(4,"EMPTY");insert.setString(5,gson.toJson(event));insert.addBatch();
+                }
+                insert.executeBatch();db.commit();
+            } finally {db.setAutoCommit(true);}
+            ProgressHandler.setHandler(db,1000,new ProgressHandler() {
+                int callbacks;
+                @Override protected int progress() {return ++callbacks>400?1:0;}
+            });
+            try {
+                var read=store.planningProjections(f.account);
+                assertTrue(CurrentOfferReadSet.valid(read,capture,f.now));
+                assertEquals(30_011,read.history.size());
+                assertEquals(2,read.tradeScope.positions.get(561).getQuantity());
+                var exposure=DurablePlanningExposure.forAccount(read,capture,f.now);
+                assertNotNull(exposure);
+                assertEquals(Long.valueOf(1000),exposure.committedByItem.get(561));
+                assertEquals(Set.of(561),exposure.unavailableEntryItems);
+            } finally {ProgressHandler.clearHandler(db);}
+        }
+    }
+
     void rejectBrokenCurrentSource(String mutation, String replacement) throws Exception {
         try (var store = new SqliteStore(folder.newFolder().toPath().resolve("broken.db"))) {
             seed(store);
