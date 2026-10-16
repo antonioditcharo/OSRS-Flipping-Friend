@@ -5,9 +5,11 @@ Root notes describe the current workflow; detailed prior receipts remain in link
 
 ## Companion updates without administrator approval
 
-Current source branch codex/companion-process-updates starts from #76/51b69e4. #76 passed both
-checks at e158825 in run 38953016899 (Windows 117148852473 / Ubuntu 117148852517). Its optional
-ACL repair was never applied. The owner explicitly requires maintenance without even one UAC reply.
+Runtime #77 is installed from merge 3dcd8313255235dcca13e3d56016386876811710. Both exact-head
+checks at fdcaa94 pass in run 38955937701 (Windows 117160940451 / Ubuntu 117160942779). An initial
+Windows HTTP isolation-test timeout passed on retry without source changes. #76's optional ACL
+repair was never applied. No initial UAC reply, task/permission change or elevated helper was used.
+Read the [full delivery receipt](docs/history/normal-user-update-2026-10-16.md).
 
 The protected task already runs as this user, native Limited/Interactive, while allowing only read
 access to task management. Read-only process inspection also confirms its JVM belongs to this user.
@@ -28,34 +30,35 @@ Persistent processLifecycleVersion=1 selects ordinary unattended updates and dir
 Feature-first afd2b0d specifies the new process lifecycle; it initially fails for the unsupported
 UserProcess option, rather than proving that old code already had this feature. Existing protected
 task denial is reproduced by #76's earlier regression. Local and exact-head CI/delivery receipts
-are in the branch PR; real cutover remains pending until its supported primary-checkout update.
+are recorded above; real primary-checkout cutover and normal-user Start now pass.
 Standard: BUILD SUCCESSFUL in 59s / 18 tasks / exit 0; 1,534 Java passed/six existing skips,
 zero failures/errors. Tooling: 103 / 99.585s / OK; PowerShell 7 process gate: ten / 25.351s / OK.
-The BOM manifest/native/singleton focused gate also passes. Plugin 487,383 bytes/218 project classes;
+The BOM manifest/native/singleton focused gate also passes. Worktree plugin 487,383 bytes/218 classes;
 companion 17,900,140 bytes/461 classes; all Java 11. Logs: reusable .gradle/process-update-*.
 Read [the lifecycle contract](docs/architecture/user-process-updates.md),
 [workflow](docs/development-workflow.md) and [Start here](START%20HERE.md).
 
-## Installed runtime and queued source
+## Installed runtime
 
-Installed pair remains #69/86f69da, API 1.13.2: plugin 486,494 bytes and companion 17,878,455 bytes,
-all project bytecode Java 11. Backup 20261016-002238-6687103d and earlier status/compatibility/
-GET pipeline proof are preserved in history. They do not establish current trading eligibility.
+Installed #77 includes #72 episode replay prevention, #75 accurate durable-risk explanations and
+the startup/process guard. API 1.13.2; plugin 487,403 bytes/218 project classes, companion 17,900,160
+bytes/461 classes, all Java 11. Both hashes match the manifest; processLifecycleVersion=1.
+Backup 20261016-114457-2a290e0e is VERIFIED: original JAR/manifest/task plus three companion account
+files and 22 plugin account files. XML and SDDL remain identical; current process elevation=false
+and task maintenance readiness remains false. Actual installed archive bytes differ from worktree
+packaging; exact hashes/sizes are in the delivery receipt. Historical main/required ancestor remain intact.
 
-#72/eaa63b1 (episode replay prevention) and #75/1f98391 (accurate durable-risk explanations) are
-merged/CI-passed, queued together with this startup guard for one supported normal-user paired update.
-#75 passed at c038cab in run 38946004083: Windows 117125172627 / Ubuntu 117125172354.
-[Delivery](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/75#issuecomment-6221973637).
-#72 passed at da449a7 in run 38876972197: Windows 116894240240 / Ubuntu 116894240365.
-Historical main remains 0cb8ef8; the required ee0d3af ancestor is preserved.
+Native status, launcher CheckOnly, StartOnly and explicit-account GET pipeline each exit 0. Ledger:
+11 sale updates/eight unresolved/zero profit ranges. Action WAIT, plan UNAVAILABLE: waiting for
+client coins/free slots. This is transport proof, not current trading eligibility. The native updater
+completion/manifest are observed; its exact exit was not retained after outer log-capture cleanup.
+Independent verification exits are recorded, not inferred.
 
-On the owner's explicit request, one standard Process.CloseMainWindow request was accepted for
-RuneLite PID 27600 and that process exited. No force-kill or game input was used. Desktop-control
-initialization failed before any UI action; process lifecycle control completed the close.
-[Receipt](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/75#issuecomment-6222321342).
-Latest observed state is client closed, companion task enabled, pair #69 unchanged. Do not ask the
-owner to close the already closed client again; recheck process state before installing. Login and
-all game actions remain manual. Permission tooling itself requires no JAR replacement.
+RuneLite was previously closed normally on the owner's request. The supported Start script has
+now relaunched it; one client process is observed. No login/UI/trade outcome is observed and no game
+input was sent. Runtime through #77 is installed; this receipt is docs-only and needs no reinstall.
+Later ordinary Update/Start use the manifest's process lifecycle automatically, without admin or
+INSTALL replies. Do not ask the owner to run the optional ACL repair or another installation.
 
 ## Missing sells, independent evidence and latency
 
