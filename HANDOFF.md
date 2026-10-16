@@ -33,10 +33,15 @@ terminal-then-clear delivery remains ordered, including pre-tick and buffered ob
 [the contract](docs/architecture/startup-offer-evidence.md). This prevents new false gaps; it does
 not restore eligibility for the already affected stock or backfill accounting.
 
-Final standard: BUILD SUCCESSFUL in 44s / 18 tasks executed / exit 0; Java 1,490 passed/six existing
-skips, zero failures/errors (637 plugin/179 core/680 companion). Python: 79 tests in 71.713s / OK /
+Final review regression d5a2e30 also reproduces deferred restoration switching to a different
+profile. Its fix retains the original generation/profile across the first-tick retry; a changed
+profile cannot relabel the pending account read.
+
+Final standard: BUILD SUCCESSFUL in 41s / 18 tasks executed / exit 0; Java 1,491 passed/six existing
+skips, zero failures/errors (638 plugin/179 core/680 companion). Python: 79 tests in 71.713s / OK /
 exit 0; tooling unchanged afterward.
-Candidate plugin 486,399 bytes and companion 17,878,360 bytes. Exact-head CI and installation are
+Candidate plugin 486,474 bytes and companion 17,878,435 bytes, all project classes Java 11.
+Exact-head CI and installation are
 pending at this checkpoint; source verification is not live acceptance.
 
 Read-only evidence also finds an affected nine-unit buy whose accepted acquisition rows sum to
@@ -54,6 +59,7 @@ regressions/final verification. A focused command initially also selected a subp
 matching tests; the final unfiltered standard above is authoritative. No latency acceptance or
 restored live sell recommendation is claimed. Batch any supported installation; no repeated player
 INSTALL/log-paste steps are required.
+Historical stock recovery is tracked in [issue #70](https://github.com/antonioditcharo/OSRS-Flipping-Friend/issues/70).
 
 ## Full-counter pair installed and verified — 15 October 2026
 

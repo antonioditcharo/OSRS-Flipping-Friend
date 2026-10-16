@@ -20,7 +20,8 @@ runs after packets have processed. LOGGED_IN alone is not enough to authenticate
 
 On plugin startup and each login, logout, hop or connection loss, array restoration and account
 snapshot publication wait for the first GameTick observed while LOGGED_IN. Restoration requested
-before that boundary retries on the tick, with the existing generation/profile/account-load checks.
+before that boundary retries on the tick, retaining its original generation/profile/account-load
+checks. A later profile cannot relabel the deferred read.
 This is an event boundary, not an arbitrary sleep or a claim that missing server packets arrived.
 
 Initial EMPTY callbacks are ignored until that boundary unless a nonempty callback has already
@@ -38,7 +39,7 @@ agree. The normal copied callbacks remain the source of transitions; no terminal
 
 ## Verification and limits
 
-Regression commits eedb4c2 and 7cced9d precede the corresponding fixes. Synthetic client/worker
+Regression commits eedb4c2, 7cced9d and d5a2e30 precede the corresponding fixes. Synthetic client/worker
 tests reproduce premature array restoration, premature publication, default EMPTY callbacks,
 relogin, stale cancellation phases, ahead-of-callback fills and mismatched spend. They retain
 real terminal-then-clear delivery, offline completion restoration, copied observations and the

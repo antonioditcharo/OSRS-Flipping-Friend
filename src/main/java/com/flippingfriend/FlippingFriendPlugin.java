@@ -189,6 +189,8 @@ public class FlippingFriendPlugin extends Plugin
 	// Client-thread snapshot boundary. LOGGED_IN alone can precede server-populated slot data.
 	private boolean offerSnapshotReady;
 	private boolean restoreOffersPending;
+	private long pendingRestoreGeneration;
+	private String pendingRestoreProfile;
 	private final boolean[] nonemptyOfferSeen = new boolean[8];
 	private volatile long lastAccountRefresh;
 	private volatile long lastEngineRefresh;
@@ -401,7 +403,10 @@ public class FlippingFriendPlugin extends Plugin
     public void onGameTick(net.runelite.api.events.GameTick event) {
         if(client.getGameState()==GameState.LOGGED_IN) {
             offerSnapshotReady=true;
-            if(restoreOffersPending)restoreCurrentOffers(offerObservationGeneration.get(),configManager.getRSProfileKey());
+            if(restoreOffersPending) {
+                restoreOffersPending=false;
+                restoreCurrentOffers(pendingRestoreGeneration,pendingRestoreProfile);
+            }
         }
         refreshSellSetupQuote();
     }
@@ -615,7 +620,12 @@ public class FlippingFriendPlugin extends Plugin
 		if (generation != offerObservationGeneration.get() || !accountDataLoaded.get()
 			|| client.getGameState() != GameState.LOGGED_IN
 			|| !java.util.Objects.equals(profile, configManager.getRSProfileKey())) return;
-		if (!offerSnapshotReady) { restoreOffersPending = true; return; }
+		if (!offerSnapshotReady) {
+			restoreOffersPending = true;
+			pendingRestoreGeneration = generation;
+			pendingRestoreProfile = profile;
+			return;
+		}
 		restoreOffersPending = false;
 		drainPendingOffers();
 		net.runelite.api.GrandExchangeOffer[] offers = client.getGrandExchangeOffers();
