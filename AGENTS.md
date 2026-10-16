@@ -31,7 +31,7 @@ are in `docs/project-direction.md`; historical package notes are not proof of ru
   Live full-counter BUYING frames before BOUGHT also created false gaps; the tested fix is installed,
   with fresh post-update/full-progress acceptance still pending. Existing gaps and risk reserves
   stay intact; see docs/architecture/full-counter-progress.md.
-  Startup prevention source additionally waits for a logged-in server tick, ignores default EMPTY
+  Startup prevention through PR #69 is installed: it waits for a logged-in server tick, ignores default EMPTY
   callbacks without a current-login nonempty predecessor, and requires periodic captures to agree
   with processed callbacks. Read docs/architecture/startup-offer-evidence.md and newest HANDOFF for
   delivery state. Existing affected stock remains paused; this is not historical gap resolution.

@@ -11,13 +11,19 @@ statements later in this file. Read [HANDOFF.md](HANDOFF.md) for exact evidence.
       synthetic restoration/account publication; preserve real terminal-then-clear callbacks.
       Periodic captures must match processed state/counters and cannot add transitions or fills.
       Original profile/generation survive deferred retry (regression d5a2e30). Final standard 41s:
-      1,491 Java passed/six skips; 79 Python passed in 71.713s. CI/install pending.
+      1,491 Java passed/six skips; 79 Python passed in 71.713s. #69 merged as 86f69da after both CI
+      checks pass at 311b02d (run 38872839010; Windows 116880770298/Ubuntu 116880770698). Supported
+      unattended pair installed after verified backup 20261016-002238-6687103d. Installed 486,494 /
+      17,878,455-byte JARs match manifest/build/all tested Java 11 classes. Status, compatibility and
+      GET-only pipeline exit 0; one client launched. Fresh login/trading acceptance still pending.
 - [ ] Restore safe sell guidance for already affected stock through auditable evidence-based
       resolution. Current ledger has zero eligible trading positions, nine sales/seven unresolved.
       A nine-unit offer has 11 units in affected acquisition rows; old aggregate positions are
       not safe fallback quantities. Preserve original rows, unknown costs/profit and risk window.
       Prevention alone does not resolve this task. No manual database repair, replay or bypass.
       Tracked in https://github.com/antonioditcharo/OSRS-Flipping-Friend/issues/70.
+      Complete read-only canonical prefix retained/independently verified: 11,598 rows/cursor 13,221,
+      six eligible forecasts with ambiguous horizon outcomes. No accounting or learning promotion.
 - [ ] Verify post-update login does not emit false clears and complete a player-operated buy ->
       collect -> sell workflow. Fresh capture/source tests do not establish live eligibility.
 - [x] Deliver/install full-counter progress fix from #66 merge 2ebf9cb on codex/full-counter-progress.
