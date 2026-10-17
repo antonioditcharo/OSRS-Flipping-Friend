@@ -27,6 +27,10 @@ statements later in this file. Read [HANDOFF.md](HANDOFF.md) for exact evidence.
       remain unchecked below; this is not activation of the old replacement scaffolding.
       Standard Windows 1m 2s / 18 tasks / exit 0: 1,560 Java passed/six skips; both JARs Java 11.
       Prior 103 tooling tests remain passing with no tooling changes. Source-only; CI pending.
+      b374b5a then reproduces two actual editor/key-queue refusal failures; WAIT immediately withdraws
+      buy guidance and invalidates queued input even if the identical buy later returns. No game
+      input sent. Final standard 54s: 1,562 Java passed/six skips, zero failures/errors; both JARs
+      built. Both latest-head CI checks and paired/live delivery still required for PR #80.
 
 - [x] Source one-time, task-specific maintenance access on codex/user-owned-companion-updates
       from #75/1f98391. Regression-first 2c2a5ab reproduces late permission failure/missing setup

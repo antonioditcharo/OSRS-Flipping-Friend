@@ -93,6 +93,14 @@ public class StepGuide
 	{
         if (paused) return;
 		Suggestion incoming = suggestion == null ? Suggestion.idle() : suggestion;
+        // A refusal withdraws entry authority. It must not wait behind the buy it invalidates.
+        if (incoming.getType() == SuggestionType.WAIT
+            && (tracked.getType() == SuggestionType.BUY || tracked.getType() == SuggestionType.MODIFY_BUY)) {
+            adviceGeneration.incrementAndGet();
+            tracked = incoming; pending = null; editorQuote = null;
+            quantityDone = false; priceDone = false; entryStarted = false; editingControl = null;
+            return;
+        }
 		if (incoming.sameAs(tracked))
 		{
             // Refresh the forecast payload while retaining progress on identical order inputs.

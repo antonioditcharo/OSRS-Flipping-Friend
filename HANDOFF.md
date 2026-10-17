@@ -25,6 +25,14 @@ Standard Windows clean verification passes in 1m 2s / 18 tasks / exit 0: 1,566 J
 all project bytecode Java 11. Earlier 103 tooling tests remain applicable (tooling unchanged).
 Focused actual-delivery/partial-buy tests also pass. Logs: reusable .gradle/replacement-entry-*.
 This source is not installed; both exact-head CI checks must pass before merge and paired delivery.
+Continuation b374b5a reproduces two actual editor/key-queue faults before fixing them. Entry WAIT
+now immediately withdraws BUY/MODIFY_BUY instead of being deferred behind its editor, and advances
+the guide generation so a queued player-key fill cannot survive refusal and identical reapproval.
+Other actionable trade deferral stays intact. Final standard for this added change passes in 54s /
+18 tasks / exit 0: 1,568 Java tests, 1,562 passed/six existing skips, zero failures/errors.
+Focused guide/key/refresh tests also pass. Logs: reusable .gradle/entry-refusal-editor-*.
+No tooling changes; the prior 103-test Python gate remains applicable. PR #80's latest exact head
+requires both CI checks before merge/install; earlier checks at 3944767 do not cover this addition.
 
 ## Merged safe sell-relist slice — not installed
 

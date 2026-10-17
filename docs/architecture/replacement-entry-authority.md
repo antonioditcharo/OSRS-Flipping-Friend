@@ -26,6 +26,14 @@ plan. These are guidance hints, not executions or proof of user intent. Predicti
 occurs only after existing client-thread guidance acceptance. No accounting, risk window, database,
 event identity or learning keys are changed or backfilled.
 
+Regression b374b5a additionally reproduces two actual walkthrough/input-assistance failures:
+an entry refusal was deferred behind an already open buy editor, and a queued player-key fill
+survived refusal followed by the same buy returning. WAIT now immediately withdraws BUY/MODIFY_BUY
+guidance, clears deferred advice/editor progress and advances the advice generation to cancel
+queued key work. A refusal cannot retain a confirming highlight for the old buy. Different
+actionable trade advice retains its existing mid-entry deferral behavior. Tests use synthetic
+keys and mocked widgets; the agent never sends input to the real game.
+
 This activates the existing entry policy for replacements; it does not activate the old replacement
 candidate scaffolding. A fresh allocation larger than the remainder waits rather than being resized
 without a new forecast. Exact remainder-constrained server candidate construction, durable buy
