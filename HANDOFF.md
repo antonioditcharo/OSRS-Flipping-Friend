@@ -20,8 +20,13 @@ migration. Windows standard verification: BUILD SUCCESSFUL in 53s, all 18 tasks 
 1,552 Java tests / 1,546 passed / six existing skips / zero failures/errors. Plugin 489,471 bytes,
 companion 17,902,228 bytes; 218/461 project classes, all Java 11 (major 55). Logs are in reusable
 .gradle/safe-relist-*. A focused invocation passed the root tests but selected no companion tests;
-the subsequent standard command above completed all modules. Tooling/remote CI results belong
-to the PR receipt. Require both exact-head checks before merging; no automatic installation.
+the subsequent standard command above completed all modules. All 103 tooling tests pass in 100.027s,
+exit 0. Implementation 187a79a is pushed in [PR #79](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/79).
+Both exact-head CI jobs were refused before starting: "The job was not started because your account
+is locked due to a billing issue." Run 39068304395, Windows 117500451578 / Ubuntu 117500451725.
+The owner must resolve GitHub's billing lock, then rerun both checks on the latest PR head. Logs
+could not be fetched (provider HTTP 502); check annotations establish the refusal, not a code failure.
+PR remains unmerged; require both exact-head checks before merging. No automatic installation.
 
 ## Companion updates without administrator approval
 

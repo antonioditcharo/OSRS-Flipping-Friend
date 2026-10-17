@@ -11,6 +11,10 @@ statements later in this file. Read [HANDOFF.md](HANDOFF.md) for exact evidence.
       episode guidance through restart. Source-only; installed #77 is unchanged. See
       docs/architecture/safe-sell-relist.md and CONTINUE DEVELOPMENT.md. Full companion migration,
       old affected-stock recovery and controlled live acceptance remain unchecked below.
+      PR #79 implementation 187a79a: standard 53s, 1,546 Java passed/six skips, both JARs Java 11;
+      all 103 tooling tests pass in 100.027s. Both CI jobs refused to start due to GitHub account
+      billing lock (run 39068304395). Leave unmerged until billing is resolved and both latest-head
+      checks pass. Docs receipt after this implementation needs no repeated local build/reinstall.
 
 - [x] Source one-time, task-specific maintenance access on codex/user-owned-companion-updates
       from #75/1f98391. Regression-first 2c2a5ab reproduces late permission failure/missing setup

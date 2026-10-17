@@ -5,6 +5,12 @@ Read AGENTS.md, HANDOFF.md and TASKS.md in full before changing code. The active
 The installed Windows runtime remains #77; this source slice is not installed. Do not label it
 live-tested or claim that it resolves the old stock in issue #70.
 
+PR #79 is open and unmerged. Local verification passes (1,546 Java tests, six skips; 103 tooling
+tests). GitHub refused both CI jobs before starting because the repository owner's account is
+locked due to a billing issue. Resolve that account issue, then rerun both latest-head checks;
+do not bypass the merge gate or treat these refused jobs as executed tests. The final receipt-only
+commit does not change runtime source or require another local clean build.
+
 ## Resume this slice
 
 Start with a clean checkout. Stop on unexpected changes; never reset, clean, stash or discard them.
