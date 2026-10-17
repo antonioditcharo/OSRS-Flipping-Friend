@@ -58,6 +58,15 @@ public class GeInputAssistTest {
         when(event.getKeyChar()).thenReturn((char)Character.toLowerCase(code)); return event;
     }
     private void drain() { List<Runnable> pending=new ArrayList<>(queued); queued.clear(); pending.forEach(Runnable::run); }
+    @Test public void entryRefusalCancelsAQueuedKeyFillEvenIfTheSameBuyReturns() {
+        var quantity=mock(Widget.class);when(resolver.getQuantityControl()).thenReturn(quantity);
+        var click=mock(net.runelite.api.events.MenuOptionClicked.class);when(click.getWidget()).thenReturn(quantity);
+        guide.onMenuOptionClicked(click);
+        assist.keyPressed(press(KeyEvent.VK_E));
+        guide.setSuggestion(Suggestion.waiting("Entry unavailable","Waiting for current authority."));
+        guide.setSuggestion(buy(100));
+        drain();verify(client,never()).setVarcStrValue(anyInt(),anyString());
+    }
     @Test public void onlyAPlayerKeyPressFillsOneOpenQuantityPromptWithoutSubmitting() {
         verify(client,never()).setVarcStrValue(anyInt(),anyString());
         KeyEvent e=press(KeyEvent.VK_E); assist.keyPressed(e);
