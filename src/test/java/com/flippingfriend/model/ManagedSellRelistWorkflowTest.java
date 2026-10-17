@@ -60,6 +60,14 @@ public class ManagedSellRelistWorkflowTest {
             when(companion.tradingLedger()).thenReturn(ledger(trades, List.of(), Map.of()));
         }
         Suggestion next() { return engine.refresh(false); }
+        Suggestion maintenance(int quantity) throws Exception {
+            inject(engine,"sellRelist",null);
+            var live = new TrackedOffer(0,561,false,1200,quantity,now.getEpochSecond()-100000);
+            live.setState("SELLING");
+            when(offers.getOffers()).thenReturn(List.of(live));
+            when(offers.listedForSale()).thenReturn(Map.of(561,quantity));
+            return next();
+        }
     }
     private AccountLedgerSnapshot ledger(List<PositionProjection> trades, List<MissedFlipEvidence> missed,
             Map<String, Set<Integer>> scope) {
@@ -133,5 +141,46 @@ public class ManagedSellRelistWorkflowTest {
         var f = new Fixture(6,5881,0,1000,true);
         assertEquals(SuggestionType.WAIT,f.next().getType());
         assertEquals(6,f.companion.tradingLedger().getTradingPositions().get(0).getQuantity());
+    }
+    private static void noReprice(Suggestion advice) {
+        assertTrue("Unsafe maintenance must not produce a sell cancellation/reprice",
+            advice==null || advice.getType()==SuggestionType.WAIT);
+    }
+    @Test public void maintenanceCannotDowngradeMissingLedgerToAnUnpricedSale() throws Exception {
+        var f=new Fixture(6,5881,6,1000,true);
+        when(f.companion.tradingLedger()).thenReturn(null);
+        noReprice(f.maintenance(6));
+    }
+    @Test public void maintenanceKeepsAffectedItemsPaused() throws Exception {
+        var f=new Fixture(0,0,6,1000,false);
+        var gap=new MissedFlipEvidence("gap","old-sale",561,"Nature rune","RECONCILE",0,
+            now.getEpochSecond(),null,null,null,null,null,null,"conflicting fills");
+        when(f.companion.tradingLedger()).thenReturn(ledger(List.of(),List.of(gap),Map.of("gap",Set.of(561))));
+        noReprice(f.maintenance(6));
+    }
+    @Test public void aMixedCostOfferCannotLoseItsKnownSubsetFloorDuringMaintenance() throws Exception {
+        var f=new Fixture(3,3500,6,1000,true);
+        noReprice(f.maintenance(6));
+    }
+    @Test public void maintenanceRequiresCurrentAccountAndLedgerTimestamp() throws Exception {
+        for(boolean foreign:new boolean[]{false,true}) {
+            var f=new Fixture(0,0,6,1000,false);
+            var value=new AccountLedgerSnapshot(foreign?AccountIdentity.fromProfileKey("other"):account,
+                now.getEpochSecond()-(foreign?0:151),0,0,0,0,0,0,0,0,List.of()).withTradeEvidence(List.of(),List.of());
+            when(f.companion.tradingLedger()).thenReturn(value);
+            noReprice(f.maintenance(6));
+        }
+    }
+    @Test public void maintenanceDoesNotCancelUsingStaleOrFutureSaleQuotes() throws Exception {
+        for(long offset:new long[]{-301,60}) {
+            var f=new Fixture(6,5881,6,1000,true);var original=f.market.getSnapshot();
+            when(f.market.getSnapshot()).thenReturn(new MarketSnapshot(original.getMetadata(),Map.of(561,
+                new LatestPrice(1000,now.getEpochSecond()+offset,1000,now.getEpochSecond())),Map.of(),Map.of(),now));
+            noReprice(f.maintenance(6));
+        }
+    }
+    @Test public void cleanExternalSaleMaintenanceStillQuotesWithoutInventingProfit() throws Exception {
+        var advice=new Fixture(0,0,6,1000,false).maintenance(6);
+        assertNotNull(advice);assertEquals(SuggestionType.MODIFY_SELL,advice.getType());assertFalse(advice.isProfitKnown());
     }
 }
