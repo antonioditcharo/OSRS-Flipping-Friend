@@ -21,8 +21,8 @@ reproduce six failures before fixes: lost cost floor, excess personal units, mis
 bypasses, offer identity confusion and malformed terminal counters. The fix requires matching fresh
 durable evidence and quote, preserves exact subset costs/floors and stop/sell-only rules, caps
 quantities and retains episode/cost-required guidance through restart. Personal sale profit stays
-unknown. Read [the contract](docs/architecture/safe-sell-relist.md) and
-[portable continuation instructions](CONTINUE%20DEVELOPMENT.md).
+unknown. Read [the contract](../architecture/safe-sell-relist.md) and
+[portable continuation instructions](../../CONTINUE%20DEVELOPMENT.md).
 
 This slice is queued source, not installed or controlled-trade acceptance. Installed runtime remains
 #77 below. No client restart/update, real database changes or in-game actions were performed for
