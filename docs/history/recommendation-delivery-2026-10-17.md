@@ -14,7 +14,7 @@ Historical main remains 0cb8ef8aab9114f02b16d2eca4433c0f7e010894; required ances
   BUILD SUCCESSFUL in 54s / 18 tasks / exit 0. Java: 1,568 total, 1,562 passed, six existing skips,
   zero failures/errors. Worktree artifacts 490,472/17,903,229 bytes. Project bytecode targets Java 11.
 - Earlier `python -m unittest discover -s tools/tests`: 103 tests / 100.027s / OK / exit 0;
-  no tooling changes since. Final delivery-document local target check: 46 valid links; diff check passes.
+  no tooling changes since. Changed-document local Markdown targets verified; diff check passes.
 - Regressions before fixes: 02d1c4b/8692ed3/bc05fb7 (#79); 40a45d5/b374b5a (#80).
   Contracts: [sell guidance](../architecture/safe-sell-relist.md),
   [replacement entry authority](../architecture/replacement-entry-authority.md).
