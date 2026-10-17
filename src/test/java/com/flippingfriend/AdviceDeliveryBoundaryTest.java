@@ -127,4 +127,33 @@ public class AdviceDeliveryBoundaryTest {
         f.clientQueue.remove().run();verify(f.guide,never()).setSuggestion(f.advice);
         verify(f.companion,never()).recordPresentedAdvice(any(),anyString());
     }
+    @Test public void localReplacementCannotReachTheGuideWhenCompanionRefusesEntries()throws Exception {
+        Fixture f=new Fixture();when(f.companion.nextAction()).thenReturn(null);
+        var engine=(SuggestionEngine)getField(f.plugin,"engine");when(engine.refresh(false)).thenReturn(f.advice);
+        var refusal=Suggestion.waiting("Risk paused","Current durable loss allowance is exhausted.");
+        when(f.companion.nextEntrySuggestion(any(),anySet(),anySet(),anySet())).thenReturn(refusal);
+        f.queueAdvice();f.clientQueue.remove().run();
+        verify(f.guide,never()).setSuggestion(f.advice);
+        verify(f.guide).setSuggestion(refusal);
+    }
+    @Test public void replacementUsesTheActualFreshAuthorizedOrderRatherThanTheLocalProposal()throws Exception {
+        Fixture f=new Fixture();when(f.companion.nextAction()).thenReturn(null);
+        var engine=(SuggestionEngine)getField(f.plugin,"engine");when(engine.refresh(false)).thenReturn(f.advice);
+        var allowed=Suggestion.builder(SuggestionType.BUY).item(562,"Fixture").quantity(5).price(105).targetSellPrice(120).build();
+        when(f.companion.nextEntrySuggestion(any(),anySet(),anySet(),anySet())).thenReturn(allowed);
+        f.queueAdvice();f.clientQueue.remove().run();
+        verify(f.guide).setSuggestion(allowed);verify(f.guide,never()).setSuggestion(f.advice);
+        verify((TradePlans)getField(f.plugin,"tradePlans")).plan(eq(562),eq(120),anyInt(),anyDouble(),anyLong());
+    }
+    @Test public void aDifferentItemOrOversizedFreshEntryCannotReplaceTheCancelledOrder()throws Exception {
+        for(boolean different:new boolean[]{false,true}) {
+            Fixture f=new Fixture();when(f.companion.nextAction()).thenReturn(null);
+            var engine=(SuggestionEngine)getField(f.plugin,"engine");when(engine.refresh(false)).thenReturn(f.advice);
+            var other=Suggestion.builder(SuggestionType.BUY).item(different?561:562,"Fixture").quantity(different?5:11).price(105).build();
+            when(f.companion.nextEntrySuggestion(any(),anySet(),anySet(),anySet())).thenReturn(other);
+            f.queueAdvice();f.clientQueue.remove().run();
+            verify(f.guide).setSuggestion(argThat(s->s.getType()==SuggestionType.WAIT));
+            verify((TradePlans)getField(f.plugin,"tradePlans"),never()).plan(anyInt(),anyInt(),anyInt(),anyDouble(),anyLong());
+        }
+    }
 }
