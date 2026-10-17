@@ -72,6 +72,15 @@ public class StepGuideInterruptionTest
 		guide.onMenuOptionClicked(click);
 	}
 
+    @Test public void anEntryRefusalWithdrawsTheBuyEvenWhileItsEditorIsOpen() {
+        guide.setSuggestion(buy(4151,"Abyssal whip"));beginEntry();
+        guide.setSuggestion(collect("Nature rune"));
+        var refusal=Suggestion.waiting("Risk paused","The current entry is no longer authorized.");
+        guide.setSuggestion(refusal);
+        org.junit.Assert.assertSame(refusal,guide.getSuggestion());assertNull(guide.getPending());
+        guide.onSetupClosed();org.junit.Assert.assertSame(refusal,guide.getSuggestion());
+    }
+
 	@Test
 	public void adviceArrivingOffTheClientThreadIsStillApplied()
 	{

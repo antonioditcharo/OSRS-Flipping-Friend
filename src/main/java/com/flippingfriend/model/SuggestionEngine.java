@@ -931,7 +931,7 @@ public class SuggestionEngine
 		// the position with no expected duration, which is what the holding card counts down and
 		// what the journal scores the prediction against.
 		TradePlans.PlannedExit existing = tradePlans.get(pending.itemId);
-		tradePlans.plan(pending.itemId, targetSell,
+		if (companion == null) tradePlans.plan(pending.itemId, targetSell,
 			(int) Math.round(newPrice * (1 - config.riskProfile().getLossCutPct())),
 			existing == null ? 0 : existing.getPredictedMinutes(), expectedProfit);
 

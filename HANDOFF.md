@@ -3,39 +3,47 @@
 Updated 17 October 2026 (America/Anchorage). Read [AGENTS.md](AGENTS.md) and [TASKS.md](TASKS.md).
 Root notes describe the current workflow; detailed prior receipts remain in linked history.
 
-## Queued safe sell-relist slice
+## Current source continuation
 
-17 October continuation: bc05fb7 reproduces five additional sell-maintenance failures before the
-fix. Maintenance and relisting now share fresh matching-account ledger/gap checks and current
-two-sided quote checks. Mixed-cost offers cannot lose their known subset's floor. Unrelated scoped
-gaps preserve clean sale advice; external profit remains unknown. Standard clean verification:
-BUILD SUCCESSFUL in 54s / 18 tasks / exit 0; 1,561 Java tests, 1,555 passed/six existing skips,
-zero failures/errors. Plugin 489,750 bytes; companion 17,902,507 bytes. Prior 103 tooling tests
-remain passing; no tooling changes since that run. Logs: reusable .gradle/sell-maintenance-evidence-*.
-Owner reports GitHub billing updated; fresh latest-head CI is required before merge/install.
+PR #79 is merged as 7d2032a38bb39e051163570fcdb8297ca988f8f9. Both exact-head checks at
+df3da1e pass in run 39068966156: Windows 117502409112 / Ubuntu 117502408869. Billing no longer
+blocks CI. The primary rebuild checkout is clean and fast-forwarded; installed runtime stays #77.
+The open native RuneLite process has no developer flag; scoped GET pipeline exits 0 but reports
+WAIT/UNAVAILABLE awaiting client coins/slots, ledger 11 sale updates/eight unresolved. These are
+pre-update transport observations, not evidence of active Friend UI or controlled trade acceptance.
 
-Branch codex/safe-sell-relist starts at #78/a142f4f. Regression commits 02d1c4b and 8692ed3
-reproduce six failures before fixes: lost cost floor, excess personal units, missing ledger/gap
-bypasses, offer identity confusion and malformed terminal counters. The fix requires matching fresh
-durable evidence and quote, preserves exact subset costs/floors and stop/sell-only rules, caps
-quantities and retains episode/cost-required guidance through restart. Personal sale profit stays
-unknown. Read [the contract](docs/architecture/safe-sell-relist.md) and
-[portable continuation instructions](CONTINUE%20DEVELOPMENT.md).
+New branch codex/replacement-entry-authority starts from that merged rebuild. Regression 40a45d5
+reproduces three actual plugin-delivery failures: local replacement BUY bypasses companion refusal,
+ignores the fresh authorized order and admits an unrelated/oversized replacement. The fix routes
+replacement proposals through the existing final entry boundary, keeps the same item and caps the
+quantity without resizing a forecast. WAIT retains its companion reason. Only authorized buys write
+runtime replacement plans; no accounting/data repair. Read
+[the contract](docs/architecture/replacement-entry-authority.md). Exact remainder construction and
+durable replacement restart workflow are still open; this is not activation of the old scaffolding.
+Standard Windows clean verification passes in 1m 2s / 18 tasks / exit 0: 1,566 Java tests,
+1,560 passed/six existing skips, zero failures/errors. Plugin 490,419 bytes; companion 17,903,176;
+all project bytecode Java 11. Earlier 103 tooling tests remain applicable (tooling unchanged).
+Focused actual-delivery/partial-buy tests also pass. Logs: reusable .gradle/replacement-entry-*.
+This source is not installed; both exact-head CI checks must pass before merge and paired delivery.
+Continuation b374b5a reproduces two actual editor/key-queue faults before fixing them. Entry WAIT
+now immediately withdraws BUY/MODIFY_BUY instead of being deferred behind its editor, and advances
+the guide generation so a queued player-key fill cannot survive refusal and identical reapproval.
+Other actionable trade deferral stays intact. Final standard for this added change passes in 54s /
+18 tasks / exit 0: 1,568 Java tests, 1,562 passed/six existing skips, zero failures/errors.
+Focused guide/key/refresh tests also pass. Logs: reusable .gradle/entry-refusal-editor-*.
+No tooling changes; the prior 103-test Python gate remains applicable. PR #80's latest exact head
+requires both CI checks before merge/install; earlier checks at 3944767 do not cover this addition.
 
-This slice is queued source, not installed or controlled-trade acceptance. Installed runtime remains
-#77 below. No client restart/update, real database changes or in-game actions were performed for
-this slice. #70 remains open; this does not repair historical stock or complete companion sell-policy
-migration. Windows standard verification: BUILD SUCCESSFUL in 53s, all 18 tasks executed, exit 0;
-1,552 Java tests / 1,546 passed / six existing skips / zero failures/errors. Plugin 489,471 bytes,
-companion 17,902,228 bytes; 218/461 project classes, all Java 11 (major 55). Logs are in reusable
-.gradle/safe-relist-*. A focused invocation passed the root tests but selected no companion tests;
-the subsequent standard command above completed all modules. All 103 tooling tests pass in 100.027s,
-exit 0. Implementation 187a79a is pushed in [PR #79](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/79).
-Both exact-head CI jobs were refused before starting: "The job was not started because your account
-is locked due to a billing issue." Run 39068304395, Windows 117500451578 / Ubuntu 117500451725.
-This original run predates the owner's reported billing update. Rerun both latest-head checks. Logs
-could not be fetched (provider HTTP 502); check annotations establish the refusal, not a code failure.
-PR remains unmerged; require both exact-head checks before merging. No automatic installation.
+## Merged safe sell-relist slice — not installed
+
+PR #79 preserves exact taxed cost floors, canonical/visible cancelled remainders, fresh scoped
+ledger/quote checks, managed cost-required guidance and episode matching through restart. Clean
+external sale profit stays unknown. Regressions 02d1c4b/8692ed3/bc05fb7 precede the fixes.
+Final standard: 54s / 18 tasks / exit 0; 1,555 Java passed/six skips; prior 103 tooling tests pass.
+Plugin 489,750 bytes; companion 17,902,507 bytes. No real database edit, update or game input.
+#70 and full policy/live-workflow acceptance remain open. Read the
+[contract](docs/architecture/safe-sell-relist.md), [detailed receipts](docs/history/sell-guidance-2026-10-17.md)
+and [continuation guide](CONTINUE%20DEVELOPMENT.md).
 
 ## Companion updates without administrator approval
 

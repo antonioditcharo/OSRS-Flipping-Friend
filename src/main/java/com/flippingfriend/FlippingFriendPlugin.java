@@ -885,6 +885,8 @@ public class FlippingFriendPlugin extends Plugin
 				if (suggestion == null)
 				{
 					suggestion = engine.refresh(false);
+                    if (suggestion != null && suggestion.getType() == SuggestionType.BUY)
+                        suggestion = authorizeReplacement(suggestion);
 				}
 				if (suggestion != null && (suggestion.getType() == SuggestionType.MODIFY_BUY
 					|| suggestion.getType() == SuggestionType.CANCEL))
@@ -921,7 +923,7 @@ public class FlippingFriendPlugin extends Plugin
 				"No new buy will be suggested until the companion returns a current, valid entry decision.");
 					}
 
-					if (suggestion == planned)
+					if (suggestion == planned && planned.getType() == SuggestionType.BUY)
 					{
 						// Record the exit alongside the entry, exactly as the built-in engine does.
 						// Only that engine was doing it, so on the companion path -- the one that
@@ -1011,6 +1013,32 @@ public class FlippingFriendPlugin extends Plugin
 		panel.refresh();
 	}
 
+    /** A replacement spends cash again; its old reservation is not current entry authority. */
+    private Suggestion authorizeReplacement(Suggestion proposed)
+    {
+        if (proposed.getItemId() <= 0 || proposed.getQuantity() <= 0)
+            return Suggestion.waiting("Replacement unavailable", "The cancelled remainder is not valid.");
+        java.util.Set<Integer> excluded = new java.util.HashSet<>(engine.skippedItems());
+        var plan = companion.lastPlan();
+        if (plan != null && plan.getAllocations() != null) for (var allocation : plan.getAllocations()) {
+            if (allocation != null && allocation.getCandidate() != null
+                && allocation.getCandidate().getItemId() != proposed.getItemId())
+                excluded.add(allocation.getCandidate().getItemId());
+        }
+        Suggestion authorized = companion.nextEntrySuggestion(new com.flippingfriend.model.Explainer(),
+            com.flippingfriend.model.SuggestionEngine.parseBlocked(config.blockedItems()),
+            excluded, offerTracker.itemsWithOpenOffers());
+        if (authorized != null && authorized.getType() == SuggestionType.WAIT) return authorized;
+        if (authorized == null || authorized.getType() != SuggestionType.BUY
+            || authorized.getItemId() != proposed.getItemId() || authorized.getPrice() <= 0
+            || authorized.getQuantity() <= 0 || authorized.getQuantity() > proposed.getQuantity())
+            return Suggestion.waiting("Replacement needs a current companion plan",
+                "No eligible entry fits this item's cancelled remainder. Waiting for a fresh plan; the old order will not be reused.");
+        int stop = (int)Math.round(authorized.getPrice() * (1-config.riskProfile().getLossCutPct()));
+        tradePlans.plan(authorized.getItemId(), authorized.getTargetSellPrice(), stop,
+            authorized.getExpectedMinutes(), authorized.getExpectedProfit());
+        return authorized;
+    }
 	/** A short, readable description of a failure, for a card rather than a log. */
 	private static String describe(Exception ex)
 	{
