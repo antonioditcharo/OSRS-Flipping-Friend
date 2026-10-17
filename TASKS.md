@@ -17,7 +17,16 @@ statements later in this file. Read [HANDOFF.md](HANDOFF.md) for exact evidence.
       checks pass. Docs receipt after this implementation needs no repeated local build/reinstall.
       Continuation bc05fb7 reproduces five maintenance bypasses, then shares fresh scoped evidence/
       quote checks with relisting and protects mixed-cost offers. Standard 54s: 1,555 Java passed/
-      six skips, zero failures/errors. Owner reports billing updated; latest-head CI pending.
+      six skips, zero failures/errors. Both df3da1e CI checks pass in run 39068966156; merged #79
+      as 7d2032a. Installed #77 unchanged; live acceptance and policy consolidation stay open.
+- [x] Reproduce replacement entry-authority bypass in 40a45d5 on codex/replacement-entry-authority
+      from #79/7d2032a, then route local replacement BUY proposals through final companion entry
+      checks. Preserve same-item/remainder caps, exact authorized order/forecast and explicit WAIT;
+      avoid premature local runtime plan writes. See docs/architecture/replacement-entry-authority.md.
+      Exact remainder candidate construction, durable replacement intent/restart and live acceptance
+      remain unchecked below; this is not activation of the old replacement scaffolding.
+      Standard Windows 1m 2s / 18 tasks / exit 0: 1,560 Java passed/six skips; both JARs Java 11.
+      Prior 103 tooling tests remain passing with no tooling changes. Source-only; CI pending.
 
 - [x] Source one-time, task-specific maintenance access on codex/user-owned-companion-updates
       from #75/1f98391. Regression-first 2c2a5ab reproduces late permission failure/missing setup

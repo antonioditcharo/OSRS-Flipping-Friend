@@ -1,15 +1,13 @@
 # Continue development in another environment
 
 Read AGENTS.md, HANDOFF.md and TASKS.md in full before changing code. The active base is
-`CoPilot's-Rebuild-from-Main`; main is historical. Current working slice: `codex/safe-sell-relist`.
+`CoPilot's-Rebuild-from-Main`; main is historical. Current working slice: `codex/replacement-entry-authority`.
 The installed Windows runtime remains #77; this source slice is not installed. Do not label it
 live-tested or claim that it resolves the old stock in issue #70.
 
-PR #79 is open and unmerged. Local verification passes (1,555 Java tests, six skips; 103 tooling
-tests). GitHub previously refused both CI jobs before starting because of an account billing lock.
-The owner reports billing updated on 17 October; obtain both latest-head checks before merging;
-do not bypass the merge gate or treat these refused jobs as executed tests. The final receipt-only
-commit does not change runtime source or require another local clean build.
+PR #79 merged as 7d2032a after both df3da1e checks passed. Its local verification passes (1,555
+Java tests, six skips; 103 tooling tests). The earlier billing lock no longer blocks CI. The current
+branch adds replacement entry authorization; obtain both latest-head checks before merging it.
 
 ## Resume this slice
 
@@ -19,15 +17,15 @@ Fetch and inspect before selecting the remote branch:
 ```powershell
 git status --short --branch
 git fetch origin
-git log -5 --oneline origin/codex/safe-sell-relist
+git log -5 --oneline origin/codex/replacement-entry-authority
 ```
 
 If the local branch already exists, switch to it and fast-forward only. Otherwise create its
-tracking branch with `git switch --track origin/codex/safe-sell-relist`.
+tracking branch with `git switch --track origin/codex/replacement-entry-authority`.
 
 ```powershell
-git switch codex/safe-sell-relist
-git merge --ff-only origin/codex/safe-sell-relist
+git switch codex/replacement-entry-authority
+git merge --ff-only origin/codex/replacement-entry-authority
 git status --short --branch
 Get-Content -Raw AGENTS.md
 Get-Content -Raw HANDOFF.md
@@ -62,7 +60,7 @@ JARs individually or transfer private account databases/credentials to a cloud e
 
 ## Next engineering work
 
-1. Review the safe relist slice and its behavioral tests, then finish any CI findings. Preserve
+1. Review the replacement entry slice and its behavioral tests, then finish any CI findings. Preserve
    every unchecked gate in TASKS. No installed-client claim follows from passing source tests.
 2. Consolidate managed exits and sell maintenance into activated companion policies. Audit the
    actual call chain in FlippingFriendPlugin.requestEngineRefresh and SuggestionEngine, not just

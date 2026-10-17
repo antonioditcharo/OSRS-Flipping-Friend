@@ -156,4 +156,24 @@ public class AdviceDeliveryBoundaryTest {
             verify((TradePlans)getField(f.plugin,"tradePlans"),never()).plan(anyInt(),anyInt(),anyInt(),anyDouble(),anyLong());
         }
     }
+    @Test public void replacementSelectionKeepsExistingSkipsAndExcludesOtherAllocatedItems()throws Exception {
+        Fixture f=new Fixture();when(f.companion.nextAction()).thenReturn(null);
+        var engine=(SuggestionEngine)getField(f.plugin,"engine");when(engine.refresh(false)).thenReturn(f.advice);
+        when(engine.skippedItems()).thenReturn(Set.of(563));
+        var plan=new com.google.gson.Gson().fromJson("{\"status\":\"READY\",\"allocations\":["
+            +"{\"candidate\":{\"itemId\":561}},{\"candidate\":{\"itemId\":562}}]}",
+            com.flippingfriend.core.PortfolioPlan.class);
+        when(f.companion.lastPlan()).thenReturn(plan);
+        when(f.companion.nextEntrySuggestion(any(),anySet(),anySet(),anySet())).thenReturn(f.advice);
+        f.queueAdvice();f.clientQueue.remove().run();
+        verify(f.companion).nextEntrySuggestion(any(),anySet(),eq(Set.of(561,563)),anySet());
+        verify(f.guide).setSuggestion(f.advice);assertEquals(Set.of(563),engine.skippedItems());
+    }
+    @Test public void anUnavailableReplacementDecisionWithdrawsTheLocalBuy()throws Exception {
+        Fixture f=new Fixture();when(f.companion.nextAction()).thenReturn(null);
+        var engine=(SuggestionEngine)getField(f.plugin,"engine");when(engine.refresh(false)).thenReturn(f.advice);
+        f.queueAdvice();f.clientQueue.remove().run();
+        verify(f.guide).setSuggestion(argThat(s->s.getType()==SuggestionType.WAIT));
+        verify((TradePlans)getField(f.plugin,"tradePlans"),never()).plan(anyInt(),anyInt(),anyInt(),anyDouble(),anyLong());
+    }
 }
