@@ -59,4 +59,26 @@ public class SellRelistIntentTest {
         assertFalse("An old-account offer must not create new-account guidance",
             java.nio.file.Files.exists(storage.accountDir().resolve("sell-relist-intent.json")));
     }
+    @Test public void anotherEpisodeInTheSameSlotAndSecondCannotProveCollection() throws Exception {
+        for (boolean uuid : new boolean[]{false,true}) {
+            var storage=TestStorage.rootedAt(folder.newFolder().toPath(),"one");
+            var intent=new SellRelistIntent(storage); var tracker=mock(OfferTracker.class);
+            var original=offer("SELLING",20,false,1000);
+            if(uuid) original.startEpisodeIdentity();
+            intent.advise(original);
+            var other=uuid ? offer("CANCELLED_SELL",40,true,1000)
+                : new TrackedOffer(0,561,false,121,100,1000);
+            if(uuid) other.startEpisodeIdentity();
+            other.setState("CANCELLED_SELL");other.setQuantityFilled(40);other.setCollected(true);
+            when(tracker.getOffers()).thenReturn(List.of());when(tracker.getSettledOffer(0)).thenReturn(other);
+            assertNull("A reused slot/time is not the cancelled offer",new SellRelistIntent(storage).collectedRemainder(tracker));
+        }
+    }
+    @Test public void aMalformedTerminalCounterCannotAuthorizeAReplacement() throws Exception {
+        var storage=TestStorage.rootedAt(folder.newFolder().toPath(),"one");
+        var intent=new SellRelistIntent(storage);intent.advise(offer("SELLING",20,false,1000));
+        var tracker=mock(OfferTracker.class);when(tracker.getOffers()).thenReturn(List.of());
+        when(tracker.getSettledOffer(0)).thenReturn(offer("CANCELLED_SELL",-1,true,1000));
+        assertNull(intent.collectedRemainder(tracker));
+    }
 }
