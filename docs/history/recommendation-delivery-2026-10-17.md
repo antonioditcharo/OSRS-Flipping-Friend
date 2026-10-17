@@ -191,4 +191,3 @@ now relaunched it; one client process is observed. No login/UI/trade outcome is 
 input was sent. Runtime through #77 is installed; this receipt is docs-only and needs no reinstall.
 Later ordinary Update/Start use the manifest's process lifecycle automatically, without admin or
 INSTALL replies. Do not ask the owner to run the optional ACL repair or another installation.
-
