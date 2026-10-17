@@ -183,4 +183,31 @@ public class ManagedSellRelistWorkflowTest {
         var advice=new Fixture(0,0,6,1000,false).maintenance(6);
         assertNotNull(advice);assertEquals(SuggestionType.MODIFY_SELL,advice.getType());assertFalse(advice.isProfitKnown());
     }
+    @Test public void aProvenUnrelatedGapDoesNotFreezeThisSale() throws Exception {
+        var f=new Fixture(6,5881,6,1000,true);
+        var gap=new MissedFlipEvidence("gap","other-sale",562,"Other item","RECONCILE",0,
+            now.getEpochSecond(),null,null,null,null,null,null,"conflicting fills");
+        var trades=f.companion.tradingLedger().getTradingPositions();
+        when(f.companion.tradingLedger()).thenReturn(ledger(trades,List.of(gap),Map.of("gap",Set.of(562))));
+        assertEquals(SuggestionType.SELL,f.next().getType());
+        var advice=f.maintenance(6);assertNotNull(advice);assertEquals(SuggestionType.MODIFY_SELL,advice.getType());
+        assertTrue(advice.isProfitKnown());assertTrue(tax.netProceeds(561,advice.getPrice(),6)>=5881);
+    }
+    @Test public void anUnidentifiedGapWithdrawsMaintenanceAndRelistingTogether() throws Exception {
+        var f=new Fixture(0,0,6,1000,false);
+        var gap=new MissedFlipEvidence("gap",null,0,null,"RECONCILE",0,
+            now.getEpochSecond(),null,null,null,null,null,null,"missing item");
+        when(f.companion.tradingLedger()).thenReturn(ledger(List.of(),List.of(gap),Map.of("gap",Set.of())));
+        assertEquals(SuggestionType.WAIT,f.next().getType());noReprice(f.maintenance(6));
+    }
+    @Test public void aFutureLedgerOrMissingQuoteTimeCannotAuthorizeMaintenance() throws Exception {
+        var f=new Fixture(0,0,6,1000,false);
+        when(f.companion.tradingLedger()).thenReturn(new AccountLedgerSnapshot(account,now.getEpochSecond()+60,
+            0,0,0,0,0,0,0,0,List.of()).withTradeEvidence(List.of(),List.of()));
+        noReprice(f.maintenance(6));
+        f=new Fixture(0,0,6,1000,false);var original=f.market.getSnapshot();
+        when(f.market.getSnapshot()).thenReturn(new MarketSnapshot(original.getMetadata(),Map.of(561,
+            new LatestPrice(1000,null,1000,now.getEpochSecond())),Map.of(),Map.of(),now));
+        noReprice(f.maintenance(6));
+    }
 }

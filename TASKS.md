@@ -15,6 +15,9 @@ statements later in this file. Read [HANDOFF.md](HANDOFF.md) for exact evidence.
       all 103 tooling tests pass in 100.027s. Both CI jobs refused to start due to GitHub account
       billing lock (run 39068304395). Leave unmerged until billing is resolved and both latest-head
       checks pass. Docs receipt after this implementation needs no repeated local build/reinstall.
+      Continuation bc05fb7 reproduces five maintenance bypasses, then shares fresh scoped evidence/
+      quote checks with relisting and protects mixed-cost offers. Standard 54s: 1,555 Java passed/
+      six skips, zero failures/errors. Owner reports billing updated; latest-head CI pending.
 
 - [x] Source one-time, task-specific maintenance access on codex/user-owned-companion-updates
       from #75/1f98391. Regression-first 2c2a5ab reproduces late permission failure/missing setup

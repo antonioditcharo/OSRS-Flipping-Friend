@@ -7,6 +7,14 @@ Regression 02d1c4b reproduces four actual decision-chain failures: the personal-
 relist managed units below their exact taxed cost floor, include personally owned extra units,
 proceed without the durable ledger, and suggest affected stock despite recorded reconciliation.
 Regression 8692ed3 reproduces offer identity confusion and malformed cancellation counters.
+Continuation bc05fb7 reproduces five maintenance failures: missing ledger, affected stock,
+mixed known/unknown units, foreign/old ledger and stale/future quote bypasses. Maintenance and
+relisting now share the same account/ledger/gap check and require both price-side observations
+within five minutes, with no future or missing timestamps. A mixed-cost offer is not automatically
+repriced when its full remainder lacks a proven cost: the known subset's floor cannot disappear.
+Clean external offers remain maintainable with unknown profit. A recorded gap scoped to another
+item does not suppress an otherwise supported sale. These are active plugin-path corrections;
+companion policy migration remains separate work.
 
 Relisting now requires a fresh, valid matching-account acquisition ledger. Pending delivery,
 unavailable/old evidence and relevant or unbounded reconciliation produce explicit waiting advice.
