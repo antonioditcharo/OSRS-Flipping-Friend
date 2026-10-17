@@ -8,7 +8,9 @@ All unchecked release requirements remain visible below; detailed completion rec
 - [x] Deliver #79 sell maintenance/relisting and #80 replacement entry/refusal guards. Installed
       #80/342aa52 after both final Windows/Linux checks passed. Backup 20261017-131556-67c07d16 is
       VERIFIED; hashes, Java 11, unchanged task metadata, native status/compatibility/scoped pipeline
-      pass. Client relaunched; login/UI/trading acceptance remains unobserved. Final standard 54s:
+      pass. Client relaunched; owner confirms login. Fresh installed-guard eight-slot source proof
+      passes twice; outbox drains normally. UI/controlled trading acceptance remains open. See
+      docs/history/postlogin-verification-2026-10-17.md. Final standard 54s:
       1,562 Java passed/six existing skips; prior 103 tooling tests pass. See
       docs/history/recommendation-delivery-2026-10-17.md. No reinstall for this docs receipt.
 - [x] Deliver #77 normal-user paired updates without an initial admin approval. Task permissions
@@ -19,7 +21,8 @@ All unchecked release requirements remain visible below; detailed completion rec
       Earlier regression/build/CI/delivery receipts remain in the linked task/handoff history.
 
 - [ ] Restore safe sell guidance for already affected stock through auditable evidence-based
-      resolution. The latest recorded ledger has 11 sales/eight unresolved; eligibility is withheld.
+      resolution. The post-login ledger reaches 21 sale updates/nine unresolved; new activity does
+      not resolve historical affected stock and unknown acquisition coverage stays unresolved.
       A nine-unit offer has 11 units in affected acquisition rows; old aggregate positions are
       not safe fallback quantities. Preserve original rows, unknown costs/profit and risk window.
       Prevention alone does not resolve this task. No manual database repair, replay or bypass.
@@ -36,15 +39,18 @@ All unchecked release requirements remain visible below; detailed completion rec
 - [ ] Design an auditable evidence-based resolution for already recorded false progress gaps.
       Preserve the raw sources, financial identities, unknown cost/profit and durable risk window.
       No manual database edit, replay, adoption, risk reset or bypass to force advice.
-- [ ] Finish sustained latency/final eligible entry acceptance. Latest 10:07 portfolio/action/ledger/
-      learning reads are 1,062/79/1,765/703ms, outbox zero, plan COMPANION_STATE_UNAVAILABLE and no
-      canonical risk. Earlier fresh eight-slot/risk evidence remains historical. Retain freshness/
+- [ ] Finish sustained latency/final eligible entry acceptance. Post-login portfolio/action/ledger/
+      learning samples are 188/16/203/672ms and 93/16/406/453ms; outbox drains to zero. Plans refuse
+      stale managed instant-sell quotes (trident 477s versus current 120s rule), canonical risk
+      unavailable. Two fresh installed eight-slot guard checks pass; these are not entry acceptance.
+      Investigate sampled quote freshness/entry availability without assuming a new budget. Retain freshness/
       funding/loss guards and 5m/Medium. No manufactured funds,
       cleared reserve or additional restart to obtain a final eligible-entry response.
 - [ ] Finish search/player-key/pause/context acceptance; these are not established by screenshots.
       Controlled intended trade, partial cancel/collect/relist and restart still need real outcomes.
 - [ ] Continue batched HOME TEST CHECKLIST.md and PR #31 live acceptance. Installed #80 pair,
-      status/API 1.13.2 compatibility and GET pipeline pass; fresh post-login source proof remains open.
+      status/API 1.13.2 compatibility and GET pipeline pass; fresh post-login source proof passes.
+      Investigate unattributed repeated Swing layout exceptions before claiming UI stability.
       Confirm/highlight screenshot checks pass. Search/player-key/pause/context and controlled
       trade/cancel/collect/relist/restart still need outcomes. Agent collects logs directly; every
       game input remains manual. Earlier READY responses remain historical evidence only.

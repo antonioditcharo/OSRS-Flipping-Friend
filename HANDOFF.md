@@ -26,15 +26,23 @@ manifest and task. Caller not elevated; task XML/SDDL unchanged and management a
 No UAC prompt, task ACL change, real database repair/replay or game input.
 
 Independent native status, compatibility and scoped GET pipeline each exit 0. API 1.13.2 matches.
-Ledger 11 sale updates/eight unresolved/zero ranges; WAIT/UNAVAILABLE awaits client coins/free slots.
+Pre-login ledger 11 sale updates/eight unresolved/zero ranges; WAIT/UNAVAILABLE awaited client coins/free slots.
 The updater prints verified completion, but its private log helper lost the native exit code (null)
 and exited 1. No native updater failure is established; independent installed/API checks pass.
 Exact hashes, outputs, limits and retained prior checkpoints are in the
 [delivery receipt](docs/history/recommendation-delivery-2026-10-17.md).
 
 The previous client closed normally via the owner's authorized lifecycle request. Supported Start
-relaunched one developer-mode client; side-loading and initialization are logged. Login/UI/trading
-acceptance is unobserved. This docs receipt requires no reinstall/restart. Continue source work from
+relaunched one developer-mode client; side-loading and initialization are logged. Owner confirmed
+login. Fresh installed-guard eight-slot checks pass at cursors 16,707/16,780 (seven/two seconds old),
+all authenticated source IDs/times and reserved coins match; offer outbox drains one to zero normally.
+Post-login HTTP samples are 188/16/203/672ms and 93/16/406/453ms for portfolio/action/ledger/learning.
+Current plans refuse buys because a managed instant-sell quote is stale: trident lowTime 477s versus
+the current 120s requirement. Later ledger 21 sale updates/nine unresolved; no unknown cost is priced.
+No final buy eligibility, sustained timing or controlled trading/UI acceptance is established.
+Repeated Swing layout exceptions lack plugin attribution; investigate/reproduce before a fix.
+Read [the login receipt](docs/history/postlogin-verification-2026-10-17.md) for exact pipeline output,
+read-only proof and limitations. This docs receipt requires no reinstall/restart. Continue source work from
 the current rebuild branch; [portable instructions](CONTINUE%20DEVELOPMENT.md) explain verification.
 
 ## Routine updates
