@@ -4,14 +4,13 @@ The default assisted workflow is now batched: the agent handles GitHub, builds, 
 paired updates, status, compatibility, pipeline and logs. You do not need to paste console output,
 reply at INSTALL, or respond after every check. See [development workflow](docs/development-workflow.md).
 
-The combined runtime through PR #61 is installed using supported tooling #62, after fresh verified
-backup 20261015-184127-76f3a3f8. Installed/build/manifest hashes, every tested project class, status,
-RuneLite 1.13.2 compatibility and GET-only pipeline pass. RuneLite was launched and the owner logged
-in; fresh account observations arrived. Later live reads show four planned buys, available account
-risk and final ENTRY/PLACE_BUY approval; the first transient WAIT is retained in HANDOFF. No offer
-was placed by the agent. Initial learning reads had zero forecasts; after player offers, a frozen
-read-only capture verifies two eligible forecasts with unknown outcomes and an unchanged earlier
-source prefix. The public-price baseline remains active and promotion held.
+Runtime through PR #80 is installed after verified backup 20261017-131556-67c07d16. Both runtime PRs
+#79/#80 passed final Windows/Linux CI. Installed hashes/Java 11, native status, RuneLite 1.13.2
+compatibility and scoped GET pipeline pass. Supported relaunch logs side-loading and initialization;
+current login/UI/trading acceptance remains unobserved. Latest reads: 11 sale updates/eight unresolved,
+WAIT/UNAVAILABLE awaiting fresh client coins/slots. Historical READY/entry approvals do not establish
+current buy readiness. The public-price baseline remains active with learning promotion held.
+See [the delivery receipt](docs/history/recommendation-delivery-2026-10-17.md).
 Open the Flipping Friend panel and work through the acceptance batch below when convenient.
 The agent reads diagnostics directly; no additional install or pasted logs are needed.
 Historical gaps and controlled UI/trade/restart acceptance remain open.
@@ -60,6 +59,7 @@ Work through these as one acceptance batch. Report unexpected results together; 
 | Highlights and Confirm | Wrong committed quantity/price stay highlighted and normal Confirm is locked. Correct both and close the prompt: Confirm becomes available. Filling visible text alone must not unlock it. |
 | Personal override | Right-click Confirm and inspect its native Confirm option, then dismiss the menu. Selecting that option places a real offer; use it only for an intended personal trade. |
 | Pause and boundaries | Pause withdraws guidance/search/key assistance. Resume obtains fresh advice. A held key cannot advance through fields. Unassigning the key, closing the editor and unrelated chat/bank input leave normal typing intact. |
+| Entry withdrawal | If entry advice becomes WAIT while a buy editor is open, the old buy guidance disappears immediately. A key fill queued before refusal must not run after it, even if the same buy returns. Do not manufacture a loss or accounting error to trigger this. |
 | Personal items | Hammer, equipment, runes and other routine supplies are not unsolicited sell recommendations. Manually selecting an owned item in SELL setup can show a fresh quote; opening the setup does not create a sale or known profit. |
 
 Keep Protect trade confirmation and Suggested item in GE search enabled for these tests. Do not
@@ -78,6 +78,11 @@ maintenance while its unknown acquisition cost/profit remains unknown. Remaining
 of the same item must not become managed stock. Use More > Missed flips to inspect incomplete
 evidence; do not use it as proof of current inventory. Compare Recorded profit and Performance to
 the durable evidence, preserving ranges and unavailable states.
+
+For an intended cancel/collect/relist, confirm that suggested quantity does not include extra personal
+units and managed profit retains the exact allocated cost/taxed floor. A replacement buy must have
+fresh companion approval for the same item and no more than the cancelled remainder. If no current
+allocation fits, WAIT is expected; do not enlarge or override a trade just to complete this check.
 
 For restart, close RuneLite normally and use the supported Start wrapper again. Never kill it to
 simulate a crash during initial acceptance. Repeat the read-only pipeline after relevant changes.

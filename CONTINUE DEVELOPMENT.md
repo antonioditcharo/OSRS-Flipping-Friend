@@ -1,13 +1,14 @@
 # Continue development in another environment
 
 Read AGENTS.md, HANDOFF.md and TASKS.md in full before changing code. The active base is
-`CoPilot's-Rebuild-from-Main`; main is historical. Current working slice: `codex/replacement-entry-authority`.
-The installed Windows runtime remains #77; this source slice is not installed. Do not label it
-live-tested or claim that it resolves the old stock in issue #70.
+`CoPilot's-Rebuild-from-Main`; main is historical. Runtime through #80 is now installed, including
+#79. Both PRs passed final Windows/Linux CI before merge. Status/compatibility/scoped GET checks
+pass; controlled login/UI/trading acceptance and old-stock issue #70 remain open.
 
-PR #79 merged as 7d2032a after both df3da1e checks passed. Its local verification passes (1,555
-Java tests, six skips; 103 tooling tests). The earlier billing lock no longer blocks CI. The current
-branch adds replacement entry authorization; obtain both latest-head checks before merging it.
+PR #80 merged as 342aa52 after both 8a666e5 checks passed. Final local verification: 1,562 Java
+tests passed, six existing skips; prior 103 tooling tests pass. The earlier billing lock is resolved.
+Delivery details are in docs/history/recommendation-delivery-2026-10-17.md. Continue from the
+current rebuild branch and create a new codex/ branch for the next source change.
 
 ## Resume this slice
 
@@ -17,15 +18,15 @@ Fetch and inspect before selecting the remote branch:
 ```powershell
 git status --short --branch
 git fetch origin
-git log -5 --oneline origin/codex/replacement-entry-authority
+git log -5 --oneline "origin/CoPilot's-Rebuild-from-Main"
 ```
 
 If the local branch already exists, switch to it and fast-forward only. Otherwise create its
-tracking branch with `git switch --track origin/codex/replacement-entry-authority`.
+tracking branch with `git switch --track "origin/CoPilot's-Rebuild-from-Main"`.
 
 ```powershell
-git switch codex/replacement-entry-authority
-git merge --ff-only origin/codex/replacement-entry-authority
+git switch "CoPilot's-Rebuild-from-Main"
+git merge --ff-only "origin/CoPilot's-Rebuild-from-Main"
 git status --short --branch
 Get-Content -Raw AGENTS.md
 Get-Content -Raw HANDOFF.md
@@ -60,7 +61,7 @@ JARs individually or transfer private account databases/credentials to a cloud e
 
 ## Next engineering work
 
-1. Review the replacement entry slice and its behavioral tests, then finish any CI findings. Preserve
+1. Review the merged replacement entry slice and its behavioral tests. Preserve
    every unchecked gate in TASKS. No installed-client claim follows from passing source tests.
 2. Consolidate managed exits and sell maintenance into activated companion policies. Audit the
    actual call chain in FlippingFriendPlugin.requestEngineRefresh and SuggestionEngine, not just
