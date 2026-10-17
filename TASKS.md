@@ -1,9 +1,16 @@
 # Tasks
 
-Updated 16 October 2026. The current checkpoint below supersedes historical runtime/review
+Updated 17 October 2026. The current checkpoint below supersedes historical runtime/review
 statements later in this file. Read [HANDOFF.md](HANDOFF.md) for exact evidence.
 
 ## Active
+
+- [x] Reproduce six sell-relist evidence/cost/identity failures in 02d1c4b/8692ed3, then fix the
+      player cancel/collect/relist path on codex/safe-sell-relist. Require fresh scoped ledger/quote,
+      cap to canonical and visible unsold units, retain exact cost/floor/forecast and cost-required
+      episode guidance through restart. Source-only; installed #77 is unchanged. See
+      docs/architecture/safe-sell-relist.md and CONTINUE DEVELOPMENT.md. Full companion migration,
+      old affected-stock recovery and controlled live acceptance remain unchecked below.
 
 - [x] Source one-time, task-specific maintenance access on codex/user-owned-companion-updates
       from #75/1f98391. Regression-first 2c2a5ab reproduces late permission failure/missing setup

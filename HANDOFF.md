@@ -1,7 +1,27 @@
 # Agent handoff
 
-Updated 16 October 2026 (America/Anchorage). Read [AGENTS.md](AGENTS.md) and [TASKS.md](TASKS.md).
+Updated 17 October 2026 (America/Anchorage). Read [AGENTS.md](AGENTS.md) and [TASKS.md](TASKS.md).
 Root notes describe the current workflow; detailed prior receipts remain in linked history.
+
+## Queued safe sell-relist slice
+
+Branch codex/safe-sell-relist starts at #78/a142f4f. Regression commits 02d1c4b and 8692ed3
+reproduce six failures before fixes: lost cost floor, excess personal units, missing ledger/gap
+bypasses, offer identity confusion and malformed terminal counters. The fix requires matching fresh
+durable evidence and quote, preserves exact subset costs/floors and stop/sell-only rules, caps
+quantities and retains episode/cost-required guidance through restart. Personal sale profit stays
+unknown. Read [the contract](docs/architecture/safe-sell-relist.md) and
+[portable continuation instructions](CONTINUE%20DEVELOPMENT.md).
+
+This slice is queued source, not installed or controlled-trade acceptance. Installed runtime remains
+#77 below. No client restart/update, real database changes or in-game actions were performed for
+this slice. #70 remains open; this does not repair historical stock or complete companion sell-policy
+migration. Windows standard verification: BUILD SUCCESSFUL in 53s, all 18 tasks executed, exit 0;
+1,552 Java tests / 1,546 passed / six existing skips / zero failures/errors. Plugin 489,471 bytes,
+companion 17,902,228 bytes; 218/461 project classes, all Java 11 (major 55). Logs are in reusable
+.gradle/safe-relist-*. A focused invocation passed the root tests but selected no companion tests;
+the subsequent standard command above completed all modules. Tooling/remote CI results belong
+to the PR receipt. Require both exact-head checks before merging; no automatic installation.
 
 ## Companion updates without administrator approval
 

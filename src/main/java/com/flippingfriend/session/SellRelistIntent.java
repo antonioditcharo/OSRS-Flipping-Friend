@@ -27,13 +27,26 @@ public final class SellRelistIntent {
         advise(offer, storage.accountId());
     }
     public synchronized void advise(TrackedOffer offer, String expectedAccount) {
+        advise(offer, expectedAccount, false);
+    }
+    public synchronized void advise(TrackedOffer offer, String expectedAccount, boolean managed) {
         if (expectedAccount == null || !expectedAccount.equals(storage.accountId())) return;
         load();
         if (!expectedAccount.equals(loadedAccount) || offer == null || offer.isBuying() || offer.getRemaining() <= 0) return;
-        if (intent != null && intent.matches(offer)) return;
+        if (intent != null && intent.matches(offer)) {
+            if (managed && !intent.managed) { intent.managed = true; save(); }
+            return;
+        }
         intent = new Intent(); intent.item = offer.getItemId(); intent.slot = offer.getSlot();
         intent.firstSeen = offer.getFirstSeen(); intent.quantity = offer.getRemaining();
+        intent.episode = offer.getEpisodeIdentity(); intent.price = offer.getPrice();
+        intent.total = offer.getTotalQuantity(); intent.filled = offer.getQuantityFilled();
+        intent.managed = managed;
         save();
+    }
+    public synchronized boolean requiresManagedCost(String expectedAccount) {
+        if (expectedAccount == null || !expectedAccount.equals(storage.accountId())) return true;
+        load(); return intent != null && intent.managed;
     }
     /** Return only the quantity proved cancelled and collected from this exact offer. */
     public synchronized int[] collectedRemainder(OfferTracker tracker) {
@@ -56,15 +69,23 @@ public final class SellRelistIntent {
         }
         TrackedOffer collected = tracker.getSettledOffer(intent.slot);
         if (collected == null || !intent.matches(collected) || !collected.isCollected()
-            || !"CANCELLED_SELL".equals(collected.getState())) return null;
+            || !"CANCELLED_SELL".equals(collected.getState())
+            || collected.getQuantityFilled() < Math.max(0, intent.filled)
+            || collected.getQuantityFilled() > collected.getTotalQuantity()) return null;
         int remaining = Math.min(intent.quantity, collected.getRemaining());
         if (remaining <= 0) { intent = null; save(); return null; }
         return new int[] { intent.item, remaining };
     }
     private static final class Intent {
         int item, slot, quantity; long firstSeen;
+        String episode; int price, total, filled;
+        boolean managed;
         boolean matches(TrackedOffer offer) {
-            return !offer.isBuying() && offer.getItemId() == item && offer.getSlot() == slot && offer.getFirstSeen() == firstSeen;
+            return !offer.isBuying() && offer.getItemId() == item && offer.getSlot() == slot
+                && offer.getFirstSeen() == firstSeen
+                && java.util.Objects.equals(episode, offer.getEpisodeIdentity())
+                && (price == 0 || price == offer.getPrice())
+                && (total == 0 || total == offer.getTotalQuantity());
         }
     }
 }

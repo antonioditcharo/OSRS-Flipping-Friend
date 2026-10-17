@@ -31,7 +31,7 @@ public class ManagedSellRelistWorkflowTest {
             var intent = new SellRelistIntent(storage);
             var sale = new TrackedOffer(0, 561, false, 1200, 10, now.getEpochSecond() - 600);
             sale.setState("SELLING"); sale.setQuantityFilled(2);
-            intent.advise(sale, account);
+            intent.advise(sale, account, managed);
             sale.setState("CANCELLED_SELL"); sale.setQuantityFilled(4); sale.setCollected(true);
             when(offers.getOffers()).thenReturn(List.of());
             when(offers.getSettledOffer(0)).thenReturn(sale);
@@ -104,5 +104,34 @@ public class ManagedSellRelistWorkflowTest {
         var next = new Fixture(0, 0, 6, 1000, false).next();
         assertEquals(SuggestionType.SELL, next.getType()); assertEquals(6, next.getQuantity());
         assertEquals(999, next.getPrice()); assertFalse(next.isProfitKnown());
+    }
+    @Test public void managedIntentCannotBecomePersonalWhenThePositionDisappears() throws Exception {
+        var f = new Fixture(6,5881,6,1000,true);
+        when(f.companion.tradingLedger()).thenReturn(ledger(List.of(),List.of(),Map.of()));
+        assertEquals(SuggestionType.WAIT,f.next().getType());
+    }
+    @Test public void staleFutureAndMissingQuotesWithdrawRelistAdvice() throws Exception {
+        for (long delta : new long[]{-301,60}) {
+            var f = new Fixture(6,5881,6,1000,true);
+            var original=f.market.getSnapshot();
+            when(f.market.getSnapshot()).thenReturn(new MarketSnapshot(original.getMetadata(),
+                Map.of(561,new LatestPrice(1000,now.getEpochSecond()+delta,1000,now.getEpochSecond())),Map.of(),Map.of(),now));
+            assertEquals(SuggestionType.WAIT,f.next().getType());
+        }
+    }
+    @Test public void anotherOpenBuyPreventsSellingAroundAnAccumulatingPosition() throws Exception {
+        var f = new Fixture(6,5881,6,1000,true);
+        when(f.offers.itemsBeingBought()).thenReturn(Set.of(561));
+        assertEquals(SuggestionType.WAIT,f.next().getType());
+    }
+    @Test public void explicitSellOnlyCanStillAuthorizeALossAndKeepItsCostKnown() throws Exception {
+        var f = new Fixture(6,5881,6,1000,true); f.engine.setSellOnly(true);
+        var next=f.next(); assertEquals(SuggestionType.SELL,next.getType()); assertTrue(next.isProfitKnown());
+        assertEquals(tax.netProceeds(561,next.getPrice(),6)-5881,next.getExpectedProfit());
+    }
+    @Test public void noInventoryWithdrawsTheRelistWithoutInventingDisposal() throws Exception {
+        var f = new Fixture(6,5881,0,1000,true);
+        assertEquals(SuggestionType.WAIT,f.next().getType());
+        assertEquals(6,f.companion.tradingLedger().getTradingPositions().get(0).getQuantity());
     }
 }
