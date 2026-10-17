@@ -434,9 +434,7 @@ public class SuggestionEngine
         if (sellRelist != null) {
             int[] remaining = sellRelist.collectedRemainder(offers, observedAccount);
             if (remaining != null && account.getFreeSlots() > 0) {
-                Suggestion relist = ManualSalePrice.quote(remaining[0], remaining[1],
-                    account.getInventoryHoldings().getOrDefault(remaining[0], 0), market, now);
-                if (relist != null) return relist;
+                return relistSuggestion(remaining, market, horizon, account, now);
             }
         }
 
@@ -747,6 +745,9 @@ public class SuggestionEngine
 			if (!offer.isBuying()
 				&& offer.getPrice() - price.getHigh() >= horizon.outbidDeadband(offer.getPrice()))
 			{
+				if (!freshSaleQuote(price, now)) continue;
+				var saleLedger = companion == null ? null : saleLedger(offer.getItemId(), now);
+				if (companion != null && saleLedger == null) continue;
 				int newPrice = Math.max(1, price.getHigh() - 1);
 				// Never reprice a sale below what the position cost.
 				//
@@ -761,7 +762,10 @@ public class SuggestionEngine
 				// Below break-even this is not a repricing decision at all, it is a decision to take a loss,
 				// and that belongs to SellTimingEngine: it holds while the position is above its stop and
 				// cuts when it is not. Say nothing here and let it answer.
-				Position position = tradingPosition(offer.getItemId());
+				Position position = companion == null ? tradingPosition(offer.getItemId())
+                    : salePosition(saleLedger, offer.getItemId());
+                // Unknown units must not remove the floor protecting a known-cost subset.
+                if (position != null && remaining > position.getQuantity()) continue;
 				boolean costKnown = position != null && position.isCostKnown()
 					&& remaining <= position.getQuantity();
                 long allocatedCost=costKnown?com.flippingfriend.core.SaleAccounting.allocateCost(
@@ -820,7 +824,7 @@ public class SuggestionEngine
 
 				// What the new price is actually worth. The reprice card carried no figure at all, so a
 				long change = costKnown ? taxCalculator.netProceeds(offer.getItemId(),newPrice,remaining)-allocatedCost : 0;
-                if (sellRelist != null) sellRelist.advise(offer, observedAccount);
+                if (sellRelist != null) sellRelist.advise(offer, observedAccount, position != null);
 				return Suggestion.builder(SuggestionType.MODIFY_SELL)
 					.item(offer.getItemId(), name)
 					.slot(offer.getSlot())
@@ -1424,6 +1428,75 @@ public class SuggestionEngine
 		}
 		return PositionStatus.sellingWithRemainder(0, 0, 0, withheld);
 	}
+
+    private com.flippingfriend.core.AccountLedgerSnapshot saleLedger(int item, Instant now) {
+        var ledger = companion == null ? null : companion.tradingLedger();
+        if (ledger == null || !ledger.isValid() || ledger.getTradingPositions() == null
+            || !java.util.Objects.equals(observedAccount, ledger.getAccountId())
+            || ledger.getObservedAt() > now.getEpochSecond() || now.getEpochSecond()-ledger.getObservedAt()>150
+            || ledger.hasUnboundedReconciliation())
+            return null;
+        for (var gap : ledger.getMissedFlips()) if ("RECONCILE".equals(gap.getType())) {
+            var scope = ledger.getReconciliationScope();
+            if (gap.getItemId() == item || scope == null || scope.get(gap.getEventId()) == null
+                || scope.get(gap.getEventId()).contains(item))
+                return null;
+        }
+        return ledger;
+    }
+    private Position salePosition(com.flippingfriend.core.AccountLedgerSnapshot ledger, int item) {
+        for (var p : ledger.getTradingPositions()) if (p.getItemId()==item) {
+            var position = new Position(item,p.getItemName(),p.getQuantity(),p.getTotalCost(),p.getOpenedAt(),true);
+            tradePlans.applyTo(position); return position;
+        }
+        return null;
+    }
+    private static boolean freshSaleQuote(LatestPrice price, Instant now) {
+        return price != null && price.isComplete() && price.secondsSinceHigh(now)>=0
+            && price.secondsSinceHigh(now)<=300 && price.secondsSinceLow(now)>=0 && price.secondsSinceLow(now)<=300;
+    }
+    private Suggestion relistSuggestion(int[] remaining, MarketSnapshot market, TradingHorizon horizon,
+        AccountState account, Instant now)
+    {
+        int item = remaining[0];
+        var ledger = saleLedger(item,now);
+        if (ledger == null) return Suggestion.waiting("Waiting to verify the cancelled sale",
+            "Fresh, consistent account trade evidence is required before relisting. See Missed flips for recorded gaps.");
+        var price = market.latest(item);
+        if (!freshSaleQuote(price,now))
+            return Suggestion.waiting("Waiting for a current sale price", "The cancelled sale will be repriced when a fresh quote is available.");
+        int quantity = Math.min(remaining[1], account.getInventoryHoldings().getOrDefault(item, 0));
+        Position position = salePosition(ledger,item);
+        if (quantity<=0) return Suggestion.waiting("Collect the cancelled sale's items", "No returned quantity is currently visible in inventory.");
+        if (position == null) {
+            if (sellRelist.requiresManagedCost(observedAccount))
+                return Suggestion.waiting("Waiting to verify remaining stock", "The managed sale's acquisition evidence is unavailable.");
+            return ManualSalePrice.quote(item,quantity,quantity,market,now);
+        }
+        if (offers.itemsBeingBought().contains(item))
+            return Suggestion.waiting("Purchase still in progress", "Finish the purchase before relisting the managed stock.");
+        quantity = Math.min(quantity, Math.max(0,position.getQuantity()-offers.listedForSale().getOrDefault(item,0)));
+        if (quantity<=0) return Suggestion.waiting("Stock already listed", "No verified unlisted quantity remains for this sale.");
+        var series = marketData.getSeries(item,TIMESTEP);
+        var decision = sellTiming.evaluate(position,price,featureEngine.compute(item,series,BUCKET_SECONDS),
+            series,horizon,now,config.minProfitPerFlip(),true,sellOnly,false);
+        if (!decision.isSell()) return Suggestion.waiting("Waiting for a supported sell price",decision.getReason());
+        boolean cut = decision.getAction()==SellDecision.Action.CUT;
+        long cost = com.flippingfriend.core.SaleAccounting.allocateCost(position.getTotalCost(),position.getQuantity(),quantity);
+        int quoted = advisedPrice(item,false,decision.getPrice(),now.getEpochSecond());
+        if (!cut && !sellOnly) {
+            int floor = taxCalculator.breakEvenSellPriceForCost(item,cost,quantity);
+            if (floor<=0) return Suggestion.waiting("No non-loss sell price is available", "No legal price covers the recorded cost after tax.");
+            quoted = Math.max(quoted,floor);
+        }
+        var forecast = sellTiming.forecastForOrder(item,quoted,quantity,series,horizon);
+        double minutes = forecast==null?Double.NaN:forecast.getExpectedTotalSeconds()/60;
+        return Suggestion.builder(SuggestionType.SELL).item(item,position.getItemName()).quantity(quantity)
+            .price(quoted).lossCut(cut).profitKnown(true).expectedProfit(taxCalculator.netProceeds(item,quoted,quantity)-cost)
+            .expectedMinutes(minutes).fillMinutes(0,minutes).executionForecast(forecast)
+            .legCompletionProbability(forecast==null?null:forecast.getCompletionProbability())
+            .headline((cut?"Cut your losses on ":"Relist your ")+position.getItemName()).build();
+    }
 
 	private Suggestion sellSuggestion(MarketSnapshot market, TradingHorizon horizon, AccountState account,
 		Instant now)

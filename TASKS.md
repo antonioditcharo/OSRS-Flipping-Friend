@@ -1,9 +1,23 @@
 # Tasks
 
-Updated 16 October 2026. The current checkpoint below supersedes historical runtime/review
+Updated 17 October 2026. The current checkpoint below supersedes historical runtime/review
 statements later in this file. Read [HANDOFF.md](HANDOFF.md) for exact evidence.
 
 ## Active
+
+- [x] Reproduce six sell-relist evidence/cost/identity failures in 02d1c4b/8692ed3, then fix the
+      player cancel/collect/relist path on codex/safe-sell-relist. Require fresh scoped ledger/quote,
+      cap to canonical and visible unsold units, retain exact cost/floor/forecast and cost-required
+      episode guidance through restart. Source-only; installed #77 is unchanged. See
+      docs/architecture/safe-sell-relist.md and CONTINUE DEVELOPMENT.md. Full companion migration,
+      old affected-stock recovery and controlled live acceptance remain unchecked below.
+      PR #79 implementation 187a79a: standard 53s, 1,546 Java passed/six skips, both JARs Java 11;
+      all 103 tooling tests pass in 100.027s. Both CI jobs refused to start due to GitHub account
+      billing lock (run 39068304395). Leave unmerged until billing is resolved and both latest-head
+      checks pass. Docs receipt after this implementation needs no repeated local build/reinstall.
+      Continuation bc05fb7 reproduces five maintenance bypasses, then shares fresh scoped evidence/
+      quote checks with relisting and protects mixed-cost offers. Standard 54s: 1,555 Java passed/
+      six skips, zero failures/errors. Owner reports billing updated; latest-head CI pending.
 
 - [x] Source one-time, task-specific maintenance access on codex/user-owned-companion-updates
       from #75/1f98391. Regression-first 2c2a5ab reproduces late permission failure/missing setup

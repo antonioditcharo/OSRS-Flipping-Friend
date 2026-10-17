@@ -51,6 +51,7 @@ public class ExactExitCostTest {
         var ledger=new AccountLedgerSnapshot(AccountIdentity.fromProfileKey("exact-cost"),now.getEpochSecond(),0,0,0,0,0,0,0,0,List.of())
             .withTradeEvidence(List.of(PositionProjection.ready(561,"Nature rune",quantity,cost,now.getEpochSecond(),now.getEpochSecond(),"buy","offer")),List.of());
         when(companion.tradingLedger()).thenReturn(ledger);
+        engine.setObservedAccount(ledger.getAccountId());
         if(heldPrice) {
             Method pin=SuggestionEngine.class.getDeclaredMethod("advisedPrice",int.class,boolean.class,int.class,long.class);
             pin.setAccessible(true);pin.invoke(engine,561,false,price,now.getEpochSecond());
