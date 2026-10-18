@@ -52,4 +52,21 @@ public class AccountRiskSnapshotTest {
         assertTrue(risk().capital(100000000,0).build().getReason().contains("No observed trading capital"));
         assertFalse(risk().uncertainty(100,1,0).build().getReason().contains("paused"));
     }
+    @Test public void currentPolicyKeepsHistoricalUnknownMoneySeparateFromTheLossAllowance()throws Exception {
+        var current=risk().realized(-8,-7,2).marked(-1000).uncertainty(2000,1,0)
+            .currentAccountPolicy(500000000,2000).build();
+        assertTrue(current.isCurrentAccountPolicy());assertTrue(current.isAvailable());
+        assertEquals(Long.valueOf(500000000),current.getHistoricalUncertaintyReserve());
+        assertEquals(Long.valueOf(3008),current.getDrawdownUpper());
+        assertEquals(Long.valueOf(14996992),current.getRemainingLossBudget());
+        // Constructor-bypassing readers must not accept malformed metadata or a policy downgrade.
+        var field=AccountRiskSnapshot.class.getDeclaredField("historicalUncertaintyReserve");field.setAccessible(true);
+        field.set(current,-1L);assertFalse(current.isValid());field.set(current,500000000L);
+        field=AccountRiskSnapshot.class.getDeclaredField("unpricedManagedCostReserve");field.setAccessible(true);
+        field.set(current,2001L);assertFalse(current.isValid());field.set(current,2000L);
+        field=AccountRiskSnapshot.class.getDeclaredField("policyVersion");field.setAccessible(true);
+        field.set(current,"unknown");assertFalse(current.isValid());field.set(current,AccountRiskSnapshot.CURRENT_ACCOUNT_POLICY);
+        field=AccountRiskSnapshot.class.getDeclaredField("schemaVersion");field.setAccessible(true);
+        field.set(current,"1");assertFalse(current.isValid());
+    }
 }

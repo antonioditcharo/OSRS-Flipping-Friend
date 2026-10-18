@@ -67,12 +67,41 @@ class PositionsPanel extends JPanel
 	private java.util.function.Supplier<java.util.Collection<Position>> tradingPositions;
     private java.util.function.BooleanSupplier tradeEvidenceAvailable = () -> true;
     void setTradeEvidenceAvailable(java.util.function.BooleanSupplier supplier) { tradeEvidenceAvailable = supplier; }
+    private com.flippingfriend.core.AccountLedgerSnapshot recordedLedger;
+    private boolean recordedMode;
+    private List<Position> recordedPositions=List.of();
+    private final javax.swing.JTextArea historyStatus=UiUtils.mutedText("");
+    /** Display only. Exits continue to read the engine's fresh tradingLedger. */
+    void updateRecordedHistory(com.flippingfriend.core.AccountLedgerSnapshot history,boolean updating) {
+        if(history==null && !recordedMode)return;
+        recordedMode=true;
+        var previous=recordedLedger!=null && history!=null && recordedLedger.getAccountId().equals(history.getAccountId())
+            ? recordedPositions:List.<Position>of();
+        var fresh=tradingPositions==null?List.<Position>of():tradingPositions.get();
+        List<Position> next=new ArrayList<>();
+        if(history!=null && history.isValid() && history.getTradingPositions()!=null && !history.hasUnboundedReconciliation())
+            for(var p:history.getTradingPositions()) {
+                Position display=new Position(p.getItemId(),p.getItemName(),p.getQuantity(),p.getTotalCost(),p.getOpenedAt(),true);
+                for(var source:java.util.List.of(previous,fresh))for(var context:source)
+                    if(context.getItemId()==p.getItemId() && context.getQuantity()==p.getQuantity() && context.getTotalCost()==p.getTotalCost()
+                        && context.getOpenedAt()==p.getOpenedAt()) {
+                        display.setTargetSellPrice(context.getTargetSellPrice());display.setStopPrice(context.getStopPrice());
+                        display.setPredictedSellMinutes(context.getPredictedSellMinutes());
+                    }
+                next.add(display);
+            }
+        recordedPositions=next;recordedLedger=history;
+        historyStatus.setText(history==null?"Waiting for account holdings evidence.":
+            (updating?"Updating; showing last confirmed purchase records. ":"Recorded remaining purchases. ")
+            +"Quantities are not proof of current inventory. Incomplete trades remain in Records > Missed flips.");
+        historyStatus.setToolTipText(history==null?null:"Recorded through "+Instant.ofEpochSecond(history.getObservedAt()));
+    }
 	void setTradingPositions(java.util.function.Supplier<java.util.Collection<Position>> supplier)
 	{ tradingPositions = supplier; }
 
 	void refresh()
 	{
-		List<Position> held = new ArrayList<>(tradingPositions == null ? positions.all() : tradingPositions.get());
+		List<Position> held = new ArrayList<>(recordedMode?recordedPositions:tradingPositions == null ? positions.all() : tradingPositions.get());
 		held.removeIf(position -> position.getQuantity() <= 0);
 		held.sort(Comparator.comparingLong(Position::getOpenedAt).reversed());
 
@@ -82,7 +111,11 @@ class PositionsPanel extends JPanel
 		// anything had changed, which is what made the sidebar blink -- and it did the work on the
 		// Swing thread, so the cost was paid where it is most visible. The signature covers everything
 		// the cards render, so a change still redraws immediately and a quiet refresh costs nothing.
-		String signature = signatureOf(held) + tradeEvidenceAvailable.getAsBoolean();
+        boolean available=recordedMode?recordedLedger!=null && recordedLedger.getTradingPositions()!=null
+            && !recordedLedger.hasUnboundedReconciliation():tradeEvidenceAvailable.getAsBoolean();
+        boolean gaps=recordedLedger!=null && recordedLedger.getMissedFlips()!=null && recordedLedger.getMissedFlips().stream()
+            .anyMatch(e->"RECONCILE".equals(e.getType()));
+		String signature = signatureOf(held) + available+gaps+recordedMode+(recordedLedger==null?"":recordedLedger.getAccountId());
 		if (signature.equals(lastSignature))
 		{
 			return;
@@ -90,6 +123,7 @@ class PositionsPanel extends JPanel
 		lastSignature = signature;
 
 		removeAll();
+        if(recordedMode){add(historyStatus);add(UiUtils.gap(UiUtils.SPACE_S));}
 		// Prevent tooltips from sticking on screen if the user is hovering over a component that gets removed
 		javax.swing.ToolTipManager.sharedInstance().setEnabled(false);
 		javax.swing.ToolTipManager.sharedInstance().setEnabled(true);
@@ -98,8 +132,9 @@ class PositionsPanel extends JPanel
 		{
 			JPanel empty = UiUtils.card();
 			empty.setLayout(new BorderLayout());
-			empty.add(UiUtils.mutedText(tradeEvidenceAvailable.getAsBoolean()
-                ? "No tracked purchases remain. Observed buys appear here with their remaining quantities."
+			empty.add(UiUtils.mutedText(available
+                ? gaps?"Incomplete purchase records remain in Missed flips; their remaining quantities are unknown."
+                    :"No tracked purchases remain. Observed buys appear here with their remaining quantities."
                 : "Waiting for fresh tracked holdings. Your recorded trade history is preserved."), BorderLayout.CENTER);
 			UiUtils.constrainWidth(empty);
 			add(empty);
@@ -144,6 +179,7 @@ class PositionsPanel extends JPanel
 				.append(position.getItemName()).append(':')
 				.append(position.getQuantity()).append(':')
 				.append(position.isCostKnown()).append(':')
+				.append(position.getTotalCost()).append(':')
 				.append(position.getAverageCost()).append(':')
 				.append(position.getTargetSellPrice()).append(':')
 				.append(position.getStopPrice()).append(':')
@@ -249,7 +285,7 @@ class PositionsPanel extends JPanel
 
 		// Just the count. The price paid has its own row in the footer now, and carrying it here too
 		// made the line long enough to be cut off mid-word once the value on the right took its space.
-		JLabel detail = UiUtils.small(explainer.formatNumber(position.getQuantity()) + " held"
+		JLabel detail = UiUtils.small(explainer.formatNumber(position.getQuantity()) + " tracked remaining"
 			+ (position.isCostKnown() ? "" : "  ·  already owned"));
 		detail.setAlignmentX(Component.LEFT_ALIGNMENT);
 		text.add(detail);
@@ -265,8 +301,7 @@ class PositionsPanel extends JPanel
 		int basis = position.getTargetSellPrice() > 0 ? position.getTargetSellPrice() : marketSell;
 		if (position.isCostKnown() && basis > 0)
 		{
-			long unrealised = taxCalculator.netProfit(position.getItemId(), position.getAverageCost(),
-				basis, position.getQuantity());
+			long unrealised = taxCalculator.netProceeds(position.getItemId(),basis,position.getQuantity())-position.getTotalCost();
 			JPanel valueBlock = new JPanel();
 			valueBlock.setLayout(new BoxLayout(valueBlock, BoxLayout.Y_AXIS));
 			valueBlock.setOpaque(false);
@@ -318,10 +353,10 @@ class PositionsPanel extends JPanel
 		if (position.isCostKnown())
 		{
 			footer.add(UiUtils.gap(2));
-			footer.add(labelledRow("Paid", explainer.formatNumber(position.getAverageCost()) + " gp"));
+			footer.add(labelledRow("Total cost", explainer.formatNumber(position.getTotalCost()) + " gp"));
 
-			int breakEven = taxCalculator.breakEvenSellPrice(position.getItemId(),
-				position.getAverageCost());
+			int breakEven = taxCalculator.breakEvenSellPriceForCost(position.getItemId(),
+				position.getTotalCost(),position.getQuantity());
 			if (breakEven > 0)
 			{
 				footer.add(UiUtils.gap(2));

@@ -123,6 +123,7 @@ final class PanelDetails {
         shown = advice == null ? Suggestion.idle() : advice;
         performance.updateLedger(ledger);
         recordedSales.updateLedger(history,historyUpdating);
+        holdings.updateRecordedHistory(history,historyUpdating);
         StringBuilder text = new StringBuilder(shown.getHeadline() == null ? "" : shown.getHeadline());
         if (shown.getDetail() != null && !shown.getDetail().isEmpty()) text.append("\n\n").append(shown.getDetail());
         if (shown.getItemId() > 0) text.append("\n\n").append(shown.getItemName());

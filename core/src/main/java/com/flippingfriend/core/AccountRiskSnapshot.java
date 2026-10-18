@@ -3,6 +3,9 @@ package com.flippingfriend.core;
 /** Prospective ledger risk, not a session-profit estimate or historical repair. */
 public final class AccountRiskSnapshot {
     private final String schemaVersion;
+    private final String policyVersion;
+    private final Long historicalUncertaintyReserve, unpricedManagedCostReserve;
+    public static final String CURRENT_ACCOUNT_POLICY="CURRENT_ACCOUNT_V1";
     private final String accountId, status, reason, windowId, sessionId;
     private final long evaluatedAt;
     private final Long validUntil;
@@ -13,6 +16,7 @@ public final class AccountRiskSnapshot {
 
     private AccountRiskSnapshot(String accountId, long at, String reason) {
         schemaVersion = "1";
+        policyVersion=null;historicalUncertaintyReserve=unpricedManagedCostReserve=null;
         this.accountId = AccountIdentity.require(accountId); evaluatedAt = at;
         status = "UNAVAILABLE"; this.reason = reason; windowId = null; sessionId = null;
         validUntil = null;
@@ -23,7 +27,10 @@ public final class AccountRiskSnapshot {
         if (!isValid()) throw new IllegalArgumentException("invalid unavailable risk state");
     }
     private AccountRiskSnapshot(Builder b) {
-        schemaVersion = "1";
+        schemaVersion = b.currentAccount ? "2" : "1";
+        policyVersion=b.currentAccount?CURRENT_ACCOUNT_POLICY:null;
+        historicalUncertaintyReserve=b.currentAccount?b.historical:null;
+        unpricedManagedCostReserve=b.currentAccount?b.unpriced:null;
         accountId = AccountIdentity.require(b.accountId); windowId = b.windowId; sessionId = b.sessionId;
         windowStartedAt = b.startedAt; ledgerCursor = b.cursor; evaluatedAt = b.at; marketObservedAt = b.marketAt;
         validUntil = b.validUntil;
@@ -36,12 +43,16 @@ public final class AccountRiskSnapshot {
         drawdownUpper = conservativeNet < 0 ? Math.negateExact(conservativeNet) : 0;
         remainingLossBudget = Math.subtractExact(fifteenPercent(riskCapital), drawdownUpper);
         status = "AVAILABLE";
-        reason = remainingLossBudget > 0 ? "Durable account risk available."
+        reason = remainingLossBudget > 0 ? b.currentAccount && b.historical>0
+                ? "Current-account risk available. Incomplete historical trades remain paused."
+                : "Durable account risk available."
             : riskCapital == 0 ? "No observed trading capital is available."
             : uncertainLossReserve > 0
-                ? "Unresolved trade evidence contributes an uncertainty reserve to the account's 15% risk allowance. "
+                ? b.currentAccount ? "Unseen or unpriced tracked stock is reserved at full cost against the current loss allowance. This reserve is not a confirmed loss."
+                : "Unresolved trade evidence contributes an uncertainty reserve to the account's 15% risk allowance. "
                     + "This reserve is not a confirmed loss."
-                : "The conservative account loss bound has reached its 15% risk allowance.";
+                : b.currentAccount?"The recorded and currently reserved loss guard has reached its 15% allowance."
+                    : "The conservative account loss bound has reached its 15% risk allowance.";
         if (!isValid()) throw new IllegalArgumentException("invalid available risk state");
     }
     public static AccountRiskSnapshot unavailable(String account, long at, String reason) {
@@ -54,6 +65,8 @@ public final class AccountRiskSnapshot {
         private final String accountId, windowId, sessionId;
         private final long startedAt, cursor, at, marketAt;
         private long startingCapital, currentCapital, lower, upper, marked, reserve, bounded, unresolved, untracked, validUntil;
+        private boolean currentAccount;
+        private long historical,unpriced;
         private Builder(String account, String window, String session, long start, long cursor, long at, long marketAt) {
             accountId = account; windowId = window; sessionId = session; startedAt = start;
             this.cursor = cursor; this.at = at; this.marketAt = marketAt;
@@ -65,6 +78,10 @@ public final class AccountRiskSnapshot {
             reserve = possibleLostCost; unresolved = managedUpdates; untracked = untrackedUpdates; return this;
         }
         public Builder marked(long value) { marked = value; return this; }
+        /** Historical unknown money remains reported, not subtracted as a confirmed current loss. */
+        public Builder currentAccountPolicy(long historicalReserve,long unpricedOpenCost) {
+            currentAccount=true;historical=historicalReserve;unpriced=unpricedOpenCost;return this;
+        }
         public Builder validUntil(long value) { validUntil = value; return this; }
         public AccountRiskSnapshot build() { return new AccountRiskSnapshot(this); }
     }
@@ -73,8 +90,13 @@ public final class AccountRiskSnapshot {
         return Math.addExact(Math.multiplyExact(capital / 100, 15), (capital % 100) * 15 / 100);
     }
     public boolean isValid() {
-        if (!"1".equals(schemaVersion) || accountId == null || !accountId.matches("rs-[0-9a-f]{64}")
+        if ((!"1".equals(schemaVersion) && !"2".equals(schemaVersion)) || accountId == null || !accountId.matches("rs-[0-9a-f]{64}")
             || evaluatedAt < 0 || reason == null || reason.isBlank()) return false;
+        if("2".equals(schemaVersion)) {
+            if(!CURRENT_ACCOUNT_POLICY.equals(policyVersion) || historicalUncertaintyReserve==null || historicalUncertaintyReserve<0
+                || unpricedManagedCostReserve==null || unpricedManagedCostReserve<0 || uncertainLossReserve==null
+                || unpricedManagedCostReserve>uncertainLossReserve)return false;
+        }else if(policyVersion!=null || historicalUncertaintyReserve!=null || unpricedManagedCostReserve!=null)return false;
         if ("UNAVAILABLE".equals(status)) return validUntil == null && windowId == null && sessionId == null && windowStartedAt == null
             && ledgerCursor == null && marketObservedAt == null && startingCapital == null && currentCapital == null
             && boundedRealizedProfitLower == null && boundedRealizedProfitUpper == null && markedUnrealizedProfit == null
@@ -101,6 +123,9 @@ public final class AccountRiskSnapshot {
         } catch (ArithmeticException overflow) { return false; }
     }
     public boolean isAvailable() { return "AVAILABLE".equals(status) && isValid(); }
+    public boolean isCurrentAccountPolicy() { return "2".equals(schemaVersion) && CURRENT_ACCOUNT_POLICY.equals(policyVersion); }
+    public Long getHistoricalUncertaintyReserve() { return historicalUncertaintyReserve; }
+    public Long getUnpricedManagedCostReserve() { return unpricedManagedCostReserve; }
     public String getAccountId() { return accountId; }
     public String getWindowId() { return windowId; }
     public String getSessionId() { return sessionId; }

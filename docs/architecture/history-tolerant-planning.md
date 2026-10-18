@@ -1,5 +1,10 @@
 # Historical uncertainty and current buy eligibility
 
+Superseded policy decision, 18 October 2026: see
+[current-account inventory policy](current-account-inventory-policy.md). The owner chose to retain
+historical uncertainty separately from current loss allowance. The calculations and original data
+described below remain evidence; they no longer impose an account-wide historical buy block.
+
 18 October 2026 UTC. The owner prioritized graceful incomplete-history handling. Unknown history
 remains visible and is never assigned profit, ownership or disposal merely to obtain a buy.
 

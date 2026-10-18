@@ -10,6 +10,8 @@ public final class AccountSnapshot
     private AccountRiskSnapshot canonicalRisk;
     private Map<Integer,String> offerReadSet;
     private java.util.Set<Integer> unavailableEntryItems;
+    /** Current inventory/equipment/collection evidence, excluding cached bank contents. Not ownership. */
+    private Map<Integer,Integer> observedHoldings;
     private final boolean automaticTradeScope;
 	private final Map<Integer, StockDeclaration> stockDeclarations;
 	private final String correlationId;
@@ -253,6 +255,7 @@ public final class AccountSnapshot
 		this.targetHoldMinutes = source.targetHoldMinutes; this.blockedItems = source.blockedItems;
 		this.skippedItems = source.skippedItems; this.itemsOnOffer = source.itemsOnOffer;
 		this.positions = source.positions;
+        this.observedHoldings=source.observedHoldings;
 	}
 
 	private AccountSnapshot(AccountSnapshot source, Map<Integer, Long> exposure)
@@ -285,6 +288,7 @@ public final class AccountSnapshot
 		this.targetHoldMinutes = source.targetHoldMinutes; this.blockedItems = source.blockedItems;
 		this.skippedItems = source.skippedItems; this.itemsOnOffer = source.itemsOnOffer;
 		this.positions = source.positions;
+        this.observedHoldings=source.observedHoldings;
 	}
 
 	/** Planning-only exposure override; all other account fields remain unchanged. */
@@ -298,6 +302,16 @@ public final class AccountSnapshot
 		return new AccountSnapshot(this, exposure);
 	}
 	public AccountSnapshot withAccountId(String accountId) { return new AccountSnapshot(this, accountId); }
+    public AccountSnapshot withObservedHoldings(Map<Integer,Integer> holdings) {
+        if(holdings==null || holdings.entrySet().stream().anyMatch(e->e.getKey()==null || e.getKey()<=0
+            || e.getValue()==null || e.getValue()<0))throw new IllegalArgumentException("invalid observed holdings");
+        AccountSnapshot copy=new AccountSnapshot(this,getCommittedByItem());
+        copy.observedHoldings=Collections.unmodifiableMap(new java.util.HashMap<>(holdings));return copy;
+    }
+    /** Null means the old publisher supplied no physical evidence; it cannot mark unseen stock. */
+    public Map<Integer,Integer> getObservedHoldings() {
+        return observedHoldings==null?null:Collections.unmodifiableMap(new java.util.HashMap<>(observedHoldings));
+    }
     /** Server-derived planning override. A wire-supplied value is never an authority. */
     public AccountSnapshot withCanonicalRisk(AccountRiskSnapshot risk) {
         if(risk==null || !risk.isAvailable() || !java.util.Objects.equals(accountId,risk.getAccountId())

@@ -15,6 +15,9 @@ final class CurrentOfferReadSet {
         Set<Integer> slots=new HashSet<>();Set<String> ids=new HashSet<>();String session=null;int free=0;long reserved=0;
         for(var used:account.getBuyLimitUsed().entrySet())
             if(used.getKey()==null || used.getKey()<=0 || used.getValue()==null || used.getValue()<0)return false;
+        var physical=account.getObservedHoldings();
+        if(physical!=null && physical.entrySet().stream().anyMatch(e->e.getKey()==null || e.getKey()<=0
+            || e.getValue()==null || e.getValue()<0))return false;
         try {
             for(var p:read.offers) {
                 if(p==null || p.getState()==OfferLifecycleState.ERROR_RECONCILIATION

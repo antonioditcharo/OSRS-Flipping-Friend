@@ -1,0 +1,95 @@
+package com.flippingfriend.companion;
+
+import com.flippingfriend.core.*;
+import java.util.*;
+import org.junit.*;
+import org.junit.rules.TemporaryFolder;
+import static org.junit.Assert.*;
+
+/** The owner's current-account policy retains history without making it a permanent buy switch. */
+public class CurrentAccountRiskPolicyTest {
+    @Rule public TemporaryFolder folder=new TemporaryFolder();
+    final DurableRiskWindowTest f=new DurableRiskWindowTest();
+    @Before public void setup(){f.folder=folder;}
+    void gap(SqliteStore store)throws Exception {
+        f.accept(store,f.event(0,"BUYING","incomplete",20,0,0,1000000));f.clear(store);
+    }
+    @Test public void historicalUncertaintyRemainsVisibleWhileUnrelatedFinalEntryCanPass()throws Exception {
+        var path=folder.newFolder().toPath().resolve("history.db");String window;
+        try(var store=new SqliteStore(path)) {
+            f.capture(store,100000000);gap(store);var account=f.capture(store,80000000);
+            int effects=store.positionEventCount();var ledger=f.gson.toJsonTree(store.ledgerSnapshot(f.account));
+            var risk=f.evaluate(store,account,1000000);window=risk.getWindowId();
+            assertTrue(risk.getReason(),risk.isAvailable());
+            assertTrue("Uncertainty in a closed historical episode is not a confirmed account loss",risk.getRemainingLossBudget()>0);
+            assertEquals(Long.valueOf(0),risk.getUncertainLossReserve());
+            assertEquals(20000000,f.gson.toJsonTree(risk).getAsJsonObject().get("historicalUncertaintyReserve").getAsLong());
+            assertEquals(Long.valueOf(0),risk.getBoundedRealizedProfitLower());
+            try(var service=new CompanionService(f.gson,store)) {
+                var helper=new BoundedPlanningStateTest();helper.set(service,"account",account);
+                var market=(MarketIngestionService)helper.get(service,"market");
+                helper.set(market,"state",new MarketIngestionService.MarketState(
+                    Map.of(562,new MarketIngestionService.Item(562,"Item 562",10000)),
+                    new com.google.gson.JsonObject(),new com.google.gson.JsonObject(),new com.google.gson.JsonObject(),f.at));
+                var candidate=new PortfolioCandidate(562,"Item 562","",100,100,100,120,120,120,10,10000,200,
+                    1,1,.95,.95,.4,.4,1.5,f.at+90);
+                helper.set(service,"plan",new PortfolioPlan("current-policy",f.at,f.at+90,"READY","fixture",100,
+                    List.of(new PortfolioAllocation(1,candidate,"BUY"))));
+                assertEquals(OfferLifecycleAction.PLACE_BUY,service.entryDecision("current-policy",1,f.at).getAction());
+            }
+            assertEquals(effects,store.positionEventCount());
+            var current=f.gson.toJsonTree(store.ledgerSnapshot(f.account));
+            ledger.getAsJsonObject().remove("observedAt");current.getAsJsonObject().remove("observedAt");assertEquals(ledger,current);
+            assertTrue(store.planningProjections(f.account).tradeScope.unsafeItems.contains(561));
+        }
+        try(var store=new SqliteStore(path)) {
+            var account=f.capture(store,80000000);var risk=f.evaluate(store,account,1000000);
+            assertEquals(window,risk.getWindowId());assertTrue(risk.getRemainingLossBudget()>0);
+        }
+    }
+    @Test public void aLiveOfferInPausedStockStillWithholdsEntry()throws Exception {
+        try(var store=new SqliteStore(folder.newFolder().toPath().resolve("live.db"))) {
+            f.capture(store,100000000);gap(store);f.capture(store,80000000);
+            Map<Integer,String> receipt=new HashMap<>();
+            for(int slot=0;slot<8;slot++) {
+                var e=slot==0?f.event(0,"BUYING","new-live",10,0,0,1000):f.event(slot,"EMPTY",null,0,0,0,0);
+                f.accept(store,e);receipt.put(slot,e.getEventId());
+            }
+            var account=new AccountSnapshot("active",f.at,79990000,10000,7,8,true,false,0)
+                .withAccountId(f.account).withAutomaticTradeScope().withOfferReadSet(receipt);
+            store.recordAndReconcileAccount(account,PositionStateView.from(account),f.gson.toJson(account));
+            assertFalse("Historical tolerance cannot authorize unresolved live offers",f.evaluate(store,account,1000).isAvailable());
+        }
+    }
+    @Test public void missingOrStaleManagedPricesReserveFullCostWithoutFreezingAvailableCash()throws Exception {
+        try(var store=new SqliteStore(folder.newFolder().toPath().resolve("unpriced.db"))) {
+            f.capture(store,100000000);f.buy(store,"stock",5,1000000);var account=f.capture(store,95000000);
+            var risk=f.evaluate(store,account,null);
+            assertTrue("Zero terminal value safely bounds missing prices: "+risk.getReason(),risk.isAvailable());
+            assertEquals(Long.valueOf(5000000),risk.getUncertainLossReserve());
+            assertEquals(Long.valueOf(5000000),risk.getDrawdownUpper());assertEquals(Long.valueOf(10000000),risk.getRemainingLossBudget());
+            var read=store.planningProjections(f.account);var market=f.market(1000000);
+            market.latest.getAsJsonObject("561").addProperty("lowTime",f.at-121);
+            risk=DurableRisk.evaluate(read,account,DurablePlanningExposure.forAccount(read,account,f.at),market,f.at);
+            assertTrue(risk.isAvailable());assertEquals(Long.valueOf(5000000),risk.getUncertainLossReserve());
+            assertEquals(1,store.ledgerSnapshot(f.account).getTradingPositions().size());
+        }
+    }
+    @Test public void physicalCountsNeverEnrollPersonalUnitsAndUnseenCostHasZeroTerminalValue()throws Exception {
+        try(var store=new SqliteStore(folder.newFolder().toPath().resolve("physical.db"))) {
+            f.capture(store,100000000);f.buy(store,"stock",2,41);var account=f.capture(store,99999918);
+            var absent=account.withObservedHoldings(Map.of());
+            var risk=f.evaluate(store,absent,1000);
+            assertEquals(Long.valueOf(82),risk.getUncertainLossReserve());assertEquals(Long.valueOf(0),risk.getMarkedUnrealizedProfit());
+            var partial=account.withObservedHoldings(Map.of(561,1));risk=f.evaluate(store,partial,42);
+            assertEquals(Long.valueOf(41),risk.getUncertainLossReserve());assertEquals(Long.valueOf(1),risk.getMarkedUnrealizedProfit());
+            var personal=account.withObservedHoldings(Map.of(561,6002));risk=f.evaluate(store,personal,42);
+            assertEquals(Long.valueOf(0),risk.getUncertainLossReserve());assertEquals(Long.valueOf(2),risk.getMarkedUnrealizedProfit());
+            assertEquals("6,000 personal units never widen the tracked position",2,store.ledgerSnapshot(f.account).getTradingPositions().get(0).getQuantity());
+            var forged=f.gson.toJsonTree(account).getAsJsonObject();
+            forged.add("observedHoldings",f.gson.toJsonTree(Map.of(561,-1)));
+            var invalid=f.gson.fromJson(forged,AccountSnapshot.class);
+            assertNull(DurablePlanningExposure.forAccount(store.planningProjections(f.account),invalid,f.at));
+        }
+    }
+}

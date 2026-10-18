@@ -108,4 +108,25 @@ public class HeldProfitBasisTest
 		assertTrue("a holding with no target must never be captioned as having one: " + labels,
 			!labels.contains("at target"));
 	}
+    @Test public void aFractionalAverageNeverInflatesTheDisplayedProfitOrBreakEven()throws Exception {
+        PositionsPanel panel=panelAt(folder.newFolder("exact-pool").toPath());
+        book.recordBuy(561,"Nature rune",2,81,Instant.now());book.get(561).setTargetSellPrice(42);
+        panel.refresh();var labels=labelsIn(panel);
+        assertTrue(labels.toString(),labels.contains(new Explainer().formatGp(3)));
+        assertTrue("Show the exact recorded pool cost",labels.contains("81 gp"));
+        assertTrue("Two units cost 81, so 40 each is not break even",labels.contains("41 gp"));
+    }
+    @Test public void pendingUpdatesKeepRecordedQuantitiesVisibleButLogoutClearsTheView()throws Exception {
+        PositionsPanel panel=panelAt(folder.newFolder("retained").toPath());
+        panel.setTradingPositions(List::of);panel.setTradeEvidenceAvailable(()->false);
+        long at=Instant.now().getEpochSecond();
+        var ledger=new com.flippingfriend.core.AccountLedgerSnapshot(com.flippingfriend.core.AccountIdentity.fromProfileKey("a"),
+            at,0,0,0,0,0,0,0,0,List.of()).withTradeEvidence(List.of(com.flippingfriend.core.PositionProjection.ready(
+                561,"Nature rune",2,81,at,"acquisition","episode")),List.of());
+        panel.updateRecordedHistory(ledger,false);panel.refresh();int components=panel.getComponentCount();
+        assertTrue(labelsIn(panel).contains("2 tracked remaining"));
+        panel.updateRecordedHistory(ledger,true);panel.refresh();assertTrue(labelsIn(panel).contains("2 tracked remaining"));
+        org.junit.Assert.assertEquals(components,panel.getComponentCount());
+        panel.updateRecordedHistory(null,false);panel.refresh();assertTrue(!labelsIn(panel).contains("Nature rune"));
+    }
 }
