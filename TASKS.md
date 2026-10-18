@@ -90,6 +90,10 @@ All unchecked release requirements remain visible below; detailed completion rec
       Owner's #84 flicker is reproduced/fixed in installed #86 with explicit Records/filter navigation;
       docs/architecture/history-display-retention.md describes it. Owner accepts history stability;
       broader UI/trading acceptance remains open.
+      Owner explicitly chose current-account policy on 18 October: retain historical unknown money
+      and pause affected stock while current cash permits unrelated buys. The queued implementation
+      and regression gates are in docs/architecture/current-account-inventory-policy.md. Final
+      build/CI/delivery and live buy availability are pending; this is not a financial-data repair.
 - [ ] Audit calibration prediction provenance and cancellation censoring before changing strategy.
       Attribution, observed intervals and the runtime promotion fence are source-verified in history.
       Historical execution aggregates still pool censored/completed times but no longer authorize

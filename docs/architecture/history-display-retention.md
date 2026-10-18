@@ -1,5 +1,9 @@
 # Stable account history investigation
 
+18 October continuation: [current-account inventory policy](current-account-inventory-policy.md)
+also retains read-only Holdings purchase records with explicit updating/as-of text. This extends
+display use only; the trading engine still requires its fresh ledger and physical observations.
+
 18 October 2026 UTC. The owner opened Missed flips and reported that its populated table kept
 disappearing. This is a failed UI acceptance check, not missing player evidence.
 

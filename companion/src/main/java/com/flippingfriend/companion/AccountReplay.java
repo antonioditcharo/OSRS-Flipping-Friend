@@ -253,7 +253,7 @@ final class AccountReplay implements AutoCloseable {
         for(Offer o:offers)if(o!=null && o.buy)exposure.merge(o.item,(long)o.remaining()*o.price,Math::addExact);
         AccountSnapshot a=new AccountSnapshot("replay:"+cadence+":"+now,now,cash,locked(),8-(int)Arrays.stream(offers).filter(Objects::nonNull).count(),8,
             true,false,0,input.risk,exposure,input.minimumProfit,Map.of(),baseline,cadence,Set.of(),Set.of(),onOffer,false,0,positions)
-            .withAccountId(ACCOUNT).withAutomaticTradeScope().withOfferReadSet(readSet);
+            .withAccountId(ACCOUNT).withAutomaticTradeScope().withOfferReadSet(readSet).withObservedHoldings(inventory);
         store.recordAndReconcileAccount(a,PositionStateView.from(a),json.toJson(a),now);return a;
     }
     private OfferEvent publishEmpty(int slot) throws Exception {

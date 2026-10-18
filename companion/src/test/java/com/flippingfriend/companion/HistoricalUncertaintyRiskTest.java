@@ -42,7 +42,8 @@ public class HistoricalUncertaintyRiskTest {
             assertTrue("The historical capital envelope remains intact",exposure.committedByItem.get(561)>=100000000);
             assertTrue(exposure.unavailableEntryItems.contains(561));
             var risk=f.evaluate(s,a,10);assertTrue(risk.getReason(),risk.isAvailable());
-            assertEquals(Long.valueOf(100),risk.getUncertainLossReserve());
+            assertEquals(Long.valueOf(100),risk.getHistoricalUncertaintyReserve());
+            assertEquals(Long.valueOf(0),risk.getUncertainLossReserve());
             assertTrue("Unrelated entries retain a positive loss allowance",risk.getRemainingLossBudget()>0);
             assertEquals(1,s.ledgerSnapshot(f.account).getSales());
             assertEquals(0,s.ledgerSnapshot(f.account).getUnresolvedSales());
@@ -70,9 +71,9 @@ public class HistoricalUncertaintyRiskTest {
             f.accept(s,f.event(0,"BUYING","new",10,1,100,100));
             f.accept(s,f.event(0,"BUYING","new",10,2,200,100));f.clear(s);
             var a=f.capture(s,99999000);
-            assertEquals(Long.valueOf(1000),f.evaluate(s,a,100).getUncertainLossReserve());
+            assertEquals(Long.valueOf(1000),f.evaluate(s,a,100).getHistoricalUncertaintyReserve());
             gap(s,"later",10,100);a=f.capture(s,99998000);
-            assertEquals(Long.valueOf(2000),f.evaluate(s,a,100).getUncertainLossReserve());
+            assertEquals(Long.valueOf(2000),f.evaluate(s,a,100).getHistoricalUncertaintyReserve());
         }
     }
     @Test public void missingOrForeignAnchorSourcesCannotReleaseAReserve()throws Exception {
@@ -96,25 +97,25 @@ public class HistoricalUncertaintyRiskTest {
             gap(s,"old-gap",10,100);f.capture(s,100000000);
             f.buy(s,"new-capital",2,1000000);var a=f.capture(s,98000000);
             var risk=f.evaluate(s,a,1000000);assertTrue(risk.getReason(),risk.isAvailable());
-            assertEquals(Long.valueOf(2000000),risk.getUncertainLossReserve());
+            assertEquals(Long.valueOf(2000000),risk.getHistoricalUncertaintyReserve());
             f.sell(s,"new-unpriced",2,1000000,2000000);a=f.capture(s,99960000);
             risk=f.evaluate(s,a,1000000);
-            assertEquals("An unpriced sale cannot erase the new capital reserve",Long.valueOf(2000000),risk.getUncertainLossReserve());
+            assertEquals("An unpriced sale cannot erase retained uncertainty",Long.valueOf(2000000),risk.getHistoricalUncertaintyReserve());
             assertEquals(Long.valueOf(0),risk.getBoundedRealizedProfitLower());
         }
     }
-    @Test public void aNewLargeGapStillExhaustsTheAllowanceAndRestartCannotResetIt()throws Exception {
+    @Test public void aLargeHistoricalGapAndItsOriginalAnchorSurviveRestartWithoutBecomingConfirmedLoss()throws Exception {
         Path db=folder.newFolder().toPath().resolve("large-gap.db");String window;
         try(var s=new SqliteStore(db)) {
             var a=f.capture(s,100000000);window=f.evaluate(s,a,100).getWindowId();
             gap(s,"new-large",20,1000000);a=f.capture(s,80000000);
-            var risk=f.evaluate(s,a,1000000);assertEquals(Long.valueOf(20000000),risk.getUncertainLossReserve());
-            assertTrue(risk.getRemainingLossBudget()<0);
+            var risk=f.evaluate(s,a,1000000);assertEquals(Long.valueOf(20000000),risk.getHistoricalUncertaintyReserve());
+            assertTrue(risk.getRemainingLossBudget()>0);assertEquals(Long.valueOf(0),risk.getBoundedRealizedProfitLower());
         }
         try(var s=new SqliteStore(db)) {
             var a=f.capture(s,80000000);var risk=f.evaluate(s,a,1000000);
-            assertEquals(window,risk.getWindowId());assertEquals(Long.valueOf(20000000),risk.getUncertainLossReserve());
-            assertTrue(risk.getRemainingLossBudget()<0);
+            assertEquals(window,risk.getWindowId());assertEquals(Long.valueOf(20000000),risk.getHistoricalUncertaintyReserve());
+            assertTrue(risk.getRemainingLossBudget()>0);
         }
     }
 }

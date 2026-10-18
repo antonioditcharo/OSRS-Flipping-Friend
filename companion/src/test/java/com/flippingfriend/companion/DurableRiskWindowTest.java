@@ -39,7 +39,7 @@ public class DurableRiskWindowTest {
         Map<Integer,String> receipt=new HashMap<>();
         for(int slot=0;slot<8;slot++){var e=event(slot,"EMPTY",null,0,0,0,0);accept(s,e);receipt.put(slot,e.getEventId());}
         var a=new AccountSnapshot("snapshot-"+sequence,at,cash,0,8,8,true,false,0).withAccountId(account)
-            .withAutomaticTradeScope().withOfferReadSet(receipt);
+            .withAutomaticTradeScope().withOfferReadSet(receipt).withObservedHoldings(Map.of(561,1000000));
         s.recordAndReconcileAccount(a,PositionStateView.from(a),gson.toJson(a));return a;
     }
     MarketIngestionService.MarketState market(Integer bid) {
@@ -74,7 +74,8 @@ public class DurableRiskWindowTest {
             var risk=evaluate(s,a,700);assertTrue(risk.getReason(),risk.isAvailable());
             assertEquals(Long.valueOf(100000000),risk.getCurrentCapital());
             assertEquals(Long.valueOf(-3140),risk.getMarkedUnrealizedProfit());assertEquals(Long.valueOf(3140),risk.getDrawdownUpper());
-            var missing=evaluate(s,a,null);assertFalse(missing.isAvailable());assertNull(missing.getDrawdownUpper());
+            var missing=evaluate(s,a,null);assertTrue(missing.isAvailable());
+            assertEquals(Long.valueOf(10000),missing.getUncertainLossReserve());assertEquals(Long.valueOf(10000),missing.getDrawdownUpper());
         }
     }
     @Test public void mixedTaxBoundsStayRangesAndTheLowerProfitControlsRisk()throws Exception {
@@ -101,8 +102,9 @@ public class DurableRiskWindowTest {
         try(var s=new SqliteStore(folder.newFolder().toPath().resolve("mixed-stock.db"))) {
             capture(s,100000000);buy(s,"buy",2,100);sell(s,"mixed-sale",3,100,300);
             var a=capture(s,100000094);var risk=evaluate(s,a,100);assertTrue(risk.getReason(),risk.isAvailable());
-            assertEquals(1,risk.getUnresolvedManagedSaleUpdates());assertEquals(Long.valueOf(200),risk.getUncertainLossReserve());
-            assertEquals(Long.valueOf(0),risk.getBoundedRealizedProfitLower());assertEquals(Long.valueOf(200),risk.getDrawdownUpper());
+            assertEquals(1,risk.getUnresolvedManagedSaleUpdates());assertEquals(Long.valueOf(200),risk.getHistoricalUncertaintyReserve());
+            assertEquals(Long.valueOf(0),risk.getUncertainLossReserve());
+            assertEquals(Long.valueOf(0),risk.getBoundedRealizedProfitLower());assertEquals(Long.valueOf(0),risk.getDrawdownUpper());
             assertEquals(1,s.ledgerSnapshot(account).getUnresolvedSales());
         }
     }
@@ -188,7 +190,7 @@ public class DurableRiskWindowTest {
                 var m=market(700);m.latest.getAsJsonObject("561").add("low",invalid);
                 assertFalse(DurableRisk.evaluate(read,a,exposure,m,at).isAvailable());
             }
-            for(long quoteAt:List.of(at+1,at-121)) {
+            for(long quoteAt:List.of(at+1)) {
                 var m=market(700);m.latest.getAsJsonObject("561").addProperty("lowTime",quoteAt);
                 assertFalse(DurableRisk.evaluate(read,a,exposure,m,at).isAvailable());
             }
@@ -205,8 +207,9 @@ public class DurableRiskWindowTest {
             accept(s,OfferEvent.builder("fixture",at,"EMPTY").accountId(account)
                 .eventIdentity("gap-"+(++sequence),session,null).slot(0).sequence(sequence).build());
             var a=capture(s,99999000);var risk=evaluate(s,a,100);
-            assertTrue(risk.getReason(),risk.isAvailable());assertEquals(Long.valueOf(1000),risk.getUncertainLossReserve());
-            assertEquals(Long.valueOf(0),risk.getBoundedRealizedProfitLower());assertEquals(Long.valueOf(1000),risk.getDrawdownUpper());
+            assertTrue(risk.getReason(),risk.isAvailable());assertEquals(Long.valueOf(0),risk.getUncertainLossReserve());
+            assertEquals(Long.valueOf(1000),risk.getHistoricalUncertaintyReserve());
+            assertEquals(Long.valueOf(0),risk.getBoundedRealizedProfitLower());assertEquals(Long.valueOf(0),risk.getDrawdownUpper());
             assertFalse(s.ledgerSnapshot(account).getMissedFlips().isEmpty());
         }
     }

@@ -1,5 +1,11 @@
 # Durable recommendation risk
 
+18 October 2026 continuation: the owner explicitly approved
+[current-account policy](current-account-inventory-policy.md). Historical unknown amounts remain
+reported and affected stock stays paused, while verified current funds may support unrelated buys.
+The earlier account-wide historical reserve charge below is superseded; original anchors, exact
+losses, current unpriced-stock reserves and live exposure/evidence guards remain active.
+
 Implementation contract, 15 October 2026, for the active recommendation breaker. Local
 journal/session figures remain explicitly local estimates and cannot authorize new buys.
 

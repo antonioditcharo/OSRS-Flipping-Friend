@@ -101,7 +101,14 @@ are in `docs/project-direction.md`; historical package notes are not proof of ru
   them or count them as failures. See docs/architecture/frozen-execution-evaluation.md. The CLI
   reads only explicitly scoped existing databases; unassigned legacy data stays untouched.
 - Automatic runtime entry risk must use the durable prospective account window, realized profit
-  bounds, uncertainty reserves and fresh taxed marks. Restart cannot reset its loss allowance.
+  bounds, current unpriced-stock reserves and taxed marks. Owner decision, 18 October 2026:
+  use current-account policy. Retain incomplete historical trades/uncertainty separately in Missed
+  flips and pause affected stock; verified current cash may support unrelated buys. Historical
+  uncertainty is not a confirmed loss and must not exhaust the whole account's loss allowance.
+  Unknown live offer exposure, unbounded scope, confirmed losses, cash/slot/funding and buy-limit
+  guards still apply. Unseen or unpriced proven stock has zero terminal value for entry risk,
+  reserving its full exact cost without inventing a sale, current price or disposal.
+  Restart cannot reset the original loss anchor or confirmed losses.
   Client journal drawdown or wire-supplied canonicalRisk cannot authorize buys. Unknown profit stays
   unknown; preserve financial event identities/risk anchors under retention. Read
   docs/architecture/durable-risk-window.md. Source verification is not live acceptance.

@@ -1203,7 +1203,10 @@ public class SuggestionEngine
 	 */
 	private Position awaitingExit()
 	{
-		return awaitingExit(tradingPositions(), offers.listedForSale(), offers.itemsBeingBought());
+        var account=accountMonitor.getState();
+        java.util.List<Position> visible=new java.util.ArrayList<>();
+        if(account!=null)for(var position:tradingPositions())if(account.quantityHeld(position.getItemId())>0)visible.add(position);
+		return awaitingExit(visible, offers.listedForSale(), offers.itemsBeingBought());
 	}
 
 	static Position awaitingExit(java.util.Collection<Position> held, Map<Integer, Integer> listed)
@@ -1512,8 +1515,14 @@ public class SuggestionEngine
 				// the bank afterwards is invisible by that test, and the holding it belonged to was
 				// then deleted by reconcile a moment later. Being unable to see something is not
 				// knowing it is gone, and the honest answer is to say so.
-				held = toSell;
-				unconfirmed = true;
+                if(!stillBuying.contains(itemId)) {
+                    statuses.put(itemId,new PositionStatus(SellDecision.hold(
+                        "Recorded purchase retained; location is unconfirmed. No sale or disposal is assumed.",0),true,false));
+                    continue;
+                }
+                // Filled units may still be uncollected. Keep the active-buy stop/cancel workflow;
+                // the stillBuying branch below never proposes selling around the working buy.
+                held=toSell;unconfirmed=true;
 			}
 
 			LatestPrice price = market.latest(itemId);

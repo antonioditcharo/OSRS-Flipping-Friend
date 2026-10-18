@@ -71,4 +71,20 @@ public class CompanionSalePolicyTest {
             var ledger=store.ledgerSnapshot(id,now);assertEquals(301,ledger.getTradingPositions().get(0).getTotalCost());assertEquals(0,ledger.getSales());
         }
     }
+    @Test public void playerStartedSalesOfPausedStockHaveUnknownCostMaintenanceButNoManagedExit()throws Exception {
+        try(var store=new SqliteStore(folder.newFolder().toPath().resolve("paused-sale.db"))) {
+            var account=setup(store);long now=at+3600;
+            accept(store,event(0,"BUYING","gap",3,0,0,100,now));
+            accept(store,event(0,"EMPTY",null,0,0,0,0,now+1));
+            var sale=event(0,"SELLING","manual-sale",3,0,0,150,now+2);accept(store,sale);
+            assertTrue(store.ledgerSnapshot(id,now+2).getTradingPositions().isEmpty());
+            int effects=store.positionEventCount();
+            assertEquals(OfferLifecycleAction.CANCEL_SELL,decide(store,account,sale.getEventId(),3,119,0,now+2).getAction());
+            assertEquals(OfferLifecycleAction.WAIT,decide(store,account,"recorded-buy",3,119,-1,now+2).getAction());
+            assertEquals(effects,store.positionEventCount());assertEquals(0,store.ledgerSnapshot(id,now+2).getSales());
+            // A contradictory current price frame is not a maintenance baseline.
+            var contradiction=event(0,"SELLING","manual-sale",3,0,0,151,now+3);accept(store,contradiction);
+            assertEquals(OfferLifecycleAction.WAIT,decide(store,account,contradiction.getEventId(),3,119,0,now+3).getAction());
+        }
+    }
 }

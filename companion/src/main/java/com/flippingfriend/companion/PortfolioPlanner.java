@@ -309,6 +309,10 @@ final class PortfolioPlanner
 	 */
 	private static long heldCapital(AccountSnapshot account)
 	{
+        var risk=account.getCanonicalRisk();
+        if(risk!=null && risk.isCurrentAccountPolicy() && risk.isAvailable()
+            && java.util.Objects.equals(account.getAccountId(),risk.getAccountId()))
+            return Math.max(0,Math.subtractExact(risk.getCurrentCapital(),account.getSpendableCoins()));
 		long held = 0;
 		for (long value : account.getCommittedByItem().values())
 		{

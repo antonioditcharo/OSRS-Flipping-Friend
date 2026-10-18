@@ -29,20 +29,35 @@ final class DurableRisk {
                 return AccountRiskSnapshot.unavailable(id,now,"Risk window or current loss scope is inconsistent.");
             if(market==null || market.observedAt<=0 || market.observedAt>now || now-market.observedAt>120)
                 return AccountRiskSnapshot.unavailable(id,now,"Waiting for fresh prices to evaluate account risk.");
-            long marked=0, validUntil=Math.min(Math.addExact(market.observedAt,120),Math.addExact(account.getObservedAt(),150));
+            for(var offer:read.offers)if(offer.getState()!=OfferLifecycleState.EMPTY
+                && exposure.unavailableEntryItems.contains(offer.getItemId()))
+                return AccountRiskSnapshot.unavailable(id,now,"An active offer has unresolved trade evidence. Finish or collect that offer before new entries.");
+            long marked=0, unpricedCost=0;
+            long validUntil=Math.min(Math.addExact(market.observedAt,120),Math.addExact(account.getObservedAt(),150));
             for(var p:read.tradeScope.readyPositions()) {
+                int observed=account.getObservedHoldings()==null?0:account.getObservedHoldings().getOrDefault(p.getItemId(),0);
+                long physical=observed;
+                // Unsold units in a current sell offer are physically on the GE, not in inventory.
+                for(var offer:read.offers)if(!offer.isBuying() && offer.getItemId()==p.getItemId()
+                    && offer.getState()!=OfferLifecycleState.EMPTY)
+                    physical=Math.addExact(physical,(long)offer.getTotalQuantity()-offer.getFilledQuantity());
+                int quantity=(int)Math.min(p.getQuantity(),physical);
+                long visibleCost=quantity==0?0:SaleAccounting.allocateCost(p.getTotalCost(),p.getQuantity(),quantity);
+                unpricedCost=Math.addExact(unpricedCost,p.getTotalCost()-visibleCost);
+                if(quantity==0)continue;
                 var quote=market.latest==null?null:market.latest.getAsJsonObject(Integer.toString(p.getItemId()));
                 if(quote==null || !quote.has("low") || quote.get("low").isJsonNull()
                     || !quote.has("lowTime") || quote.get("lowTime").isJsonNull())
-                    return AccountRiskSnapshot.unavailable(id,now,"A managed item has no current instant-sell quote.");
+                    {unpricedCost=Math.addExact(unpricedCost,visibleCost);continue;}
                 long bid=exactInteger(quote.get("low")), quoteAt=exactInteger(quote.get("lowTime"));
-                if(bid<=0 || bid>Integer.MAX_VALUE || quoteAt<=0 || quoteAt>now || now-quoteAt>120)
-                    return AccountRiskSnapshot.unavailable(id,now,"A managed item's instant-sell quote is stale or unsupported.");
+                if(bid<=0 || bid>Integer.MAX_VALUE || quoteAt<=0 || quoteAt>now)
+                    return AccountRiskSnapshot.unavailable(id,now,"A managed item's instant-sell quote is unsupported or in the future.");
+                if(now-quoteAt>120){unpricedCost=Math.addExact(unpricedCost,visibleCost);continue;}
                 validUntil=Math.min(validUntil,Math.addExact(quoteAt,120));
                 var item=market.mapping.get(p.getItemId());
                 String name=item==null?null:item.name;
-                long gross=Math.multiplyExact(bid,(long)p.getQuantity());
-                var sale=SaleAccounting.calculate(gross,p.getQuantity(),(int)bid,name,SaleAccounting.CURRENT_POLICY,p.getTotalCost());
+                long gross=Math.multiplyExact(bid,(long)quantity);
+                var sale=SaleAccounting.calculate(gross,quantity,(int)bid,name,SaleAccounting.CURRENT_POLICY,visibleCost);
                 if(sale.getProfitLower()==null)
                     return AccountRiskSnapshot.unavailable(id,now,"A managed item cannot be marked under the current tax rule.");
                 marked=Math.addExact(marked,sale.getProfitLower());
@@ -55,12 +70,13 @@ final class DurableRisk {
                 if(bound==null)return AccountRiskSnapshot.unavailable(id,now,"A new trade gap has no finite capital bound.");
                 reserves.merge(item,bound,Math::max);
             }
-            long reserve=0;for(long amount:reserves.values())reserve=Math.addExact(reserve,amount);
+            long historicalReserve=0;for(long amount:reserves.values())historicalReserve=Math.addExact(historicalReserve,amount);
             return AccountRiskSnapshot.builder(id,window.windowId,window.sessionId,window.startedAt,window.positionCursor,now,market.observedAt)
                 .capital(window.startingCapital,knownCapital(read,account,now))
                 .realized(evidence.profitLower,evidence.profitUpper,evidence.boundedSales).marked(marked)
                 .validUntil(validUntil)
-                .uncertainty(reserve,evidence.unresolvedManagedSales,evidence.untrackedUnpricedSales).build();
+                .uncertainty(unpricedCost,evidence.unresolvedManagedSales,evidence.untrackedUnpricedSales)
+                .currentAccountPolicy(historicalReserve,unpricedCost).build();
         }catch(RuntimeException malformed) {
             return AccountRiskSnapshot.unavailable(id,now,"Account risk evidence cannot be evaluated: "+malformed.getClass().getSimpleName()+".");
         }

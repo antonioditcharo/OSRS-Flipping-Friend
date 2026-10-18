@@ -22,17 +22,19 @@ final class CompanionSalePolicy {
         try {
             if(account==null || account.getObservedAt()>now || now-account.getObservedAt()>150
                 || ledger==null || !ledger.isValid() || !Objects.equals(account.getAccountId(),ledger.getAccountId())
-                || ledger.hasUnboundedReconciliation() || item<=0 || price<=0 || quantity<=0 || source==null || source.isBlank() || slot< -1 || slot>7
+                || item<=0 || price<=0 || quantity<=0 || source==null || source.isBlank() || slot< -1 || slot>7
                 || market==null || market.observedAt<=0 || market.observedAt>now || now-market.observedAt>120)
                 return refusal(type,identity,source,now,"SALE_EVIDENCE_UNAVAILABLE");
-            for(var scope:ledger.getReconciliationScope().values())if(scope.contains(item))return refusal(type,identity,source,now,"SALE_ITEM_PAUSED");
+            boolean paused=ledger.hasUnboundedReconciliation();
+            if(ledger.getReconciliationScope()!=null)for(var scope:ledger.getReconciliationScope().values())if(scope.contains(item))paused=true;
+            if(slot<0 && paused)return refusal(type,identity,source,now,"SALE_ITEM_PAUSED");
             var raw=market.latest.get(Integer.toString(item));
             LatestPrice quote=raw==null?null:new com.google.gson.Gson().fromJson(raw,LatestPrice.class);
             Instant at=Instant.ofEpochSecond(now);
             if(quote==null || !quote.isComplete() || quote.secondsSinceHigh(at)<0 || quote.secondsSinceLow(at)<0 || quote.stalestSideSeconds(at)>300)
                 return refusal(type,identity,source,now,"SALE_QUOTE_STALE");
             Position position=null;
-            for(var p:ledger.getTradingPositions())if(p.getItemId()==item) {
+            for(var p:ledger.getTradingPositions())if(!paused && p.getItemId()==item) {
                 position=new Position(item,p.getItemName(),p.getQuantity(),p.getTotalCost(),p.getOpenedAt(),true);
                 // Original target/stop are policy context only. They cannot replace canonical quantity or cost.
                 for(var context:account.getPositions())if(context.getItemId()==item && context.isCostKnown()
@@ -48,9 +50,16 @@ final class CompanionSalePolicy {
             List<Candle> series=history.series(item,"5m");
             if(slot>=0) {
                 OfferEvent offer=read.currentEvents.get(slot);
+                OfferLifecycleProjection projection=null;for(var p:read.offers)if(p.getSlot()==slot)projection=p;
                 if(offer==null || !offer.isAuthenticatedObservation() || !"SELLING".equals(offer.getEventType())
                     || offer.isBuying() || offer.getItemId()!=item || !source.equals(offer.getEventId()) || offer.getObservedAt()>now
-                    || now-offer.getObservedAt()>150 || offer.getTotalQuantity()-offer.getFilledQuantity()!=quantity)
+                    || now-offer.getObservedAt()>150 || offer.getTotalQuantity()-offer.getFilledQuantity()!=quantity
+                    || projection==null || projection.getState()!=OfferLifecycleClassifier.classify(offer)
+                    || projection.getLastSequence()!=offer.getSequence() || projection.getLastObservedAt()!=offer.getObservedAt()
+                    || !Objects.equals(projection.getOfferIdentity(),offer.getOfferIdentity())
+                    || !Objects.equals(projection.getSessionId(),offer.getSessionId()) || projection.getItemId()!=item || projection.isBuying()
+                    || projection.getPrice()!=offer.getPrice() || projection.getSpent()!=offer.getSpent()
+                    || projection.getTotalQuantity()!=offer.getTotalQuantity() || projection.getFilledQuantity()!=offer.getFilledQuantity())
                     return refusal(type,identity,source,now,"SALE_OFFER_CHANGED");
                 var proposed=new SaleMaintenancePricing().quote(item,offer.getPrice(),quantity,position,quote,series,horizon,at,account.isSellOnly(),exits,tax);
                 if(proposed==null || proposed.lossCut!=cut || Math.abs((long)proposed.price-price)>=horizon.outbidDeadband(proposed.price)

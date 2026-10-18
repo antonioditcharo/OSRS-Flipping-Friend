@@ -5,6 +5,14 @@ Root notes describe the current workflow; detailed prior receipts remain in link
 
 ## Current source and installed runtime
 
+Queued on codex/current-account-inventory-policy: owner explicitly selected current-account policy
+on 18 October. Historical uncertainty remains reported/affected stock paused; fresh current funds
+may support unrelated buys. Confirmed losses and the original anchor persist; unresolved live
+offers still block entry. Regression-first changes also reserve unpriced/unseen exact stock cost,
+carry physical observations separately, avoid phantom sales, support unknown-cost observed-sale
+maintenance and stabilize/exactly price the Holdings display. Final verification/delivery pending;
+#86 remains installed below. [Contract](docs/architecture/current-account-inventory-policy.md).
+
 PR #86 is merged at 478426f and installed through the supported paired updater. Exact source
 8fe03fa passes Windows/Linux CI (run 39108916385), including 103 Python tests. Standard Windows
 clean build: 91s/18 tasks, 1,604 Java passed/six existing skips. Backup 20261017-235035-8555dccc is

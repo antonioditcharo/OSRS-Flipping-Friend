@@ -130,7 +130,7 @@ public class CompanionClient
 	private volatile PortfolioPlan lastPlan;
 	private volatile CompanionHealth lastHealth;
 	private volatile com.flippingfriend.core.AccountLedgerSnapshot lastLedger;
-    /** Display-only durable history. Never an input to trading, holdings or entry authority. */
+    /** Display-only durable records. Never an input to trading, ownership accounting or entry authority. */
     private volatile com.flippingfriend.core.AccountLedgerSnapshot lastHistoryLedger;
     private long ledgerGeneration;
 	@Inject private com.flippingfriend.session.StockDeclarations stockDeclarations;
@@ -310,9 +310,22 @@ public class CompanionClient
 			// short or long a flip the player had asked for.
 			config.targetHoldMinutes(), positionSnapshots).withAccountId(accountId)
 			.withAutomaticTradeScope();
+        snapshot=snapshot.withObservedHoldings(currentPhysicalHoldings(state));
 		if(observation!=null) snapshot=snapshot.withOfferReadSet(receipt);
 		post("events/account-state", snapshot);
 	}
+    /** Remove cached bank quantities without masking contradictory/overflowed container totals. */
+    static java.util.Map<Integer,Integer> currentPhysicalHoldings(AccountState state) {
+        java.util.Map<Integer,Integer> observed=new java.util.HashMap<>(state.getHoldings());
+        state.getBankHoldings().forEach((item,quantity)->{
+            Integer total=observed.get(item);
+            if(quantity==null || quantity<0 || total==null && quantity>0 || total!=null && total<quantity)
+                throw new IllegalArgumentException("Contradictory physical container quantities");
+            if(total!=null)observed.put(item,Math.subtractExact(total,quantity));
+        });
+        observed.entrySet().removeIf(e->e.getValue()!=null && e.getValue()==0);
+        return observed;
+    }
 
         public void publishOffer(TrackedOffer offer)
         {

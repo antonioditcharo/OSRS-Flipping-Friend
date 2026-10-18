@@ -100,10 +100,13 @@ class PortfolioPanel extends JPanel
         if(risk==null) {
             add(UiUtils.mutedText("Account risk: unavailable; waiting for fresh durable evidence."));
         }else {
-            add(UiUtils.mutedText("Account loss bound: " + explainer.formatNumber(risk.getDrawdownUpper())
+            add(UiUtils.mutedText((risk.isCurrentAccountPolicy()?"Tracked loss guard: ":"Account loss bound: ") + explainer.formatNumber(risk.getDrawdownUpper())
                 + " gp. Remaining loss allowance: " + explainer.formatNumber(risk.getRemainingLossBudget()) + " gp."));
-            add(UiUtils.mutedText("Possible loss reserved for incomplete trades: "
+            add(UiUtils.mutedText("Current unpriced stock cost reserved: "
                 + explainer.formatNumber(risk.getUncertainLossReserve()) + " gp. This is not recorded profit."));
+            if(risk.isCurrentAccountPolicy())add(UiUtils.mutedText("Historical uncertainty retained: "
+                +explainer.formatNumber(risk.getHistoricalUncertaintyReserve())
+                +" gp. Affected stock stays paused; this is not a confirmed loss or current bankroll."));
             add(UiUtils.mutedText("Risk tracking began " + java.time.Instant.ofEpochSecond(risk.getWindowStartedAt())
                 + "; restarting does not reset it."));
         }

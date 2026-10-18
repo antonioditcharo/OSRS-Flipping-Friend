@@ -22,6 +22,9 @@ public class ExactExitCostTest {
         return new SellTimingEngine(new FillModel(),tax).evaluate(position,
             new LatestPrice(price,now.getEpochSecond(),price,now.getEpochSecond()),null,List.of(),horizon,now,true,false);
     }
+    @Test public void anUnobservedRecordedPositionDoesNotPreemptNewBuysWithAPhantomSale()throws Exception {
+        assertNull("Retain the purchase record, but do not invent a location or ask to sell it",actualGuidance(2,81,0,100));
+    }
     @Test public void exitDecisionSubtractsTheExactPoolCostRatherThanARoundedUnitAverage() {
         var decision=decide(position(2,81),42);
         assertEquals(42,decision.getPrice());assertEquals(3,decision.getExpectedProfit());
