@@ -75,6 +75,7 @@ function Get-NetTCPConnection {
 }
 function Stop-Process {
     [CmdletBinding()] param($Id, [switch]$Force)
+    if ($scenario.stopProcessDenied) { $global:ffUpdateTestEvents.Add('stop-process-denied'); throw 'Fixture stop access denied.' }
     $global:ffUpdateTestEvents.Add('stop-process')
     $scenario.alreadyRunning = $false
     $global:ffProcessStopped = $true
@@ -315,6 +316,12 @@ function Get-NativeProcessCommandLine([int] $ProcessId) {
     if ($scenario.nativeArguments) { return 'java.exe ' + $scenario.nativeArguments }
     return 'java.exe ' + $scenario.arguments
 }
+function Stop-NativeVerifiedCompanion($Process) {
+    $global:ffUpdateTestEvents.Add('native-stop')
+    $scenario.alreadyRunning = $false
+    $global:ffProcessStopped = $true
+    $global:ffUpdateTestStarted = $false
+}
 ''')
         # This suite checks lifecycle ordering; native task ACL behavior has its own Windows tests.
         (tools / "enable-user-updates.ps1").write_text(
@@ -402,6 +409,19 @@ function Get-NativeProcessCommandLine([int] $ProcessId) {
         self.assertEqual(b'pending-event-sentinel', pending.read_bytes())
         self.assertNotIn('disable-task', result['events'])
         self.assertNotIn('grant-task-access', result['events'])
+
+    def test_native_stop_fallback_keeps_supported_backup_and_pair_ordering(self):
+        self.process_candidate()
+        self.scenario.update(maskedProcessLine=True, stopProcessDenied=True)
+        pending = self.make_pending_account_record()
+        result = self.run_update()
+        self.assertIsNone(result['error'], self.output)
+        self.assertIn('stop-process-denied', result['events'])
+        self.assertIn('native-stop', result['events'])
+        self.assertLess(result['events'].index('native-stop'), result['events'].index('copy-plugin'))
+        self.assertIn('start-process', result['events'])
+        self.assertNotIn('disable-task', result['events'])
+        self.assertEqual(b'pending-event-sentinel', pending.read_bytes())
 
     def test_native_fallback_cannot_stop_foreign_unknown_or_wrong_jar_process(self):
         self.process_candidate()

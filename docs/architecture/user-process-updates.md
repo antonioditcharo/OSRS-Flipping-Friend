@@ -9,10 +9,18 @@ The existing immediate owner/creation recheck before stopping, task proof, two d
 lock, atomic replacement and backup verification remain required. This grants no rights, adds no
 elevation and never substitutes a task definition or port number for actual process arguments.
 Isolated lifecycle tests intercept every native/process boundary; a Windows test reads only its
-own disposable shell with a Unicode/spaced script argument. No test stops a real process.
+own disposable shell with a Unicode/spaced script argument.
 The native query is optional and version dependent: unsupported or inconsistent results keep the
 update refused. See Microsoft's [process access rights](https://learn.microsoft.com/en-us/windows/win32/procthread/process-security-and-access-rights)
 and [NtQueryInformationProcess contract](https://learn.microsoft.com/en-us/windows/win32/api/winternl/nf-winternl-ntqueryinformationprocess).
+
+If PowerShell Stop-Process is refused after identification, repeat the owner/JAR/creation proof,
+then open one handle with only limited query and terminate rights. On that same handle, verify
+the native creation time at CIM's microsecond precision and exact observed command line before
+termination. A changed/reused process, wrong arguments, denied handle or failed native operation
+still refuses; no privilege is enabled or ACL/task changed. The existing process/port drain must
+finish before any account backup. Native tests reject wrong creation/argument proofs and stop
+only their own explicitly created child; no test controls a pre-existing process.
 
 The owner explicitly requests unattended maintenance without even an initial administrator prompt.
 The existing task already runs as this Windows user, Limited/Interactive; only its management ACL is
