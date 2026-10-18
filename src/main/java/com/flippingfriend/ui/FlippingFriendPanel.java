@@ -108,7 +108,7 @@ public class FlippingFriendPanel extends PluginPanel {
         scroll.setBorder(BorderFactory.createEmptyBorder()); scroll.getViewport().setBackground(UiUtils.CARD);
         scroll.getVerticalScrollBar().setUnitIncrement(16); scroll.getVerticalScrollBar().setPreferredSize(new Dimension(8, 0));
         add(scroll);
-        for (String name : new String[]{"Recommendation", "Price graph", "Plan", "Holdings", "Performance", "Local history", "Bank estimate", "Settings"}) {
+        for (String name : new String[]{"Recommendation", "Price graph", "Plan", "Holdings", "Performance", "Recorded sales", "Local history", "Bank estimate", "Market drops", "Settings"}) {
             JMenuItem entry = new JMenuItem(name); entry.addActionListener(e -> open(name)); menu.add(entry);
         }
         JMenuItem missed = new JMenuItem("Missed flips"); missed.addActionListener(e -> missedFlips.open(SwingUtilities.getWindowAncestor(this))); menu.add(missed);

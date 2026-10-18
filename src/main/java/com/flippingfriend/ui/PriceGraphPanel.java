@@ -47,6 +47,16 @@ class PriceGraphPanel extends JPanel
 		setBackground(UiUtils.CARD);
 		setPreferredSize(new Dimension(0, HEIGHT));
 		setMaximumSize(new Dimension(Integer.MAX_VALUE, HEIGHT));
+		setToolTipText("Observed market prices and volume");
+	}
+
+	@Override public String getToolTipText(java.awt.event.MouseEvent event) {
+		if(candles.isEmpty())return "No market history is available yet";
+		int index=(int)Math.round(Math.max(0,Math.min(1,(event.getX()-PADDING)/(double)Math.max(1,getWidth()-PADDING*2)))*(candles.size()-1));
+		Candle bar=candles.get(index);
+		return String.format(java.util.Locale.ROOT,"%s | low %s / high %s gp | sell volume %,d / buy volume %,d",
+			java.time.Instant.ofEpochSecond(bar.getTimestamp()),java.util.Objects.toString(bar.getAvgLowPrice(),"unknown"),
+			java.util.Objects.toString(bar.getAvgHighPrice(),"unknown"),bar.getLowPriceVolume(),bar.getHighPriceVolume());
 	}
 
 	void setData(List<Candle> candles, int entryPrice, int targetPrice, int stopPrice)

@@ -3,6 +3,10 @@
 15 October 2026. This is an explicit offline capture, verification and comparison workflow. It
 does not fit or promote a challenger, measure net account returns, or change game recommendations.
 
+17 October continuation: the separate [account replay and challenger commands](parity-account-evaluation.md)
+now build on these verified frozen prefixes. This evaluator's original freeze/verify/compare
+contract and hard runtime promotion fence remain; an offline fit is not model approval.
+
 ## Commands and private artifacts
 
 Build the standard tested companion JAR, then run from the repository:

@@ -746,6 +746,38 @@ public class CompanionClient
 		}
 	}
 
+    /** Final sale authority is bound to the canonical source and exact displayed order. */
+    public Suggestion authorizeSale(Suggestion proposed) {
+        if(proposed==null || proposed.getType()!=SuggestionType.MODIFY_SELL
+            && !(proposed.getType()==SuggestionType.SELL && proposed.isProfitKnown()))return proposed;
+        String requestedAccount=accountContext();long now=Instant.now().getEpochSecond();
+        var current=tradingLedger();String source=null;int slot=-1;
+        if(current!=null && current.getTradingPositions()!=null) {
+            if(proposed.getType()==SuggestionType.MODIFY_SELL) {
+                slot=proposed.getSlot();OfferEvent offer=canonicalOffers.get(slot);
+                if(offer!=null && !offer.isBuying() && "SELLING".equals(offer.getEventType()) && offer.getItemId()==proposed.getItemId()
+                    && offer.getTotalQuantity()-offer.getFilledQuantity()==proposed.getQuantity())source=offer.getEventId();
+            } else for(var p:current.getTradingPositions())if(p.getItemId()==proposed.getItemId() && p.getQuantity()>=proposed.getQuantity())source=p.getSourceEventId();
+        }
+        if(source!=null)try {
+            String key=proposed.getItemId()+":"+proposed.getPrice()+":"+proposed.getQuantity()+":"+source+":"+proposed.isLossCut()+":"+slot;
+            String path="policy/sale?item="+proposed.getItemId()+"&price="+proposed.getPrice()+"&quantity="+proposed.getQuantity()
+                +"&source="+URLEncoder.encode(source,StandardCharsets.UTF_8.name())+"&cut="+proposed.isLossCut()+"&slot="+slot;
+            PolicyDecision decision=gson.fromJson(request(path,"GET",null,TIMEOUT_MILLIS,requestedAccount),PolicyDecision.class);
+            if(validSaleDecision(decision,key,source,slot,now) && java.util.Objects.equals(requestedAccount,accountContext()) && !offerEvidencePending())return proposed;
+        }catch(Exception unavailable){lastError="Current sale authority unavailable";}
+        return Suggestion.waiting("Waiting for sale verification","The current offer, acquisition evidence or market price changed. Waiting for fresh sale guidance.");
+    }
+    static boolean validSaleDecision(PolicyDecision decision,String identity,String source,int slot,long now) {
+        return decision!=null && "1".equals(decision.getSchemaVersion()) && "companion-sale-1".equals(decision.getPolicyVersion())
+            && identity.equals(decision.getCandidateId()) && source.equals(decision.getRecommendationId())
+            && decision.getDecisionType()==(slot<0?PolicyDecisionType.EXIT:PolicyDecisionType.SELL_MAINTENANCE)
+            && decision.getAction()==(slot<0?OfferLifecycleAction.PLACE_SELL:OfferLifecycleAction.CANCEL_SELL)
+            && decision.getAbstentionReason()==PolicyAbstentionReason.NONE && "SALE_AUTHORIZED".equals(decision.getReasonCode())
+            && decision.getDecidedAt()>=now && decision.getDecidedAt()<=now+5 && decision.getInputObservedAt()<=decision.getDecidedAt()
+            && now-decision.getInputObservedAt()<=150;
+    }
+
 	PolicyDecision consumeEntryDecision(String response)
 	{
 		PolicyDecision decision;

@@ -34,6 +34,11 @@ final class PanelDetails {
     private final FlippingFriendConfig config;
     private final JTextArea recommendation = CompactSuggestionPanel.text(UiUtils.TEXT);
     private final PriceGraphPanel graph = new PriceGraphPanel();
+    private final MarketDropsPanel marketDrops;
+    private final RecordedSalesPanel recordedSales;
+    private int graphItem;
+    private final JTextField graphSearch=new JTextField();
+    private final JComboBox<String> graphStep=new JComboBox<>(new String[]{"5m","1h"});
     private final JLabel graphTitle = new JLabel();
     private final JButton copyQuantity = new JButton("Copy quantity"), copyPrice = new JButton("Copy price");
     private Suggestion shown = Suggestion.idle();
@@ -47,6 +52,9 @@ final class PanelDetails {
         this.holdings = holdings; this.history = history; this.plan = plan; this.performance = performance;
         this.bank = bank; this.market = market; this.explainer = explainer; this.engine = engine;
         this.config = config;
+        marketDrops=new MarketDropsPanel(market);
+        recordedSales=new RecordedSalesPanel(item->{graphItem=item;select("Price graph");});
+        graphStep.setSelectedItem("1h");
         JPanel guide = new JPanel(new BorderLayout(8, 8)); guide.setBackground(UiUtils.CARD);
         guide.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12)); guide.add(recommendation, BorderLayout.CENTER);
         JPanel copies = new JPanel(new FlowLayout(FlowLayout.LEFT)); copies.setOpaque(false);
@@ -55,10 +63,22 @@ final class PanelDetails {
         copyPrice.addActionListener(e -> copy(Integer.toString(shown.getPrice())));
         add("Recommendation", guide);
         JPanel graphView = new JPanel(new BorderLayout(8, 8)); graphView.setBackground(UiUtils.CARD);
-        graphView.add(graphTitle, BorderLayout.NORTH); graphView.add(graph, BorderLayout.CENTER);
+        JPanel graphTools=new JPanel(new BorderLayout(8,8));graphTools.setOpaque(false);
+        graphTools.add(graphTitle,BorderLayout.NORTH);graphSearch.setToolTipText("Enter an exact item name or item ID, then press Enter");
+        graphTools.add(graphSearch,BorderLayout.CENTER);graphTools.add(graphStep,BorderLayout.EAST);
+        graphSearch.addActionListener(e->{String query=graphSearch.getText().trim();
+            for(var item:market.getSnapshot().getMetadata().values())if(item.getName().equalsIgnoreCase(query) || Integer.toString(item.getId()).equals(query)) {
+                graphItem=item.getId();refreshSelected();return;
+            }
+            graphTitle.setText("No item matches that name or ID");
+        });
+        graphStep.addActionListener(e->refreshSelected());
+        graphView.add(graphTools, BorderLayout.NORTH); graphView.add(graph, BorderLayout.CENTER);
         add("Price graph", graphView);
         add("Plan", plan); add("Holdings", holdings); add("Performance", performance);
         add("Local history", history); add("Bank estimate", bank);
+        add("Market drops",marketDrops);
+        add("Recorded sales",recordedSales);
         JPanel settingsView = new JPanel(); settingsView.setBackground(UiUtils.CARD);
         settingsView.setLayout(new BoxLayout(settingsView, BoxLayout.Y_AXIS));
         settingsView.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
@@ -99,6 +119,7 @@ final class PanelDetails {
     void update(Suggestion advice, AccountLedgerSnapshot ledger) {
         shown = advice == null ? Suggestion.idle() : advice;
         performance.updateLedger(ledger);
+        recordedSales.updateLedger(ledger);
         StringBuilder text = new StringBuilder(shown.getHeadline() == null ? "" : shown.getHeadline());
         if (shown.getDetail() != null && !shown.getDetail().isEmpty()) text.append("\n\n").append(shown.getDetail());
         if (shown.getItemId() > 0) text.append("\n\n").append(shown.getItemName());
@@ -122,6 +143,7 @@ final class PanelDetails {
     }
     JComponent view(String name) { return views.get(name); }
     void open(Component owner, String name) {
+        if("Price graph".equals(name))graphItem=shown.getItemId();
         select(name);
         if (presenter != null) { presenter.accept(name, tabs); return; }
         if (dialog == null) {
@@ -137,10 +159,12 @@ final class PanelDetails {
             case "Holdings": holdings.refresh(); break;
             case "Local history": history.refresh(); break;
             case "Plan": plan.refresh(); break;
+            case "Market drops": marketDrops.refresh(); break;
             case "Bank estimate": bank.repaint(); break;
             case "Price graph":
-                graphTitle.setText(shown.getItemId() > 0 ? shown.getItemName() + " - market price" : "No item selected");
-                graph.setData(shown.getItemId() > 0 ? market.getSeries(shown.getItemId(), "1h") : java.util.Collections.emptyList(), 0, 0, 0);
+                int item=graphItem>0?graphItem:shown.getItemId();
+                graphTitle.setText(item > 0 ? market.getSnapshot().getItemName(item) + " - observed market prices" : "Enter an item name or ID");
+                graph.setData(item > 0 ? market.getSeries(item,(String)graphStep.getSelectedItem()) : java.util.Collections.emptyList(), 0, 0, 0);
                 break;
             default: break;
         }

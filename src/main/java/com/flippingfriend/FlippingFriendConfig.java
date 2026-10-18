@@ -300,6 +300,11 @@ public interface FlippingFriendConfig extends Config
 		return "";
 	}
 
+	@ConfigItem(keyName = "notifyOnPriceDrop", name = "Held stock price drop",
+		description = "Notify when verified flipping stock falls over 10% below the recent market average. Independent of Discord.",
+		position = 4, section = notificationSection)
+	default Notification notifyOnPriceDrop() { return Notification.OFF; }
+
 	// --------------------------------------------------------------- advanced
 
 	@Range(min = 5, max = 300)
@@ -320,8 +325,7 @@ public interface FlippingFriendConfig extends Config
 	@ConfigItem(
 		keyName = "useCalibration",
 		name = "Learn from my trades",
-		description = "Let the plugin adjust its own estimates using how your past flips actually went. "
-			+ "Recommended: it gets more accurate the longer you use it.",
+		description = "Permit a validated execution model. The public-price baseline remains active until chronological calibration and account-return gates pass.",
 		position = 2,
 		section = advancedSection
 	)

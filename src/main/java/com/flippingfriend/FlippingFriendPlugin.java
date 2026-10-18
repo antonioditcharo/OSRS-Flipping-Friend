@@ -181,7 +181,8 @@ public class FlippingFriendPlugin extends Plugin
 	private boolean drawdownAlerted = false;
     private String drawdownAlertWindow;
 
-	private final java.util.Set<Integer> alertedDumps = new java.util.concurrent.ConcurrentSkipListSet<>();
+	private final com.flippingfriend.model.HeldStockDropAlerts heldDropAlerts = new com.flippingfriend.model.HeldStockDropAlerts();
+	@Inject private DiscordWebhookClient discordWebhook;
 
 	private final AtomicBoolean accountDataLoaded = new AtomicBoolean();
 	private final java.util.concurrent.atomic.AtomicLong offerObservationGeneration = new java.util.concurrent.atomic.AtomicLong();
@@ -893,6 +894,9 @@ public class FlippingFriendPlugin extends Plugin
 				{
 					suggestion = companion.selectBuyMaintenanceCancellation(suggestion);
 				}
+				if(suggestion!=null && (suggestion.getType()==SuggestionType.MODIFY_SELL
+                    || suggestion.getType()==SuggestionType.SELL && suggestion.isProfitKnown()))
+                    suggestion=companion.authorizeSale(suggestion);
 				if (suggestion == null)
 				{
 					// The two rejection controls the player actually has. These were honoured only by
@@ -1117,41 +1121,16 @@ public class FlippingFriendPlugin extends Plugin
 
 	private void checkPriceDumps()
 	{
-		String webhook = config.discordWebhookUrl();
-		if (webhook == null || webhook.trim().isEmpty())
-		{
-			return;
-		}
-
-		com.flippingfriend.data.MarketSnapshot snapshot = marketData.getSnapshot();
-		if (snapshot == null)
-		{
-			return;
-		}
-
-		for (com.flippingfriend.session.Position pos : positions.all())
-		{
-			int itemId = pos.getItemId();
-			com.flippingfriend.data.LatestPrice latest = snapshot.latest(itemId);
-			com.flippingfriend.data.Candle avg = snapshot.fiveMinute(itemId);
-
-			if (latest != null && avg != null && avg.getAvgHighPrice() != null && avg.getAvgHighPrice() > 0)
-			{
-				double drop = 1.0 - ((double) latest.getLow() / avg.getAvgHighPrice());
-				if (drop > 0.10 && alertedDumps.add(itemId)) // 10% sudden drop
-				{
-					String msg = "\u26A0\uFE0F **PRICE DUMP ALERT** \u26A0\uFE0F\n" +
-						"Your held item **" + pos.getItemName() + "** has dropped by " + String.format("%.1f%%", drop * 100) +
-						" in the last 5 minutes!";
-					// discordWebhook.sendMessage(webhook, msg);
-					notifier.notify(msg);
-					clientThread.invokeLater(() -> client.playSoundEffect(2289)); // Urgent Horn
-				}
-				else if (drop < 0.05)
-				{
-					alertedDumps.remove(itemId);
-				}
-			}
+		String webhook=config.discordWebhookUrl();
+		boolean local=config.notifyOnPriceDrop()!=net.runelite.client.config.Notification.OFF;
+		if (!local && (webhook==null || webhook.trim().isEmpty())) return;
+		var state=accountMonitor.getState();
+		var ledger=companion.tradingLedger();
+		var messages=heldDropAlerts.update(state!=null && state.isLoggedIn() && ledger!=null?ledger.getAccountId():null,
+			engine.tradingPositions(),new com.flippingfriend.model.MarketDropDetector().detect(marketData.getSnapshot(),Instant.now()));
+		for(String message:messages) {
+			if(local) { notifier.notify(config.notifyOnPriceDrop(),message); clientThread.invokeLater(()->client.playSoundEffect(2289)); }
+			discordWebhook.sendMessage(webhook,message);
 		}
 	}
 

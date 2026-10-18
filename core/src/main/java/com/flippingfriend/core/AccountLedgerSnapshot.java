@@ -9,6 +9,7 @@ public final class AccountLedgerSnapshot
 {
     private String schemaVersion;
     private List<PositionProjection> tradingPositions;
+    private List<RecordedSale> recentSales;
     private List<MissedFlipEvidence> missedFlips;
     /** Optional source-event scope. Empty item sets mean the gap still has account-wide uncertainty. */
     private java.util.Map<String, java.util.Set<Integer>> reconciliationScope;
@@ -66,6 +67,16 @@ public final class AccountLedgerSnapshot
     }
     /** Null on old servers: missing acquisition evidence must never enroll legacy positions. */
     public List<PositionProjection> getTradingPositions() { return tradingPositions; }
+    /** Bounded diagnostic history; never a training prefix or a session denominator. Null on older companions. */
+    public List<RecordedSale> getRecentSales() { return recentSales; }
+    public AccountLedgerSnapshot withRecentSales(List<RecordedSale> sales) {
+        if(sales==null)throw new IllegalArgumentException("sale history required");
+        AccountLedgerSnapshot copy=new AccountLedgerSnapshot(accountId,observedAt,this.sales,boundedSales,uncertainSales,
+            taxBoundedSales,profitLower,profitUpper,taxLower,taxUpper,positions);
+        copy.schemaVersion=schemaVersion;copy.tradingPositions=tradingPositions;copy.missedFlips=missedFlips;
+        copy.reconciliationScope=reconciliationScope;copy.recentSales=Collections.unmodifiableList(new ArrayList<>(sales));
+        if(!copy.isValid())throw new IllegalArgumentException("invalid sale history");return copy;
+    }
     public List<MissedFlipEvidence> getMissedFlips() { return missedFlips; }
     /** Totals remain readable, but an unidentified lifecycle gap cannot establish safe holdings. */
     public boolean hasUnassignedReconciliation() {
@@ -114,6 +125,14 @@ public final class AccountLedgerSnapshot
 
     public boolean isValid()
     {
+        if(recentSales!=null) {
+            if(recentSales.size()>100 || recentSales.size()>sales)return false;
+            long prior=Long.MAX_VALUE;
+            for(RecordedSale sale:recentSales) {
+                if(sale==null || !sale.isValid() || sale.getRowId()>=prior || sale.getObservedAt()>observedAt)return false;
+                prior=sale.getRowId();
+            }
+        }
         return ("1".equals(schemaVersion) || "2".equals(schemaVersion))
             && (!"2".equals(schemaVersion) || (tradingPositions != null && missedFlips != null
                 && tradingPositions.stream().allMatch(p -> p != null && p.getConsistencyState() == PositionConsistencyState.READY

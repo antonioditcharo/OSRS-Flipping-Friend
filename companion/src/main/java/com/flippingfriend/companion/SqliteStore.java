@@ -532,7 +532,7 @@ final class SqliteStore implements AutoCloseable
 		return result;
 	}
 
-	private RiskWindow startRiskWindowIfProven(AccountSnapshot snapshot) throws Exception
+	private RiskWindow startRiskWindowIfProven(AccountSnapshot snapshot,long now) throws Exception
 	{
 		if (!snapshot.isAutomaticTradeScope()) return null;
 		var sources = currentOfferEvidence(snapshot.getAccountId());
@@ -542,7 +542,6 @@ final class SqliteStore implements AutoCloseable
 			RiskWindow committed = riskWindows.get(snapshot.getAccountId() + ":" + session);
 			if (committed != null) return committed;
 		}
-		long now = Instant.now().getEpochSecond();
 		var read = readPlanningProjections(snapshot.getAccountId());
 		if (!CurrentOfferReadSet.valid(read, snapshot, now) || read.riskEvidence.window != null) return read.riskEvidence.window;
 		long capital = DurableRisk.knownCapital(read, snapshot, now);
@@ -901,6 +900,10 @@ final class SqliteStore implements AutoCloseable
 
 	synchronized AccountLedgerSnapshot ledgerSnapshot(String accountId) throws Exception
 	{
+		return ledgerSnapshot(accountId,Instant.now().getEpochSecond());
+	}
+	synchronized AccountLedgerSnapshot ledgerSnapshot(String accountId,long evaluatedAt) throws Exception
+	{
 		try (Statement statement = connection.createStatement(); ResultSet row = statement.executeQuery(
 			"SELECT COUNT(*),COUNT(profit_lower),COALESCE(SUM(CASE WHEN profit_lower<>profit_upper THEN 1 ELSE 0 END),0),COUNT(tax_lower)," +
 			"COALESCE(SUM(profit_lower),0),COALESCE(SUM(profit_upper),0)," +
@@ -908,15 +911,32 @@ final class SqliteStore implements AutoCloseable
 		{
 			row.next();
             AutomaticTradeScope scope=automaticTradeScope(accountId);
-			return new AccountLedgerSnapshot(accountId, Instant.now().getEpochSecond(), row.getLong(1),
+			return new AccountLedgerSnapshot(accountId, evaluatedAt, row.getLong(1),
 				row.getLong(2), row.getLong(3), row.getLong(4), row.getLong(5), row.getLong(6),
 				row.getLong(7), row.getLong(8), positionProjections())
-                .withTradeEvidence(scope.readyPositions(), missedFlipEvidence(), scope.reconciliationScope);
+                .withTradeEvidence(scope.readyPositions(), missedFlipEvidence(), scope.reconciliationScope)
+                .withRecentSales(recentSales());
 		}
+	}
+	private List<com.flippingfriend.core.RecordedSale> recentSales() throws Exception {
+		List<com.flippingfriend.core.RecordedSale> result=new ArrayList<>();
+		try(Statement statement=connection.createStatement();ResultSet r=statement.executeQuery(
+			"SELECT id,observed_at,item_id,item_name,quantity,applied_cost_basis,source_event_id,source_offer_identity,gross_proceeds,tax_lower,tax_upper,profit_lower,profit_upper,sale_tax_policy,sale_accounting_reason FROM position_event WHERE effect_type='DISPOSE' ORDER BY id DESC LIMIT 100")) {
+			while(r.next())result.add(new com.flippingfriend.core.RecordedSale(r.getLong(1),r.getLong(2),r.getInt(3),r.getString(4),r.getInt(5),r.getLong(6),
+				r.getString(7),r.getString(8),nullableLong(r,9),nullableLong(r,10),nullableLong(r,11),nullableLong(r,12),nullableLong(r,13),r.getString(14),r.getString(15)));
+		}
+		return result;
 	}
 
 	synchronized SnapshotReconciliationResult recordAndReconcileAccount(AccountSnapshot snapshot,
 		PositionStateView view, String payload) throws Exception
+	{
+		return recordAndReconcileAccount(snapshot,view,payload,Instant.now().getEpochSecond());
+	}
+
+	/** Explicit clock for isolated replay; HTTP/live callers use the wall-clock overload above. */
+	synchronized SnapshotReconciliationResult recordAndReconcileAccount(AccountSnapshot snapshot,
+		PositionStateView view,String payload,long evaluatedAt) throws Exception
 	{
 		if (snapshot == null || view == null) throw new IllegalArgumentException("snapshot and view are required");
 		boolean autoCommit = connection.getAutoCommit();
@@ -940,7 +960,7 @@ final class SqliteStore implements AutoCloseable
 			checkpoint.reached("SNAPSHOT_POSITIONS_RECONCILED");
 			reconcileBuyLimits(snapshot, result);
 			checkpoint.reached("SNAPSHOT_BUY_LIMITS_RECONCILED");
-			RiskWindow window = startRiskWindowIfProven(snapshot);
+			RiskWindow window = startRiskWindowIfProven(snapshot,evaluatedAt);
 			connection.commit();
 			cacheRiskWindow(window);
 			return result;
