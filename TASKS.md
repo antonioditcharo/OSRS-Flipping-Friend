@@ -87,17 +87,13 @@ All unchecked release requirements remain visible below; detailed completion rec
       scoped GET checks pass. Fresh READY/final PLACE_BUY and owner-confirmed buy guidance establish
       entry availability. See docs/history/current-account-delivery-2026-10-18.md. This does not
       resolve affected historical stock, establish complete trading acceptance or validate learning.
-- [ ] Deliver/accept the sell-verification fix after the owner reported Dragon knives/Masori helm.
-      The installed 750ms GET budget times out on actual ledger-backed reads; canonical sell identities
-      were also discarded. Regressions reproduce delay, missing maintenance source and an acknowledged
-      partial-fill race. Windows clean: 1,625 Java passed/six existing skips (79s), Java 11.
-      Both exact-head CI checks pass; #89/fb5f850 is merged. Delivery is held by a CIM process-identity
-      read failure; #90/ae25d63 fixes native-query identity after both corrected CI checks, with no
-      privilege/task changes.
-      Fresh managed exit/maintenance acceptance remains open. A separate reproduced display-price
-      mismatch (2% client retention vs 0.5% final authority) is fixed in the queued shared tracker;
-      account/logout/clock regressions pass. Windows clean: 1,628 Java passed/six existing skips (80s),
-      Java 11; v2 synthetic replay reproduces all twelve scenarios. CI and one batched update remain pending. See docs/architecture/sale-guidance-delivery.md. No data repair or bypass.
+- [ ] Deliver/accept the sell-verification fixes (#89/#90/#91 merged after exact-head CI). Delayed
+      reads, discarded sell identities, acknowledged partial-fill races and incompatible retained
+      prices are reproduced/fixed. #91 Windows clean: 1,628 Java passed/six existing skips (80s),
+      Java 11; all twelve v2 replay scenarios reproduce. #88 remains installed: Stop-Process is denied
+      after successful native identity proof. A tested same-handle native-stop fallback is queued;
+      full tooling/CI and one batched paired update remain pending. No task/privilege/data change.
+      Fresh managed exit/maintenance acceptance remains open; see docs/architecture/sale-guidance-delivery.md.
 - [ ] Audit calibration prediction provenance and cancellation censoring before changing strategy.
       Attribution, observed intervals and the runtime promotion fence are source-verified in history.
       Historical execution aggregates still pool censored/completed times but no longer authorize

@@ -19,28 +19,23 @@ Original source/financial prefixes and the sole risk anchor remain identical. Fr
 and final PLACE_BUY pass after normal history warming. Owner confirms buy suggestions are available.
 [Hashes, financial preservation and acceptance](docs/history/current-account-delivery-2026-10-18.md).
 
-PR #89/fb5f850 is merged after both exact-head CI checks. It fixes sale-read timeouts, missing
-canonical sell identities and post-ACK partial-fill races, with a consistent single-prefix sale
-read. Windows clean: 79s/18 tasks, 1,625 Java passed/six existing skips; Java 11.
-[Behavior/player steps](docs/architecture/sale-guidance-delivery.md). It is NOT installed yet:
-the supported updater refused before changing anything because CIM hides the owned companion's
-CommandLine. A limited native read proves the exact installed JAR and current SID without elevation.
+PR #89/fb5f850 (delayed sale reads, retained sell identities, post-ACK source races), #90/ae25d63
+(native process identity) and #91/90be5b1 (sale price stability/account fencing) are merged after
+both exact-head CI checks. Standard #91 Windows clean: 80s/18 tasks, 1,628 Java passed/six existing
+skips; Java 11. Replay v2 shares live price tracking and reproduces all twelve synthetic scenarios;
+the retained v1 artifact still verifies its old bundle. [Sale contract](docs/architecture/sale-guidance-delivery.md).
 
-PR #90/ae25d63 is merged after both corrected exact-head CI checks. All 106 Python tooling
-tests pass; the native query reads only limited information after owner verification and preserves
-exact JAR/PID/creation/task/two-drain/backup guards. Initial Windows CI exposed a test comparing an
-expanded path with its literal 8.3 argument; the corrected native test compares the actual passed
-argument. No runtime/task/data change was used to get past the guard. #88 remains installed while
-the price-stability candidate below completes one batched delivery.
+The combined pair is NOT installed: identifying the masked owned companion succeeds, but
+PowerShell Stop-Process is denied. The second updater attempt stopped before runtime replacement
+or account backup; #88 and task permissions remain unchanged. Original artifact-only staging
+backup 20261018-115215-18a68d00 is retained, unverified; do not treat it as an account backup/resume.
 
-Queued on codex/sale-price-stability: a reproduced 1% sell-price move was held by the client's
-2% display tolerance and rejected by final authority's existing 0.5% drift guard. Shared price
-tracking now uses the stricter existing sell budget, clears on account/logout changes and rejects
-backward-clock retention. Initial exits/relist/maintenance retain exact taxed floors. Replay v2
-uses the same tracker; this does not finish replacement/relist/foreground coverage. Targeted
-price/cost/partial/relist/replay tests pass. Windows clean: 80s/18 tasks, 1,628 Java passed/six
-existing skips, Java 11; the v2 CLI reproduces all twelve synthetic cadence/share scenarios. CI
-and one batched installation remain pending. The updater and sale runtime changes will be delivered together.
+Queued on codex/verified-native-companion-stop: the supported updater uses a limited native handle
+only after repeated owner/JAR/creation proof, and checks exact arguments plus creation on that same
+handle before stopping. No elevation, privilege, ACL/task change or unverified PID stop. Isolated
+and owned-child native tests pass; all 108 Python tests pass in 94.106s. CI and the one batched
+paired delivery remain pending.
+[Lifecycle contract](docs/architecture/user-process-updates.md). No player action is currently needed.
 
 Owner accepted #86 Missed flips stability while filtering. Retained read-only history clears on
 logout/account change and never supplies trading/ownership authority; unknown financial values stay

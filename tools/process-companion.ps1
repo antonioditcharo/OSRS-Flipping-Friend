@@ -10,12 +10,30 @@ namespace FlippingFriend {
     public static class ProcessIdentityQuery {
         [DllImport("kernel32.dll",SetLastError=true)] static extern IntPtr OpenProcess(uint access,bool inherit,uint pid);
         [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr handle);
+        [DllImport("kernel32.dll",SetLastError=true)] static extern bool GetProcessTimes(IntPtr process,out long created,out long exited,out long kernel,out long user);
+        [DllImport("kernel32.dll",SetLastError=true)] static extern bool TerminateProcess(IntPtr process,uint code);
         [DllImport("ntdll.dll")] static extern int NtQueryInformationProcess(IntPtr process,int informationClass,IntPtr information,uint length,out uint needed);
         public static string Read(int pid) {
             if(pid<=0) throw new ArgumentException("A positive process identity is required.");
             IntPtr process=OpenProcess(0x1000,false,(uint)pid); // PROCESS_QUERY_LIMITED_INFORMATION only.
             if(process==IntPtr.Zero) throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+            try { return ReadHandle(process); }
+            finally { CloseHandle(process); }
+        }
+        public static void StopVerified(int pid,long expectedCreation,string expectedCommandLine) {
+            if(pid<=0 || expectedCreation<=0 || String.IsNullOrEmpty(expectedCommandLine)) throw new ArgumentException("Verified process identity required.");
+            IntPtr process=OpenProcess(0x1001,false,(uint)pid); // Query limited information + terminate only.
+            if(process==IntPtr.Zero) throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
             try {
+                long created,exited,kernel,user;
+                if(!GetProcessTimes(process,out created,out exited,out kernel,out user)) throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+                // CIM preserves microseconds; native FILETIME has one extra decimal place.
+                if(created/10!=expectedCreation/10 || !String.Equals(ReadHandle(process),expectedCommandLine,StringComparison.Ordinal))
+                    throw new InvalidOperationException("Companion handle identity changed; no process was stopped.");
+                if(!TerminateProcess(process,0)) throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+            } finally { CloseHandle(process); }
+        }
+        private static string ReadHandle(IntPtr process) {
                 uint needed; int status=NtQueryInformationProcess(process,60,IntPtr.Zero,0,out needed);
                 int header=IntPtr.Size==8?16:8;
                 if(needed<header || needed>1048576) throw new InvalidOperationException("Native command-line query unavailable.");
@@ -31,13 +49,17 @@ namespace FlippingFriend {
                         throw new InvalidOperationException("Native command-line result is inconsistent.");
                     return Marshal.PtrToStringUni(text,length/2);
                 } finally { Marshal.FreeHGlobal(buffer); }
-            } finally { CloseHandle(process); }
         }
     }
 }
 '@
     }
     return [FlippingFriend.ProcessIdentityQuery]::Read($ProcessId)
+}
+function Stop-NativeVerifiedCompanion($Process) {
+    if (-not ('FlippingFriend.ProcessIdentityQuery' -as [type])) { $null=Get-NativeProcessCommandLine $Process.ProcessId }
+    $creation=([DateTime]$Process.CreationDate).ToUniversalTime().ToFileTimeUtc()
+    [FlippingFriend.ProcessIdentityQuery]::StopVerified([int]$Process.ProcessId,$creation,[string]$Process.VerifiedCommandLine)
 }
 function Assert-CompanionLifecycleGuard([string] $Jar) {
     try {
@@ -68,7 +90,7 @@ function Get-OwnedCompanionProcesses([string] $ExpectedSid) {
         if (-not [IO.Path]::IsPathRooted($jar) -or (Normalize-AbsolutePath $jar) -ne (Normalize-AbsolutePath $companionInstalled)) { continue }
         $owner = Invoke-CimMethod -InputObject $process -MethodName GetOwnerSid -ErrorAction Stop
         if ($owner.ReturnValue -ne 0 -or $owner.Sid -ne $ExpectedSid) { throw 'Companion process owner cannot be verified as this Windows user.' }
-        $matching += $process
+        $matching += [pscustomobject]@{ ProcessId=$process.ProcessId; CreationDate=$process.CreationDate; VerifiedCommandLine=$commandLine }
     }
     $listener = Get-CompanionPid
     if ($listener -ne 0 -and $listener -notin @($matching | ForEach-Object { [int]$_.ProcessId })) {
@@ -86,7 +108,15 @@ function Stop-OwnedCompanionProcesses([string] $ExpectedSid) {
             $current = @(Get-OwnedCompanionProcesses $ExpectedSid | Where-Object { $_.ProcessId -eq $process.ProcessId })
             if ($current.Count -ne 1) { continue }
             if ($current[0].CreationDate -ne $process.CreationDate) { throw 'Companion process identity changed; no process was stopped.' }
-            Stop-Process -Id $process.ProcessId -Force -ErrorAction Stop
+            try { Stop-Process -Id $process.ProcessId -Force -ErrorAction Stop }
+            catch {
+                $verified = @(Get-OwnedCompanionProcesses $ExpectedSid | Where-Object { $_.ProcessId -eq $process.ProcessId })
+                if ($verified.Count -eq 0) { continue }
+                if ($verified.Count -ne 1 -or $verified[0].CreationDate -ne $process.CreationDate) {
+                    throw 'Companion process identity changed; no native stop was attempted.'
+                }
+                Stop-NativeVerifiedCompanion $verified[0]
+            }
         }
         Start-Sleep -Milliseconds 200
     } while ((Get-Date) -lt $deadline)
