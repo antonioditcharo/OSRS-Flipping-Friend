@@ -66,9 +66,21 @@ canonical rows, 1,352 financial effects and the sole original risk anchor** rema
 No financial effects were appended by verification. Account files were not restored/repaired,
 and no task/ACL/privilege/elevation change or game input was used.
 
-Supported Start reopened RuneLite; fresh login/GE/Sell-card acceptance is requested and pending.
-Old-capture transport readiness is not fresh trading acceptance. No parity, learning promotion
-or superior account-return claim follows from this fix.
+Supported Start reopened RuneLite. The owner confirms the fresh login/GE/Sell-card check:
+**"Looks good."** Initial sell guidance is accepted. Fresh scoped capture is READY; an actual final
+PLACE_BUY check also succeeds. A copied authenticated eight-slot/source/capture/sequence proof
+passes with zero unbounded scopes and unchanged historical gaps.
+
+Post-update canonical effects record one previously held item sold with exact acquisition cost,
+tax and profit, then two one-unit acquisitions in a new episode and an observed two-unit sell offer.
+All three new financial effects have fresh original source identities; the old frozen prefix and
+loss anchor remain unchanged. These are player-operated observed transitions, not agent game input
+or proof of forecast intent. The current original forecast/context remains prospective; the
+separately retained old unresolved rows are unchanged. Private `postinstall-*` receipts contain
+the source proof and exact financial rows. Logs show the unrelated RuneLite WorldHopper ping timeout;
+no Friend exception is found in the sampled launch interval. Broader sustained UI/maintenance/
+partial/cancel/relist/restart acceptance remains open. No parity, learning promotion or superior
+account-return claim follows from this fix.
 
 Player acceptance: log in/open GE, collect the completed suggested buy manually, and confirm the
 Sell card appears without waiting for another public trade. Inspect its quiet-price explanation.

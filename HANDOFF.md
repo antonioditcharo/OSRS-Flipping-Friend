@@ -32,7 +32,9 @@ no elevation, task/ACL change, financial replay/repair or game input was used.
 
 The owner reproduced continued waiting on #91; fresh GETs identified SALE_QUOTE_STALE. Identical
 frozen evidence changes WAIT to PLACE_SELL under #94 without accounting changes. Supported Start
-reopened the new pair; fresh login/GE/Sell-card acceptance is requested and pending.
+reopened the new pair; owner confirms the fresh Sell-card check "Looks good." Post-update evidence
+shows the ring sale and a two-unit acquired position listed, with fresh authenticated eight-slot
+proof. Initial sell guidance is accepted; complete partial/cancel/relist/restart acceptance remains open.
 Owner-confirmed #88 buy-guidance
 availability and #86 Missed flips stability remain accepted, not the broader controlled trading
 workflow. [Earlier policy delivery](docs/history/current-account-delivery-2026-10-18.md) and
@@ -43,8 +45,9 @@ shares live display-price stability/quiet-stock pricing and reproduces twelve sy
 5m/30m/2h/8h cadence/share scenarios; retained older evaluators still verify their own bundles.
 Complete replacement/relist/foreground coverage and qualified market benchmarks remain open.
 [Product/deferred features](docs/architecture/parity-account-evaluation.md).
-New frozen validation has 14 eligible outcomes (five known/nine unknown), with zero paired Brier
-improvement. A new fit from 20 eligible forecasts (15 unknown) has no later validation and is inactive.
+The earlier model's validation has zero paired Brier improvement. The fit from 20 eligible forecasts
+now has a later seven-forecast cohort (two known/five unknown): Brier-change bounds -0.0460 to +0.0107
+still permit degradation. It remains inactive/HOLD; uncertain outcomes were retained.
 [Frozen evidence/model receipt](docs/history/prospective-evaluation-2026-10-18.md). Runtime remains
 public-price baseline/HOLD; promotion/rollback/drift and broader replay/measurement gates remain
 open in TASKS. No full-parity, account-profit superiority or validated-learning claim is established.

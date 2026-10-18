@@ -5,11 +5,12 @@ All unchecked release requirements remain visible below; detailed completion rec
 
 ## Active
 
-- [ ] Accept the installed #94 quiet-market sale correction. Owner reported indefinite verification
+- [x] Deliver/accept initial sell guidance in installed #94. Owner reported indefinite verification
       after #91/#92; fresh scoped GETs reproduce SALE_QUOTE_STALE for verified held stock. Shared
       client/companion/replay non-loss limit is installed after both exact-head checks. Windows clean:
       1,636 Java passed/six skips; 108 tooling tests pass. Verified backup/pair/task/financial-prefix/
-      status/compatibility/scoped GET checks pass; RuneLite relaunched and fresh login/GE requested.
+      status/compatibility/scoped GET checks pass. Owner confirms the fresh Sell-card check "Looks good";
+      observed post-update sale and a newly acquired two-unit position listed; fresh eight-slot proof passes.
       Keep fresh evidence for
       loss cuts and live sell cancellation, exact floors, physical/source and historical guards.
       See docs/history/quiet-market-sale-delivery-2026-10-18.md; complete player buy/collect/sell remains open.
@@ -101,7 +102,8 @@ All unchecked release requirements remain visible below; detailed completion rec
       reproduced/fixed. Windows clean: 1,628 Java passed/six existing skips (80s), Java 11; 108 tooling
       tests pass. Both exact-head CI checks, verified pair/backup/task/financial-preservation/status/
       compatibility/scoped GET checks pass. Owner still saw waiting; #94 adds the quiet-market fix
-      above. Fresh managed exit/maintenance acceptance remains pending. See
+      above. Initial sell guidance now has owner confirmation and fresh recorded trade transitions;
+      complete maintenance/partial/cancel/relist/restart acceptance remains pending. See
       docs/history/quiet-market-sale-delivery-2026-10-18.md. No task/privilege/data repair or bypass.
 - [ ] Audit calibration prediction provenance and cancellation censoring before changing strategy.
       Attribution, observed intervals and the runtime promotion fence are source-verified in history.
@@ -113,8 +115,9 @@ All unchecked release requirements remain visible below; detailed completion rec
       real/paper evidence. Reproduce concrete faults first; promotion requires chronological held-out
       evaluation against a frozen baseline with return/loss/calibration guardrails.
       A reproducible bounded-logit/minimax Brier fitter and chronological validation CLI now exist;
-      unknown/censored labels remain visible. A later frozen cohort has five known/nine unknown outcomes,
-      zero paired Brier improvement; a new frozen fit has no later validation. See
+      unknown/censored labels remain visible. The earlier validation has zero paired Brier improvement;
+      the newer fit's later seven-forecast cohort (two known/five unknown) still permits degradation.
+      No model activates. See
       docs/history/prospective-evaluation-2026-10-18.md. Runtime promotion/compatible forecast loader, rollback
       and drift controls remain unimplemented. No fitted artifact activates learning.
 - [ ] Finish manual cancel -> collect -> revalidate -> replace and partial-fill protection as a
