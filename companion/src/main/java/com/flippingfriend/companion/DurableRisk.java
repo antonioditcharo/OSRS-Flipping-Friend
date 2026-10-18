@@ -48,8 +48,10 @@ final class DurableRisk {
                 marked=Math.addExact(marked,sale.getProfitLower());
             }
             Map<Integer,Long> reserves=new HashMap<>(evidence.unresolvedCosts);
+            var newGapBounds=ProspectiveGapExposure.calculate(read);
+            if(newGapBounds==null)return AccountRiskSnapshot.unavailable(id,now,"A new trade gap has no proven prospective capital bound.");
             for(int item:evidence.newReconciliationItems) {
-                Long bound=exposure.committedByItem.get(item);
+                Long bound=newGapBounds.get(item);
                 if(bound==null)return AccountRiskSnapshot.unavailable(id,now,"A new trade gap has no finite capital bound.");
                 reserves.merge(item,bound,Math::max);
             }

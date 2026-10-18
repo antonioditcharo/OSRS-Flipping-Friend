@@ -9,7 +9,8 @@ All unchecked release requirements remain visible below; detailed completion rec
       final companion managed-sale/maintenance authority, shared exact pricing, durable sale
       investigation, graph lookup, public market-drop watch list, local/webhook warning dispatch,
       executable account replay and frozen conservative completion fitter. Windows standard:
-      1,590 Java passed/six existing skips; 103 Python passed. CI/install/manual acceptance pending.
+      1,590 Java passed/six existing skips; 103 Python passed. #83 is merged/installed after both CI
+      checks; see docs/history/parity-delivery-2026-10-17.md. Manual acceptance remains open.
       These foundations do not close the broader replay, session measurement or learning gates below.
 
 - [x] Deliver #79 sell maintenance/relisting and #80 replacement entry/refusal guards. Installed
@@ -71,6 +72,14 @@ All unchecked release requirements remain visible below; detailed completion rec
 
 ## Next
 
+- [ ] Deliver and accept history-tolerant planning: distinguish lifetime history from new risk-window
+      capital; keep paused-item exposure, new-capital reserves, financial rows and the durable anchor.
+      Regression/source details: docs/architecture/history-tolerant-planning.md. Candidate fresh
+      eight-slot proof passes, but the actual prospective reserve still exhausts the allowance.
+      Standard clean build: 89s, 1,596 Java passed/six existing skips; 103 Python passed in 127.800s.
+      CI/install/manual acceptance pending. Owner asked how Copilot handles discrepancies; its
+      client separates Missed flips/current observations, but private server risk rules are unknown.
+      No reserve-guard override is inferred from that question.
 - [ ] Audit calibration prediction provenance and cancellation censoring before changing strategy.
       Attribution, observed intervals and the runtime promotion fence are source-verified in history.
       Historical execution aggregates still pool censored/completed times but no longer authorize

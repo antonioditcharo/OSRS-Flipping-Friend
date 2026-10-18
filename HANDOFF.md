@@ -3,62 +3,35 @@
 Updated 17 October 2026 (America/Anchorage). Read [AGENTS.md](AGENTS.md) and [TASKS.md](TASKS.md).
 Root notes describe the current workflow; detailed prior receipts remain in linked history.
 
-## Parity implementation candidate
+## Current implementation and runtime
 
-The new candidate adds final companion sale authority, shared exact-cost sale maintenance,
-durable recorded-sale investigation, item graph lookup, public market-drop investigation and
-independent held-stock/local/webhook notifications. Offline account replay and frozen censor-aware
-completion fitting are executable. Standard Windows clean build: 53s/18 tasks, 1,590 Java passed/
-six existing skips; all 103 Python tests pass. CI, installation and manual acceptance are pending.
-Runtime below remains #80 until a supported paired update is recorded.
+PR #83 is merged at b04a8d189f9d1f6f5914558739c1d72d04ef8a3b and installed through the supported
+paired updater. Final-head Windows/Linux CI pass; local clean build: 1,590 Java passed/six existing
+skips, all 103 Python tests passed. Backup 20261017-185122-b93e2a1e is VERIFIED, both installed hashes
+match, Java 11, lifecycle=1, protected task XML/SDDL unchanged. Independent status, compatibility and
+scoped pipeline pass. See [delivery and evidence limits](docs/history/parity-delivery-2026-10-17.md).
 
-Read [the implementation/consumer audit and player steps](docs/architecture/parity-account-evaluation.md).
-Replay still lacks the complete local buy-replacement/relist/stability sequence; real four-cadence
-market benchmarks and prospective session measurement remain open. Runtime model promotion/loader,
-rollback and drift controls remain open; learning stays neutral/HOLD. This is implemented progress,
-not parity or a performance claim. Existing historical gaps and reserves are unchanged.
+Installed additions: final companion sale authority/shared exact-cost maintenance, durable recorded
+sales investigation, graph lookup, market-drop investigation and independently configured held-stock
+alerts/webhook dispatch. Executable account replay and frozen censor-aware completion fitting are
+included. [Implementation details and player steps](docs/architecture/parity-account-evaluation.md)
+retain every deferred capability. The sole new known out-of-time outcome has zero Brier improvement;
+learning remains public-price baseline/HOLD. No performance or full parity claim is established.
 
-## Installed recommendation fixes
+Supported Start relaunched RuneLite; owner confirmed login at GE. A fresh read-only eight-slot proof
+passes with eight free slots and finite scoped exposure. The installed plan still refuses buys on
+an uncertainty reserve, not a generic missing-history flag. Historical gaps, costs/profit and risk
+anchor remain intact. New [history-tolerant planning](docs/architecture/history-tolerant-planning.md)
+source passes standard clean verification (89s, 1,596 Java passed/six skips; 103 Python passed).
+It corrects lifetime/new-risk mixing and preserves fresh-cost reserves; CI/install remain pending.
+The candidate's fresh scoped read still has an exhausted prospective allowance. Owner asked for
+Copilot's discrepancy behavior; client Missed flips/current-state separation is documented, private
+server risk rules are unknown, and no reserve override is inferred. Controlled trading, sustained
+latency, UI and webhook acceptance remain open.
 
-Runtime through PR #80 is installed from rebuild merge 342aa523ca35ff10fbb1bdc42e9778c2762ca994,
-including #79 sell maintenance/relisting. Both exact-head #80 checks at 8a666e5 pass in run
-39069865905: Windows 117505107495 / Ubuntu 117505107647. #79's df3da1e checks also pass in run
-39068966156. GitHub billing no longer blocks CI. Historical main remains untouched; ee0d3aff is retained.
-
-Sell maintenance/relisting preserve fresh scoped acquisition evidence, exact taxed cost floors,
-managed quantities and offer episode identity. Replacement BUYs require current final companion
-entry authority and cannot exceed the same item's proposed cancelled remainder. An entry refusal
-immediately withdraws buy guidance and invalidates queued player-key fills. Personal sale profit
-stays unknown; old stock gaps/reserves are not repaired. Contracts:
-[sell guidance](docs/architecture/safe-sell-relist.md),
-[replacement entry](docs/architecture/replacement-entry-authority.md).
-
-Final standard: 54s / 18 tasks / exit 0; 1,562 Java passed/six existing skips, zero failures/errors.
-Prior 103 Python tests pass (tooling unchanged). Installed plugin 490,492 bytes/218 project classes;
-companion 17,903,249 bytes/461 classes; all Java 11. Both hashes match the manifest; process lifecycle=1.
-Backup 20261017-131556-67c07d16 VERIFIED: three companion/22 plugin account files, original pair,
-manifest and task. Caller not elevated; task XML/SDDL unchanged and management access still read-only.
-No UAC prompt, task ACL change, real database repair/replay or game input.
-
-Independent native status, compatibility and scoped GET pipeline each exit 0. API 1.13.2 matches.
-Pre-login ledger 11 sale updates/eight unresolved/zero ranges; WAIT/UNAVAILABLE awaited client coins/free slots.
-The updater prints verified completion, but its private log helper lost the native exit code (null)
-and exited 1. No native updater failure is established; independent installed/API checks pass.
-Exact hashes, outputs, limits and retained prior checkpoints are in the
-[delivery receipt](docs/history/recommendation-delivery-2026-10-17.md).
-
-The previous client closed normally via the owner's authorized lifecycle request. Supported Start
-relaunched one developer-mode client; side-loading and initialization are logged. Owner confirmed
-login. Fresh installed-guard eight-slot checks pass at cursors 16,707/16,780 (seven/two seconds old),
-all authenticated source IDs/times and reserved coins match; offer outbox drains one to zero normally.
-Post-login HTTP samples are 188/16/203/672ms and 93/16/406/453ms for portfolio/action/ledger/learning.
-Current plans refuse buys because a managed instant-sell quote is stale: trident lowTime 477s versus
-the current 120s requirement. Later ledger 21 sale updates/nine unresolved; no unknown cost is priced.
-No final buy eligibility, sustained timing or controlled trading/UI acceptance is established.
-Repeated Swing layout exceptions lack plugin attribution; investigate/reproduce before a fix.
-Read [the login receipt](docs/history/postlogin-verification-2026-10-17.md) for exact pipeline output,
-read-only proof and limitations. This docs receipt requires no reinstall/restart. Continue source work from
-the current rebuild branch; [portable instructions](CONTINUE%20DEVELOPMENT.md) explain verification.
+Earlier #80 installation and post-login details are retained in
+[the recommendation receipt](docs/history/recommendation-delivery-2026-10-17.md) and
+[the earlier login receipt](docs/history/postlogin-verification-2026-10-17.md).
 
 ## Routine updates
 
