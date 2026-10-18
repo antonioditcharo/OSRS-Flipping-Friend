@@ -91,8 +91,9 @@ All unchecked release requirements remain visible below; detailed completion rec
       The installed 750ms GET budget times out on actual ledger-backed reads; canonical sell identities
       were also discarded. Regressions reproduce delay, missing maintenance source and an acknowledged
       partial-fill race. Windows clean: 1,625 Java passed/six existing skips (79s), Java 11.
-      CI/delivery and fresh managed exit/maintenance
-      acceptance remain open. See docs/architecture/sale-guidance-delivery.md. No data repair or bypass.
+      Both exact-head CI checks pass; #89/fb5f850 is merged. Delivery is held by a CIM process-identity
+      read failure; the bounded native-query updater fix is queued, with no privilege/task changes.
+      Fresh managed exit/maintenance acceptance remains open. See docs/architecture/sale-guidance-delivery.md. No data repair or bypass.
 - [ ] Audit calibration prediction provenance and cancellation censoring before changing strategy.
       Attribution, observed intervals and the runtime promotion fence are source-verified in history.
       Historical execution aggregates still pool censored/completed times but no longer authorize

@@ -1,5 +1,19 @@
 # Normal-user process updates
 
+18 October identity fallback: Windows CIM can hide a current-user JVM's CommandLine even while
+limited native querying is allowed. Only after verifying that same user's SID, read the actual
+command line with PROCESS_QUERY_LIMITED_INFORMATION and ProcessCommandLineInformation. Bound and
+validate the returned Unicode buffer, then require the exact absolute installed JAR argument.
+Missing/refused/malformed queries, foreign ownership and wrong JARs still refuse the listener.
+The existing immediate owner/creation recheck before stopping, task proof, two drains, installation
+lock, atomic replacement and backup verification remain required. This grants no rights, adds no
+elevation and never substitutes a task definition or port number for actual process arguments.
+Isolated lifecycle tests intercept every native/process boundary; a Windows test reads only its
+own disposable shell with a Unicode/spaced script argument. No test stops a real process.
+The native query is optional and version dependent: unsupported or inconsistent results keep the
+update refused. See Microsoft's [process access rights](https://learn.microsoft.com/en-us/windows/win32/procthread/process-security-and-access-rights)
+and [NtQueryInformationProcess contract](https://learn.microsoft.com/en-us/windows/win32/api/winternl/nf-winternl-ntqueryinformationprocess).
+
 The owner explicitly requests unattended maintenance without even an initial administrator prompt.
 The existing task already runs as this Windows user, Limited/Interactive; only its management ACL is
 protected. Routine maintenance therefore leaves that task and its security descriptor unchanged.
