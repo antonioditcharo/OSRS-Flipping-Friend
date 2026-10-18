@@ -109,6 +109,11 @@ final class EntryDecisionPresenter
                 return Suggestion.waiting("All Grand Exchange slots are busy",
                     "No new buy can be placed until a slot becomes available.");
             case NO_ELIGIBLE_CANDIDATE:
+                var diagnostics=plan==null?null:plan.getDiagnostics();
+                if(diagnostics!=null && diagnostics.getTacticsGenerated()==0
+                    && diagnostics.getVetoCounts().getOrDefault("Waiting for price history.",0)>0)
+                    return Suggestion.waiting("Loading item history",
+                        "The companion is loading market history for candidate items. It will evaluate buys as that history arrives.");
                 return Suggestion.waiting("Nothing worth buying right now",
                     "The companion found no eligible entry candidate under the current settings.");
             case DRAWDOWN_LIMIT_REACHED:

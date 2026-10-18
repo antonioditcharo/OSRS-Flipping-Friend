@@ -420,6 +420,30 @@ final class SqliteStore implements AutoCloseable
 			this.offers = java.util.Collections.unmodifiableList(new ArrayList<>(offers));
 		}
 	}
+	static final class SaleProjections
+	{
+		final PlanningProjections planning;
+		final AccountLedgerSnapshot ledger;
+		SaleProjections(PlanningProjections planning, AccountLedgerSnapshot ledger)
+		{ this.planning=planning; this.ledger=ledger; }
+	}
+	/** One fresh source prefix for final sale authority; never cached between requests. */
+	synchronized SaleProjections saleProjections(String accountId,long evaluatedAt) throws Exception
+	{
+		com.flippingfriend.core.AccountIdentity.require(accountId);
+		if (!connection.getAutoCommit()) throw new IllegalStateException("sale read requires its own transaction");
+		connection.setAutoCommit(false);
+		try
+		{
+			PlanningProjections planning=readPlanningProjections(accountId);
+			checkpoint.reached("SALE_PLANNING_READ");
+			AccountLedgerSnapshot ledger=readLedgerSnapshot(accountId,evaluatedAt,planning.tradeScope);
+			connection.commit();
+			return new SaleProjections(planning,ledger);
+		}
+		catch(Exception failure) { connection.rollback(); throw failure; }
+		finally { connection.setAutoCommit(true); }
+	}
 	/** Does not change durable rows or participate in an existing write transaction. */
 	synchronized PlanningProjections planningProjections() throws Exception
 	{
@@ -906,13 +930,16 @@ final class SqliteStore implements AutoCloseable
 	}
 	synchronized AccountLedgerSnapshot ledgerSnapshot(String accountId,long evaluatedAt) throws Exception
 	{
+		return readLedgerSnapshot(accountId,evaluatedAt,automaticTradeScope(accountId));
+	}
+	private AccountLedgerSnapshot readLedgerSnapshot(String accountId,long evaluatedAt,AutomaticTradeScope scope) throws Exception
+	{
 		try (Statement statement = connection.createStatement(); ResultSet row = statement.executeQuery(
 			"SELECT COUNT(*),COUNT(profit_lower),COALESCE(SUM(CASE WHEN profit_lower<>profit_upper THEN 1 ELSE 0 END),0),COUNT(tax_lower)," +
 			"COALESCE(SUM(profit_lower),0),COALESCE(SUM(profit_upper),0)," +
 			"COALESCE(SUM(tax_lower),0),COALESCE(SUM(tax_upper),0) FROM position_event WHERE effect_type='DISPOSE'"))
 		{
 			row.next();
-            AutomaticTradeScope scope=automaticTradeScope(accountId);
 			return new AccountLedgerSnapshot(accountId, evaluatedAt, row.getLong(1),
 				row.getLong(2), row.getLong(3), row.getLong(4), row.getLong(5), row.getLong(6),
 				row.getLong(7), row.getLong(8), positionProjections())
