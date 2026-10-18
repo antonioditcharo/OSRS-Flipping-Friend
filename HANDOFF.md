@@ -5,35 +5,36 @@ Root notes describe the current workflow; detailed prior receipts remain in link
 
 ## Current source and installed runtime
 
-Queued on codex/clear-history-navigation: the owner reached Missed flips but reports its table
-flickering empty. The defect was reproduced: current offer delivery invalidates the fresh ledger,
-and every heartbeat rebuilt the table. A display-only account history cache, lifecycle response
-fence and stable table updates are implemented, with visible Records/filter labels and view titles.
-Standard Windows clean build passes in 91s/18 tasks: 1,604 Java passed/six existing skips. Both
-exact-head CI checks, installation and post-update UI acceptance are pending; #84 remains installed.
-[Behavior and regression coverage](docs/architecture/history-display-retention.md).
+PR #86 is merged at 478426f and installed through the supported paired updater. Exact source
+8fe03fa passes Windows/Linux CI (run 39108916385), including 103 Python tests. Standard Windows
+clean build: 91s/18 tasks, 1,604 Java passed/six existing skips. Backup 20261017-235035-8555dccc is
+VERIFIED; installed hashes match, Java 11, lifecycle=1, protected task XML/SDDL unchanged. Native
+updater/status/compatibility/scoped GET pipeline all exit 0. Supported Start relaunched RuneLite.
+[Delivery, hashes and acceptance state](docs/history/history-display-delivery-2026-10-18.md).
 
-PR #84 is merged at 9d9c3aae6b6659bc73adbec8dcee5ad69ae01f39 and installed through the supported
-paired updater. Exact source 0f1c150 passes Windows/Linux CI (run 39106989952). Standard Windows
-clean build: 89s/18 tasks, 1,596 Java passed/six existing skips; all 103 Python tests pass.
-Backup 20261017-232123-b54e4672 is VERIFIED; installed hashes match, Java 11, lifecycle=1, protected
-task XML/SDDL unchanged. Native updater/status/compatibility/scoped pipeline all exit 0.
-[Delivery and post-login evidence](docs/history/history-planning-delivery-2026-10-18.md).
+Owner reached #84 Missed flips but reported its table flickering empty. Reproduced/fixed pending
+delivery clearing history and unchanged heartbeats discarding selection. Read-only account history
+now survives temporary fresh-ledger loss, with an updating/as-of notice and lifecycle response fence;
+logout/account change clears it. Trading/Performance retain fresh evidence requirements. Records
+and filter labels are explicit. [Behavior and regressions](docs/architecture/history-display-retention.md).
+Owner confirms the installed window stays populated while filtering. Fresh post-login eight-slot
+proof passes at age six seconds; this accepts history stability, not controlled trading.
 
-[History-tolerant planning](docs/architecture/history-tolerant-planning.md) separates lifetime
+#84's [history-tolerant planning](docs/architecture/history-tolerant-planning.md) separates lifetime
 exposure from newly exposed risk-window capital, avoids charging old quarantined sales as new loss,
 and reserves fresh purchases of paused stock. Historical exposure, affected-item pauses, financial
 rows/unknown profit, current proof and the original risk anchor remain intact. Missed flips adds
 filtering and exact source/offer references. Unrelated final buy authority passes with retained
 history gaps in a regression; this does not establish live entry eligibility.
 
-Owner closed the client normally, the verified pair was installed, supported Start relaunched it,
-and owner confirmed login at GE. Installed eight-slot proof passes at age eight seconds with eight
+#86's fresh installed eight-slot proof has eight
 free slots and no unbounded gap scope. Recorded ledger remains 32 sale updates/18 unresolved/zero
 ranges. The actual prospective uncertainty reserve still exhausts its allowance, so buys remain
 refused. Owner asked how Copilot handles discrepancies: its client separates Missed flips/current
 observations, but private server risk rules are unknown. No reserve-guard override was inferred.
-History UI acceptance, controlled trading and sustained timing remain distinct open gates.
+#86's before/after read-only comparison preserves all ledger content except its read timestamp,
+the risk evidence and historical gaps. [Earlier #84 delivery](docs/history/history-planning-delivery-2026-10-18.md).
+Controlled trading, remaining UI workflows and sustained timing remain open.
 
 #83's sale authority, exact-cost maintenance, durable sale investigation, graph lookup, market-drop
 investigation, alerts, executable account replay and frozen completion fitting remain installed.
