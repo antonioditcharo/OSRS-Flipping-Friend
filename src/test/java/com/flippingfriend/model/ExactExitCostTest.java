@@ -40,6 +40,9 @@ public class ExactExitCostTest {
         return actualGuidance(quantity,cost,inInventory,price,heldPrice,false);
     }
     Suggestion actualGuidance(int quantity,long cost,int inInventory,int price,boolean heldPrice,boolean adjustment)throws Exception {
+        return actualGuidance(quantity,cost,inInventory,price,heldPrice,adjustment,0);
+    }
+    Suggestion actualGuidance(int quantity,long cost,int inInventory,int price,boolean heldPrice,boolean adjustment,long quoteAge)throws Exception {
         var market=mock(MarketDataService.class);when(market.getSeries(anyInt(),anyString())).thenReturn(List.of());
         var offers=mock(OfferTracker.class);when(offers.listedForSale()).thenReturn(Map.of());
         when(offers.itemsBeingBought()).thenReturn(Set.of());when(offers.getOffers()).thenReturn(List.of());
@@ -59,7 +62,7 @@ public class ExactExitCostTest {
             Method pin=SuggestionEngine.class.getDeclaredMethod("advisedPrice",int.class,boolean.class,int.class,long.class);
             pin.setAccessible(true);pin.invoke(engine,561,false,price,now.getEpochSecond());
         }
-        var snapshot=new MarketSnapshot(Map.of(),Map.of(561,new LatestPrice(price,now.getEpochSecond(),price,now.getEpochSecond())),Map.of(),Map.of(),now);
+        var snapshot=new MarketSnapshot(Map.of(),Map.of(561,new LatestPrice(price,now.getEpochSecond()-quoteAge,price,now.getEpochSecond())),Map.of(),Map.of(),now);
         var account=new AccountState(true,true,false,100000000,0,0,8,8,0,false,Map.of(561,inInventory),Map.of(561,inInventory),Map.of());
         when(monitor.getState()).thenReturn(account);
         if(adjustment) {
@@ -75,6 +78,15 @@ public class ExactExitCostTest {
         var suggestion=actualGuidance(2,81,2,42);
         assertNotNull(suggestion);assertEquals(SuggestionType.SELL,suggestion.getType());
         assertEquals(2,suggestion.getQuantity());assertEquals(3,suggestion.getExpectedProfit());
+    }
+    @Test public void quietVerifiedStockGetsAnExplainedNonLossSellCappedToObservedUnits()throws Exception {
+        var suggestion=actualGuidance(3,5881,2,1000,false,false,1200);
+        assertNotNull(suggestion);assertEquals(SuggestionType.SELL,suggestion.getType());assertEquals(2,suggestion.getQuantity());
+        assertFalse(suggestion.isLossCut());assertTrue(suggestion.getDetail().contains("quiet"));
+        long cost=SaleAccounting.allocateCost(5881,3,2);
+        assertTrue(tax.netProceeds(561,suggestion.getPrice(),2)>=cost);
+        assertEquals(tax.netProceeds(561,suggestion.getPrice(),2)-cost,suggestion.getExpectedProfit());
+        assertNull("Quiet quotes never create a location or authorize personal units",actualGuidance(3,5881,0,1000,false,false,1200));
     }
     @Test public void aPartialSuggestedSaleUsesTheLedgersProportionalCostRule()throws Exception {
         var suggestion=actualGuidance(3,125,2,44);

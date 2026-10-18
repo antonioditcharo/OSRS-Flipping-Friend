@@ -14,6 +14,12 @@ Historical session/cadence labels are unavailable; GP/hour remains unmeasured.
 
 ## Installed continuation — 18 October 2026
 
+The owner subsequently reports continued sale waiting. Fresh GETs reproduce a quiet last-trade
+freshness refusal on verified held stock. The shared client/companion/replay non-loss limit fix is
+source-verified and queued, not installed; [current receipt](history/quiet-market-sale-delivery-2026-10-18.md).
+Replay v3 distinguishes the changed exit semantics. Entry, risk marks, loss-cut/maintenance
+freshness and historical accounting guards remain; real player acceptance is still required.
+
 The owner-selected current-account policy and combined sell-verification fixes through #92 are
 installed. Historical unknown money stays visible/affected stock paused, while verified current
 funds can support unrelated buys. Owner-confirmed buy availability is recorded; fresh updated

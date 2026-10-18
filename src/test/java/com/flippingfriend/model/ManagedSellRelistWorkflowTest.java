@@ -118,13 +118,22 @@ public class ManagedSellRelistWorkflowTest {
         when(f.companion.tradingLedger()).thenReturn(ledger(List.of(),List.of(),Map.of()));
         assertEquals(SuggestionType.WAIT,f.next().getType());
     }
-    @Test public void staleFutureAndMissingQuotesWithdrawRelistAdvice() throws Exception {
-        for (long delta : new long[]{-301,60}) {
+    @Test public void futureQuotesWithdrawRelistAdvice() throws Exception {
+        for (long delta : new long[]{60}) {
             var f = new Fixture(6,5881,6,1000,true);
             var original=f.market.getSnapshot();
             when(f.market.getSnapshot()).thenReturn(new MarketSnapshot(original.getMetadata(),
                 Map.of(561,new LatestPrice(1000,now.getEpochSecond()+delta,1000,now.getEpochSecond())),Map.of(),Map.of(),now));
             assertEquals(SuggestionType.WAIT,f.next().getType());
+        }
+    }
+    @Test public void quietManagedRelistUsesANonLossLimitWhilePersonalStockStillNeedsAFreshQuote() throws Exception {
+        for(boolean managed:new boolean[]{true,false}) {
+            var f=new Fixture(6,5881,6,1000,managed);var original=f.market.getSnapshot();
+            when(f.market.getSnapshot()).thenReturn(new MarketSnapshot(original.getMetadata(),Map.of(561,
+                new LatestPrice(1000,now.getEpochSecond()-1200,1000,now.getEpochSecond())),Map.of(),Map.of(),now));
+            var next=f.next();assertEquals(managed?SuggestionType.SELL:SuggestionType.WAIT,next.getType());
+            if(managed) {assertTrue(next.getDetail().contains("quiet"));assertTrue(tax.netProceeds(561,next.getPrice(),6)>=5881);}
         }
     }
     @Test public void anotherOpenBuyPreventsSellingAroundAnAccumulatingPosition() throws Exception {
