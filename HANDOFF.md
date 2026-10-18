@@ -1,48 +1,38 @@
 # Agent handoff
 
-Updated 17 October 2026 (America/Anchorage). Read [AGENTS.md](AGENTS.md) and [TASKS.md](TASKS.md).
+Updated 18 October 2026 (America/Anchorage). Read [AGENTS.md](AGENTS.md) and [TASKS.md](TASKS.md).
 Root notes describe the current workflow; detailed prior receipts remain in linked history.
 
 ## Current source and installed runtime
 
-Queued on codex/current-account-inventory-policy: owner explicitly selected current-account policy
-on 18 October. Historical uncertainty remains reported/affected stock paused; fresh current funds
-may support unrelated buys. Confirmed losses and the original anchor persist; unresolved live
-offers still block entry. Regression-first changes also reserve unpriced/unseen exact stock cost,
-carry physical observations separately, avoid phantom sales, support unknown-cost observed-sale
-maintenance and stabilize/exactly price the Holdings display. Final verification/delivery pending;
-#86 remains installed below. [Contract](docs/architecture/current-account-inventory-policy.md).
+PR #88 is merged at 3eb37d4 and installed through the supported paired updater. The owner chose
+current-account policy: historical uncertainty remains separately reported and affected stock paused;
+verified current funds can support unrelated buys. Confirmed losses, current exposure guards and the
+original anchor persist. Physical evidence excludes cached bank units; unseen tracked stock receives
+zero terminal value/full exact-cost reserve; personal belongings are not adopted from item history.
+Holdings investigation is stable and uses exact cost. [Contract](docs/architecture/current-account-inventory-policy.md).
 
-PR #86 is merged at 478426f and installed through the supported paired updater. Exact source
-8fe03fa passes Windows/Linux CI (run 39108916385), including 103 Python tests. Standard Windows
-clean build: 91s/18 tasks, 1,604 Java passed/six existing skips. Backup 20261017-235035-8555dccc is
-VERIFIED; installed hashes match, Java 11, lifecycle=1, protected task XML/SDDL unchanged. Native
-updater/status/compatibility/scoped GET pipeline all exit 0. Supported Start relaunched RuneLite.
-[Delivery, hashes and acceptance state](docs/history/history-display-delivery-2026-10-18.md).
+Both exact-head Windows/Linux CI checks pass. Standard Windows clean: 87s/18 tasks, 1,616 Java
+passed/six existing skips; 103 Python passed. Backup 20261018-003759-5ee9b61e is VERIFIED; hashes,
+Java 11, unchanged task XML/SDDL, lifecycle=1, native status/compatibility/scoped GET pipeline pass.
+Original source/financial prefixes and the sole risk anchor remain identical. Fresh installed READY
+and final PLACE_BUY pass after normal history warming. Owner confirms buy suggestions are available.
+[Hashes, financial preservation and acceptance](docs/history/current-account-delivery-2026-10-18.md).
 
-Owner reached #84 Missed flips but reported its table flickering empty. Reproduced/fixed pending
-delivery clearing history and unchanged heartbeats discarding selection. Read-only account history
-now survives temporary fresh-ledger loss, with an updating/as-of notice and lifecycle response fence;
-logout/account change clears it. Trading/Performance retain fresh evidence requirements. Records
-and filter labels are explicit. [Behavior and regressions](docs/architecture/history-display-retention.md).
-Owner confirms the installed window stays populated while filtering. Fresh post-login eight-slot
-proof passes at age six seconds; this accepts history stability, not controlled trading.
+Queued on codex/sale-guidance-handoff: fix reported sale verification failures. Installed GETs exceed
+the old 750ms client budget (two reproduced timeouts; 1,955ms successful read). Bounded GET reads,
+retained authenticated sell identities, post-response source/freshness checks and one consistent
+sale read transaction address delayed verification and partial-fill races. Targeted regressions
+pass. Standard Windows clean: 79s/18 tasks, 1,625 Java passed/six existing skips, Java 11.
+CI/delivery and fresh sell acceptance are pending; #88 remains installed.
+[Behavior and player steps](docs/architecture/sale-guidance-delivery.md).
 
-#84's [history-tolerant planning](docs/architecture/history-tolerant-planning.md) separates lifetime
-exposure from newly exposed risk-window capital, avoids charging old quarantined sales as new loss,
-and reserves fresh purchases of paused stock. Historical exposure, affected-item pauses, financial
-rows/unknown profit, current proof and the original risk anchor remain intact. Missed flips adds
-filtering and exact source/offer references. Unrelated final buy authority passes with retained
-history gaps in a regression; this does not establish live entry eligibility.
-
-#86's fresh installed eight-slot proof has eight
-free slots and no unbounded gap scope. Recorded ledger remains 32 sale updates/18 unresolved/zero
-ranges. The actual prospective uncertainty reserve still exhausts its allowance, so buys remain
-refused. Owner asked how Copilot handles discrepancies: its client separates Missed flips/current
-observations, but private server risk rules are unknown. No reserve-guard override was inferred.
-#86's before/after read-only comparison preserves all ledger content except its read timestamp,
-the risk evidence and historical gaps. [Earlier #84 delivery](docs/history/history-planning-delivery-2026-10-18.md).
-Controlled trading, remaining UI workflows and sustained timing remain open.
+Owner accepted #86 Missed flips stability while filtering. Retained read-only history clears on
+logout/account change and never supplies trading/ownership authority; unknown financial values stay
+unknown. [Earlier delivery](docs/history/history-display-delivery-2026-10-18.md),
+[retention contract](docs/architecture/history-display-retention.md). Broader controlled trading,
+remaining UI workflows and sustained timing remain open; restored buy availability does not accept
+buy/collect/sell, partial cancel/relist or restart.
 
 #83's sale authority, exact-cost maintenance, durable sale investigation, graph lookup, market-drop
 investigation, alerts, executable account replay and frozen completion fitting remain installed.

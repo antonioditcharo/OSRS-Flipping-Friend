@@ -50,11 +50,14 @@ public class CompanionClient
 {
 	private static final String BASE = "http://127.0.0.1:37777/v1/";
 	private static final int TIMEOUT_MILLIS = 750;
+	/** Ledger-backed reads may scan retained evidence. This is a transport budget, not advice TTL. */
+	private static final int ACCOUNT_READ_TIMEOUT_MILLIS = 5_000;
 	/** The market feed is megabytes rather than a plan, so it gets its own budget. */
 	private static final int FEED_TIMEOUT_MILLIS = 5_000;
         private static final long INITIAL_RETRY_DELAY_MILLIS = 2_000;
         private static final long MAX_RETRY_DELAY_MILLIS = 60_000;
 	private final PluginStorage storage;
+	private final String base;
 	private final Gson gson;
 	private final SuggestionLedger ledger;
         private final OfferEventOutbox outbox;
@@ -206,7 +209,14 @@ public class CompanionClient
         CompanionClient(PluginStorage storage, Gson gson, SuggestionLedger ledger,
                 OfferEventOutbox outbox, LongSupplier retryClock)
         {
+                this(storage,gson,ledger,outbox,retryClock,BASE);
+        }
+
+        CompanionClient(PluginStorage storage, Gson gson, SuggestionLedger ledger,
+                OfferEventOutbox outbox, LongSupplier retryClock, String base)
+        {
                 this.storage = storage;
+                this.base = base;
                 this.observedAccountId = storage.accountId();
                 this.gson = gson;
                 this.ledger = ledger;
@@ -786,22 +796,33 @@ public class CompanionClient
         if(proposed==null || proposed.getType()!=SuggestionType.MODIFY_SELL
             && !(proposed.getType()==SuggestionType.SELL && proposed.isProfitKnown()))return proposed;
         String requestedAccount=accountContext();long now=Instant.now().getEpochSecond();
-        var current=tradingLedger();String source=null;int slot=-1;
-        if(current!=null && current.getTradingPositions()!=null) {
-            if(proposed.getType()==SuggestionType.MODIFY_SELL) {
-                slot=proposed.getSlot();OfferEvent offer=canonicalOffers.get(slot);
-                if(offer!=null && !offer.isBuying() && "SELLING".equals(offer.getEventType()) && offer.getItemId()==proposed.getItemId()
-                    && offer.getTotalQuantity()-offer.getFilledQuantity()==proposed.getQuantity())source=offer.getEventId();
-            } else for(var p:current.getTradingPositions())if(p.getItemId()==proposed.getItemId() && p.getQuantity()>=proposed.getQuantity())source=p.getSourceEventId();
-        }
+        int slot=proposed.getType()==SuggestionType.MODIFY_SELL?proposed.getSlot():-1;
+        String source=currentSaleSource(proposed,slot);
         if(source!=null)try {
             String key=proposed.getItemId()+":"+proposed.getPrice()+":"+proposed.getQuantity()+":"+source+":"+proposed.isLossCut()+":"+slot;
             String path="policy/sale?item="+proposed.getItemId()+"&price="+proposed.getPrice()+"&quantity="+proposed.getQuantity()
                 +"&source="+URLEncoder.encode(source,StandardCharsets.UTF_8.name())+"&cut="+proposed.isLossCut()+"&slot="+slot;
-            PolicyDecision decision=gson.fromJson(request(path,"GET",null,TIMEOUT_MILLIS,requestedAccount),PolicyDecision.class);
-            if(validSaleDecision(decision,key,source,slot,now) && java.util.Objects.equals(requestedAccount,accountContext()) && !offerEvidencePending())return proposed;
+            PolicyDecision decision=gson.fromJson(request(path,"GET",null,ACCOUNT_READ_TIMEOUT_MILLIS,requestedAccount),PolicyDecision.class);
+            long receivedAt=Instant.now().getEpochSecond();
+            if(validSaleDecision(decision,key,source,slot,now) && decision.getDecidedAt()<=receivedAt
+                && receivedAt-decision.getDecidedAt()<=5 && receivedAt-decision.getInputObservedAt()<=150
+                && java.util.Objects.equals(requestedAccount,accountContext()) && !offerEvidencePending()
+                && source.equals(currentSaleSource(proposed,slot)))return proposed;
+            if(decision!=null)lastError="Sale verification: "+decision.getReasonCode();
         }catch(Exception unavailable){lastError="Current sale authority unavailable";}
         return Suggestion.waiting("Waiting for sale verification","The current offer, acquisition evidence or market price changed. Waiting for fresh sale guidance.");
+    }
+    private String currentSaleSource(Suggestion proposed,int slot) {
+        var current=tradingLedger();
+        if(current==null || current.getTradingPositions()==null)return null;
+        if(slot>=0) {
+            OfferEvent offer=canonicalOffers.get(slot);
+            return offer!=null && offer.isAuthenticatedObservation() && !offer.isBuying()
+                && "SELLING".equals(offer.getEventType()) && offer.getItemId()==proposed.getItemId()
+                && offer.getTotalQuantity()-offer.getFilledQuantity()==proposed.getQuantity()?offer.getEventId():null;
+        }
+        for(var p:current.getTradingPositions())if(p.getItemId()==proposed.getItemId() && p.getQuantity()>=proposed.getQuantity())return p.getSourceEventId();
+        return null;
     }
     static boolean validSaleDecision(PolicyDecision decision,String identity,String source,int slot,long now) {
         return decision!=null && "1".equals(decision.getSchemaVersion()) && "companion-sale-1".equals(decision.getPolicyVersion())
@@ -849,7 +870,11 @@ public class CompanionClient
 	private void rememberCanonicalOffer(OfferEvent event)
 	{
 		if (event == null || event.getSlot() < 0) return;
-		if (validOpenBuyForMaintenance(event)) canonicalOffers.put(event.getSlot(), event);
+		boolean observedSale=event.isAuthenticatedObservation() && !event.isBuying()
+			&& "SELLING".equals(event.getEventType()) && event.getItemId()>0 && event.getPrice()>0
+			&& event.getTotalQuantity()>event.getFilledQuantity() && event.getFilledQuantity()>=0
+			&& !blank(event.getEventId()) && !blank(event.getOfferIdentity());
+		if (validOpenBuyForMaintenance(event) || observedSale) canonicalOffers.put(event.getSlot(), event);
 		else canonicalOffers.remove(event.getSlot());
 	}
 
@@ -1292,7 +1317,7 @@ public class CompanionClient
 
 	private String request(String path, String method, String body) throws Exception
 	{
-		return request(path, method, body, TIMEOUT_MILLIS);
+		return request(path, method, body, "GET".equals(method)?ACCOUNT_READ_TIMEOUT_MILLIS:TIMEOUT_MILLIS);
 	}
 
 	private String request(String path, String method, String body, int readTimeoutMillis)
@@ -1314,7 +1339,7 @@ public class CompanionClient
 		if (token == null) throw new IllegalStateException("Start the Flipping Friend companion first.");
 		// An older companion has no account namespace and returns 404 before accepting any mutation.
 		String endpoint = accountRequest ? "accounts/" + accountId + "/" + path : path;
-		HttpURLConnection connection = (HttpURLConnection) new URL(BASE + endpoint).openConnection();
+		HttpURLConnection connection = (HttpURLConnection) new URL(base + endpoint).openConnection();
 		connection.setRequestMethod(method);
 		connection.setConnectTimeout(TIMEOUT_MILLIS);
 		connection.setReadTimeout(readTimeoutMillis);

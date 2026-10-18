@@ -1,6 +1,6 @@
 # Tasks
 
-Updated 17 October 2026. Read [HANDOFF.md](HANDOFF.md) for current source/runtime evidence.
+Updated 18 October 2026. Read [HANDOFF.md](HANDOFF.md) for current source/runtime evidence.
 All unchecked release requirements remain visible below; detailed completion receipts are in history.
 
 ## Active
@@ -47,16 +47,14 @@ All unchecked release requirements remain visible below; detailed completion rec
 - [ ] Design an auditable evidence-based resolution for already recorded false progress gaps.
       Preserve the raw sources, financial identities, unknown cost/profit and durable risk window.
       No manual database edit, replay, adoption, risk reset or bypass to force advice.
-- [ ] Finish sustained latency/final eligible entry acceptance. Post-login portfolio/action/ledger/
-      learning samples are 188/16/203/672ms and 93/16/406/453ms; outbox drains to zero. Plans refuse
-      stale managed instant-sell quotes (trident 477s versus current 120s rule), canonical risk
-      unavailable. Two fresh installed eight-slot guard checks pass; these are not entry acceptance.
-      Investigate sampled quote freshness/entry availability without assuming a new budget. Retain freshness/
-      funding/loss guards and 5m/Medium. No manufactured funds,
-      cleared reserve or additional restart to obtain a final eligible-entry response.
+- [ ] Finish sustained latency and final-authority acceptance. #88 fresh READY/final PLACE_BUY and
+      owner-confirmed buy guidance pass after normal history warming. Sale/entry reads can exceed the
+      old 750ms client budget; the queued delivery fix is above. Measure sustained post-update reads,
+      ACK drain and final eligible advice while retaining freshness, funding, loss and 5m/Medium
+      settings. No manufactured funds, cleared reserve or risk reset to force an answer.
 - [ ] Finish search/player-key/pause/context acceptance; these are not established by screenshots.
       Controlled intended trade, partial cancel/collect/relist and restart still need real outcomes.
-- [ ] Continue batched HOME TEST CHECKLIST.md and PR #31 live acceptance. Installed #86 pair,
+- [ ] Continue batched HOME TEST CHECKLIST.md and PR #31 live acceptance. Installed #88 pair,
       status/API 1.13.2 compatibility and GET pipeline pass; fresh post-login source proof passes.
       Investigate unattributed repeated Swing layout exceptions before claiming UI stability.
       Confirm/highlight screenshot checks pass. Search/player-key/pause/context and controlled
@@ -83,17 +81,18 @@ All unchecked release requirements remain visible below; detailed completion rec
       Read-only ledger/risk/gap preservation passes. docs/history/history-display-delivery-2026-10-18.md
       records delivery. Owner confirms installed Missed flips stays populated while filtering;
       fresh #86 authenticated eight-slot proof passes at age six seconds.
-- [ ] Finalize discrepancy/risk policy. Fresh #86 eight-slot proof passes, but actual prospective
-      uncertainty still exhausts the allowance. Copilot's
-      client separates Missed flips/current observations; private server risk rules are unknown.
-      No override is inferred from the owner's question. Keep new-capital reserves and real losses.
-      Owner's #84 flicker is reproduced/fixed in installed #86 with explicit Records/filter navigation;
-      docs/architecture/history-display-retention.md describes it. Owner accepts history stability;
-      broader UI/trading acceptance remains open.
-      Owner explicitly chose current-account policy on 18 October: retain historical unknown money
-      and pause affected stock while current cash permits unrelated buys. The queued implementation
-      and regression gates are in docs/architecture/current-account-inventory-policy.md. Final
-      build/CI/delivery and live buy availability are pending; this is not a financial-data repair.
+- [x] Deliver owner-selected current-account discrepancy/risk policy (#88/3eb37d4). Original financial
+      rows, unknown amounts, paused items and risk anchor persist. Both exact-head CI checks pass;
+      1,616 Java passed/six existing skips; 103 Python passed; supported backup/pair/status/compatibility/
+      scoped GET checks pass. Fresh READY/final PLACE_BUY and owner-confirmed buy guidance establish
+      entry availability. See docs/history/current-account-delivery-2026-10-18.md. This does not
+      resolve affected historical stock, establish complete trading acceptance or validate learning.
+- [ ] Deliver/accept the sell-verification fix after the owner reported Dragon knives/Masori helm.
+      The installed 750ms GET budget times out on actual ledger-backed reads; canonical sell identities
+      were also discarded. Regressions reproduce delay, missing maintenance source and an acknowledged
+      partial-fill race. Windows clean: 1,625 Java passed/six existing skips (79s), Java 11.
+      CI/delivery and fresh managed exit/maintenance
+      acceptance remain open. See docs/architecture/sale-guidance-delivery.md. No data repair or bypass.
 - [ ] Audit calibration prediction provenance and cancellation censoring before changing strategy.
       Attribution, observed intervals and the runtime promotion fence are source-verified in history.
       Historical execution aggregates still pool censored/completed times but no longer authorize

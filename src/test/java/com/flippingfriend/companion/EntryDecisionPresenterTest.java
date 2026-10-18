@@ -68,6 +68,20 @@ public class EntryDecisionPresenterTest
             Assert.assertEquals(0, suggestion.getQuantity());
         }
     }
+    @Test public void coldHistoryIsExplainedWithoutCallingItAnEmptyMarketOrAuthorizingABuy() {
+        var diagnostics=new com.flippingfriend.core.PlanDiagnostics(100,90,10,10,0,0,0,1000000,
+            java.util.Map.of("Waiting for price history.",10));
+        var plan=PortfolioPlan.unavailable("plan",com.flippingfriend.core.PortfolioPlanOutcome.NO_ELIGIBLE_CANDIDATE,
+            "No tactics yet",10).withDiagnostics(diagnostics);
+        var wait=PolicyDecision.abstain("1","policy","decision",PolicyDecisionType.ENTRY,
+            PolicyAbstentionReason.NO_ELIGIBLE_CANDIDATE,"NO_ELIGIBLE_CANDIDATE",10,9,null,"plan");
+        var suggestion=EntryDecisionPresenter.present(wait,plan,null).getSuggestion();
+        Assert.assertEquals(SuggestionType.WAIT,suggestion.getType());
+        Assert.assertEquals("Loading item history",suggestion.getHeadline());Assert.assertEquals(0,suggestion.getPrice());
+        var ready=new com.flippingfriend.core.PlanDiagnostics(100,90,10,10,3,0,0,1000000,
+            java.util.Map.of("Waiting for price history.",7));
+        Assert.assertEquals("Nothing worth buying right now",EntryDecisionPresenter.present(wait,plan.withDiagnostics(ready),null).getSuggestion().getHeadline());
+    }
 
     @Test public void linkageAndCandidateFailuresAreClosed()
     {
