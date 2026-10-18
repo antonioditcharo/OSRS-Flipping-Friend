@@ -56,7 +56,7 @@ All unchecked release requirements remain visible below; detailed completion rec
       cleared reserve or additional restart to obtain a final eligible-entry response.
 - [ ] Finish search/player-key/pause/context acceptance; these are not established by screenshots.
       Controlled intended trade, partial cancel/collect/relist and restart still need real outcomes.
-- [ ] Continue batched HOME TEST CHECKLIST.md and PR #31 live acceptance. Installed #80 pair,
+- [ ] Continue batched HOME TEST CHECKLIST.md and PR #31 live acceptance. Installed #84 pair,
       status/API 1.13.2 compatibility and GET pipeline pass; fresh post-login source proof passes.
       Investigate unattributed repeated Swing layout exceptions before claiming UI stability.
       Confirm/highlight screenshot checks pass. Search/player-key/pause/context and controlled
@@ -72,14 +72,15 @@ All unchecked release requirements remain visible below; detailed completion rec
 
 ## Next
 
-- [ ] Deliver and accept history-tolerant planning: distinguish lifetime history from new risk-window
-      capital; keep paused-item exposure, new-capital reserves, financial rows and the durable anchor.
-      Regression/source details: docs/architecture/history-tolerant-planning.md. Candidate fresh
-      eight-slot proof passes, but the actual prospective reserve still exhausts the allowance.
-      Standard clean build: 89s, 1,596 Java passed/six existing skips; 103 Python passed in 127.800s.
-      CI/install/manual acceptance pending. Owner asked how Copilot handles discrepancies; its
-      client separates Missed flips/current observations, but private server risk rules are unknown.
-      No reserve-guard override is inferred from that question.
+- [x] Deliver #84 history-tolerant planning: lifetime and prospective capital are separated;
+      paused-item exposure, new-capital reserves, unknown financial rows and the anchor persist.
+      Windows clean 89s: 1,596 Java passed/six existing skips; 103 Python passed in 127.800s.
+      Both exact-head CI checks pass; verified paired update/status/compatibility/scoped API pass.
+      docs/history/history-planning-delivery-2026-10-18.md records source, install and live limits.
+- [ ] Accept the installed history UI and finalize discrepancy/risk policy. Fresh #84 eight-slot
+      proof passes, but actual prospective uncertainty still exhausts the allowance. Copilot's
+      client separates Missed flips/current observations; private server risk rules are unknown.
+      No override is inferred from the owner's question. Keep new-capital reserves and real losses.
 - [ ] Audit calibration prediction provenance and cancellation censoring before changing strategy.
       Attribution, observed intervals and the runtime promotion fence are source-verified in history.
       Historical execution aggregates still pool censored/completed times but no longer authorize

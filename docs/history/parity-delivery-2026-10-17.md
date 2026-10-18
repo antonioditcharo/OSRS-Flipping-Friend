@@ -21,8 +21,8 @@ All project classes target Java 11 (major 55). Both installed hashes match the v
 Supported `apply-update.ps1 -Unattended -SkipBuild` verified backup 20261017-185122-b93e2a1e,
 including three companion and 22 plugin account files, artifacts, manifest and task export.
 The wrapper printed successful paired verification and companion readiness. Its outer tool session
-remained open after the native helper exited, so no final native exit code is asserted from that
-session. Independent native status, compatibility and scoped GET pipeline each exit 0.
+remained open, then returned native exit 0 during the next ordinary companion lifecycle transition.
+Independent native status, compatibility and scoped GET pipeline each exit 0.
 RuneLite API/release 1.13.2 matches. Lifecycle=1; task XML and SDDL compare exactly unchanged.
 Caller was not elevated. No game input, financial replay/repair, risk reset or account reassignment.
 
