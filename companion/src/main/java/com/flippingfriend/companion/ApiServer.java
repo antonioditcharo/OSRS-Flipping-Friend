@@ -70,6 +70,7 @@ final class ApiServer implements AutoCloseable
 			case "action": action(exchange); break;
 			case "policy/entry": entryDecision(exchange); break;
 			case "policy/buy-maintenance": buyMaintenanceDecision(exchange); break;
+			case "policy/sale": saleDecision(exchange); break;
 			case "events/account-state": account(exchange); break;
 			case "events/ge-offer": offer(exchange); break;
 			default: respond(exchange, 404, "{\"error\":\"unknown account endpoint\"}");
@@ -113,6 +114,7 @@ final class ApiServer implements AutoCloseable
 	private void ledger(HttpExchange exchange) throws IOException
 	{
 		if (!authorized(exchange)) return;
+		if(!"GET".equals(exchange.getRequestMethod())){respond(exchange,405,"{\"error\":\"GET required\"}");return;}
 		CompanionService scoped = accountService(exchange);
 		if (scoped == null) return;
 		try { respond(exchange, 200, gson.toJson(scoped.ledger())); }
@@ -141,6 +143,22 @@ final class ApiServer implements AutoCloseable
 		if (service == null) return;
 		respond(exchange, 200, gson.toJson(service.buyMaintenanceDecision(
 			java.time.Instant.now().getEpochSecond())));
+	}
+	private void saleDecision(HttpExchange exchange) throws IOException {
+		if(!authorized(exchange))return;
+		if(!"GET".equals(exchange.getRequestMethod())){respond(exchange,405,"{\"error\":\"GET required\"}");return;}
+		CompanionService scoped=accountService(exchange);if(scoped==null)return;
+		try {
+			java.util.Map<String,String> query=new java.util.HashMap<>();
+			String raw=exchange.getRequestURI().getRawQuery();
+			if(raw!=null)for(String part:raw.split("&")) {
+				String[] pair=part.split("=",2);if(pair.length!=2 || query.put(pair[0],java.net.URLDecoder.decode(pair[1],StandardCharsets.UTF_8))!=null)throw new IllegalArgumentException("invalid sale query");
+			}
+			if(!java.util.Set.of("item","price","quantity","source","cut","slot").equals(query.keySet())
+				|| !("true".equals(query.get("cut")) || "false".equals(query.get("cut"))))throw new IllegalArgumentException("invalid sale query");
+			respond(exchange,200,gson.toJson(scoped.saleDecision(Integer.parseInt(query.get("item")),Integer.parseInt(query.get("price")),
+				Integer.parseInt(query.get("quantity")),query.get("source"),Boolean.parseBoolean(query.get("cut")),Integer.parseInt(query.get("slot")),java.time.Instant.now().getEpochSecond())));
+		}catch(RuntimeException invalid){respond(exchange,400,"{\"error\":\"invalid sale query\"}");}
 	}
 
 	private void entryDecision(HttpExchange exchange) throws IOException

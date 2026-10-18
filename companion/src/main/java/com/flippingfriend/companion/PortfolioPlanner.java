@@ -52,6 +52,11 @@ final class PortfolioPlanner
 
 	PortfolioPlanner(SeriesCache series)
 	{
+		this((SeriesSource) series);
+	}
+
+	PortfolioPlanner(SeriesSource series)
+	{
 		this.candidates = new CandidateFactory(series);
 	}
 
@@ -60,6 +65,7 @@ final class PortfolioPlanner
 	{
 		candidates.setCalibration(calibration);
 	}
+	void setCompletionScoring(CompletionScoring model) { candidates.setCompletionScoring(model); }
 
 	/** What is currently being applied, for the health line. */
 	FillCalibration calibration()
@@ -70,21 +76,27 @@ final class PortfolioPlanner
 	PortfolioPlan plan(MarketIngestionService.MarketState market, AccountSnapshot account,
 		Map<Integer, Integer> buyLimitRemaining, Collection<OfferEvent> activeOffers)
 	{
-		Instant now = Instant.now();
+		return plan(market, account, buyLimitRemaining, activeOffers, Instant.now());
+	}
+
+	/** Live and replay share this exact policy; replay supplies only an explicit clock and inputs. */
+	PortfolioPlan plan(MarketIngestionService.MarketState market, AccountSnapshot account,
+		Map<Integer, Integer> buyLimitRemaining, Collection<OfferEvent> activeOffers, Instant now)
+	{
 		long nowSeconds = now.getEpochSecond();
 		String correlationId = account.getCorrelationId() == null
 			? UUID.randomUUID().toString()
 			: account.getCorrelationId();
 
-		if (market.observedAt == 0 || nowSeconds - market.observedAt > MAX_MARKET_AGE_SECONDS)
+		if (market.observedAt <= 0 || market.observedAt > nowSeconds || nowSeconds - market.observedAt > MAX_MARKET_AGE_SECONDS)
 		{
 			return describing(PortfolioPlan.unavailable(correlationId, PortfolioPlanOutcome.MARKET_DATA_STALE,
 				"Market data is stale, so no buy will be suggested until a fresh snapshot arrives.",
 				nowSeconds), account);
 		}
 
-		long equity = equityFor(account);
-		long lossBudget = lossBudgetFor(account);
+		long equity = equityFor(account,nowSeconds);
+		long lossBudget = lossBudgetFor(account,nowSeconds);
 		if (lossBudget <= 0)
 		{
 			return describing(PortfolioPlan.unavailable(correlationId, PortfolioPlanOutcome.DRAWDOWN_LIMIT_REACHED,
@@ -117,7 +129,7 @@ final class PortfolioPlanner
 		// side's own rule, so it is applied here rather than sent over the wire.
 		Map<String, Long> committedByGroup = committedByGroupFor(account, market.mapping);
 
-		PortfolioConstraints limits = constraintsFor(account, appetite, lossBudget, committedByGroup);
+		PortfolioConstraints limits = constraintsFor(account, appetite, lossBudget, committedByGroup,nowSeconds);
 
 		// Drop what the player has already rejected before optimising, not after. Filtering at
 		// selection left the plan itself describing trades that would never be offered: the portfolio
@@ -311,21 +323,27 @@ final class PortfolioPlanner
 	 */
 	static long lossBudgetFor(AccountSnapshot account)
 	{
+		return lossBudgetFor(account,Instant.now().getEpochSecond());
+	}
+	static long lossBudgetFor(AccountSnapshot account,long now)
+	{
         var risk=account.getCanonicalRisk();
-        if(risk!=null) return validRisk(account,risk) ? risk.getRemainingLossBudget() : 0;
+        if(risk!=null) return validRisk(account,risk,now) ? risk.getRemainingLossBudget() : 0;
         // Automatic runtime accounts must never use client journal estimates as authorization.
         if(account.isAutomaticTradeScope())return 0;
-		long equity = equityFor(account);
+		long equity = equityFor(account,now);
 		return (long) (equity * DRAWDOWN_LIMIT) - (long) account.getMarkedSessionDrawdown();
 	}
-    private static boolean validRisk(AccountSnapshot account,com.flippingfriend.core.AccountRiskSnapshot risk) {
-        long now=Instant.now().getEpochSecond();
+    private static boolean validRisk(AccountSnapshot account,com.flippingfriend.core.AccountRiskSnapshot risk,long now) {
         return risk.isAvailable() && java.util.Objects.equals(account.getAccountId(),risk.getAccountId())
             && risk.getEvaluatedAt()>=account.getObservedAt() && risk.getEvaluatedAt()<=now && risk.getValidUntil()>=now;
     }
     static long equityFor(AccountSnapshot account) {
+        return equityFor(account,Instant.now().getEpochSecond());
+    }
+    static long equityFor(AccountSnapshot account,long now) {
         var risk=account.getCanonicalRisk();
-        if(risk!=null)return validRisk(account,risk)?risk.getCurrentCapital():0;
+        if(risk!=null)return validRisk(account,risk,now)?risk.getCurrentCapital():0;
         return account.isAutomaticTradeScope()?0:Math.addExact(account.getSpendableCoins(),account.getCommittedCoins());
     }
 	/** Committed capital per item rolled up into the item groups the candidates use. */
@@ -345,7 +363,12 @@ final class PortfolioPlanner
 	static PortfolioConstraints constraintsFor(AccountSnapshot account, RiskAppetite appetite,
 		long lossBudget, Map<String, Long> committedByGroup)
 	{
-		long equity = equityFor(account);
+		return constraintsFor(account,appetite,lossBudget,committedByGroup,Instant.now().getEpochSecond());
+	}
+	static PortfolioConstraints constraintsFor(AccountSnapshot account, RiskAppetite appetite,
+		long lossBudget, Map<String, Long> committedByGroup,long now)
+	{
+		long equity = equityFor(account,now);
 		return new PortfolioConstraints(account.getFreeSlots(),
 			account.getSpendableCoins(), lossBudget,
 			(long) (equity * appetite.getItemExposureLimit()),

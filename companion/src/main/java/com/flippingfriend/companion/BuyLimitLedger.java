@@ -108,7 +108,11 @@ final class BuyLimitLedger
 	/** How many more of each item the game will allow right now. */
 	synchronized Map<Integer, Integer> remaining(Map<Integer, MarketIngestionService.Item> mapping)
 	{
-		Instant now = Instant.now();
+		return remaining(mapping, Instant.now());
+	}
+
+	synchronized Map<Integer, Integer> remaining(Map<Integer, MarketIngestionService.Item> mapping, Instant now)
+	{
 		Map<Integer, Integer> remaining = new HashMap<>();
 
 		for (Map.Entry<Integer, MarketIngestionService.Item> entry : mapping.entrySet())
@@ -142,9 +146,12 @@ final class BuyLimitLedger
 	}
 	synchronized void restore(java.util.Collection<BuyLimitProjection> projections)
 	{
+		restore(projections,Instant.now());
+	}
+	synchronized void restore(java.util.Collection<BuyLimitProjection> projections,Instant now)
+	{
 		windows.clear();
 		if (projections == null) return;
-		Instant now = Instant.now();
 		for (BuyLimitProjection projection : projections)
 		{
 			Instant started = Instant.ofEpochSecond(projection.getStartedAt());

@@ -12,6 +12,16 @@ original assessment context. The supplied [Copilot baseline](benchmarks/copilot-
 contains 2,117 flip summaries across two accounts and 17,240 execution records for one account.
 Historical session/cadence labels are unavailable; GP/hour remains unmeasured.
 
+## Current source continuation — 17 October 2026
+
+The [Copilot research](research/flipping-copilot-2026-10-17.md) is reconciled against the latest
+checkout in the [implementation and ledger-consumer receipt](architecture/parity-account-evaluation.md).
+The new source adds final companion sale authority, durable recorded-sale investigation, graph
+lookup and independently sourced market/held-stock alert workflows. Executable account replay and
+conservative frozen completion fitting now exist, with explicit remaining production-policy,
+measurement, model release and client-convenience gaps. Source verification is distinct from
+installation and controlled player acceptance; [HANDOFF](../HANDOFF.md) records current delivery.
+
 ## Current continuation — 15 October 2026
 
 PRs through #62 are merged into the rebuild branch. The combined 1.13.2 runtime through #61 is

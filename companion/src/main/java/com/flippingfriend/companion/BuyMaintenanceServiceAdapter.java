@@ -42,7 +42,7 @@ final class BuyMaintenanceServiceAdapter
                         offer.getItemId(), low, high, market.observedAt));
             }
         }
-        Map<Integer, Integer> remaining = buyLimits.remaining(market.mapping);
+        Map<Integer, Integer> remaining = buyLimits.remaining(market.mapping, java.time.Instant.ofEpochSecond(decidedAt));
         return orchestrator.decide(activeOffers, prices, remaining, null, decidedAt);
     }
     private static Integer positiveInt(JsonObject object, String name)

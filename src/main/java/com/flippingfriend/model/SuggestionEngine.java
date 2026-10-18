@@ -748,72 +748,16 @@ public class SuggestionEngine
 				if (!freshSaleQuote(price, now)) continue;
 				var saleLedger = companion == null ? null : saleLedger(offer.getItemId(), now);
 				if (companion != null && saleLedger == null) continue;
-				int newPrice = Math.max(1, price.getHigh() - 1);
-				// Never reprice a sale below what the position cost.
-				//
-				// This step used to chase a falling market with no floor but 1 gp, and because adjust ranks
-				// above sell in the chain it walked straight through the stop-loss logic that exists to
-				// prevent exactly this. Every losing flip in the journal came from here and nowhere else:
-				// Maple logs bought at 11 and repriced to 10 for -15,000; Soft clay bought at 119 and
-				// repriced to 116, twice, for -25,540. At a 12% loss cut those clay positions had a stop at
-				// 104 -- they were repriced twelve gp above the price at which the sell engine would have
-				// cut them, so it was never asked.
-				//
-				// Below break-even this is not a repricing decision at all, it is a decision to take a loss,
-				// and that belongs to SellTimingEngine: it holds while the position is above its stop and
-				// cuts when it is not. Say nothing here and let it answer.
-				Position position = companion == null ? tradingPosition(offer.getItemId())
+                Position position = companion == null ? tradingPosition(offer.getItemId())
                     : salePosition(saleLedger, offer.getItemId());
-                // Unknown units must not remove the floor protecting a known-cost subset.
-                if (position != null && remaining > position.getQuantity()) continue;
-				boolean costKnown = position != null && position.isCostKnown()
-					&& remaining <= position.getQuantity();
-                long allocatedCost=costKnown?com.flippingfriend.core.SaleAccounting.allocateCost(
-                    position.getTotalCost(),position.getQuantity(),remaining):0;
-				int breakEven = costKnown
-					? taxCalculator.breakEvenSellPriceForCost(offer.getItemId(),allocatedCost,remaining) : 0;
-				boolean isCut = false;
-				if (costKnown && (breakEven<=0 || !repriceAllowed(newPrice, position, breakEven)))
-				{
-					// Below break-even this stops being a repricing decision and becomes a decision to
-					// take a loss, and only one thing authorises that: the stop.
-					//
-					// This used to hand the question to the sell engine and act on any answer that was
-					// a sale. That worked while the engine could still answer HOLD. It cannot any more
-					// -- under the never-hold rule every position it is asked about comes back as a
-					// sale -- so the escape hatch stopped existing and the floor above it stopped
-					// meaning anything, in the one branch that still reached it.
-					//
-					// Listing is not the same as marking down. An offer already on the market is
-					// already listed; the never-hold rule is satisfied and has nothing further to say
-					// about what price it sits at. So the offer chases the market down as far as
-					// break-even and no further, and only a position through its stop goes past.
-					List<Candle> series = marketData.getSeries(offer.getItemId(), TIMESTEP);
-					ItemFeatures features = featureEngine.compute(offer.getItemId(), series, BUCKET_SECONDS);
-					boolean inInventory = accountMonitor.getState().getInventoryHoldings().containsKey(offer.getItemId())
-						&& accountMonitor.getState().getInventoryHoldings().get(offer.getItemId()) > 0;
-					SellDecision decision = sellTiming.evaluate(position, price, features, series, horizon, now,
-						config.minProfitPerFlip(), inInventory, sellOnly, skippedItems().contains(offer.getItemId()));
-
-					if (decision.getAction() == SellDecision.Action.CUT)
-					{
-						// Through the stop. This one is meant to realise a loss, and the card says so.
-						newPrice = decision.getPrice();
-						isCut = true;
-					}
-					else if (breakEven>0 && breakEven < offer.getPrice())
-					{
-						// Not through the stop: come down to the cheapest price that is not a loss.
-						// Better placed in the queue than it was, and costing nothing to get there.
-						newPrice = breakEven;
-					}
-					else
-					{
-						// The offer is already at or below break-even and the position is still
-						// healthy. There is nothing to do that would not be a loss; leave it alone.
-						continue;
-					}
-				}
+                var proposal = new com.flippingfriend.session.SaleMaintenancePricing().quote(
+                    offer.getItemId(), offer.getPrice(), remaining, position, price,
+                    marketData.getSeries(offer.getItemId(), TIMESTEP), horizon, now, sellOnly,
+                    sellTiming, taxCalculator);
+                if (proposal == null) continue;
+                int newPrice = proposal.price, breakEven = proposal.floor;
+                boolean costKnown = proposal.costKnown, isCut = proposal.lossCut;
+                long allocatedCost = proposal.allocatedCost;
 				// Settled through noise, and then floored again: stickiness must never be the thing
 				// that walks a price below what the position cost.
 				newPrice = advisedPrice(offer.getItemId(), false, newPrice, now.getEpochSecond());

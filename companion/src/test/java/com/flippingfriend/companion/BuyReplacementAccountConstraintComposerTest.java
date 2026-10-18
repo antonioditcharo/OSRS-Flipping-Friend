@@ -164,9 +164,9 @@ public class BuyReplacementAccountConstraintComposerTest {
     }
     @Test public void plannerUsesItsExtractedHelpersAndTheyStayPackagePrivate() throws Exception {
         String planner = Files.readString(Path.of("src/main/java/com/flippingfriend/companion/PortfolioPlanner.java"));
-        assertTrue(planner.contains("long lossBudget = lossBudgetFor(account);"));
+        assertTrue(planner.contains("long lossBudget = lossBudgetFor(account,nowSeconds);"));
         assertTrue(planner.contains("Map<String, Long> committedByGroup = committedByGroupFor(account, market.mapping);"));
-        assertTrue(planner.contains("PortfolioConstraints limits = constraintsFor(account, appetite, lossBudget, committedByGroup);"));
+        assertTrue(planner.contains("PortfolioConstraints limits = constraintsFor(account, appetite, lossBudget, committedByGroup,nowSeconds);"));
         for (Method m : PortfolioPlanner.class.getDeclaredMethods())
             if (Arrays.asList("lossBudgetFor", "committedByGroupFor", "constraintsFor").contains(m.getName())) {
                 assertTrue(Modifier.isStatic(m.getModifiers()));

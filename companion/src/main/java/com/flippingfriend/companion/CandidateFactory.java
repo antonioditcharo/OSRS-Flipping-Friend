@@ -198,6 +198,9 @@ final class CandidateFactory
 	 * observations of how wrong the timings were and not one of them reached a decision.
 	 */
 	private volatile FillCalibration calibration = FillCalibration.NEUTRAL;
+	private CompletionScoring completionScoring = CompletionScoring.BASELINE;
+	/** Explicit offline evaluation seam. Live service never installs an unapproved model. */
+	void setCompletionScoring(CompletionScoring model) { completionScoring=java.util.Objects.requireNonNull(model); }
 
 	/** Replaces what has been learned. Called when the recorder's totals are re-read. */
 	void setCalibration(FillCalibration updated)
@@ -745,8 +748,10 @@ final class CandidateFactory
 				FillCalibration learned = learningDisabled ? FillCalibration.NEUTRAL : calibration;
 				double buyHours = correctedHours(buyFill, learned.waitMultiplier(itemId));
 				double sellHours = correctedHours(sellFill, learned.waitMultiplier(itemId));
-				double buyProbability = buyFill.getProbability();
-				double sellProbability = sellFill.getProbability();
+				double buyProbability = learningDisabled ? buyFill.getProbability()
+                    : completionScoring.probability(true,horizonHours*3600,buyFill.getProbability());
+				double sellProbability = learningDisabled ? sellFill.getProbability()
+                    : completionScoring.probability(false,horizonHours*3600,sellFill.getProbability());
 				double displayBuyProbability = buyProbability;
 
 				tactics.add(new PortfolioCandidate(itemId, screened.item.name, group,

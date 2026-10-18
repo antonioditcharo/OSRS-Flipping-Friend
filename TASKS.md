@@ -5,6 +5,13 @@ All unchecked release requirements remain visible below; detailed completion rec
 
 ## Active
 
+- [x] Implement/test the parity increment in docs/architecture/parity-account-evaluation.md:
+      final companion managed-sale/maintenance authority, shared exact pricing, durable sale
+      investigation, graph lookup, public market-drop watch list, local/webhook warning dispatch,
+      executable account replay and frozen conservative completion fitter. Windows standard:
+      1,590 Java passed/six existing skips; 103 Python passed. CI/install/manual acceptance pending.
+      These foundations do not close the broader replay, session measurement or learning gates below.
+
 - [x] Deliver #79 sell maintenance/relisting and #80 replacement entry/refusal guards. Installed
       #80/342aa52 after both final Windows/Linux checks passed. Backup 20261017-131556-67c07d16 is
       VERIFIED; hashes, Java 11, unchanged task metadata, native status/compatibility/scoped pipeline
@@ -59,6 +66,8 @@ All unchecked release requirements remain visible below; detailed completion rec
       durable recommendation risk is source-verified above; finish calibration/remaining consumer audit
       and preserve positive acquisition/cost evidence. Reproduce
       real faults before fixes; never edit a database or bypass exposure guards to unblock advice.
+      Current consumer audit/final sale authority are source-verified in
+      docs/architecture/parity-account-evaluation.md; controlled runtime acceptance stays open.
 
 ## Next
 
@@ -71,14 +80,24 @@ All unchecked release requirements remain visible below; detailed completion rec
       Preserve existing data/dedup keys and separate
       real/paper evidence. Reproduce concrete faults first; promotion requires chronological held-out
       evaluation against a frozen baseline with return/loss/calibration guardrails.
+      A reproducible bounded-logit/minimax Brier fitter and chronological validation CLI now exist;
+      unknown/censored labels remain visible. Runtime promotion/compatible forecast loader, rollback
+      and drift controls remain unimplemented. No fitted artifact activates learning.
 - [ ] Finish manual cancel -> collect -> revalidate -> replace and partial-fill protection as a
       complete live workflow; migrate sell maintenance and exits to companion policies.
 - [ ] Build account-level chronological replay for 100M members at 5m, 30m, 2h, and 8h checks.
       Include end-of-run inventory liquidation, cash, buy limits, tax, and missed visits.
+      AccountReplay now models shared cash/eight slots, partial fills, sequential attendance,
+      collection, tax, canonical limits/risk, restart and conservative terminal marks in twelve
+      scenarios. Complete production buy-replacement/relist/stability/acceptance coverage and a
+      qualified frozen market benchmark remain open; fixtures are not performance evidence.
 - [ ] Add prospective session/cadence measurement and full-account replay; historical CSVs do not
       contain the session clocks needed for a fair GP/hour baseline.
 - [ ] Measure fill calibration, then add gated challenger learning and clearly separated paper data.
 - [ ] Close the feature-parity matrix in `docs/project-direction.md` and update user documentation.
+      Deferred: validated forecast bands/actionable dump strategy, bank tags/badges/slot colors,
+      broader paginated history/export and optional cross-device sync. Current details/player steps:
+      docs/architecture/parity-account-evaluation.md. No parity claim is established.
 
 ## Waiting
 

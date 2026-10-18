@@ -41,12 +41,19 @@ public class DiscordWebhookClient
 			return;
 		}
 
+		okhttp3.HttpUrl url=okhttp3.HttpUrl.parse(webhookUrl.trim());
+		if(url==null || !"https".equals(url.scheme()) || !("discord.com".equals(url.host()) || "discordapp.com".equals(url.host()))
+			|| !url.encodedPath().startsWith("/api/webhooks/")) {
+			log.warn("Discord alert not sent: invalid webhook address"); return;
+		}
 		JsonObject payload = new JsonObject();
 		payload.addProperty("content", content);
+		JsonObject mentions = new JsonObject(); mentions.add("parse",new com.google.gson.JsonArray());
+		payload.add("allowed_mentions",mentions);
 
 		RequestBody body = RequestBody.create(JSON, gson.toJson(payload));
 		Request request = new Request.Builder()
-			.url(webhookUrl.trim())
+			.url(url)
 			.post(body)
 			.build();
 
@@ -55,12 +62,14 @@ public class DiscordWebhookClient
 			@Override
 			public void onFailure(Call call, IOException e)
 			{
-				log.warn("Failed to send Discord webhook", e);
+				// Exception messages may include the webhook URL/token. Never log them.
+				log.warn("Discord alert delivery failed (transport error)");
 			}
 
 			@Override
 			public void onResponse(Call call, Response response)
 			{
+				if(!response.isSuccessful()) log.warn("Discord alert delivery failed (HTTP {})",response.code());
 				response.close();
 			}
 		});

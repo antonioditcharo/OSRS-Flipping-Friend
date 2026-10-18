@@ -99,7 +99,7 @@ public class CompactPanelContractTest {
             for(Component entry:panel.detailsMenu().getComponents()) ((JMenuItem)entry).doClick();
         });
         assertEquals(Arrays.asList("Price graph","Settings","Performance","Recommendation","Price graph","Plan","Holdings",
-            "Performance","Local history","Bank estimate","Settings","Missed flips"),opened);
+            "Performance","Recorded sales","Local history","Bank estimate","Market drops","Settings","Missed flips"),opened);
         verify(market,atLeastOnce()).getSeries(561,"1h"); verify(market,never()).getSeries(4151,"1h");
     }
     @Test public void controlsDisableForNonBuyAdviceAndFollowGuideCorrections() throws Exception {

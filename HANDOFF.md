@@ -3,6 +3,21 @@
 Updated 17 October 2026 (America/Anchorage). Read [AGENTS.md](AGENTS.md) and [TASKS.md](TASKS.md).
 Root notes describe the current workflow; detailed prior receipts remain in linked history.
 
+## Parity implementation candidate
+
+The new candidate adds final companion sale authority, shared exact-cost sale maintenance,
+durable recorded-sale investigation, item graph lookup, public market-drop investigation and
+independent held-stock/local/webhook notifications. Offline account replay and frozen censor-aware
+completion fitting are executable. Standard Windows clean build: 46s/18 tasks, 1,590 Java passed/
+six existing skips; all 103 Python tests pass. CI, installation and manual acceptance are pending.
+Runtime below remains #80 until a supported paired update is recorded.
+
+Read [the implementation/consumer audit and player steps](docs/architecture/parity-account-evaluation.md).
+Replay still lacks the complete local buy-replacement/relist/stability sequence; real four-cadence
+market benchmarks and prospective session measurement remain open. Runtime model promotion/loader,
+rollback and drift controls remain open; learning stays neutral/HOLD. This is implemented progress,
+not parity or a performance claim. Existing historical gaps and reserves are unchanged.
+
 ## Installed recommendation fixes
 
 Runtime through PR #80 is installed from rebuild merge 342aa523ca35ff10fbb1bdc42e9778c2762ca994,
@@ -87,6 +102,12 @@ These are standalone JVM timings, not full HTTP acceptance. Private diagnostics 
 remain in primary local-data/diagnostics and .gradle. Sustained latency/final entry acceptance remain open.
 
 ## Remaining work and source map
+
+The [17 October Copilot investigation](docs/research/flipping-copilot-2026-10-17.md) retains the installed
+JAR/decompilation, complete client/protocol reports and current parity/learning matrix in ignored local-data.
+One live price response matches the installed decoder; private backend/model internals remain unknown.
+The research itself changed no Friend runtime code or ledger data; the implementation candidate
+is described above. Trading and learning gates remain open.
 
 [TASKS.md](TASKS.md) preserves every unchecked release gate. Finish safe evidence-based stock/risk
 resolution, companion sell/replacement authority and the ledger consumer audit, then controlled
