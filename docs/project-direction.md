@@ -12,6 +12,18 @@ original assessment context. The supplied [Copilot baseline](benchmarks/copilot-
 contains 2,117 flip summaries across two accounts and 17,240 execution records for one account.
 Historical session/cadence labels are unavailable; GP/hour remains unmeasured.
 
+## Installed continuation — 18 October 2026
+
+The owner-selected current-account policy and combined sell-verification fixes through #92 are
+installed. Historical unknown money stays visible/affected stock paused, while verified current
+funds can support unrelated buys. Owner-confirmed buy availability is recorded; fresh updated
+sell/maintenance and controlled trading acceptance remain pending. The [delivery receipt](history/sale-guidance-delivery-2026-10-18.md)
+separates source, tests, installed pair, financial preservation and acceptance.
+Replay v2 shares live display-price stability; complete replacement/relist/foreground coverage
+and qualified market benchmarks remain open. [New frozen evidence/fitting](history/prospective-evaluation-2026-10-18.md)
+preserves uncertain outcomes and establishes no out-of-time calibration gain. Runtime remains on
+the public-price baseline/HOLD; no parity or higher account GP/hour claim is established.
+
 ## Current source continuation — 17 October 2026
 
 The [Copilot research](research/flipping-copilot-2026-10-17.md) is reconciled against the latest

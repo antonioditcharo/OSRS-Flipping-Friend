@@ -5,55 +5,42 @@ Root notes describe the current workflow; detailed prior receipts remain in link
 
 ## Current source and installed runtime
 
-PR #88 is merged at 3eb37d4 and installed through the supported paired updater. The owner chose
-current-account policy: historical uncertainty remains separately reported and affected stock paused;
-verified current funds can support unrelated buys. Confirmed losses, current exposure guards and the
-original anchor persist. Physical evidence excludes cached bank units; unseen tracked stock receives
-zero terminal value/full exact-cost reserve; personal belongings are not adopted from item history.
-Holdings investigation is stable and uses exact cost. [Contract](docs/architecture/current-account-inventory-policy.md).
+The combined #89/#90/#91/#92 changes are merged through da9bdd8 and INSTALLED through the
+supported paired updater. Current-account policy from #88 remains active: historical unknown
+money stays separate/affected stock paused; verified current funds support unrelated buys while
+confirmed losses, unknown live exposure, cash/slots/limits and the original risk anchor still govern.
+[Policy](docs/architecture/current-account-inventory-policy.md).
 
-Both exact-head Windows/Linux CI checks pass. Standard Windows clean: 87s/18 tasks, 1,616 Java
-passed/six existing skips; 103 Python passed. Backup 20261018-003759-5ee9b61e is VERIFIED; hashes,
-Java 11, unchanged task XML/SDDL, lifecycle=1, native status/compatibility/scoped GET pipeline pass.
-Original source/financial prefixes and the sole risk anchor remain identical. Fresh installed READY
-and final PLACE_BUY pass after normal history warming. Owner confirms buy suggestions are available.
-[Hashes, financial preservation and acceptance](docs/history/current-account-delivery-2026-10-18.md).
+Installed fixes cover sale-read timeouts, retained authenticated sell identities, post-ACK partial-
+fill source races, one consistent sale read, compatible displayed sell prices, and account/logout/
+clock price fencing. Exact taxed floors and final source/quantity/price guards remain active.
+[Contract/player steps](docs/architecture/sale-guidance-delivery.md).
 
-PR #89/fb5f850 (delayed sale reads, retained sell identities, post-ACK source races), #90/ae25d63
-(native process identity) and #91/90be5b1 (sale price stability/account fencing) are merged after
-both exact-head CI checks. Standard #91 Windows clean: 80s/18 tasks, 1,628 Java passed/six existing
-skips; Java 11. Replay v2 shares live price tracking and reproduces all twelve synthetic scenarios;
-the retained v1 artifact still verifies its old bundle. [Sale contract](docs/architecture/sale-guidance-delivery.md).
+Final Windows clean: 80s/18 tasks, 1,628 Java passed/six existing skips; Java 11. Final updater:
+108 Python tests passed (94.106s). Every increment passed both exact-head Windows/Linux CI.
+Backup 20261018-120146-7759f4bd is VERIFIED (three companion/22 plugin files); installed hashes,
+exact task XML/SDDL/lifecycle=1, native status/compatibility/scoped GET checks pass. All 32,694
+frozen account rows/1,350 financial effects and the sole original risk anchor remain identical.
+[Hashes, CI, earlier refused attempts and delivery receipt](docs/history/sale-guidance-delivery-2026-10-18.md).
+Native identity/control uses granted limited rights and a held-handle creation/argument proof;
+no elevation, task/ACL change, financial replay/repair or game input was used.
 
-The combined pair is NOT installed: identifying the masked owned companion succeeds, but
-PowerShell Stop-Process is denied. The second updater attempt stopped before runtime replacement
-or account backup; #88 and task permissions remain unchanged. Original artifact-only staging
-backup 20261018-115215-18a68d00 is retained, unverified; do not treat it as an account backup/resume.
+Supported Start reopened RuneLite. Fresh login/GE/sell acceptance was requested and remains pending;
+old-capture transport checks correctly await current observations. Owner-confirmed #88 buy-guidance
+availability and #86 Missed flips stability remain accepted, not the broader controlled trading
+workflow. [Earlier policy delivery](docs/history/current-account-delivery-2026-10-18.md) and
+[history display](docs/history/history-display-delivery-2026-10-18.md).
 
-Queued on codex/verified-native-companion-stop: the supported updater uses a limited native handle
-only after repeated owner/JAR/creation proof, and checks exact arguments plus creation on that same
-handle before stopping. No elevation, privilege, ACL/task change or unverified PID stop. Isolated
-and owned-child native tests pass; all 108 Python tests pass in 94.106s. CI and the one batched
-paired delivery remain pending.
-[Lifecycle contract](docs/architecture/user-process-updates.md). No player action is currently needed.
-
-Owner accepted #86 Missed flips stability while filtering. Retained read-only history clears on
-logout/account change and never supplies trading/ownership authority; unknown financial values stay
-unknown. [Earlier delivery](docs/history/history-display-delivery-2026-10-18.md),
-[retention contract](docs/architecture/history-display-retention.md). Broader controlled trading,
-remaining UI workflows and sustained timing remain open; restored buy availability does not accept
-buy/collect/sell, partial cancel/relist or restart.
-
-#83's sale authority, exact-cost maintenance, durable sale investigation, graph lookup, market-drop
-investigation, alerts, executable account replay and frozen completion fitting remain installed.
-[Implementation/deferred capabilities/player steps](docs/architecture/parity-account-evaluation.md);
-[earlier #83 delivery](docs/history/parity-delivery-2026-10-17.md). The newer complete-prefix
-evaluation has 14 out-of-time eligible outcomes (five known/nine unknown), with zero paired Brier
-improvement. A new frozen fit uses 20 eligible forecasts (15 unknown); it has no later validation
-and is not active. [Frozen evidence/model receipt](docs/history/prospective-evaluation-2026-10-18.md).
-Learning remains public-price baseline/HOLD; runtime promotion/rollback/drift controls, complete
-replay and real four-cadence benchmarks remain open.
-No full-parity or performance claim is established.
+#83's investigation/graphs/market watch/alerts/evaluation paths remain installed. Replay v2 now
+shares live display-price stability and reproduces twelve synthetic 100M members/eight-slot
+5m/30m/2h/8h cadence/share scenarios; the retained v1 evaluator still verifies its old bundle.
+Complete replacement/relist/foreground coverage and qualified market benchmarks remain open.
+[Product/deferred features](docs/architecture/parity-account-evaluation.md).
+New frozen validation has 14 eligible outcomes (five known/nine unknown), with zero paired Brier
+improvement. A new fit from 20 eligible forecasts (15 unknown) has no later validation and is inactive.
+[Frozen evidence/model receipt](docs/history/prospective-evaluation-2026-10-18.md). Runtime remains
+public-price baseline/HOLD; promotion/rollback/drift and broader replay/measurement gates remain
+open in TASKS. No full-parity, account-profit superiority or validated-learning claim is established.
 
 ## Routine updates
 
