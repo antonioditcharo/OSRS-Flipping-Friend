@@ -3,35 +3,37 @@
 Updated 17 October 2026 (America/Anchorage). Read [AGENTS.md](AGENTS.md) and [TASKS.md](TASKS.md).
 Root notes describe the current workflow; detailed prior receipts remain in linked history.
 
-## Current implementation and runtime
+## Current source and installed runtime
 
-PR #83 is merged at b04a8d189f9d1f6f5914558739c1d72d04ef8a3b and installed through the supported
-paired updater. Final-head Windows/Linux CI pass; local clean build: 1,590 Java passed/six existing
-skips, all 103 Python tests passed. Backup 20261017-185122-b93e2a1e is VERIFIED, both installed hashes
-match, Java 11, lifecycle=1, protected task XML/SDDL unchanged. Independent status, compatibility and
-scoped pipeline pass. See [delivery and evidence limits](docs/history/parity-delivery-2026-10-17.md).
+PR #84 is merged at 9d9c3aae6b6659bc73adbec8dcee5ad69ae01f39 and installed through the supported
+paired updater. Exact source 0f1c150 passes Windows/Linux CI (run 39106989952). Standard Windows
+clean build: 89s/18 tasks, 1,596 Java passed/six existing skips; all 103 Python tests pass.
+Backup 20261017-232123-b54e4672 is VERIFIED; installed hashes match, Java 11, lifecycle=1, protected
+task XML/SDDL unchanged. Native updater/status/compatibility/scoped pipeline all exit 0.
+[Delivery and post-login evidence](docs/history/history-planning-delivery-2026-10-18.md).
 
-Installed additions: final companion sale authority/shared exact-cost maintenance, durable recorded
-sales investigation, graph lookup, market-drop investigation and independently configured held-stock
-alerts/webhook dispatch. Executable account replay and frozen censor-aware completion fitting are
-included. [Implementation details and player steps](docs/architecture/parity-account-evaluation.md)
-retain every deferred capability. The sole new known out-of-time outcome has zero Brier improvement;
-learning remains public-price baseline/HOLD. No performance or full parity claim is established.
+[History-tolerant planning](docs/architecture/history-tolerant-planning.md) separates lifetime
+exposure from newly exposed risk-window capital, avoids charging old quarantined sales as new loss,
+and reserves fresh purchases of paused stock. Historical exposure, affected-item pauses, financial
+rows/unknown profit, current proof and the original risk anchor remain intact. Missed flips adds
+filtering and exact source/offer references. Unrelated final buy authority passes with retained
+history gaps in a regression; this does not establish live entry eligibility.
 
-Supported Start relaunched RuneLite; owner confirmed login at GE. A fresh read-only eight-slot proof
-passes with eight free slots and finite scoped exposure. The installed plan still refuses buys on
-an uncertainty reserve, not a generic missing-history flag. Historical gaps, costs/profit and risk
-anchor remain intact. New [history-tolerant planning](docs/architecture/history-tolerant-planning.md)
-source passes standard clean verification (89s, 1,596 Java passed/six skips; 103 Python passed).
-It corrects lifetime/new-risk mixing and preserves fresh-cost reserves; CI/install remain pending.
-The candidate's fresh scoped read still has an exhausted prospective allowance. Owner asked for
-Copilot's discrepancy behavior; client Missed flips/current-state separation is documented, private
-server risk rules are unknown, and no reserve override is inferred. Controlled trading, sustained
-latency, UI and webhook acceptance remain open.
+Owner closed the client normally, the verified pair was installed, supported Start relaunched it,
+and owner confirmed login at GE. Installed eight-slot proof passes at age eight seconds with eight
+free slots and no unbounded gap scope. Recorded ledger remains 32 sale updates/18 unresolved/zero
+ranges. The actual prospective uncertainty reserve still exhausts its allowance, so buys remain
+refused. Owner asked how Copilot handles discrepancies: its client separates Missed flips/current
+observations, but private server risk rules are unknown. No reserve-guard override was inferred.
+History UI acceptance, controlled trading and sustained timing remain distinct open gates.
 
-Earlier #80 installation and post-login details are retained in
-[the recommendation receipt](docs/history/recommendation-delivery-2026-10-17.md) and
-[the earlier login receipt](docs/history/postlogin-verification-2026-10-17.md).
+#83's sale authority, exact-cost maintenance, durable sale investigation, graph lookup, market-drop
+investigation, alerts, executable account replay and frozen completion fitting remain installed.
+[Implementation/deferred capabilities/player steps](docs/architecture/parity-account-evaluation.md);
+[earlier #83 delivery](docs/history/parity-delivery-2026-10-17.md). The sole new known out-of-time
+outcome has zero Brier improvement. Learning remains public-price baseline/HOLD; runtime model
+promotion/rollback/drift controls, complete replay and real four-cadence benchmarks remain open.
+No full-parity or performance claim is established.
 
 ## Routine updates
 
