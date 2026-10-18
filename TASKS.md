@@ -54,7 +54,7 @@ All unchecked release requirements remain visible below; detailed completion rec
       settings. No manufactured funds, cleared reserve or risk reset to force an answer.
 - [ ] Finish search/player-key/pause/context acceptance; these are not established by screenshots.
       Controlled intended trade, partial cancel/collect/relist and restart still need real outcomes.
-- [ ] Continue batched HOME TEST CHECKLIST.md and PR #31 live acceptance. Installed #88 pair,
+- [ ] Continue batched HOME TEST CHECKLIST.md and PR #31 live acceptance. Installed combined #91 runtime/#92 tooling,
       status/API 1.13.2 compatibility and GET pipeline pass; fresh post-login source proof passes.
       Investigate unattributed repeated Swing layout exceptions before claiming UI stability.
       Confirm/highlight screenshot checks pass. Search/player-key/pause/context and controlled
@@ -87,13 +87,13 @@ All unchecked release requirements remain visible below; detailed completion rec
       scoped GET checks pass. Fresh READY/final PLACE_BUY and owner-confirmed buy guidance establish
       entry availability. See docs/history/current-account-delivery-2026-10-18.md. This does not
       resolve affected historical stock, establish complete trading acceptance or validate learning.
-- [ ] Deliver/accept the sell-verification fixes (#89/#90/#91 merged after exact-head CI). Delayed
-      reads, discarded sell identities, acknowledged partial-fill races and incompatible retained
-      prices are reproduced/fixed. #91 Windows clean: 1,628 Java passed/six existing skips (80s),
-      Java 11; all twelve v2 replay scenarios reproduce. #88 remains installed: Stop-Process is denied
-      after successful native identity proof. A tested same-handle native-stop fallback is queued;
-      full tooling/CI and one batched paired update remain pending. No task/privilege/data change.
-      Fresh managed exit/maintenance acceptance remains open; see docs/architecture/sale-guidance-delivery.md.
+- [ ] Accept the installed sell-verification fixes (#89/#90/#91/#92 through da9bdd8). Delayed reads,
+      missing sell identities, acknowledged partial-fill races and incompatible retained prices are
+      reproduced/fixed. Windows clean: 1,628 Java passed/six existing skips (80s), Java 11; 108 tooling
+      tests pass. Both exact-head CI checks, verified pair/backup/task/financial-preservation/status/
+      compatibility/scoped GET checks pass. Supported Start reopened RuneLite; fresh login/GE and
+      managed exit/maintenance acceptance were requested and remain pending. See
+      docs/history/sale-guidance-delivery-2026-10-18.md. No task/privilege/data repair or bypass.
 - [ ] Audit calibration prediction provenance and cancellation censoring before changing strategy.
       Attribution, observed intervals and the runtime promotion fence are source-verified in history.
       Historical execution aggregates still pool censored/completed times but no longer authorize
@@ -104,7 +104,9 @@ All unchecked release requirements remain visible below; detailed completion rec
       real/paper evidence. Reproduce concrete faults first; promotion requires chronological held-out
       evaluation against a frozen baseline with return/loss/calibration guardrails.
       A reproducible bounded-logit/minimax Brier fitter and chronological validation CLI now exist;
-      unknown/censored labels remain visible. Runtime promotion/compatible forecast loader, rollback
+      unknown/censored labels remain visible. A later frozen cohort has five known/nine unknown outcomes,
+      zero paired Brier improvement; a new frozen fit has no later validation. See
+      docs/history/prospective-evaluation-2026-10-18.md. Runtime promotion/compatible forecast loader, rollback
       and drift controls remain unimplemented. No fitted artifact activates learning.
 - [ ] Finish manual cancel -> collect -> revalidate -> replace and partial-fill protection as a
       complete live workflow; migrate sell maintenance and exits to companion policies.
@@ -112,7 +114,7 @@ All unchecked release requirements remain visible below; detailed completion rec
       Include end-of-run inventory liquidation, cash, buy limits, tax, and missed visits.
       AccountReplay now models shared cash/eight slots, partial fills, sequential attendance,
       collection, tax, canonical limits/risk, restart and conservative terminal marks in twelve
-      scenarios. Shared live/replay display-price stability is queued in replay v2. Complete production
+      scenarios. Shared live/replay display-price stability is installed in replay v2. Complete production
       buy-replacement/relist/foreground acceptance coverage and a
       qualified frozen market benchmark remain open; fixtures are not performance evidence.
 - [ ] Add prospective session/cadence measurement and full-account replay; historical CSVs do not
