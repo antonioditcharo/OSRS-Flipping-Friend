@@ -1,4 +1,44 @@
 # Normal-user lifecycle. Called by apply-update.ps1; never edits a scheduled task or database.
+function Get-NativeProcessCommandLine([int] $ProcessId) {
+    # CIM can omit an owned JVM's CommandLine despite allowing limited native process queries.
+    # Read the actual argument string; a task definition, port or executable name is not identity.
+    if (-not ('FlippingFriend.ProcessIdentityQuery' -as [type])) {
+        Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+namespace FlippingFriend {
+    public static class ProcessIdentityQuery {
+        [DllImport("kernel32.dll",SetLastError=true)] static extern IntPtr OpenProcess(uint access,bool inherit,uint pid);
+        [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr handle);
+        [DllImport("ntdll.dll")] static extern int NtQueryInformationProcess(IntPtr process,int informationClass,IntPtr information,uint length,out uint needed);
+        public static string Read(int pid) {
+            if(pid<=0) throw new ArgumentException("A positive process identity is required.");
+            IntPtr process=OpenProcess(0x1000,false,(uint)pid); // PROCESS_QUERY_LIMITED_INFORMATION only.
+            if(process==IntPtr.Zero) throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+            try {
+                uint needed; int status=NtQueryInformationProcess(process,60,IntPtr.Zero,0,out needed);
+                int header=IntPtr.Size==8?16:8;
+                if(needed<header || needed>1048576) throw new InvalidOperationException("Native command-line query unavailable.");
+                uint capacity=needed; IntPtr buffer=Marshal.AllocHGlobal((int)capacity);
+                try {
+                    status=NtQueryInformationProcess(process,60,buffer,capacity,out needed);
+                    if(status!=0) throw new InvalidOperationException("Native command-line query refused.");
+                    int length=(ushort)Marshal.ReadInt16(buffer);
+                    int maximum=(ushort)Marshal.ReadInt16(buffer,2);
+                    IntPtr text=Marshal.ReadIntPtr(buffer,IntPtr.Size==8?8:4);
+                    long offset=text.ToInt64()-buffer.ToInt64();
+                    if(length<=0 || length%2!=0 || maximum<length || offset<header || offset>capacity || length>capacity-offset)
+                        throw new InvalidOperationException("Native command-line result is inconsistent.");
+                    return Marshal.PtrToStringUni(text,length/2);
+                } finally { Marshal.FreeHGlobal(buffer); }
+            } finally { CloseHandle(process); }
+        }
+    }
+}
+'@
+    }
+    return [FlippingFriend.ProcessIdentityQuery]::Read($ProcessId)
+}
 function Assert-CompanionLifecycleGuard([string] $Jar) {
     try {
         Add-Type -AssemblyName System.IO.Compression.FileSystem
@@ -15,8 +55,15 @@ function Assert-CompanionLifecycleGuard([string] $Jar) {
 function Get-OwnedCompanionProcesses([string] $ExpectedSid) {
     $matching = @()
     foreach ($process in @(Get-CimInstance Win32_Process -ErrorAction Stop)) {
-        if ($process.Name -notin @('java.exe','javaw.exe') -or -not $process.CommandLine) { continue }
-        if ($process.CommandLine -notmatch '(?:^|\s)-jar\s+(?:"(?<quoted>[^"]+)"|(?<bare>\S+))\s*$') { continue }
+        if ($process.Name -notin @('java.exe','javaw.exe')) { continue }
+        $commandLine = $process.CommandLine
+        if (-not $commandLine) {
+            $nativeOwner = Invoke-CimMethod -InputObject $process -MethodName GetOwnerSid -ErrorAction Stop
+            if ($nativeOwner.ReturnValue -ne 0 -or $nativeOwner.Sid -ne $ExpectedSid) { continue }
+            try { $commandLine = Get-NativeProcessCommandLine $process.ProcessId }
+            catch { continue } # An unidentified listener still refuses the entire update below.
+        }
+        if ($commandLine -notmatch '(?:^|\s)-jar\s+(?:"(?<quoted>[^"]+)"|(?<bare>\S+))\s*$') { continue }
         $jar = if ($Matches['quoted']) { $Matches['quoted'] } else { $Matches['bare'] }
         if (-not [IO.Path]::IsPathRooted($jar) -or (Normalize-AbsolutePath $jar) -ne (Normalize-AbsolutePath $companionInstalled)) { continue }
         $owner = Invoke-CimMethod -InputObject $process -MethodName GetOwnerSid -ErrorAction Stop

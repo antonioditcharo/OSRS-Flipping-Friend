@@ -19,13 +19,18 @@ Original source/financial prefixes and the sole risk anchor remain identical. Fr
 and final PLACE_BUY pass after normal history warming. Owner confirms buy suggestions are available.
 [Hashes, financial preservation and acceptance](docs/history/current-account-delivery-2026-10-18.md).
 
-Queued on codex/sale-guidance-handoff: fix reported sale verification failures. Installed GETs exceed
-the old 750ms client budget (two reproduced timeouts; 1,955ms successful read). Bounded GET reads,
-retained authenticated sell identities, post-response source/freshness checks and one consistent
-sale read transaction address delayed verification and partial-fill races. Targeted regressions
-pass. Standard Windows clean: 79s/18 tasks, 1,625 Java passed/six existing skips, Java 11.
-CI/delivery and fresh sell acceptance are pending; #88 remains installed.
-[Behavior and player steps](docs/architecture/sale-guidance-delivery.md).
+PR #89/fb5f850 is merged after both exact-head CI checks. It fixes sale-read timeouts, missing
+canonical sell identities and post-ACK partial-fill races, with a consistent single-prefix sale
+read. Windows clean: 79s/18 tasks, 1,625 Java passed/six existing skips; Java 11.
+[Behavior/player steps](docs/architecture/sale-guidance-delivery.md). It is NOT installed yet:
+the supported updater refused before changing anything because CIM hides the owned companion's
+CommandLine. A limited native read proves the exact installed JAR and current SID without elevation.
+
+Queued on codex/native-process-identity: add that bounded read-only native argument fallback to
+the supported updater after owner verification, retaining exact JAR, PID/creation, task, two-drain,
+backup and foreign-listener guards. Regression-first isolated/native tests cover it; all 106 Python tests pass in 94.604s. CI
+verification and paired #89 delivery remain pending. #88 remains installed. Never manually kill
+an unverified listener or change task permissions to install. No player action is currently needed.
 
 Owner accepted #86 Missed flips stability while filtering. Retained read-only history clears on
 logout/account change and never supplies trading/ownership authority; unknown financial values stay
@@ -37,9 +42,12 @@ buy/collect/sell, partial cancel/relist or restart.
 #83's sale authority, exact-cost maintenance, durable sale investigation, graph lookup, market-drop
 investigation, alerts, executable account replay and frozen completion fitting remain installed.
 [Implementation/deferred capabilities/player steps](docs/architecture/parity-account-evaluation.md);
-[earlier #83 delivery](docs/history/parity-delivery-2026-10-17.md). The sole new known out-of-time
-outcome has zero Brier improvement. Learning remains public-price baseline/HOLD; runtime model
-promotion/rollback/drift controls, complete replay and real four-cadence benchmarks remain open.
+[earlier #83 delivery](docs/history/parity-delivery-2026-10-17.md). The newer complete-prefix
+evaluation has 14 out-of-time eligible outcomes (five known/nine unknown), with zero paired Brier
+improvement. A new frozen fit uses 20 eligible forecasts (15 unknown); it has no later validation
+and is not active. [Frozen evidence/model receipt](docs/history/prospective-evaluation-2026-10-18.md).
+Learning remains public-price baseline/HOLD; runtime promotion/rollback/drift controls, complete
+replay and real four-cadence benchmarks remain open.
 No full-parity or performance claim is established.
 
 ## Routine updates

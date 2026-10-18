@@ -60,7 +60,7 @@ function Get-CimInstance {
     if ($scenario.gameRunning) { [pscustomobject]@{ ProcessId = 100; Name = 'RuneLite.exe'; CommandLine = 'RuneLite' } }
     if ($scenario.userProcess -or $scenario.processManifest) {
         if (-not $global:ffProcessStopped) {
-            [pscustomobject]@{ ProcessId=202; Name='java.exe'; CreationDate='fixture-start'; CommandLine=('java.exe '+$scenario.arguments) }
+            [pscustomobject]@{ ProcessId=202; Name='java.exe'; CreationDate='fixture-start'; CommandLine=$(if($scenario.maskedProcessLine){$null}else{'java.exe '+$scenario.arguments}) }
         }
     } else { [pscustomobject]@{ ProcessId = 101; Name = 'java.exe'; CommandLine = 'java -jar flipping-friend-companion.jar' } }
 }
@@ -306,6 +306,16 @@ class UpdateLifecycleTest(unittest.TestCase):
             shutil.copyfile(Path(__file__).resolve().parents[1] / name, tools / name)
         shutil.copyfile(Path(__file__).resolve().parents[1] / "register-companion-task.ps1", tools / "register-companion-task.ps1")
         shutil.copyfile(Path(__file__).resolve().parents[1] / "process-companion.ps1", tools / "process-companion.ps1")
+        # Native identity reads are intercepted too: never inspect a real PID in lifecycle fixtures.
+        with (tools / "process-companion.ps1").open("a", encoding="utf-8") as helper:
+            helper.write(r'''
+function Get-NativeProcessCommandLine([int] $ProcessId) {
+    $global:ffUpdateTestEvents.Add('read-native-args')
+    if ($scenario.nativeReadFails) { throw 'Fixture native query refused.' }
+    if ($scenario.nativeArguments) { return 'java.exe ' + $scenario.nativeArguments }
+    return 'java.exe ' + $scenario.arguments
+}
+''')
         # This suite checks lifecycle ordering; native task ACL behavior has its own Windows tests.
         (tools / "enable-user-updates.ps1").write_text(
             "param([switch]$CheckOnly,[switch]$RequireControl,[switch]$PassThru)\n"
@@ -379,6 +389,36 @@ class UpdateLifecycleTest(unittest.TestCase):
             self.assertNotIn(event, result['events'], self.output)
         self.assertFalse(any(e.startswith('prompt:') for e in result['events']))
         self.assertEqual(1, json.loads(self.manifest.read_text(encoding='utf-8-sig'))['processLifecycleVersion'])
+
+    def test_masked_cim_command_line_uses_verified_native_identity_without_task_changes(self):
+        self.process_candidate()
+        self.scenario['maskedProcessLine'] = True
+        pending = self.make_pending_account_record()
+        result = self.run_update()
+        self.assertIsNone(result['error'], self.output)
+        self.assertIn('read-native-args', result['events'])
+        self.assertIn('stop-process', result['events'])
+        self.assertIn('start-process', result['events'])
+        self.assertEqual(b'pending-event-sentinel', pending.read_bytes())
+        self.assertNotIn('disable-task', result['events'])
+        self.assertNotIn('grant-task-access', result['events'])
+
+    def test_native_fallback_cannot_stop_foreign_unknown_or_wrong_jar_process(self):
+        self.process_candidate()
+        original = {p: p.read_bytes() for p in (self.installed, self.installed_companion, self.manifest)}
+        for fields in [{'foreignProcessOwner': True}, {'nativeReadFails': True},
+                       {'nativeArguments': '-jar "unrelated.jar"'}]:
+            with self.subTest(fields=fields):
+                self.scenario.update(maskedProcessLine=True, **fields)
+                result = self.run_update()
+                self.assertIsNotNone(result['error'], self.output)
+                self.assertNotIn('stop-process', result['events'])
+                self.assertNotIn('export-task', result['events'])
+                if fields.get('foreignProcessOwner'):
+                    self.assertNotIn('read-native-args', result['events'])
+                self.assertEqual(original, {p: p.read_bytes() for p in original})
+                for flag in fields:
+                    self.scenario.pop(flag)
 
     def test_user_process_rejects_unprotected_candidate_before_stopping(self):
         self.scenario.update(taskReadOnly=True, unattended=True, userProcess=True)
