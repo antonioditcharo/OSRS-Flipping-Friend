@@ -18,6 +18,7 @@ public class RecordedSalesPanelTest {
             var sale=new RecordedSale(1,100,561,"Nature rune",1,0,"source","offer",120L,2L,2L,null,null,SaleAccounting.CURRENT_POLICY,"COST_BASIS_UNRESOLVED");
             var ledger=new AccountLedgerSnapshot(AccountIdentity.fromProfileKey("a"),100,1,0,0,1,0,0,2,2,List.of()).withRecentSales(List.of(sale));
             panel.updateLedger(ledger);var table=find(panel,JTable.class);assertEquals("Unknown",table.getValueAt(0,6));
+            assertEquals("Unknown (matched 0)",table.getValueAt(0,4));
             table.setRowSelectionInterval(0,0);panel.updateLedger(ledger);assertEquals(0,table.getSelectedRow());
             assertTrue(find(panel,JTextArea.class).getText().contains("source"));find(panel,JButton.class).doClick();assertEquals(561,graph.get());
             panel.updateLedger(null);assertEquals(0,table.getRowCount());assertEquals("",find(panel,JTextArea.class).getText());

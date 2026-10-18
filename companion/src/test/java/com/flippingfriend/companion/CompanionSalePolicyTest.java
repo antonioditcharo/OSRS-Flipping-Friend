@@ -59,11 +59,15 @@ public class CompanionSalePolicyTest {
             assertEquals(OfferLifecycleAction.CANCEL_SELL,decide(store,account,progress.getEventId(),2,119,0,now+1).getAction());
         }
     }
-    @Test public void staleSettingsAndQuotesCannotAuthorizeSaleAndUnknownPersonalCostStaysUnknown()throws Exception {
+    @Test public void staleSettingsAndQuotesCannotAuthorizeSaleOrChangeTheLedger()throws Exception {
         try(var store=new SqliteStore(folder.newFolder().toPath().resolve("fixture.db"))) {
             var account=setup(store);long now=at+3800;
             String source=store.ledgerSnapshot(id,now).getTradingPositions().get(0).getSourceEventId();
             assertEquals(OfferLifecycleAction.WAIT,decide(store,account,source,2,120,-1,now).getAction());
+            var staleQuote=market(at+3600,120);staleQuote.latest.getAsJsonObject("561").addProperty("lowTime",at+3200);
+            var refused=new CompanionSalePolicy().decide(store.planningProjections(id),store.ledgerSnapshot(id,at+3600),account,staleQuote,
+                (item,step)->List.of(),561,120,2,source,false,-1,at+3600);
+            assertEquals(OfferLifecycleAction.WAIT,refused.getAction());assertEquals("SALE_QUOTE_STALE",refused.getReasonCode());
             var ledger=store.ledgerSnapshot(id,now);assertEquals(301,ledger.getTradingPositions().get(0).getTotalCost());assertEquals(0,ledger.getSales());
         }
     }

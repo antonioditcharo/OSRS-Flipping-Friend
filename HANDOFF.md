@@ -8,7 +8,7 @@ Root notes describe the current workflow; detailed prior receipts remain in link
 The new candidate adds final companion sale authority, shared exact-cost sale maintenance,
 durable recorded-sale investigation, item graph lookup, public market-drop investigation and
 independent held-stock/local/webhook notifications. Offline account replay and frozen censor-aware
-completion fitting are executable. Standard Windows clean build: 46s/18 tasks, 1,590 Java passed/
+completion fitting are executable. Standard Windows clean build: 53s/18 tasks, 1,590 Java passed/
 six existing skips; all 103 Python tests pass. CI, installation and manual acceptance are pending.
 Runtime below remains #80 until a supported paired update is recorded.
 

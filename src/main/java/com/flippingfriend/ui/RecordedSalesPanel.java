@@ -48,7 +48,7 @@ final class RecordedSalesPanel extends JPanel {
         if(signature.toString().equals(lastSignature))return;lastSignature=signature.toString();
         rows=incoming==null?List.of():incoming;model.setRowCount(0);
         for(var sale:rows)model.addRow(new Object[]{Instant.ofEpochSecond(sale.getObservedAt()).toString(),sale.getItemName()+" (#"+sale.getItemId()+")",
-            sale.getQuantity(),sale.getGross()==null?"Unknown":sale.getGross(),sale.getAppliedCost(),range(sale.getTaxLower(),sale.getTaxUpper()),range(sale.getProfitLower(),sale.getProfitUpper())});
+            sale.getQuantity(),sale.getGross()==null?"Unknown":sale.getGross(),sale.getProfitLower()==null?"Unknown (matched "+sale.getAppliedCost()+")":sale.getAppliedCost(),range(sale.getTaxLower(),sale.getTaxUpper()),range(sale.getProfitLower(),sale.getProfitUpper())});
         coverage.setText(incoming==null?"Recorded sale detail unavailable on this connection":rows.size()+" of "+ledger.getSales()+" sale updates (latest 100). Times are observations; profit/tax ranges preserve uncertainty.");
         evidence.setText("");
     }
