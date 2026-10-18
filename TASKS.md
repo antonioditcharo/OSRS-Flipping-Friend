@@ -92,8 +92,12 @@ All unchecked release requirements remain visible below; detailed completion rec
       were also discarded. Regressions reproduce delay, missing maintenance source and an acknowledged
       partial-fill race. Windows clean: 1,625 Java passed/six existing skips (79s), Java 11.
       Both exact-head CI checks pass; #89/fb5f850 is merged. Delivery is held by a CIM process-identity
-      read failure; the bounded native-query updater fix is queued, with no privilege/task changes.
-      Fresh managed exit/maintenance acceptance remains open. See docs/architecture/sale-guidance-delivery.md. No data repair or bypass.
+      read failure; #90/ae25d63 fixes native-query identity after both corrected CI checks, with no
+      privilege/task changes.
+      Fresh managed exit/maintenance acceptance remains open. A separate reproduced display-price
+      mismatch (2% client retention vs 0.5% final authority) is fixed in the queued shared tracker;
+      account/logout/clock regressions pass. Windows clean: 1,628 Java passed/six existing skips (80s),
+      Java 11; v2 synthetic replay reproduces all twelve scenarios. CI and one batched update remain pending. See docs/architecture/sale-guidance-delivery.md. No data repair or bypass.
 - [ ] Audit calibration prediction provenance and cancellation censoring before changing strategy.
       Attribution, observed intervals and the runtime promotion fence are source-verified in history.
       Historical execution aggregates still pool censored/completed times but no longer authorize
@@ -112,7 +116,8 @@ All unchecked release requirements remain visible below; detailed completion rec
       Include end-of-run inventory liquidation, cash, buy limits, tax, and missed visits.
       AccountReplay now models shared cash/eight slots, partial fills, sequential attendance,
       collection, tax, canonical limits/risk, restart and conservative terminal marks in twelve
-      scenarios. Complete production buy-replacement/relist/stability/acceptance coverage and a
+      scenarios. Shared live/replay display-price stability is queued in replay v2. Complete production
+      buy-replacement/relist/foreground acceptance coverage and a
       qualified frozen market benchmark remain open; fixtures are not performance evidence.
 - [ ] Add prospective session/cadence measurement and full-account replay; historical CSVs do not
       contain the session clocks needed for a fair GP/hour baseline.

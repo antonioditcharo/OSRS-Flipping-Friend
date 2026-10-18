@@ -31,6 +31,21 @@ Failed reads roll back; verification cannot book an execution or alter financial
 Initial cold-history waiting now says "Loading item history" when no tactics exist and candidate
 history is missing. It retains WAIT and does not turn an eligibility/refusal decision into a buy.
 
+## Sale price stability
+
+A separate production regression shows a 1% market move retaining the client's old sell price
+under its 2% display tolerance, then failing final sale authority's existing 0.5% drift check.
+The shared AdvisedPriceTracker keeps sell prices stable only inside that existing authorization
+budget. Small noise remains stable; the six-hundred-second expiry and original buy tolerance are
+preserved. Final exact taxed cost floors, source/quantity/quote checks are unchanged. Account
+changes, logout and backward clocks cannot retain a price from another observation.
+
+The chronological replay uses the same price tracker for exits/maintenance and clears its display
+cache on restart. Replay policy version 2 distinguishes these changed action semantics; retained
+version 1 bundles must still be verified with their original evaluator. This closes the display
+stability coverage gap only. Complete production replacement/relist intent and foreground timing
+coverage, qualified public market captures and four-cadence account-return benchmarks remain open.
+
 ## Delivery and acceptance gates
 
 The behavioral HTTP fixtures cover delayed acquired exits and entry authority, observed personal

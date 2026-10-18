@@ -12,7 +12,7 @@ import java.util.*;
 
 /** One simulated account, one bankroll and eight physical slots; never opens a live database. */
 final class AccountReplay implements AutoCloseable {
-    static final String VERSION="account-replay-1";
+    static final String VERSION="account-replay-2";
     private static final String ACCOUNT=AccountIdentity.fromProfileKey("synthetic-account-replay-only");
     interface Entries {
         PortfolioPlan plan(MarketIngestionService.MarketState market,AccountSnapshot account,
@@ -66,6 +66,7 @@ final class AccountReplay implements AutoCloseable {
     private final TaxCalculator tax=new TaxCalculator();
     private final SellTimingEngine exits=new SellTimingEngine(new FillModel(),tax);
     private final SaleMaintenancePricing maintenance=new SaleMaintenancePricing();
+    private final AdvisedPriceTracker advisedPrices=new AdvisedPriceTracker();
     private final TradingHorizon horizon;
     private final Entries entries;
     private final Map<String,Integer> abstentions=new TreeMap<>();
@@ -116,6 +117,7 @@ final class AccountReplay implements AutoCloseable {
             if(restart==next) {
                 store.close();store=new SqliteStore(syntheticDatabase);
                 limits.restore(store.buyLimitProjections(),Instant.ofEpochSecond(now));restartIndex++;
+                advisedPrices.clear(); // The live display cache is session-local too.
                 // The simulated game world persists. No old financial observation is replayed.
                 var ledger=store.ledgerSnapshot(ACCOUNT,now);
                 if(ledger.getTradingPositions().size()!=stocks.size())throw new IllegalStateException("Restart changed acquisition coverage");
@@ -153,7 +155,14 @@ final class AccountReplay implements AutoCloseable {
             && now-offer.placedAt>=horizon.patienceMinutes(stocks.get(offer.item)==null?0:stocks.get(offer.item).getPredictedSellMinutes())*60) {
             var proposal=maintenance.quote(offer.item,offer.price,offer.remaining(),stocks.get(offer.item),latest(offer.item),
                 frame.shortHistory.getOrDefault(offer.item,List.of()),horizon,Instant.ofEpochSecond(now),false,exits,tax);
-            if(proposal!=null){cancel(offer);return true;}
+            if(proposal!=null){
+                int price=advisedPrices.price(offer.item,false,proposal.price,now);
+                if(!proposal.lossCut && proposal.costKnown) {
+                    if(proposal.floor<=0)continue;price=Math.max(price,proposal.floor);
+                }
+                if(price>=offer.price)continue;
+                cancel(offer);return true;
+            }
         }
         int slot=freeSlot();
         if(slot<0){abstain("NO_FREE_SLOT");return false;}
@@ -165,7 +174,7 @@ final class AccountReplay implements AutoCloseable {
             var decision=exits.evaluate(stock,quote,null,frame.shortHistory.getOrDefault(stock.getItemId(),List.of()),
                 horizon,Instant.ofEpochSecond(now),0,true,false,false);
             if(!decision.isSell())continue;
-            int price=decision.getPrice();
+            int price=advisedPrices.price(stock.getItemId(),false,decision.getPrice(),now);
             long cost=SaleAccounting.allocateCost(stock.getTotalCost(),stock.getQuantity(),quantity);
             if(decision.getAction()!=SellDecision.Action.CUT) {
                 int floor=tax.breakEvenSellPriceForCost(stock.getItemId(),cost,quantity);

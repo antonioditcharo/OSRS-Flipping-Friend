@@ -184,6 +184,11 @@ public class TradingHorizon
 	 */
 	public int outbidDeadband(int price)
 	{
+		return outbidDeadbandForPrice(price);
+	}
+	/** The same price-bound rule for final authority, live display stability and replay. */
+	public static int outbidDeadbandForPrice(int price)
+	{
 		return Math.max(1, (int) Math.round(Math.max(0, price) * OUTBID_DEADBAND_SHARE));
 	}
 
