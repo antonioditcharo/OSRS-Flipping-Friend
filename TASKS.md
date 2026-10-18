@@ -5,11 +5,14 @@ All unchecked release requirements remain visible below; detailed completion rec
 
 ## Active
 
-- [ ] Deliver/accept the quiet-market sale correction. Owner still reports indefinite verification
+- [ ] Accept the installed #94 quiet-market sale correction. Owner reported indefinite verification
       after #91/#92; fresh scoped GETs reproduce SALE_QUOTE_STALE for verified held stock. Shared
-      client/companion/replay non-loss limit source is queued, not installed. Keep fresh evidence for
+      client/companion/replay non-loss limit is installed after both exact-head checks. Windows clean:
+      1,636 Java passed/six skips; 108 tooling tests pass. Verified backup/pair/task/financial-prefix/
+      status/compatibility/scoped GET checks pass; RuneLite relaunched and fresh login/GE requested.
+      Keep fresh evidence for
       loss cuts and live sell cancellation, exact floors, physical/source and historical guards.
-      See docs/architecture/sale-guidance-delivery.md; complete player buy/collect/sell remains open.
+      See docs/history/quiet-market-sale-delivery-2026-10-18.md; complete player buy/collect/sell remains open.
 
 - [x] Implement/test the parity increment in docs/architecture/parity-account-evaluation.md:
       final companion managed-sale/maintenance authority, shared exact pricing, durable sale
@@ -55,7 +58,7 @@ All unchecked release requirements remain visible below; detailed completion rec
       No manual database edit, replay, adoption, risk reset or bypass to force advice.
 - [ ] Finish sustained latency and final-authority acceptance. #88 fresh READY/final PLACE_BUY and
       owner-confirmed buy guidance pass after normal history warming. Sale/entry reads can exceed the
-      old 750ms client budget; the transport fix is installed, with quiet-market correction above. Measure sustained post-update reads,
+      old 750ms client budget; transport and quiet-market corrections are installed. Measure sustained post-update reads,
       ACK drain and final eligible advice while retaining freshness, funding, loss and 5m/Medium
       settings. No manufactured funds, cleared reserve or risk reset to force an answer.
 - [ ] Finish search/player-key/pause/context acceptance; these are not established by screenshots.
@@ -93,13 +96,13 @@ All unchecked release requirements remain visible below; detailed completion rec
       scoped GET checks pass. Fresh READY/final PLACE_BUY and owner-confirmed buy guidance establish
       entry availability. See docs/history/current-account-delivery-2026-10-18.md. This does not
       resolve affected historical stock, establish complete trading acceptance or validate learning.
-- [ ] Accept the installed sell-verification fixes (#89/#90/#91/#92 through da9bdd8). Delayed reads,
+- [ ] Accept the installed combined sell-verification fixes (through #94/c8d3a18). Delayed reads,
       missing sell identities, acknowledged partial-fill races and incompatible retained prices are
       reproduced/fixed. Windows clean: 1,628 Java passed/six existing skips (80s), Java 11; 108 tooling
       tests pass. Both exact-head CI checks, verified pair/backup/task/financial-preservation/status/
-      compatibility/scoped GET checks pass. Supported Start reopened RuneLite; fresh login/GE and
-      managed exit/maintenance acceptance were requested and remain pending. See
-      docs/history/sale-guidance-delivery-2026-10-18.md. No task/privilege/data repair or bypass.
+      compatibility/scoped GET checks pass. Owner still saw waiting; #94 adds the quiet-market fix
+      above. Fresh managed exit/maintenance acceptance remains pending. See
+      docs/history/quiet-market-sale-delivery-2026-10-18.md. No task/privilege/data repair or bypass.
 - [ ] Audit calibration prediction provenance and cancellation censoring before changing strategy.
       Attribution, observed intervals and the runtime promotion fence are source-verified in history.
       Historical execution aggregates still pool censored/completed times but no longer authorize
@@ -120,7 +123,7 @@ All unchecked release requirements remain visible below; detailed completion rec
       Include end-of-run inventory liquidation, cash, buy limits, tax, and missed visits.
       AccountReplay now models shared cash/eight slots, partial fills, sequential attendance,
       collection, tax, canonical limits/risk, restart and conservative terminal marks in twelve
-      scenarios. Shared live/replay display-price stability is installed in replay v2. Complete production
+      scenarios. Shared live/replay display-price stability and quiet-stock pricing are installed in replay v3. Complete production
       buy-replacement/relist/foreground acceptance coverage and a
       qualified frozen market benchmark remain open; fixtures are not performance evidence.
 - [ ] Add prospective session/cadence measurement and full-account replay; historical CSVs do not

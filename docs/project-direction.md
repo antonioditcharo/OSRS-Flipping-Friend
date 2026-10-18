@@ -14,18 +14,18 @@ Historical session/cadence labels are unavailable; GP/hour remains unmeasured.
 
 ## Installed continuation — 18 October 2026
 
-The owner subsequently reports continued sale waiting. Fresh GETs reproduce a quiet last-trade
+The owner subsequently reported continued sale waiting. Fresh GETs reproduce a quiet last-trade
 freshness refusal on verified held stock. The shared client/companion/replay non-loss limit fix is
-source-verified and queued, not installed; [current receipt](history/quiet-market-sale-delivery-2026-10-18.md).
+tested, merged and installed in #94; [current receipt](history/quiet-market-sale-delivery-2026-10-18.md).
 Replay v3 distinguishes the changed exit semantics. Entry, risk marks, loss-cut/maintenance
 freshness and historical accounting guards remain; real player acceptance is still required.
 
-The owner-selected current-account policy and combined sell-verification fixes through #92 are
+The owner-selected current-account policy and combined sell-verification fixes through #94 are
 installed. Historical unknown money stays visible/affected stock paused, while verified current
 funds can support unrelated buys. Owner-confirmed buy availability is recorded; fresh updated
 sell/maintenance and controlled trading acceptance remain pending. The [delivery receipt](history/sale-guidance-delivery-2026-10-18.md)
 separates source, tests, installed pair, financial preservation and acceptance.
-Replay v2 shares live display-price stability; complete replacement/relist/foreground coverage
+Replay v3 shares live display-price stability and quiet-stock pricing; complete replacement/relist/foreground coverage
 and qualified market benchmarks remain open. [New frozen evidence/fitting](history/prospective-evaluation-2026-10-18.md)
 preserves uncertain outcomes and establishes no out-of-time calibration gain. Runtime remains on
 the public-price baseline/HOLD; no parity or higher account GP/hour claim is established.

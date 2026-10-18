@@ -5,8 +5,11 @@ Root notes describe the current workflow; detailed prior receipts remain in link
 
 ## Current source and installed runtime
 
-The combined #89/#90/#91/#92 changes are merged through da9bdd8 and INSTALLED through the
-supported paired updater. Current-account policy from #88 remains active: historical unknown
+The combined sale fixes through #94/c8d3a18 are INSTALLED through the supported paired updater.
+Quiet last-trade prices no longer strand verified unlisted stock: shared initial/relist pricing
+provides an explained exact non-loss limit; stops and live sell cancellation still need fresh trades.
+Current physical quantity, source, exact costs, scopes and TTLs remain checked. Current-account policy
+from #88 remains active: historical unknown
 money stays separate/affected stock paused; verified current funds support unrelated buys while
 confirmed losses, unknown live exposure, cash/slots/limits and the original risk anchor still govern.
 [Policy](docs/architecture/current-account-inventory-policy.md).
@@ -16,28 +19,28 @@ fill source races, one consistent sale read, compatible displayed sell prices, a
 clock price fencing. Exact taxed floors and final source/quantity/price guards remain active.
 [Contract/player steps](docs/architecture/sale-guidance-delivery.md).
 
-Final Windows clean: 80s/18 tasks, 1,628 Java passed/six existing skips; Java 11. Final updater:
-108 Python tests passed (94.106s). Every increment passed both exact-head Windows/Linux CI.
-Backup 20261018-120146-7759f4bd is VERIFIED (three companion/22 plugin files); installed hashes,
+Final Windows clean: 108s/18 tasks, 1,636 Java passed/six existing skips; Java 11. Tooling:
+108 Python tests passed (141.478s). #94 passed both exact-head Windows/Linux CI.
+Backup 20261018-124110-c0f97a8c is VERIFIED (three companion/22 plugin files); installed hashes,
 exact task XML/SDDL/lifecycle=1, native status/compatibility/scoped GET checks pass. All 32,694
-frozen account rows/1,350 financial effects and the sole original risk anchor remain identical.
-[Hashes, CI, earlier refused attempts and delivery receipt](docs/history/sale-guidance-delivery-2026-10-18.md).
+frozen account rows/1,350 financial effects and the sole original risk anchor remain identical;
+the new 33,986-row/1,352-effect prefix is also preserved.
+[Current hashes/CI/delivery](docs/history/quiet-market-sale-delivery-2026-10-18.md) and
+[earlier fixes/attempts](docs/history/sale-guidance-delivery-2026-10-18.md).
 Native identity/control uses granted limited rights and a held-handle creation/argument proof;
 no elevation, task/ACL change, financial replay/repair or game input was used.
 
-Supported Start reopened RuneLite. The owner logged in and reports the sale still waits for minutes.
-Fresh GETs reproduce SALE_QUOTE_STALE on verified stock: last-trade age blocks the unlisted exit.
-The quiet-market non-loss exit correction is queued on codex/quiet-market-exits, not installed.
-Windows clean: 1,636 Java passed/six skips; identical frozen evidence changes WAIT to PLACE_SELL
-without accounting changes. [Current receipt](docs/history/quiet-market-sale-delivery-2026-10-18.md).
+The owner reproduced continued waiting on #91; fresh GETs identified SALE_QUOTE_STALE. Identical
+frozen evidence changes WAIT to PLACE_SELL under #94 without accounting changes. Supported Start
+reopened the new pair; fresh login/GE/Sell-card acceptance is requested and pending.
 Owner-confirmed #88 buy-guidance
 availability and #86 Missed flips stability remain accepted, not the broader controlled trading
 workflow. [Earlier policy delivery](docs/history/current-account-delivery-2026-10-18.md) and
 [history display](docs/history/history-display-delivery-2026-10-18.md).
 
-#83's investigation/graphs/market watch/alerts/evaluation paths remain installed. Replay v2 now
-shares live display-price stability and reproduces twelve synthetic 100M members/eight-slot
-5m/30m/2h/8h cadence/share scenarios; the retained v1 evaluator still verifies its old bundle.
+#83's investigation/graphs/market watch/alerts/evaluation paths remain installed. Replay v3 now
+shares live display-price stability/quiet-stock pricing and reproduces twelve synthetic 100M members/eight-slot
+5m/30m/2h/8h cadence/share scenarios; retained older evaluators still verify their own bundles.
 Complete replacement/relist/foreground coverage and qualified market benchmarks remain open.
 [Product/deferred features](docs/architecture/parity-account-evaluation.md).
 New frozen validation has 14 eligible outcomes (five known/nine unknown), with zero paired Brier
