@@ -26,11 +26,21 @@ read. Windows clean: 79s/18 tasks, 1,625 Java passed/six existing skips; Java 11
 the supported updater refused before changing anything because CIM hides the owned companion's
 CommandLine. A limited native read proves the exact installed JAR and current SID without elevation.
 
-Queued on codex/native-process-identity: add that bounded read-only native argument fallback to
-the supported updater after owner verification, retaining exact JAR, PID/creation, task, two-drain,
-backup and foreign-listener guards. Regression-first isolated/native tests cover it; all 106 Python tests pass in 94.604s. CI
-verification and paired #89 delivery remain pending. #88 remains installed. Never manually kill
-an unverified listener or change task permissions to install. No player action is currently needed.
+PR #90/ae25d63 is merged after both corrected exact-head CI checks. All 106 Python tooling
+tests pass; the native query reads only limited information after owner verification and preserves
+exact JAR/PID/creation/task/two-drain/backup guards. Initial Windows CI exposed a test comparing an
+expanded path with its literal 8.3 argument; the corrected native test compares the actual passed
+argument. No runtime/task/data change was used to get past the guard. #88 remains installed while
+the price-stability candidate below completes one batched delivery.
+
+Queued on codex/sale-price-stability: a reproduced 1% sell-price move was held by the client's
+2% display tolerance and rejected by final authority's existing 0.5% drift guard. Shared price
+tracking now uses the stricter existing sell budget, clears on account/logout changes and rejects
+backward-clock retention. Initial exits/relist/maintenance retain exact taxed floors. Replay v2
+uses the same tracker; this does not finish replacement/relist/foreground coverage. Targeted
+price/cost/partial/relist/replay tests pass. Windows clean: 80s/18 tasks, 1,628 Java passed/six
+existing skips, Java 11; the v2 CLI reproduces all twelve synthetic cadence/share scenarios. CI
+and one batched installation remain pending. The updater and sale runtime changes will be delivered together.
 
 Owner accepted #86 Missed flips stability while filtering. Retained read-only history clears on
 logout/account change and never supplies trading/ownership authority; unknown financial values stay

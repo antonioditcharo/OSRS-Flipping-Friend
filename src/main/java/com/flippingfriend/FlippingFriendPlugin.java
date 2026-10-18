@@ -321,6 +321,7 @@ public class FlippingFriendPlugin extends Plugin
 			java.util.Arrays.fill(nonemptyOfferSeen, false);
 			synchronized (pendingOffers) { pendingOffers.clear(); }
 			companion.pauseOfferReplay();
+			engine.setObservedAccount(null);
 			persist();
 			accountMonitor.reset();
 			accountDataLoaded.set(false);

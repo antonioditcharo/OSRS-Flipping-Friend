@@ -167,7 +167,12 @@ public class SuggestionEngine
     @Inject private com.flippingfriend.companion.CompanionClient companion;
     @Inject private com.flippingfriend.session.SellRelistIntent sellRelist;
     private volatile String observedAccount;
-    public void setObservedAccount(String account) { observedAccount = account; }
+    public void setObservedAccount(String account) {
+        if(!java.util.Objects.equals(observedAccount,account)) {
+            advisedPrices.clear();reprice=null;setPendingAdjustment(null);
+        }
+        observedAccount=account;
+    }
 
     public boolean hasTradeEvidence() {
         var ledger = companion == null ? null : companion.tradingLedger();
@@ -1107,81 +1112,13 @@ public class SuggestionEngine
 		return Math.max(0, gap) / (double) offer.getPrice();
 	}
 
-	/**
-	 * How long a price already put in front of the player is honoured before being re-derived.
-	 * <p>
-	 * Long enough to walk to a banker and type it, short enough that it re-anchors to the market
-	 * within a session.
-	 */
-	private static final long ADVISED_PRICE_SECONDS = 600;
+    private final com.flippingfriend.session.AdvisedPriceTracker advisedPrices =
+        new com.flippingfriend.session.AdvisedPriceTracker();
 
-	/**
-	 * How far a price may drift before the card is allowed to name a different one.
-	 * <p>
-	 * Wider than the outbid deadband on purpose, because the two answer different questions. That one
-	 * asks whether an offer has become uncompetitive enough to be worth cancelling; this one asks
-	 * whether a number the player is in the middle of typing is now wrong enough to be worth making
-	 * them start again. Having committed to an action, the cost of changing its terms is higher than
-	 * the cost of being a few gp off -- so this gives way later. Bounded anyway by
-	 * {@link #ADVISED_PRICE_SECONDS}, after which the price re-anchors regardless.
-	 */
-	private static final double ADVISED_PRICE_TOLERANCE = 0.02;
-
-	/** The drift this price may absorb before the card is rewritten. Never less than a gp. */
-	private static int advisedPriceDeadband(int price)
-	{
-		return Math.max(1, (int) Math.round(Math.max(0, price) * ADVISED_PRICE_TOLERANCE));
-	}
-
-	/** A price the player has already been shown, and when they were shown it. */
-	private static final class AdvisedPrice
-	{
-		final int price;
-		final long at;
-
-		AdvisedPrice(int price, long at)
-		{
-			this.price = price;
-			this.at = at;
-		}
-	}
-
-	private final Map<Long, AdvisedPrice> advisedPrices = new java.util.concurrent.ConcurrentHashMap<>();
-
-	/** One item can carry a buy instruction and a sell instruction at once; they are not the same. */
-	private static long advisedKey(int itemId, boolean buying)
-	{
-		return ((long) itemId << 1) | (buying ? 1L : 0L);
-	}
-
-	/**
-	 * The price to show for this item, which is the one already shown unless the market has actually
-	 * moved.
-	 * <p>
-	 * <b>An instruction must not be rewritten while the player is carrying it out.</b> Every price on
-	 * every card was re-derived from the live quote on each refresh, and the live quote moves every
-	 * time the feed republishes -- so a card reading "sell 100 Adamant bars at 2,099 gp" became 2,105,
-	 * then 2,093, on a board where nothing had happened. Measured over twenty refreshes with the quote
-	 * drifting a third of a percent, the advice was rewritten fourteen times. Someone halfway through
-	 * typing that number watches it change, which is indistinguishable from the plugin having changed
-	 * its mind -- and was reported as recommendations flashing and being lost.
-	 * <p>
-	 * The deadband is the item's own, so this holds a price still through noise and gives way as soon
-	 * as the market genuinely moves past it.
-	 */
-	private int advisedPrice(int itemId, boolean buying, int fresh, long nowSeconds)
-	{
-		int deadband = advisedPriceDeadband(fresh);
-		long key = advisedKey(itemId, buying);
-		AdvisedPrice held = advisedPrices.get(key);
-		if (held != null && nowSeconds - held.at < ADVISED_PRICE_SECONDS
-			&& Math.abs(fresh - held.price) < Math.max(1, deadband))
-		{
-			return held.price;
-		}
-		advisedPrices.put(key, new AdvisedPrice(fresh, nowSeconds));
-		return fresh;
-	}
+    /** Stable while still inside final authority's price budget; exact cost is rechecked by callers. */
+    private int advisedPrice(int itemId,boolean buying,int fresh,long nowSeconds) {
+        return advisedPrices.price(itemId,buying,fresh,nowSeconds);
+    }
 
 	static boolean repriceAllowed(int newPrice, Position position, int breakEvenPrice)
 	{
