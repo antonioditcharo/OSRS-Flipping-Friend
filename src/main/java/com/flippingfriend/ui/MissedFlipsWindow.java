@@ -31,13 +31,24 @@ final class MissedFlipsWindow {
         if (content == null) {
             content = new JPanel(new BorderLayout(8, 8));
             content.setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 10, 10));
-            content.add(status, BorderLayout.NORTH);
+            JPanel header=new JPanel(new BorderLayout(6,6));
+            header.add(status,BorderLayout.NORTH);
+            javax.swing.JTextField filter=new javax.swing.JTextField();
+            filter.setToolTipText("Filter history by item, reason, time, source or offer identity");
+            header.add(filter,BorderLayout.SOUTH);content.add(header,BorderLayout.NORTH);
             JTable table = new JTable(model);
             table.setAutoCreateRowSorter(true);
             table.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
-            int[] widths = {160,170,110,80,100,110,110,110,460};
+            int[] widths = {160,170,110,80,100,110,110,110,460,330,330};
             for (int i=0;i<widths.length;i++) table.getColumnModel().getColumn(i).setPreferredWidth(widths[i]);
             content.add(new JScrollPane(table), BorderLayout.CENTER);
+            filter.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+                void changed() {((javax.swing.table.TableRowSorter<?>)table.getRowSorter()).setRowFilter(
+                    javax.swing.RowFilter.regexFilter("(?i)"+java.util.regex.Pattern.quote(filter.getText())));}
+                public void insertUpdate(javax.swing.event.DocumentEvent e){changed();}
+                public void removeUpdate(javax.swing.event.DocumentEvent e){changed();}
+                public void changedUpdate(javax.swing.event.DocumentEvent e){changed();}
+            });
             content.add(new JLabel("Recorded trade updates; quantities are not current inventory. Unknown money stays unavailable."), BorderLayout.SOUTH);
         }
         refresh();
@@ -55,12 +66,12 @@ final class MissedFlipsWindow {
         model.update(ledger);
         status.setText(ledger == null || ledger.getMissedFlips() == null
             ? "Waiting for fresh account trade evidence."
-            : model.getRowCount() + " incomplete or uncertain trade updates. Historical gaps can require investigation.");
+            : model.getRowCount() + " historical updates. Unknown values stay unknown; current account checks govern new buys.");
     }
     void dispose() { if (dialog != null) { dialog.dispose(); dialog = null; } content = null; model.update(null); status.setText(""); }
 
     static final class EvidenceTable extends AbstractTableModel {
-        private final String[] columns = {"When (UTC)","Item","Update","Quantity","Buy cost","Gross sale","Tax","Profit","Missing evidence"};
+        private final String[] columns = {"When (UTC)","Item","Update","Quantity","Buy cost","Gross sale","Tax","Profit","Missing evidence","Source event","Offer identity"};
         private final List<Object[]> rows = new ArrayList<>();
         void update(AccountLedgerSnapshot ledger) {
             rows.clear();
@@ -68,12 +79,13 @@ final class MissedFlipsWindow {
                 for (MissedFlipEvidence e : ledger.getMissedFlips()) rows.add(new Object[] {
                     date(e.getObservedAt()),e.getItemName(),e.getType(),e.getQuantity(),money(e.getAcquisitionCost()),
                     money(e.getGrossProceeds()),range(e.getTaxLower(),e.getTaxUpper()),
-                    range(e.getProfitLower(),e.getProfitUpper()),e.getReason()});
+                    range(e.getProfitLower(),e.getProfitUpper()),e.getReason(),e.getEventId(),
+                    e.getOfferIdentity()==null?"Unavailable":e.getOfferIdentity()});
                 // Preserve legacy cost evidence as legacy evidence, never as an observed acquisition.
                 for (var p : ledger.getPositions()) if (p.isCostKnown() && p.getSourceEventId() == null)
                     rows.add(new Object[] {date(p.getUpdatedAt()),p.getItemName(),"Legacy record",p.getQuantity(),
                         money(p.getTotalCost()),"Unavailable","Unavailable","Unavailable",
-                        "Observed acquisition provenance missing; recorded quantity is not current inventory."});
+                        "Observed acquisition provenance missing; recorded quantity is not current inventory.","Unavailable","Unavailable"});
             }
             fireTableDataChanged();
         }

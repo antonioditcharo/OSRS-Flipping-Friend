@@ -52,7 +52,7 @@ final class BoundedHistoricalExposure {
             return new DurablePlanningExposure(exposure,reserved,paused);
         }catch(ArithmeticException malformed){return null;}
     }
-    private static boolean sameEpisode(OfferEvent a,OfferEvent b) {
+    static boolean sameEpisode(OfferEvent a,OfferEvent b) {
         return a!=null && a.isBuying() && Objects.equals(a.getSessionId(),b.getSessionId())
             && Objects.equals(a.getOfferIdentity(),b.getOfferIdentity()) && a.getItemId()==b.getItemId()
             && a.getPrice()==b.getPrice() && a.getTotalQuantity()==b.getTotalQuantity()

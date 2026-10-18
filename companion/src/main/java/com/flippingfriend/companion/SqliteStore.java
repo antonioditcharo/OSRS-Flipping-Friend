@@ -516,17 +516,19 @@ final class SqliteStore implements AutoCloseable
 		AutomaticTradeScope replay = new AutomaticTradeScope();
 		try (Statement sql = connection.createStatement(); ResultSet rows = sql.executeQuery(
 			"SELECT id,effect_type,item_id,item_name,quantity,acquisition_cost,observed_at,source_event_id," +
-			"source_offer_identity,profit_lower,profit_upper FROM position_event ORDER BY id"))
+			"source_offer_identity,profit_lower,profit_upper,applied_cost_basis FROM position_event ORDER BY id"))
 		{
 			while (rows.next())
 			{
 				String type = rows.getString(2); int item = rows.getInt(3);
+				if(window!=null && rows.getLong(1)>window.positionCursor)result.open(replay);
 				var affected = current.reconciliationScope.get(rows.getString(8));
-				result.apply(rows.getLong(1), type, item, rows.getInt(5), nullableLong(rows,10), nullableLong(rows,11),
-					replay.positions.get(item), affected);
+				result.apply(rows.getLong(1), type, item, rows.getInt(5), rows.getLong(6),rows.getLong(12),nullableLong(rows,10),nullableLong(rows,11),
+					replay.positions.get(item),replay.unsafeItems.contains(item)||replay.hasUnboundedReconciliation,affected);
 				replay.apply(type,item,rows.getString(4),rows.getInt(5),rows.getLong(6),rows.getLong(7),rows.getString(8),rows.getString(9),affected);
 			}
 		}
+		result.open(replay);
 		if (window != null && window.positionCursor > result.maxPositionCursor)
 			throw new IllegalStateException("Risk cursor exceeds the recorded ledger.");
 		return result;

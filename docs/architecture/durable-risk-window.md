@@ -30,6 +30,11 @@ risk, rather than manufacturing zero-cost profit. New reconciliation uncertainty
 affected observed-capital envelope; old pre-window gaps remain exposure guards and paused items.
 These reserves are possible losses, not reported realized losses or historical repairs.
 
+The [history-tolerant continuation](history-tolerant-planning.md) separates lifetime historical
+exposure from newly exposed risk-window capital. Old quarantined stock is not charged again as
+new managed loss; new purchases of paused stock remain reserved. Source-order opening receipts
+and new episode funding bound prospective gaps without clearing historical exposure or the window.
+
 Open managed stock is marked to a fresh instant-sell quote after current-rule hypothetical sale
 tax. These marks are estimates, not realized proceeds or a promise of immediate execution.
 Absent/stale/malformed quotes cannot silently mark stock flat. Pre-existing personal inventory
