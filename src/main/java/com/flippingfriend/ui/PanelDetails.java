@@ -117,9 +117,12 @@ final class PanelDetails {
     }
 
     void update(Suggestion advice, AccountLedgerSnapshot ledger) {
+        update(advice,ledger,ledger,false);
+    }
+    void update(Suggestion advice,AccountLedgerSnapshot ledger,AccountLedgerSnapshot history,boolean historyUpdating) {
         shown = advice == null ? Suggestion.idle() : advice;
         performance.updateLedger(ledger);
-        recordedSales.updateLedger(ledger);
+        recordedSales.updateLedger(history,historyUpdating);
         StringBuilder text = new StringBuilder(shown.getHeadline() == null ? "" : shown.getHeadline());
         if (shown.getDetail() != null && !shown.getDetail().isEmpty()) text.append("\n\n").append(shown.getDetail());
         if (shown.getItemId() > 0) text.append("\n\n").append(shown.getItemName());
@@ -147,7 +150,7 @@ final class PanelDetails {
         select(name);
         if (presenter != null) { presenter.accept(name, tabs); return; }
         if (dialog == null) {
-            dialog = new JDialog(SwingUtilities.getWindowAncestor(owner), "Flipping Friend - details", Dialog.ModalityType.MODELESS);
+            dialog = new JDialog(SwingUtilities.getWindowAncestor(owner), "Flipping Friend - "+name, Dialog.ModalityType.MODELESS);
             dialog.setDefaultCloseOperation(JDialog.HIDE_ON_CLOSE); dialog.setContentPane(tabs);
             dialog.setSize(730, 540); dialog.setLocationRelativeTo(owner);
         }
@@ -155,6 +158,7 @@ final class PanelDetails {
     }
     private void refreshSelected() {
         String name = tabs.getTitleAt(tabs.getSelectedIndex());
+        if(dialog!=null)dialog.setTitle("Flipping Friend - "+name);
         switch (name) {
             case "Holdings": holdings.refresh(); break;
             case "Local history": history.refresh(); break;

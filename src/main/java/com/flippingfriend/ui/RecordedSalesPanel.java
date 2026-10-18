@@ -23,7 +23,11 @@ final class RecordedSalesPanel extends JPanel {
     RecordedSalesPanel(IntConsumer graph) {
         super(new BorderLayout(8,8));setBackground(UiUtils.CARD);setPreferredSize(new Dimension(680,420));
         JPanel header=new JPanel(new BorderLayout(8,8));header.setOpaque(false);
-        header.add(coverage,BorderLayout.NORTH);JTextField filter=new JTextField();filter.setToolTipText("Filter recorded sales by item, date or amount");header.add(filter,BorderLayout.SOUTH);
+        coverage.setForeground(UiUtils.TEXT);
+        header.add(coverage,BorderLayout.NORTH);JTextField filter=new JTextField();filter.setToolTipText("Filter recorded sales by item, date or amount");
+        JPanel search=new JPanel(new BorderLayout(6,0));search.setOpaque(false);
+        JLabel searchLabel=new JLabel("Filter sales:");searchLabel.setForeground(UiUtils.TEXT);searchLabel.setLabelFor(filter);
+        search.add(searchLabel,BorderLayout.WEST);search.add(filter,BorderLayout.CENTER);header.add(search,BorderLayout.SOUTH);
         add(header,BorderLayout.NORTH);table.setAutoCreateRowSorter(true);table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         add(new JScrollPane(table),BorderLayout.CENTER);
         JPanel detail=new JPanel(new BorderLayout(8,8));detail.setOpaque(false);detail.add(evidence,BorderLayout.CENTER);
@@ -41,7 +45,13 @@ final class RecordedSalesPanel extends JPanel {
         });
     }
     void updateLedger(AccountLedgerSnapshot ledger) {
+        updateLedger(ledger,false);
+    }
+    void updateLedger(AccountLedgerSnapshot ledger,boolean updating) {
         List<RecordedSale> incoming=ledger==null?null:ledger.getRecentSales();
+        coverage.setText(incoming==null?"Recorded sale detail unavailable on this connection":incoming.size()+" of "+ledger.getSales()
+            +" sale updates. "+(updating?"Updating; showing last confirmed history.":"Unknown cost/profit remains unknown."));
+        coverage.setToolTipText(ledger==null?null:"Recorded through "+Instant.ofEpochSecond(ledger.getObservedAt())+". Times are observations; tax/profit ranges preserve uncertainty.");
         StringBuilder signature=new StringBuilder(ledger==null?"unavailable":ledger.getAccountId()+":"+ledger.getSales()+":"+(incoming==null));
         if(incoming!=null)for(var sale:incoming)signature.append('|').append(sale.getRowId()).append(':').append(sale.getGross())
             .append(':').append(sale.getTaxLower()).append(':').append(sale.getTaxUpper()).append(':').append(sale.getProfitLower()).append(':').append(sale.getProfitUpper());
@@ -49,7 +59,6 @@ final class RecordedSalesPanel extends JPanel {
         rows=incoming==null?List.of():incoming;model.setRowCount(0);
         for(var sale:rows)model.addRow(new Object[]{Instant.ofEpochSecond(sale.getObservedAt()).toString(),sale.getItemName()+" (#"+sale.getItemId()+")",
             sale.getQuantity(),sale.getGross()==null?"Unknown":sale.getGross(),sale.getProfitLower()==null?"Unknown (matched "+sale.getAppliedCost()+")":sale.getAppliedCost(),range(sale.getTaxLower(),sale.getTaxUpper()),range(sale.getProfitLower(),sale.getProfitUpper())});
-        coverage.setText(incoming==null?"Recorded sale detail unavailable on this connection":rows.size()+" of "+ledger.getSales()+" sale updates (latest 100). Times are observations; profit/tax ranges preserve uncertainty.");
         evidence.setText("");
     }
     private static String range(Long lower,Long upper){return lower==null?"Unknown":lower.equals(upper)?lower.toString():lower+" to "+upper;}

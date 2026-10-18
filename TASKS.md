@@ -81,6 +81,9 @@ All unchecked release requirements remain visible below; detailed completion rec
       proof passes, but actual prospective uncertainty still exhausts the allowance. Copilot's
       client separates Missed flips/current observations; private server risk rules are unknown.
       No override is inferred from the owner's question. Keep new-capital reserves and real losses.
+      Owner opened Missed flips but reports flickering populated/empty. Reproduced display retention
+      and heartbeat-selection faults; the queued fix and explicit Records/filter navigation are in
+      docs/architecture/history-display-retention.md. Delivery and stability acceptance remain open.
 - [ ] Audit calibration prediction provenance and cancellation censoring before changing strategy.
       Attribution, observed intervals and the runtime promotion fence are source-verified in history.
       Historical execution aggregates still pool censored/completed times but no longer authorize

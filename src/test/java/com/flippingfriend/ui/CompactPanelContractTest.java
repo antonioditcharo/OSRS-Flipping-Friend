@@ -144,6 +144,19 @@ public class CompactPanelContractTest {
         assertTrue(text(panel).contains("Log in to see account guidance"));
         verify(journal,never()).sessionStats(); verify(journal,never()).lifetimeStats();
     }
+    @Test public void retainedRecordsDoNotBecomeFreshPerformanceAndLogoutClearsThem()throws Exception {
+        var sale=new RecordedSale(1,100,561,"Nature rune",1,0,"source","offer",120L,2L,2L,null,null,
+            SaleAccounting.CURRENT_POLICY,"COST_BASIS_UNRESOLVED");
+        var history=new AccountLedgerSnapshot(AccountIdentity.fromProfileKey("synthetic"),100,1,0,0,1,0,0,2,2,List.of())
+            .withRecentSales(List.of(sale));
+        when(companion.historyLedger()).thenReturn(history);refresh();
+        Component[] view=new Component[1];SwingUtilities.invokeAndWait(()->view[0]=panel.detailsComponent("Recorded sales"));
+        var table=tree(view[0]).stream().filter(c->c instanceof JTable).map(c->(JTable)c).findFirst().orElseThrow();
+        assertEquals(1,table.getRowCount());assertEquals("Unknown",table.getValueAt(0,6));
+        assertTrue(text(view[0]).contains("showing last confirmed history"));
+        assertTrue(text(panel).contains("Unavailable"));
+        when(monitor.getState()).thenReturn(AccountState.loggedOut());refresh();assertEquals(0,table.getRowCount());
+    }
     @Test public void narrowSidebarKeepsAccountAndCoverageVisibleRatherThanAtZeroHeight() throws Exception {
         SwingUtilities.invokeAndWait(()->{
             panel.setSize(225,499); layout(panel); layout(panel);
