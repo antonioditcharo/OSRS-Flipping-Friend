@@ -17,12 +17,13 @@ class NativeProcessIdentityTest(unittest.TestCase):
             script = Path(temporary) / "native query.ps1"
             script.write_text("$ErrorActionPreference='Stop'\n. '" + str(helper).replace("'", "''") + "'\n" + r'''
 $line=Get-NativeProcessCommandLine ([Diagnostics.Process]::GetCurrentProcess().Id)
-if (-not $line.Contains($PSCommandPath)) { throw 'Exact script path missing from native command line.' }
+if (-not $line.Contains($env:FF_NATIVE_SCRIPT_ARGUMENT)) { throw 'Exact script path missing from native command line.' }
 try { $null=Get-NativeProcessCommandLine 0; throw 'Invalid identity was accepted.' }
 catch { if ($_.Exception.Message -eq 'Invalid identity was accepted.') { throw } }
 Write-Output 'native-identity-verified'
 ''', encoding="utf-8")
             result = subprocess.run([shell, "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", str(script)],
+                                    env=dict(os.environ, FF_NATIVE_SCRIPT_ARGUMENT=str(script)),
                                     capture_output=True, text=True, timeout=20)
             self.assertEqual(0, result.returncode, result.stdout + result.stderr)
             self.assertIn("native-identity-verified", result.stdout)
