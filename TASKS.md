@@ -5,6 +5,12 @@ All unchecked release requirements remain visible below; detailed completion rec
 
 ## Active
 
+- [ ] Deliver/accept the quiet-market sale correction. Owner still reports indefinite verification
+      after #91/#92; fresh scoped GETs reproduce SALE_QUOTE_STALE for verified held stock. Shared
+      client/companion/replay non-loss limit source is queued, not installed. Keep fresh evidence for
+      loss cuts and live sell cancellation, exact floors, physical/source and historical guards.
+      See docs/architecture/sale-guidance-delivery.md; complete player buy/collect/sell remains open.
+
 - [x] Implement/test the parity increment in docs/architecture/parity-account-evaluation.md:
       final companion managed-sale/maintenance authority, shared exact pricing, durable sale
       investigation, graph lookup, public market-drop watch list, local/webhook warning dispatch,
@@ -49,7 +55,7 @@ All unchecked release requirements remain visible below; detailed completion rec
       No manual database edit, replay, adoption, risk reset or bypass to force advice.
 - [ ] Finish sustained latency and final-authority acceptance. #88 fresh READY/final PLACE_BUY and
       owner-confirmed buy guidance pass after normal history warming. Sale/entry reads can exceed the
-      old 750ms client budget; the queued delivery fix is above. Measure sustained post-update reads,
+      old 750ms client budget; the transport fix is installed, with quiet-market correction above. Measure sustained post-update reads,
       ACK drain and final eligible advice while retaining freshness, funding, loss and 5m/Medium
       settings. No manufactured funds, cleared reserve or risk reset to force an answer.
 - [ ] Finish search/player-key/pause/context acceptance; these are not established by screenshots.

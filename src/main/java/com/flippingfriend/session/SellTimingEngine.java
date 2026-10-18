@@ -57,6 +57,37 @@ public class SellTimingEngine
 		return evaluate(position, latest, features, series, horizon, now, 0, inInventory, sellOnly, false);
 	}
 
+    /**
+     * Prices verified, unlisted stock. A quiet last-trade feed is not a reason to leave it unlisted.
+     * With aged trades only a non-loss limit is supported; stops and spread crossing need fresh
+     * evidence. The caller must separately verify current holdings, acquisition and feed freshness.
+     */
+    public SellDecision evaluateManagedExit(Position position, LatestPrice latest, ItemFeatures features,
+        List<Candle> series, TradingHorizon horizon, Instant now, long minProfitPerFlip,
+        boolean inInventory, boolean sellOnly, boolean isSkipped)
+    {
+        if (position == null || !position.isCostKnown() || position.getQuantity() <= 0)
+            return SellDecision.hold("Waiting for verified acquisition cost and remaining stock.", Double.NaN);
+        if (latest == null || !latest.isComplete() || latest.secondsSinceHigh(now) < 0
+            || latest.secondsSinceLow(now) < 0 || latest.getHighTime() == null || latest.getLowTime() == null
+            || latest.getHighTime() <= 0 || latest.getLowTime() <= 0)
+            return SellDecision.hold("Waiting for a supported market quote.", Double.NaN);
+        if (latest.stalestSideSeconds(now) <= 300)
+            return evaluate(position, latest, features, series, horizon, now, minProfitPerFlip,
+                inInventory, sellOnly, isSkipped);
+
+        int floor = taxCalculator.breakEvenSellPriceForCost(position.getItemId(),
+            position.getTotalCost(), position.getQuantity());
+        if (floor <= 0)
+            return SellDecision.hold("No legal Grand Exchange price covers this position's recorded cost after tax.", Double.NaN);
+        int price = Math.max(floor, latest.getHigh());
+        return new SellDecision(SellDecision.Action.SELL, price,
+            "Market trades are quiet (last sell-side trade " + latest.secondsSinceHigh(now) / 60
+                + "m ago; buy-side trade " + latest.secondsSinceLow(now) / 60
+                + "m ago). This limit covers the exact recorded purchase cost after tax. A fill is not guaranteed.",
+            Double.NaN, taxCalculator.netProceeds(position.getItemId(), price, position.getQuantity()) - position.getTotalCost());
+    }
+
 	/**
 	 * @param minProfitPerFlip kept on the signature for callers that still pass it. It no longer
 	 *                         gates anything: an exit worth very little is still an exit, and the

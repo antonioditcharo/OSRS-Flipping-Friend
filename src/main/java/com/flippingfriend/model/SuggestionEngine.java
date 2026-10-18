@@ -1347,14 +1347,14 @@ public class SuggestionEngine
         if (ledger == null) return Suggestion.waiting("Waiting to verify the cancelled sale",
             "Fresh, consistent account trade evidence is required before relisting. See Missed flips for recorded gaps.");
         var price = market.latest(item);
-        if (!freshSaleQuote(price,now))
-            return Suggestion.waiting("Waiting for a current sale price", "The cancelled sale will be repriced when a fresh quote is available.");
         int quantity = Math.min(remaining[1], account.getInventoryHoldings().getOrDefault(item, 0));
         Position position = salePosition(ledger,item);
         if (quantity<=0) return Suggestion.waiting("Collect the cancelled sale's items", "No returned quantity is currently visible in inventory.");
         if (position == null) {
             if (sellRelist.requiresManagedCost(observedAccount))
                 return Suggestion.waiting("Waiting to verify remaining stock", "The managed sale's acquisition evidence is unavailable.");
+            if (!freshSaleQuote(price,now))
+                return Suggestion.waiting("Waiting for a current sale price", "The cancelled sale will be repriced when a fresh quote is available.");
             return ManualSalePrice.quote(item,quantity,quantity,market,now);
         }
         if (offers.itemsBeingBought().contains(item))
@@ -1362,13 +1362,13 @@ public class SuggestionEngine
         quantity = Math.min(quantity, Math.max(0,position.getQuantity()-offers.listedForSale().getOrDefault(item,0)));
         if (quantity<=0) return Suggestion.waiting("Stock already listed", "No verified unlisted quantity remains for this sale.");
         var series = marketData.getSeries(item,TIMESTEP);
-        var decision = sellTiming.evaluate(position,price,featureEngine.compute(item,series,BUCKET_SECONDS),
+        var decision = sellTiming.evaluateManagedExit(position,price,featureEngine.compute(item,series,BUCKET_SECONDS),
             series,horizon,now,config.minProfitPerFlip(),true,sellOnly,false);
         if (!decision.isSell()) return Suggestion.waiting("Waiting for a supported sell price",decision.getReason());
         boolean cut = decision.getAction()==SellDecision.Action.CUT;
         long cost = com.flippingfriend.core.SaleAccounting.allocateCost(position.getTotalCost(),position.getQuantity(),quantity);
         int quoted = advisedPrice(item,false,decision.getPrice(),now.getEpochSecond());
-        if (!cut && !sellOnly) {
+        if (!cut && (!sellOnly || !freshSaleQuote(price,now))) {
             int floor = taxCalculator.breakEvenSellPriceForCost(item,cost,quantity);
             if (floor<=0) return Suggestion.waiting("No non-loss sell price is available", "No legal price covers the recorded cost after tax.");
             quoted = Math.max(quoted,floor);
@@ -1379,7 +1379,7 @@ public class SuggestionEngine
             .price(quoted).lossCut(cut).profitKnown(true).expectedProfit(taxCalculator.netProceeds(item,quoted,quantity)-cost)
             .expectedMinutes(minutes).fillMinutes(0,minutes).executionForecast(forecast)
             .legCompletionProbability(forecast==null?null:forecast.getCompletionProbability())
-            .headline((cut?"Cut your losses on ":"Relist your ")+position.getItemName()).build();
+            .headline((cut?"Cut your losses on ":"Relist your ")+position.getItemName()).detail(decision.getReason()).build();
     }
 
 	private Suggestion sellSuggestion(MarketSnapshot market, TradingHorizon horizon, AccountState account,
@@ -1467,7 +1467,7 @@ public class SuggestionEngine
 			ItemFeatures features = featureEngine.compute(itemId, series, BUCKET_SECONDS);
 
 			boolean isSkipped = skippedItems().contains(itemId);
-			SellDecision decision = sellTiming.evaluate(position, price, features, series, horizon, now,
+			SellDecision decision = sellTiming.evaluateManagedExit(position, price, features, series, horizon, now,
 				config.minProfitPerFlip(), inInventory, sellOnly, isSkipped);
 
 			// A buy for this item is still working, so nothing of it is listed.
@@ -1605,7 +1605,7 @@ public class SuggestionEngine
 		int sellPrice = advisedPrice(itemId, false, decision.getPrice(), now.getEpochSecond());
         long allocatedCost=position.isCostKnown()?com.flippingfriend.core.SaleAccounting.allocateCost(
             position.getTotalCost(),position.getQuantity(),best.quantity):0;
-        if(position.isCostKnown() && !cut && !sellOnly) {
+        if(position.isCostKnown() && !cut && (!sellOnly || !freshSaleQuote(market.latest(itemId),now))) {
             int minimum=taxCalculator.breakEvenSellPriceForCost(itemId,allocatedCost,best.quantity);
             if(minimum<=0)return Suggestion.waiting("No non-loss sell price is available",
                 "No legal Grand Exchange price covers the recorded cost of these units after tax.");
@@ -1644,7 +1644,8 @@ public class SuggestionEngine
 			.fillMinutes(0, sellMinutes)
             .executionForecast(forecast)
             .legCompletionProbability(forecast == null ? null : forecast.getCompletionProbability())
-			.headline((cut ? "Cut your losses on " : "Sell your ") + position.getItemName());
+			.headline((cut ? "Cut your losses on " : "Sell your ") + position.getItemName())
+            .detail(decision.getReason());
 
 
 		// A loss cut is still a sell offer as far as the walkthrough is concerned; only the wording

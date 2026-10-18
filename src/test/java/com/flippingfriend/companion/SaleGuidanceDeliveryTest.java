@@ -28,6 +28,7 @@ public class SaleGuidanceDeliveryTest {
     long delay;
     Runnable duringRequest=()->{};
     String replySource;
+    String refusal;
 
     @Before public void setup()throws Exception {
         storage=TestStorage.rootedAt(folder.newFolder().toPath(),"sale-delivery");
@@ -54,6 +55,9 @@ public class SaleGuidanceDeliveryTest {
                     "ENTRY_CANDIDATE_SELECTED",now,now-1,"561:100:120:3",q.get("planId"))
                     :PolicyDecision.action("1","companion-sale-1","decision",slot<0?PolicyDecisionType.EXIT:PolicyDecisionType.SELL_MAINTENANCE,
                     slot<0?OfferLifecycleAction.PLACE_SELL:OfferLifecycleAction.CANCEL_SELL,"SALE_AUTHORIZED",now,now-1,key,source);
+                if(refusal!=null)decision=PolicyDecision.abstain("1","companion-sale-1","refused",
+                    slot<0?PolicyDecisionType.EXIT:PolicyDecisionType.SELL_MAINTENANCE,
+                    PolicyAbstentionReason.ACCOUNT_STATE_INCONSISTENT,refusal,now,now-1,key,source);
                 byte[] body=json.toJson(decision).getBytes(StandardCharsets.UTF_8);
                 exchange.getResponseHeaders().set(AccountIdentity.HEADER,storage.accountId());
                 exchange.getResponseHeaders().set(AccountIdentity.PROTOCOL_HEADER,AccountIdentity.PROTOCOL);
@@ -127,5 +131,14 @@ public class SaleGuidanceDeliveryTest {
         assertEquals(SuggestionType.WAIT,client.authorizeSale(sale(false)).getType());
         requested.set(null);publishSale(0);
         assertEquals(SuggestionType.WAIT,client.authorizeSale(sale(false)).getType());assertNull(requested.get());
+    }
+    @Test public void refusalExplainsTheActualBlockedActionAndRecoveryClearsTheDiagnostic()throws Exception {
+        publishSale(0);acknowledge();ledger(false);refusal="SALE_QUOTE_STALE";
+        var blocked=client.authorizeSale(sale(true));
+        assertEquals(SuggestionType.WAIT,blocked.getType());assertEquals("Waiting for a fresh repricing quote",blocked.getHeadline());
+        assertTrue(blocked.getDetail().contains("current price stays in place"));
+        assertTrue(client.lastError().contains("SALE_QUOTE_STALE"));
+        refusal=null;assertEquals(SuggestionType.MODIFY_SELL,client.authorizeSale(sale(true)).getType());
+        assertEquals("",client.lastError());
     }
 }

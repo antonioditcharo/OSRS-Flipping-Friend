@@ -798,6 +798,7 @@ public class CompanionClient
         String requestedAccount=accountContext();long now=Instant.now().getEpochSecond();
         int slot=proposed.getType()==SuggestionType.MODIFY_SELL?proposed.getSlot():-1;
         String source=currentSaleSource(proposed,slot);
+        String reason="SALE_DELIVERY_PENDING";
         if(source!=null)try {
             String key=proposed.getItemId()+":"+proposed.getPrice()+":"+proposed.getQuantity()+":"+source+":"+proposed.isLossCut()+":"+slot;
             String path="policy/sale?item="+proposed.getItemId()+"&price="+proposed.getPrice()+"&quantity="+proposed.getQuantity()
@@ -807,10 +808,27 @@ public class CompanionClient
             if(validSaleDecision(decision,key,source,slot,now) && decision.getDecidedAt()<=receivedAt
                 && receivedAt-decision.getDecidedAt()<=5 && receivedAt-decision.getInputObservedAt()<=150
                 && java.util.Objects.equals(requestedAccount,accountContext()) && !offerEvidencePending()
-                && source.equals(currentSaleSource(proposed,slot)))return proposed;
-            if(decision!=null)lastError="Sale verification: "+decision.getReasonCode();
-        }catch(Exception unavailable){lastError="Current sale authority unavailable";}
-        return Suggestion.waiting("Waiting for sale verification","The current offer, acquisition evidence or market price changed. Waiting for fresh sale guidance.");
+                && source.equals(currentSaleSource(proposed,slot))) {lastError="";return proposed;}
+            reason=decision==null?"SALE_AUTHORITY_UNAVAILABLE":decision.getAction()==OfferLifecycleAction.WAIT
+                ?decision.getReasonCode():"SALE_SOURCE_CHANGED";
+        }catch(Exception unavailable){reason="SALE_AUTHORITY_UNAVAILABLE";}
+        lastError="Sale verification: "+reason;
+        return saleWaiting(reason);
+    }
+    private static Suggestion saleWaiting(String reason) {
+        if("SALE_QUOTE_STALE".equals(reason))return Suggestion.waiting("Waiting for a fresh repricing quote",
+            "The last trade is too old to justify cancelling or lowering this sell offer. Its current price stays in place.");
+        if("SALE_ITEM_PAUSED".equals(reason) || "SALE_ACQUISITION_UNAVAILABLE".equals(reason))
+            return Suggestion.waiting("Checking purchase evidence",
+                "The remaining quantity or purchase cost is unresolved. See Missed flips; no sale or disposal is assumed.");
+        if("SALE_STOCK_NOT_OBSERVED".equals(reason))return Suggestion.waiting("Locate the recorded stock",
+            "The purchase is retained, but these units are not currently visible. Collect them or open their container before listing.");
+        if("SALE_EXACT_COST_FLOOR".equals(reason))return Suggestion.waiting("Refreshing the non-loss sell price",
+            "This price would not cover the exact recorded purchase cost after tax.");
+        if("SALE_EXIT_CHANGED".equals(reason) || "SALE_PRICE_NOT_AUTHORIZED".equals(reason))
+            return Suggestion.waiting("Refreshing the sell price", "The market price or exit policy changed. Updating the sell instruction.");
+        return Suggestion.waiting("Refreshing sale evidence",
+            "Waiting for current purchase and offer records to agree before showing a sell instruction.");
     }
     private String currentSaleSource(Suggestion proposed,int slot) {
         var current=tradingLedger();

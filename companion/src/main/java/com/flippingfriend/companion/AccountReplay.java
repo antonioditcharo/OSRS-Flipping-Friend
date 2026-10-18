@@ -12,7 +12,7 @@ import java.util.*;
 
 /** One simulated account, one bankroll and eight physical slots; never opens a live database. */
 final class AccountReplay implements AutoCloseable {
-    static final String VERSION="account-replay-2";
+    static final String VERSION="account-replay-3";
     private static final String ACCOUNT=AccountIdentity.fromProfileKey("synthetic-account-replay-only");
     interface Entries {
         PortfolioPlan plan(MarketIngestionService.MarketState market,AccountSnapshot account,
@@ -169,9 +169,7 @@ final class AccountReplay implements AutoCloseable {
         for(var stock:stocks.values()) {
             int quantity=inventory.getOrDefault(stock.getItemId(),0);if(quantity<=0 || offered(stock.getItemId()))continue;
             LatestPrice quote=latest(stock.getItemId());
-            if(quote==null || !quote.isComplete() || quote.secondsSinceHigh(Instant.ofEpochSecond(now))<0
-                || quote.secondsSinceLow(Instant.ofEpochSecond(now))<0 || quote.stalestSideSeconds(Instant.ofEpochSecond(now))>300)continue;
-            var decision=exits.evaluate(stock,quote,null,frame.shortHistory.getOrDefault(stock.getItemId(),List.of()),
+            var decision=exits.evaluateManagedExit(stock,quote,null,frame.shortHistory.getOrDefault(stock.getItemId(),List.of()),
                 horizon,Instant.ofEpochSecond(now),0,true,false,false);
             if(!decision.isSell())continue;
             int price=advisedPrices.price(stock.getItemId(),false,decision.getPrice(),now);

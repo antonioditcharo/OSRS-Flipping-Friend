@@ -48,6 +48,32 @@ coverage, qualified public market captures and four-cadence account-return bench
 
 ## Delivery and acceptance gates
 
+### Quiet-market exits (18 October continuation)
+
+The owner still saw indefinite verification after the combined update. Authenticated GETs identify
+`SALE_QUOTE_STALE`: the account and market snapshot are current, but the last trade on one side is
+older than five minutes. Applying the entry/maintenance freshness rule to already acquired,
+unlisted stock contradicts the exit workflow. A regression first reproduces PLACE_SELL becoming WAIT.
+
+`SellTimingEngine.evaluateManagedExit` now supplies the same initial/relist pricing to the client,
+companion and replay. Fresh trades use the existing exit strategy. Quiet trades use the greater of
+the last recorded sell-side price and the exact full-pool taxed non-loss floor. This is a supported
+limit price, with visible trade ages and no promised fill, rather than a claim of executable value.
+It does not update the ledger, risk marks, realized profit or stock location. Missing/future prices,
+unknown cost and an impossible legal floor still withhold that limit. Even sell-only mode cannot
+use quiet evidence to cut a loss. Stops and cancellation/repricing of an existing sell still need
+fresh trades; manual unknown-cost relists retain their existing freshness requirement.
+
+Final authority also requires the requested units in the current physical holdings capture, capped
+by canonical acquisitions and unlisted quantity. Exact source, scope, account/feed/decision TTL,
+pending-ACK and foreground-generation fences remain. Smoothing rechecks the exact taxed floor for
+quiet exits even in sell-only mode. Refusals explain whether repricing, purchase records, physical
+stock or price need refreshing, and retain a diagnostic reason instead of one indefinite message.
+
+Replay version 3 applies this same quiet-stock rule; old bundles require their retained evaluator.
+This adds no simulated or measured performance claim. Complete production replacement/relist intent,
+foreground timing, whole-account benchmark and learning-release gates remain open.
+
 The behavioral HTTP fixtures cover delayed acquired exits and entry authority, observed personal
 sale maintenance, partial fills during verification, wrong source, cleared offers and pending
 financial delivery. Existing exact-cost/tax/unknown-cost/relist/partial/cancel/source/duplicate tests

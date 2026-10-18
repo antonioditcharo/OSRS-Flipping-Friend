@@ -26,7 +26,7 @@ public class CompanionSalePolicyTest {
         accept(store,event(0,"BOUGHT","purchase",3,3,301,101,at+1));
         accept(store,event(0,"EMPTY",null,0,0,0,0,at+2));
         return new AccountSnapshot("current",at+3600,100000000,0,8,8,true,false,0,"MODERATE",Map.of(),0,Map.of(),true,5)
-            .withAccountId(id).withAutomaticTradeScope();
+            .withAccountId(id).withAutomaticTradeScope().withObservedHoldings(Map.of(561,3));
     }
     MarketIngestionService.MarketState market(long now,int high) {
         var latest=new JsonObject();var q=new JsonObject();q.addProperty("low",high);q.addProperty("high",high);
@@ -64,11 +64,29 @@ public class CompanionSalePolicyTest {
             var account=setup(store);long now=at+3800;
             String source=store.ledgerSnapshot(id,now).getTradingPositions().get(0).getSourceEventId();
             assertEquals(OfferLifecycleAction.WAIT,decide(store,account,source,2,120,-1,now).getAction());
-            var staleQuote=market(at+3600,120);staleQuote.latest.getAsJsonObject("561").addProperty("lowTime",at+3200);
+            var staleQuote=market(at+3400,120);
             var refused=new CompanionSalePolicy().decide(store.planningProjections(id),store.ledgerSnapshot(id,at+3600),account,staleQuote,
                 (item,step)->List.of(),561,120,2,source,false,-1,at+3600);
-            assertEquals(OfferLifecycleAction.WAIT,refused.getAction());assertEquals("SALE_QUOTE_STALE",refused.getReasonCode());
+            assertEquals(OfferLifecycleAction.WAIT,refused.getAction());assertEquals("SALE_EVIDENCE_UNAVAILABLE",refused.getReasonCode());
             var ledger=store.ledgerSnapshot(id,now);assertEquals(301,ledger.getTradingPositions().get(0).getTotalCost());assertEquals(0,ledger.getSales());
+        }
+    }
+    @Test public void quietMarketStillAuthorizesAnExactNonLossExitButNeverALossOrReprice()throws Exception {
+        try(var store=new SqliteStore(folder.newFolder().toPath().resolve("quiet.db"))) {
+            var account=setup(store);long now=at+3600;
+            var ledger=store.ledgerSnapshot(id,now);String source=ledger.getTradingPositions().get(0).getSourceEventId();
+            var quiet=market(now,120);quiet.latest.getAsJsonObject("561").addProperty("highTime",now-1200);
+            var policy=new CompanionSalePolicy();int effects=store.positionEventCount();
+            var exit=policy.decide(store.planningProjections(id),ledger,account,quiet,(i,s)->List.of(),561,120,2,source,false,-1,now);
+            assertEquals("A fresh feed with an old last trade must not strand verified stock",OfferLifecycleAction.PLACE_SELL,exit.getAction());
+            assertEquals(OfferLifecycleAction.WAIT,policy.decide(store.planningProjections(id),ledger,account,quiet,(i,s)->List.of(),561,1,2,source,true,-1,now).getAction());
+            assertEquals(OfferLifecycleAction.WAIT,policy.decide(store.planningProjections(id),ledger,account,quiet,(i,s)->List.of(),561,1,2,source,false,-1,now).getAction());
+            assertEquals("SALE_STOCK_NOT_OBSERVED",policy.decide(store.planningProjections(id),ledger,
+                account.withObservedHoldings(Map.of()),quiet,(i,s)->List.of(),561,120,2,source,false,-1,now).getReasonCode());
+            var sale=event(0,"SELLING","sale",3,0,0,150,now);accept(store,sale);
+            assertEquals("Old trades cannot justify cancelling an existing sell", "SALE_QUOTE_STALE",
+                policy.decide(store.planningProjections(id),ledger,account,quiet,(i,s)->List.of(),561,119,3,sale.getEventId(),false,0,now).getReasonCode());
+            assertEquals(effects,store.positionEventCount());assertEquals(0,store.ledgerSnapshot(id,now).getSales());
         }
     }
     @Test public void playerStartedSalesOfPausedStockHaveUnknownCostMaintenanceButNoManagedExit()throws Exception {

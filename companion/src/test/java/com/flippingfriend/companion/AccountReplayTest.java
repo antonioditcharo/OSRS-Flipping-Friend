@@ -82,6 +82,15 @@ public class AccountReplayTest {
     @Test public void sameFrozenInputsReproduceExactActionsAndNumbers() throws Exception {
         var input=input(1,21);assertEquals(new Gson().toJson(run(input,5,10)),new Gson().toJson(run(input,5,10)));
     }
+    @Test public void quietTradeTimesDoNotStrandCollectedStockInReplay()throws Exception {
+        var input=input(1,21);
+        for(var frame:input.frames)if(frame.availableAt>=start+600)
+            frame.latest.getAsJsonObject("1").addProperty("highTime",start);
+        var result=run(input,5,10);
+        assertTrue(result.actions.toString(),result.actions.stream().anyMatch(s->s.contains("SELL ")));
+        assertEquals(1,result.completedSales);assertEquals(180,result.realizedProfit);
+        assertEquals("account-replay-3",result.policyVersion);
+    }
     @Test public void restartDuringPartialPurchasePreservesCanonicalCostLimitsAndRiskWindow()throws Exception {
         var input=input(1,21);for(var f:input.frames)for(var flow:f.flows)flow.lowVolume=600;
         var before=run(input,5,10);input.restartAt=List.of(start+601,start+1100);

@@ -25,8 +25,12 @@ frozen account rows/1,350 financial effects and the sole original risk anchor re
 Native identity/control uses granted limited rights and a held-handle creation/argument proof;
 no elevation, task/ACL change, financial replay/repair or game input was used.
 
-Supported Start reopened RuneLite. Fresh login/GE/sell acceptance was requested and remains pending;
-old-capture transport checks correctly await current observations. Owner-confirmed #88 buy-guidance
+Supported Start reopened RuneLite. The owner logged in and reports the sale still waits for minutes.
+Fresh GETs reproduce SALE_QUOTE_STALE on verified stock: last-trade age blocks the unlisted exit.
+The quiet-market non-loss exit correction is queued on codex/quiet-market-exits, not installed.
+Windows clean: 1,636 Java passed/six skips; identical frozen evidence changes WAIT to PLACE_SELL
+without accounting changes. [Current receipt](docs/history/quiet-market-sale-delivery-2026-10-18.md).
+Owner-confirmed #88 buy-guidance
 availability and #86 Missed flips stability remain accepted, not the broader controlled trading
 workflow. [Earlier policy delivery](docs/history/current-account-delivery-2026-10-18.md) and
 [history display](docs/history/history-display-delivery-2026-10-18.md).

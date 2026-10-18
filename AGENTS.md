@@ -75,6 +75,10 @@ are in `docs/project-direction.md`; historical package notes are not proof of ru
   SaleAccounting.allocateCost rule for subsets, not an integer unit average. Revalidate the exact
   taxed non-loss floor after price stabilization; no legal break-even price is not a clamped
   break-even claim. See docs/architecture/exact-exit-costs.md. Historical results stay unchanged.
+  Verified unlisted stock may receive a quiet-market non-loss limit from a fresh feed without
+  waiting for a new trade. Show the trade ages; old prices cannot trigger a loss cut or cancel an
+  existing sell. Keep current physical/source evidence and exact taxed floors; see
+  docs/architecture/sale-guidance-delivery.md.
 - Optimize and evaluate whole-account returns over elapsed time with realistic manual visits,
   capital, tax, buy limits, partial fills, losses, and remaining inventory. Slot-hour rates are
   diagnostic inputs, not a performance claim.

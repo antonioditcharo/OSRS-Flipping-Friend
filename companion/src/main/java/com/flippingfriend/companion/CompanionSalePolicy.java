@@ -31,7 +31,9 @@ final class CompanionSalePolicy {
             var raw=market.latest.get(Integer.toString(item));
             LatestPrice quote=raw==null?null:new com.google.gson.Gson().fromJson(raw,LatestPrice.class);
             Instant at=Instant.ofEpochSecond(now);
-            if(quote==null || !quote.isComplete() || quote.secondsSinceHigh(at)<0 || quote.secondsSinceLow(at)<0 || quote.stalestSideSeconds(at)>300)
+            if(quote==null || !quote.isComplete() || quote.getHighTime()==null || quote.getLowTime()==null
+                || quote.getHighTime()<=0 || quote.getLowTime()<=0 || quote.secondsSinceHigh(at)<0 || quote.secondsSinceLow(at)<0
+                || slot>=0 && quote.stalestSideSeconds(at)>300)
                 return refusal(type,identity,source,now,"SALE_QUOTE_STALE");
             Position position=null;
             for(var p:ledger.getTradingPositions())if(!paused && p.getItemId()==item) {
@@ -67,6 +69,8 @@ final class CompanionSalePolicy {
                     return refusal(type,identity,source,now,"SALE_PRICE_NOT_AUTHORIZED");
             } else {
                 if(position==null || quantity>position.getQuantity())return refusal(type,identity,source,now,"SALE_ACQUISITION_UNAVAILABLE");
+                if(account.getObservedHoldings()==null || account.getObservedHoldings().getOrDefault(item,0)<quantity)
+                    return refusal(type,identity,source,now,"SALE_STOCK_NOT_OBSERVED");
                 PositionProjection canonical=null;for(var p:ledger.getTradingPositions())if(p.getItemId()==item)canonical=p;
                 if(canonical==null || !source.equals(canonical.getSourceEventId()))return refusal(type,identity,source,now,"SALE_ACQUISITION_CHANGED");
                 int listed=0;
@@ -75,12 +79,12 @@ final class CompanionSalePolicy {
                     listed=Math.addExact(listed,offer.getTotalQuantity()-offer.getFilledQuantity());
                 }
                 if(quantity>position.getQuantity()-listed)return refusal(type,identity,source,now,"SALE_QUANTITY_ALREADY_LISTED");
-                var decision=exits.evaluate(position,quote,null,series,horizon,at,account.getMinProfitPerFlip(),true,account.isSellOnly(),false);
+                var decision=exits.evaluateManagedExit(position,quote,null,series,horizon,at,account.getMinProfitPerFlip(),true,account.isSellOnly(),false);
                 if(!decision.isSell() || (decision.getAction()==SellDecision.Action.CUT)!=cut
                     || Math.abs((long)decision.getPrice()-price)>=horizon.outbidDeadband(decision.getPrice()))
                     return refusal(type,identity,source,now,"SALE_EXIT_CHANGED");
                 long cost=SaleAccounting.allocateCost(position.getTotalCost(),position.getQuantity(),quantity);
-                if(!cut && !account.isSellOnly() && tax.netProceeds(item,price,quantity)<cost)
+                if(!cut && (!account.isSellOnly() || quote.stalestSideSeconds(at)>300) && tax.netProceeds(item,price,quantity)<cost)
                     return refusal(type,identity,source,now,"SALE_EXACT_COST_FLOOR");
             }
             return PolicyDecision.action("1",VERSION,identity+":"+now,type,slot<0?OfferLifecycleAction.PLACE_SELL:OfferLifecycleAction.CANCEL_SELL,
