@@ -5,6 +5,14 @@ Root notes describe the current workflow; detailed prior receipts remain in link
 
 ## Current source and installed runtime
 
+Queued on codex/clear-history-navigation: the owner reached Missed flips but reports its table
+flickering empty. The defect was reproduced: current offer delivery invalidates the fresh ledger,
+and every heartbeat rebuilt the table. A display-only account history cache, lifecycle response
+fence and stable table updates are implemented, with visible Records/filter labels and view titles.
+Standard Windows clean build passes in 91s/18 tasks: 1,604 Java passed/six existing skips. Both
+exact-head CI checks, installation and post-update UI acceptance are pending; #84 remains installed.
+[Behavior and regression coverage](docs/architecture/history-display-retention.md).
+
 PR #84 is merged at 9d9c3aae6b6659bc73adbec8dcee5ad69ae01f39 and installed through the supported
 paired updater. Exact source 0f1c150 passes Windows/Linux CI (run 39106989952). Standard Windows
 clean build: 89s/18 tasks, 1,596 Java passed/six existing skips; all 103 Python tests pass.

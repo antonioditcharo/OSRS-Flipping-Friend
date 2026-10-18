@@ -66,6 +66,7 @@ public class FlippingFriendPanel extends PluginPanel {
         JPanel tools = row(new FlowLayout(FlowLayout.RIGHT, 0, 0));
         tools.add(PanelIcons.button("preferences-action", "settings", "Preferences", () -> open("Settings")));
         JButton more = PanelIcons.button("more-action", "more_horiz", "Records and details", () -> { });
+        more.setIcon(null); more.setText("Records"); more.setFont(FontManager.getRunescapeSmallFont());
         more.addActionListener(e -> menu.show(more, 0, more.getHeight())); tools.add(more);
         header.add(tools, BorderLayout.EAST); add(content, header, 8);
         JLabel caption = label("Suggested Action:", true); caption.setHorizontalAlignment(SwingConstants.CENTER);
@@ -164,7 +165,10 @@ public class FlippingFriendPanel extends PluginPanel {
         suggestion.update(active, stepGuide.getPending());
         AccountState account = accountMonitor.getState();
         AccountLedgerSnapshot ledger = account != null && account.isLoggedIn() ? companion.lastLedger() : null;
-        details.update(active, ledger); missedFlips.refresh();
+        AccountLedgerSnapshot history = account != null && account.isLoggedIn() ? companion.historyLedger() : null;
+        if(history==null)history=ledger;
+        details.update(active,ledger,history,history!=null && ledger!=history);
+        missedFlips.refresh(account!=null && account.isLoggedIn());
         boolean buying = active != null && active.getType() == SuggestionType.BUY && !stepGuide.isPaused();
         skip.setEnabled(buying); block.setEnabled(buying); graph.setEnabled(active != null && active.getItemId() > 0);
         pause.setIcon(PanelIcons.icon(stepGuide.isPaused() ? "play_arrow" : "pause", UiUtils.TEXT));

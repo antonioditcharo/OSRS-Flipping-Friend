@@ -130,6 +130,9 @@ public class CompanionClient
 	private volatile PortfolioPlan lastPlan;
 	private volatile CompanionHealth lastHealth;
 	private volatile com.flippingfriend.core.AccountLedgerSnapshot lastLedger;
+    /** Display-only durable history. Never an input to trading, holdings or entry authority. */
+    private volatile com.flippingfriend.core.AccountLedgerSnapshot lastHistoryLedger;
+    private long ledgerGeneration;
 	@Inject private com.flippingfriend.session.StockDeclarations stockDeclarations;
 	private final AtomicLong stockReviewGeneration = new AtomicLong();
 	public long stockReviewVersion() { return stockReviewGeneration.get(); }
@@ -179,6 +182,8 @@ public class CompanionClient
 		{
 			clearIncumbent(); lastPlan = null; lastHealth = null;
 			lastLedger = null;
+            lastHistoryLedger = null;
+            ledgerGeneration++;
 			canonicalOffers.clear(); ledger.clear();
             lastPresented = null;
 			observedAccountId = current;
@@ -464,24 +469,41 @@ public class CompanionClient
 	private void refreshLedger(String requestedAccount)
 	{
 		if (requestedAccount == null) { lastLedger = null; return; }
+        long generation;
+        synchronized(this) { accountContext(); generation=ledgerGeneration; }
 		try
 		{
 			com.flippingfriend.core.AccountLedgerSnapshot fetched = get("ledger/current",
 				com.flippingfriend.core.AccountLedgerSnapshot.class);
-			acceptLedger(fetched, requestedAccount);
+			acceptLedger(fetched, requestedAccount,generation);
 		}
-		catch (Exception unavailable) { lastLedger = null; }
+        catch (Exception unavailable) { acceptLedger(null,requestedAccount,generation); }
 	}
 
 	synchronized boolean acceptLedger(com.flippingfriend.core.AccountLedgerSnapshot fetched, String requestedAccount)
 	{
-		if (!java.util.Objects.equals(requestedAccount, accountContext())) return false;
+		return acceptLedger(fetched,requestedAccount,ledgerGeneration);
+	}
+    synchronized boolean acceptLedger(com.flippingfriend.core.AccountLedgerSnapshot fetched,String requestedAccount,long generation)
+    {
+        String account=accountContext();
+        if(generation!=ledgerGeneration || !java.util.Objects.equals(requestedAccount,account))return false;
 		if (fetched == null || !fetched.isValid()
-			|| !java.util.Objects.equals(requestedAccount, fetched.getAccountId()))
+			|| !java.util.Objects.equals(requestedAccount, fetched.getAccountId())
+            || fetched.getObservedAt()>Instant.now().getEpochSecond())
 		{ lastLedger = null; return false; }
 		lastLedger = fetched;
+        if(replayEnabled && (lastHistoryLedger==null || fetched.getObservedAt()>=lastHistoryLedger.getObservedAt()))
+            lastHistoryLedger=fetched;
 		return true;
 	}
+
+    /** Retained account-scoped records for investigation, including during delivery/HTTP gaps. */
+    public synchronized com.flippingfriend.core.AccountLedgerSnapshot historyLedger() {
+        String account=accountContext();var history=lastHistoryLedger;
+        return replayEnabled && account!=null && history!=null && account.equals(history.getAccountId())
+            ? history:null;
+    }
 
 	public com.flippingfriend.core.AccountLedgerSnapshot lastLedger()
 	{
@@ -1132,22 +1154,26 @@ public class CompanionClient
                 }
         }
 
-        public void resumeOfferReplay()
+        public synchronized void resumeOfferReplay()
         {
                 accountContext();
                 replayGeneration.incrementAndGet();
+                ledgerGeneration++;
                 replayEnabled = true;
                 retryDelayMillis = INITIAL_RETRY_DELAY_MILLIS;
                 nextRetryAtMillis = 0;
         }
 
-        public void pauseOfferReplay()
+        public synchronized void pauseOfferReplay()
         {
                 replayEnabled = false;
                 replayGeneration.incrementAndGet();
+                ledgerGeneration++;
                 nextRetryAtMillis = Long.MAX_VALUE;
                 retryDelayMillis = INITIAL_RETRY_DELAY_MILLIS;
                 retryRequestGeneration.set(-1);
+                lastHistoryLedger=null;
+                lastLedger=null;
         }
 
         long nextRetryAtMillis() { return nextRetryAtMillis; }
