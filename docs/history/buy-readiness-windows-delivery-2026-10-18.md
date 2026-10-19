@@ -4,8 +4,9 @@
 PR [#98](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/98) is merged as `f662310` after
 both exact-head Windows/Linux checks passed on source `82e883b698c044a803cd60da35fe04a65b11822f`,
 run [39192695351](https://github.com/antonioditcharo/OSRS-Flipping-Friend/actions/runs/39192695351).
-The clean primary checkout fast-forwarded. Paired delivery awaits the requested normal RuneLite
-close; installed runtime remains the verified #96 pair. Installed/native player acceptance is pending.
+The clean primary checkout fast-forwarded. After the owner closed RuneLite normally, the supported
+paired updater installed #98 at **2026-10-19 05:06:38 UTC (18 October 21:06 local)**. Installed/native
+player acceptance is pending; this receipt separates delivery from that acceptance.
 
 The owner reports intermittent buy pauses apparently concerning inaccurate records, and requests
 full-screen native investigation windows. Read-only retained plan analysis distinguishes legacy
@@ -49,9 +50,9 @@ six existing skips** (plugin 725, core 192, companion 741 passed/six skipped). A
 targets Java 11. Tooling: **108 Python tests passed in 145.312s**. An earlier clean build also passed;
 the final build adds the confirmed-loss explanation regression. No financial or quote guard changes.
 
-Candidate plugin: 566,292 bytes, SHA-256 `742b80336e5fb2e8ad30a98c79ae80f8f417e75a4a862b9e2a1921ab4562706e`.
-Candidate companion: 18,044,098 bytes, SHA-256 `5522a6945fdbe192131cc56524b884c6144128b5e2f5579578ebb1fc210c3acc`.
-These are verified build identities, not a claim of installation.
+Installed plugin: 566,292 bytes, SHA-256 `742b80336e5fb2e8ad30a98c79ae80f8f417e75a4a862b9e2a1921ab4562706e`.
+Installed companion: 18,044,098 bytes, SHA-256 `5522a6945fdbe192131cc56524b884c6144128b5e2f5579578ebb1fc210c3acc`.
+Both installed files match the verified build identities and installation manifest.
 
 An additional read-only comparison uses a previously retained actual account/market capture and
 the retained #96 evaluator versus the new packaged evaluator. Every financial risk field is
@@ -60,6 +61,33 @@ quote details/recovery are established by the regression fixtures, not inferred 
 `frozen-risk-comparison.json` retains the comparison privately. Current pre-update financial proof
 freezes 44,076 canonical rows, 1,393 financial effects and the sole original loss anchor. The
 current task XML/SDDL and installed #96 manifest are retained for after-update comparison.
+
+## Installed delivery
+
+`tools/apply-update.ps1 -Unattended -SkipBuild` exited 0 after rechecking the existing verified
+pair, closed-client guard and official RuneLite 1.13.2/source API. Fresh backup
+**20261018-210634-e9da041d** is VERIFIED: three companion-account and 23 plugin-account files,
+JAR/manifest hashes and original task export. Process lifecycle stays 1; task XML and SDDL text
+are identical. A first raw-byte assertion noticed the native PowerShell snapshot's UTF-8 BOM;
+the retained before/after files decode to exactly identical text. No task change or failed update
+occurred, and the original evidence files were not rewritten.
+
+The read-only check preserves the exact 44,076-row canonical prefix, 1,393 financial effects and
+sole original risk anchor. Two legitimate later financial effects were already appended and are
+not used to rewrite that prefix. Status, launcher CheckOnly and the explicitly scoped GET-only
+pipeline all exit 0. The pre-login plan is UNAVAILABLE because fresh client cash/slots are absent;
+that is an expected refusal, not evidence of current entry eligibility. No synthetic account,
+offer or trade POST was used.
+
+Supported Start launched RuneLite 1.13.2 at 21:07 local; startup logs confirm the installed plugin
+was side-loaded. The owner was asked for one combined login/GE/native-window check, replacing the
+earlier graph/login request. Fresh authenticated slot/entry proof and native restore/maximize,
+filtering and sustained guidance acceptance remain pending. Transport/build checks cannot stand
+in for those results.
+
+Private installation receipts: `update.log`, `installation-{before,after,verification}.json`,
+`financial-preservation.json`, retained task snapshots, `status-after.log`,
+`compatibility-after.log`, `pipeline-after.log` and `start-after.log` in the directory above.
 
 Private receipts: `before-fix.log`, `before-companion-fix.log`, `targeted-final.log`,
 `clean-build.log`, `python-tests.log`, retained scoped GETs and `retained-refusals.json` under the

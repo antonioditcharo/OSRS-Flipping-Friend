@@ -14,6 +14,13 @@ Historical session/cadence labels are unavailable; GP/hour remains unmeasured.
 
 ## Installed continuation — 18 October 2026
 
+The #98 pair is installed after both exact-head checks. Current-stock valuation pauses name their
+item, exact reserve and missing/aged evidence, and retry promptly when newer market evidence
+arrives. All Records views and Missed flips open native maximized frames. Verified backup,
+installed hashes, unchanged task/financial prefix/risk anchor and transport checks pass; fresh
+account/native player acceptance remains pending. [Current receipt](history/buy-readiness-windows-delivery-2026-10-18.md).
+Historical uncertainty stays separate and genuine current exposure/loss guards remain active.
+
 The native market-graph increment is merged/installed as #96 after both exact-head checks;
 fresh graph/player acceptance is pending. [Current graph receipt](history/market-graph-delivery-2026-10-18.md).
 It adds real public
