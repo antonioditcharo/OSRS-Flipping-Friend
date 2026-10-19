@@ -62,3 +62,32 @@ Deferred: cross-account catalog/aggregation, active-flipping-only clock, complet
 terminal-adjusted benchmark measurement and other open TASKS parity/learning gates. Current-account
 wall-clock realized rates are not full account returns. Runtime learning remains HOLD. No full
 Copilot parity, private model reconstruction, validated bands or profit-superiority claim.
+
+## Exact source verification checkpoint
+
+PR #103 is merged as dd4926971fc7150cd2292b8a1d5686b94ad9752d. Both exact-head checks pass for
+ff09c267bad383018c3e1809ec6860d5b90d922a, run 39223299513 (Ubuntu 08:33:07Z,
+Windows 08:34:55Z). Standard clean Windows build: 126s / 18 tasks, 1,695 Java passed/six existing
+skips, project classes Java 11; 108 Python passed in 158.931s. Native QA/control checks pass.
+
+Verified artifacts: plugin 583,935 bytes, SHA256
+b4fc5091226c95abbd558af7569c5584512a818a50718e4b2ea18ffd7970a871;
+companion 18,078,136 bytes, SHA256
+760cdf8c1c95171df4b65a1cdad9a1221b6b7477a9411134fd7c34dbcc6b4b13.
+
+Final fixed-bar/source-clock probe (21 reads; first cold read excluded from repeated statistics):
+median 1,470.671ms -> 121.425ms; p95 1,631.560ms -> 165.054ms, identical full ledger/allocations,
+1,414 unchanged financial effects. Both plans are NO_FREE_SLOT; no final eligible buy is claimed.
+The final loopback fixture returns final PLACE_BUY for all twelve frames: 201ms cold, then 65–93ms.
+This is synthetic handler/decision evidence, not installed UI or measured whole-account returns.
+A disposable SQLite 3.45.3 WAL probe also verifies snapshot-stable data_version during an external
+commit and changed version on the next transaction (2 / 2 / 3), supporting coherent invalidation.
+
+Private reproducible manifests: build-verification.json, ci-exact-head.json,
+latency-artifact-manifest.json, latency-summary.json, loopback-latency.json and
+sqlite-snapshot-version.log under local-data/panel-parity-20261019. The frozen database/market remain
+hash-identical to their source capture; no source clock, cash or slots were changed.
+
+At this checkpoint installation is pending normal player closure. Existing #101 remains installed.
+Supported backup/pair/task/financial-preservation/status/compatibility and live player checks must
+be recorded before changing that state. No forced closure or game input.
