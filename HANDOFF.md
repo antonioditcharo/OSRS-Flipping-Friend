@@ -4,14 +4,26 @@ Updated 19 October 2026 (America/Anchorage). Read AGENTS.md and TASKS.md.
 
 ## Current source and installed runtime
 
-#103/dd49269 is INSTALLED at 2026-10-19T09:17:24Z. Source ff09c267 passes both exact-head checks
-(run 39223299513); Windows clean: 1,695 Java passed/six skips, Java 11; 108 Python passed.
-VERIFIED backup 20261019-011720-86754cee, exact pair/task XML/SDDL, 59,535 canonical/1,468 financial
-rows/original loss anchor, status/1.13.2 compatibility/scoped GET checks pass. Supported Start
-reopened RuneLite. Fresh account/eight-slot durable bindings and scoped Performance pass. Twelve
-delivered BUY cards: median 1,039ms, max 5,186ms on the first durable publication; 62 WAIT cards:
+#105/e21a049 is INSTALLED at 2026-10-19T09:50:31Z after both exact-head checks pass for 24ec8a0
+(run 39232384022). Windows clean 112s: 1,717 Java passed/six skips, Java 11; 108 tooling passed.
+VERIFIED backup 20261019-015028-11a456ab; pair/task XML/SDDL, all 61,527 retained event-log rows,
+1,469 financial effects/original loss anchor, status/1.13.2 compatibility/scoped GETs pass. Supported
+Start reopened RuneLite. Fresh login and controlled sell/partial/cancel/collect/relist/restart
+acceptance remain pending. [Contract](docs/architecture/patient-sale-pricing.md) and
+[delivery](docs/history/patient-sale-delivery-2026-10-19.md) preserve exact receipts/player steps.
+
+The shared sell policy lists promptly at an available original healthy target, honors configured
+horizons, full sell patience, recent observed fills and completed-market support before routine
+reductions. Expiry alone no longer models a discount below the current ask. Refused routine
+maintenance leaves the order listed and continues through independent entry checks; stops,
+wind-down, exact floors, unknown money and current source/quantity guards remain. No financial
+rewrite, optimal-pricing or return claim. Replay v5's twelve structural cadence/share cases
+reproduce; complete production-policy/real benchmark gates remain open.
+
+Included #103/dd49269 panel/speed: fresh account/eight-slot bindings and scoped Performance pass.
+Twelve delivered BUY cards: median 1,039ms, max 5,186ms on the first durable publication; 62 WAIT cards:
 median 607ms/max 1,436ms. Not exact game-event/frame latency or controlled trading acceptance.
-Current player sell-only setting correctly disables buys; panel/reset/sustained acceptance remains.
+That session's sell-only setting correctly disabled buys; panel/reset/sustained acceptance remains.
 Contract: docs/architecture/panel-performance-and-latency.md; source/timing/delivery/player steps:
 docs/history/panel-speed-delivery-2026-10-19.md. Root design-qa.md is the current visual gate.
 
@@ -22,17 +34,7 @@ Cross-account aggregation remains deferred. History/candidate analysis caches an
 completion remove repeated full analysis and fixed five-second spacing while retaining current
 source/cash/limit/risk checks. Frozen timing and synthetic loopback are not installed UI acceptance.
 
-Current work fixes the owner's premature break-even/scrap-profit sells. Regression-first failures
-cover abandoned healthy targets, quiet initial pricing, direct break-even maintenance and ignored
-custom horizons. Shared patient pricing protects targets, full expected sell time/recent progress
-and completed-market support, retaining fresh stops/explicit wind-down. Clean Windows: 1,717 Java
-passed/six skips in 112s, Java 11; 108 tooling passed. Replay v5's twelve structural cadence/share
-scenarios reproduce; no market-performance claim. CI/paired installation remain pending. Queued source;
-#103's initial sell availability acceptance does not validate price quality. Current contract/receipt:
-[contract](docs/architecture/patient-sale-pricing.md);
-[delivery](docs/history/patient-sale-delivery-2026-10-19.md).
-
-#101 is INSTALLED with its approved quiet-stock policy: direct bids within 120s; fallback trades
+Included #101 approved quiet-stock policy: direct bids within 120s; fallback trades
 within 15m only with qualified completed public price/volume, a 10% haircut/tax and quantity limits.
 Quiet marks cannot credit gains; missing/unsupported stock stays fully reserved. Original accounting,
 anchors, confirmed-loss and final guards remain. Verified pair/backup/task/financial-prefix/status/
