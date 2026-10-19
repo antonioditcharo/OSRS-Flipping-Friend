@@ -41,6 +41,10 @@ future medians/ranges and shows sample counts. Dark tabs and responsive tick cou
 readability at 1905, 1000 and 730px. Real ItemManager sprites and licensed Material PNG controls
 are used; the quantitative plot is painted from data, not a generated image.
 
+All Records views and the separate Missed flips window open maximized in native resizable frames
+on the client's monitor. Standard title-bar maximize/restore remains available. The graph's
+expand control uses that native state, so restoring and maximizing agree with the operating system.
+
 `GraphHistoryCache` has a focused background worker and a bounded independent cache. It first
 uses sufficiently recent companion history, then public Wiki history for the selected item.
 Graph browsing cannot overwrite production strategy history or queue behind its bulk warm-up.

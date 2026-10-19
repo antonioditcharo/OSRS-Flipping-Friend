@@ -182,6 +182,11 @@ final class MarketGraphView extends JPanel {
     }
     private void expand() {
         Window window=SwingUtilities.getWindowAncestor(this);if(window==null)return;
+        if(window instanceof Frame) {
+            Frame frame=(Frame)window;
+            frame.setExtendedState((frame.getExtendedState() & Frame.MAXIMIZED_BOTH)!=0?Frame.NORMAL:Frame.MAXIMIZED_BOTH);
+            return;
+        }
         if(restoredBounds==null){
             restoredBounds=window.getBounds();GraphicsConfiguration display=window.getGraphicsConfiguration();
             Rectangle area=new Rectangle(display.getBounds());Insets insets=Toolkit.getDefaultToolkit().getScreenInsets(display);

@@ -5,6 +5,13 @@ Root notes describe the current workflow; detailed prior receipts remain in link
 
 ## Current source and installed runtime
 
+Queued `codex/buy-readiness-and-window-size` names current-stock valuation pauses, preserves their
+exact reserve/120s quote guard and retries on newer market evidence without the ordinary spacing
+delay. Records/Missed flips now open native maximized frames. Regression-first fixes pass; Windows
+clean 92s: 1,658 Java passed/six skips, Java 11; 108 tooling tests pass. CI/paired delivery/installed
+acceptance are pending. Runtime remains
+the verified #96 pair below. Receipt: docs/history/buy-readiness-windows-delivery-2026-10-18.md.
+
 Merged #96/1ebe4f8 adds the wide native market graph, independent
 public-history cache and experimental historical-return projection/evaluation. It is INSTALLED
 with the accepted #94 sale fix. [Contract](docs/architecture/market-graphs.md), root design-qa.md

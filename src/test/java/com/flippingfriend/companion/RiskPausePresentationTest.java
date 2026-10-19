@@ -78,4 +78,32 @@ public class RiskPausePresentationTest {
         assertEquals("All Grand Exchange slots are busy",suggestion.getHeadline());
         assertFalse(suggestion.getDetail().contains("uncertainty reserve"));
     }
+    @Test public void currentStockValuationIsNotPresentedAsBrokenHistoricalRecords() {
+        var risk=AccountRiskSnapshot.builder(account,"persisted-window","session",now-1000,42,now,now)
+            .capital(100000000,100000000).uncertainty(20000000,0,0)
+            .currentAccountPolicy(349000000,20000000).build();
+        var suggestion=present(risk);
+        assertEquals("Waiting for stock valuation",suggestion.getHeadline());
+        assertTrue(suggestion.getDetail().contains("20,000,000 GP"));
+        assertTrue(suggestion.getDetail().contains("automatically"));
+        assertFalse(suggestion.getDetail().contains("349,000,000"));
+        assertEquals(Long.valueOf(-5000000),risk.getRemainingLossBudget());
+    }
+    @Test public void currentProofWaitShowsItsReasonOnlyForTheRightFreshAccount() {
+        var risk=AccountRiskSnapshot.unavailable(account,now,"The current offer for Nature rune has unresolved execution evidence.");
+        var wait=present(risk,account,PolicyAbstentionReason.ACCOUNT_STATE_UNAVAILABLE);
+        assertEquals("Verifying current account",wait.getHeadline());assertEquals(risk.getReason(),wait.getDetail());
+        assertFalse(present(risk,AccountIdentity.fromProfileKey("other"),PolicyAbstentionReason.ACCOUNT_STATE_UNAVAILABLE)
+            .getDetail().contains("Nature rune"));
+        var expired=AccountRiskSnapshot.unavailable(account,now-151,"Old private explanation");
+        assertFalse(present(expired,account,PolicyAbstentionReason.ACCOUNT_STATE_UNAVAILABLE)
+            .getDetail().contains("Old private explanation"));
+    }
+    @Test public void confirmedLossThatAlreadyExhaustsAllowanceDoesNotPromiseAQuoteCanClearIt() {
+        var risk=AccountRiskSnapshot.builder(account,"persisted-window","session",now-1000,42,now,now)
+            .capital(100000000,84000000).realized(-16000000,-16000000,1)
+            .uncertainty(20000000,0,0).currentAccountPolicy(349000000,20000000).build();
+        assertEquals("New buys are paused",present(risk).getHeadline());
+        assertTrue(risk.getRemainingLossBudget()<-risk.getUnpricedManagedCostReserve());
+    }
 }

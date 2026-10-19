@@ -92,4 +92,42 @@ public class CurrentAccountRiskPolicyTest {
             assertNull(DurablePlanningExposure.forAccount(store.planningProjections(f.account),invalid,f.at));
         }
     }
+    @Test public void staleQuotePauseNamesTheItemAndFreshQuotesRestoreAllowanceWithoutRepair()throws Exception {
+        try(var store=new SqliteStore(folder.newFolder().toPath().resolve("quote-recovery.db"))) {
+            f.capture(store,100000000);f.buy(store,"large-stock",20,1000000);var account=f.capture(store,80000000);
+            var read=store.planningProjections(f.account);var exposure=DurablePlanningExposure.forAccount(read,account,f.at);
+            var market=f.market(1000000);market.latest.getAsJsonObject("561").addProperty("lowTime",f.at-121);
+            int effects=store.positionEventCount();var stale=DurableRisk.evaluate(read,account,exposure,market,f.at);
+            assertTrue(stale.isAvailable());assertTrue(stale.getRemainingLossBudget()<0);
+            assertTrue(stale.getReason(),stale.getReason().contains("Nature rune"));
+            assertTrue(stale.getReason(),stale.getReason().contains("121s"));
+            assertTrue(stale.getReason(),stale.getReason().contains("120s"));
+            var fresh=f.evaluate(store,account,1000000);
+            assertTrue(fresh.getReason(),fresh.getRemainingLossBudget()>0);
+            assertEquals(Long.valueOf(0),fresh.getUnpricedManagedCostReserve());
+            assertEquals(stale.getWindowId(),fresh.getWindowId());assertEquals(effects,store.positionEventCount());
+        }
+    }
+    @Test public void aFreshMarketRetriesAStockValuationRefusalInsidePlanSpacing()throws Exception {
+        try(var store=new SqliteStore(folder.newFolder().toPath().resolve("prompt-recovery.db"))) {
+            f.capture(store,100000000);f.buy(store,"large-stock",20,1000000);var account=f.capture(store,80000000);
+            var read=store.planningProjections(f.account);var old=f.market(1000000);
+            old.latest.getAsJsonObject("561").addProperty("lowTime",f.at-121);
+            var risk=DurableRisk.evaluate(read,account,DurablePlanningExposure.forAccount(read,account,f.at),old,f.at);
+            assertTrue(risk.getRemainingLossBudget()<0);
+            try(var service=new CompanionService(f.gson,store)) {
+                var helper=new BoundedPlanningStateTest();helper.set(service,"account",account);
+                var market=(MarketIngestionService)helper.get(service,"market");
+                var quotes=f.market(1000000);
+                helper.set(market,"state",new MarketIngestionService.MarketState(quotes.mapping,quotes.latest,quotes.fiveMinute,quotes.hourly,f.at+1));
+                long now=java.time.Instant.now().getEpochSecond();
+                helper.set(service,"plan",PortfolioPlan.unavailable("stock-pause",PortfolioPlanOutcome.DRAWDOWN_LIMIT_REACHED,
+                    risk.getReason(),now).withCanonicalRisk(risk));
+                helper.set(service,"lastPlanAt",now);helper.set(service,"lastPlanFreeSlots",8);helper.set(service,"lastPlanSellOnly",false);
+                service.refreshAccountPlan();
+                ((java.util.concurrent.ExecutorService)helper.get(service,"planThread")).submit(()->{}).get(10,java.util.concurrent.TimeUnit.SECONDS);
+                assertNotEquals("New price evidence must not retain the older cached refusal",PortfolioPlanOutcome.DRAWDOWN_LIMIT_REACHED,service.plan().getOutcome());
+            }
+        }
+    }
 }
