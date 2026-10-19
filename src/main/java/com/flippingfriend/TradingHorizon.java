@@ -113,23 +113,18 @@ public class TradingHorizon
 	 * price by nearly 200k. Nothing had gone wrong with it. It had been on the market for an eighth
 	 * of the time it was supposed to need.
 	 * <p>
-	 * Half the predicted time is the point where the estimate is starting to look wrong rather than
-	 * merely unfulfilled. Below that there is no information yet, only impatience — and impatience
-	 * here is expensive, because the thing it buys is a worse price.
+	 * Allow the full predicted sell time before routine repricing. A forecast is uncertain; reaching
+     * its halfway point is not evidence of failure. The shared sale policy additionally checks recent
+     * progress and sustained completed market buckets. Stops and explicit wind-down bypass patience.
 	 *
 	 * @param predictedMinutes what this leg was predicted to take, or 0 when that is not known
 	 */
 	public long patienceMinutes(double predictedMinutes)
 	{
-		double expected = predictedMinutes > 0 ? predictedMinutes : legHorizonHours() * 60.0;
-		return Math.max(staleOfferMinutes(), Math.round(expected * PATIENCE_SHARE));
+		double expected = Double.isFinite(predictedMinutes) && predictedMinutes > 0
+            ? predictedMinutes : legHorizonHours() * 60.0;
+		return Math.max(staleOfferMinutes(), (long)Math.ceil(expected));
 	}
-
-	/**
-	 * The share of a leg's predicted time that has to pass before its price is questioned. Halfway
-	 * is when being unfilled stops being consistent with the estimate and starts contradicting it.
-	 */
-	private static final double PATIENCE_SHARE = 0.5;
 
 	/**
 	 * How far the market has to move past an offer before saying so is worth the player's attention.

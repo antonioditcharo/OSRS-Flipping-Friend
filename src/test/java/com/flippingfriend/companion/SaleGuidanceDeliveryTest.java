@@ -53,9 +53,9 @@ public class SaleGuidanceDeliveryTest {
                 String key=q.get("item")+":"+q.get("price")+":"+q.get("quantity")+":"+source+":"+q.get("cut")+":"+slot;
                 var decision=entry?PolicyDecision.action("1","companion-entry-1","entry",PolicyDecisionType.ENTRY,OfferLifecycleAction.PLACE_BUY,
                     "ENTRY_CANDIDATE_SELECTED",now,now-1,"561:100:120:3",q.get("planId"))
-                    :PolicyDecision.action("1","companion-sale-1","decision",slot<0?PolicyDecisionType.EXIT:PolicyDecisionType.SELL_MAINTENANCE,
+                    :PolicyDecision.action("1","companion-sale-2","decision",slot<0?PolicyDecisionType.EXIT:PolicyDecisionType.SELL_MAINTENANCE,
                     slot<0?OfferLifecycleAction.PLACE_SELL:OfferLifecycleAction.CANCEL_SELL,"SALE_AUTHORIZED",now,now-1,key,source);
-                if(refusal!=null)decision=PolicyDecision.abstain("1","companion-sale-1","refused",
+                if(refusal!=null)decision=PolicyDecision.abstain("1","companion-sale-2","refused",
                     slot<0?PolicyDecisionType.EXIT:PolicyDecisionType.SELL_MAINTENANCE,
                     PolicyAbstentionReason.ACCOUNT_STATE_INCONSISTENT,refusal,now,now-1,key,source);
                 byte[] body=json.toJson(decision).getBytes(StandardCharsets.UTF_8);
@@ -112,18 +112,18 @@ public class SaleGuidanceDeliveryTest {
         assertEquals(offer.getEventId(),requested.get().get("source"));
         assertNull(client.currentCanonicalOpenBuy());
         client.publishOfferCleared(2);acknowledge();ledger(false);requested.set(null);
-        assertEquals(SuggestionType.WAIT,client.authorizeSale(proposed).getType());assertNull(requested.get());
+        assertNull(client.authorizeSale(proposed));assertNull(requested.get());
     }
     @Test public void newPartialFillWhileVerifyingWithdrawsTheOldInstruction()throws Exception {
         publishSale(0);acknowledge();ledger(false);
         duringRequest=()->{try{publishSale(1);}catch(Exception error){throw new AssertionError(error);}};
-        assertEquals(SuggestionType.WAIT,client.authorizeSale(sale(true)).getType());
+        assertNull(client.authorizeSale(sale(true)));
         assertNotNull("The source was sent before the partial fill changed it",requested.get());
     }
     @Test public void acknowledgedPartialFillAlsoWithdrawsTheOldSource()throws Exception {
         publishSale(0);acknowledge();ledger(false);
         duringRequest=()->{try{publishSale(1);acknowledge();ledger(false);}catch(Exception error){throw new AssertionError(error);}};
-        assertEquals("Drained delivery is not permission to reuse the previous sell frame",SuggestionType.WAIT,client.authorizeSale(sale(true)).getType());
+        assertNull("Drained delivery is not permission to reuse the previous sell frame",client.authorizeSale(sale(true)));
         assertNotNull(requested.get());
     }
     @Test public void wrongSourceAndMissingFinancialDeliveryNeverBecomeAuthority()throws Exception {
@@ -134,11 +134,15 @@ public class SaleGuidanceDeliveryTest {
     }
     @Test public void refusalExplainsTheActualBlockedActionAndRecoveryClearsTheDiagnostic()throws Exception {
         publishSale(0);acknowledge();ledger(false);refusal="SALE_QUOTE_STALE";
-        var blocked=client.authorizeSale(sale(true));
-        assertEquals(SuggestionType.WAIT,blocked.getType());assertEquals("Waiting for a fresh repricing quote",blocked.getHeadline());
-        assertTrue(blocked.getDetail().contains("current price stays in place"));
+        assertNull("Routine maintenance is withheld without blocking the separate buy path",client.authorizeSale(sale(true)));
         assertTrue(client.lastError().contains("SALE_QUOTE_STALE"));
         refusal=null;assertEquals(SuggestionType.MODIFY_SELL,client.authorizeSale(sale(true)).getType());
         assertEquals("",client.lastError());
+    }
+    @Test public void refusedUrgentCutsStillRetainPriorityAndNeverBecomeAnEntryFallback()throws Exception {
+        publishSale(0);acknowledge();ledger(false);refusal="SALE_QUOTE_STALE";
+        var cut=Suggestion.builder(SuggestionType.MODIFY_SELL).item(561,"Nature rune").quantity(3).price(120).slot(2).lossCut(true).build();
+        assertEquals(SuggestionType.WAIT,client.authorizeSale(cut).getType());
+        ledger(true);assertEquals(SuggestionType.WAIT,client.authorizeSale(sale(false)).getType());
     }
 }

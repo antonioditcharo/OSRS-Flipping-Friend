@@ -15,10 +15,11 @@ public class SaleMaintenancePricingTest {
     final TradingHorizon horizon=TradingHorizon.of(RiskProfile.MODERATE,CheckInterval.FIVE_MINUTES);
     SaleMaintenancePricing.Quote quote(Position p,int ask,int remaining,int high) {
         return new SaleMaintenancePricing().quote(1,ask,remaining,p,new LatestPrice(high,now.getEpochSecond(),high,now.getEpochSecond()),
-            List.of(),horizon,now,false,exits,tax);
+            List.of(new Candle(now.getEpochSecond()/300*300-300,high,high,100,100),new Candle(now.getEpochSecond()/300*300-600,high,high,100,100)),
+            horizon,now,false,exits,tax,now.getEpochSecond()-400*60,now.getEpochSecond()-400*60);
     }
     @Test public void exactSubsetFloorPreservesTheExtraCoin() {
-        var p=new Position(1,"Item",3,301,now.getEpochSecond()-60,true);
+        var p=new Position(1,"Item",3,301,now.getEpochSecond()-400*60,true);
         var quote=quote(p,150,2,102);
         assertNotNull(quote);assertEquals(200,quote.allocatedCost);assertEquals(102,quote.floor);
         assertTrue(tax.netProceeds(1,quote.price,2)>=quote.allocatedCost);

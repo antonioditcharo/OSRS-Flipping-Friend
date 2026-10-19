@@ -4,10 +4,14 @@ Updated 19 October 2026 (America/Anchorage). Read AGENTS.md and TASKS.md.
 
 ## Current source and installed runtime
 
-#103/dd49269 is MERGED; source ff09c267 passes both exact-head Windows/Linux checks
-(run 39223299513). Windows clean 126s: 1,695 Java passed/six existing skips, Java 11;
-108 Python passed (158.931s). Native QA passes. Paired installation waits for the player to close
-RuneLite normally; installed runtime remains #101/5260586. No runtime acceptance is claimed.
+#103/dd49269 is INSTALLED at 2026-10-19T09:17:24Z. Source ff09c267 passes both exact-head checks
+(run 39223299513); Windows clean: 1,695 Java passed/six skips, Java 11; 108 Python passed.
+VERIFIED backup 20261019-011720-86754cee, exact pair/task XML/SDDL, 59,535 canonical/1,468 financial
+rows/original loss anchor, status/1.13.2 compatibility/scoped GET checks pass. Supported Start
+reopened RuneLite. Fresh account/eight-slot durable bindings and scoped Performance pass. Twelve
+delivered BUY cards: median 1,039ms, max 5,186ms on the first durable publication; 62 WAIT cards:
+median 607ms/max 1,436ms. Not exact game-event/frame latency or controlled trading acceptance.
+Current player sell-only setting correctly disables buys; panel/reset/sustained acceptance remains.
 Contract: docs/architecture/panel-performance-and-latency.md; source/timing/delivery/player steps:
 docs/history/panel-speed-delivery-2026-10-19.md. Root design-qa.md is the current visual gate.
 
@@ -17,6 +21,16 @@ as well as estimated trade profit/time. Measurement reset is separate from risk/
 Cross-account aggregation remains deferred. History/candidate analysis caches and immediate plan
 completion remove repeated full analysis and fixed five-second spacing while retaining current
 source/cash/limit/risk checks. Frozen timing and synthetic loopback are not installed UI acceptance.
+
+Current work fixes the owner's premature break-even/scrap-profit sells. Regression-first failures
+cover abandoned healthy targets, quiet initial pricing, direct break-even maintenance and ignored
+custom horizons. Shared patient pricing protects targets, full expected sell time/recent progress
+and completed-market support, retaining fresh stops/explicit wind-down. Clean Windows: 1,717 Java
+passed/six skips in 112s, Java 11; 108 tooling passed. Replay v5's twelve structural cadence/share
+scenarios reproduce; no market-performance claim. CI/paired installation remain pending. Queued source;
+#103's initial sell availability acceptance does not validate price quality. Current contract/receipt:
+[contract](docs/architecture/patient-sale-pricing.md);
+[delivery](docs/history/patient-sale-delivery-2026-10-19.md).
 
 #101 is INSTALLED with its approved quiet-stock policy: direct bids within 120s; fallback trades
 within 15m only with qualified completed public price/volume, a 10% haircut/tax and quantity limits.

@@ -88,6 +88,22 @@ latency-artifact-manifest.json, latency-summary.json, loopback-latency.json and
 sqlite-snapshot-version.log under local-data/panel-parity-20261019. The frozen database/market remain
 hash-identical to their source capture; no source clock, cash or slots were changed.
 
-At this checkpoint installation is pending normal player closure. Existing #101 remains installed.
-Supported backup/pair/task/financial-preservation/status/compatibility and live player checks must
-be recorded before changing that state. No forced closure or game input.
+Installed through the supported paired updater at 2026-10-19T09:17:24.8646686Z after the player
+closed RuneLite normally. VERIFIED backup 20261019-011720-86754cee; both installed hashes match
+the artifacts above. Lifecycle remains 1; protected task XML and SDDL are byte-identical. Read-only
+comparison preserves all 59,535 canonical rows, 1,468 financial effects and the original loss anchor
+with no new effects. Status reports PAIR VERIFIED / COMPANION RESPONDING, 1.13.2 compatibility
+passes, scoped GET pipeline passes (85 sale updates/22 unresolved/one range). The logged-out
+account correctly waits for current cash/slots. Supported Start reopens RuneLite and side-loads
+the installed JAR; no game input. Fresh login/GE, UI and sustained delivery acceptance remain
+pending. New sale-price-quality work is recorded separately in patient-sale-delivery-2026-10-19.md.
+
+Fresh logged-in scoped reads subsequently pass: eight acknowledged account read-set IDs resolve to
+authenticated durable slot observations at the capture clock, and Performance is bound to that
+same account. New runtime timing evidence is from the actual redirected RuneLite process's Client
+thread, excluding test-worker logs: twelve BUY deliveries median 1,038.5ms, maximum/p95 5,186ms
+(first delivery: 4,154ms capture/durable publication); 62 WAIT deliveries median 606.5ms,
+p95 963ms/max 1,436ms. These are refresh-request to client delivery, not exact game-event to frame
+latency or placed-offer outcomes. Current explicit sell-only mode returns SELL_ONLY_MODE with five
+free slots; its refusal is correct. Panel/reset/player and sustained/transition timing remain open.
+Private source/timing capture: sale-patience-20261019/installed-103-read.json and timing-summary.

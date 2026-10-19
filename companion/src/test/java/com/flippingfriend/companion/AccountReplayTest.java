@@ -89,7 +89,7 @@ public class AccountReplayTest {
         var result=run(input,5,10);
         assertTrue(result.actions.toString(),result.actions.stream().anyMatch(s->s.contains("SELL ")));
         assertEquals(1,result.completedSales);assertEquals(180,result.realizedProfit);
-        assertEquals("account-replay-4",result.policyVersion);
+        assertEquals("account-replay-5",result.policyVersion);
     }
     @Test public void restartDuringPartialPurchasePreservesCanonicalCostLimitsAndRiskWindow()throws Exception {
         var input=input(1,21);for(var f:input.frames)for(var flow:f.flows)flow.lowVolume=600;
@@ -106,5 +106,17 @@ public class AccountReplayTest {
         try{input.validate();fail("Unfinished aggregate accepted");}catch(IllegalArgumentException expected){}
         frame.fiveMinuteStartedAt=0;frame.hourlyStartedAt=0;input.validate();
         assertEquals(0,frame.market(input.mapping).fiveMinuteStartedAt);
+    }
+    @Test public void entryTargetSurvivesALowerQuoteAndPartialSaleAcrossRestart()throws Exception {
+        var input=input(1,26);
+        for(var frame:input.frames) {
+            if(frame.availableAt>=start+600)frame.latest.getAsJsonObject("1").addProperty("high",103);
+            for(var flow:frame.flows)flow.highVolume=600;
+        }
+        var before=run(input,5,10);input.restartAt=List.of(start+905);
+        var after=run(input,5,10);
+        assertEquals(new Gson().toJson(before),new Gson().toJson(after));
+        assertTrue(after.actions.toString(),after.actions.stream().anyMatch(s->s.contains("SELL 1 10 @ 120")));
+        assertEquals(180,after.realizedProfit);assertEquals(20,after.tax);
     }
 }

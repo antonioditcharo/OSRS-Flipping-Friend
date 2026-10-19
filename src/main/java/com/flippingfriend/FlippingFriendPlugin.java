@@ -964,7 +964,7 @@ public class FlippingFriendPlugin extends Plugin
 						int stop = (int) Math.round(
 							planned.getPrice() * (1 - config.riskProfile().getLossCutPct()));
 						tradePlans.plan(planned.getItemId(), planned.getTargetSellPrice(), stop,
-							planned.getExpectedMinutes(), planned.getExpectedProfit());
+							planned.getSellFillMinutes(), planned.getExpectedProfit());
 					}
 				}
 				// The walkthrough reads Grand Exchange widgets to decide whether the player is
@@ -1072,7 +1072,7 @@ public class FlippingFriendPlugin extends Plugin
                 "No eligible entry fits this item's cancelled remainder. Waiting for a fresh plan; the old order will not be reused.");
         int stop = (int)Math.round(authorized.getPrice() * (1-config.riskProfile().getLossCutPct()));
         tradePlans.plan(authorized.getItemId(), authorized.getTargetSellPrice(), stop,
-            authorized.getExpectedMinutes(), authorized.getExpectedProfit());
+            authorized.getSellFillMinutes(), authorized.getExpectedProfit());
         return authorized;
     }
 	/** A short, readable description of a failure, for a card rather than a log. */

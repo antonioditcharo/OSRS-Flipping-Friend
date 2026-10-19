@@ -6,7 +6,7 @@ import static org.junit.Assert.*;
 
 public class SaleDecisionAuthorityTest {
     PolicyDecision decision(String identity,int slot,long now) {
-        return PolicyDecision.action("1","companion-sale-1","decision",slot<0?PolicyDecisionType.EXIT:PolicyDecisionType.SELL_MAINTENANCE,
+        return PolicyDecision.action("1","companion-sale-2","decision",slot<0?PolicyDecisionType.EXIT:PolicyDecisionType.SELL_MAINTENANCE,
             slot<0?OfferLifecycleAction.PLACE_SELL:OfferLifecycleAction.CANCEL_SELL,"SALE_AUTHORIZED",now,now-1,identity,"source");
     }
     @Test public void exactOrderSourceTypeAndFreshDecisionAreRequired() {
@@ -16,5 +16,10 @@ public class SaleDecisionAuthorityTest {
         assertFalse(CompanionClient.validSaleDecision(decision,"561:120:3:source:false:-1","other-source",-1,100));
         assertFalse(CompanionClient.validSaleDecision(decision,"561:120:3:source:false:-1","source",0,100));
         assertFalse(CompanionClient.validSaleDecision(decision,"561:120:3:source:false:-1","source",-1,101));
+    }
+    @Test public void oldSaleSemanticsCannotAuthorizeAPatientPolicyOrder() {
+        var old=PolicyDecision.action("1","companion-sale-1","old",PolicyDecisionType.EXIT,OfferLifecycleAction.PLACE_SELL,
+            "SALE_AUTHORIZED",100,99,"order","source");
+        assertFalse(CompanionClient.validSaleDecision(old,"order","source",-1,100));
     }
 }

@@ -25,6 +25,7 @@ public class ManagedSellRelistWorkflowTest {
         final CompanionClient companion = mock(CompanionClient.class);
         final OfferTracker offers = mock(OfferTracker.class);
         final MarketDataService market = mock(MarketDataService.class);
+        final TradePlans plans=mock(TradePlans.class);
         final SuggestionEngine engine;
         Fixture(int remaining, long cost, int inventory, int price, boolean managed) throws Exception {
             var storage = TestStorage.rootedAt(folder.newFolder().toPath(), "relist");
@@ -44,30 +45,54 @@ public class ManagedSellRelistWorkflowTest {
             var snapshot = new MarketSnapshot(Map.of(561, metadata), Map.of(561,
                 new LatestPrice(price, now.getEpochSecond(), price, now.getEpochSecond())), Map.of(), Map.of(), now);
             when(market.getSnapshot()).thenReturn(snapshot);
-            when(market.getSeries(anyInt(), anyString())).thenReturn(List.of());
+            long end=now.getEpochSecond()/300*300;
+            when(market.getSeries(anyInt(), anyString())).thenReturn(List.of(new Candle(end-300,price,price,100,100),new Candle(end-600,price,price,100,100)));
             var config = mock(FlippingFriendConfig.class);
             when(config.riskProfile()).thenReturn(RiskProfile.MODERATE);
             when(config.checkInterval()).thenReturn(CheckInterval.FIVE_MINUTES);
             var skips = mock(SkipList.class); when(skips.skipped(any())).thenReturn(Set.of());
             engine = new SuggestionEngine(market, new FeatureEngine(), null, null, new Explainer(), null,
                 tax, monitor, null, mock(PositionBook.class), offers, new SellTimingEngine(new FillModel(), tax),
-                mock(TradePlans.class), config, skips, null);
+                plans, config, skips, null);
             inject(engine, "companion", companion);
             inject(engine, "sellRelist", new SellRelistIntent(storage)); // Recover the actual saved intent.
             engine.setObservedAccount(account);
             var trades = managed ? List.of(PositionProjection.ready(561, "Nature rune", remaining, cost,
-                now.getEpochSecond()-1000, now.getEpochSecond(), "buy", "buy-offer")) : List.<PositionProjection>of();
+                now.getEpochSecond()-100000, now.getEpochSecond(), "buy", "buy-offer")) : List.<PositionProjection>of();
             when(companion.tradingLedger()).thenReturn(ledger(trades, List.of(), Map.of()));
         }
         Suggestion next() { return engine.refresh(false); }
         Suggestion maintenance(int quantity) throws Exception {
+            return maintenance(quantity,100000,100000);
+        }
+        Suggestion maintenance(int quantity,long ageSeconds,long idleSeconds) throws Exception {
             inject(engine,"sellRelist",null);
-            var live = new TrackedOffer(0,561,false,1200,quantity,now.getEpochSecond()-100000);
+            var live = new TrackedOffer(0,561,false,1200,quantity,now.getEpochSecond()-ageSeconds);
+            live.observeFillAt(now.getEpochSecond()-idleSeconds);
             live.setState("SELLING");
             when(offers.getOffers()).thenReturn(List.of(live));
             when(offers.listedForSale()).thenReturn(Map.of(561,quantity));
             return next();
         }
+    }
+    @Test public void actualManagedGuidanceKeepsItsTargetAndDoesNotTurnItIntoABreakEvenReprice()throws Exception {
+        var f=new Fixture(6,5881,6,1000,true);
+        when(f.companion.tradingLedger()).thenReturn(ledger(List.of(PositionProjection.ready(561,"Nature rune",6,5881,
+            now.getEpochSecond()-60,now.getEpochSecond(),"buy","buy-offer")),List.of(),Map.of()));
+        doAnswer(call->{Position p=call.getArgument(0);p.setTargetSellPrice(1200);p.setPredictedSellMinutes(120);return null;}).when(f.plans).applyTo(any());
+        assertEquals(1200,f.next().getPrice());noReprice(f.maintenance(6));
+    }
+    @Test public void actualManagedMaintenanceWaitsForFullPredictionAndCurrentProgress()throws Exception {
+        var f=new Fixture(6,5881,6,1100,true);
+        doAnswer(call->{Position p=call.getArgument(0);p.setPredictedSellMinutes(120);return null;}).when(f.plans).applyTo(any());
+        noReprice(f.maintenance(6,119*60,119*60));
+        noReprice(f.maintenance(6,150*60,60));
+        assertEquals(SuggestionType.MODIFY_SELL,f.maintenance(6,150*60,10*60).getType());
+    }
+    @Test public void anActualFreshStopDoesNotWaitForRoutineMaintenancePatience()throws Exception {
+        var f=new Fixture(6,5881,6,800,true);
+        doAnswer(call->{Position p=call.getArgument(0);p.setStopPrice(900);p.setPredictedSellMinutes(120);return null;}).when(f.plans).applyTo(any());
+        var next=f.maintenance(6,60,0);assertNotNull(next);assertEquals(SuggestionType.MODIFY_SELL,next.getType());assertTrue(next.isLossCut());
     }
     private AccountLedgerSnapshot ledger(List<PositionProjection> trades, List<MissedFlipEvidence> missed,
             Map<String, Set<Integer>> scope) {

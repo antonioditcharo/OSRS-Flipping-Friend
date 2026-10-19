@@ -17,23 +17,10 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 
 /**
- * Prices the sale of something we are holding. It does not decide whether to sell.
- * <p>
- * <b>Everything held is listed on the pass that sees it.</b> There is no target to wait for, no
- * profit floor to clear, no "nobody is buying this at the moment", and no patience budget to spend
- * first. This class used to weigh all of those and answer HOLD, and every one of those answers was
- * a position sitting in a bank earning nothing while the reason it was being kept quietly stopped
- * being true. An unlisted item is not a trade; it is a decision deferred.
- * <p>
- * What is left is the part that is genuinely a judgement: <b>what price to ask</b>. A grid around
- * the current quote is evaluated against the item's own fill history and the price that converts
- * the position to coins fastest per gold given up wins. Where the sale cannot afford to wait in the
- * queue at all — a stop that has been hit, a position past its horizon, a session being wound down
- * — the grid is widened so it can cross the spread and meet the standing bid.
- * <p>
- * The only answer that is not a sale is the one where there is no price anywhere to quote: not in
- * the live feed, not in the item's history, not even a cost basis. That is missing data, not
- * patience.
+ * Lists verified stock promptly. Listing and sacrificing the planned profit are separate decisions:
+ * a healthy position retains its target throughout the configured holding horizon. An unvalidated
+ * fill model's small profit/time ratio cannot override that target. Expiry permits reassessing the
+ * target at the current ask. Only fresh stops or explicit wind-down use the urgent price search.
  */
 @Singleton
 public class SellTimingEngine
@@ -80,11 +67,11 @@ public class SellTimingEngine
             position.getTotalCost(), position.getQuantity());
         if (floor <= 0)
             return SellDecision.hold("No legal Grand Exchange price covers this position's recorded cost after tax.", Double.NaN);
-        int price = Math.max(floor, latest.getHigh());
+        int price = Math.max(protectedPrice(position,horizon,now,floor), latest.getHigh());
         return new SellDecision(SellDecision.Action.SELL, price,
             "Market trades are quiet (last sell-side trade " + latest.secondsSinceHigh(now) / 60
                 + "m ago; buy-side trade " + latest.secondsSinceLow(now) / 60
-                + "m ago). This limit covers the exact recorded purchase cost after tax. A fill is not guaranteed.",
+                + "m ago). This limit preserves the planned target while within its holding horizon and covers the exact recorded cost after tax. A fill is not guaranteed.",
             Double.NaN, taxCalculator.netProceeds(position.getItemId(), price, position.getQuantity()) - position.getTotalCost());
     }
 
@@ -117,19 +104,10 @@ public class SellTimingEngine
 			return SellDecision.hold("Waiting for a current price on this item.", 0);
 		}
 
-		int averageCost = position.isCostKnown() ? position.getAverageCost() : 0;
-		int lossCutPrice = position.getStopPrice();
-		if (lossCutPrice <= 0 && averageCost > 0)
-		{
-			lossCutPrice = averageCost - (int) Math.round(averageCost * profile.getLossCutPct());
-			lossCutPrice = Math.min(averageCost - 1, lossCutPrice);
-		}
-		boolean throughStop = position.isCostKnown() && marketSell <= lossCutPrice;
-		boolean pastHorizon = minutesHeld >= profile.getMaxHoldMinutes();
+		boolean throughStop = throughStop(position,marketSell,profile);
 		// How far the pricing may reach to get the offer filled. Crossing the spread costs real gold,
-		// so it is spent where the sale genuinely cannot wait for the queue: a stop that has been hit,
-		// a position past its patience budget, or a session being wound down.
-		boolean urgent = sellOnly || throughStop || (pastHorizon && position.isCostKnown());
+		// so reserve the modeled discount for a fresh stop or explicit player wind-down.
+		boolean urgent = sellOnly || throughStop;
 
 		int marketBuy = latest == null || latest.getLow() == null ? 0 : latest.getLow();
 		// Below this the sale realises a loss, whatever the fill model thinks of the price.
@@ -139,8 +117,15 @@ public class SellTimingEngine
 		boolean lossAllowed = throughStop || sellOnly;
         if(position.isCostKnown() && breakEven==0 && !lossAllowed)
             return SellDecision.hold("No legal Grand Exchange price covers this position's recorded cost after tax.",Double.NaN);
-		PricedExit exit = bestExit(series, itemId, marketSell, marketBuy, quantity, horizon,
-			position.isCostKnown()?position.getTotalCost():0, urgent, breakEven, position.getTargetSellPrice(), lossAllowed);
+		PricedExit exit;
+        if (!urgent) {
+            // Put the order on the market now, at its intended limit. A quiet/temporarily lower
+            // last trade says nothing about what a patient listing will receive.
+            int price=Math.max(marketSell,protectedPrice(position,horizon,now,breakEven));
+            var forecast=forecastForOrder(itemId,price,quantity,series,horizon);
+            exit=new PricedExit(price,forecast==null?Double.NaN:forecast.getExpectedTotalSeconds()/60.0);
+        } else exit = bestExit(series, itemId, marketSell, marketBuy, quantity, horizon,
+			position.isCostKnown()?position.getTotalCost():0, true, breakEven, position.getTargetSellPrice(), lossAllowed);
 
 		long expectedProfit = position.isCostKnown()
 			? taxCalculator.netProceeds(itemId,exit.price,quantity)-position.getTotalCost()
@@ -157,7 +142,7 @@ public class SellTimingEngine
 		}
 
 		return new SellDecision(SellDecision.Action.SELL, exit.price,
-			reasonFor(position, features, minutesHeld, profile, inInventory, sellOnly, marketSell),
+			reasonFor(position, features, minutesHeld, horizon, inInventory, sellOnly, marketSell),
 			exit.expectedMinutes, expectedProfit);
 	}
 
@@ -169,7 +154,7 @@ public class SellTimingEngine
 	 * differently on a card.
 	 */
 	private static String reasonFor(Position position, ItemFeatures features, long minutesHeld,
-		RiskProfile profile, boolean inInventory, boolean sellOnly, int marketSell)
+		TradingHorizon horizon, boolean inInventory, boolean sellOnly, int marketSell)
 	{
 		if (sellOnly)
 		{
@@ -186,17 +171,29 @@ public class SellTimingEngine
 		{
 			return "Target price reached. Selling.";
 		}
-		if (minutesHeld >= profile.getMaxHoldMinutes())
+		if (minutesHeld >= horizon.maxHoldMinutes())
 		{
-			return "Held past its horizon limit. Selling at the best price available.";
+			return "The configured holding horizon has elapsed. Reassessing at the current sell-side limit while preserving the exact after-tax cost floor.";
 		}
-		if (features != null && features.isUsable() && features.getRegime() == Regime.FALLING)
-		{
-			return "Momentum has turned against us. Market trend is falling.";
-		}
-		return "Listed now rather than waited on. An item sitting unlisted earns nothing, and the "
-			+ "price it is being kept back for may never arrive.";
+        String trend=features!=null && features.isUsable() && features.getRegime()==Regime.FALLING
+            ? " The recent trend is falling; the target and stop remain in force." : "";
+        return (target>0 ? "Listing at the planned target within the configured holding horizon. A lower last trade is not a reason to give away the planned profit; a fill is not guaranteed."
+            : "Listing at the current sell-side limit without discounting it for a modeled faster fill. No original target is known; a fill is not guaranteed.")+trend;
 	}
+
+    /** Price guard only; never a valuation, execution promise or invented historical target. */
+    public static int protectedPrice(Position position,TradingHorizon horizon,Instant now,int costFloor) {
+        if(position!=null && position.isCostKnown() && position.minutesHeld(now.getEpochSecond())<horizon.maxHoldMinutes())
+            return Math.max(costFloor,position.getTargetSellPrice());
+        return Math.max(1,costFloor);
+    }
+    /** Callers must establish quote freshness before using this to authorize a loss. */
+    static boolean throughStop(Position position,int marketSell,RiskProfile profile) {
+        if(position==null || !position.isCostKnown() || marketSell<=0)return false;
+        int cost=position.getAverageCost(),stop=position.getStopPrice();
+        if(stop<=0 && cost>0)stop=Math.min(cost-1,cost-(int)Math.round(cost*profile.getLossCutPct()));
+        return marketSell<=stop;
+    }
 
 	/**
 	 * A price to quote the offer at, from the live quote if there is one and from the last bar that
@@ -317,10 +314,10 @@ public class SellTimingEngine
 	 * which is the right range for a sale that is wanted rather than needed: it trades a little
 	 * margin for a faster fill without giving the spread away.
 	 * <p>
-	 * It is the wrong range for an exit that has to happen. A stop that has been hit, a position
-	 * past its horizon, and a sell-only wind-down all need to be able to <em>cross</em> the spread,
+	 * It is the wrong range for an exit that has to happen. A fresh stop and an explicit
+	 * sell-only wind-down need to be able to <em>cross</em> the spread,
 	 * and on an item quoting five percent wide an ask one percent under the top of the book is
-	 * still queued behind everybody. So those three cases get the standing bid, a coin under it and
+	 * still queued behind everybody. So those cases get the standing bid, a coin under it and
 	 * the midpoint added to the search. The fill model still judges every one of them, so a slower
 	 * price that keeps more of the position's value can still win.
 	 *

@@ -5,9 +5,22 @@ All unchecked release requirements remain visible below; detailed completion rec
 
 ## Active
 
-- [ ] Install/accept merged #103/dd49269 panel/performance/prompt guidance. Both exact-head CI
-      checks pass; Windows clean: 1,695 Java passed/six skips and 108 Python passed. Installation
-      waits for normal RuneLite closure. It adds scoped
+- [ ] Deliver/accept patient sell pricing after the owner's premature break-even/scrap-profit report.
+      Four old-source regressions reproduce; protect initial/quiet targets within the configured
+      horizon, full sell patience/recent progress and completed-market support for maintenance.
+      Preserve stops/wind-down, exact floors, unknown costs and final source/quantity guards.
+      Standard Windows 112s: 1,717 Java passed/six skips, Java 11; 108 tooling passed. Replay v5
+      structural twelve-cadence/share bundle reproduces; no return/optimal-pricing claim. CI,
+      supported pair and controlled acceptance remain open; source/build/install differ. See
+      docs/history/patient-sale-delivery-2026-10-19.md. Current installed #103 lacks this pricing fix.
+
+- [ ] Accept installed #103/dd49269 panel/performance/prompt guidance. Both exact-head CI
+      checks pass; Windows clean: 1,695 Java passed/six skips and 108 Python passed. Supported
+      update/VERIFIED backup/task/financial preservation/status/compatibility/scoped GETs pass;
+      RuneLite reopened; fresh authenticated eight-slot bindings/scoped Performance pass. Delivered
+      BUY median 1,039ms with a 5,186ms first-publication outlier; WAIT median 607ms. Current sell-only
+      correctly withholds buys. Panel/reset, controlled trading and sustained timing remain open.
+      It adds scoped
       session/period/reset, ledger-based profit/ROI/completed sales, conservative stock marks,
       elapsed clock/rate, paged sales and estimated action profit/time. Five-second minimum spacing
       is replaced by revision/validity reuse; source/history and candidate caches preserve final

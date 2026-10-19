@@ -92,4 +92,17 @@ public class OfferTrackerReportingTest
 		// should be to collect it, not to treat it as work in progress.
 		assertFalse(tracker.itemsWithOpenOffers().contains(MAGIC_LOGS));
 	}
+    @Test public void heartbeatDoesNotMoveTheObservedFillClockAndCopiesAndRestartsPreserveIt()throws Exception {
+        Path root=folder.newFolder("progress").toPath();var tracker=trackerAt(root);
+        tracker.onOfferChanged(0,offer(GrandExchangeOfferState.SELLING,MAGIC_LOGS,1200,10,0));
+        tracker.getOffer(0).observeFillAt(1); // an earlier observed clock, not an execution timestamp
+        assertEquals(1,tracker.getOffer(0).getLastFillObservedAt());
+        tracker.onOfferChanged(0,offer(GrandExchangeOfferState.SELLING,MAGIC_LOGS,1200,10,0));
+        assertEquals(1,tracker.getOffer(0).getLastFillObservedAt());
+        tracker.onOfferChanged(0,offer(GrandExchangeOfferState.SELLING,MAGIC_LOGS,1200,10,1));
+        long progress=tracker.getOffer(0).getLastFillObservedAt();assertTrue(progress>1);
+        assertEquals(progress,tracker.getOffer(0).copyObservation().getLastFillObservedAt());
+        tracker.save();var restarted=trackerAt(root);restarted.load();
+        assertEquals(progress,restarted.getOffer(0).getLastFillObservedAt());
+    }
 }
