@@ -5,6 +5,10 @@ All unchecked release requirements remain visible below; detailed completion rec
 
 ## Active
 
+Continuation impact order: trade-loop reliability/exit-context provenance, actual cold/event-to-advice
+latency, production-policy account replay/returns, validated learning, then remaining product gaps.
+Read [the continuation prompt](docs/next-conversation-prompt.md); current delivery facts below govern.
+
 - [ ] Accept installed #105/e21a049 patient sell pricing after the premature break-even report.
       Four old-source regressions reproduce; protect initial/quiet targets within the configured
       horizon, full sell patience/recent progress and completed-market support for maintenance.
@@ -183,13 +187,15 @@ All unchecked release requirements remain visible below; detailed completion rec
       docs/history/prospective-evaluation-2026-10-18.md. Runtime promotion/compatible forecast loader, rollback
       and drift controls remain unimplemented. No fitted artifact activates learning.
 - [ ] Finish manual cancel -> collect -> revalidate -> replace and partial-fill protection as a
-      complete live workflow; migrate sell maintenance and exits to companion policies.
+      complete live workflow. Shared sell pricing and final companion authority are implemented;
+      accept their production sequence and audit remaining target/stop/duration provenance rather
+      than rebuilding that migration. Check item-keyed TradePlans retention against longer holds.
 - [ ] Build account-level chronological replay for 100M members at 5m, 30m, 2h, and 8h checks.
       Include end-of-run inventory liquidation, cash, buy limits, tax, and missed visits.
       AccountReplay now models shared cash/eight slots, partial fills, sequential attendance,
       collection, tax, canonical limits/risk, restart and conservative terminal marks in twelve
-      scenarios. Replay v4 retains shared live/replay display-price stability/quiet-stock pricing
-      and explicit published aggregate clocks for the approved risk marks. Complete production
+      scenarios. Replay v5 retains shared live/replay display stability, quiet-stock/qualified mark
+      clocks, patient sale rules and entry target/stop/duration across partial fills/restart. Complete production
       buy-replacement/relist/foreground acceptance coverage and a
       qualified frozen market benchmark remain open; fixtures are not performance evidence.
 - [ ] Finish prospective cadence/attendance and full-account return measurement. The new sidebar
