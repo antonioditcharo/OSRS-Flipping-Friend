@@ -8,6 +8,14 @@ latency, complete production replay/returns, gated learning and remaining produc
 
 ## Current source and installed runtime
 
+Offline replay v6 now qualifies original acquisition context through canonical sources/restart,
+uses final companion sale authority and separates displayed advice from a later revalidated manual
+action. Completed orders and incremental disposal counts differ. This evaluator-only increment
+needs no live-pair replacement; #108 remains installed. Remaining buy-replacement/persisted-relist/
+real client acceptance and qualified benchmark gates stay open. See
+[replay contract](docs/architecture/replay-canonical-sale.md) and
+[verification](docs/history/replay-canonical-sale-2026-10-19.md).
+
 #108/fe8a33b is INSTALLED at 2026-10-19T16:13:02Z after both exact-head checks passed for
 2e30f76 (run 39279920742). Windows clean 66s: 1,726 Java passed/six existing skips, Java 11;
 108 tooling passed. VERIFIED backup 20261019-081258-a59c264b; installed pair/task XML/SDDL,
@@ -23,8 +31,8 @@ One subsequent legitimate financial append preserves the original prefix and anc
 Original target/stop/sell duration now follow the exact prospective canonical buy through partial
 fills, ACK/restart and partial sales without the item cache's six-hour TTL. Final sale authority
 uses that same context (companion-sale-3), not a later client snapshot. Mixed/unproven originals
-remain unknown; no legacy plan or old financial row is backfilled. Complete production replay of
-this provenance boundary remains open before any promotion gate.
+remain unknown; no legacy plan or old financial row is backfilled. Replay v6 covers this provenance
+boundary; complete production replay and every promotion gate remain open.
 
 Included #105/e21a049 patient pricing was previously installed with VERIFIED backup
 20261019-015028-11a456ab. Its source/policy checks and delivery remain in
@@ -36,8 +44,8 @@ horizons, full sell patience, recent observed fills and completed-market support
 reductions. Expiry alone no longer models a discount below the current ask. Refused routine
 maintenance leaves the order listed and continues through independent entry checks; stops,
 wind-down, exact floors, unknown money and current source/quantity guards remain. No financial
-rewrite, optimal-pricing or return claim. Replay v5's twelve structural cadence/share cases
-reproduce; complete production-policy/real benchmark gates remain open.
+rewrite, optimal-pricing or return claim. Replay v6 adds canonical/final authority to the structural
+cadence/share cases; complete production-policy/real benchmark gates remain open.
 
 Included #103/dd49269 panel/speed: fresh account/eight-slot bindings and scoped Performance pass.
 Twelve delivered BUY cards: median 1,039ms, max 5,186ms on the first durable publication; 62 WAIT cards:
@@ -88,9 +96,10 @@ stock evidence. Do not repeat it without new evidence. The 17 October research/s
 inventory is in docs/research/flipping-copilot-2026-10-17.md and linked ignored evidence. Its private
 backend/model/training data were not recovered; no private API production dependency.
 
-Replay v5 has shared capital/eight slots/limits/partial fills/tax/manual visits/restart/conservative
-terminal marks and twelve synthetic 100M cadence/share scenarios. Complete production replacement/
-relist/foreground coverage and qualified market benchmarks remain open. Benchmark 100M members at
+Replay v6 has shared capital/eight slots/limits/partial fills/tax/manual visits/restart/conservative
+terminal marks, qualified original plans, final sale authority and delayed revalidated actions in
+twelve synthetic 100M cadence/share scenarios. Complete production replacement/persisted relist/
+real client acceptance and qualified market benchmarks remain open. Benchmark 100M members at
 5m/30m/2h/8h separately; slot rates and price touches cannot establish account returns.
 
 Runtime learning stays PUBLIC_PRICE_BASELINE / HOLD_FOR_VALIDATION. A later 25-forecast cohort

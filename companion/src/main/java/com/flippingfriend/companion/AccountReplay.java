@@ -12,7 +12,7 @@ import java.util.*;
 
 /** One simulated account, one bankroll and eight physical slots; never opens a live database. */
 final class AccountReplay implements AutoCloseable {
-    static final String VERSION="account-replay-5";
+    static final String VERSION="account-replay-6";
     private static final String ACCOUNT=AccountIdentity.fromProfileKey("synthetic-account-replay-only");
     interface Entries {
         PortfolioPlan plan(MarketIngestionService.MarketState market,AccountSnapshot account,
@@ -20,32 +20,58 @@ final class AccountReplay implements AutoCloseable {
     }
     static final class Offer {
         final int slot,item,price,quantity; final boolean buy; final long placedAt; final String identity;
-        int filled;long spent,collectionCoins,lastProgressAt;boolean terminal,cancelled;
-        int target,stop;double predictedSellMinutes;
+        int filled;long spent,collectionCoins,lastProgressAt,realizedProfit;boolean terminal,cancelled;
+        OfferEvent origin,lastObservation;
         Offer(int slot,int item,int price,int quantity,boolean buy,long at,String id) {
             this.slot=slot;this.item=item;this.price=price;this.quantity=quantity;this.buy=buy;placedAt=at;lastProgressAt=at;identity=id;
         }
         int remaining(){return quantity-filled;}
     }
+    /** Displayed instruction, frozen before the player's later action. Never backdate advice. */
+    private static final class Guidance {
+        final String kind,offerIdentity,acquisitionSource,plan;
+        final int slot,item,price,quantity;
+        final long advisedAt,cost,spent,validUntil;
+        final boolean cut;
+        final PortfolioCandidate entry;
+        final AcquisitionExitContext context;
+        Guidance(String kind,int slot,int item,int price,int quantity,String offerIdentity,String acquisitionSource,
+            long cost,long spent,boolean cut,long at,PortfolioCandidate entry,String plan,AcquisitionExitContext context,long validUntil) {
+            this.kind=kind;this.slot=slot;this.item=item;this.price=price;this.quantity=quantity;
+            this.offerIdentity=offerIdentity;this.acquisitionSource=acquisitionSource;this.cost=cost;this.spent=spent;
+            this.cut=cut;advisedAt=at;this.entry=entry;this.plan=plan;this.context=context;
+            this.validUntil=validUntil;
+        }
+        boolean sameOrder(Guidance next) {
+            return next!=null && kind.equals(next.kind) && slot==next.slot && item==next.item && price==next.price
+                && quantity==next.quantity && cost==next.cost && spent==next.spent && cut==next.cut
+                && Objects.equals(offerIdentity,next.offerIdentity) && Objects.equals(acquisitionSource,next.acquisitionSource)
+                && Objects.equals(context,next.context);
+        }
+    }
     static final class Result {
         final String schemaVersion="1",evidence="SIMULATED_PUBLIC_VOLUME_SHARE",policyVersion=VERSION;
         final String completionModel;
+        final String salePolicyVersion=CompanionSalePolicy.VERSION;
         final int cadenceMinutes,captureShareBps,actionSeconds,missedVisits;
         final long elapsedSeconds,initialCoins,bagCoins,lockedBuyCoins,collectionCoins,inventoryCost,terminalValueLower;
-        final long equityLower,netEquityChangeLower,realizedProfit,tax,maximumDrawdown,interactions,completedSales,losingSales;
+        final long equityLower,netEquityChangeLower,realizedProfit,tax,maximumDrawdown,interactions,completedSales,losingSales,saleUpdates,losingSaleUpdates;
         final boolean terminalMarksComplete;
+        final long authorizedSales,withdrawnGuidance;
         final double netEquityGpPerElapsedHourLower,realizedGpPerElapsedHour;
         final Map<String,Integer> abstentions;
         final List<String> actions;
         Result(AccountReplay r,long end) throws Exception {
             cadenceMinutes=r.cadence;captureShareBps=r.share;actionSeconds=r.input.actionSeconds;missedVisits=r.missed;
             completionModel=r.completionModel;
+            authorizedSales=r.authorizedSales;withdrawnGuidance=r.withdrawnGuidance;
             elapsedSeconds=end-r.input.startAt;initialCoins=r.input.initialCoins;bagCoins=r.cash;
             lockedBuyCoins=r.locked();collectionCoins=r.collection();inventoryCost=r.cost();
             long marked=r.mark(end,true);terminalValueLower=marked;terminalMarksComplete=r.marksComplete;
             equityLower=Math.addExact(Math.addExact(bagCoins,lockedBuyCoins),Math.addExact(collectionCoins,marked));
             netEquityChangeLower=equityLower-initialCoins;realizedProfit=r.realized;tax=r.taxPaid;
-            maximumDrawdown=r.drawdown;interactions=r.interactions;completedSales=r.saleUpdates;losingSales=r.losses;
+            maximumDrawdown=r.drawdown;interactions=r.interactions;completedSales=r.completedSales;losingSales=r.losses;
+            saleUpdates=r.saleUpdates;losingSaleUpdates=r.losingSaleUpdates;
             netEquityGpPerElapsedHourLower=netEquityChangeLower*3600.0/elapsedSeconds;
             realizedGpPerElapsedHour=realizedProfit*3600.0/elapsedSeconds;
             abstentions=Collections.unmodifiableMap(new TreeMap<>(r.abstentions));actions=List.copyOf(r.actions);
@@ -70,10 +96,12 @@ final class AccountReplay implements AutoCloseable {
     private final AdvisedPriceTracker advisedPrices=new AdvisedPriceTracker();
     private final TradingHorizon horizon;
     private final Entries entries;
+    private final SeriesSource history;
     private final Map<String,Integer> abstentions=new TreeMap<>();
     private final List<String> actions=new ArrayList<>();
     private AccountReplayInput.Frame frame;
-    private long now,sequence,cash,realized,taxPaid,interactions,saleUpdates,losses,drawdown,peak;
+    private long now,sequence,cash,realized,taxPaid,interactions,saleUpdates,completedSales,losses,losingSaleUpdates,drawdown,peak;
+    private long authorizedSales,withdrawnGuidance;
     private int missed; private boolean marksComplete=true;
     private final String completionModel;
     private final boolean baseline;
@@ -90,9 +118,9 @@ final class AccountReplay implements AutoCloseable {
             throw new IllegalArgumentException("Four benchmark cadences, 0.01–1% volume share and a new synthetic database required");
         this.input=input;this.cadence=cadence;this.share=share;now=input.startAt;cash=input.initialCoins;peak=cash;
         horizon=TradingHorizon.of(RiskProfile.valueOf(input.risk),interval(cadence));
-        SeriesSource source=(item,step)->frame==null?List.of():
+        history=(item,step)->frame==null?List.of():
             ("5m".equals(step)?frame.shortHistory:frame.longHistory).getOrDefault(item,List.of());
-        PortfolioPlanner planner=new PortfolioPlanner(source);
+        PortfolioPlanner planner=new PortfolioPlanner(history);
         baseline=challenger==null;
         if(challenger!=null) {
             if(input.startAt<=challenger.capturedAt)throw new IllegalArgumentException("Challenger replay must start after frozen training capture");
@@ -109,6 +137,7 @@ final class AccountReplay implements AutoCloseable {
         while(index<input.frames.size() && input.frames.get(index).availableAt<=now)frame=input.frames.get(index++);
         capture();
         long visit=input.startAt,action=Long.MAX_VALUE,visitEnd=0;
+        Guidance pending=null;
         while(true) {
             long market=index<input.frames.size()?input.frames.get(index).availableAt:Long.MAX_VALUE;
             long restart=restartIndex<input.restartAt.size()?input.restartAt.get(restartIndex):Long.MAX_VALUE;
@@ -118,6 +147,7 @@ final class AccountReplay implements AutoCloseable {
             if(restart==next) {
                 store.close();store=new SqliteStore(syntheticDatabase);
                 limits.restore(store.buyLimitProjections(),Instant.ofEpochSecond(now));restartIndex++;
+                restoreOfferBindings();
                 advisedPrices.clear(); // The live display cache is session-local too.
                 // The simulated game world persists. No old financial observation is replayed.
                 var ledger=store.ledgerSnapshot(ACCOUNT,now);
@@ -127,50 +157,72 @@ final class AccountReplay implements AutoCloseable {
                     if(expected==null || expected.getQuantity()!=p.getQuantity() || expected.getTotalCost()!=p.getTotalCost())
                         throw new IllegalStateException("Restart changed acquisition quantity/cost");
                 }
+                if(pending!=null) {
+                    // A restarted foreground must accept guidance again; old displayed advice is withdrawn.
+                    withdrawnGuidance++;pending=now<visitEnd && visit!=next?guide():null;
+                    action=pending!=null && now+input.actionSeconds<=visitEnd?now+input.actionSeconds:Long.MAX_VALUE;
+                }
             }
             if(visit==next) {
+                pending=null;action=Long.MAX_VALUE;
                 if(input.missedVisitIndices.contains(visitIndex++))missed++;
-                else {action=Math.addExact(now,input.actionSeconds);visitEnd=Math.addExact(now,input.visitSeconds);}
+                else {
+                    visitEnd=Math.addExact(now,input.visitSeconds);pending=guide();
+                    if(pending!=null)action=Math.addExact(now,input.actionSeconds);
+                }
                 visit=Math.addExact(visit,cadence*60L);
             }
             if(action==next) {
-                boolean acted=act();
-                action=acted && now+input.actionSeconds<=visitEnd?now+input.actionSeconds:Long.MAX_VALUE;
+                Guidance current=guide(); // Fresh canonical sources and final authority at the actual action time.
+                if(pending.sameOrder(current) && pending.validUntil>now) {
+                    execute(pending);pending=guide();
+                } else {
+                    withdrawnGuidance++;abstain("DISPLAYED_GUIDANCE_CHANGED");pending=current;
+                }
+                action=pending!=null && now+input.actionSeconds<=visitEnd?now+input.actionSeconds:Long.MAX_VALUE;
             }
             long equity=Math.addExact(cash+locked()+collection(),mark(now,true));
             peak=Math.max(peak,equity);drawdown=Math.max(drawdown,peak-equity);
         }
         now=input.endAt;return new Result(this,now);
     }
-    private boolean act() throws Exception {
+    private Guidance guide() throws Exception {
         AccountSnapshot account=capture();
         CompanionAction collection=new CompanionActionSelector().select(events());
-        if(collection.isActionable()) {collect(offers[collection.getSlot()]);return true;}
+        if(collection.isActionable())return offerGuidance("COLLECT",offers[collection.getSlot()],0,null,false);
         MarketIngestionService.MarketState market=frame.market(input.mapping);
-        if(now-market.observedAt>120){abstain("MARKET_DATA_STALE");return false;}
+        if(now-market.observedAt>120){abstain("MARKET_DATA_STALE");return null;}
         var buyDecision=new BuyMaintenanceServiceAdapter().decide(events(),market,limits,now);
         if(buyDecision!=null && buyDecision.getAction()==OfferLifecycleAction.CANCEL_BUY) {
-            for(Offer offer:offers)if(offer!=null && offer.buy && offer.identity.equals(buyDecision.getCandidateId())) {cancel(offer);return true;}
+            for(Offer offer:offers)if(offer!=null && offer.buy && offer.identity.equals(buyDecision.getCandidateId()))
+                return offerGuidance("CANCEL_BUY",offer,0,null,false);
         }
+        var sale=store.saleProjections(ACCOUNT,now);
+        Map<Integer,PositionProjection> canonical=new TreeMap<>();
+        for(var p:sale.ledger.getTradingPositions())canonical.put(p.getItemId(),p);
         for(Offer offer:offers)if(offer!=null && !offer.buy && !offer.terminal) {
-            var proposal=maintenance.quote(offer.item,offer.price,offer.remaining(),stocks.get(offer.item),latest(offer.item),
-                frame.shortHistory.getOrDefault(offer.item,List.of()),horizon,Instant.ofEpochSecond(now),false,exits,tax,offer.placedAt,offer.lastProgressAt);
+            var holding=canonical.get(offer.item);
+            var proposal=maintenance.quote(offer.item,offer.price,offer.remaining(),position(holding),latest(offer.item),
+                frame.shortHistory.getOrDefault(offer.item,List.of()),horizon,Instant.ofEpochSecond(now),false,exits,tax,
+                offer.placedAt,sale.planning.saleProgressAt.getOrDefault(offer.slot,Long.MAX_VALUE));
             if(proposal!=null){
                 int price=advisedPrices.price(offer.item,false,proposal.price,now);
                 if(!proposal.lossCut && proposal.costKnown) {
                     if(proposal.floor<=0)continue;price=Math.max(price,proposal.floor);
                 }
                 if(price>=offer.price)continue;
-                cancel(offer);return true;
+                if(!authorizeSale(sale,account,market,offer.item,price,offer.remaining(),offer.lastObservation.getEventId(),proposal.lossCut,offer.slot))continue;
+                return offerGuidance("CANCEL_SELL",offer,price,holding,proposal.lossCut);
             }
         }
         int slot=freeSlot();
-        if(slot<0){abstain("NO_FREE_SLOT");return false;}
-        for(var stock:stocks.values()) {
+        if(slot<0){abstain("NO_FREE_SLOT");return null;}
+        for(var holding:canonical.values()) {
+            Position stock=position(holding);
             int quantity=inventory.getOrDefault(stock.getItemId(),0);if(quantity<=0 || offered(stock.getItemId()))continue;
             LatestPrice quote=latest(stock.getItemId());
             var decision=exits.evaluateManagedExit(stock,quote,null,frame.shortHistory.getOrDefault(stock.getItemId(),List.of()),
-                horizon,Instant.ofEpochSecond(now),0,true,false,false);
+                horizon,Instant.ofEpochSecond(now),input.minimumProfit,true,false,false);
             if(!decision.isSell())continue;
             int price=advisedPrices.price(stock.getItemId(),false,decision.getPrice(),now);
             long cost=SaleAccounting.allocateCost(stock.getTotalCost(),stock.getQuantity(),quantity);
@@ -178,37 +230,72 @@ final class AccountReplay implements AutoCloseable {
                 int floor=tax.breakEvenSellPriceForCost(stock.getItemId(),cost,quantity);
                 if(floor<=0)continue;price=Math.max(price,SellTimingEngine.protectedPrice(stock,horizon,Instant.ofEpochSecond(now),floor));
             }
-            place(slot,stock.getItemId(),price,quantity,false);return true;
+            boolean cut=decision.getAction()==SellDecision.Action.CUT;
+            if(!authorizeSale(sale,account,market,stock.getItemId(),price,quantity,holding.getSourceEventId(),cut,-1))continue;
+            return new Guidance("SELL",slot,stock.getItemId(),price,quantity,null,holding.getSourceEventId(),
+                holding.getTotalCost(),0,cut,now,null,null,holding.getExitContext(),Long.MAX_VALUE);
         }
         var read=store.planningProjections(ACCOUNT);
         var exposure=DurablePlanningExposure.forAccount(read,account,now);
-        if(exposure==null){abstain("CURRENT_EVIDENCE_UNAVAILABLE");return false;}
+        if(exposure==null){abstain("CURRENT_EVIDENCE_UNAVAILABLE");return null;}
         var risk=DurableRisk.evaluate(read,account,exposure,market,now);
-        if(!risk.isAvailable()){abstain("DURABLE_RISK_UNAVAILABLE: "+risk.getReason());return false;}
+        if(!risk.isAvailable()){abstain("DURABLE_RISK_UNAVAILABLE: "+risk.getReason());return null;}
         account=account.withPlanningRestrictions(exposure.committedByItem,exposure.unavailableEntryItems).withCanonicalRisk(risk);
         Map<Integer,Integer> remaining=limits.remaining(input.mapping,Instant.ofEpochSecond(now));
         PortfolioPlan plan=entries.plan(market,account,remaining,events(),Instant.ofEpochSecond(now));
         PortfolioAllocation allocation=plan.getAllocations().isEmpty()?null:plan.getAllocations().get(0);
         PolicyDecision entry=new CompanionEntryPolicy().decide(new EntryPolicyContext(plan,allocation,now));
-        if(entry.getAction()!=OfferLifecycleAction.PLACE_BUY){abstain(entry.getReasonCode());return false;}
+        if(entry.getAction()!=OfferLifecycleAction.PLACE_BUY){abstain(entry.getReasonCode());return null;}
         PortfolioCandidate c=allocation.getCandidate();
         var constraints=PortfolioPlanner.constraintsFor(account,RiskAppetite.forName(account.getRiskAppetite()),
             PortfolioPlanner.lossBudgetFor(account,now),PortfolioPlanner.committedByGroupFor(account,input.mapping),now);
         if(PortfolioPlanner.rejected(c,account) || remaining.getOrDefault(c.getItemId(),0)<c.getQuantity()
             || new PortfolioOptimizer().optimize(List.of(c),constraints,plan.getCorrelationId(),now).getAllocations().isEmpty()) {
-            abstain("ENTRY_CONSTRAINTS_CHANGED");return false;
+            abstain("ENTRY_CONSTRAINTS_CHANGED");return null;
         }
-        place(slot,c.getItemId(),c.getBuyPrice(),c.getQuantity(),true);
-        offers[slot].target=c.getSellPrice();
-        offers[slot].stop=(int)Math.round(c.getBuyPrice()*(1-horizon.getProfile().getLossCutPct()));
-        offers[slot].predictedSellMinutes=c.getSellHours()*60;return true;
+        int stop=(int)Math.round(c.getBuyPrice()*(1-horizon.getProfile().getLossCutPct()));
+        AcquisitionExitContext context=c.getSellPrice()>stop && c.getSellHours()>0
+            ?new AcquisitionExitContext(c.getSellPrice(),stop,c.getSellHours()*60):null;
+        return new Guidance("BUY",slot,c.getItemId(),c.getBuyPrice(),c.getQuantity(),null,null,0,0,false,now,c,plan.getCorrelationId(),context,
+            Math.min(c.getExpiresAt(),plan.getExpiresAt()));
     }
-    private void place(int slot,int item,int price,int quantity,boolean buy) throws Exception {
+    private static Position position(PositionProjection p) {
+        if(p==null)return null;
+        var result=new Position(p.getItemId(),p.getItemName(),p.getQuantity(),p.getTotalCost(),p.getOpenedAt(),true);
+        result.applyExitContext(p.getExitContext());return result;
+    }
+    private Guidance offerGuidance(String kind,Offer offer,int price,PositionProjection holding,boolean cut) {
+        return new Guidance(kind,offer.slot,offer.item,price,offer.remaining(),offer.identity,
+            holding==null?null:holding.getSourceEventId(),holding==null?0:holding.getTotalCost(),offer.spent,cut,now,null,null,
+            holding==null?null:holding.getExitContext(),Long.MAX_VALUE);
+    }
+    private boolean authorizeSale(SqliteStore.SaleProjections read,AccountSnapshot account,MarketIngestionService.MarketState market,
+        int item,int price,int quantity,String source,boolean cut,int slot) {
+        var decision=new CompanionSalePolicy().decide(read.planning,read.ledger,account,market,history,item,price,quantity,source,cut,slot,now);
+        if(decision.getAction()==(slot<0?OfferLifecycleAction.PLACE_SELL:OfferLifecycleAction.CANCEL_SELL))return true;
+        abstain(decision.getReasonCode());return false;
+    }
+    private void execute(Guidance advice) throws Exception {
+        switch(advice.kind) {
+            case "COLLECT": collect(offers[advice.slot]);break;
+            case "CANCEL_BUY": cancel(offers[advice.slot]);break;
+            case "CANCEL_SELL": authorizedSales++;cancel(offers[advice.slot]);break;
+            case "SELL": authorizedSales++;place(advice);break;
+            case "BUY": place(advice);break;
+            default: throw new IllegalStateException("Unknown displayed replay action");
+        }
+    }
+    private void place(Guidance advice) throws Exception {
+        int slot=advice.slot,item=advice.item,price=advice.price,quantity=advice.quantity;boolean buy="BUY".equals(advice.kind);
         if(quantity<=0 || price<=0 || offers[slot]!=null)throw new IllegalStateException("Invalid simulated placement");
         if(buy)cash=Math.subtractExact(cash,Math.multiplyExact((long)price,quantity));
         else inventory.merge(item,-quantity,Integer::sum);
         if(cash<0 || inventory.getOrDefault(item,0)<0)throw new IllegalStateException("Shared capital or inventory overspent");
         Offer offer=new Offer(slot,item,price,quantity,buy,now,"sim-offer-"+(++sequence));offers[slot]=offer;
+        if(buy) {
+            // Prospective synthetic advice was actually displayed earlier. This is not real execution learning.
+            offer.origin=event(offer,advice);
+        }
         publish(offer);action((buy?"BUY":"SELL")+" "+item+" "+quantity+" @ "+price);
     }
     private void cancel(Offer offer) throws Exception {
@@ -237,7 +324,6 @@ final class AccountReplay implements AutoCloseable {
                 var p=stocks.get(offer.item);
                 if(p==null) {
                     p=new Position(offer.item,name(offer.item),quantity,(long)offer.price*quantity,now,true);
-                    p.setTargetSellPrice(offer.target);p.setStopPrice(offer.stop);p.setPredictedSellMinutes(offer.predictedSellMinutes);
                     stocks.put(offer.item,p);
                 } else p.addFill(quantity,(long)offer.price*quantity);
             } else {
@@ -247,13 +333,15 @@ final class AccountReplay implements AutoCloseable {
                 int left=p.getQuantity()-quantity;
                 if(left==0)stocks.remove(offer.item);else {
                     var remaining=new Position(offer.item,p.getItemName(),left,p.getTotalCost()-cost,p.getOpenedAt(),true);
-                    remaining.setTargetSellPrice(p.getTargetSellPrice());remaining.setStopPrice(p.getStopPrice());
-                    remaining.setPredictedSellMinutes(p.getPredictedSellMinutes());stocks.put(offer.item,remaining);
+                    stocks.put(offer.item,remaining);
                 }
                 offer.collectionCoins=Math.addExact(offer.collectionCoins,net);realized=Math.addExact(realized,profit);
-                taxPaid=Math.addExact(taxPaid,(long)offer.price*quantity-net);saleUpdates++;if(profit<0)losses++;
+                offer.realizedProfit=Math.addExact(offer.realizedProfit,profit);
+                taxPaid=Math.addExact(taxPaid,(long)offer.price*quantity-net);saleUpdates++;if(profit<0)losingSaleUpdates++;
             }
-            offer.terminal=offer.remaining()==0;publish(offer);
+            offer.terminal=offer.remaining()==0;
+            if(!offer.buy && offer.terminal){completedSales++;if(offer.realizedProfit<0)losses++;}
+            publish(offer);
         }
     }
     private AccountSnapshot capture() throws Exception {
@@ -278,19 +366,53 @@ final class AccountReplay implements AutoCloseable {
         var e=OfferEvent.builder("synthetic-replay",now,"EMPTY").accountId(ACCOUNT).slot(slot)
             .eventIdentity("sim-event-"+(++sequence),"synthetic-session",null).sequence(sequence).authenticatedObservation(true).build();accept(e);return e;
     }
-    private OfferEvent publish(Offer o) throws Exception {var e=event(o);accept(e);limits.restore(store.buyLimitProjections(),Instant.ofEpochSecond(now));return e;}
-    private OfferEvent event(Offer o) {
+    private OfferEvent publish(Offer o) throws Exception {
+        var e=o.lastObservation==null && o.origin!=null?o.origin:event(o,null);
+        accept(e);o.lastObservation=e;limits.restore(store.buyLimitProjections(),Instant.ofEpochSecond(now));return e;
+    }
+    private OfferEvent event(Offer o,Guidance advice) {
         String type=o.terminal?(o.cancelled?(o.buy?"CANCELLED_BUY":"CANCELLED_SELL"):(o.buy?"BOUGHT":"SOLD")):(o.buy?"BUYING":"SELLING");
-        return OfferEvent.builder("synthetic-replay",now,type).accountId(ACCOUNT).slot(o.slot).item(o.item,name(o.item)).buying(o.buy)
+        var builder=OfferEvent.builder("synthetic-replay",now,type).accountId(ACCOUNT).slot(o.slot).item(o.item,name(o.item)).buying(o.buy)
             .price(o.price).quantities(o.quantity,o.filled).spent(o.spent).firstSeenAt(o.placedAt)
-            .eventIdentity("sim-event-"+(++sequence),"synthetic-session",o.identity).sequence(sequence).authenticatedObservation(true)
-            .recommendation("sim-plan-"+o.identity,o.price,o.quantity,0,0,0).build();
+            .eventIdentity("sim-event-"+(++sequence),"synthetic-session",o.identity).sequence(sequence).authenticatedObservation(true);
+        if(advice!=null)builder.recommendation(advice.plan,o.price,o.quantity,0,advice.entry.getBuyHours()*60,
+            advice.entry.getDisplayBuyFillProbability()).predictionEvidence(null,advice.advisedAt,false)
+            .executionForecast(advice.entry.getBuyForecast()).exitContext(advice.context);
+        var raw=builder.build();
+        return advice!=null?raw.withBoundPrediction(raw,true):o.origin==null?raw:raw.withBoundPrediction(o.origin,true);
     }
     private void accept(OfferEvent e) throws Exception {
         var result=store.recordAndProjectOffer(e,json.toJson(e),true);
         if(result.transition.getAction()==OfferLifecycleAction.RECONCILE)throw new IllegalStateException("Synthetic observation violated canonical acceptance");
     }
-    private Collection<OfferEvent> events(){List<OfferEvent> values=new ArrayList<>();for(Offer o:offers)if(o!=null)values.add(event(o));return values;}
+    /** Reload attribution from the exact retained synthetic source; in-memory plans cannot survive a restart. */
+    private void restoreOfferBindings() throws Exception {
+        var current=store.planningProjections(ACCOUNT).currentEvents;
+        try(var connection=java.sql.DriverManager.getConnection("jdbc:sqlite:"+syntheticDatabase);
+            var queryOnly=connection.createStatement()) {
+            queryOnly.execute("PRAGMA query_only=ON");
+            try(var sql=connection.prepareStatement("SELECT payload FROM event_log WHERE event_id=?")) {
+                for(Offer offer:offers)if(offer!=null) {
+                    OfferEvent restored=current.get(offer.slot);offer.origin=null;
+                    if(restored==null || !offer.identity.equals(restored.getOfferIdentity()) || restored.getItemId()!=offer.item
+                        || restored.getPrice()!=offer.price || restored.getTotalQuantity()!=offer.quantity
+                        || restored.getFilledQuantity()!=offer.filled || restored.getSpent()!=offer.spent)
+                        throw new IllegalStateException("Restart changed current synthetic offer evidence");
+                    offer.lastObservation=restored;
+                    if(restored.getPredictionSourceEventId()==null)continue;
+                    sql.setString(1,restored.getPredictionSourceEventId());
+                    try(var rows=sql.executeQuery()) {
+                        if(!rows.next())throw new IllegalStateException("Restart lost original synthetic advice source");
+                        var origin=json.fromJson(rows.getString(1),OfferEvent.class);
+                        if(!ACCOUNT.equals(origin.getAccountId()) || !ExecutionObservationLedger.qualifiesOriginal(origin))
+                            throw new IllegalStateException("Restart lost qualified synthetic advice");
+                        offer.origin=origin;
+                    }
+                }
+            }
+        }
+    }
+    private Collection<OfferEvent> events(){List<OfferEvent> values=new ArrayList<>();for(Offer o:offers)if(o!=null)values.add(o.lastObservation);return values;}
     private long mark(long at,boolean haircut) {
         marksComplete=true;long value=0;
         for(Position p:stocks.values()) {

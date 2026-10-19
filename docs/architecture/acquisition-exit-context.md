@@ -48,6 +48,6 @@ unknown-personal/relist/progress/final authority tests remain required. All game
 Player acceptance: after delivery/log-in/open GE, manually place an eligible displayed buy, observe
 partial/full fills, collect, inspect its initial sale target, then cancel/collect/relist only when
 appropriate and restart. Agent reads scoped source/ledger/authority proof and timing directly.
-Old acquisitions without prospective context stay unknown; issue #70 remains open. Complete replay
-coverage must additionally reproduce this production provenance boundary before any promotion gate;
-replay v5 still retains simulated entry context independently and is not that evidence.
+Old acquisitions without prospective context stay unknown; issue #70 remains open. Offline
+[replay v6](replay-canonical-sale.md) now qualifies this boundary through canonical sources and final
+sale authority. Complete production replay, qualified benchmarks and all promotion gates stay open.

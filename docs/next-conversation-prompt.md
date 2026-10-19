@@ -33,6 +33,12 @@ rebuilding already implemented capabilities:
 
 ## Delivery state at this handoff
 
+Offline replay v6 adds canonical original-context qualification, transactional final companion sale
+authority and delayed/revalidated displayed actions, including restart withdrawal. See
+docs/architecture/replay-canonical-sale.md and docs/history/replay-canonical-sale-2026-10-19.md.
+This evaluator-only increment needs no installation or game restart; #108 remains installed.
+Production replacement/persisted relist/real client acceptance and qualified benchmarks remain open.
+
 PR #108 is merged as `fe8a33b9548559253968073e58d7aea69bd8078f` and INSTALLED at
 2026-10-19T16:13:02Z. Exact source `2e30f76c03653b7127a8a6daf5c2fc536497fea8` passed both
 Windows/Linux checks. Windows clean 66s: 1,726 Java passed/six existing skips, Java 11;
@@ -49,7 +55,7 @@ Live original target/stop/sell-duration context now comes from the exact prospec
 buy, through partial fills, ACK/restart and partial sales without the item-keyed six-hour TTL.
 Client snapshots cannot create original plans. Mixed/unproven originals remain unknown; legacy
 item files and old money are not backfilled. The final sale protocol is `companion-sale-3`.
-Production replay must qualify this same boundary before any promotion claim.
+Replay v6 qualifies this boundary; remaining production replay and all promotion gates remain open.
 
 Included #105/e21a049 fixes premature break-even/scrap-profit pricing: available original healthy
 targets survive within the configured horizon; routine reductions require full sell patience,
@@ -57,8 +63,8 @@ no recent fills and sustained completed market support. Declined routine mainten
 listing working and continues through separate entry checks. Stops/wind-down, exact floors,
 unknown costs and source/quantity/account fences remain. Read `docs/architecture/patient-sale-pricing.md`
 and `docs/history/patient-sale-delivery-2026-10-19.md`. Controlled sell-quality acceptance remains
-open. Replay v5 retains simulated context independently; it is not complete production provenance
-or a measured return/optimal-price result.
+open. Version 6 replaces v5's independently simulated context with canonical qualification and
+final sale authority; complete replay and measured return/optimal-price gates remain open.
 
 Included #103 already implements the expanded native sidebar/session/period/reset/profit/ROI/
 elapsed rate/managed-stock marks/paged sales and estimate display, plus validated history/candidate
@@ -100,10 +106,11 @@ inspection; its eight-slot identity result must also be fresh before it establis
    hit a timing target. Report median/tail/cold behavior and end-to-end scope honestly.
 
 3. **Finish production-policy account replay and return measurement before ranking/strategy claims.**
-   Replay v5 already models shared cash/eight slots/limits/partial fills/tax/visits/restart/conservative
-   terminal marks and retained entry context. Its twelve schema/synthetic scenarios are not market
-   performance. Complete missing production buy-replacement, persisted sale-relist and foreground
-   acceptance coverage. Use qualified chronological frozen market evidence and prospective account
+   Replay v6 models shared cash/eight slots/limits/partial fills/tax/visits/restart/conservative
+   terminal marks, canonical original context, final sale authority and delayed revalidated advice.
+   Its twelve schema/synthetic scenarios are not market performance. Complete missing production
+   buy-replacement, persisted sale-relist and real client-thread/transport acceptance coverage.
+   Use qualified chronological frozen market evidence and prospective account
    clocks/cadence/attendance. Benchmark 100M GP, members, eight GE slots separately at 5m, 30m, 2h
    and 8h; compare net account returns over elapsed time, losses and conservative terminal inventory.
    Never substitute 3h, item-by-item tests, headline slot rates or simulated touches for this evidence.

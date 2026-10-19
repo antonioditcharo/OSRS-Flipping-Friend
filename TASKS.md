@@ -9,6 +9,16 @@ Continuation impact order: trade-loop reliability/exit-context provenance, actua
 latency, production-policy account replay/returns, validated learning, then remaining product gaps.
 Read [the continuation prompt](docs/next-conversation-prompt.md); current delivery facts below govern.
 
+- [x] Implement offline replay v6 canonical acquisition/exit provenance, final companion sale
+      authority and delayed/revalidated displayed actions. Original source bindings reload on
+      restart; missing context remains unknown. Completed sell orders and disposal updates have
+      separate counts. See docs/architecture/replay-canonical-sale.md and
+      docs/history/replay-canonical-sale-2026-10-19.md. Windows clean 81s: 1,732 Java passed/six
+      existing skips, Java 11; 108 tooling passed; packaged twelve-scenario bundle reproduces.
+      Evaluator-only; #108 remains installed.
+      Complete replacement/persisted relist/real client acceptance and qualified benchmark/learning
+      gates remain unchecked below.
+
 - [ ] Accept installed #108/fe8a33b acquisition-bound exit context. Live initial/maintenance/relist/final authority
       now read the original prospective canonical buy context, without the item cache's six-hour
       TTL or a later snapshot's target. Partial fills/sales, ACK and overnight restart retain it;
@@ -20,7 +30,8 @@ Read [the continuation prompt](docs/next-conversation-prompt.md); current delive
       and sustained timing acceptance remain pending. See
       docs/architecture/acquisition-exit-context.md and
       docs/history/acquisition-exit-delivery-2026-10-19.md. Production replay must also qualify this
-      boundary before any promotion gate; all controlled workflow/learning/benchmark gates remain.
+      boundary before any promotion gate; v6 now covers it, while all controlled workflow/learning/
+      benchmark and remaining production replay gates stay open.
 
 - [ ] Accept installed #105/e21a049 patient sell pricing after the premature break-even report.
       Four old-source regressions reproduce; protect initial/quiet targets within the configured
@@ -208,9 +219,10 @@ Read [the continuation prompt](docs/next-conversation-prompt.md); current delive
       Include end-of-run inventory liquidation, cash, buy limits, tax, and missed visits.
       AccountReplay now models shared cash/eight slots, partial fills, sequential attendance,
       collection, tax, canonical limits/risk, restart and conservative terminal marks in twelve
-      scenarios. Replay v5 retains shared live/replay display stability, quiet-stock/qualified mark
-      clocks, patient sale rules and entry target/stop/duration across partial fills/restart. Complete production
-      buy-replacement/relist/foreground acceptance coverage and a
+      scenarios. Replay v6 retains shared display stability, quiet-stock/qualified mark clocks and
+      patient pricing; original plans now qualify through canonical sources/restart and final sale
+      authority. Abstract displayed actions require a later delay/revalidation. Complete production
+      buy-replacement/persisted relist/real client acceptance coverage and a
       qualified frozen market benchmark remain open; fixtures are not performance evidence.
 - [ ] Finish prospective cadence/attendance and full-account return measurement. The new sidebar
       adds independent prospective session cursors and elapsed clocks; installed/player acceptance
