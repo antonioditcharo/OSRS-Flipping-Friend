@@ -33,12 +33,18 @@ rebuilding already implemented capabilities:
 
 ## Delivery state at this handoff
 
-Cancelled-sale recovery source is queued: prior same-item listings no longer erase the intent;
-the callback retains the exact observed collected remainder before temporary slot evidence is
-removed. Read newest HANDOFF and docs/history/durable-sale-relist-2026-10-19.md for build/CI/actual
-installation state. This is workflow continuity, not financial recovery or complete replay coverage.
+Cancelled-sale recovery #114/61bf57e is merged after both exact-head checks for 857f36e and installed
+at 21:06:37Z. Windows clean 83s: 1,743 Java passed/six skips, Java 11; 108 tooling passed. Prior
+same-item listings no longer erase the intent; the callback retains the exact collected remainder
+before temporary slot evidence is removed. Immutable managed-cost hints and counter/stale-episode
+guards remain. VERIFIED backup 20261019-130634-180fa0d6; installed hashes/task/62,073 source rows/
+1,470 effects/original anchor/status/compatibility/scoped GETs pass, zero new financial effects.
+Supported Start reopened RuneLite. Current WAIT requires fresh cash/eight slots; login/gameplay stay
+manual, with availability privately in local-data/relist-recovery-20261019/delivery-state.json.
+Read newest HANDOFF and docs/history/durable-sale-relist-2026-10-19.md. This is workflow continuity,
+not financial recovery or complete replay coverage. Controlled relist acceptance remains pending.
 
-Completed-offer latency #111/b74f93b is merged with both exact-head checks and Windows clean
+Included completed-offer latency #111/b74f93b is merged with both exact-head checks and Windows clean
 1,736 Java passed/six skips, Java 11; 108 tooling passed. Synthetic median acceptance is 173ms -> 18ms,
 with identical financial/prediction results. INSTALLED at 18:55:13Z on 19 October after the agent
 closed RuneLite normally with explicit owner authorization. VERIFIED backup 20261019-105509-9ebbbcba;

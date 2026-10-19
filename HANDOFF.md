@@ -8,16 +8,21 @@ latency, complete production replay/returns, gated learning and remaining produc
 
 ## Current source and installed runtime
 
-Queued cancelled-sale guidance fix: regression-first tests reproduce an already-working second
-same-item listing erasing the intent and settled-slot retention/reuse losing collection evidence.
-Source checkpoints the exact collected remainder before deferred planning and distinguishes prior
-listings from later replacement episodes. Windows clean 83s: 1,743 Java passed/six skips, Java 11;
-108 tooling passed. Exact-head CI/delivery is in progress; #111 remains
-installed. See [contract](docs/architecture/durable-sale-relist.md) and
-[current receipt](docs/history/durable-sale-relist-2026-10-19.md). Controlled relist acceptance and
-production replay of the persisted client intent remain open.
+Cancelled-sale recovery #114/61bf57e is MERGED after both exact-head checks for 857f36e and
+INSTALLED at 2026-10-19T21:06:37Z. Two old-source regressions reproduce existing same-item listings
+erasing the intent and temporary slot retention/reuse losing collection evidence. The callback now
+retains the exact collected remainder; a later replacement ends it, stale advice cannot recreate
+it, and managed-cost requirements travel immutably with quantity. Windows clean 83s: 1,743 Java
+passed/six skips, Java 11; 108 tooling passed. VERIFIED backup 20261019-130634-180fa0d6; installed
+hashes/task XML/SDDL/all 62,073 source rows/1,470 effects/original anchor/status/compatibility/scoped
+GETs pass, zero new financial effects. Supported Start reopened RuneLite. Current advice correctly
+waits for fresh cash/eight-slot evidence; login and all game actions stay manual. Owner availability
+is retained privately in local-data/relist-recovery-20261019/delivery-state.json. See
+[contract](docs/architecture/durable-sale-relist.md) and
+[receipt](docs/history/durable-sale-relist-2026-10-19.md). Controlled relist acceptance and production
+replay of the persisted client intent remain open. #114 includes installed #111 and earlier runtime.
 
-Completed-offer latency #111/b74f93b is MERGED after both exact-head CI checks for 442b70a.
+Included completed-offer latency #111/b74f93b is MERGED after both exact-head CI checks for 442b70a.
 Windows clean 91s: 1,736 Java passed/six skips, Java 11; 108 tooling passed. Synthetic median
 terminal acceptance is 173ms -> 18ms with identical financial/prediction results. It reuses the
 validated canonical prefix; the 30,000-event rescan, external/tail and rollback guards are covered.
