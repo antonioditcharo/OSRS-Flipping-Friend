@@ -29,10 +29,13 @@ public class AccountReplayTest {
         return input;
     }
     AccountReplay.Entries fixtureEntries(int quantity) {
+        return fixtureEntries(quantity,.01);
+    }
+    AccountReplay.Entries fixtureEntries(int quantity,double sellHours) {
         return (m,a,limits,offers,at)-> {
             for(var item:m.mapping.values())if(!a.getItemsOnOffer().contains(item.id) && limits.get(item.id)>=quantity) {
                 var c=new PortfolioCandidate(item.id,item.name,"",100,100,100,120,120,120,quantity,limits.get(item.id),
-                    18L*quantity,1,1,1,1,.01,.01,1,at.getEpochSecond()+90);
+                    18L*quantity,1,1,1,1,.01,sellHours,1,at.getEpochSecond()+90);
                 return new PortfolioPlan(a.getCorrelationId(),at.getEpochSecond(),at.getEpochSecond()+90,"READY","fixture",0,
                     List.of(new PortfolioAllocation(1,c,"BUY")));
             }
@@ -89,7 +92,8 @@ public class AccountReplayTest {
         var result=run(input,5,10);
         assertTrue(result.actions.toString(),result.actions.stream().anyMatch(s->s.contains("SELL ")));
         assertEquals(1,result.completedSales);assertEquals(180,result.realizedProfit);
-        assertEquals("account-replay-5",result.policyVersion);
+        assertEquals("account-replay-6",result.policyVersion);
+        assertEquals("companion-sale-3",result.salePolicyVersion);assertEquals(1,result.authorizedSales);
     }
     @Test public void restartDuringPartialPurchasePreservesCanonicalCostLimitsAndRiskWindow()throws Exception {
         var input=input(1,21);for(var f:input.frames)for(var flow:f.flows)flow.lowVolume=600;
@@ -118,5 +122,78 @@ public class AccountReplayTest {
         assertEquals(new Gson().toJson(before),new Gson().toJson(after));
         assertTrue(after.actions.toString(),after.actions.stream().anyMatch(s->s.contains("SELL 1 10 @ 120")));
         assertEquals(180,after.realizedProfit);assertEquals(20,after.tax);
+        assertEquals(1,after.completedSales);assertEquals(2,after.saleUpdates);
+    }
+    @Test public void originalAdviceIsQualifiedByCanonicalSourcesBeforePartialFillsAndRestart()throws Exception {
+        var input=input(1,11);input.restartAt=List.of(start+650);
+        for(var frame:input.frames)for(var flow:frame.flows)flow.lowVolume=300;
+        var db=folder.newFolder().toPath().resolve("synthetic.db");
+        try(var replay=new AccountReplay(input,30,100,db,fixtureEntries(10))){replay.run();}
+        try(var store=new SqliteStore(db)) {
+            var p=store.ledgerSnapshot(AccountIdentity.fromProfileKey("synthetic-account-replay-only"),input.endAt).getTradingPositions().get(0);
+            assertEquals(3,p.getQuantity());assertEquals(300,p.getTotalCost());
+            assertNotNull("Replay must use the same qualified canonical acquisition as live exits",p.getExitContext());
+            assertEquals(120,p.getExitContext().getTargetSellPrice());
+            try(var connection=java.sql.DriverManager.getConnection("jdbc:sqlite:"+db);
+                var sql=connection.prepareStatement("SELECT payload FROM event_log WHERE event_id=?")) {
+                sql.setString(1,p.getExitContext().getSourceEventId());
+                try(var rows=sql.executeQuery()) {
+                    assertTrue(rows.next());var origin=new Gson().fromJson(rows.getString(1),OfferEvent.class);
+                    assertTrue(ExecutionObservationLedger.qualifiesOriginal(origin));
+                    assertEquals(start,origin.getAdviceObservedAt());
+                    assertEquals(start+input.actionSeconds,origin.getFirstSeenAt());
+                }
+            }
+        }
+    }
+    @Test public void changedAdviceConsumesAnotherManualActionDelayBeforePlacement()throws Exception {
+        var input=input(1,2);
+        AccountReplay.Entries changing=(m,a,l,o,at)->fixtureEntries(at.getEpochSecond()<start+10?1:2).plan(m,a,l,o,at);
+        AccountReplay.Result result;
+        try(var replay=new AccountReplay(input,5,100,folder.newFolder().toPath().resolve("synthetic.db"),changing)){result=replay.run();}
+        assertTrue(result.actions.toString(),result.actions.get(0).startsWith((start+30)+" BUY 1 2 @ 100"));
+        assertEquals(1,result.withdrawnGuidance);
+    }
+    @Test public void restartWithdrawsPendingForegroundAdviceAndRequiresAnotherActionDelay()throws Exception {
+        var input=input(1,21);input.restartAt=List.of(start+605);
+        var result=run(input,5,10);
+        assertTrue(result.actions.toString(),result.actions.stream().anyMatch(s->s.startsWith((start+620)+" COLLECT ")));
+        assertTrue(result.actions.toString(),result.actions.stream().anyMatch(s->s.startsWith((start+635)+" SELL 1 10 @ 120")));
+        assertEquals(1,result.withdrawnGuidance);assertEquals(1,result.authorizedSales);
+        assertEquals(180,result.realizedProfit);assertEquals(100000180,result.equityLower);
+    }
+    @Test public void pendingEntryExpiresWithoutBorrowingTheLaterPlansExpiry()throws Exception {
+        for(boolean candidateExpiry:new boolean[]{true,false}) {
+            var input=input(1,2);
+            AccountReplay.Entries expiring=(m,a,l,o,at)-> {
+                var c=new PortfolioCandidate(1,"Test item 1","",100,100,100,120,120,120,1,10,18,1,1,1,1,.01,.01,1,
+                    candidateExpiry && at.getEpochSecond()==start?start+10:start+90);
+                return new PortfolioPlan(a.getCorrelationId(),at.getEpochSecond(),!candidateExpiry && at.getEpochSecond()==start?start+10:start+90,"READY","fixture",0,
+                    List.of(new PortfolioAllocation(1,c,"BUY")));
+            };
+            AccountReplay.Result result;
+            try(var replay=new AccountReplay(input,5,100,folder.newFolder().toPath().resolve("synthetic.db"),expiring)){result=replay.run();}
+            assertTrue(result.actions.toString(),result.actions.get(0).startsWith((start+30)+" BUY "));
+            assertEquals(1,result.withdrawnGuidance);
+        }
+    }
+    @Test public void eightHourVisitUsesCanonicalOriginalAfterPartialFillsAndColdRestart()throws Exception {
+        var input=input(1,481);input.restartAt=List.of(start+650,start+8*3600-5);
+        for(var frame:input.frames) {
+            if(frame.availableAt>=start+600)frame.latest.getAsJsonObject("1").addProperty("high",103);
+            for(var flow:frame.flows)flow.lowVolume=300;
+        }
+        var result=run(input,480,10);
+        assertTrue(result.actions.toString(),result.actions.stream().anyMatch(s->s.startsWith((start+8*3600+30)+" SELL 1 10 @ 120")));
+        assertEquals(1,result.authorizedSales);assertEquals(0,result.realizedProfit);assertEquals(1000,result.inventoryCost);
+    }
+    @Test public void incompleteOriginalContextStaysUnknownInsteadOfUsingTheSimulatedEntryTarget()throws Exception {
+        var input=input(1,21);input.restartAt=List.of(start+650);
+        for(var frame:input.frames)if(frame.availableAt>=start+600)frame.latest.getAsJsonObject("1").addProperty("high",103);
+        AccountReplay.Result result;
+        try(var replay=new AccountReplay(input,5,100,folder.newFolder().toPath().resolve("synthetic.db"),fixtureEntries(10,0))){result=replay.run();}
+        assertTrue(result.actions.toString(),result.actions.stream().anyMatch(s->s.contains("SELL 1 10 @ 103")));
+        assertFalse(result.actions.toString(),result.actions.stream().anyMatch(s->s.contains("SELL 1 10 @ 120")));
+        assertEquals(10,result.realizedProfit);assertEquals(1,result.authorizedSales);
     }
 }
