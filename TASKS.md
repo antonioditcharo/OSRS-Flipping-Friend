@@ -9,9 +9,10 @@ All unchecked release requirements remain visible below; detailed completion rec
       prompt recheck on fresh market evidence and native maximized Records/Missed flips windows.
       Preserve historical separation, exact reserves, quote/source guards and original loss anchor.
       Windows clean 92s: 1,658 Java passed/six skips, Java 11; 108 tooling tests pass.
-      Both exact-head Windows/Linux checks pass. Paired delivery awaits the requested normal
-      RuneLite close; installed/native player acceptance remains pending. Genuine risk waits remain.
-      Current installed runtime is #96. See docs/history/buy-readiness-windows-delivery-2026-10-18.md.
+      Both exact-head Windows/Linux checks pass. #98 is INSTALLED with VERIFIED backup
+      20261018-210634-e9da041d; hashes/task/financial-prefix/status/compatibility/scoped GET checks
+      pass and supported Start reopened RuneLite. Fresh account/native player acceptance remains
+      pending. Genuine risk waits remain. See docs/history/buy-readiness-windows-delivery-2026-10-18.md.
 
 - [ ] Deliver/accept the source graph increment in docs/architecture/market-graphs.md: independent
       public 5m/1h/6h history, low/high/volume, selected-item stats, ranges/zoom/pan/reset/expand and
@@ -22,7 +23,7 @@ All unchecked release requirements remain visible below; detailed completion rec
       hashes/Java 11/task/financial-prefix/status/compatibility/scoped GET checks pass; supported
       Start reopened RuneLite. Fresh login/installed owner graph and guidance acceptance is pending.
       See docs/history/market-graph-delivery-2026-10-18.md.
-      Installed runtime includes #94 sells and #96 graphs. Other players' trades never become
+      Installed #98 runtime includes #94 sells and #96 graphs. Other players' trades never become
       this account's missing ledger rows or execution samples. Validated forecast quality remains open.
 
 - [x] Deliver/accept initial sell guidance in installed #94. Owner reported indefinite verification

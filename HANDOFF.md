@@ -9,10 +9,13 @@ Merged #98/f662310 names current-stock valuation pauses, preserves their
 exact reserve/120s quote guard and retries on newer market evidence without the ordinary spacing
 delay. Records/Missed flips now open native maximized frames. Regression-first fixes pass; Windows
 clean 92s: 1,658 Java passed/six skips, Java 11; 108 tooling tests pass. Both exact-head Windows/Linux
-checks passed (source 82e883b, run 39192695351). Paired delivery awaits the requested normal client
-close; installed/native acceptance remains pending. Genuine current-stock/live-offer guards remain.
-Runtime remains
-the verified #96 pair below. Receipt: docs/history/buy-readiness-windows-delivery-2026-10-18.md.
+checks passed (source 82e883b, run 39192695351). The pair is INSTALLED at 05:06:38 UTC
+(21:06 local) using VERIFIED backup 20261018-210634-e9da041d. Installed hashes, unchanged task
+XML/SDDL/lifecycle=1, all 44,076 frozen rows/1,393 financial effects/original risk anchor and
+status/compatibility/scoped GET checks pass. Supported Start reopened RuneLite 1.13.2 and loaded
+the plugin. Fresh login, native-window and sustained guidance acceptance remain pending; the
+pre-login plan correctly awaits current cash/slots. Genuine current-stock/live-offer guards remain.
+Receipt: docs/history/buy-readiness-windows-delivery-2026-10-18.md.
 
 Merged #96/1ebe4f8 adds the wide native market graph, independent
 public-history cache and experimental historical-return projection/evaluation. It is INSTALLED
@@ -21,12 +24,11 @@ and [verification receipt](docs/history/market-graph-delivery-2026-10-18.md) rec
 1,653 Java passed/six skips, 108 tooling tests and reproducible public-only evaluation. All four
 tested price horizons have worse known-target MAE than persistence; scenarios remain display-only.
 Both exact-head CI checks passed (run 39190129423, source f1f0ce8). Paired update 02:37:56 UTC
-uses VERIFIED backup 20261018-183753-28a992cf (three companion/23 plugin files). Hashes, Java 11,
-unchanged task/lifecycle=1, all 44,076 frozen rows/1,393 financial effects/original risk anchor and
-status/compatibility/scoped GET checks pass. Supported Start reopened RuneLite; fresh login/graph/
-guidance acceptance is pending. No Copilot all-users feed/private production dependency.
+used VERIFIED backup 20261018-183753-28a992cf; its delivery checks passed and it is now included
+in the installed #98 pair above. Fresh graph/guidance acceptance is pending. No Copilot all-users
+feed/private production dependency.
 
-The combined sale fixes through #94/c8d3a18 remain INSTALLED in the #96 pair.
+The combined sale fixes through #94/c8d3a18 remain INSTALLED in the #98 pair.
 Quiet last-trade prices no longer strand verified unlisted stock: shared initial/relist pricing
 provides an explained exact non-loss limit; stops and live sell cancellation still need fresh trades.
 Current physical quantity, source, exact costs, scopes and TTLs remain checked. Current-account policy
