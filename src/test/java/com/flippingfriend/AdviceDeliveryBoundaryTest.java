@@ -48,6 +48,7 @@ public class AdviceDeliveryBoundaryTest {
             var manager=mock(ConfigManager.class);when(manager.getRSProfileKey()).thenReturn("fixture");
             var market=mock(MarketDataService.class);when(market.getSnapshot()).thenReturn(MarketSnapshot.empty());
             when(companion.nextAction()).thenReturn(advice);when(guide.isPaused()).thenReturn(true);
+            when(companion.authorizeSale(any())).thenAnswer(call->call.getArgument(0));
             when(guide.getSuggestion()).thenReturn(Suggestion.idle());
             set("client",client);set("clientThread",thread);set("worker",worker);set("accountMonitor",monitor);
             var config=mock(FlippingFriendConfig.class);when(config.riskProfile()).thenReturn(RiskProfile.MODERATE);
@@ -69,6 +70,16 @@ public class AdviceDeliveryBoundaryTest {
             computeAdvice();
             assertEquals("the completed recommendation awaits client-thread delivery",1,clientQueue.size());
         }
+    }
+    @Test public void refusedRoutineMaintenanceContinuesOnlyThroughTheFreshEntryDecision()throws Exception {
+        Fixture f=new Fixture();when(f.companion.nextAction()).thenReturn(null);
+        var engine=(SuggestionEngine)getField(f.plugin,"engine");
+        var modify=Suggestion.builder(SuggestionType.MODIFY_SELL).item(561,"Listed").quantity(10).price(100).slot(0).build();
+        when(engine.refresh(false)).thenReturn(modify);when(f.companion.authorizeSale(modify)).thenReturn(null);
+        when(f.companion.nextEntrySuggestion(any(),anySet(),anySet(),anySet())).thenReturn(f.advice);
+        f.queueAdvice();f.clientQueue.remove().run();verify(f.guide).setSuggestion(f.advice);
+        verify(f.guide,never()).setSuggestion(modify);
+        verify(f.companion).nextEntrySuggestion(any(),anySet(),anySet(),anySet());
     }
     @Test public void startupAccountSnapshotCannotPublishBeforeFirstLoggedInServerTick()throws Exception {
         Fixture f=new Fixture(false);
@@ -154,11 +165,12 @@ public class AdviceDeliveryBoundaryTest {
     @Test public void replacementUsesTheActualFreshAuthorizedOrderRatherThanTheLocalProposal()throws Exception {
         Fixture f=new Fixture();when(f.companion.nextAction()).thenReturn(null);
         var engine=(SuggestionEngine)getField(f.plugin,"engine");when(engine.refresh(false)).thenReturn(f.advice);
-        var allowed=Suggestion.builder(SuggestionType.BUY).item(562,"Fixture").quantity(5).price(105).targetSellPrice(120).build();
+        var allowed=Suggestion.builder(SuggestionType.BUY).item(562,"Fixture").quantity(5).price(105).targetSellPrice(120)
+            .expectedMinutes(100).fillMinutes(10,20).build();
         when(f.companion.nextEntrySuggestion(any(),anySet(),anySet(),anySet())).thenReturn(allowed);
         f.queueAdvice();f.clientQueue.remove().run();
         verify(f.guide).setSuggestion(allowed);verify(f.guide,never()).setSuggestion(f.advice);
-        verify((TradePlans)getField(f.plugin,"tradePlans")).plan(eq(562),eq(120),anyInt(),anyDouble(),anyLong());
+        verify((TradePlans)getField(f.plugin,"tradePlans")).plan(eq(562),eq(120),anyInt(),eq(20.0),anyLong());
     }
     @Test public void aDifferentItemOrOversizedFreshEntryCannotReplaceTheCancelledOrder()throws Exception {
         for(boolean different:new boolean[]{false,true}) {

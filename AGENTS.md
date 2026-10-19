@@ -83,6 +83,11 @@ are in `docs/project-direction.md`; historical package notes are not proof of ru
   waiting for a new trade. Show the trade ages; old prices cannot trigger a loss cut or cancel an
   existing sell. Keep current physical/source evidence and exact taxed floors; see
   docs/architecture/sale-guidance-delivery.md.
+- Healthy sell listings preserve an available original target within the configured holding
+  horizon. Routine reductions require full sell patience, no recent fills and sustained completed
+  market support; fresh stops and explicit player wind-down remain exceptions. Recheck target and
+  exact taxed floors after stabilization and at final authority. Never use targets as risk values
+  or invent missing original plans. See docs/architecture/patient-sale-pricing.md and current HANDOFF.
 - Optimize and evaluate whole-account returns over elapsed time with realistic manual visits,
   capital, tax, buy limits, partial fills, losses, and remaining inventory. Slot-hour rates are
   diagnostic inputs, not a performance claim.

@@ -10,7 +10,7 @@ import java.util.*;
 
 /** Final read-only authority for managed exits and observed sale maintenance. No cost comes from the request. */
 final class CompanionSalePolicy {
-    static final String VERSION="companion-sale-1";
+    static final String VERSION="companion-sale-2";
     static String identity(int item,int price,int quantity,String source,boolean cut,int slot) {
         return item+":"+price+":"+quantity+":"+source+":"+cut+":"+slot;
     }
@@ -63,8 +63,10 @@ final class CompanionSalePolicy {
                     || projection.getPrice()!=offer.getPrice() || projection.getSpent()!=offer.getSpent()
                     || projection.getTotalQuantity()!=offer.getTotalQuantity() || projection.getFilledQuantity()!=offer.getFilledQuantity())
                     return refusal(type,identity,source,now,"SALE_OFFER_CHANGED");
-                var proposed=new SaleMaintenancePricing().quote(item,offer.getPrice(),quantity,position,quote,series,horizon,at,account.isSellOnly(),exits,tax);
+                var proposed=new SaleMaintenancePricing().quote(item,offer.getPrice(),quantity,position,quote,series,horizon,at,account.isSellOnly(),exits,tax,
+                    offer.getFirstSeenAt(),read.saleProgressAt.getOrDefault(slot,Long.MAX_VALUE));
                 if(proposed==null || proposed.lossCut!=cut || Math.abs((long)proposed.price-price)>=horizon.outbidDeadband(proposed.price)
+                    || offer.getPrice()-(long)price<horizon.outbidDeadband(offer.getPrice())
                     || !cut && proposed.costKnown && (proposed.floor<=0 || price<proposed.floor))
                     return refusal(type,identity,source,now,"SALE_PRICE_NOT_AUTHORIZED");
             } else {
@@ -84,8 +86,11 @@ final class CompanionSalePolicy {
                     || Math.abs((long)decision.getPrice()-price)>=horizon.outbidDeadband(decision.getPrice()))
                     return refusal(type,identity,source,now,"SALE_EXIT_CHANGED");
                 long cost=SaleAccounting.allocateCost(position.getTotalCost(),position.getQuantity(),quantity);
-                if(!cut && (!account.isSellOnly() || quote.stalestSideSeconds(at)>300) && tax.netProceeds(item,price,quantity)<cost)
-                    return refusal(type,identity,source,now,"SALE_EXACT_COST_FLOOR");
+                if(!cut && (!account.isSellOnly() || quote.stalestSideSeconds(at)>300)) {
+                    int floor=tax.breakEvenSellPriceForCost(item,cost,quantity);
+                    if(floor<=0 || price<SellTimingEngine.protectedPrice(position,horizon,at,floor))
+                        return refusal(type,identity,source,now,"SALE_EXACT_COST_FLOOR");
+                }
             }
             return PolicyDecision.action("1",VERSION,identity+":"+now,type,slot<0?OfferLifecycleAction.PLACE_SELL:OfferLifecycleAction.CANCEL_SELL,
                 "SALE_AUTHORIZED",now,Math.min(account.getObservedAt(),market.observedAt),identity,source);

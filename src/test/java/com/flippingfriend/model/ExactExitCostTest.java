@@ -43,7 +43,8 @@ public class ExactExitCostTest {
         return actualGuidance(quantity,cost,inInventory,price,heldPrice,adjustment,0);
     }
     Suggestion actualGuidance(int quantity,long cost,int inInventory,int price,boolean heldPrice,boolean adjustment,long quoteAge)throws Exception {
-        var market=mock(MarketDataService.class);when(market.getSeries(anyInt(),anyString())).thenReturn(List.of());
+        var market=mock(MarketDataService.class);long end=now.getEpochSecond()/300*300;
+        when(market.getSeries(anyInt(),anyString())).thenReturn(List.of(new Candle(end-300,price,price,100,100),new Candle(end-600,price,price,100,100)));
         var offers=mock(OfferTracker.class);when(offers.listedForSale()).thenReturn(Map.of());
         when(offers.itemsBeingBought()).thenReturn(Set.of());when(offers.getOffers()).thenReturn(List.of());
         var skipped=mock(SkipList.class);when(skipped.skipped(any())).thenReturn(Set.of());
@@ -55,7 +56,7 @@ public class ExactExitCostTest {
         var companion=mock(CompanionClient.class);Field field=SuggestionEngine.class.getDeclaredField("companion");
         field.setAccessible(true);field.set(engine,companion);
         var ledger=new AccountLedgerSnapshot(AccountIdentity.fromProfileKey("exact-cost"),now.getEpochSecond(),0,0,0,0,0,0,0,0,List.of())
-            .withTradeEvidence(List.of(PositionProjection.ready(561,"Nature rune",quantity,cost,now.getEpochSecond(),now.getEpochSecond(),"buy","offer")),List.of());
+            .withTradeEvidence(List.of(PositionProjection.ready(561,"Nature rune",quantity,cost,now.getEpochSecond()-(adjustment?100000:0),now.getEpochSecond(),"buy","offer")),List.of());
         when(companion.tradingLedger()).thenReturn(ledger);
         engine.setObservedAccount(ledger.getAccountId());
         if(heldPrice) {

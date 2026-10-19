@@ -613,13 +613,7 @@ public class SuggestionEngine
 			// than fifteen minutes -- and that was enough to have a 90,000 gp position marked down by
 			// nearly 200,000.
 			long patience = horizon.staleOfferMinutes();
-			if (!offer.isBuying())
-			{
-				Position planned = positions.get(offer.getItemId());
-				patience = horizon.patienceMinutes(planned == null ? 0
-					: planned.getPredictedSellMinutes());
-			}
-			if (offer.minutesOpen(now.getEpochSecond()) < patience)
+			if (offer.isBuying() && offer.minutesOpen(now.getEpochSecond()) < patience)
 			{
 				continue;
 			}
@@ -758,7 +752,7 @@ public class SuggestionEngine
                 var proposal = new com.flippingfriend.session.SaleMaintenancePricing().quote(
                     offer.getItemId(), offer.getPrice(), remaining, position, price,
                     marketData.getSeries(offer.getItemId(), TIMESTEP), horizon, now, sellOnly,
-                    sellTiming, taxCalculator);
+                    sellTiming, taxCalculator,offer.getFirstSeen(),offer.getLastFillObservedAt());
                 if (proposal == null) continue;
                 int newPrice = proposal.price, breakEven = proposal.floor;
                 boolean costKnown = proposal.costKnown, isCut = proposal.lossCut;
@@ -770,6 +764,7 @@ public class SuggestionEngine
 				{
 					newPrice = Math.max(newPrice, breakEven);
 				}
+                if(offer.getPrice()-(long)newPrice<horizon.outbidDeadband(offer.getPrice()))continue;
 
 				// What the new price is actually worth. The reprice card carried no figure at all, so a
 				long change = costKnown ? taxCalculator.netProceeds(offer.getItemId(),newPrice,remaining)-allocatedCost : 0;
@@ -783,11 +778,7 @@ public class SuggestionEngine
                     .profitKnown(costKnown)
 					.lossCut(isCut)
 					.headline(isCut ? "Cut your losses on " + name : "Your " + name + " offer is too high")
-					.detail((isCut
-						? "This has fallen past the point where holding is worth the risk. "
-						: "You asked " + explainer.formatNumber(offer.getPrice()) + " gp, but buyers are "
-							+ "only paying " + explainer.formatNumber(price.getHigh()) + " gp, so nobody is "
-							+ "taking it. ")
+					.detail(proposal.reason
 						+ "\n\nThe Grand Exchange cannot change the price of an offer that is already "
 						+ "running, so cancel this one, collect the items back, and list them again at "
 						+ explainer.formatNumber(newPrice) + " gp.")
@@ -1371,7 +1362,7 @@ public class SuggestionEngine
         if (!cut && (!sellOnly || !freshSaleQuote(price,now))) {
             int floor = taxCalculator.breakEvenSellPriceForCost(item,cost,quantity);
             if (floor<=0) return Suggestion.waiting("No non-loss sell price is available", "No legal price covers the recorded cost after tax.");
-            quoted = Math.max(quoted,floor);
+            quoted = Math.max(quoted,SellTimingEngine.protectedPrice(position,horizon,now,floor));
         }
         var forecast = sellTiming.forecastForOrder(item,quoted,quantity,series,horizon);
         double minutes = forecast==null?Double.NaN:forecast.getExpectedTotalSeconds()/60;
@@ -1609,7 +1600,7 @@ public class SuggestionEngine
             int minimum=taxCalculator.breakEvenSellPriceForCost(itemId,allocatedCost,best.quantity);
             if(minimum<=0)return Suggestion.waiting("No non-loss sell price is available",
                 "No legal Grand Exchange price covers the recorded cost of these units after tax.");
-            sellPrice=Math.max(sellPrice,minimum);
+            sellPrice=Math.max(sellPrice,SellTimingEngine.protectedPrice(position,horizon,now,minimum));
         }
         var forecast = sellTiming.forecastForOrder(itemId,sellPrice,best.quantity,marketData.getSeries(itemId,TIMESTEP),horizon);
         double sellMinutes = forecast == null ? Double.NaN : forecast.getExpectedTotalSeconds()/60;

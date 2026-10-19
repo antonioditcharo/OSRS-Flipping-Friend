@@ -75,7 +75,7 @@ final class PanelDetails {
             }
         });
         sellOnly.setOpaque(false); sellOnly.setForeground(UiUtils.TEXT);
-        sellOnly.setToolTipText("Stop new buys and continue offer/sell guidance. Cleared on next login.");
+        sellOnly.setToolTipText("Stop new buys and seek faster exits, including break-even or a loss with fresh prices. Cleared on next login.");
         sellOnly.addActionListener(e -> { engine.setSellOnly(sellOnly.isSelected()); companion.clearIncumbent(); changed.run(); });
         settingsView.add(UiUtils.gap(12)); settingsView.add(sellOnly); settingsView.add(UiUtils.gap(12));
         settingsView.add(UiUtils.bodyText("Set the input key and other options in RuneLite's Flipping Friend configuration. "

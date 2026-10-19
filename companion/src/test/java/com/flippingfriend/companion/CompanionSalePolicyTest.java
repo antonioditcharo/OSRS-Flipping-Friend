@@ -25,7 +25,7 @@ public class CompanionSalePolicyTest {
         accept(store,event(0,"BUYING","purchase",3,0,0,101,at));
         accept(store,event(0,"BOUGHT","purchase",3,3,301,101,at+1));
         accept(store,event(0,"EMPTY",null,0,0,0,0,at+2));
-        return new AccountSnapshot("current",at+3600,100000000,0,8,8,true,false,0,"MODERATE",Map.of(),0,Map.of(),true,5)
+        return new AccountSnapshot("current",at+3600,100000000,0,8,8,true,false,0,"MODERATE",Map.of(),0,Map.of(),true,5,Set.of(),Set.of(),Set.of(),false,30)
             .withAccountId(id).withAutomaticTradeScope().withObservedHoldings(Map.of(561,3));
     }
     MarketIngestionService.MarketState market(long now,int high) {
@@ -34,8 +34,13 @@ public class CompanionSalePolicyTest {
         return new MarketIngestionService.MarketState(Map.of(561,new MarketIngestionService.Item(561,"Nature rune",10000)),latest,new JsonObject(),new JsonObject(),now);
     }
     PolicyDecision decide(SqliteStore store,AccountSnapshot account,String source,int quantity,int price,int slot,long now)throws Exception {
-        return new CompanionSalePolicy().decide(store.planningProjections(id),store.ledgerSnapshot(id,now),account,market(now,120),
-            (item,step)->List.of(),561,price,quantity,source,false,slot,now);
+        var read=store.saleProjections(id,now);
+        return new CompanionSalePolicy().decide(read.planning,read.ledger,account,market(now,120),
+            (item,step)->bars(now,120),561,price,quantity,source,false,slot,now);
+    }
+    List<com.flippingfriend.data.Candle> bars(long now,int high) {
+        long end=now/300*300;
+        return List.of(new com.flippingfriend.data.Candle(end-300,high,high,100,100),new com.flippingfriend.data.Candle(end-600,high,high,100,100));
     }
     @Test public void canonicalAcquisitionAuthorizesExactExitButNotExcessUnknownUnitsOrOldSource()throws Exception {
         try(var store=new SqliteStore(folder.newFolder().toPath().resolve("fixture.db"))) {
@@ -56,7 +61,51 @@ public class CompanionSalePolicyTest {
             assertEquals(OfferLifecycleAction.WAIT,decide(store,account,"previous-episode",3,119,0,now).getAction());
             var progress=event(0,"SELLING","sale",3,1,150,150,now+1);accept(store,progress);
             assertEquals(OfferLifecycleAction.WAIT,decide(store,account,sell.getEventId(),3,119,0,now+1).getAction());
-            assertEquals(OfferLifecycleAction.CANCEL_SELL,decide(store,account,progress.getEventId(),2,119,0,now+1).getAction());
+            assertEquals("A recent actual fill keeps the working order intact",OfferLifecycleAction.WAIT,decide(store,account,progress.getEventId(),2,119,0,now+1).getAction());
+            var heartbeat=event(0,"SELLING","sale",3,1,150,150,now+601);accept(store,heartbeat);
+            var later=setupAccountAt(account,now+601);
+            assertEquals(OfferLifecycleAction.CANCEL_SELL,decide(store,later,heartbeat.getEventId(),2,119,0,now+601).getAction());
+        }
+    }
+    AccountSnapshot setupAccountAt(AccountSnapshot account,long now) {
+        var value=json.toJsonTree(account).getAsJsonObject();value.addProperty("observedAt",now);
+        return json.fromJson(value,AccountSnapshot.class);
+    }
+    AccountSnapshot context(AccountSnapshot account,PositionProjection p,int target,int stop,double minutes) {
+        var value=json.toJsonTree(account).getAsJsonObject();value.addProperty("targetHoldMinutes",360);
+        value.add("positions",json.toJsonTree(List.of(new PositionSnapshot(p.getItemId(),p.getItemName(),p.getQuantity(),
+            p.getTotalCost(),true,p.getOpenedAt(),target,stop,minutes))));return json.fromJson(value,AccountSnapshot.class);
+    }
+    @Test public void finalAuthorityPreservesTheExactHealthyTargetForInitialAndMatureMaintenanceOrders()throws Exception {
+        try(var store=new SqliteStore(folder.newFolder().toPath().resolve("patient.db"))) {
+            var account=setup(store);long now=at+3600;
+            var position=store.ledgerSnapshot(id,now).getTradingPositions().get(0);
+            account=context(account,position,140,90,120);
+            assertEquals(OfferLifecycleAction.PLACE_SELL,decide(store,account,position.getSourceEventId(),3,140,-1,now).getAction());
+            assertEquals(OfferLifecycleAction.WAIT,decide(store,account,position.getSourceEventId(),3,120,-1,now).getAction());
+            var sale=event(0,"SELLING","patient",3,0,0,150,now);accept(store,sale);
+            assertEquals("Half the predicted time is not a stalled sale",OfferLifecycleAction.WAIT,decide(store,account,sale.getEventId(),3,140,0,now).getAction());
+            long later=at+3*3600;var heartbeat=event(0,"SELLING","patient",3,0,0,150,later);accept(store,heartbeat);
+            account=setupAccountAt(account,later);
+            assertEquals(OfferLifecycleAction.CANCEL_SELL,decide(store,account,heartbeat.getEventId(),3,140,0,later).getAction());
+            assertEquals("Drift tolerance must not give away the protected profit",OfferLifecycleAction.WAIT,decide(store,account,heartbeat.getEventId(),3,119,0,later).getAction());
+            assertEquals(301,store.ledgerSnapshot(id,later).getTradingPositions().get(0).getTotalCost());
+        }
+    }
+    @Test public void durableProgressIsNotAHeartbeatAndMissingProgressCannotBecomePermissionToCancel()throws Exception {
+        var path=folder.newFolder().toPath().resolve("progress.db");
+        try(var store=new SqliteStore(path)) {
+            var account=setup(store);long now=at+3600;
+            var sale=event(0,"SELLING","progress",3,0,0,150,now);accept(store,sale);
+            var fill=event(0,"SELLING","progress",3,1,150,150,now+1);accept(store,fill);
+            var beat=event(0,"SELLING","progress",3,1,150,150,now+61);accept(store,beat);
+            var read=store.saleProjections(id,now+61);
+            assertEquals(Long.valueOf(now+1),read.planning.saleProgressAt.get(0));
+            assertEquals(OfferLifecycleAction.WAIT,decide(store,setupAccountAt(account,now+61),beat.getEventId(),2,119,0,now+61).getAction());
+            try(var other=java.sql.DriverManager.getConnection("jdbc:sqlite:"+path);var sql=other.prepareStatement("DELETE FROM event_log WHERE event_id=?")) {
+                sql.setString(1,fill.getEventId());sql.executeUpdate();
+            }
+            assertEquals(Long.valueOf(Long.MAX_VALUE),store.saleProjections(id,now+61).planning.saleProgressAt.get(0));
         }
     }
     @Test public void staleSettingsAndQuotesCannotAuthorizeSaleOrChangeTheLedger()throws Exception {

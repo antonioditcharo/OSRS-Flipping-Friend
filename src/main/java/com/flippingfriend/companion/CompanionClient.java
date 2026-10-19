@@ -869,7 +869,10 @@ public class CompanionClient
                 ?decision.getReasonCode():"SALE_SOURCE_CHANGED";
         }catch(Exception unavailable){reason="SALE_AUTHORITY_UNAVAILABLE";}
         lastError="Sale verification: "+reason;
-        return saleWaiting(reason);
+        // A refused routine reduction leaves an already listed offer working. It is not an
+        // account-wide entry veto: continue through the independently authorized entry path.
+        // Unlisted stock and urgent loss cuts retain their recovery/priority WAIT.
+        return slot>=0 && !proposed.isLossCut()?null:saleWaiting(reason);
     }
     private static Suggestion saleWaiting(String reason) {
         if("SALE_QUOTE_STALE".equals(reason))return Suggestion.waiting("Waiting for a fresh repricing quote",
@@ -899,7 +902,7 @@ public class CompanionClient
         return null;
     }
     static boolean validSaleDecision(PolicyDecision decision,String identity,String source,int slot,long now) {
-        return decision!=null && "1".equals(decision.getSchemaVersion()) && "companion-sale-1".equals(decision.getPolicyVersion())
+        return decision!=null && "1".equals(decision.getSchemaVersion()) && "companion-sale-2".equals(decision.getPolicyVersion())
             && identity.equals(decision.getCandidateId()) && source.equals(decision.getRecommendationId())
             && decision.getDecisionType()==(slot<0?PolicyDecisionType.EXIT:PolicyDecisionType.SELL_MAINTENANCE)
             && decision.getAction()==(slot<0?OfferLifecycleAction.PLACE_SELL:OfferLifecycleAction.CANCEL_SELL)

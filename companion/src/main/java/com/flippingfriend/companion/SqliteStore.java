@@ -423,6 +423,7 @@ final class SqliteStore implements AutoCloseable
 		final List<OfferLifecycleProjection> offers;
         AutomaticTradeScope tradeScope;
         Map<Integer,OfferEvent> currentEvents=java.util.Collections.emptyMap();
+        Map<Integer,Long> saleProgressAt=java.util.Collections.emptyMap();
         List<OfferEvent> history;
         RiskLedgerEvidence riskEvidence;
 		PlanningProjections(List<PositionProjection> positions,
@@ -448,6 +449,7 @@ final class SqliteStore implements AutoCloseable
 		try
 		{
 			PlanningProjections planning=readPlanningProjections(accountId);
+            planning.saleProgressAt=saleProgressEvidence(accountId,planning.currentEvents);
 			checkpoint.reached("SALE_PLANNING_READ");
 			AccountLedgerSnapshot ledger=readLedgerSnapshot(accountId,evaluatedAt,planning.tradeScope);
 			connection.commit();
@@ -456,6 +458,38 @@ final class SqliteStore implements AutoCloseable
 		catch(Exception failure) { connection.rollback(); discardCanonicalHistory(); throw failure; }
 		finally { connection.setAutoCommit(true); }
 	}
+    /** Last observed disposal of this exact live episode. Read-only; never reconstruct an execution. */
+    private Map<Integer,Long> saleProgressEvidence(String account,Map<Integer,OfferEvent> current) throws Exception {
+        var result=new HashMap<Integer,Long>();var parser=new com.google.gson.Gson();
+        try(var sql=connection.prepareStatement("SELECT e.payload,p.observed_at,p.source_event_id FROM position_event p "
+            +"LEFT JOIN event_log e ON e.event_id=p.source_event_id AND e.event_id IS NOT NULL AND e.event_id<>'' "
+            +"WHERE p.effect_type='DISPOSE' AND p.source_offer_identity=? ORDER BY p.id DESC LIMIT 1")) {
+            for(var e:current.values())if(!e.isBuying() && "SELLING".equals(e.getEventType())) {
+                long progress=e.getFirstSeenAt();
+                if(e.getFilledQuantity()>0) {
+                    progress=Long.MAX_VALUE; // Missing/inconsistent progress proof cannot mean "stalled".
+                    sql.setString(1,e.getOfferIdentity());
+                    try(var rows=sql.executeQuery()) {if(rows.next()) {
+                        try {
+                            var fill=parser.fromJson(rows.getString(1),OfferEvent.class);
+                            if(fill!=null && TradeGapEvidence.valid(fill) && fill.isAuthenticatedObservation()
+                                && account.equals(fill.getAccountId()) && !fill.isBuying() && fill.getItemId()==e.getItemId()
+                                && java.util.Objects.equals(fill.getOfferIdentity(),e.getOfferIdentity()) && fill.getSlot()==e.getSlot()
+                                && java.util.Objects.equals(fill.getSessionId(),e.getSessionId())
+                                && fill.getPrice()==e.getPrice() && fill.getTotalQuantity()==e.getTotalQuantity()
+                                && fill.getFilledQuantity()>0 && fill.getFilledQuantity()<=e.getFilledQuantity()
+                                && fill.getSpent()<=e.getSpent() && fill.getObservedAt()>=e.getFirstSeenAt()
+                                && fill.getObservedAt()<=e.getObservedAt() && fill.getObservedAt()==rows.getLong(2)
+                                && java.util.Objects.equals(fill.getEventId(),rows.getString(3)) && fill.getSequence()<=e.getSequence())
+                                progress=fill.getObservedAt();
+                        } catch(RuntimeException malformed) { /* retain unavailable progress */ }
+                    }}
+                }
+                result.put(e.getSlot(),progress);
+            }
+        }
+        return java.util.Collections.unmodifiableMap(result);
+    }
 	/** Does not change durable rows or participate in an existing write transaction. */
 	synchronized PlanningProjections planningProjections() throws Exception
 	{

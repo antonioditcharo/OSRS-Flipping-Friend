@@ -25,6 +25,8 @@ public class TrackedOffer
 	private String state;
 	private long firstSeen;
 	private long lastChanged;
+    /** Observation clock of actual counter progress, not a heartbeat or an exact execution time. */
+    private long lastFillObservedAt;
 	/** Additive identity for new episodes. Missing legacy identities keep the shipped key. */
 	private String episodeIdentity;
 
@@ -77,6 +79,7 @@ public class TrackedOffer
 		TrackedOffer copy = new TrackedOffer(slot, itemId, buying, price, totalQuantity, firstSeen);
 		copy.itemName = itemName; copy.quantityFilled = quantityFilled; copy.spent = spent;
 		copy.state = state; copy.lastChanged = lastChanged;
+        copy.lastFillObservedAt=lastFillObservedAt;
 		copy.episodeIdentity = episodeIdentity;
 		return copy;
 	}
@@ -183,6 +186,8 @@ public class TrackedOffer
 	{
 		return lastChanged;
 	}
+    public long getLastFillObservedAt() { return lastFillObservedAt>0?lastFillObservedAt:firstSeen; }
+    public void observeFillAt(long at) { lastFillObservedAt=Math.max(lastFillObservedAt,at); }
 
 	public void setLastChanged(long lastChanged)
 	{
