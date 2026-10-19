@@ -58,7 +58,7 @@ refusals. This step neither refits the training model nor activates learning. Ch
 now shares v3 quiet-stock pricing, but its remaining production-policy and real benchmark gaps
 still prevent promotion.
 
-## Later #96 source checkpoint while delivery awaits a normal client close
+## Later #96 source checkpoint before the paired update
 
 The explicitly scoped read-only freezer now retains **39,153 source rows, cursor 44,075, 95
 episodes**. Source/evaluator revision is `1ebe4f807854d21d9d8c42e4192fc58c9e763b6a`; production

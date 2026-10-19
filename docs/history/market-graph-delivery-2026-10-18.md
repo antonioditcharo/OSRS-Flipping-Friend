@@ -5,8 +5,9 @@ PR [#96](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/96) is mer
 `1ebe4f807854d21d9d8c42e4192fc58c9e763b6a`. Both exact-head Windows/Linux checks passed on source
 `f1f0ce8efeeb67fcee1283e615455650e24014ff`, run
 [39190129423](https://github.com/antonioditcharo/OSRS-Flipping-Friend/actions/runs/39190129423).
-The clean primary checkout fast-forwarded. Paired delivery awaits the requested normal RuneLite
-close; installed runtime remains accepted #94. No installed graph/player acceptance is claimed.
+The clean primary checkout fast-forwarded. After the owner closed RuneLite normally, the verified
+pair was installed through the supported updater. The accepted #94 sale fix remains included;
+fresh installed graph/player acceptance is pending.
 
 ## Implemented and verified
 
@@ -41,13 +42,33 @@ with no additional rendered P0/P1/P2 findings. `final-visual-verification.json` 
 
 Built plugin: 564,522 bytes, SHA-256 `ac6ae523a68e814d323d6a38abca24a0efceb5ede700a58a9ea1a7226098a7ea`.
 Built companion: 18,041,268 bytes, SHA-256 `aeb082bcb54853dc8a53d1a7c452bab9308f59c8f60e8a3ca78f9983d83254f1`.
-These are candidate hashes, not a claim of installation.
+Both installed artifacts match these exact tested candidate hashes.
 
 Pre-update native status, API 1.13.2 compatibility and scoped GET pipeline all pass. The retained
 account capture is over half an hour old; WAIT/no current plan is not live buy acceptance.
 The read-only frozen financial prefix has 44,076 canonical rows, 1,393 financial effects and the
 sole original risk anchor. Task XML/SDDL and installed manifest are retained for after-update
 comparison. No source row, account database, loss anchor, task permission or game input was changed.
+
+## Installed pair and remaining acceptance
+
+The supported `apply-update.ps1 -Unattended -SkipBuild` completed without elevation at
+**2026-10-19T02:37:56.3647559Z** (18 October local). Backup
+`20261018-183753-28a992cf` is VERIFIED: three companion and 23 plugin account files, paired JAR/
+manifest hashes and task export match. Account backup verification uses relative names/sizes.
+Task XML and SDDL compare byte-for-byte; processLifecycleVersion remains 1. No task/ACL/UAC change.
+
+Both installed hashes match the clean build above. The independent read-only financial check
+preserves all 44,076 canonical prefix rows, all 1,393 financial effects and the sole original
+loss anchor, with zero new financial effects during installation. Native status, launcher API
+1.13.2 compatibility and account-scoped GET pipeline each exit 0. Private `installed-verification.json`,
+`financial-preservation.json`, task snapshots, manifest and update/status/compatibility/pipeline
+logs retain the receipts.
+
+Supported Start reopened RuneLite, Java PID 35504 at 02:38:45 UTC; startup logs confirm 1.13.2.
+The player was asked to log in/open GE and test the actual Price graph/search/ranges/hover/zoom/
+reset/expand controls. Login/game actions remain manual. Fresh source/guidance checks and owner
+graph/control acceptance remain pending; static rendering and transport are distinct evidence.
 
 ## Data reuse and projection evidence
 

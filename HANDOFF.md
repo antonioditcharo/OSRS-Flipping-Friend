@@ -6,15 +6,18 @@ Root notes describe the current workflow; detailed prior receipts remain in link
 ## Current source and installed runtime
 
 Merged #96/1ebe4f8 adds the wide native market graph, independent
-public-history cache and experimental historical-return projection/evaluation. It is NOT installed;
-runtime remains accepted #94 below. [Contract](docs/architecture/market-graphs.md), root design-qa.md
+public-history cache and experimental historical-return projection/evaluation. It is INSTALLED
+with the accepted #94 sale fix. [Contract](docs/architecture/market-graphs.md), root design-qa.md
 and [verification receipt](docs/history/market-graph-delivery-2026-10-18.md) record native QA,
 1,653 Java passed/six skips, 108 tooling tests and reproducible public-only evaluation. All four
 tested price horizons have worse known-target MAE than persistence; scenarios remain display-only.
-Both exact-head CI checks passed (run 39190129423, source f1f0ce8); paired delivery waits for the
-owner's requested normal client close. Graph/player acceptance remains pending. No Copilot feed/private dependency.
+Both exact-head CI checks passed (run 39190129423, source f1f0ce8). Paired update 02:37:56 UTC
+uses VERIFIED backup 20261018-183753-28a992cf (three companion/23 plugin files). Hashes, Java 11,
+unchanged task/lifecycle=1, all 44,076 frozen rows/1,393 financial effects/original risk anchor and
+status/compatibility/scoped GET checks pass. Supported Start reopened RuneLite; fresh login/graph/
+guidance acceptance is pending. No Copilot all-users feed/private production dependency.
 
-The combined sale fixes through #94/c8d3a18 are INSTALLED through the supported paired updater.
+The combined sale fixes through #94/c8d3a18 remain INSTALLED in the #96 pair.
 Quiet last-trade prices no longer strand verified unlisted stock: shared initial/relist pricing
 provides an explained exact non-loss limit; stops and live sell cancellation still need fresh trades.
 Current physical quantity, source, exact costs, scopes and TTLs remain checked. Current-account policy

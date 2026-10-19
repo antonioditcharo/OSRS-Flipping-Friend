@@ -10,10 +10,11 @@ All unchecked release requirements remain visible below; detailed completion rec
       explicitly experimental historical-return bands with reproducible rolling-origin evaluation.
       Native QA/full build pass: 1,653 Java passed/six skips and 108 tooling tests. Frozen evaluation
       reproduces; all four horizons have worse known-target MAE than persistence. Keep display-only.
-      #96/1ebe4f8 is merged after both exact-head CI checks passed; paired delivery awaits the
-      requested normal client close. Installed owner acceptance remains pending.
+      #96/1ebe4f8 is merged/installed after both exact-head CI checks passed. Verified backup,
+      hashes/Java 11/task/financial-prefix/status/compatibility/scoped GET checks pass; supported
+      Start reopened RuneLite. Fresh login/installed owner graph and guidance acceptance is pending.
       See docs/history/market-graph-delivery-2026-10-18.md.
-      Installed runtime remains #94. Public market data and other players' trades never become
+      Installed runtime includes #94 sells and #96 graphs. Other players' trades never become
       this account's missing ledger rows or execution samples. Validated forecast quality remains open.
 
 - [x] Deliver/accept initial sell guidance in installed #94. Owner reported indefinite verification
