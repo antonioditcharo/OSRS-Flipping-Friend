@@ -14,7 +14,7 @@ Historical session/cadence labels are unavailable; GP/hour remains unmeasured.
 
 ## Installed continuation — 18 October 2026
 
-The native market-graph increment is source-verified and awaiting CI/paired delivery/player
+The native market-graph increment is merged as #96 after both exact-head checks; paired delivery/player
 acceptance; [current graph receipt](history/market-graph-delivery-2026-10-18.md). It adds real public
 low/high/volume history, selected-item investigation and experimental historical-return scenarios.
 Frozen one-item price error is worse than persistence at all four tested horizons; these scenarios

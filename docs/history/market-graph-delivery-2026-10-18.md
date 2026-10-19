@@ -1,8 +1,12 @@
 # Native market graph delivery
 
 18 October 2026 (America/Anchorage). Source branch: `codex/market-graph-projections`.
-Delivery is pending both exact-head CI checks and a supported paired update; installed runtime
-remains accepted #94. No installed graph/player acceptance is claimed here.
+PR [#96](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/96) is merged as
+`1ebe4f807854d21d9d8c42e4192fc58c9e763b6a`. Both exact-head Windows/Linux checks passed on source
+`f1f0ce8efeeb67fcee1283e615455650e24014ff`, run
+[39190129423](https://github.com/antonioditcharo/OSRS-Flipping-Friend/actions/runs/39190129423).
+The clean primary checkout fast-forwarded. Paired delivery awaits the requested normal RuneLite
+close; installed runtime remains accepted #94. No installed graph/player acceptance is claimed.
 
 ## Implemented and verified
 
@@ -32,10 +36,18 @@ is [preserved](native-sidebar-design-qa-2026-10-14.md).
 Private receipts are in `local-data/market-graph-20261018/`, including original public response bytes,
 reference/render captures, `build-verification.json` and `frozen-evaluation/`. Build/tooling logs
 are `local-data/market-graph-clean-build-final.log` and `local-data/market-graph-python-tests.log`.
+The final built-source render repeated in 19s; `render-final/` was compared at all three widths
+with no additional rendered P0/P1/P2 findings. `final-visual-verification.json` records the source.
 
 Built plugin: 564,522 bytes, SHA-256 `ac6ae523a68e814d323d6a38abca24a0efceb5ede700a58a9ea1a7226098a7ea`.
 Built companion: 18,041,268 bytes, SHA-256 `aeb082bcb54853dc8a53d1a7c452bab9308f59c8f60e8a3ca78f9983d83254f1`.
 These are candidate hashes, not a claim of installation.
+
+Pre-update native status, API 1.13.2 compatibility and scoped GET pipeline all pass. The retained
+account capture is over half an hour old; WAIT/no current plan is not live buy acceptance.
+The read-only frozen financial prefix has 44,076 canonical rows, 1,393 financial effects and the
+sole original risk anchor. Task XML/SDDL and installed manifest are retained for after-update
+comparison. No source row, account database, loss anchor, task permission or game input was changed.
 
 ## Data reuse and projection evidence
 
