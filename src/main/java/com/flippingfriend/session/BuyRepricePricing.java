@@ -1,0 +1,29 @@
+package com.flippingfriend.session;
+
+import com.flippingfriend.TradingHorizon;
+import com.flippingfriend.data.Candle;
+import com.flippingfriend.data.LatestPrice;
+import com.flippingfriend.model.TaxCalculator;
+import java.time.Instant;
+
+/** Shared live/replay outbid-buy proposal. It cannot authorize a replacement entry. */
+public final class BuyRepricePricing {
+    public static final class Quote {
+        public final int price,target;
+        public final long profit;
+        public final boolean replace;
+        private Quote(int price,int target,long profit,boolean replace){this.price=price;this.target=target;this.profit=profit;this.replace=replace;}
+    }
+    public static Quote quote(int item,int standing,int quantity,long firstSeen,LatestPrice price,Candle trend,
+            TradingHorizon horizon,TaxCalculator tax,long at,int stabilizedBuy,long minimumProfit) {
+        var now=Instant.ofEpochSecond(at);
+        if(quantity<=0 || firstSeen<=0 || firstSeen>at || (at-firstSeen)/60<horizon.staleOfferMinutes()
+            || price==null || !price.isComplete() || price.secondsSinceLow(now)<0 || price.secondsSinceLow(now)>300
+            || price.secondsSinceHigh(now)<0 || price.secondsSinceHigh(now)>300
+            || price.getLow()>=Integer.MAX_VALUE || stabilizedBuy<=0 || !horizon.isOutbid(true,standing,price,trend))return null;
+        int target=Math.max(1,price.getHigh()-1);
+        long profit=tax.netProfit(item,stabilizedBuy,target,quantity);
+        return new Quote(stabilizedBuy,target,profit,profit>=Math.max(1,minimumProfit));
+    }
+    private BuyRepricePricing(){}
+}

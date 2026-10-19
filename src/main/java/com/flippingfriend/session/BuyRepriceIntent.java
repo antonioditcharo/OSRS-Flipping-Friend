@@ -1,0 +1,27 @@
+package com.flippingfriend.session;
+
+import com.flippingfriend.data.PluginStorage;
+import javax.inject.Inject;
+import javax.inject.Singleton;
+
+/** Durable exact-offer continuation; a fresh companion plan must authorize any replacement. */
+@Singleton
+public final class BuyRepriceIntent extends OfferContinuationStore {
+    private static final long LIFETIME_SECONDS=1800;
+    public static final class Request {
+        public final int itemId,quantity;
+        private Request(int itemId,int quantity){this.itemId=itemId;this.quantity=quantity;}
+    }
+    @Inject public BuyRepriceIntent(PluginStorage storage){super(storage,"buy-reprice-intent.json",true);}
+    public synchronized void advise(TrackedOffer offer,String expected,OfferTracker tracker,long now) {
+        adviseOffer(offer,expected,false,tracker,now,now+LIFETIME_SECONDS);
+    }
+    public synchronized void observe(OfferTracker tracker,String expected,long now){advance(tracker,expected,now);}
+    public synchronized Request collectedRequest(OfferTracker tracker,String expected,long now) {
+        var intent=advance(tracker,expected,now);
+        return intent==null?null:new Request(intent.getItemId(),intent.getCollectedRemaining());
+    }
+    public synchronized boolean isPending(int item,OfferTracker tracker,String expected,long now){return pending(item,tracker,expected,now);}
+    public synchronized int pendingItemId(OfferTracker tracker,String expected,long now){return pendingItem(tracker,expected,now);}
+    public synchronized void clear(String expected){abandon(expected);}
+}

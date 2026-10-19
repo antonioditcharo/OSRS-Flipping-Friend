@@ -38,6 +38,7 @@ final class ApiServer implements AutoCloseable
 		server.createContext("/v1/portfolio/current", this::portfolio);
 		server.createContext("/v1/action", this::action);
 		server.createContext("/v1/policy/entry", this::entryDecision);
+        server.createContext("/v1/policy/replacement",this::replacementEntry);
 		server.createContext("/v1/policy/buy-maintenance", this::buyMaintenanceDecision);
 		// Read-only, and serving nothing this process did not already fetch for itself. They exist so
 		// the plugin can start from a warm feed instead of rebuilding one from the internet on every
@@ -71,6 +72,7 @@ final class ApiServer implements AutoCloseable
 			case "performance/session": performanceSession(exchange); break;
 			case "action": action(exchange); break;
 			case "policy/entry": entryDecision(exchange); break;
+            case "policy/replacement": replacementEntry(exchange);break;
 			case "policy/buy-maintenance": buyMaintenanceDecision(exchange); break;
 			case "policy/sale": saleDecision(exchange); break;
 			case "events/account-state": account(exchange); break;
@@ -179,6 +181,18 @@ final class ApiServer implements AutoCloseable
 		}catch(RuntimeException invalid){respond(exchange,400,"{\"error\":\"invalid sale query\"}");}
 	}
 
+    private void replacementEntry(HttpExchange exchange) throws IOException {
+        if(!authorized(exchange))return;
+        if(!"GET".equals(exchange.getRequestMethod())){respond(exchange,405,"{\"error\":\"GET required\"}");return;}
+        CompanionService scoped=accountService(exchange);if(scoped==null)return;
+        try {
+            var query=queryOf(exchange);
+            if(query.size()!=2) throw new IllegalArgumentException("Invalid bounded entry query");
+            int item=Integer.parseInt(query.get("item")),cap=Integer.parseInt(query.get("quantityCap"));
+            if(item<=0 || cap<=0)throw new IllegalArgumentException("Invalid bounded entry query");
+            respond(exchange,200,gson.toJson(scoped.replacementEntry(item,cap,java.time.Instant.now().getEpochSecond())));
+        }catch(RuntimeException invalid){respond(exchange,400,"{\"error\":\"positive item and quantityCap are required\"}");}
+    }
 	private void entryDecision(HttpExchange exchange) throws IOException
 	{
 		if (!authorized(exchange)) return;

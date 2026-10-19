@@ -157,7 +157,7 @@ public class AdviceDeliveryBoundaryTest {
         Fixture f=new Fixture();when(f.companion.nextAction()).thenReturn(null);
         var engine=(SuggestionEngine)getField(f.plugin,"engine");when(engine.refresh(false)).thenReturn(f.advice);
         var refusal=Suggestion.waiting("Risk paused","Current durable loss allowance is exhausted.");
-        when(f.companion.nextEntrySuggestion(any(),anySet(),anySet(),anySet())).thenReturn(refusal);
+        when(f.companion.replacementSuggestion(anyInt(),anyInt(),any(),anySet(),anySet(),anySet())).thenReturn(refusal);
         f.queueAdvice();f.clientQueue.remove().run();
         verify(f.guide,never()).setSuggestion(f.advice);
         verify(f.guide).setSuggestion(refusal);
@@ -167,7 +167,7 @@ public class AdviceDeliveryBoundaryTest {
         var engine=(SuggestionEngine)getField(f.plugin,"engine");when(engine.refresh(false)).thenReturn(f.advice);
         var allowed=Suggestion.builder(SuggestionType.BUY).item(562,"Fixture").quantity(5).price(105).targetSellPrice(120)
             .expectedMinutes(100).fillMinutes(10,20).build();
-        when(f.companion.nextEntrySuggestion(any(),anySet(),anySet(),anySet())).thenReturn(allowed);
+        when(f.companion.replacementSuggestion(anyInt(),anyInt(),any(),anySet(),anySet(),anySet())).thenReturn(allowed);
         f.queueAdvice();f.clientQueue.remove().run();
         verify(f.guide).setSuggestion(allowed);verify(f.guide,never()).setSuggestion(f.advice);
         verify((TradePlans)getField(f.plugin,"tradePlans"),never()).plan(anyInt(),anyInt(),anyInt(),anyDouble(),anyLong());
@@ -177,13 +177,13 @@ public class AdviceDeliveryBoundaryTest {
             Fixture f=new Fixture();when(f.companion.nextAction()).thenReturn(null);
             var engine=(SuggestionEngine)getField(f.plugin,"engine");when(engine.refresh(false)).thenReturn(f.advice);
             var other=Suggestion.builder(SuggestionType.BUY).item(different?561:562,"Fixture").quantity(different?5:11).price(105).build();
-            when(f.companion.nextEntrySuggestion(any(),anySet(),anySet(),anySet())).thenReturn(other);
+            when(f.companion.replacementSuggestion(anyInt(),anyInt(),any(),anySet(),anySet(),anySet())).thenReturn(other);
             f.queueAdvice();f.clientQueue.remove().run();
             verify(f.guide).setSuggestion(argThat(s->s.getType()==SuggestionType.WAIT));
             verify((TradePlans)getField(f.plugin,"tradePlans"),never()).plan(anyInt(),anyInt(),anyInt(),anyDouble(),anyLong());
         }
     }
-    @Test public void replacementSelectionKeepsExistingSkipsAndExcludesOtherAllocatedItems()throws Exception {
+    @Test public void replacementSelectionKeepsTheExactCapAndSkipsWithoutBorrowingTheLargerPlan()throws Exception {
         Fixture f=new Fixture();when(f.companion.nextAction()).thenReturn(null);
         var engine=(SuggestionEngine)getField(f.plugin,"engine");when(engine.refresh(false)).thenReturn(f.advice);
         when(engine.skippedItems()).thenReturn(Set.of(563));
@@ -191,10 +191,23 @@ public class AdviceDeliveryBoundaryTest {
             +"{\"candidate\":{\"itemId\":561}},{\"candidate\":{\"itemId\":562}}]}",
             com.flippingfriend.core.PortfolioPlan.class);
         when(f.companion.lastPlan()).thenReturn(plan);
-        when(f.companion.nextEntrySuggestion(any(),anySet(),anySet(),anySet())).thenReturn(f.advice);
+        when(f.companion.replacementSuggestion(anyInt(),anyInt(),any(),anySet(),anySet(),anySet())).thenReturn(f.advice);
         f.queueAdvice();f.clientQueue.remove().run();
-        verify(f.companion).nextEntrySuggestion(any(),anySet(),eq(Set.of(561,563)),anySet());
+        verify(f.companion).replacementSuggestion(eq(562),eq(10),any(),anySet(),eq(Set.of(563)),anySet());
+        verify(f.companion,never()).nextEntrySuggestion(any(),anySet(),anySet(),anySet());
         verify(f.guide).setSuggestion(f.advice);assertEquals(Set.of(563),engine.skippedItems());
+    }
+    @Test public void maintenancePromisesUseOnlyTheGuidesAcceptedInstructionAfterClientDelivery()throws Exception {
+        Fixture f=new Fixture();when(f.guide.isPaused()).thenReturn(false);
+        f.set("notifier",mock(net.runelite.client.Notifier.class));
+        var accepted=Suggestion.builder(SuggestionType.MODIFY_BUY).item(561,"Accepted").quantity(10).price(100)
+            .slot(0).maintenanceSource("accepted-episode").build();
+        when(f.guide.getSuggestion()).thenReturn(accepted);
+        var engine=(SuggestionEngine)getField(f.plugin,"engine");
+        f.computeAdvice();verify(engine,never()).recordPresentedMaintenance(any(),anyString(),anyLong());
+        f.clientQueue.remove().run();
+        verify(engine).recordPresentedMaintenance(eq(accepted),eq(com.flippingfriend.core.AccountIdentity.fromProfileKey("fixture")),anyLong());
+        verify(engine,never()).recordPresentedMaintenance(eq(f.advice),anyString(),anyLong());
     }
     @Test public void anUnavailableReplacementDecisionWithdrawsTheLocalBuy()throws Exception {
         Fixture f=new Fixture();when(f.companion.nextAction()).thenReturn(null);

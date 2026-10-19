@@ -6,6 +6,10 @@ The earlier one-response-per-step and manual backup-confirmation routine is supe
 assisted workflow. Login, GE actions and all other in-game input remain the player's actions.
 Live databases and unassigned legacy data must never be edited, migrated or repaired.
 
+Owner direction, 19 October: batch multiple related improvements and focused regressions before
+the final full verification, paired restart and consolidated receipt. Do not turn every small fix
+into a separate documentation/build/install cycle. Repeat checks for new changes or failures.
+
 ## Routine agent delivery
 
 1. Diagnose from logs, authenticated GETs and read-only evidence. Reproduce real bugs with tests.

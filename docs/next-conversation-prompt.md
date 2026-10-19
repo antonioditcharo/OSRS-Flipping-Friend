@@ -33,6 +33,16 @@ rebuilding already implemented capabilities:
 
 ## Delivery state at this handoff
 
+The trade-continuation batch is queued: exact durable buy remainders/restart, shared buy/sell
+continuation state, fresh bounded replacement entry/forecasts, accepted maintenance episode context,
+fresh quote guards, replay v7 persistence and non-overlapping volume evidence. Windows clean 92s:
+1,761 Java passed/six skips, Java 11; 108 tooling passed; JRE 11 packaged twelve-scenario bundle
+reproduces. Exact-head CI/merge/update pending; #114 remains installed. Read newest HANDOFF and
+docs/history/trade-continuation-batch-2026-10-19.md for actual delivery. Real foreground/editor/
+transport and remaining action-order parity, controlled player trading, sustained timing and
+qualified benchmarks/learning stay open. Owner direction: batch multiple related fixes and targeted
+regressions, then one full verification/delivery slice and a consolidated receipt.
+
 Cancelled-sale recovery #114/61bf57e is merged after both exact-head checks for 857f36e and installed
 at 21:06:37Z. Windows clean 83s: 1,743 Java passed/six skips, Java 11; 108 tooling passed. Prior
 same-item listings no longer erase the intent; the callback retains the exact collected remainder
@@ -131,10 +141,11 @@ inspection; its eight-slot identity result must also be fresh before it establis
    hit a timing target. Report median/tail/cold behavior and end-to-end scope honestly.
 
 3. **Finish production-policy account replay and return measurement before ranking/strategy claims.**
-   Replay v6 models shared cash/eight slots/limits/partial fills/tax/visits/restart/conservative
+   Replay v7 source models shared cash/eight slots/limits/partial fills/tax/visits/restart/conservative
    terminal marks, canonical original context, final sale authority and delayed revalidated advice.
-   Its twelve schema/synthetic scenarios are not market performance. Complete missing production
-   buy-replacement, persisted sale-relist and real client-thread/transport acceptance coverage.
+   Its twelve schema/synthetic scenarios are not market performance. Shared durable buy/sell
+   continuation and bounded replacement coverage are implemented in v7. Complete real client-thread/
+   editor/transport acceptance and remaining action-order coverage.
    Use qualified chronological frozen market evidence and prospective account
    clocks/cadence/attendance. Benchmark 100M GP, members, eight GE slots separately at 5m, 30m, 2h
    and 8h; compare net account returns over elapsed time, losses and conservative terminal inventory.

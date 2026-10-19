@@ -46,6 +46,7 @@ final class CompanionService implements AutoCloseable
 	private final MarketIngestionService market;
 	private final SeriesCache series;
 	private final PortfolioPlanner planner;
+    private final ReplacementEntryPlanner replacementPlanner;
 	private final ActiveOfferTracker activeOffers;
 	private final CompanionActionSelector actionSelector = new CompanionActionSelector();
 	private final CompanionEntryPolicy entryPolicy = new CompanionEntryPolicy();
@@ -171,6 +172,7 @@ final class CompanionService implements AutoCloseable
 		this.market = market;
 		this.series = series;
 		this.planner = new PortfolioPlanner(series);
+        this.replacementPlanner = new ReplacementEntryPlanner(series);
 		this.warmShortlist = planner::shortlistIds;
 	}
 
@@ -607,6 +609,33 @@ final class CompanionService implements AutoCloseable
         }
 		return entryPolicy.decide(new EntryPolicyContext(current, selected, decidedAt));
 	}
+    synchronized com.flippingfriend.core.ReplacementEntry replacementEntry(int item,int cap,long at) {
+        if(item<=0 || cap<=0) throw new IllegalArgumentException("Positive item and cap required");
+        try {
+            long revision=planningInputRevision.get();
+            if(!currentPlanningProof(at)) throw new IllegalStateException("Current account proof unavailable");
+            var snapshot=account;
+            var read=store.planningProjections(accountId);
+            var exposure=DurablePlanningExposure.forAccount(read,snapshot,at);
+            if(exposure==null) throw new IllegalStateException("Current exposure unavailable");
+            var currentMarket=market.state();
+            var risk=DurableRisk.evaluate(read,snapshot,exposure,currentMarket,at);
+            if(!risk.isAvailable()) throw new IllegalStateException("Current risk unavailable");
+            var occupied=new java.util.HashSet<Integer>();
+            for(var offer:read.offers) if(offer.getState()!=com.flippingfriend.core.OfferLifecycleState.EMPTY) occupied.add(offer.getItemId());
+            var planning=snapshot.withPlanningRestrictions(exposure.committedByItem,exposure.unavailableEntryItems)
+                .withPlanningOffers(occupied).withCanonicalRisk(risk);
+            var result=replacementPlanner.plan(item,cap,currentMarket,planning,remainingBuyLimits(planning,at),read.currentEvents.values(),at);
+            if(revision!=planningInputRevision.get() || !currentPlanningProof(Math.max(at,Instant.now().getEpochSecond())))
+                throw new IllegalStateException("Current evidence changed");
+            return result;
+        }catch(Exception unavailable) {
+            var plan=PortfolioPlan.unavailable("replacement-unavailable",PortfolioPlanOutcome.COMPANION_STATE_UNAVAILABLE,
+                "Waiting for current account evidence before replacing the cancelled remainder.",at);
+            return new com.flippingfriend.core.ReplacementEntry(accountId,item,cap,account==null?0:account.getObservedAt(),plan,
+                entryPolicy.decide(new EntryPolicyContext(plan,null,at)));
+        }
+    }
 	PolicyDecision buyMaintenanceDecision(long decidedAt)
 	{
 		return new BuyMaintenanceServiceAdapter().decide(activeOffers.getActiveOffers(),

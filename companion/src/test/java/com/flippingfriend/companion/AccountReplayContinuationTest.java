@@ -1,0 +1,87 @@
+package com.flippingfriend.companion;
+
+import com.flippingfriend.core.*;
+import com.google.gson.*;
+import java.util.*;
+import org.junit.*;
+import org.junit.rules.TemporaryFolder;
+import static org.junit.Assert.*;
+
+public class AccountReplayContinuationTest {
+    @Rule public TemporaryFolder folder=new TemporaryFolder();
+    final AccountReplayTest f=new AccountReplayTest();
+    AccountReplay.Entries boundedEntries() {
+        return (market,account,limits,offers,at)-> {
+            for(var item:market.mapping.values()) {
+                int quantity=Math.min(10,limits.getOrDefault(item.id,0));
+                if(quantity<=0 || account.getItemsOnOffer().contains(item.id))continue;
+                var quote=market.latest.getAsJsonObject(""+item.id);int buy=quote.get("low").getAsInt()+1,sell=quote.get("high").getAsInt();
+                var c=new PortfolioCandidate(item.id,item.name,"",buy,buy,buy,sell,sell,sell,quantity,limits.get(item.id),
+                    (long)(sell-sell/50-buy)*quantity,1,1,1,1,.01,.01,1,at.getEpochSecond()+90);
+                return new PortfolioPlan(account.getCorrelationId(),at.getEpochSecond(),at.getEpochSecond()+90,"READY","bounded fixture",0,
+                    List.of(new PortfolioAllocation(1,c,"BUY")));
+            }
+            return PortfolioPlan.unavailable(account.getCorrelationId(),PortfolioPlanOutcome.NO_ELIGIBLE_CANDIDATE,"fixture",at.getEpochSecond());
+        };
+    }
+    AccountReplayInput repricing() {
+        var input=f.input(1,41);
+        for(var frame:input.frames) {
+            if(frame.availableAt>=f.start+600) {var q=frame.latest.getAsJsonObject("1");q.addProperty("low",110);q.addProperty("high",140);}
+            for(var flow:frame.flows) {
+                flow.lowVolume=frame.availableAt==f.start+600?300:1000;
+                if(frame.availableAt>f.start+600)flow.low=110;
+                flow.high=140;
+            }
+        }
+        return input;
+    }
+    AccountReplay.Result run(AccountReplayInput input,AccountReplay.Entries entries)throws Exception {
+        try(var replay=new AccountReplay(input,5,100,folder.newFolder().toPath().resolve("synthetic.db"),entries)){return replay.run();}
+    }
+    @Test public void aPartialBuyReplacesOnlyItsCollectedRemainderBeforeSellingTheFilledUnits()throws Exception {
+        var input=repricing();input.visitSeconds=30;input.restartAt=List.of(f.start+700);
+        var result=run(input,boundedEntries());
+        assertEquals(result.actions.toString(),1,result.replacementBuys);
+        assertTrue(result.actions.toString(),result.actions.stream().anyMatch(a->a.contains("BUY 1 7 @ 111")));
+        long replacement=result.actions.stream().filter(a->a.contains("BUY 1 7 @ 111")).mapToLong(a->Long.parseLong(a.split(" ")[0])).findFirst().getAsLong();
+        assertFalse(result.actions.toString(),result.actions.stream().anyMatch(a->a.contains("SELL ") && Long.parseLong(a.split(" ")[0])<replacement));
+        assertEquals(300,result.realizedProfit);assertEquals(100000300,result.equityLower);assertEquals(0,result.inventoryCost);
+    }
+    @Test public void aFillDuringTheDisplayedCancellationReducesTheBoundAndRequiresAnotherActionDelay()throws Exception {
+        var input=repricing();var extra=new AccountReplayInput.Frame();extra.availableAt=extra.observedAt=f.start+610;
+        input.frames.get(10).flows.clear();input.frames.get(15).flows.clear(); // No overlapping rolling-volume evidence.
+        extra.latest=input.frames.get(10).latest.deepCopy();
+        var flow=new AccountReplayInput.Flow();flow.itemId=1;flow.bucketStart=f.start+310;flow.bucketEnd=f.start+610;
+        flow.low=100;flow.high=140;flow.lowVolume=400;flow.highVolume=1000;extra.flows.add(flow);
+        input.frames.add(extra);input.frames.sort(Comparator.comparingLong(a->a.availableAt));
+        input.restartAt=List.of(f.start+620,f.start+652);
+        var result=run(input,boundedEntries());
+        assertEquals(result.actions.toString(),1,result.replacementBuys);
+        assertTrue(result.actions.toString(),result.actions.stream().anyMatch(a->a.contains("CANCEL ") && a.endsWith("remaining 6")));
+        assertTrue(result.actions.toString(),result.actions.stream().anyMatch(a->a.contains("BUY 1 6 @ 111")));
+        assertFalse(result.actions.toString(),result.actions.stream().anyMatch(a->a.contains("BUY 1 7 @ 111")));
+        assertTrue(result.withdrawnGuidance>=2);assertEquals(310,result.realizedProfit);assertEquals(100000310,result.equityLower);
+    }
+    @Test public void overlappingRollingFlowCannotSpendTheSamePublicVolumeTwice() {
+        var input=f.input(1,11);var flow=input.frames.get(10).flows.get(0);
+        flow.bucketStart-=10;flow.bucketEnd-=10;
+        try{input.validate();fail("Overlapping volume windows must not create extra fills");}
+        catch(IllegalArgumentException expected){}
+    }
+    @Test public void aPartialSellRetainsItsRelistReceiptExactCostAndStopAcrossRestart()throws Exception {
+        var input=f.input(1,31);
+        for(var frame:input.frames) {
+            if(frame.availableAt>=f.start+1200){var q=frame.latest.getAsJsonObject("1");q.addProperty("low",80);q.addProperty("high",90);}
+            for(var flow:frame.flows)if(frame.availableAt==f.start+1200){flow.high=120;flow.highVolume=400;}
+            else if(frame.availableAt>f.start+1200){flow.high=90;flow.low=80;}
+        }
+        var before=run(input,f.fixtureEntries(10));input.restartAt=List.of(f.start+1235);
+        var after=run(input,f.fixtureEntries(10));
+        assertEquals(after.actions.toString(),1,after.relistedSales);
+        assertTrue(after.actions.toString(),after.actions.stream().anyMatch(a->a.contains("CANCEL ") && a.endsWith("remaining 6")));
+        assertTrue(after.actions.toString(),after.actions.stream().anyMatch(a->a.contains("SELL 1 6 @ ")));
+        assertEquals(before.realizedProfit,after.realizedProfit);assertEquals(before.tax,after.tax);
+        assertEquals(0,after.inventoryCost);assertEquals(3,after.authorizedSales);
+    }
+}

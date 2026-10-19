@@ -8,6 +8,17 @@ latency, complete production replay/returns, gated learning and remaining produc
 
 ## Current source and installed runtime
 
+Queued coherent trade-continuation batch: durable exact buy remainders/restart, shared buy/sell
+continuation evidence, fresh quantity-bounded replacement plans/forecasts, accepted foreground
+maintenance identities and quote/volume guards. Replay v7 persists/reloads the shared intents and
+uses bounded replacement planning. Windows clean 92s: 1,761 Java passed/six skips, Java 11;
+108 tooling passed; packaged twelve-scenario schema bundle reproduces. Exact-head CI/merge/update
+pending; #114 remains installed. See [contract](docs/architecture/trade-continuations.md) and
+[consolidated receipt](docs/history/trade-continuation-batch-2026-10-19.md). Controlled manual
+acceptance, sustained timing, complete real foreground/editor/transport policy and qualified
+benchmarks/learning remain open. Continue related fixes in batches; full verification and one
+paired restart follow a completed candidate, with a concise consolidated receipt.
+
 Cancelled-sale recovery #114/61bf57e is MERGED after both exact-head checks for 857f36e and
 INSTALLED at 2026-10-19T21:06:37Z. Two old-source regressions reproduce existing same-item listings
 erasing the intent and temporary slot retention/reuse losing collection evidence. The callback now
@@ -37,11 +48,12 @@ Source delivery/measurement:
 [receipt](docs/history/completed-offer-latency-2026-10-19.md). Controlled fills/ACK/instruction and
 sustained latency stay open; historical #108 freshness does not establish current buy readiness.
 
-Offline replay v6 now qualifies original acquisition context through canonical sources/restart,
+Included offline replay v6 qualifies original acquisition context through canonical sources/restart,
 uses final companion sale authority and separates displayed advice from a later revalidated manual
 action. Completed orders and incremental disposal counts differ. This evaluator-only increment
-needs no separate live-pair replacement; it is included in installed #111. Remaining buy-replacement/persisted-relist/
-real client acceptance and qualified benchmark gates stay open. See
+needs no separate live-pair replacement; it is included in installed #111. The queued v7 batch adds
+shared replacement/persisted-relist coverage; real client acceptance and qualified benchmark gates
+stay open. See
 [replay contract](docs/architecture/replay-canonical-sale.md) and
 [verification](docs/history/replay-canonical-sale-2026-10-19.md).
 

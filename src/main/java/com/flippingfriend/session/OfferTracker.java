@@ -60,6 +60,7 @@ public class OfferTracker
 	private final TaxCalculator taxCalculator;
 	private final TradePlans tradePlans;
 	@Inject private SellRelistIntent sellRelist;
+	@Inject private BuyRepriceIntent buyReprice;
 
 	private final Map<Integer, TrackedOffer> bySlot = new ConcurrentHashMap<>();
 
@@ -606,6 +607,10 @@ public class OfferTracker
 
 	private void checkpointRelist()
 	{
+		if (buyReprice != null) {
+			try { buyReprice.observe(this, storage.accountId(), Instant.now().getEpochSecond()); }
+			catch (Exception ex) { log.debug("buy continuation checkpoint failed", ex); }
+		}
 		if (sellRelist != null) {
 			try { sellRelist.observe(this, storage.accountId()); }
 			catch (Exception ex) { log.debug("relist observation checkpoint failed", ex); }

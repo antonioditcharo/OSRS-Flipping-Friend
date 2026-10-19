@@ -166,12 +166,32 @@ public class SuggestionEngine
 	private final SkipList skipped;
     @Inject private com.flippingfriend.companion.CompanionClient companion;
     @Inject private com.flippingfriend.session.SellRelistIntent sellRelist;
+    @Inject private com.flippingfriend.session.BuyRepriceIntent buyReprice;
     private volatile String observedAccount;
     public void setObservedAccount(String account) {
         if(!java.util.Objects.equals(observedAccount,account)) {
             advisedPrices.clear();reprice=null;setPendingAdjustment(null);
         }
         observedAccount=account;
+    }
+    /** Client-thread acceptance only: a worker proposal is not a promise shown to the player. */
+    public void recordPresentedMaintenance(Suggestion accepted,String expectedAccount,long now) {
+        if(accepted==null || expectedAccount==null || !expectedAccount.equals(observedAccount))return;
+        if(accepted.getType()==SuggestionType.CANCEL) {
+            var cancelled=offers.getOffer(accepted.getSlot());
+            if(cancelled!=null && cancelled.isBuying() && cancelled.getItemId()==accepted.getItemId())
+                clearBuyPromise(accepted.getItemId(),Instant.ofEpochSecond(now));
+            return;
+        }
+        boolean buy=accepted.getType()==SuggestionType.MODIFY_BUY;
+        if(!buy && accepted.getType()!=SuggestionType.MODIFY_SELL)return;
+        var offer=offers.getOffer(accepted.getSlot());
+        if(offer==null || offer.isBuying()!=buy || offer.getItemId()!=accepted.getItemId()
+            || offer.getRemaining()!=accepted.getQuantity() || accepted.getMaintenanceOfferIdentity()==null
+            || !accepted.getMaintenanceOfferIdentity().equals(offer.getContinuationIdentity())
+            || !(buy?"BUYING":"SELLING").equals(offer.getState()))return;
+        if(buy && buyReprice!=null)buyReprice.advise(offer,expectedAccount,offers,now);
+        if(!buy && sellRelist!=null)sellRelist.advise(offer,expectedAccount,accepted.isProfitKnown(),offers);
     }
 
     public boolean hasTradeEvidence() {
@@ -286,6 +306,7 @@ public class SuggestionEngine
 	public void setSellOnly(boolean sellOnly)
 	{
 		this.sellOnly = sellOnly;
+        if(sellOnly){reprice=null;if(buyReprice!=null)buyReprice.clear(observedAccount);}
 	}
 
 	/** Recomputes the suggestion. Safe to call from any thread except the client thread. */
@@ -624,6 +645,7 @@ public class SuggestionEngine
 				int limit = metadata != null ? metadata.getBuyLimit() : 0;
 				if (limit > 0 && buyLimits.remaining(offer.getItemId(), limit, now) <= 0)
 				{
+                    clearBuyPromise(offer.getItemId(),now);
 					return Suggestion.builder(SuggestionType.CANCEL)
 						.item(offer.getItemId(), market.getItemName(offer.getItemId()))
 						.slot(offer.getSlot())
@@ -650,13 +672,16 @@ public class SuggestionEngine
 			{
 				if (offer.isBuying())
 				{
+					if(price.getLow()>=Integer.MAX_VALUE)continue;
 					// Settled before it is judged, so the profitability gate below and the card the
 					// player reads are talking about the same price. See advisedPrice.
 					int newPrice = advisedPrice(offer.getItemId(), true, price.getLow() + 1,
 						now.getEpochSecond());
-					int targetSellPrice = Math.max(1, price.getHigh() - 1);
-
-					long expectedProfit = taxCalculator.netProfit(offer.getItemId(), newPrice, targetSellPrice, remaining);
+                    var buyQuote=com.flippingfriend.session.BuyRepricePricing.quote(offer.getItemId(),offer.getPrice(),remaining,
+                        offer.getFirstSeen(),price,trend,horizon,taxCalculator,now.getEpochSecond(),newPrice,config.minProfitPerFlip());
+                    if(buyQuote==null)continue;
+                    int targetSellPrice=buyQuote.target;
+                    long expectedProfit=buyQuote.profit;
 
 					// Chasing the price up is only worth doing while the trade is still worth doing.
 					//
@@ -667,8 +692,9 @@ public class SuggestionEngine
 					// hard to argue with: nothing recommends entering a trade at a loss before it has
 					// begun. The offer is being skipped over *and* it is no longer worth having, so
 					// the honest answer is the slot, not a better price for a bad trade.
-					if (expectedProfit < Math.max(1, config.minProfitPerFlip()))
+					if (!buyQuote.replace)
 					{
+                        clearBuyPromise(offer.getItemId(),now);
 						return Suggestion.builder(SuggestionType.CANCEL)
 							.item(offer.getItemId(), name)
 							.slot(offer.getSlot())
@@ -697,9 +723,10 @@ public class SuggestionEngine
 					// was whatever the planner happened to rank top, at whatever size it liked.
 					// Telling someone to abandon a working offer and then not replacing it is worse
 					// than never having said anything.
-					reprice = new Reprice(offer.getItemId(), remaining, now.getEpochSecond());
+                    if (buyReprice == null) reprice = new Reprice(offer.getItemId(), remaining, now.getEpochSecond());
 
 					return Suggestion.builder(SuggestionType.MODIFY_BUY)
+						.maintenanceSource(offer.getContinuationIdentity())
 						.item(offer.getItemId(), name)
 						.slot(offer.getSlot())
 						.price(newPrice)
@@ -768,8 +795,8 @@ public class SuggestionEngine
 
 				// What the new price is actually worth. The reprice card carried no figure at all, so a
 				long change = costKnown ? taxCalculator.netProceeds(offer.getItemId(),newPrice,remaining)-allocatedCost : 0;
-                if (sellRelist != null) sellRelist.advise(offer, observedAccount, position != null, offers);
 				return Suggestion.builder(SuggestionType.MODIFY_SELL)
+                    .maintenanceSource(offer.getContinuationIdentity())
 					.item(offer.getItemId(), name)
 					.slot(offer.getSlot())
 					.price(newPrice)
@@ -812,6 +839,11 @@ public class SuggestionEngine
 	 */
 	private boolean awaitingReplacement(int itemId, AccountState account, Instant now)
 	{
+        if(buyReprice!=null) {
+            if(!buyReprice.isPending(itemId,offers,observedAccount,now.getEpochSecond())) return false;
+            if(replacementRejected(itemId,marketData.getSnapshot())) {buyReprice.clear(observedAccount);return false;}
+            return true;
+        }
 		Reprice pending = reprice;
 		if (pending == null || pending.itemId != itemId)
 		{
@@ -824,6 +856,7 @@ public class SuggestionEngine
 
 	private Suggestion replaceRepricedBuy(MarketSnapshot market, AccountState account, Instant now)
 	{
+        if(buyReprice!=null) return replaceDurableBuy(market,account,now);
 		Reprice pending = reprice;
 		RepriceVerdict verdict = repriceVerdict(pending, now.getEpochSecond(),
 			pending != null && offers.itemsWithOpenOffers().contains(pending.itemId),
@@ -889,6 +922,38 @@ public class SuggestionEngine
 				+ "queue rather than back where the old one was.")
 			.build();
 	}
+
+    private boolean replacementRejected(int item,MarketSnapshot market) {
+        return sellOnly || skippedItems().contains(item)
+            || parseBlocked(config.blockedItems()).contains(market.getItemName(item).toLowerCase(java.util.Locale.ROOT));
+    }
+    private void clearBuyPromise(int item,Instant now) {
+        if(buyReprice!=null && buyReprice.pendingItemId(offers,observedAccount,now.getEpochSecond())==item)
+            buyReprice.clear(observedAccount);
+        if(reprice!=null && reprice.itemId==item)reprice=null;
+    }
+    private Suggestion replaceDurableBuy(MarketSnapshot market,AccountState account,Instant now) {
+        int item=buyReprice.pendingItemId(offers,observedAccount,now.getEpochSecond());
+        if(item<=0) return null;
+        if(replacementRejected(item,market)) {buyReprice.clear(observedAccount);return null;}
+        var pending=buyReprice.collectedRequest(offers,observedAccount,now.getEpochSecond());
+        if(pending==null || account.getFreeSlots()<=0) return null;
+        LatestPrice price=market.latest(item);
+        if(!freshSaleQuote(price,now) || price.getLow()>=Integer.MAX_VALUE)
+            return Suggestion.waiting("Checking the replacement price","A current two-sided quote is required before replacing the collected remainder.");
+        int quoted=price.getLow()+1;
+        var metadata=market.metadata(item);
+        int limit=metadata==null?0:metadata.getBuyLimit();
+        int allowed=limit>0?buyLimits.remaining(item,limit,now):0;
+        int quantity=replacementQuantity(pending.quantity,allowed,
+            account.spendableCoins(config.includeBankValue(),config.bankrollCap()),quoted);
+        if(quantity<=0) return Suggestion.waiting("Replacement waiting for funds or buy limit",
+            "The cancelled remainder is retained; fresh account evidence must support the next order.");
+        // This is a bounded request, not price/quantity authority. The companion re-plans this item
+        // with the cap before the foreground can accept or bind any displayed BUY forecast.
+        return Suggestion.builder(SuggestionType.BUY).item(item,market.getItemName(item)).price(quoted).quantity(quantity)
+            .headline("Recheck your "+market.getItemName(item)+" replacement").build();
+    }
 
 	/** What to do about an outstanding reprice on this pass. */
 	enum RepriceVerdict
