@@ -9,12 +9,16 @@ Continuation impact order: trade-loop reliability/exit-context provenance, actua
 latency, production-policy account replay/returns, validated learning, then remaining product gaps.
 Read [the continuation prompt](docs/next-conversation-prompt.md); current delivery facts below govern.
 
-- [ ] Deliver/accept acquisition-bound exit context. Live initial/maintenance/relist/final authority
+- [ ] Accept installed #108/fe8a33b acquisition-bound exit context. Live initial/maintenance/relist/final authority
       now read the original prospective canonical buy context, without the item cache's six-hour
       TTL or a later snapshot's target. Partial fills/sales, ACK and overnight restart retain it;
       mixed/unproven origins stay unknown. Windows clean 66s: 1,726 Java passed/six existing skips,
-      Java 11; 108 tooling passed. Merge/install/fresh manual acceptance remain pending; #105 remains
-      installed. See docs/architecture/acquisition-exit-context.md and
+      Java 11; 108 tooling passed. Both exact-head CI checks pass. Supported update/VERIFIED backup/
+      installed hashes/task/financial prefix/risk anchor/status/compatibility/scoped GETs pass;
+      RuneLite reopened. Fresh authenticated eight-slot/zero pending outbox/scoped Performance, READY
+      and final PLACE_BUY pass; Client delivered BUY/COLLECT/WAIT. Full manual trade-loop, price-quality
+      and sustained timing acceptance remain pending. See
+      docs/architecture/acquisition-exit-context.md and
       docs/history/acquisition-exit-delivery-2026-10-19.md. Production replay must also qualify this
       boundary before any promotion gate; all controlled workflow/learning/benchmark gates remain.
 
@@ -25,16 +29,17 @@ Read [the continuation prompt](docs/next-conversation-prompt.md); current delive
       Standard Windows 112s: 1,717 Java passed/six skips, Java 11; 108 tooling passed. Replay v5
       structural twelve-cadence/share bundle reproduces; no return/optimal-pricing claim. Both
       exact-head CI checks pass. Supported update/VERIFIED backup/task/financial preservation/
-      status/compatibility/scoped GETs pass; RuneLite reopened. Fresh login and controlled
-      initial/partial/cancel/collect/relist/restart/player quality acceptance remain open. See
+      status/compatibility/scoped GETs pass; RuneLite reopened. Fresh login/source proof now passes in
+      #108; controlled initial/partial/cancel/collect/relist/restart/player quality acceptance remains open. See
       docs/history/patient-sale-delivery-2026-10-19.md. Source/test/install/acceptance differ.
 
 - [ ] Accept installed #103/dd49269 panel/performance/prompt guidance. Both exact-head CI
       checks pass; Windows clean: 1,695 Java passed/six skips and 108 Python passed. Supported
       update/VERIFIED backup/task/financial preservation/status/compatibility/scoped GETs pass;
       RuneLite reopened; fresh authenticated eight-slot bindings/scoped Performance pass. Delivered
-      BUY median 1,039ms with a 5,186ms first-publication outlier; WAIT median 607ms. Current sell-only
-      correctly withholds buys. Panel/reset, controlled trading and sustained timing remain open.
+      BUY median 1,039ms with a 5,186ms first-publication outlier; WAIT median 607ms. That session's sell-only
+      correctly withheld buys; fresh normal-mode READY/final entry passes in #108. Panel/reset,
+      controlled trading and sustained timing remain open.
       It adds scoped
       session/period/reset, ledger-based profit/ROI/completed sales, conservative stock marks,
       elapsed clock/rate, paged sales and estimated action profit/time. Five-second minimum spacing
@@ -52,7 +57,7 @@ Read [the continuation prompt](docs/next-conversation-prompt.md); current delive
       supported Start reopened RuneLite. Fresh authenticated eight-slot proof and qualified quiet
       marks pass; READY plans precede the current eight-occupied NO_FREE_SLOT outcome. Same frozen
       live data changes negative old-policy allowance to positive without financial changes.
-      Over-15m unsupported quotes still keep full reserves. Final eligible entry, sustained and
+      Over-15m unsupported quotes still keep full reserves. Fresh final eligible entry also passes in #108; sustained and
       owner UI acceptance remain pending. See docs/architecture/qualified-stock-risk-marks.md and
       docs/history/qualified-stock-valuation-2026-10-18.md.
 
@@ -198,7 +203,7 @@ Read [the continuation prompt](docs/next-conversation-prompt.md); current delive
 - [ ] Finish manual cancel -> collect -> revalidate -> replace and partial-fill protection as a
       complete live workflow. Shared sell pricing and final companion authority are implemented;
       accept their production sequence. Acquisition-bound target/stop/duration replaces the live
-      item-keyed TTL cache in the queued increment above; accept that provenance through restart.
+      item-keyed TTL cache in the installed increment above; accept that provenance through restart.
 - [ ] Build account-level chronological replay for 100M members at 5m, 30m, 2h, and 8h checks.
       Include end-of-run inventory liquidation, cash, buy limits, tax, and missed visits.
       AccountReplay now models shared cash/eight slots, partial fills, sequential attendance,
