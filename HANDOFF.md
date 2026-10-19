@@ -5,26 +5,27 @@ Root notes describe the current workflow; detailed prior receipts remain in link
 
 ## Current source and installed runtime
 
-Candidate `codex/qualified-stock-risk-marks` addresses the owner's reproduced long #98 valuation
-pause with qualified completed public-price/volume evidence, a 10% haircut/tax and quantity bounds.
-It changes the strict 120s-only risk mark and awaits an explicit owner decision before merge/install.
-Missing/unsupported stock remains fully reserved; original anchors/accounting/loss controls remain.
-Contract: docs/architecture/qualified-stock-risk-marks.md. Windows clean 121s: 1,680 Java passed/
-six skips, Java 11; 108 tooling tests pass. Exact-head CI is pending; #98 remains installed.
-Receipt: docs/history/qualified-stock-valuation-2026-10-18.md. Native-window acceptance and
-controlled workflows remain pending.
+Owner-approved #101/5260586 is INSTALLED. Quiet stock can use qualified completed public price/
+volume support, a 10% price haircut/tax and quantity limits; quiet marks cannot credit gains.
+Direct bids retain 120s; fallback trades must be within 15m. Missing/unsupported stock remains
+fully reserved, with original accounting/anchors/confirmed losses and final guards intact.
+Windows clean 121s: 1,680 Java passed/six skips, Java 11; 108 tooling tests pass. Both exact-head
+Windows/Linux checks pass (5ec358e, run 39214094448). Verified backup 20261018-231405-0f47deda,
+installed hashes, byte-identical task XML/SDDL/lifecycle=1, all 47,672 frozen rows/1,404 financial
+effects/original anchor and status/compatibility/scoped GET checks pass. Supported Start reopened
+RuneLite 1.13.2. Fresh authenticated eight-slot proof and live qualified quiet-stock valuations
+pass; retained READY plans precede the current NO_FREE_SLOT/eight-occupied outcome. The same frozen
+live evidence gives a negative allowance under #98 and a positive allowance under #101 without
+financial changes. Over-15m unsupported quotes still retain full reserves. Final eligible entry,
+sustained/owner UI and native-window acceptance remain pending; no gameplay was automated.
+Contract: docs/architecture/qualified-stock-risk-marks.md;
+receipt: docs/history/qualified-stock-valuation-2026-10-18.md.
 
-Merged #98/f662310 names current-stock valuation pauses, preserves their
-exact reserve/120s quote guard and retries on newer market evidence without the ordinary spacing
-delay. Records/Missed flips now open native maximized frames. Regression-first fixes pass; Windows
-clean 92s: 1,658 Java passed/six skips, Java 11; 108 tooling tests pass. Both exact-head Windows/Linux
-checks passed (source 82e883b, run 39192695351). The pair is INSTALLED at 05:06:38 UTC
-(21:06 local) using VERIFIED backup 20261018-210634-e9da041d. Installed hashes, unchanged task
-XML/SDDL/lifecycle=1, all 44,076 frozen rows/1,393 financial effects/original risk anchor and
-status/compatibility/scoped GET checks pass. Supported Start reopened RuneLite 1.13.2 and loaded
-the plugin. Fresh login, native-window and sustained guidance acceptance remain pending; the
-pre-login plan correctly awaits current cash/slots. Genuine current-stock/live-offer guards remain.
-Receipt: docs/history/buy-readiness-windows-delivery-2026-10-18.md.
+#98's valuation explanations, prompt rechecks and native maximized Records/Missed flips frames
+remain included. Its strict 120s-only fallback is superseded by the approved #101 policy above.
+The owner reproduced a prolonged valuation pause after #98; that is not accepted sustained buy
+availability. Native-window acceptance remains pending. Earlier verified installation/CI receipts:
+docs/history/buy-readiness-windows-delivery-2026-10-18.md.
 
 Merged #96/1ebe4f8 adds the wide native market graph, independent
 public-history cache and experimental historical-return projection/evaluation. It is INSTALLED
@@ -34,10 +35,10 @@ and [verification receipt](docs/history/market-graph-delivery-2026-10-18.md) rec
 tested price horizons have worse known-target MAE than persistence; scenarios remain display-only.
 Both exact-head CI checks passed (run 39190129423, source f1f0ce8). Paired update 02:37:56 UTC
 used VERIFIED backup 20261018-183753-28a992cf; its delivery checks passed and it is now included
-in the installed #98 pair above. Fresh graph/guidance acceptance is pending. No Copilot all-users
+in the installed #101 pair above. Fresh graph/guidance acceptance is pending. No Copilot all-users
 feed/private production dependency.
 
-The combined sale fixes through #94/c8d3a18 remain INSTALLED in the #98 pair.
+The combined sale fixes through #94/c8d3a18 remain INSTALLED in the #101 pair.
 Quiet last-trade prices no longer strand verified unlisted stock: shared initial/relist pricing
 provides an explained exact non-loss limit; stops and live sell cancellation still need fresh trades.
 Current physical quantity, source, exact costs, scopes and TTLs remain checked. Current-account policy
@@ -51,16 +52,10 @@ fill source races, one consistent sale read, compatible displayed sell prices, a
 clock price fencing. Exact taxed floors and final source/quantity/price guards remain active.
 [Contract/player steps](docs/architecture/sale-guidance-delivery.md).
 
-Final Windows clean: 108s/18 tasks, 1,636 Java passed/six existing skips; Java 11. Tooling:
-108 Python tests passed (141.478s). #94 passed both exact-head Windows/Linux CI.
-Backup 20261018-124110-c0f97a8c is VERIFIED (three companion/22 plugin files); installed hashes,
-exact task XML/SDDL/lifecycle=1, native status/compatibility/scoped GET checks pass. All 32,694
-frozen account rows/1,350 financial effects and the sole original risk anchor remain identical;
-the new 33,986-row/1,352-effect prefix is also preserved.
-[Current hashes/CI/delivery](docs/history/quiet-market-sale-delivery-2026-10-18.md) and
-[earlier fixes/attempts](docs/history/sale-guidance-delivery-2026-10-18.md).
-Native identity/control uses granted limited rights and a held-handle creation/argument proof;
-no elevation, task/ACL change, financial replay/repair or game input was used.
+#94's own build/CI, backup, financial preservation and normal-user lifecycle receipts remain in
+[its delivery](docs/history/quiet-market-sale-delivery-2026-10-18.md) and
+[earlier attempts](docs/history/sale-guidance-delivery-2026-10-18.md). Current pair identities and
+verification are in the #101 receipt above. No elevation, task/ACL change, financial repair or game input.
 
 The owner reproduced continued waiting on #91; fresh GETs identified SALE_QUOTE_STALE. Identical
 frozen evidence changes WAIT to PLACE_SELL under #94 without accounting changes. Supported Start
@@ -72,8 +67,9 @@ availability and #86 Missed flips stability remain accepted, not the broader con
 workflow. [Earlier policy delivery](docs/history/current-account-delivery-2026-10-18.md) and
 [history display](docs/history/history-display-delivery-2026-10-18.md).
 
-#83's investigation/graphs/market watch/alerts/evaluation paths remain installed. Replay v3 now
-shares live display-price stability/quiet-stock pricing and reproduces twelve synthetic 100M members/eight-slot
+#83's investigation/graphs/market watch/alerts/evaluation paths remain installed. Replay v4 retains
+shared live display-price stability/quiet-stock pricing and adds explicit aggregate clocks for risk.
+It reproduces twelve synthetic 100M members/eight-slot
 5m/30m/2h/8h cadence/share scenarios; retained older evaluators still verify their own bundles.
 Complete replacement/relist/foreground coverage and qualified market benchmarks remain open.
 [Product/deferred features](docs/architecture/parity-account-evaluation.md).

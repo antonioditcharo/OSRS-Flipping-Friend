@@ -5,22 +5,26 @@ All unchecked release requirements remain visible below; detailed completion rec
 
 ## Active
 
-- [ ] Finish/verify the qualified quiet-stock valuation candidate, then obtain the owner's policy
-      decision before merge/install. #98's strict 120s-only bid rule reproduced long full-cost
-      reserve pauses despite cash/slots. Candidate uses timestamped completed public price/volume,
-      a 10% haircut/tax and bounded quantities; missing stock remains fully reserved. Keep original
-      accounting/anchors, confirmed-loss and final authority guards. See
-      docs/architecture/qualified-stock-risk-marks.md. Windows clean 121s: 1,680 Java passed/six
-      skips and 108 tooling tests pass; exact-head CI/owner decision/delivery remain pending.
-      Installed runtime remains #98. Receipt: docs/history/qualified-stock-valuation-2026-10-18.md.
+- [ ] Accept owner-approved/installed #101/5260586 quiet-stock valuation: timestamped completed
+      public price/volume, 10% haircut/tax and quantity limits. Direct bids retain 120s; qualified
+      fallback trades must be within 15m. Missing/unsupported stock remains fully reserved; original
+      accounting/anchors, confirmed-loss and final authority guards remain. Windows clean 121s:
+      1,680 Java passed/six skips and 108 tooling tests pass; both exact-head CI checks pass.
+      Verified backup/pair/task/financial-prefix/status/compatibility/scoped GET checks pass;
+      supported Start reopened RuneLite. Fresh authenticated eight-slot proof and qualified quiet
+      marks pass; READY plans precede the current eight-occupied NO_FREE_SLOT outcome. Same frozen
+      live data changes negative old-policy allowance to positive without financial changes.
+      Over-15m unsupported quotes still keep full reserves. Final eligible entry, sustained and
+      owner UI acceptance remain pending. See docs/architecture/qualified-stock-risk-marks.md and
+      docs/history/qualified-stock-valuation-2026-10-18.md.
 
 - [ ] Deliver/accept merged #98/f662310: current-stock valuation explanations,
       prompt recheck on fresh market evidence and native maximized Records/Missed flips windows.
-      Preserve historical separation, exact reserves, quote/source guards and original loss anchor.
+      Preserve historical separation, exact reserves, qualified price/source guards and original loss anchor.
       Windows clean 92s: 1,658 Java passed/six skips, Java 11; 108 tooling tests pass.
       Both exact-head Windows/Linux checks pass. #98 is INSTALLED with VERIFIED backup
       20261018-210634-e9da041d; hashes/task/financial-prefix/status/compatibility/scoped GET checks
-      pass and supported Start reopened RuneLite. Fresh account/native player acceptance remains
+      pass and it remains included in #101. Native player acceptance remains
       pending. Genuine risk waits remain. See docs/history/buy-readiness-windows-delivery-2026-10-18.md.
 
 - [ ] Deliver/accept the source graph increment in docs/architecture/market-graphs.md: independent
@@ -32,7 +36,7 @@ All unchecked release requirements remain visible below; detailed completion rec
       hashes/Java 11/task/financial-prefix/status/compatibility/scoped GET checks pass; supported
       Start reopened RuneLite. Fresh login/installed owner graph and guidance acceptance is pending.
       See docs/history/market-graph-delivery-2026-10-18.md.
-      Installed #98 runtime includes #94 sells and #96 graphs. Other players' trades never become
+      Installed #101 runtime includes #94 sells and #96 graphs. Other players' trades never become
       this account's missing ledger rows or execution samples. Validated forecast quality remains open.
 
 - [x] Deliver/accept initial sell guidance in installed #94. Owner reported indefinite verification
@@ -156,7 +160,8 @@ All unchecked release requirements remain visible below; detailed completion rec
       Include end-of-run inventory liquidation, cash, buy limits, tax, and missed visits.
       AccountReplay now models shared cash/eight slots, partial fills, sequential attendance,
       collection, tax, canonical limits/risk, restart and conservative terminal marks in twelve
-      scenarios. Shared live/replay display-price stability and quiet-stock pricing are installed in replay v3. Complete production
+      scenarios. Replay v4 retains shared live/replay display-price stability/quiet-stock pricing
+      and explicit published aggregate clocks for the approved risk marks. Complete production
       buy-replacement/relist/foreground acceptance coverage and a
       qualified frozen market benchmark remain open; fixtures are not performance evidence.
 - [ ] Add prospective session/cadence measurement and full-account replay; historical CSVs do not
