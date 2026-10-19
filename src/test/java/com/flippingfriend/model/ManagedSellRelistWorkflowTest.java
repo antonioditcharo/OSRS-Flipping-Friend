@@ -26,9 +26,10 @@ public class ManagedSellRelistWorkflowTest {
         final OfferTracker offers = mock(OfferTracker.class);
         final MarketDataService market = mock(MarketDataService.class);
         final TradePlans plans=mock(TradePlans.class);
+        final PluginStorage storage;
         final SuggestionEngine engine;
         Fixture(int remaining, long cost, int inventory, int price, boolean managed) throws Exception {
-            var storage = TestStorage.rootedAt(folder.newFolder().toPath(), "relist");
+            storage = TestStorage.rootedAt(folder.newFolder().toPath(), "relist");
             var intent = new SellRelistIntent(storage);
             var sale = new TrackedOffer(0, 561, false, 1200, 10, now.getEpochSecond() - 600);
             sale.setState("SELLING"); sale.setQuantityFilled(2);
@@ -114,6 +115,18 @@ public class ManagedSellRelistWorkflowTest {
             tax.netProceeds(561, next.getPrice(), 6) >= 5881);
         assertTrue(next.isProfitKnown());
         assertEquals(tax.netProceeds(561, next.getPrice(), 6)-5881, next.getExpectedProfit());
+    }
+    @Test public void aCollectedSlotCanBeReusedBeforeRestartWithoutLosingManagedRelistGuidance() throws Exception {
+        var f = new Fixture(3,125,6003,44,true);
+        assertEquals(SuggestionType.SELL,f.next().getType()); // Checkpoint the exact cancelled/collected episode.
+        when(f.offers.getSettledOffer(0)).thenReturn(null); // Slot reused; the tracker no longer retains it.
+        inject(f.engine,"sellRelist",new SellRelistIntent(f.storage));
+        var next=f.next();assertEquals(SuggestionType.SELL,next.getType());assertEquals(3,next.getQuantity());
+        assertTrue(next.getHeadline().contains("Relist"));assertTrue(next.isProfitKnown());
+        assertEquals(tax.netProceeds(561,next.getPrice(),3)-125,next.getExpectedProfit());
+        // Losing price/ledger evidence still withdraws this retained hint, without changing the acquisition.
+        when(f.companion.tradingLedger()).thenReturn(null);
+        assertEquals(SuggestionType.WAIT,f.next().getType());
     }
     @Test public void relistCapsToVisibleAndDurableRemaindersWithoutBorrowingPersonalUnits() throws Exception {
         var f = new Fixture(3, 125, 6003, 44, true);

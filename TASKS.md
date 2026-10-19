@@ -9,6 +9,15 @@ Continuation impact order: trade-loop reliability/exit-context provenance, actua
 latency, production-policy account replay/returns, validated learning, then remaining product gaps.
 Read [the continuation prompt](docs/next-conversation-prompt.md); current delivery facts below govern.
 
+- [ ] Deliver/accept cancelled-sale intent recovery: retain the exact observed collected remainder
+      through slot reuse/retention/restart; distinguish already-working listings from a later
+      replacement and reject stale episode advice. Two prior-source regressions fail; source fixes
+      and real callback/managed decision-chain tests pass. Windows clean 83s: 1,743 Java passed/six
+      skips, Java 11; 108 tooling passed. Exact-head CI/delivery pending.
+      See docs/architecture/durable-sale-relist.md and docs/history/durable-sale-relist-2026-10-19.md.
+      Current inventory/ledger/cost/target/scope/final authority remain required. Controlled partial
+      cancel/collect/relist/restart and persisted-intent replay coverage remain open.
+
 - [ ] Deliver and accept completed-offer latency source: reuse the validated canonical prefix
       during prospective terminal prediction qualification, retaining earliest-original checks,
       tail/external invalidation and atomic rollback/deduplication. The 30,000-source regression

@@ -33,6 +33,11 @@ rebuilding already implemented capabilities:
 
 ## Delivery state at this handoff
 
+Cancelled-sale recovery source is queued: prior same-item listings no longer erase the intent;
+the callback retains the exact observed collected remainder before temporary slot evidence is
+removed. Read newest HANDOFF and docs/history/durable-sale-relist-2026-10-19.md for build/CI/actual
+installation state. This is workflow continuity, not financial recovery or complete replay coverage.
+
 Completed-offer latency #111/b74f93b is merged with both exact-head checks and Windows clean
 1,736 Java passed/six skips, Java 11; 108 tooling passed. Synthetic median acceptance is 173ms -> 18ms,
 with identical financial/prediction results. INSTALLED at 18:55:13Z on 19 October after the agent
