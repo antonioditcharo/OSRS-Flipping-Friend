@@ -42,7 +42,9 @@ source, validating account/session/episode/slot/counters/price/ordering within t
 transaction. Missing or contradictory progress is unknown, never evidence that an offer stalled.
 No database schema migration, historical replay, cost repair, money reset or new execution claim.
 Initial/relist price stabilization and final authority recheck the target as well as the exact floor.
-The paired sale protocol is companion-sale-2; old semantics cannot authorize the new client's order.
+The paired sale protocol is companion-sale-3; old semantics cannot authorize the new client's order.
+Original live context now comes from [canonical acquisition evidence](acquisition-exit-context.md),
+not an expiring item plan or a later client snapshot. Missing legacy context stays unknown.
 If final authority declines a routine reduction, the client withdraws it and continues through the
 independently verified entry path. This is never permission to bypass entry cash/slots/risk/limits;
 urgent cuts and unlisted-stock refusals keep their priority recovery WAIT. The diagnostic remains.

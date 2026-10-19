@@ -195,7 +195,7 @@ public class SuggestionEngine
         for (var p : ledger.getTradingPositions()) {
             Position position = new Position(p.getItemId(), p.getItemName(), p.getQuantity(),
                 p.getTotalCost(), p.getOpenedAt(), true);
-            tradePlans.applyTo(position);
+            position.applyExitContext(p.getExitContext());
             held.add(position);
         }
         return held;
@@ -1322,7 +1322,7 @@ public class SuggestionEngine
     private Position salePosition(com.flippingfriend.core.AccountLedgerSnapshot ledger, int item) {
         for (var p : ledger.getTradingPositions()) if (p.getItemId()==item) {
             var position = new Position(item,p.getItemName(),p.getQuantity(),p.getTotalCost(),p.getOpenedAt(),true);
-            tradePlans.applyTo(position); return position;
+            position.applyExitContext(p.getExitContext()); return position;
         }
         return null;
     }

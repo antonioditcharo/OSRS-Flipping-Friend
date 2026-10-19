@@ -446,6 +446,7 @@ public class CompanionClient
                                                 advice.getPredictedMinutes(), advice.getPredictedCompletion());
                                         builder.predictionEvidence(null,advice.getRecordedAt(),false);
                                         builder.executionForecast(advice.getForecast());
+                                        builder.exitContext(advice.getExitContext());
                                 }
                                 return builder.build();
                         });
@@ -659,6 +660,10 @@ public class CompanionClient
     /** Called only after the client-thread guide accepts advice. This does not prove player intent. */
     public synchronized void recordPresentedAdvice(Suggestion suggestion, String expectedAccount)
     {
+        recordPresentedAdvice(suggestion,expectedAccount,0);
+    }
+    public synchronized void recordPresentedAdvice(Suggestion suggestion, String expectedAccount,int stopPrice)
+    {
         String account = accountContext();
         if (account == null || !account.equals(expectedAccount) || suggestion == null || suggestion == lastPresented
             || (suggestion.getAdviceAccountId() != null && !account.equals(suggestion.getAdviceAccountId()))
@@ -678,8 +683,12 @@ public class CompanionClient
         }
         String recommendation = suggestion.getRecommendationId();
         if (recommendation == null || recommendation.isEmpty()) recommendation = (buying ? "buy-" : "sell-") + suggestion.getItemId();
+        com.flippingfriend.core.AcquisitionExitContext exit=null;
+        if(buying && suggestion.getTargetSellPrice()>0 && stopPrice>=0 && stopPrice<suggestion.getTargetSellPrice()
+            && Double.isFinite(suggestion.getSellFillMinutes()) && suggestion.getSellFillMinutes()>0)
+            exit=new com.flippingfriend.core.AcquisitionExitContext(suggestion.getTargetSellPrice(),stopPrice,suggestion.getSellFillMinutes());
         ledger.recorded(recommendation,suggestion.getItemId(),buying,suggestion.getPrice(),suggestion.getQuantity(),
-            suggestion.getQuoteAgeSeconds(),scalarValid ? minutes : 0,scalarValid ? probability : 0,forecast);
+            suggestion.getQuoteAgeSeconds(),scalarValid ? minutes : 0,scalarValid ? probability : 0,forecast,exit);
         lastPresented = suggestion;
     }
     /** Compatibility entry point for an already accepted sale; producers must not call this. */
@@ -902,7 +911,7 @@ public class CompanionClient
         return null;
     }
     static boolean validSaleDecision(PolicyDecision decision,String identity,String source,int slot,long now) {
-        return decision!=null && "1".equals(decision.getSchemaVersion()) && "companion-sale-2".equals(decision.getPolicyVersion())
+        return decision!=null && "1".equals(decision.getSchemaVersion()) && "companion-sale-3".equals(decision.getPolicyVersion())
             && identity.equals(decision.getCandidateId()) && source.equals(decision.getRecommendationId())
             && decision.getDecisionType()==(slot<0?PolicyDecisionType.EXIT:PolicyDecisionType.SELL_MAINTENANCE)
             && decision.getAction()==(slot<0?OfferLifecycleAction.PLACE_SELL:OfferLifecycleAction.CANCEL_SELL)

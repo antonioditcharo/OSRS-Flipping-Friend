@@ -25,6 +25,10 @@ final class AutomaticTradeScope {
     }
     void apply(String type, int item, String name, int quantity, long cost, long when,
             String event, String offer, Set<Integer> affectedItems) {
+        apply(type,item,name,quantity,cost,when,event,offer,affectedItems,null);
+    }
+    void apply(String type, int item, String name, int quantity, long cost, long when,
+            String event, String offer, Set<Integer> affectedItems,com.flippingfriend.core.AcquisitionExitContext context) {
         if (item < 0 || event == null || event.isBlank() || when < 0 || quantity < 0
                 || (item == 0 && !"RECONCILE".equals(type))) {
             throw new IllegalArgumentException("malformed trade scope event");
@@ -48,7 +52,8 @@ final class AutomaticTradeScope {
             positions.put(item, PositionProjection.ready(item, name,
                 Math.addExact(prior == null ? 0 : prior.getQuantity(), quantity),
                 Math.addExact(prior == null ? 0 : prior.getTotalCost(), cost),
-                prior == null ? when : prior.getOpenedAt(), when, event, offer));
+                prior == null ? when : prior.getOpenedAt(), when, event, offer).withExitContext(
+                    prior==null?context:java.util.Objects.equals(prior.getExitContext(),context)?context:null));
         } else if ("DISPOSE".equals(type)) {
             if (quantity <= 0) { unsafeItems.add(item); return; }
             if (prior == null) return; // An unrelated sale never creates a holding.
@@ -57,7 +62,7 @@ final class AutomaticTradeScope {
             if (matched == prior.getQuantity()) positions.remove(item);
             else positions.put(item, PositionProjection.ready(item, prior.getItemName(),
                 prior.getQuantity() - matched, prior.getTotalCost() - consumed,
-                prior.getOpenedAt(), when, event, offer));
+                prior.getOpenedAt(), when, event, offer).withExitContext(prior.getExitContext()));
         } else throw new IllegalArgumentException("unknown trade scope effect");
         if (positions.containsKey(item)) positionsAtEvent.put(event, positions.get(item));
     }

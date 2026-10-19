@@ -20,10 +20,20 @@ public class CompanionSalePolicyTest {
         return b.build();
     }
     void accept(SqliteStore store,OfferEvent event)throws Exception{store.recordAndProjectOffer(event,json.toJson(event),true);}
-    AccountSnapshot setup(SqliteStore store)throws Exception {
+    AccountSnapshot setup(SqliteStore store)throws Exception {return setup(store,null);}
+    AccountSnapshot setup(SqliteStore store,AcquisitionExitContext context)throws Exception {
         for(int slot=0;slot<8;slot++)accept(store,event(slot,"EMPTY",null,0,0,0,0,at));
-        accept(store,event(0,"BUYING","purchase",3,0,0,101,at));
-        accept(store,event(0,"BOUGHT","purchase",3,3,301,101,at+1));
+        var origin=event(0,"BUYING","purchase",3,0,0,101,at);
+        if(context!=null) {
+            var raw=json.toJsonTree(origin).getAsJsonObject();raw.add("exitContext",json.toJsonTree(context));
+            raw.addProperty("recommendationId","original");raw.addProperty("suggestedPrice",101);raw.addProperty("suggestedQuantity",3);
+            raw.addProperty("predictedMinutes",10);raw.addProperty("predictedCompletion",.75);
+            raw.addProperty("adviceObservedAt",at-1);
+            origin=json.fromJson(raw,OfferEvent.class).withBoundPrediction(json.fromJson(raw,OfferEvent.class),true);
+        }
+        accept(store,origin);
+        var terminal=event(0,"BOUGHT","purchase",3,3,301,101,at+1);
+        accept(store,context==null?terminal:terminal.withBoundPrediction(origin,true));
         accept(store,event(0,"EMPTY",null,0,0,0,0,at+2));
         return new AccountSnapshot("current",at+3600,100000000,0,8,8,true,false,0,"MODERATE",Map.of(),0,Map.of(),true,5,Set.of(),Set.of(),Set.of(),false,30)
             .withAccountId(id).withAutomaticTradeScope().withObservedHoldings(Map.of(561,3));
@@ -76,9 +86,18 @@ public class CompanionSalePolicyTest {
         value.add("positions",json.toJsonTree(List.of(new PositionSnapshot(p.getItemId(),p.getItemName(),p.getQuantity(),
             p.getTotalCost(),true,p.getOpenedAt(),target,stop,minutes))));return json.fromJson(value,AccountSnapshot.class);
     }
+    @Test public void clientItemContextCannotInventAnOriginalAcquisitionPlan()throws Exception {
+        try(var store=new SqliteStore(folder.newFolder().toPath().resolve("unproven-context.db"))) {
+            var account=setup(store);long now=at+3600;
+            var p=store.ledgerSnapshot(id,now).getTradingPositions().get(0);
+            account=context(account,p,140,90,120);
+            assertEquals("A later item plan cannot become this old purchase's original target",
+                OfferLifecycleAction.PLACE_SELL,decide(store,account,p.getSourceEventId(),3,120,-1,now).getAction());
+        }
+    }
     @Test public void finalAuthorityPreservesTheExactHealthyTargetForInitialAndMatureMaintenanceOrders()throws Exception {
         try(var store=new SqliteStore(folder.newFolder().toPath().resolve("patient.db"))) {
-            var account=setup(store);long now=at+3600;
+            var account=setup(store,new AcquisitionExitContext(140,90,120));long now=at+3600;
             var position=store.ledgerSnapshot(id,now).getTradingPositions().get(0);
             account=context(account,position,140,90,120);
             assertEquals(OfferLifecycleAction.PLACE_SELL,decide(store,account,position.getSourceEventId(),3,140,-1,now).getAction());

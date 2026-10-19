@@ -10,7 +10,7 @@ import java.util.*;
 
 /** Final read-only authority for managed exits and observed sale maintenance. No cost comes from the request. */
 final class CompanionSalePolicy {
-    static final String VERSION="companion-sale-2";
+    static final String VERSION="companion-sale-3";
     static String identity(int item,int price,int quantity,String source,boolean cut,int slot) {
         return item+":"+price+":"+quantity+":"+source+":"+cut+":"+slot;
     }
@@ -38,12 +38,7 @@ final class CompanionSalePolicy {
             Position position=null;
             for(var p:ledger.getTradingPositions())if(!paused && p.getItemId()==item) {
                 position=new Position(item,p.getItemName(),p.getQuantity(),p.getTotalCost(),p.getOpenedAt(),true);
-                // Original target/stop are policy context only. They cannot replace canonical quantity or cost.
-                for(var context:account.getPositions())if(context.getItemId()==item && context.isCostKnown()
-                    && context.getQuantity()==p.getQuantity() && context.getTotalCost()==p.getTotalCost() && context.getOpenedAt()==p.getOpenedAt()) {
-                    position.setStopPrice(context.getStopPrice());position.setTargetSellPrice(context.getTargetSellPrice());
-                    position.setPredictedSellMinutes(context.getPredictedSellMinutes());
-                }
+                position.applyExitContext(p.getExitContext());
             }
             var tax=new TaxCalculator();List<ItemMetadata> metadata=new ArrayList<>();
             for(var m:market.mapping.values())metadata.add(new ItemMetadata(m.id,m.name,m.members,m.buyLimit,0));tax.resolveExemptions(metadata);

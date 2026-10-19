@@ -20,6 +20,7 @@ Read first:
 3. `docs/architecture/panel-performance-and-latency.md` and
    `docs/history/panel-speed-delivery-2026-10-19.md`.
 4. `docs/project-direction.md` and `docs/architecture/parity-account-evaluation.md`.
+5. `docs/architecture/acquisition-exit-context.md` and its current delivery receipt in HANDOFF.
 
 Then consult the completed research as needed, reconciling it against current source rather than
 rebuilding already implemented capabilities:
@@ -31,6 +32,11 @@ rebuilding already implemented capabilities:
 - `local-data/copilot-reverse-engineering/20261017/wire-contract.json`
 
 ## Delivery state at this handoff
+
+Read newest HANDOFF first: acquisition-bound exit context supersedes the item-keyed TTL/live client
+snapshot target path. Its source/test/merge/install/player states are recorded there and in
+docs/history/acquisition-exit-delivery-2026-10-19.md. Do not rebuild this migration or invent missing
+legacy plans. Production replay must qualify the same boundary before any promotion claim.
 
 PR #105 is merged as `e21a0495462a5fe59620acf45963e96125505caa` and INSTALLED. Its exact source
 `24ec8a065a29094fcf73b353246e085974f99a65` passed Windows/Linux CI. Standard Windows clean build:
@@ -77,13 +83,10 @@ inspection; its eight-slot identity result must also be fresh before it establis
    unrelated eligible buys despite incomplete historical trades. Distinguish legitimate current
    risk/exposure/limit waits and explicit sell-only mode from delivery bugs.
 
-   Trace the target/stop/sell-duration context through acquisition, partial fills and restart.
-   Audit `TradePlans.java`: it is item-keyed and currently has a six-hour TTL, while supported
-   holds/checking horizons can be longer. Determine and reproduce any loss/misattribution of
-   intended exit context; preserve acquisition provenance and unknown original plans rather than
-   inventing a target or rewriting old money. This is a concrete high-impact follow-up, not a
-   claim that every current position has incorrect context. Complete the remaining ledger-consumer
-   authority audit. While manual acceptance is pending, continue independent implementation/tests.
+   Accept the acquisition-bound target/stop/sell-duration context through partial fills, relisting
+   and restart. Live policy now avoids the legacy item-keyed TradePlans TTL/client snapshot path;
+   preserve proven original acquisition context and unknown legacy/mixed plans. Complete remaining
+   ledger-consumer authority checks. While manual acceptance is pending, continue independent work.
 
 2. **Make suggestion transitions consistently near-instant.** Measure actual observation, ordered
    outbox publication/ACK, planning, final authority and client delivery, especially fills/collections,

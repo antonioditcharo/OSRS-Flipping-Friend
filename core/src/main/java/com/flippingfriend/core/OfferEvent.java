@@ -66,6 +66,7 @@ public final class OfferEvent
     private final Long adviceObservedAt;
     private final Boolean predictionComparable;
     private final ExecutionForecast executionForecast;
+    private final AcquisitionExitContext exitContext;
 
 	private OfferEvent(Builder builder)
 	{
@@ -99,6 +100,7 @@ public final class OfferEvent
         this.adviceObservedAt=builder.adviceObservedAt;
         this.predictionComparable=builder.predictionComparable;
         this.executionForecast=builder.executionForecast;
+        this.exitContext=builder.exitContext;
 	}
 
 	public static Builder builder(String correlationId, long observedAt, String eventType)
@@ -151,6 +153,7 @@ public final class OfferEvent
     public long getAdviceObservedAt() { return adviceObservedAt==null?0:adviceObservedAt; }
     public boolean isPredictionComparable() { return Boolean.TRUE.equals(predictionComparable); }
     public ExecutionForecast getExecutionForecast(){return executionForecast;}
+    public AcquisitionExitContext getExitContext(){return exitContext;}
 
     private Builder copyBuilder() {
         Builder copy=builder(correlationId,observedAt,eventType).eventIdentity(eventId,sessionId,offerIdentity)
@@ -161,6 +164,7 @@ public final class OfferEvent
         copy.predictionEvidenceVersion=predictionEvidenceVersion;copy.predictionSourceEventId=predictionSourceEventId;
         copy.adviceObservedAt=adviceObservedAt;copy.predictionComparable=predictionComparable;
         copy.executionForecast=executionForecast;
+        copy.exitContext=exitContext;
         return copy;
     }
     /** Freezes observational attribution, not proof of player intent. Economic/delivery fields stay intact. */
@@ -177,6 +181,12 @@ public final class OfferEvent
             && Double.isFinite(origin.predictedMinutes) && origin.predictedMinutes>0
             && Double.isFinite(origin.predictedCompletion) && origin.predictedCompletion>=0 && origin.predictedCompletion<=1;
         comparable=comparable && (origin.executionForecast==null || origin.executionForecast.matches(origin));
+        // Same exact prospective binding as the original advice. Later item advice, changed
+        // orders and missing originals cannot supply exit context. No lifetime expiry once bound.
+        String exitSource=origin==null?null:origin.predictionSourceEventId==null?origin.eventId:origin.predictionSourceEventId;
+        copy.exitContext=comparable && buying && origin.exitContext!=null && origin.exitContext.isValid()
+            && (origin.exitContext.getSourceEventId()==null || origin.exitContext.getSourceEventId().equals(exitSource))
+            ? origin.exitContext.bind(origin.predictionSourceEventId==null?origin.eventId:origin.predictionSourceEventId):null;
         copy.executionForecast=matched?origin.executionForecast:null;
         copy.recommendation(matched?origin.recommendationId:null,matched?origin.suggestedPrice:0,
             matched?origin.suggestedQuantity:0,matched?origin.quoteAgeSeconds:0,
@@ -244,6 +254,7 @@ public final class OfferEvent
         private Long adviceObservedAt;
         private Boolean predictionComparable;
         private ExecutionForecast executionForecast;
+        private AcquisitionExitContext exitContext;
 
 		private Builder(String correlationId, long observedAt, String eventType)
 		{
@@ -282,6 +293,7 @@ public final class OfferEvent
             predictionComparable=comparable;return this;
         }
         public Builder executionForecast(ExecutionForecast forecast){executionForecast=forecast;return this;}
+        public Builder exitContext(AcquisitionExitContext value){exitContext=value;return this;}
 
 		/** Links this offer to the advice that prompted it. */
 		public Builder recommendation(String id, int price, int quantity, long quoteAge,

@@ -131,7 +131,7 @@ public class AdviceDeliveryBoundaryTest {
         when(f.companion.nextAction()).thenReturn(sale);f.computeAdvice();
         verify(f.guide,never()).setSuggestion(sale);
         verify(f.companion,never()).recordSellAdvice(sale);
-        verify(f.companion,never()).recordPresentedAdvice(any(),anyString());
+        verify(f.companion,never()).recordPresentedAdvice(any(),anyString(),anyInt());
     }
     @Test public void deliveryRecordsOnlyTheGuidesActuallyAcceptedAdvice()throws Exception {
         Fixture f=new Fixture();when(f.guide.isPaused()).thenReturn(false);
@@ -140,18 +140,18 @@ public class AdviceDeliveryBoundaryTest {
         when(f.guide.getSuggestion()).thenReturn(accepted);
         f.computeAdvice();f.clientQueue.remove().run();
         verify(f.guide).setSuggestion(f.advice);
-        verify(f.companion).recordPresentedAdvice(accepted,com.flippingfriend.core.AccountIdentity.fromProfileKey("fixture"));
-        verify(f.companion,never()).recordPresentedAdvice(eq(f.advice),anyString());
+        verify(f.companion).recordPresentedAdvice(eq(accepted),eq(com.flippingfriend.core.AccountIdentity.fromProfileKey("fixture")),anyInt());
+        verify(f.companion,never()).recordPresentedAdvice(eq(f.advice),anyString(),anyInt());
     }
     @Test public void pausedDeliveryDoesNotRecordAdvice()throws Exception {
         Fixture f=new Fixture();f.queueAdvice();f.clientQueue.remove().run();
-        verify(f.companion,never()).recordPresentedAdvice(any(),anyString());
+        verify(f.companion,never()).recordPresentedAdvice(any(),anyString(),anyInt());
     }
     @Test public void aProfileChangeRejectsQueuedEvidenceAlongWithTheAdvice()throws Exception {
         Fixture f=new Fixture();f.queueAdvice();
         when(((ConfigManager)getField(f.plugin,"configManager")).getRSProfileKey()).thenReturn("other");
         f.clientQueue.remove().run();verify(f.guide,never()).setSuggestion(f.advice);
-        verify(f.companion,never()).recordPresentedAdvice(any(),anyString());
+        verify(f.companion,never()).recordPresentedAdvice(any(),anyString(),anyInt());
     }
     @Test public void localReplacementCannotReachTheGuideWhenCompanionRefusesEntries()throws Exception {
         Fixture f=new Fixture();when(f.companion.nextAction()).thenReturn(null);
@@ -170,7 +170,7 @@ public class AdviceDeliveryBoundaryTest {
         when(f.companion.nextEntrySuggestion(any(),anySet(),anySet(),anySet())).thenReturn(allowed);
         f.queueAdvice();f.clientQueue.remove().run();
         verify(f.guide).setSuggestion(allowed);verify(f.guide,never()).setSuggestion(f.advice);
-        verify((TradePlans)getField(f.plugin,"tradePlans")).plan(eq(562),eq(120),anyInt(),eq(20.0),anyLong());
+        verify((TradePlans)getField(f.plugin,"tradePlans"),never()).plan(anyInt(),anyInt(),anyInt(),anyDouble(),anyLong());
     }
     @Test public void aDifferentItemOrOversizedFreshEntryCannotReplaceTheCancelledOrder()throws Exception {
         for(boolean different:new boolean[]{false,true}) {

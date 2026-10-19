@@ -8,6 +8,14 @@ latency, complete production replay/returns, gated learning and remaining produc
 
 ## Current source and installed runtime
 
+Queued source: acquisition-bound exit context replaces live item-keyed `TradePlans`/client snapshot
+targets. Original target/stop/sell duration survive exact observed partial buys, ACK/restart and
+partial sales without a TTL; mixed/unproven originals stay unknown. Final sale uses companion-sale-3.
+Windows clean 66s: 1,726 Java passed/six existing skips, Java 11; 108 tooling passed. Merge/install/
+fresh player acceptance remain pending; installed runtime is still #105 below. See
+[contract](docs/architecture/acquisition-exit-context.md) and
+[receipt](docs/history/acquisition-exit-delivery-2026-10-19.md).
+
 #105/e21a049 is INSTALLED at 2026-10-19T09:50:31Z after both exact-head checks pass for 24ec8a0
 (run 39232384022). Windows clean 112s: 1,717 Java passed/six skips, Java 11; 108 tooling passed.
 VERIFIED backup 20261019-015028-11a456ab; pair/task XML/SDDL, all 61,527 retained event-log rows,
