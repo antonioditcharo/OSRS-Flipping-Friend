@@ -437,7 +437,7 @@ public class SuggestionEngine
 		}
 
         if (sellRelist != null) {
-            int[] remaining = sellRelist.collectedRemainder(offers, observedAccount);
+            var remaining = sellRelist.collectedRequest(offers, observedAccount);
             if (remaining != null && account.getFreeSlots() > 0) {
                 return relistSuggestion(remaining, market, horizon, account, now);
             }
@@ -768,7 +768,7 @@ public class SuggestionEngine
 
 				// What the new price is actually worth. The reprice card carried no figure at all, so a
 				long change = costKnown ? taxCalculator.netProceeds(offer.getItemId(),newPrice,remaining)-allocatedCost : 0;
-                if (sellRelist != null) sellRelist.advise(offer, observedAccount, position != null);
+                if (sellRelist != null) sellRelist.advise(offer, observedAccount, position != null, offers);
 				return Suggestion.builder(SuggestionType.MODIFY_SELL)
 					.item(offer.getItemId(), name)
 					.slot(offer.getSlot())
@@ -1330,19 +1330,20 @@ public class SuggestionEngine
         return price != null && price.isComplete() && price.secondsSinceHigh(now)>=0
             && price.secondsSinceHigh(now)<=300 && price.secondsSinceLow(now)>=0 && price.secondsSinceLow(now)<=300;
     }
-    private Suggestion relistSuggestion(int[] remaining, MarketSnapshot market, TradingHorizon horizon,
+    private Suggestion relistSuggestion(com.flippingfriend.session.SellRelistIntent.CollectedRemainder remaining,
+        MarketSnapshot market, TradingHorizon horizon,
         AccountState account, Instant now)
     {
-        int item = remaining[0];
+        int item = remaining.getItemId();
         var ledger = saleLedger(item,now);
         if (ledger == null) return Suggestion.waiting("Waiting to verify the cancelled sale",
             "Fresh, consistent account trade evidence is required before relisting. See Missed flips for recorded gaps.");
         var price = market.latest(item);
-        int quantity = Math.min(remaining[1], account.getInventoryHoldings().getOrDefault(item, 0));
+        int quantity = Math.min(remaining.getQuantity(), account.getInventoryHoldings().getOrDefault(item, 0));
         Position position = salePosition(ledger,item);
         if (quantity<=0) return Suggestion.waiting("Collect the cancelled sale's items", "No returned quantity is currently visible in inventory.");
         if (position == null) {
-            if (sellRelist.requiresManagedCost(observedAccount))
+            if (remaining.requiresManagedCost())
                 return Suggestion.waiting("Waiting to verify remaining stock", "The managed sale's acquisition evidence is unavailable.");
             if (!freshSaleQuote(price,now))
                 return Suggestion.waiting("Waiting for a current sale price", "The cancelled sale will be repriced when a fresh quote is available.");

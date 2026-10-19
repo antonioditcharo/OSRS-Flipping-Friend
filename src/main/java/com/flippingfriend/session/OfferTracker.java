@@ -59,6 +59,7 @@ public class OfferTracker
 	private final TradeJournal journal;
 	private final TaxCalculator taxCalculator;
 	private final TradePlans tradePlans;
+	@Inject private SellRelistIntent sellRelist;
 
 	private final Map<Integer, TrackedOffer> bySlot = new ConcurrentHashMap<>();
 
@@ -261,6 +262,7 @@ public class OfferTracker
 				writeJournalEntry(done, now);
 				done.setCollected(true);
 				settled.put(slot, done);
+				checkpointRelist();
 				pruneSettled(now);
 				notifyChanged();
 			}
@@ -602,8 +604,17 @@ public class OfferTracker
 		this.abandonedBuyListener = listener;
 	}
 
+	private void checkpointRelist()
+	{
+		if (sellRelist != null) {
+			try { sellRelist.observe(this, storage.accountId()); }
+			catch (Exception ex) { log.debug("relist observation checkpoint failed", ex); }
+		}
+	}
+
 	private void notifyChanged()
 	{
+		checkpointRelist();
 		Runnable listener = changeListener;
 		if (listener != null)
 		{

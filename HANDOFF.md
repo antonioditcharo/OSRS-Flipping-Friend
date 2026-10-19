@@ -8,6 +8,15 @@ latency, complete production replay/returns, gated learning and remaining produc
 
 ## Current source and installed runtime
 
+Queued cancelled-sale guidance fix: regression-first tests reproduce an already-working second
+same-item listing erasing the intent and settled-slot retention/reuse losing collection evidence.
+Source checkpoints the exact collected remainder before deferred planning and distinguishes prior
+listings from later replacement episodes. Windows clean 83s: 1,743 Java passed/six skips, Java 11;
+108 tooling passed. Exact-head CI/delivery is in progress; #111 remains
+installed. See [contract](docs/architecture/durable-sale-relist.md) and
+[current receipt](docs/history/durable-sale-relist-2026-10-19.md). Controlled relist acceptance and
+production replay of the persisted client intent remain open.
+
 Completed-offer latency #111/b74f93b is MERGED after both exact-head CI checks for 442b70a.
 Windows clean 91s: 1,736 Java passed/six skips, Java 11; 108 tooling passed. Synthetic median
 terminal acceptance is 173ms -> 18ms with identical financial/prediction results. It reuses the
