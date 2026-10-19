@@ -60,7 +60,7 @@ class StatsPanel extends JPanel
             reviewValue.setText("Unresolved sales: " + ledger.getUnresolvedSales());
             positionReviewValue.setText("Positions to review: " + ledger.getPositionsNeedingReview());
             UiUtils.setWrappedText(coverage, "Realized sale profit after tax. Ranges preserve uncertain fills or tax rules. "
-                + "Earlier journals and unresolved sales are excluded. GP/hour awaits session tracking.");
+                + "Earlier journals and unresolved sales are excluded. Elapsed session measurements are available in the sidebar.");
         }
         revalidate(); repaint();
     }

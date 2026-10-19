@@ -20,7 +20,7 @@ import net.runelite.client.game.ItemManager;
 import net.runelite.client.ui.FontManager;
 import net.runelite.client.ui.PluginPanel;
 
-/** Compact action surface. Account records and explanations are opened separately. */
+/** Current action and scoped account performance; detailed investigation opens separately. */
 public class FlippingFriendPanel extends PluginPanel {
     private final SuggestionEngine engine;
     private final AccountMonitor accountMonitor;
@@ -32,13 +32,13 @@ public class FlippingFriendPanel extends PluginPanel {
     private final CompactSuggestionPanel suggestion;
     private final PanelDetails details;
     private final MissedFlipsWindow missedFlips;
+    private final SidebarPerformance performance;
+    private final Timer performanceTimer=new Timer(1000,event->refreshPerformance());
     private final ButtonGroup cadenceGroup = new ButtonGroup(), riskGroup = new ButtonGroup();
     private final Map<CheckInterval, JToggleButton> cadences = new LinkedHashMap<>();
     private final Map<RiskProfile, JToggleButton> risks = new LinkedHashMap<>();
     private final JLabel cadenceCaption = label("How often do you check offers?", false);
-    private final JLabel profitCaption = label("Recorded profit", false);
-    private final JTextArea profit = CompactSuggestionPanel.text(UiUtils.TEXT);
-    private final JLabel coverage = label("", false), bankroll = label("", false), mode = label("", false);
+    private final JLabel bankroll = label("", false), mode = label("", false);
     private final JButton skip, block, pause, graph;
     private final JPopupMenu menu = new JPopupMenu();
     private Runnable onRejection = () -> { };
@@ -70,16 +70,14 @@ public class FlippingFriendPanel extends PluginPanel {
         more.setIcon(null); more.setText("Records"); more.setFont(FontManager.getRunescapeSmallFont());
         more.addActionListener(e -> menu.show(more, 0, more.getHeight())); tools.add(more);
         header.add(tools, BorderLayout.EAST); add(content, header, 8);
-        JLabel caption = label("Suggested Action:", true); caption.setHorizontalAlignment(SwingConstants.CENTER);
-        JPanel title = row(new BorderLayout()); title.add(caption); add(content, title, 5);
         add(content, suggestion, 0);
-        JPanel actions = row(new FlowLayout(FlowLayout.CENTER, 8, 0));
+        JPanel actions = row(new FlowLayout(FlowLayout.CENTER, 0, 0));
         graph = PanelIcons.button("graph-action", "show_chart", "Open current item's price graph", () -> open("Price graph"));
         pause = PanelIcons.button("pause-action", "pause", "Pause recommendations", this::togglePause);
         block = PanelIcons.button("block-action", "block", "Block this buy item", () -> reject(true));
         skip = PanelIcons.button("skip-action", "skip_next", "Skip this buy item", () -> reject(false));
         block.setIcon(PanelIcons.icon("block", new Color(225, 100, 100)));
-        for (JButton button : new JButton[]{graph, pause, block, skip}) actions.add(button);
+        for (JButton button : new JButton[]{graph,PanelIcons.button("portfolio-action","pie_chart","Open managed holdings",()->open("Holdings")), pause, block, skip}) actions.add(button);
         add(content, actions, 12);
         cadenceCaption.setHorizontalAlignment(SwingConstants.CENTER);
         JPanel cadenceTitle = row(new BorderLayout()); cadenceTitle.add(cadenceCaption); add(content, cadenceTitle, 3);
@@ -102,10 +100,11 @@ public class FlippingFriendPanel extends PluginPanel {
             risks.put(value, button); riskGroup.add(button); riskRow.add(button);
         }
         add(content, riskRow, 7); add(content, divider(), 12);
-        JPanel profitHeader = row(new BorderLayout()); profitHeader.add(profitCaption);
-        profitHeader.add(PanelIcons.button("performance-action", "open_in_new", "Open recorded performance", () -> open("Performance")), BorderLayout.EAST);
-        add(content, profitHeader, 4); profit.setFont(FontManager.getRunescapeBoldFont()); add(content, profit, 0);
-        add(content, coverage, 3); add(content, divider(), 12); add(content, bankroll, 8); add(content, mode, 3);
+        performance=new SidebarPerformance(companion,explainer,()->open("Performance"),()->open("Holdings"),item->details.openItemGraph(this,item));
+        add(content,performance,4);
+        JPanel footer=row(new BorderLayout());footer.add(performance.footer(),BorderLayout.NORTH);
+        JPanel funding=row(new GridLayout(0,1));funding.setBorder(BorderFactory.createMatteBorder(1,0,0,0,UiUtils.DIVIDER));
+        funding.add(bankroll);funding.add(mode);footer.add(funding,BorderLayout.SOUTH);add(footer,BorderLayout.SOUTH);
         JScrollPane scroll = new JScrollPane(content, ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED, ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
         scroll.setBorder(BorderFactory.createEmptyBorder()); scroll.getViewport().setBackground(UiUtils.CARD);
         scroll.getVerticalScrollBar().setUnitIncrement(16); scroll.getVerticalScrollBar().setPreferredSize(new Dimension(8, 0));
@@ -144,6 +143,14 @@ public class FlippingFriendPanel extends PluginPanel {
         column.add(child);
     }
     private void open(String name) { details.open(this, name); }
+    @Override public void addNotify(){super.addNotify();performanceTimer.start();}
+    @Override public void removeNotify(){performanceTimer.stop();super.removeNotify();}
+    private void refreshPerformance() {
+        AccountState account=accountMonitor.getState();boolean loggedIn=account!=null && account.isLoggedIn();
+        if(loggedIn)companion.requestPerformanceRefresh();
+        performance.update(loggedIn?companion.performance():null,loggedIn?companion.lastLedger():null,
+            loggedIn,item->details.openItemGraph(this,item));
+    }
     private void togglePause() { stepGuide.setPaused(!stepGuide.isPaused()); changed(); }
     private void reject(boolean permanently) {
         Suggestion shown = suggestion.displayed();
@@ -166,6 +173,7 @@ public class FlippingFriendPanel extends PluginPanel {
         suggestion.update(active, stepGuide.getPending());
         AccountState account = accountMonitor.getState();
         AccountLedgerSnapshot ledger = account != null && account.isLoggedIn() ? companion.lastLedger() : null;
+        refreshPerformance();
         AccountLedgerSnapshot history = account != null && account.isLoggedIn() ? companion.historyLedger() : null;
         if(history==null)history=ledger;
         details.update(active,ledger,history,history!=null && ledger!=history);
@@ -180,12 +188,6 @@ public class FlippingFriendPanel extends PluginPanel {
         for (Map.Entry<RiskProfile, JToggleButton> entry : risks.entrySet()) style(entry.getValue(), entry.getKey() == config.riskProfile());
         cadenceCaption.setText(cadences.containsKey(config.checkInterval()) || config.checkInterval() == null
             ? "How often do you check offers?" : "Checking every " + config.checkInterval().getMinutes() + "m (custom)");
-        profitCaption.setText(ledger != null && ledger.getUnresolvedSales() > 0 ? "Known recorded profit" : "Recorded profit");
-        profit.setText(ledger == null ? "Unavailable" : ledger.getBoundedSales() == 0 && ledger.getSales() > 0 ? "Unresolved"
-            : range(ledger.getProfitLower(), ledger.getProfitUpper()));
-        profit.setForeground(ledger == null ? UiUtils.TEXT : ledger.getProfitLower() > 0 ? UiUtils.profitColor(1)
-            : ledger.getProfitUpper() < 0 ? UiUtils.profitColor(-1) : UiUtils.TEXT);
-        coverage.setText(ledger == null ? "Waiting for account ledger" : ledger.getSales() + " sale updates · " + ledger.getUnresolvedSales() + " unresolved");
         bankroll.setText(account != null && account.isLoggedIn()
             ? "Budget: " + explainer.formatGp(account.spendableCoins(config.includeBankValue(), config.bankrollCap())) + " · " + account.getFreeSlots() + "/" + account.getTotalSlots() + " free"
             : "Log in to see account guidance");
@@ -194,19 +196,17 @@ public class FlippingFriendPanel extends PluginPanel {
         bankroll.setToolTipText("Planning budget using bank-value preference, collection coins, live commitments and bankroll cap."); mode.setForeground(UiUtils.WARNING);
         revalidate(); repaint();
     }
-    private String range(long lower, long upper) {
-        return lower == upper ? explainer.formatNumber(lower) + " gp" : explainer.formatNumber(lower) + " to " + explainer.formatNumber(upper) + " gp";
-    }
     private static void style(JToggleButton button, boolean selected) {
-        button.setSelected(selected); button.setForeground(selected ? Color.BLACK : UiUtils.TEXT);
-        button.setBackground(selected ? new Color(255, 190, 0) : UiUtils.CARD);
+        boolean high=selected && "risk-high".equals(button.getName());
+        button.setSelected(selected); button.setForeground(selected && !high ? Color.BLACK : UiUtils.TEXT);
+        button.setBackground(high?new Color(255,64,64):selected ? new Color(255, 190, 0) : UiUtils.CARD);
     }
     // Test access uses the same window contents and routing as the live controls, without creating a native window.
     JComponent detailsComponent(String name) { details.select(name); return details.view(name); }
     void setWindowPresenter(BiConsumer<String, JComponent> presenter) { details.setPresenter(presenter); missedFlips.setPresenter(presenter); }
     JPopupMenu detailsMenu() { return menu; }
     public void closeWindows() {
-        Runnable close = () -> { details.dispose(); missedFlips.dispose(); };
+        Runnable close = () -> { performanceTimer.stop();details.dispose(); missedFlips.dispose(); };
         if (SwingUtilities.isEventDispatchThread()) close.run(); else SwingUtilities.invokeLater(close);
     }
 }

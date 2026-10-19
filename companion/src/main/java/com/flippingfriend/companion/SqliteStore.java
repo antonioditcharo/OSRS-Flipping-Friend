@@ -67,6 +67,18 @@ final class SqliteStore implements AutoCloseable
 	private final TransactionCheckpoint checkpoint;
 	/** Immutable metadata is cached only after its transaction commits. No cached absence. */
 	private final Map<String,RiskWindow> riskWindows = new HashMap<>();
+	// Accepted canonical sources are append-only. Keep their validated prefix in RAM, reading only
+	// the indexed tail. External commits and every rollback discard it. Live eight-slot evidence
+	// is always reread. In particular a failed transaction cannot publish a prefix.
+	private List<OfferEvent> canonicalHistory;
+	private String canonicalHistoryAccount;
+	private long canonicalHistoryCursor, canonicalHistoryDataVersion = -1;
+	private AutomaticTradeScope scopedEffects;
+	private long scopedEffectsCursor=-1;
+	private void discardCanonicalHistory() {
+		canonicalHistory=null; canonicalHistoryAccount=null; canonicalHistoryCursor=0;
+		scopedEffects=null;scopedEffectsCursor=-1;
+	}
 
 	/**
 	 * Opens an existing database for reading only, creating and altering nothing.
@@ -266,7 +278,7 @@ final class SqliteStore implements AutoCloseable
 		}
 		catch (Exception failure)
 		{
-			connection.rollback();
+			connection.rollback(); discardCanonicalHistory();
 			throw failure;
 		}
 		finally
@@ -389,7 +401,7 @@ final class SqliteStore implements AutoCloseable
             var snapshot=new ExecutionSourceSnapshot(account,Instant.now().getEpochSecond(),offers,gaps);
             snapshot.observations(); // Validate before releasing the same coherent source snapshot.
             connection.commit();return snapshot;
-        }catch(Exception invalid){connection.rollback();throw invalid;}
+        }catch(Exception invalid){connection.rollback(); discardCanonicalHistory();throw invalid;}
         finally{connection.setAutoCommit(true);}
     }
 
@@ -441,7 +453,7 @@ final class SqliteStore implements AutoCloseable
 			connection.commit();
 			return new SaleProjections(planning,ledger);
 		}
-		catch(Exception failure) { connection.rollback(); throw failure; }
+		catch(Exception failure) { connection.rollback(); discardCanonicalHistory(); throw failure; }
 		finally { connection.setAutoCommit(true); }
 	}
 	/** Does not change durable rows or participate in an existing write transaction. */
@@ -463,7 +475,7 @@ final class SqliteStore implements AutoCloseable
 		}
 		catch (Exception failure)
 		{
-			connection.rollback();
+			connection.rollback(); discardCanonicalHistory();
 			throw failure;
 		}
 		finally
@@ -656,7 +668,7 @@ final class SqliteStore implements AutoCloseable
 	}
 
 	synchronized void saveBuyReplacementIntent(BuyReplacementIntent i) throws Exception
-	{ if(i==null)throw new IllegalArgumentException("intent is required"); BuyReplacementIntent old=buyReplacementIntent(i.getIntentId()); if(old!=null&&!sameReplacementIdentity(old,i))throw new IllegalArgumentException("replacement intent identity mismatch"); boolean ac=connection.getAutoCommit();connection.setAutoCommit(false);try{try(PreparedStatement s=connection.prepareStatement("INSERT INTO buy_replacement_intent_projection(intent_id,schema_version,original_offer_identity,recommendation_id,slot,item_id,item_name,original_price,original_quantity,filled_quantity,remainder_quantity,created_at,expires_at,state,reason_code,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(intent_id) DO UPDATE SET state=excluded.state,reason_code=excluded.reason_code,updated_at=excluded.updated_at")){s.setString(1,i.getIntentId());s.setString(2,i.getSchemaVersion());s.setString(3,i.getOriginalOfferIdentity());s.setString(4,i.getRecommendationId());s.setInt(5,i.getSlot());s.setInt(6,i.getItemId());s.setString(7,i.getItemName());s.setInt(8,i.getOriginalPrice());s.setInt(9,i.getOriginalQuantity());s.setInt(10,i.getFilledQuantity());s.setInt(11,i.getRemainderQuantity());s.setLong(12,i.getCreatedAt());s.setLong(13,i.getExpiresAt());s.setString(14,i.getState().name());s.setString(15,i.getReasonCode());s.setLong(16,Instant.now().getEpochSecond());s.executeUpdate();}checkpoint.reached("BUY_REPLACEMENT_INTENT_WRITTEN");connection.commit();}catch(Exception e){connection.rollback();throw e;}finally{connection.setAutoCommit(ac);} }
+	{ if(i==null)throw new IllegalArgumentException("intent is required"); BuyReplacementIntent old=buyReplacementIntent(i.getIntentId()); if(old!=null&&!sameReplacementIdentity(old,i))throw new IllegalArgumentException("replacement intent identity mismatch"); boolean ac=connection.getAutoCommit();connection.setAutoCommit(false);try{try(PreparedStatement s=connection.prepareStatement("INSERT INTO buy_replacement_intent_projection(intent_id,schema_version,original_offer_identity,recommendation_id,slot,item_id,item_name,original_price,original_quantity,filled_quantity,remainder_quantity,created_at,expires_at,state,reason_code,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(intent_id) DO UPDATE SET state=excluded.state,reason_code=excluded.reason_code,updated_at=excluded.updated_at")){s.setString(1,i.getIntentId());s.setString(2,i.getSchemaVersion());s.setString(3,i.getOriginalOfferIdentity());s.setString(4,i.getRecommendationId());s.setInt(5,i.getSlot());s.setInt(6,i.getItemId());s.setString(7,i.getItemName());s.setInt(8,i.getOriginalPrice());s.setInt(9,i.getOriginalQuantity());s.setInt(10,i.getFilledQuantity());s.setInt(11,i.getRemainderQuantity());s.setLong(12,i.getCreatedAt());s.setLong(13,i.getExpiresAt());s.setString(14,i.getState().name());s.setString(15,i.getReasonCode());s.setLong(16,Instant.now().getEpochSecond());s.executeUpdate();}checkpoint.reached("BUY_REPLACEMENT_INTENT_WRITTEN");connection.commit();}catch(Exception e){connection.rollback(); discardCanonicalHistory();throw e;}finally{connection.setAutoCommit(ac);} }
 	private static boolean sameReplacementIdentity(BuyReplacementIntent a,BuyReplacementIntent b){return a.getIntentId().equals(b.getIntentId())&&a.getOriginalOfferIdentity().equals(b.getOriginalOfferIdentity())&&a.getRecommendationId().equals(b.getRecommendationId())&&a.getSlot()==b.getSlot()&&a.getItemId()==b.getItemId()&&a.getItemName().equals(b.getItemName())&&a.getOriginalPrice()==b.getOriginalPrice()&&a.getOriginalQuantity()==b.getOriginalQuantity()&&a.getFilledQuantity()==b.getFilledQuantity()&&a.getCreatedAt()==b.getCreatedAt()&&a.getExpiresAt()==b.getExpiresAt();}
 	synchronized List<BuyReplacementIntent> buyReplacementIntents() throws Exception{List<BuyReplacementIntent> x=new ArrayList<>();try(PreparedStatement s=connection.prepareStatement("SELECT schema_version,intent_id,original_offer_identity,recommendation_id,slot,item_id,item_name,original_price,original_quantity,filled_quantity,remainder_quantity,created_at,expires_at,state,reason_code FROM buy_replacement_intent_projection ORDER BY intent_id");ResultSet r=s.executeQuery()){while(r.next())x.add(readBuyReplacementIntent(r));}return x;}
 	private BuyReplacementIntent buyReplacementIntent(String id)throws Exception{try(PreparedStatement s=connection.prepareStatement("SELECT schema_version,intent_id,original_offer_identity,recommendation_id,slot,item_id,item_name,original_price,original_quantity,filled_quantity,remainder_quantity,created_at,expires_at,state,reason_code FROM buy_replacement_intent_projection WHERE intent_id=?")){s.setString(1,id);try(ResultSet r=s.executeQuery()){return r.next()?readBuyReplacementIntent(r):null;}}}
@@ -702,8 +714,7 @@ final class SqliteStore implements AutoCloseable
 			? SaleAccounting.UNPROVEN_PLACEMENT : "HISTORICAL_RULE_UNPROVEN";
 	}
 
-    /** Only shares a complete immutable read inside one operation/transaction. Never cached across
-     * requests: new, missing, malformed or foreign canonical evidence must still be observed. */
+    /** Shares the complete validated prefix, including this transaction's indexed tail. */
     private final class OfferHistoryRead {
         private final String account;
         private boolean loaded;
@@ -718,6 +729,16 @@ final class SqliteStore implements AutoCloseable
         return automaticTradeScope(expectedAccountId, new OfferHistoryRead(expectedAccountId));
     }
     private AutomaticTradeScope automaticTradeScope(String expectedAccountId, OfferHistoryRead history) throws Exception {
+        // Validate new canonical sources before reusing an immutable economic prefix. A new
+        // observation cannot alter old scope; a new effect or any external edit forces a rebuild.
+        // Current offers, cash, prices, buy limits and risk are evaluated independently each time.
+        if(expectedAccountId!=null)checkCanonicalDataVersion(expectedAccountId);
+        boolean hasGaps;
+        try(var s=connection.createStatement();var r=s.executeQuery("SELECT 1 FROM position_event WHERE effect_type='RECONCILE' LIMIT 1")){hasGaps=r.next();}
+        List<OfferEvent> sources=expectedAccountId==null?null:hasGaps?history.get():java.util.List.of();
+        long cursor;
+        try(var s=connection.createStatement();var r=s.executeQuery("SELECT COALESCE(MAX(id),0) FROM position_event")) {r.next();cursor=r.getLong(1);}
+        if(sources!=null && scopedEffects!=null && scopedEffectsCursor==cursor)return scopedEffects;
         AutomaticTradeScope scope = new AutomaticTradeScope();
         scope.reconciliationScope.putAll(reconciliationScope(expectedAccountId, history));
         try (PreparedStatement s = connection.prepareStatement(
@@ -727,6 +748,7 @@ final class SqliteStore implements AutoCloseable
                 r.getLong(5), r.getLong(6), r.getString(7), r.getString(8),
                 scope.reconciliationScope.get(r.getString(7)));
         }
+        if(sources!=null){scopedEffects=scope;scopedEffectsCursor=cursor;}
         return scope;
     }
 
@@ -742,20 +764,39 @@ final class SqliteStore implements AutoCloseable
     }
     private List<OfferEvent> offerHistory(String expectedAccountId) throws Exception {
         if (expectedAccountId==null) return null;
-        List<OfferEvent> history=new ArrayList<>();
+        checkCanonicalDataVersion(expectedAccountId);
+        List<OfferEvent> history=new ArrayList<>(canonicalHistory==null?java.util.List.of():canonicalHistory);
+        long cursor=canonicalHistory==null?0:canonicalHistoryCursor;
         com.google.gson.Gson parser=new com.google.gson.Gson();
-        try (Statement s=connection.createStatement(); ResultSet r=s.executeQuery(
-                "SELECT event_id,payload FROM event_log WHERE event_id IS NOT NULL AND event_id<>'' ORDER BY id")) {
+        try (PreparedStatement s=connection.prepareStatement(
+                "SELECT event_id,payload,id FROM event_log WHERE id>? AND event_id IS NOT NULL AND event_id<>'' ORDER BY id")) {
+            s.setLong(1,cursor);
+            try(ResultSet r=s.executeQuery()) {
             while (r.next()) {
                 OfferEvent event;
                 try { event=parser.fromJson(r.getString(2),OfferEvent.class); }
-                catch (RuntimeException incomplete) { return null; }
+                catch (RuntimeException incomplete) { discardCanonicalHistory(); return null; }
                 if (event==null || !r.getString(1).equals(event.getEventId())
-                        || !expectedAccountId.equals(event.getAccountId()) || !TradeGapEvidence.valid(event)) return null;
+                        || !expectedAccountId.equals(event.getAccountId()) || !TradeGapEvidence.valid(event)) {
+                    discardCanonicalHistory(); return null;
+                }
                 history.add(event);
+                cursor=r.getLong(3);
+            }
             }
         }
-        return java.util.Collections.unmodifiableList(history);
+        canonicalHistory=java.util.Collections.unmodifiableList(history);
+        canonicalHistoryCursor=cursor;
+        return canonicalHistory;
+    }
+    private void checkCanonicalDataVersion(String expectedAccountId) throws Exception {
+        long version;
+        try (Statement s=connection.createStatement(); ResultSet r=s.executeQuery("PRAGMA data_version")) {
+            r.next(); version=r.getLong(1);
+        }
+        if(version!=canonicalHistoryDataVersion || !expectedAccountId.equals(canonicalHistoryAccount))
+            discardCanonicalHistory();
+        canonicalHistoryAccount=expectedAccountId; canonicalHistoryDataVersion=version;
     }
     private Map<Integer,OfferEvent> currentOfferEvidence(String expectedAccountId) throws Exception {
         Map<Integer,OfferEvent> result=new HashMap<>();
@@ -948,13 +989,61 @@ final class SqliteStore implements AutoCloseable
 		}
 	}
 	private List<com.flippingfriend.core.RecordedSale> recentSales() throws Exception {
+		return recordedSales(" LIMIT 100");
+	}
+	private List<com.flippingfriend.core.RecordedSale> recordedSales(String limit) throws Exception {
 		List<com.flippingfriend.core.RecordedSale> result=new ArrayList<>();
 		try(Statement statement=connection.createStatement();ResultSet r=statement.executeQuery(
-			"SELECT id,observed_at,item_id,item_name,quantity,applied_cost_basis,source_event_id,source_offer_identity,gross_proceeds,tax_lower,tax_upper,profit_lower,profit_upper,sale_tax_policy,sale_accounting_reason FROM position_event WHERE effect_type='DISPOSE' ORDER BY id DESC LIMIT 100")) {
+			"SELECT id,observed_at,item_id,item_name,quantity,applied_cost_basis,source_event_id,source_offer_identity,gross_proceeds,tax_lower,tax_upper,profit_lower,profit_upper,sale_tax_policy,sale_accounting_reason FROM position_event WHERE effect_type='DISPOSE' ORDER BY id DESC"+limit)) {
 			while(r.next())result.add(new com.flippingfriend.core.RecordedSale(r.getLong(1),r.getLong(2),r.getInt(3),r.getString(4),r.getInt(5),r.getLong(6),
 				r.getString(7),r.getString(8),nullableLong(r,9),nullableLong(r,10),nullableLong(r,11),nullableLong(r,12),nullableLong(r,13),r.getString(14),r.getString(15)));
 		}
 		return result;
+	}
+	private PerformanceRead.Session performanceSession() throws Exception {
+		try(var s=connection.prepareStatement("SELECT payload FROM event_log WHERE event_type=? ORDER BY id DESC LIMIT 1")) {
+			s.setString(1,PerformanceRead.SESSION_EVENT);
+			try(var r=s.executeQuery()) {
+				if(!r.next())return null;
+				var session=new com.google.gson.Gson().fromJson(r.getString(1),PerformanceRead.Session.class);
+				if(session==null || session.id==null || session.startedAt<0 || session.cursor<0)
+					throw new IllegalStateException("Invalid performance session");
+				return session;
+			}
+		}
+	}
+	/** Only a fresh authenticated account capture or explicit reset calls this. Risk anchors are untouched. */
+	synchronized void performanceSession(String account,long now,boolean reset,String requestId) throws Exception {
+		com.flippingfriend.core.AccountIdentity.require(account);
+		if(!reset && performanceSession()!=null)return;
+		if(requestId==null || !requestId.matches("[a-zA-Z0-9-]{1,80}"))throw new IllegalArgumentException("Reset identity required");
+		try(var s=connection.prepareStatement("SELECT 1 FROM event_log WHERE event_type=? AND correlation_id=?")) {
+			s.setString(1,PerformanceRead.SESSION_EVENT);s.setString(2,requestId);try(var r=s.executeQuery()){if(r.next())return;}
+		}
+		long cursor;
+		try(var s=connection.createStatement();var r=s.executeQuery("SELECT COALESCE(MAX(id),0) FROM position_event")){r.next();cursor=r.getLong(1);}
+		var session=new PerformanceRead.Session(requestId,now,cursor);
+		recordEvent(now,requestId,PerformanceRead.SESSION_EVENT,new com.google.gson.Gson().toJson(session));
+	}
+	synchronized com.flippingfriend.core.PerformanceSnapshot performance(String account,String scope,long now) throws Exception {
+		com.flippingfriend.core.AccountIdentity.require(account);
+		if(!connection.getAutoCommit())throw new IllegalStateException("Performance requires its own read");
+		connection.setAutoCommit(false);
+		try {
+			java.util.Set<String> completed=new java.util.HashSet<>();
+			java.util.Set<String> disposalSources=new java.util.HashSet<>();
+			try(var s=connection.createStatement();var r=s.executeQuery("SELECT source_event_id FROM position_event WHERE effect_type='DISPOSE'")) {
+				while(r.next())disposalSources.add(r.getString(1));
+			}
+			var history=offerHistory(account);
+			// A sell order counts once, after observed full completion and with bounded realized
+			// profit. Partial updates still contribute their actual money but never inflate flips.
+			if(history!=null)for(var e:history)if(disposalSources.contains(e.getEventId()) && !e.isBuying() && "SOLD".equals(e.getEventType())
+				&& e.getFilledQuantity()==e.getTotalQuantity() && e.getTotalQuantity()>0)completed.add(e.getOfferIdentity());
+			var result=PerformanceRead.aggregate(account,scope,performanceSession(),now,recordedSales(""),completed);
+			connection.commit();return result;
+		}catch(Exception e){connection.rollback();discardCanonicalHistory();throw e;}
+		finally{connection.setAutoCommit(true);}
 	}
 
 	synchronized SnapshotReconciliationResult recordAndReconcileAccount(AccountSnapshot snapshot,
@@ -996,7 +1085,7 @@ final class SqliteStore implements AutoCloseable
 		}
 		catch (Exception failure)
 		{
-			connection.rollback();
+			connection.rollback(); discardCanonicalHistory();
 			throw failure;
 		}
 		finally { connection.setAutoCommit(autoCommit); }
@@ -1255,7 +1344,7 @@ final class SqliteStore implements AutoCloseable
 		}
 		catch (Exception failure)
 		{
-			if (ownsTransaction) connection.rollback();
+			if (ownsTransaction) connection.rollback(); discardCanonicalHistory();
 			throw failure;
 		}
 		finally

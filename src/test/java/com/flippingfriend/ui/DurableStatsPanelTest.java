@@ -48,7 +48,7 @@ public class DurableStatsPanelTest
             1, 1, 1, 1, -2, -1, 1, 2, Collections.emptyList());
         List<String> labels = text(render(ledger));
         assertTrue(labels.contains("-2 to -1 gp")); assertTrue(labels.contains("Recorded tax: 1 to 2 gp"));
-        assertTrue(labels.stream().anyMatch(label -> label.contains("GP/hour awaits session tracking")));
+        assertTrue(labels.stream().anyMatch(label -> label.contains("Elapsed session measurements are available in the sidebar")));
     }
 
     @Test public void oldUnpricedSalesAreExcludedAndIdentifiedAsUnresolved() throws Exception

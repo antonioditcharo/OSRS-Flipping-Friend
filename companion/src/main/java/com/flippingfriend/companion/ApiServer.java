@@ -67,6 +67,8 @@ final class ApiServer implements AutoCloseable
 			case "portfolio/current": portfolio(exchange); break;
 			case "ledger/current": ledger(exchange); break;
 			case "learning/current": learning(exchange); break;
+			case "performance/current": performance(exchange); break;
+			case "performance/session": performanceSession(exchange); break;
 			case "action": action(exchange); break;
 			case "policy/entry": entryDecision(exchange); break;
 			case "policy/buy-maintenance": buyMaintenanceDecision(exchange); break;
@@ -127,6 +129,22 @@ final class ApiServer implements AutoCloseable
 		CompanionService service = accountService(exchange);
 		if (service == null) return;
 		respond(exchange, 200, gson.toJson(service.action()));
+	}
+	private void performance(HttpExchange exchange) throws IOException {
+		if(!authorized(exchange))return;
+		if(!"GET".equals(exchange.getRequestMethod())){respond(exchange,405,"{\"error\":\"GET required\"}");return;}
+		var scoped=accountService(exchange);if(scoped==null)return;
+		try {respond(exchange,200,gson.toJson(scoped.performance(queryOf(exchange).getOrDefault("scope","SESSION"))));}
+		catch(Exception failure){respond(exchange,400,error(failure));}
+	}
+	private void performanceSession(HttpExchange exchange) throws IOException {
+		if(!authorized(exchange))return;
+		if(!"POST".equals(exchange.getRequestMethod())){respond(exchange,405,"{\"error\":\"POST required\"}");return;}
+		var scoped=accountService(exchange);if(scoped==null)return;
+		try {
+			var body=gson.fromJson(new String(exchange.getRequestBody().readAllBytes(),StandardCharsets.UTF_8),com.google.gson.JsonObject.class);
+			scoped.resetPerformanceSession(body.get("requestId").getAsString());respond(exchange,200,"{\"accepted\":true}");
+		}catch(Exception failure){respond(exchange,400,error(failure));}
 	}
 
     private void learning(HttpExchange exchange) throws IOException {
