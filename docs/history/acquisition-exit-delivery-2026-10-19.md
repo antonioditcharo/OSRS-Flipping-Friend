@@ -44,5 +44,34 @@ Fresh manual login/GE and controlled buy/partial/collect/sell/cancel/relist/rest
 Replay v5's simulated context is not the production provenance boundary; complete replay and
 qualified four-cadence returns/learning gates remain open. No price/return/learning superiority claim.
 
-Exact-head CI, merge, supported update, backup/task/financial preservation and fresh scoped runtime
-checks will be recorded after delivery. Until then the installed pair remains #105.
+## Verified delivery
+
+PR #108 merges as fe8a33b9548559253968073e58d7aea69bd8078f. Both exact-head checks pass for
+2e30f76c03653b7127a8a6daf5c2fc536497fea8, run 39279920742: Ubuntu 15:47:33Z and Windows
+15:49:42Z on 19 October. GitHub's aggregate status remained stale after every step completed;
+fresh individual check-run reads independently confirm completed/success for that exact head.
+Cancel/retry requests were refused because the run had already completed; no rerun or check
+override was applied. The clean primary/default checkout was fast-forwarded; main is untouched.
+
+Installed through the supported unattended paired updater at 2026-10-19T16:13:02.7588664Z.
+RuneLite was already closed; no game process was stopped or controlled.
+VERIFIED backup 20261019-081258-a59c264b; process lifecycle remains 1 and task XML/SDDL are
+byte-identical. Installed artifacts match the verified clean build:
+
+- Plugin: 588,834 bytes; SHA256 7f2043b56d8c4a3c631da30af24375002aa083458a971f390455a97788208d6c.
+- Companion: 18,086,624 bytes; SHA256 f832383acbbe47a99ed531feba46fc8bbda8786e72e6c90fbf2c768b456fbbd2.
+
+Read-only comparison preserves all 61,527 retained event-log rows, 1,469 financial effects and the
+sole original risk anchor, with zero effects created by this update. Status is PAIR VERIFIED /
+COMPANION RESPONDING; RuneLite 1.13.2/cached artifacts match. Scoped GET pipeline passes
+(86 sale updates/22 unresolved/one range); entry correctly waits for fresh client cash/slots.
+Supported Start reopens RuneLite, with the installed JAR side-loaded in the actual launched
+client's redirected start.log. No game input was sent.
+
+The post-update read still has only an aged retained snapshot (over six hours old). Its eight IDs
+match their recorded sources, but cannot establish current-login proof, a current sell-only
+setting or current entry readiness. Fresh login/GE, initial/partial/cancel/collect/relist/restart
+and player pricing-quality acceptance remain pending. Legacy plans stay unknown; this update
+does not resolve issue #70 or backfill history. Private delivery-state.json, individual CI receipt,
+installed artifacts, backup/task/prefix receipts and status/compatibility/pipeline/start logs retain
+the delivery evidence. Later documentation changes require no JAR reinstall.

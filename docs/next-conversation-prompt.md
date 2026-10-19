@@ -33,31 +33,30 @@ rebuilding already implemented capabilities:
 
 ## Delivery state at this handoff
 
-Read newest HANDOFF first: acquisition-bound exit context supersedes the item-keyed TTL/live client
-snapshot target path. Its source/test/merge/install/player states are recorded there and in
-docs/history/acquisition-exit-delivery-2026-10-19.md. Do not rebuild this migration or invent missing
-legacy plans. Production replay must qualify the same boundary before any promotion claim.
+PR #108 is merged as `fe8a33b9548559253968073e58d7aea69bd8078f` and INSTALLED at
+2026-10-19T16:13:02Z. Exact source `2e30f76c03653b7127a8a6daf5c2fc536497fea8` passed both
+Windows/Linux checks. Windows clean 66s: 1,726 Java passed/six existing skips, Java 11;
+108 tooling passed. VERIFIED backup `20261019-081258-a59c264b`; pair/task XML/SDDL, all 61,527
+retained event-log rows/1,469 financial effects/original risk anchor, status, 1.13.2 compatibility
+and scoped GETs pass. Supported Start reopened RuneLite. Fresh login/GE and controlled acceptance
+remain pending; aged matching eight-slot IDs do not establish current proof or a current setting.
+Do not reinstall #108 merely to repeat delivery. Read newest HANDOFF and
+`docs/history/acquisition-exit-delivery-2026-10-19.md` for actual delivery/acceptance state.
 
-PR #105 is merged as `e21a0495462a5fe59620acf45963e96125505caa` and INSTALLED. Its exact source
-`24ec8a065a29094fcf73b353246e085974f99a65` passed Windows/Linux CI. Standard Windows clean build:
-1,717 Java passed/six existing skips, Java 11; 108 tooling tests passed. Delivery documentation
-#106 is merged as `95dec731473746271046d8c4a6ab87aa461009b4`; later documentation needs no reinstall.
+Live original target/stop/sell-duration context now comes from the exact prospective canonical
+buy, through partial fills, ACK/restart and partial sales without the item-keyed six-hour TTL.
+Client snapshots cannot create original plans. Mixed/unproven originals remain unknown; legacy
+item files and old money are not backfilled. The final sale protocol is `companion-sale-3`.
+Production replay must qualify this same boundary before any promotion claim.
 
-#105 fixes premature break-even/scrap-profit pricing. Healthy initial/quiet/relist limits retain an
-available remembered target within the configured holding horizon; routine reductions require
-full sell patience, no recent observed fills and sustained completed public-market evidence.
-Expiry alone no longer discounts a current healthy ask. Declined ordinary maintenance leaves the
-listing working and continues through separately authorized entry checks. Stops, explicit wind-down,
-exact cost/tax floors, unknown costs and source/quantity/account fences remain. Maintenance retains
-its non-loss floor unless a fresh stop authorizes a cut; initial wind-down loss permission is unchanged.
-The pair uses `companion-sale-2`; replay is version 5. These are implemented rules, not proven optimal prices.
-
-Supported installation/VERIFIED backup `20261019-015028-11a456ab`, installed hashes, unchanged task
-XML/SDDL, all 61,527 retained event-log rows/1,469 financial effects/original loss anchor, status,
-RuneLite 1.13.2 compatibility and scoped GET checks pass. RuneLite was reopened normally.
-**Fresh #105 login/GE and controlled sell-quality acceptance remain pending.** The last closeout
-read had only aged pre-update account evidence; saved sell-only state is not a fresh current setting.
-Determine current state directly. Do not reinstall #105 or ask to close RuneLite merely to repeat delivery.
+Included #105/e21a049 fixes premature break-even/scrap-profit pricing: available original healthy
+targets survive within the configured horizon; routine reductions require full sell patience,
+no recent fills and sustained completed market support. Declined routine maintenance leaves the
+listing working and continues through separate entry checks. Stops/wind-down, exact floors,
+unknown costs and source/quantity/account fences remain. Read `docs/architecture/patient-sale-pricing.md`
+and `docs/history/patient-sale-delivery-2026-10-19.md`. Controlled sell-quality acceptance remains
+open. Replay v5 retains simulated context independently; it is not complete production provenance
+or a measured return/optimal-price result.
 
 Included #103 already implements the expanded native sidebar/session/period/reset/profit/ROI/
 elapsed rate/managed-stock marks/paged sales and estimate display, plus validated history/candidate
@@ -67,17 +66,19 @@ caches, coalesced refreshes and removal of fixed five-second plan spacing. Actua
 not exact game-event-to-frame transitions. Panel/reset, sustained timing and controlled outcomes
 remain open. Windows already open maximized natively; do not reintroduce old accordions.
 
-Private receipts/scripts are in `local-data/sale-patience-20261019/` and
-`local-data/panel-parity-20261019/`. Use `runtime-105-read.py` for scoped GET/read-only source
+Private #108 receipts/scripts are in `local-data/acquisition-exit-20261019/`; prior evidence is in
+`local-data/sale-patience-20261019/` and
+`local-data/panel-parity-20261019/`. Use `local-data/acquisition-exit-20261019/runtime-108-read.py` for scoped GET/read-only source
 inspection; its eight-slot identity result must also be fresh before it establishes current proof.
-`start.log` in the sale-patience directory is the actual launched client's output. Global
+`start.log` in the acquisition-exit directory is the actual launched client's output. Global
 `~/.runelite/logs/client.log` can also contain Test worker output; exclude that from live timing claims.
 
 ## Work in descending impact order
 
 1. **Make the complete trade loop dependable and preserve earned margin.** Collect fresh account,
    eight-slot/ACK, inventory, ledger, entry and sale evidence directly after manual login/GE.
-   Verify #105 against player-operated buy -> partial/full fill -> collect -> sell -> collect,
+   Verify installed #108 (including #105 patient pricing) against player-operated
+   buy -> partial/full fill -> collect -> sell -> collect,
    cancellation/relist and restart. Reproduce and fix failures before tuning strategy. Healthy
    sells must not collapse to break-even unnecessarily; verified current cash must support
    unrelated eligible buys despite incomplete historical trades. Distinguish legitimate current

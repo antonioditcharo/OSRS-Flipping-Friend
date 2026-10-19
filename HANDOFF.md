@@ -8,21 +8,26 @@ latency, complete production replay/returns, gated learning and remaining produc
 
 ## Current source and installed runtime
 
-Queued source: acquisition-bound exit context replaces live item-keyed `TradePlans`/client snapshot
-targets. Original target/stop/sell duration survive exact observed partial buys, ACK/restart and
-partial sales without a TTL; mixed/unproven originals stay unknown. Final sale uses companion-sale-3.
-Windows clean 66s: 1,726 Java passed/six existing skips, Java 11; 108 tooling passed. Merge/install/
-fresh player acceptance remain pending; installed runtime is still #105 below. See
-[contract](docs/architecture/acquisition-exit-context.md) and
-[receipt](docs/history/acquisition-exit-delivery-2026-10-19.md).
+#108/fe8a33b is INSTALLED at 2026-10-19T16:13:02Z after both exact-head checks passed for
+2e30f76 (run 39279920742). Windows clean 66s: 1,726 Java passed/six existing skips, Java 11;
+108 tooling passed. VERIFIED backup 20261019-081258-a59c264b; installed pair/task XML/SDDL,
+all 61,527 retained event-log rows/1,469 financial effects/original loss anchor, status,
+1.13.2 compatibility and scoped GETs pass. Supported Start reopened RuneLite. Fresh login/GE and
+controlled buy/partial/collect/sell/cancel/relist/restart acceptance remain pending; the retained
+snapshot is aged, and its matching eight IDs do not establish current proof or a current setting.
+[Contract](docs/architecture/acquisition-exit-context.md) and
+[receipt](docs/history/acquisition-exit-delivery-2026-10-19.md) retain source, tests and delivery.
 
-#105/e21a049 is INSTALLED at 2026-10-19T09:50:31Z after both exact-head checks pass for 24ec8a0
-(run 39232384022). Windows clean 112s: 1,717 Java passed/six skips, Java 11; 108 tooling passed.
-VERIFIED backup 20261019-015028-11a456ab; pair/task XML/SDDL, all 61,527 retained event-log rows,
-1,469 financial effects/original loss anchor, status/1.13.2 compatibility/scoped GETs pass. Supported
-Start reopened RuneLite. Fresh login and controlled sell/partial/cancel/collect/relist/restart
-acceptance remain pending. [Contract](docs/architecture/patient-sale-pricing.md) and
-[delivery](docs/history/patient-sale-delivery-2026-10-19.md) preserve exact receipts/player steps.
+Original target/stop/sell duration now follow the exact prospective canonical buy through partial
+fills, ACK/restart and partial sales without the item cache's six-hour TTL. Final sale authority
+uses that same context (companion-sale-3), not a later client snapshot. Mixed/unproven originals
+remain unknown; no legacy plan or old financial row is backfilled. Complete production replay of
+this provenance boundary remains open before any promotion gate.
+
+Included #105/e21a049 patient pricing was previously installed with VERIFIED backup
+20261019-015028-11a456ab. Its source/policy checks and delivery remain in
+[patient sale delivery](docs/history/patient-sale-delivery-2026-10-19.md); #108 includes the rules.
+Fresh controlled pricing-quality acceptance remains pending.
 
 The shared sell policy lists promptly at an available original healthy target, honors configured
 horizons, full sell patience, recent observed fills and completed-market support before routine
