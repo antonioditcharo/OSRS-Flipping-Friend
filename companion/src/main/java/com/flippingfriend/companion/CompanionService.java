@@ -837,6 +837,8 @@ final class CompanionService implements AutoCloseable
 		feed.latest = state.latest;
 		feed.fiveMinute = state.fiveMinute;
 		feed.hourly = state.hourly;
+		feed.fiveMinuteStartedAt=state.fiveMinuteStartedAt;
+		feed.hourlyStartedAt=state.hourlyStartedAt;
 		return feed;
 	}
 
@@ -856,6 +858,7 @@ final class CompanionService implements AutoCloseable
 	static final class MarketFeed
 	{
 		long observedAt;
+		long fiveMinuteStartedAt,hourlyStartedAt;
 		com.google.gson.JsonObject latest;
 		com.google.gson.JsonObject fiveMinute;
 		com.google.gson.JsonObject hourly;

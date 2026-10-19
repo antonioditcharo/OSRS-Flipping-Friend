@@ -5,6 +5,15 @@ Root notes describe the current workflow; detailed prior receipts remain in link
 
 ## Current source and installed runtime
 
+Candidate `codex/qualified-stock-risk-marks` addresses the owner's reproduced long #98 valuation
+pause with qualified completed public-price/volume evidence, a 10% haircut/tax and quantity bounds.
+It changes the strict 120s-only risk mark and awaits an explicit owner decision before merge/install.
+Missing/unsupported stock remains fully reserved; original anchors/accounting/loss controls remain.
+Contract: docs/architecture/qualified-stock-risk-marks.md. Windows clean 121s: 1,680 Java passed/
+six skips, Java 11; 108 tooling tests pass. Exact-head CI is pending; #98 remains installed.
+Receipt: docs/history/qualified-stock-valuation-2026-10-18.md. Native-window acceptance and
+controlled workflows remain pending.
+
 Merged #98/f662310 names current-stock valuation pauses, preserves their
 exact reserve/120s quote guard and retries on newer market evidence without the ordinary spacing
 delay. Records/Missed flips now open native maximized frames. Regression-first fixes pass; Windows

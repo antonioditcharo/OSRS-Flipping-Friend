@@ -58,17 +58,29 @@ final class DurableRisk {
                 long bid=exactInteger(quote.get("low")), quoteAt=exactInteger(quote.get("lowTime"));
                 if(bid<=0 || bid>Integer.MAX_VALUE || quoteAt<=0 || quoteAt>now)
                     return AccountRiskSnapshot.unavailable(id,now,"A managed item's instant-sell quote is unsupported or in the future.");
-                if(now-quoteAt>120){unpricedCost=Math.addExact(unpricedCost,visibleCost);
-                    describeReserve(valuationDetails,p.getItemName(),p.getItemId(),quantity,visibleCost,
-                        "last instant-sell trade "+(now-quoteAt)+"s ago; the current risk mark requires a trade within 120s");continue;}
-                validUntil=Math.min(validUntil,Math.addExact(quoteAt,120));
+                boolean quiet=now-quoteAt>120;
+                int markedQuantity=quantity,markPrice=(int)bid;
+                long markCost=visibleCost;
+                if(quiet) {
+                    var mark=StockRiskMark.quiet(market,p.getItemId(),quantity,bid,quoteAt,now);
+                    markedQuantity=mark.quantity;markPrice=mark.price;
+                    markCost=markedQuantity==0?0:SaleAccounting.allocateCost(visibleCost,quantity,markedQuantity);
+                    unpricedCost=Math.addExact(unpricedCost,visibleCost-markCost);
+                    describeReserve(valuationDetails,p.getItemName(),p.getItemId(),quantity-markedQuantity,visibleCost-markCost,
+                        (markedQuantity==0?mark.detail:"completed public volume supports only "+markedQuantity+" of "+quantity+" physically observed units")
+                            +"; a direct risk mark requires a trade within 120s, otherwise qualified support is required");
+                    if(markedQuantity==0)continue;
+                    valuationDetails.add(markedQuantity+" × "+(p.getItemName()==null?"Item "+p.getItemId():p.getItemName())
+                        +": "+mark.detail+". This is a risk estimate, not an executable quote.");
+                    validUntil=Math.min(validUntil,mark.validUntil);
+                }else validUntil=Math.min(validUntil,Math.addExact(quoteAt,120));
                 var item=market.mapping.get(p.getItemId());
                 String name=item==null?null:item.name;
-                long gross=Math.multiplyExact(bid,(long)quantity);
-                var sale=SaleAccounting.calculate(gross,quantity,(int)bid,name,SaleAccounting.CURRENT_POLICY,visibleCost);
+                long gross=Math.multiplyExact(markPrice,(long)markedQuantity);
+                var sale=SaleAccounting.calculate(gross,markedQuantity,markPrice,name,SaleAccounting.CURRENT_POLICY,markCost);
                 if(sale.getProfitLower()==null)
                     return AccountRiskSnapshot.unavailable(id,now,"A managed item cannot be marked under the current tax rule.");
-                marked=Math.addExact(marked,sale.getProfitLower());
+                marked=Math.addExact(marked,quiet?Math.min(0,sale.getProfitLower()):sale.getProfitLower());
             }
             Map<Integer,Long> reserves=new HashMap<>(evidence.unresolvedCosts);
             var newGapBounds=ProspectiveGapExposure.calculate(read);

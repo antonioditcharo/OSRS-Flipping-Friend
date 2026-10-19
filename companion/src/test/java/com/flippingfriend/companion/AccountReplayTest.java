@@ -89,11 +89,22 @@ public class AccountReplayTest {
         var result=run(input,5,10);
         assertTrue(result.actions.toString(),result.actions.stream().anyMatch(s->s.contains("SELL ")));
         assertEquals(1,result.completedSales);assertEquals(180,result.realizedProfit);
-        assertEquals("account-replay-3",result.policyVersion);
+        assertEquals("account-replay-4",result.policyVersion);
     }
     @Test public void restartDuringPartialPurchasePreservesCanonicalCostLimitsAndRiskWindow()throws Exception {
         var input=input(1,21);for(var f:input.frames)for(var flow:f.flows)flow.lowVolume=600;
         var before=run(input,5,10);input.restartAt=List.of(start+601,start+1100);
         assertEquals(new Gson().toJson(before),new Gson().toJson(run(input,5,10)));
+    }
+    @Test public void replayCarriesOnlyExplicitCompletedAggregateClocks() {
+        var input=input(1,10);var frame=input.frames.get(0);
+        frame.fiveMinuteStartedAt=(frame.observedAt/300-1)*300;
+        frame.hourlyStartedAt=(frame.observedAt/3600-1)*3600;
+        input.validate();var market=frame.market(input.mapping);
+        assertEquals(frame.fiveMinuteStartedAt,market.fiveMinuteStartedAt);assertEquals(frame.hourlyStartedAt,market.hourlyStartedAt);
+        frame.fiveMinuteStartedAt=(frame.observedAt/300)*300;
+        try{input.validate();fail("Unfinished aggregate accepted");}catch(IllegalArgumentException expected){}
+        frame.fiveMinuteStartedAt=0;frame.hourlyStartedAt=0;input.validate();
+        assertEquals(0,frame.market(input.mapping).fiveMinuteStartedAt);
     }
 }
