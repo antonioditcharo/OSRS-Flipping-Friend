@@ -77,6 +77,46 @@ public class ExecutionAdviceProvenanceTest {
         OfferEvent terminal=f.publish(offer(now,100,10,"BOUGHT",10),now+601);
         assertEquals("original",terminal.getRecommendationId());assertEquals(12,terminal.getPredictedMinutes(),0);
     }
+    @Test public void originalExitSurvivesPartialFillsAcknowledgementOvernightRestartAndNewItemAdvice()throws Exception {
+        Path root=folder.newFolder().toPath();Fixture first=new Fixture(root);
+        first.ledger.recorded("original",561,true,100,10,0,12,.75,null,
+            new com.flippingfriend.core.AcquisitionExitContext(140,90,480));
+        var open=first.publish(offer(now,100,10,"BUYING",0),now);
+        var partial=first.publish(offer(now,100,10,"BUYING",3),now+60);
+        assertEquals(open.getEventId(),partial.getExitContext().getSourceEventId());
+        for(var e:first.outbox.pending())assertTrue(first.outbox.acknowledge(e.getEventId(),e.getSessionId(),e.getSequence()));
+        Fixture restart=new Fixture(root);
+        restart.ledger.recorded("later",561,true,100,10,0,120,.9,null,
+            new com.flippingfriend.core.AcquisitionExitContext(110,80,20));
+        var bought=restart.publish(offer(now,100,10,"BOUGHT",10),now+8*3600);
+        assertEquals(partial.getExitContext(),bought.getExitContext());
+        assertEquals(140,bought.getExitContext().getTargetSellPrice());
+        assertEquals(90,bought.getExitContext().getStopPrice());
+        assertEquals(480,bought.getExitContext().getPredictedSellMinutes(),0);
+        assertEquals(1000,bought.getSpent());assertEquals(10,bought.getFilledQuantity());
+    }
+    @Test public void actualAcceptedAdviceSuppliesTheSellLegAndStopToTheOriginalBinding()throws Exception {
+        Fixture f=new Fixture(folder.newFolder().toPath());
+        var suggestion=com.flippingfriend.model.Suggestion.builder(com.flippingfriend.model.SuggestionType.BUY)
+            .item(561,"Nature rune").price(100).quantity(10).targetSellPrice(140).fillMinutes(12,480)
+            .legCompletionProbability(.75).build();
+        f.client.recordPresentedAdvice(suggestion,f.storage.accountId(),90);
+        var open=f.publish(offer(now,100,10,"BUYING",0),now);
+        assertNotNull(open.getExitContext());assertEquals(140,open.getExitContext().getTargetSellPrice());
+        assertEquals(90,open.getExitContext().getStopPrice());assertEquals(480,open.getExitContext().getPredictedSellMinutes(),0);
+        assertEquals(12,open.getPredictedMinutes(),0);
+    }
+    @Test public void unobservedOrMismatchedOriginalsCannotBorrowAnExitPlan()throws Exception {
+        for(int variant=0;variant<4;variant++) {
+            Fixture f=new Fixture(folder.newFolder().toPath());
+            f.ledger.recorded("plan",561,true,100,10,0,12,.75,null,
+                new com.flippingfriend.core.AcquisitionExitContext(140,90,480));
+            var source=f.publish(offer(variant==0?now-60:now,variant==1?101:100,variant==2?9:10,
+                "BUYING",variant==3?3:0),now);
+            assertNull(source.getExitContext());
+            assertNotNull(source.getEventId());assertTrue(source.getSequence()>0);
+        }
+    }
     @Test public void refreshedPredictionCannotBorrowAnOlderIdenticalOrdersAdviceClock()throws Exception {
         Fixture f=new Fixture(folder.newFolder().toPath());
         var field=SuggestionLedger.class.getDeclaredField("outstanding");field.setAccessible(true);

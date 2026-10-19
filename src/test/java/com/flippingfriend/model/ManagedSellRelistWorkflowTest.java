@@ -62,6 +62,12 @@ public class ManagedSellRelistWorkflowTest {
             when(companion.tradingLedger()).thenReturn(ledger(trades, List.of(), Map.of()));
         }
         Suggestion next() { return engine.refresh(false); }
+        void context(int target,int stop,double minutes,long openedAt) {
+            var p=companion.tradingLedger().getTradingPositions().get(0);
+            when(companion.tradingLedger()).thenReturn(ledger(List.of(PositionProjection.ready(p.getItemId(),p.getItemName(),
+                p.getQuantity(),p.getTotalCost(),openedAt,now.getEpochSecond(),p.getSourceEventId(),p.getSourceOfferIdentity())
+                .withExitContext(new AcquisitionExitContext(target,stop,minutes).bind("original-buy"))),List.of(),Map.of()));
+        }
         Suggestion maintenance(int quantity) throws Exception {
             return maintenance(quantity,100000,100000);
         }
@@ -77,21 +83,19 @@ public class ManagedSellRelistWorkflowTest {
     }
     @Test public void actualManagedGuidanceKeepsItsTargetAndDoesNotTurnItIntoABreakEvenReprice()throws Exception {
         var f=new Fixture(6,5881,6,1000,true);
-        when(f.companion.tradingLedger()).thenReturn(ledger(List.of(PositionProjection.ready(561,"Nature rune",6,5881,
-            now.getEpochSecond()-60,now.getEpochSecond(),"buy","buy-offer")),List.of(),Map.of()));
-        doAnswer(call->{Position p=call.getArgument(0);p.setTargetSellPrice(1200);p.setPredictedSellMinutes(120);return null;}).when(f.plans).applyTo(any());
+        f.context(1200,0,120,now.getEpochSecond()-60);
         assertEquals(1200,f.next().getPrice());noReprice(f.maintenance(6));
     }
     @Test public void actualManagedMaintenanceWaitsForFullPredictionAndCurrentProgress()throws Exception {
         var f=new Fixture(6,5881,6,1100,true);
-        doAnswer(call->{Position p=call.getArgument(0);p.setPredictedSellMinutes(120);return null;}).when(f.plans).applyTo(any());
+        f.context(1200,0,120,now.getEpochSecond()-100000);
         noReprice(f.maintenance(6,119*60,119*60));
         noReprice(f.maintenance(6,150*60,60));
         assertEquals(SuggestionType.MODIFY_SELL,f.maintenance(6,150*60,10*60).getType());
     }
     @Test public void anActualFreshStopDoesNotWaitForRoutineMaintenancePatience()throws Exception {
         var f=new Fixture(6,5881,6,800,true);
-        doAnswer(call->{Position p=call.getArgument(0);p.setStopPrice(900);p.setPredictedSellMinutes(120);return null;}).when(f.plans).applyTo(any());
+        f.context(1200,900,120,now.getEpochSecond()-100000);
         var next=f.maintenance(6,60,0);assertNotNull(next);assertEquals(SuggestionType.MODIFY_SELL,next.getType());assertTrue(next.isLossCut());
     }
     private AccountLedgerSnapshot ledger(List<PositionProjection> trades, List<MissedFlipEvidence> missed,

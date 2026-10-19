@@ -129,6 +129,12 @@ public class Position
 		this.predictedSellMinutes = predictedSellMinutes;
 	}
 
+    public void applyExitContext(com.flippingfriend.core.AcquisitionExitContext context) {
+        if(context==null || !context.isBound())return;
+        targetSellPrice=context.getTargetSellPrice();stopPrice=context.getStopPrice();
+        predictedSellMinutes=context.getPredictedSellMinutes();
+    }
+
 	/** Folds an additional purchase in, keeping the average cost exact. */
 	public void addFill(int extraQuantity, long extraCost)
 	{

@@ -14,12 +14,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Remembers the exit the engine had in mind when it suggested a buy, so that when the buy actually
- * fills the resulting position carries the target it was bought for.
- * <p>
- * Without this the sell side would have to re-derive a target from whatever the market looks like
- * minutes later, and the journal could never compare a prediction against its outcome — which would
- * leave the calibrator with nothing to learn from.
+ * Legacy item-level journal/standalone fixture cache. Live exit policy never reads this map:
+ * canonical acquisitions carry their original source-bound AcquisitionExitContext without a TTL.
+ * Old item-only entries cannot establish an original plan for a durable holding.
  */
 @Singleton
 public class TradePlans

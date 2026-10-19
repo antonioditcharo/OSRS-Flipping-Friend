@@ -88,6 +88,9 @@ are in `docs/project-direction.md`; historical package notes are not proof of ru
   market support; fresh stops and explicit player wind-down remain exceptions. Recheck target and
   exact taxed floors after stabilization and at final authority. Never use targets as risk values
   or invent missing original plans. See docs/architecture/patient-sale-pricing.md and current HANDOFF.
+  Live target/stop/sell-duration context must follow the original prospective canonical acquisition,
+  not an item-keyed TTL or later client snapshot. Mixed/unproven original plans stay unknown; read
+  docs/architecture/acquisition-exit-context.md and current HANDOFF for delivery state.
 - Optimize and evaluate whole-account returns over elapsed time with realistic manual visits,
   capital, tax, buy limits, partial fills, losses, and remaining inventory. Slot-hour rates are
   diagnostic inputs, not a performance claim.

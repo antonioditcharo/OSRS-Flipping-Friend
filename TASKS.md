@@ -9,6 +9,15 @@ Continuation impact order: trade-loop reliability/exit-context provenance, actua
 latency, production-policy account replay/returns, validated learning, then remaining product gaps.
 Read [the continuation prompt](docs/next-conversation-prompt.md); current delivery facts below govern.
 
+- [ ] Deliver/accept acquisition-bound exit context. Live initial/maintenance/relist/final authority
+      now read the original prospective canonical buy context, without the item cache's six-hour
+      TTL or a later snapshot's target. Partial fills/sales, ACK and overnight restart retain it;
+      mixed/unproven origins stay unknown. Windows clean 66s: 1,726 Java passed/six existing skips,
+      Java 11; 108 tooling passed. Merge/install/fresh manual acceptance remain pending; #105 remains
+      installed. See docs/architecture/acquisition-exit-context.md and
+      docs/history/acquisition-exit-delivery-2026-10-19.md. Production replay must also qualify this
+      boundary before any promotion gate; all controlled workflow/learning/benchmark gates remain.
+
 - [ ] Accept installed #105/e21a049 patient sell pricing after the premature break-even report.
       Four old-source regressions reproduce; protect initial/quiet targets within the configured
       horizon, full sell patience/recent progress and completed-market support for maintenance.
@@ -188,8 +197,8 @@ Read [the continuation prompt](docs/next-conversation-prompt.md); current delive
       and drift controls remain unimplemented. No fitted artifact activates learning.
 - [ ] Finish manual cancel -> collect -> revalidate -> replace and partial-fill protection as a
       complete live workflow. Shared sell pricing and final companion authority are implemented;
-      accept their production sequence and audit remaining target/stop/duration provenance rather
-      than rebuilding that migration. Check item-keyed TradePlans retention against longer holds.
+      accept their production sequence. Acquisition-bound target/stop/duration replaces the live
+      item-keyed TTL cache in the queued increment above; accept that provenance through restart.
 - [ ] Build account-level chronological replay for 100M members at 5m, 30m, 2h, and 8h checks.
       Include end-of-run inventory liquidation, cash, buy limits, tax, and missed visits.
       AccountReplay now models shared cash/eight slots, partial fills, sequential attendance,

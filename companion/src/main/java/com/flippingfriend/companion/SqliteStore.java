@@ -775,12 +775,28 @@ final class SqliteStore implements AutoCloseable
         if(sources!=null && scopedEffects!=null && scopedEffectsCursor==cursor)return scopedEffects;
         AutomaticTradeScope scope = new AutomaticTradeScope();
         scope.reconciliationScope.putAll(reconciliationScope(expectedAccountId, history));
+        Map<String,com.flippingfriend.core.AcquisitionExitContext> exitContexts=null;
+        var parser=new com.google.gson.Gson();
         try (PreparedStatement s = connection.prepareStatement(
-            "SELECT effect_type,item_id,item_name,quantity,acquisition_cost,observed_at,source_event_id,source_offer_identity FROM position_event ORDER BY id");
+            "SELECT p.effect_type,p.item_id,p.item_name,p.quantity,p.acquisition_cost,p.observed_at,p.source_event_id,p.source_offer_identity,e.payload "
+                +"FROM position_event p LEFT JOIN event_log e ON e.event_id=p.source_event_id AND e.event_id IS NOT NULL AND e.event_id<>'' ORDER BY p.id");
              ResultSet r = s.executeQuery()) {
-            while (r.next()) scope.apply(r.getString(1), r.getInt(2), r.getString(3), r.getInt(4),
+            while (r.next()) {
+                com.flippingfriend.core.AcquisitionExitContext context=null;
+                if(expectedAccountId!=null && "ACQUIRE".equals(r.getString(1)) && r.getString(9)!=null) {
+                    OfferEvent source=null;
+                    try {source=parser.fromJson(r.getString(9),OfferEvent.class);}catch(RuntimeException malformed){ /* context stays unknown */ }
+                    if(source!=null && source.getExitContext()!=null && expectedAccountId.equals(source.getAccountId())
+                        && java.util.Objects.equals(r.getString(7),source.getEventId()) && r.getInt(2)==source.getItemId()
+                        && java.util.Objects.equals(r.getString(8),source.getOfferIdentity()) && r.getLong(6)==source.getObservedAt()) {
+                        if(exitContexts==null)exitContexts=AcquisitionExitEvidence.read(history.get());
+                        context=exitContexts.get(source.getEventId());
+                    }
+                }
+                scope.apply(r.getString(1), r.getInt(2), r.getString(3), r.getInt(4),
                 r.getLong(5), r.getLong(6), r.getString(7), r.getString(8),
-                scope.reconciliationScope.get(r.getString(7)));
+                scope.reconciliationScope.get(r.getString(7)),context);
+            }
         }
         if(sources!=null){scopedEffects=scope;scopedEffectsCursor=cursor;}
         return scope;

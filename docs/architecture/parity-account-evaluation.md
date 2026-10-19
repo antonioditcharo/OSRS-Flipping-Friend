@@ -15,7 +15,7 @@
 
 | Consumer | Authority and remaining distinction |
 | --- | --- |
-| Acquired quantity/cost and initial exit | Canonical acquisition remainder in scoped `AccountLedgerSnapshot`, fresh ACK-drained client evidence, exact subset allocation; final companion sale policy |
+| Acquired quantity/cost and initial exit | Canonical acquisition remainder and original source-bound exit context in scoped `AccountLedgerSnapshot`, fresh ACK-drained client evidence, exact subset allocation; final companion sale policy. Client item plans cannot establish original context; see [acquisition provenance](acquisition-exit-context.md) |
 | Sell maintenance/relist | Same ledger and exact costs, current canonical offer episode/source and remaining quantity; local persisted manual sequence, final companion sale policy |
 | New/replacement buy | Existing final companion entry policy, acknowledged eight-slot/cash proof, canonical exposure, buy limits and durable risk; unchanged by this increment |
 | Recorded totals/Performance/sale investigation | Scoped durable sale rows and tax/profit bounds; unknown historical money stays unknown |
@@ -42,7 +42,7 @@ The runner calls production candidate generation/portfolio optimization with an 
 
 Results report bag cash, locked remainder, collection proceeds, acquisition cost, conservatively taxed/haircut terminal marks, realized profit, equity-change lower bound, elapsed-hour rates, drawdown, losses, abstentions and interactions separately. Missing terminal marks contribute zero to a disclosed lower bound and set incomplete coverage; no sale/disposal is booked by terminal marking. Fixtures prove conservation, not market performance. A 10-unit 100 -> 120 GP example yields exactly 180 GP profit/20 GP tax in both simulation and the canonical ledger.
 
-The bundle retains input/result hashes and the executing packaged JAR, and verification recomputes all twelve scenarios. Real benchmark returns are pending an appropriate frozen market capture and complete production-policy replay. Historical Copilot exports still cannot provide missing session/cadence clocks.
+The bundle retains input/result hashes and the executing packaged JAR, and verification recomputes all twelve scenarios. Real benchmark returns are pending an appropriate frozen market capture and complete production-policy replay, including the production acquisition-bound exit-context qualification. Historical Copilot exports still cannot provide missing session/cadence clocks.
 
 ## Offline challenger
 

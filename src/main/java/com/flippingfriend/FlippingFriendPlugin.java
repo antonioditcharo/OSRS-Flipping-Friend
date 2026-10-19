@@ -433,8 +433,10 @@ public class FlippingFriendPlugin extends Plugin
     private void recordVisibleAdvice() {
         if (client.getGameState() != GameState.LOGGED_IN || !accountDataLoaded.get()
             || !hasProfile() || !offerTracker.hasCompleteOfferEvidence() || stepGuide.isPaused()) return;
-        companion.recordPresentedAdvice(stepGuide.getSuggestion(),
-            com.flippingfriend.core.AccountIdentity.fromProfileKey(configManager.getRSProfileKey()));
+        Suggestion accepted=stepGuide.getSuggestion();
+        int stop=accepted==null?0:(int)Math.round(accepted.getPrice()*(1-config.riskProfile().getLossCutPct()));
+        companion.recordPresentedAdvice(accepted,
+            com.flippingfriend.core.AccountIdentity.fromProfileKey(configManager.getRSProfileKey()),stop);
     }
     @Subscribe
     public void onMenuEntryAdded(net.runelite.api.events.MenuEntryAdded event) { tradeConfirmGuard.onMenuEntryAdded(event); }
@@ -953,19 +955,6 @@ public class FlippingFriendPlugin extends Plugin
 				"No new buy will be suggested until the companion returns a current, valid entry decision.");
 					}
 
-					if (suggestion == planned && planned.getType() == SuggestionType.BUY)
-					{
-						// Record the exit alongside the entry, exactly as the built-in engine does.
-						// Only that engine was doing it, so on the companion path -- the one that
-						// actually runs -- every position opened with no target, no predicted time and
-						// no stop. That left per-trade stops permanently inert, and left the journal
-						// unable to say what any trade was expected to make, which is what the
-						// calibrator learns from.
-						int stop = (int) Math.round(
-							planned.getPrice() * (1 - config.riskProfile().getLossCutPct()));
-						tradePlans.plan(planned.getItemId(), planned.getTargetSellPrice(), stop,
-							planned.getSellFillMinutes(), planned.getExpectedProfit());
-					}
 				}
 				// The walkthrough reads Grand Exchange widgets to decide whether the player is
 				// halfway through typing an offer, and widgets may only be touched on the client
@@ -1070,9 +1059,6 @@ public class FlippingFriendPlugin extends Plugin
             || authorized.getQuantity() <= 0 || authorized.getQuantity() > proposed.getQuantity())
             return Suggestion.waiting("Replacement needs a current companion plan",
                 "No eligible entry fits this item's cancelled remainder. Waiting for a fresh plan; the old order will not be reused.");
-        int stop = (int)Math.round(authorized.getPrice() * (1-config.riskProfile().getLossCutPct()));
-        tradePlans.plan(authorized.getItemId(), authorized.getTargetSellPrice(), stop,
-            authorized.getSellFillMinutes(), authorized.getExpectedProfit());
         return authorized;
     }
 	/** A short, readable description of a failure, for a card rather than a log. */

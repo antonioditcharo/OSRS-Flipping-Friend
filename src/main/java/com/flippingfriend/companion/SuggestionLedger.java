@@ -66,6 +66,13 @@ public class SuggestionLedger
     }
     public synchronized void recorded(String recommendationId,int itemId,boolean buying,int price,int quantity,
             long quoteAgeSeconds,double predictedMinutes,double predictedCompletion,com.flippingfriend.core.ExecutionForecast forecast)
+
+	{
+        recorded(recommendationId,itemId,buying,price,quantity,quoteAgeSeconds,predictedMinutes,predictedCompletion,forecast,null);
+    }
+    public synchronized void recorded(String recommendationId,int itemId,boolean buying,int price,int quantity,
+            long quoteAgeSeconds,double predictedMinutes,double predictedCompletion,com.flippingfriend.core.ExecutionForecast forecast,
+            com.flippingfriend.core.AcquisitionExitContext exitContext)
 	{
 		if (recommendationId == null || recommendationId.isEmpty() || itemId <= 0)
 		{
@@ -91,7 +98,7 @@ public class SuggestionLedger
 			? previous.suggestedAt
 			: now;
 		outstanding.put(key, new Advice(recommendationId, price, quantity,
-			quoteAgeSeconds, predictedMinutes, predictedCompletion, since, now,forecast));
+			quoteAgeSeconds, predictedMinutes, predictedCompletion, since, now,forecast,exitContext));
 	}
 
 	/** The advice this offer most plausibly acts on, or null when the player acted unprompted. */
@@ -139,14 +146,15 @@ public class SuggestionLedger
 		private final long suggestedAt;
 		private final long recordedAt;
         private final com.flippingfriend.core.ExecutionForecast forecast;
+        private final com.flippingfriend.core.AcquisitionExitContext exitContext;
 		Advice(String recommendationId, int price, int quantity, long quoteAgeSeconds,
 			double predictedMinutes, double predictedCompletion, long suggestedAt)
 		{
-			this(recommendationId,price,quantity,quoteAgeSeconds,predictedMinutes,predictedCompletion,suggestedAt,suggestedAt,null);
+			this(recommendationId,price,quantity,quoteAgeSeconds,predictedMinutes,predictedCompletion,suggestedAt,suggestedAt,null,null);
 		}
 		private Advice(String recommendationId, int price, int quantity, long quoteAgeSeconds,
 			double predictedMinutes, double predictedCompletion, long suggestedAt, long recordedAt,
-            com.flippingfriend.core.ExecutionForecast forecast)
+            com.flippingfriend.core.ExecutionForecast forecast,com.flippingfriend.core.AcquisitionExitContext exitContext)
 		{
 			this.recommendationId = recommendationId;
 			this.price = price;
@@ -157,6 +165,7 @@ public class SuggestionLedger
 			this.suggestedAt = suggestedAt;
 			this.recordedAt = recordedAt;
             this.forecast=forecast;
+            this.exitContext=exitContext;
 		}
 
 		/** Whether this is the same recommendation repeated, rather than a genuinely new one. */
@@ -175,5 +184,6 @@ public class SuggestionLedger
 		/** Availability of this prediction snapshot, distinct from the first identical order display. */
 		public long getRecordedAt() { return recordedAt; }
         public com.flippingfriend.core.ExecutionForecast getForecast(){return forecast;}
+        public com.flippingfriend.core.AcquisitionExitContext getExitContext(){return exitContext;}
 	}
 }
