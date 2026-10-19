@@ -5,6 +5,14 @@ Root notes describe the current workflow; detailed prior receipts remain in link
 
 ## Current source and installed runtime
 
+Queued source on codex/market-graph-projections adds the wide native market graph, independent
+public-history cache and experimental historical-return projection/evaluation. It is NOT installed;
+runtime remains accepted #94 below. [Contract](docs/architecture/market-graphs.md), root design-qa.md
+and [verification receipt](docs/history/market-graph-delivery-2026-10-18.md) record native QA,
+1,653 Java passed/six skips, 108 tooling tests and reproducible public-only evaluation. All four
+tested price horizons have worse known-target MAE than persistence; scenarios remain display-only.
+CI/paired delivery/player acceptance remain pending. No Copilot all-users feed/private dependency.
+
 The combined sale fixes through #94/c8d3a18 are INSTALLED through the supported paired updater.
 Quiet last-trade prices no longer strand verified unlisted stock: shared initial/relist pricing
 provides an explained exact non-loss limit; stops and live sell cancellation still need fresh trades.

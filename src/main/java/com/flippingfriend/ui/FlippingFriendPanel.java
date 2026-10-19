@@ -56,6 +56,7 @@ public class FlippingFriendPanel extends PluginPanel {
         details = new PanelDetails(holdings, new HistoryPanel(journal, itemManager, explainer),
             new PortfolioPanel(companion, explainer), new StatsPanel(explainer), new BankTrajectoryPanel(journal, explainer),
             marketData, explainer, engine, config, configManager, companion, this::changed);
+        details.setGraphItemManager(itemManager);
         missedFlips = new MissedFlipsWindow(companion);
         setLayout(new BorderLayout()); setBackground(UiUtils.CARD);
         setBorder(BorderFactory.createEmptyBorder(6, 6, 6, 6));

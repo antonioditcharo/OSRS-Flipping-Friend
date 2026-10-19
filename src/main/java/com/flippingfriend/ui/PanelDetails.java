@@ -19,7 +19,7 @@ import net.runelite.client.ui.FontManager;
 
 /** The former sidebar sections are opened deliberately in a single modeless details window. */
 final class PanelDetails {
-    private final JTabbedPane tabs = new JTabbedPane();
+    private final JTabbedPane tabs = new DetailsTabs();
     private final Map<String, JComponent> views = new LinkedHashMap<>();
     private final PositionsPanel holdings;
     private final HistoryPanel history;
@@ -33,13 +33,9 @@ final class PanelDetails {
     private final SuggestionEngine engine;
     private final FlippingFriendConfig config;
     private final JTextArea recommendation = CompactSuggestionPanel.text(UiUtils.TEXT);
-    private final PriceGraphPanel graph = new PriceGraphPanel();
+    private final MarketGraphView graph;
     private final MarketDropsPanel marketDrops;
     private final RecordedSalesPanel recordedSales;
-    private int graphItem;
-    private final JTextField graphSearch=new JTextField();
-    private final JComboBox<String> graphStep=new JComboBox<>(new String[]{"5m","1h"});
-    private final JLabel graphTitle = new JLabel();
     private final JButton copyQuantity = new JButton("Copy quantity"), copyPrice = new JButton("Copy price");
     private Suggestion shown = Suggestion.idle();
     private boolean syncing;
@@ -52,9 +48,9 @@ final class PanelDetails {
         this.holdings = holdings; this.history = history; this.plan = plan; this.performance = performance;
         this.bank = bank; this.market = market; this.explainer = explainer; this.engine = engine;
         this.config = config;
+        graph=new MarketGraphView(market);
         marketDrops=new MarketDropsPanel(market);
-        recordedSales=new RecordedSalesPanel(item->{graphItem=item;select("Price graph");});
-        graphStep.setSelectedItem("1h");
+        recordedSales=new RecordedSalesPanel(item->{graph.showItem(item);select("Price graph");});
         JPanel guide = new JPanel(new BorderLayout(8, 8)); guide.setBackground(UiUtils.CARD);
         guide.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12)); guide.add(recommendation, BorderLayout.CENTER);
         JPanel copies = new JPanel(new FlowLayout(FlowLayout.LEFT)); copies.setOpaque(false);
@@ -62,19 +58,7 @@ final class PanelDetails {
         copyQuantity.addActionListener(e -> copy(Integer.toString(shown.getQuantity())));
         copyPrice.addActionListener(e -> copy(Integer.toString(shown.getPrice())));
         add("Recommendation", guide);
-        JPanel graphView = new JPanel(new BorderLayout(8, 8)); graphView.setBackground(UiUtils.CARD);
-        JPanel graphTools=new JPanel(new BorderLayout(8,8));graphTools.setOpaque(false);
-        graphTools.add(graphTitle,BorderLayout.NORTH);graphSearch.setToolTipText("Enter an exact item name or item ID, then press Enter");
-        graphTools.add(graphSearch,BorderLayout.CENTER);graphTools.add(graphStep,BorderLayout.EAST);
-        graphSearch.addActionListener(e->{String query=graphSearch.getText().trim();
-            for(var item:market.getSnapshot().getMetadata().values())if(item.getName().equalsIgnoreCase(query) || Integer.toString(item.getId()).equals(query)) {
-                graphItem=item.getId();refreshSelected();return;
-            }
-            graphTitle.setText("No item matches that name or ID");
-        });
-        graphStep.addActionListener(e->refreshSelected());
-        graphView.add(graphTools, BorderLayout.NORTH); graphView.add(graph, BorderLayout.CENTER);
-        add("Price graph", graphView);
+        add("Price graph",graph);
         add("Plan", plan); add("Holdings", holdings); add("Performance", performance);
         add("Local history", history); add("Bank estimate", bank);
         add("Market drops",marketDrops);
@@ -121,6 +105,7 @@ final class PanelDetails {
     }
     void update(Suggestion advice,AccountLedgerSnapshot ledger,AccountLedgerSnapshot history,boolean historyUpdating) {
         shown = advice == null ? Suggestion.idle() : advice;
+        graph.update(shown);
         performance.updateLedger(ledger);
         recordedSales.updateLedger(history,historyUpdating);
         holdings.updateRecordedHistory(history,historyUpdating);
@@ -147,13 +132,17 @@ final class PanelDetails {
     }
     JComponent view(String name) { return views.get(name); }
     void open(Component owner, String name) {
-        if("Price graph".equals(name))graphItem=shown.getItemId();
+        if("Price graph".equals(name) && graph.item()<=0)graph.showItem(shown.getItemId());
         select(name);
         if (presenter != null) { presenter.accept(name, tabs); return; }
         if (dialog == null) {
             dialog = new JDialog(SwingUtilities.getWindowAncestor(owner), "Flipping Friend - "+name, Dialog.ModalityType.MODELESS);
             dialog.setDefaultCloseOperation(JDialog.HIDE_ON_CLOSE); dialog.setContentPane(tabs);
             dialog.setSize(730, 540); dialog.setLocationRelativeTo(owner);
+        }
+        if("Price graph".equals(name) && dialog.getWidth()<1000) {
+            Rectangle screen=GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
+            dialog.setSize(Math.min(1320,screen.width-40),Math.min(820,screen.height-40));dialog.setLocationRelativeTo(owner);
         }
         dialog.setVisible(true);
     }
@@ -167,14 +156,13 @@ final class PanelDetails {
             case "Market drops": marketDrops.refresh(); break;
             case "Bank estimate": bank.repaint(); break;
             case "Price graph":
-                int item=graphItem>0?graphItem:shown.getItemId();
-                graphTitle.setText(item > 0 ? market.getSnapshot().getItemName(item) + " - observed market prices" : "Enter an item name or ID");
-                graph.setData(item > 0 ? market.getSeries(item,(String)graphStep.getSelectedItem()) : java.util.Collections.emptyList(), 0, 0, 0);
+                graph.update(shown);if(graph.item()<=0)graph.showItem(shown.getItemId());else graph.refresh();
                 break;
             default: break;
         }
     }
     void setPresenter(BiConsumer<String, JComponent> presenter) { this.presenter = presenter; }
-    void dispose() { if (dialog != null) { dialog.dispose(); dialog = null; } }
+    void setGraphItemManager(net.runelite.client.game.ItemManager items){graph.setItemManager(items);}
+    void dispose() { graph.dispose();if (dialog != null) { dialog.dispose(); dialog = null; } }
     private void copy(String text) { Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(text), null); }
 }

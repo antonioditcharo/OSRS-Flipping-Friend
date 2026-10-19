@@ -46,6 +46,18 @@ tasks.named('test') {
     }
 }
 
+// Explicit visual check of the production Swing chart; never opens RuneLite or sends input.
+tasks.register('renderMarketGraph', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.flippingfriend.ui.MarketGraphRender'
+    doFirst {
+        if (!project.hasProperty('graphCapture') || !project.hasProperty('graphOutput'))
+            throw new GradleException('Use -PgraphCapture=<frozen-public-directory> -PgraphOutput=<image-directory>')
+        args project.property('graphCapture'), project.property('graphOutput')
+    }
+}
+
 tasks.named('jar') {
     archiveBaseName = 'osrs-flipping-friend'
     archiveVersion = ''
