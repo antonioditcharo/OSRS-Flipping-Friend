@@ -38,9 +38,17 @@ updater must preserve that prefix and every existing historical gap/reserve/unkn
 
 ## Runtime delivery and acceptance
 
-The source requires both exact-head CI checks, clean default-branch fast-forward and the supported
-unattended paired updater before claiming installation. HANDOFF records the current installed pair;
-source or benchmark results cannot establish installed behavior. No client is force-closed and no
-game input is sent. Fresh manual login/GE and observed partial/full buy/sale-to-ACK-to-guidance
+PR #111 merged as b74f93b64f0d287bce91b344caf28561905c7a15 after both exact-head Windows/Linux
+checks pass for 442b70a877d08d6c8b6b8fec486f95673cc4d3b2 (run 39304509323). The clean default
+checkout was fast-forwarded; historical main is untouched. Candidate hashes and exact check receipts
+are retained privately. Compatibility preflight passes for RuneLite 1.13.2. Read-only preservation
+of all 62,073 rows/1,470 effects/original anchor passes, with zero new financial effects.
+
+The update is READY, NOT INSTALLED: RuneLite is running and the supported updater requires the
+player to close it normally. The owner has been asked once; no force-close or game input is used.
+The installed #108 pair remains verified/responding. Once closed, use the supported unattended
+paired updater with the verified candidate, collect backup/task/manifest/financial/status/pipeline
+proof and launch normally. Record actual installation before claiming it. Source or benchmark
+results cannot establish installed behavior. Fresh manual login/GE and observed partial/full buy/sale-to-ACK-to-guidance
 transitions remain required. Complete live trade-loop/price-quality, sustained latency, production
 replacement/relist replay, qualified 5m/30m/2h/8h benchmarks and validated learning stay open.
