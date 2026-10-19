@@ -5,7 +5,9 @@ All unchecked release requirements remain visible below; detailed completion rec
 
 ## Active
 
-- [ ] Deliver/accept the implemented panel/performance/prompt-guidance increment. It adds scoped
+- [ ] Install/accept merged #103/dd49269 panel/performance/prompt guidance. Both exact-head CI
+      checks pass; Windows clean: 1,695 Java passed/six skips and 108 Python passed. Installation
+      waits for normal RuneLite closure. It adds scoped
       session/period/reset, ledger-based profit/ROI/completed sales, conservative stock marks,
       elapsed clock/rate, paged sales and estimated action profit/time. Five-second minimum spacing
       is replaced by revision/validity reuse; source/history and candidate caches preserve final
@@ -119,6 +121,9 @@ All unchecked release requirements remain visible below; detailed completion rec
       real faults before fixes; never edit a database or bypass exposure guards to unblock advice.
       Current consumer audit/final sale authority are source-verified in
       docs/architecture/parity-account-evaluation.md; controlled runtime acceptance stays open.
+
+- [ ] Finish explicit account catalog/selection and cross-account performance aggregation without
+      assigning legacy data or overstating coverage. Current sidebar is visibly current-account only.
 
 ## Next
 

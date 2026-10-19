@@ -4,11 +4,11 @@ Updated 19 October 2026 (America/Anchorage). Read AGENTS.md and TASKS.md.
 
 ## Current source and installed runtime
 
-The panel/performance/prompt-guidance increment is implemented on
-codex/panel-parity-instant-guidance, verified on Windows: 1,695 Java passed/six existing skips, Java 11; 108 Python tests pass.
-Native QA passes. Exact-head Windows/Linux CI and paired delivery remain pending. Installed runtime
-remains owner-approved #101/5260586 until the supported paired update is recorded. Contract:
-docs/architecture/panel-performance-and-latency.md; detailed source/tests/timing/player steps:
+#103/dd49269 is MERGED; source ff09c267 passes both exact-head Windows/Linux checks
+(run 39223299513). Windows clean 126s: 1,695 Java passed/six existing skips, Java 11;
+108 Python passed (158.931s). Native QA passes. Paired installation waits for the player to close
+RuneLite normally; installed runtime remains #101/5260586. No runtime acceptance is claimed.
+Contract: docs/architecture/panel-performance-and-latency.md; source/timing/delivery/player steps:
 docs/history/panel-speed-delivery-2026-10-19.md. Root design-qa.md is the current visual gate.
 
 The new sidebar exposes scoped session/period/reset, profit/uncertainty, completed sell-order count,
