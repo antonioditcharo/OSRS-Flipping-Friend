@@ -2,6 +2,10 @@
 
 Updated 19 October 2026 (America/Anchorage). Read AGENTS.md and TASKS.md.
 
+Next-conversation prompt and impact order: [continuation](docs/next-conversation-prompt.md).
+Start with reliable margin-preserving trade workflows/target provenance, then measured cold/event
+latency, complete production replay/returns, gated learning and remaining product conveniences.
+
 ## Current source and installed runtime
 
 #105/e21a049 is INSTALLED at 2026-10-19T09:50:31Z after both exact-head checks pass for 24ec8a0
@@ -69,7 +73,7 @@ stock evidence. Do not repeat it without new evidence. The 17 October research/s
 inventory is in docs/research/flipping-copilot-2026-10-17.md and linked ignored evidence. Its private
 backend/model/training data were not recovered; no private API production dependency.
 
-Replay v4 has shared capital/eight slots/limits/partial fills/tax/manual visits/restart/conservative
+Replay v5 has shared capital/eight slots/limits/partial fills/tax/manual visits/restart/conservative
 terminal marks and twelve synthetic 100M cadence/share scenarios. Complete production replacement/
 relist/foreground coverage and qualified market benchmarks remain open. Benchmark 100M members at
 5m/30m/2h/8h separately; slot rates and price touches cannot establish account returns.
