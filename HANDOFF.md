@@ -8,30 +8,26 @@ latency, complete production replay/returns, gated learning and remaining produc
 
 ## Current source and installed runtime
 
-Queued coherent trade-continuation batch: durable exact buy remainders/restart, shared buy/sell
+Trade-continuation batch #116/7e1385b is MERGED after both exact-head checks for 505a912 and
+INSTALLED at 2026-10-19T21:48:48Z: durable exact buy remainders/restart, shared buy/sell
 continuation evidence, fresh quantity-bounded replacement plans/forecasts, accepted foreground
 maintenance identities and quote/volume guards. Replay v7 persists/reloads the shared intents and
 uses bounded replacement planning. Windows clean 92s: 1,761 Java passed/six skips, Java 11;
-108 tooling passed; packaged twelve-scenario schema bundle reproduces. Exact-head CI/merge/update
-pending; #114 remains installed. See [contract](docs/architecture/trade-continuations.md) and
+108 tooling passed; packaged twelve-scenario schema bundle reproduces. VERIFIED backup
+20261019-134844-d16fc650; installed hashes/task XML/SDDL/62,073 source rows/1,470 effects/original
+anchor/status/compatibility/scoped ledger and new bounded-entry GET pass, zero new financial
+effects. New replacement endpoint returns WAIT without fresh cash/eight-slot evidence. Supported
+Start reopened RuneLite; login/gameplay remain manual. Availability is private in
+local-data/continuation-batch-20261019/delivery-state.json. See [contract](docs/architecture/trade-continuations.md) and
 [consolidated receipt](docs/history/trade-continuation-batch-2026-10-19.md). Controlled manual
 acceptance, sustained timing, complete real foreground/editor/transport policy and qualified
 benchmarks/learning remain open. Continue related fixes in batches; full verification and one
 paired restart follow a completed candidate, with a concise consolidated receipt.
 
-Cancelled-sale recovery #114/61bf57e is MERGED after both exact-head checks for 857f36e and
-INSTALLED at 2026-10-19T21:06:37Z. Two old-source regressions reproduce existing same-item listings
-erasing the intent and temporary slot retention/reuse losing collection evidence. The callback now
-retains the exact collected remainder; a later replacement ends it, stale advice cannot recreate
-it, and managed-cost requirements travel immutably with quantity. Windows clean 83s: 1,743 Java
-passed/six skips, Java 11; 108 tooling passed. VERIFIED backup 20261019-130634-180fa0d6; installed
-hashes/task XML/SDDL/all 62,073 source rows/1,470 effects/original anchor/status/compatibility/scoped
-GETs pass, zero new financial effects. Supported Start reopened RuneLite. Current advice correctly
-waits for fresh cash/eight-slot evidence; login and all game actions stay manual. Owner availability
-is retained privately in local-data/relist-recovery-20261019/delivery-state.json. See
-[contract](docs/architecture/durable-sale-relist.md) and
-[receipt](docs/history/durable-sale-relist-2026-10-19.md). Controlled relist acceptance and production
-replay of the persisted client intent remain open. #114 includes installed #111 and earlier runtime.
+Included #114/61bf57e was installed with exact-head CI, verified pair/backup/task/source/financial
+preservation and no new financial effects. Its exact collection receipt and prior-listing guards
+are retained by #116's shared state. Historical delivery is in the
+[receipt](docs/history/durable-sale-relist-2026-10-19.md); controlled relist acceptance stays open.
 
 Included completed-offer latency #111/b74f93b is MERGED after both exact-head CI checks for 442b70a.
 Windows clean 91s: 1,736 Java passed/six skips, Java 11; 108 tooling passed. Synthetic median
@@ -137,10 +133,11 @@ stock evidence. Do not repeat it without new evidence. The 17 October research/s
 inventory is in docs/research/flipping-copilot-2026-10-17.md and linked ignored evidence. Its private
 backend/model/training data were not recovered; no private API production dependency.
 
-Replay v6 has shared capital/eight slots/limits/partial fills/tax/manual visits/restart/conservative
-terminal marks, qualified original plans, final sale authority and delayed revalidated actions in
-twelve synthetic 100M cadence/share scenarios. Complete production replacement/persisted relist/
-real client acceptance and qualified market benchmarks remain open. Benchmark 100M members at
+Replay v7 has shared capital/eight slots/limits/partial fills/tax/manual visits/restart/conservative
+terminal marks, qualified original plans, final sale authority, delayed revalidated actions and
+shared persisted replacement/relist state in twelve synthetic 100M cadence/share scenarios.
+Remaining real foreground/editor/transport/action-order parity and qualified market benchmarks
+stay open. Benchmark 100M members at
 5m/30m/2h/8h separately; slot rates and price touches cannot establish account returns.
 
 Runtime learning stays PUBLIC_PRICE_BASELINE / HOLD_FOR_VALIDATION. A later 25-forecast cohort

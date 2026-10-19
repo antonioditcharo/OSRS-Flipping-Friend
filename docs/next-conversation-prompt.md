@@ -33,17 +33,21 @@ rebuilding already implemented capabilities:
 
 ## Delivery state at this handoff
 
-The trade-continuation batch is queued: exact durable buy remainders/restart, shared buy/sell
+The trade-continuation batch #116/7e1385b is merged after both exact-head checks for 505a912 and
+installed at 21:48:48Z: exact durable buy remainders/restart, shared buy/sell
 continuation state, fresh bounded replacement entry/forecasts, accepted maintenance episode context,
 fresh quote guards, replay v7 persistence and non-overlapping volume evidence. Windows clean 92s:
 1,761 Java passed/six skips, Java 11; 108 tooling passed; JRE 11 packaged twelve-scenario bundle
-reproduces. Exact-head CI/merge/update pending; #114 remains installed. Read newest HANDOFF and
+reproduces. VERIFIED backup 20261019-134844-d16fc650; installed pair/task/source/financial prefix/
+original anchor/status/compatibility/scoped ledger and bounded-entry GET pass, zero new effects.
+Supported Start reopened RuneLite; fresh cash/eight-slot proof and player acceptance remain pending.
+Availability is private in local-data/continuation-batch-20261019/delivery-state.json. Read newest HANDOFF and
 docs/history/trade-continuation-batch-2026-10-19.md for actual delivery. Real foreground/editor/
 transport and remaining action-order parity, controlled player trading, sustained timing and
 qualified benchmarks/learning stay open. Owner direction: batch multiple related fixes and targeted
 regressions, then one full verification/delivery slice and a consolidated receipt.
 
-Cancelled-sale recovery #114/61bf57e is merged after both exact-head checks for 857f36e and installed
+Included cancelled-sale recovery #114/61bf57e is merged after both exact-head checks for 857f36e and installed
 at 21:06:37Z. Windows clean 83s: 1,743 Java passed/six skips, Java 11; 108 tooling passed. Prior
 same-item listings no longer erase the intent; the callback retains the exact collected remainder
 before temporary slot evidence is removed. Immutable managed-cost hints and counter/stale-episode
@@ -72,7 +76,8 @@ Offline replay v6 adds canonical original-context qualification, transactional f
 authority and delayed/revalidated displayed actions, including restart withdrawal. See
 docs/architecture/replay-canonical-sale.md and docs/history/replay-canonical-sale-2026-10-19.md.
 This evaluator-only increment needs no separate installation or game restart; installed #111 includes it.
-Production replacement/persisted relist/real client acceptance and qualified benchmarks remain open.
+V7 adds shared persisted replacement/relist coverage. Real foreground/editor/transport/action-order
+acceptance and qualified benchmarks remain open.
 
 Included PR #108 merged as `fe8a33b9548559253968073e58d7aea69bd8078f` and was previously installed at
 2026-10-19T16:13:02Z. Exact source `2e30f76c03653b7127a8a6daf5c2fc536497fea8` passed both
