@@ -12,9 +12,12 @@ Read [the continuation prompt](docs/next-conversation-prompt.md); current delive
 - [ ] Deliver and accept completed-offer latency source: reuse the validated canonical prefix
       during prospective terminal prediction qualification, retaining earliest-original checks,
       tail/external invalidation and atomic rollback/deduplication. The 30,000-source regression
-      reproduces the old rescan. See docs/architecture/completed-offer-latency.md and
-      docs/history/completed-offer-latency-2026-10-19.md. Exact build/CI/install and fresh controlled
-      source-to-ACK-to-guidance acceptance remain distinct; broader latency gates stay open below.
+      reproduces the old rescan. #111/b74f93b is merged after both exact-head checks; Windows clean
+      91s: 1,736 Java passed/six skips, Java 11; 108 tooling passed. Synthetic median acceptance
+      173ms -> 18ms with identical results. Ready, NOT INSTALLED while RuneLite remains running;
+      normal player closure is required. Compatibility/preservation preflight passes. See
+      docs/architecture/completed-offer-latency.md and docs/history/completed-offer-latency-2026-10-19.md.
+      Paired installation and fresh controlled source-to-ACK-to-guidance/sustained acceptance remain open.
 
 - [x] Implement offline replay v6 canonical acquisition/exit provenance, final companion sale
       authority and delayed/revalidated displayed actions. Original source bindings reload on

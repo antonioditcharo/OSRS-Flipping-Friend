@@ -8,12 +8,16 @@ latency, complete production replay/returns, gated learning and remaining produc
 
 ## Current source and installed runtime
 
-Completed-offer latency source now reuses the validated canonical prefix instead of decoding all
-old sources again for each prospective terminal prediction. The 30,000-event rescan regression,
-external deletion/corruption/tail and rollback/retry guards are covered. Source delivery/measurement:
+Completed-offer latency #111/b74f93b is MERGED after both exact-head CI checks for 442b70a.
+Windows clean 91s: 1,736 Java passed/six skips, Java 11; 108 tooling passed. Synthetic median
+terminal acceptance is 173ms -> 18ms with identical financial/prediction results. It reuses the
+validated canonical prefix; the 30,000-event rescan, external/tail and rollback guards are covered.
+Paired update is READY, NOT INSTALLED: RuneLite remains running and normal player closure is required.
+Compatibility preflight passes; 62,073 source rows/1,470 effects/original anchor are frozen/preserved.
+Source delivery/measurement:
 [contract](docs/architecture/completed-offer-latency.md) and
-[receipt](docs/history/completed-offer-latency-2026-10-19.md). This runtime change requires paired
-delivery after exact-head CI; #108 remains the installed pair until that receipt records installation.
+[receipt](docs/history/completed-offer-latency-2026-10-19.md). #108 remains installed until supported
+paired delivery is recorded. Controlled fills/ACK/instruction and sustained latency stay open.
 
 Offline replay v6 now qualifies original acquisition context through canonical sources/restart,
 uses final companion sale authority and separates displayed advice from a later revalidated manual

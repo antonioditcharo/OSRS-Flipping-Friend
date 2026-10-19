@@ -33,7 +33,10 @@ rebuilding already implemented capabilities:
 
 ## Delivery state at this handoff
 
-Completed-offer latency source reuses the validated canonical prefix during terminal prediction
+Completed-offer latency #111/b74f93b is merged with both exact-head checks and Windows clean
+1,736 Java passed/six skips, Java 11; 108 tooling passed. Synthetic median acceptance is 173ms -> 18ms,
+with identical financial/prediction results. READY, NOT INSTALLED while RuneLite remains running;
+normal player closure is required. #108 remains installed. Source reuses the canonical prefix during terminal prediction
 qualification, preserving original-source/transaction checks and external/tail/rollback invalidation.
 Read docs/architecture/completed-offer-latency.md and docs/history/completed-offer-latency-2026-10-19.md
 for measured source, exact-head CI and actual installed state; do not infer installation from source.
