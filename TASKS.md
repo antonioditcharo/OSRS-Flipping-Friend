@@ -13,8 +13,11 @@ Read [the continuation prompt](docs/next-conversation-prompt.md); current delive
       shared buy/sell callbacks, fresh quantity-bounded replacement planning/forecasts, foreground
       maintenance acceptance, stale/overflow quote guards and replay v7 persisted intents/volume
       integrity. Windows clean 92s: 1,761 Java passed/six skips, Java 11; 108 tooling passed;
-      packaged twelve-scenario schema bundle reproduces. Exact-head CI/merge/update pending; #114
-      remains installed. Contract/receipt: docs/architecture/trade-continuations.md and
+      packaged twelve-scenario schema bundle reproduces. #116/7e1385b merged after both exact-head
+      checks for 505a912 and installed at 21:48:48Z. VERIFIED backup 20261019-134844-d16fc650; pair/
+      task/financial-prefix/anchor/status/compatibility/scoped ledger and bounded-entry GET pass,
+      zero new financial effects. Supported Start reopened RuneLite. Contract/receipt:
+      docs/architecture/trade-continuations.md and
       docs/history/trade-continuation-batch-2026-10-19.md. Controlled partial cancel/collect/replace/
       relist/restart, real foreground/editor/transport parity, sustained timing and qualified market
       return/learning gates remain open. Batch related fixes before full verification and delivery.
@@ -51,8 +54,8 @@ Read [the continuation prompt](docs/next-conversation-prompt.md); current delive
       docs/history/replay-canonical-sale-2026-10-19.md. Windows clean 81s: 1,732 Java passed/six
       existing skips, Java 11; 108 tooling passed; packaged twelve-scenario bundle reproduces.
       Evaluator-only; now included in installed #111.
-      Complete replacement/persisted relist/real client acceptance and qualified benchmark/learning
-      gates remain unchecked below.
+      V7 adds shared replacement/persisted relist coverage. Remaining real foreground/editor/
+      transport/action-order acceptance and qualified benchmark/learning gates remain unchecked below.
 
 - [ ] Accept installed #108/fe8a33b acquisition-bound exit context. Live initial/maintenance/relist/final authority
       now read the original prospective canonical buy context, without the item cache's six-hour
