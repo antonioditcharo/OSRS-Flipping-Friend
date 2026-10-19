@@ -13,7 +13,10 @@ Read [the continuation prompt](docs/next-conversation-prompt.md); current delive
       through slot reuse/retention/restart; distinguish already-working listings from a later
       replacement and reject stale episode advice. Two prior-source regressions fail; source fixes
       and real callback/managed decision-chain tests pass. Windows clean 83s: 1,743 Java passed/six
-      skips, Java 11; 108 tooling passed. Exact-head CI/delivery pending.
+      skips, Java 11; 108 tooling passed. #114/61bf57e merged after both exact-head checks for
+      857f36e and installed at 21:06:37Z. VERIFIED backup 20261019-130634-180fa0d6; installed pair/task/
+      source prefix/financial effects/original anchor/status/compatibility/scoped reads pass, zero
+      new financial effects. Supported Start reopened RuneLite; fresh login/trading acceptance pending.
       See docs/architecture/durable-sale-relist.md and docs/history/durable-sale-relist-2026-10-19.md.
       Current inventory/ledger/cost/target/scope/final authority remain required. Controlled partial
       cancel/collect/relist/restart and persisted-intent replay coverage remain open.

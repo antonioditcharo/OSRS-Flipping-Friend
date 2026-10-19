@@ -1,7 +1,8 @@
 # Cancelled-sale guidance recovery — 19 October 2026
 
-Source increment on `codex/durable-sale-relist`; delivery evidence is recorded below as it completes.
-Read HANDOFF first. Previous #111 remains installed until the supported paired update is verified.
+PR #114 source 857f36e57c0403c0e8e9969b0b70dfe84e3514e5 merged as
+61bf57e6ac862b1936fd4252aee44c9db1b42c11 at 2026-10-19T21:05:55Z; clean primary fast-forwarded.
+The supported paired update is INSTALLED, including prior #111. Read HANDOFF first.
 
 Two tests fail on the prior source: a second already-working same-item listing erases the intent;
 and collection evidence disappears after the temporary settled-slot record is removed. Both now
@@ -18,11 +19,25 @@ No database modifications, financial replay, historical gap repair or learning a
 
 Windows standard clean build passed in 83s: 1,743 Java passed/six existing skips (plugin 759,
 core 193, companion 797 including six skips), zero failures/errors; all class majors 55 (Java 11).
-All 108 tooling tests passed in 128.448s. Exact-head Windows/Linux CI is pending at this checkpoint.
-Candidate plugin: 591,766 bytes, SHA-256 ca0c49d234efc7bc39af7aef53ce711e77328b97d2522b190bd7db533af53bdb.
-Candidate companion: 18,094,359 bytes, SHA-256 0381a900abec979e385e6a237200f9f6ba826d3c697b1b85664a6099bba29bf6.
-Installation and fresh player acceptance are pending. Owner-authorized normal agent closure and
-the supported unattended updater are the delivery path; login and every game action remain manual.
+All 108 tooling tests passed in 128.448s. Both exact-head checks passed before merge:
+run 39324055799, Linux 118305192070 at 21:02:59Z and Windows 118305192301 at 21:05:21Z.
+Individual check-run API receipts verify the full source SHA, completed state and success.
+Installed plugin: 591,766 bytes, SHA-256 ca0c49d234efc7bc39af7aef53ce711e77328b97d2522b190bd7db533af53bdb.
+Installed companion: 18,094,359 bytes, SHA-256 0381a900abec979e385e6a237200f9f6ba826d3c697b1b85664a6099bba29bf6.
+
+With explicit owner authorization, the agent used the normal native window Close control and
+verified RuneLite's process exited before updating. No forced termination or game input.
+tools/apply-update.ps1 -Unattended -SkipBuild installed the source-identical verified artifacts at
+2026-10-19T21:06:37.6460622Z. VERIFIED backup 20261019-130634-180fa0d6; installed hashes and lifecycle=1
+pass. Protected task XML/SDDL are unchanged. Read-only verification retains all 62,073 source rows,
+1,470 financial effects and the sole original risk anchor, with zero new financial effects.
+Status is PAIR VERIFIED / COMPANION RESPONDING; RuneLite 1.13.2 compatibility and scoped GET-only
+pipeline pass (87 sale updates/23 unresolved/one profit range). Current WAIT/UNAVAILABLE needs a
+fresh client cash/eight-slot capture; no new snapshots/offers/trades were posted by the check.
+Supported Start reopened RuneLite at 13:07 AKDT. Fresh player acceptance is pending; login and
+every game action remain manual. Availability is retained in the private delivery-state receipt.
+The new client log confirms the installed plugin side-load and completed client initialization.
+This establishes loading, not logged-in UI/trading acceptance or sustained event-to-advice timing.
 
 Contract: [durable relist](../architecture/durable-sale-relist.md). Whole-account production replay
 still needs persisted client intent, replacement and foreground/transport coverage. Qualified
