@@ -25,10 +25,35 @@ override these refusals.
 A new bounded-logit/minimax Brier fit is frozen from the new qualified prefix for later evaluation.
 Its 150-minute BUY group has 13 forecasts/four known/nine unknown; the all-unknown 240-minute BUY
 group keeps its baseline offset. The 180-minute SELL group has one known forecast. Those training
-fit values are not held-out evidence. This new artifact has no later validation and never enters
-the runtime model loader; the public-price baseline/HOLD remains active.
+fit values are not held-out evidence. This artifact never enters the runtime model loader;
+the public-price baseline/HOLD remains active. Its subsequent held-out check follows below.
 
 Private captures, score bounds, prior-model validation, model hashes and retained fitting JAR are
 under local-data/sale-guidance-delivery-20261018. Runtime promotion, rollback/drift controls,
 complete production-policy account replay and separately measured 100M members/eight-slot
 5m/30m/2h/8h benchmarks remain open in TASKS.
+
+## Later #94 prospective checkpoint
+
+The supported read-only freezer captured the complete explicitly scoped prefix after #94:
+**31,032 source rows, cursor 34,976, 70 episodes**. The retained packaged evaluator reproduces
+the frozen scores; manifest SHA-256:
+`57e856bc7b9147e09bd2d511c31f08c5f6e72cb5ae4909653efe1e7ccabdfb46`.
+Source/evaluator revision `1cbea438afcb5d78f033b0dddfee431ce0670c8c`. Of the 70 episodes, 27 qualify:
+seven known completed, zero known incomplete, 20 ambiguous. Every other episode and its exclusion
+reason remains in the full prefix; no cancellation or unknown label is converted to failure.
+
+Using the earlier model's **own retained fitting JAR**, the unchanged 20-forecast training prefix
+was compared with genuinely later advice/placement evidence. This is a seven-forecast validation
+cohort: two known completions and five open/censored outcomes. Paired Brier-change bounds are
+**[-0.0459793422, +0.0107322549]**; negative can improve and positive can degrade. Side/horizon/
+confidence and chronological slices also permit degradation. The fitter returns HOLD_FOR_VALIDATION:
+insufficient informative later outcomes, no required worst-case improvement, and missing independent
+whole-account return/loss evidence plus explicit release approval. More rows or the observed
+profitable ring sale do not override these gates. Runtime remains baseline/neutral.
+
+Private `local-data/quiet-market-exit-20261018/execution-capture` and
+`prospective-challenger-validation.json` retain complete sources, evaluator identity, bounds and
+refusals. This step neither refits the training model nor activates learning. Chronological replay
+now shares v3 quiet-stock pricing, but its remaining production-policy and real benchmark gaps
+still prevent promotion.
