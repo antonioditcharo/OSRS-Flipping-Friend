@@ -1,4 +1,4 @@
-# Quiet-stock valuation candidate
+# Qualified quiet-stock valuation delivery
 
 18 October 2026 (America/Anchorage). The owner explicitly approved the prepared policy and normal
 client close. [#101](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/101) is merged as
@@ -121,5 +121,6 @@ Installation receipts include `owner-policy-decision.json`, `ci-exact-head.json`
 `installation-{before,after,verification}.json`, retained task snapshots, status/compatibility/
 pipeline logs, `financial-preservation.json` and `start-after.log` in the same private directory.
 Post-login receipts: `postlogin-source-proof.json`, `quiet-live-{baseline,candidate,comparison}.json`,
-the frozen `quiet-live-comparison/` inputs/evaluator, `postlogin-plan-timing.json`, initial mixed/
+frozen `quiet-live-comparison/` inputs, retained `baseline-evaluator.jar.bin`/`candidate-evaluator.jar.bin`
+and their `evaluation-artifact-manifest.json`, `postlogin-plan-timing.json`, initial mixed/
 updating GET outcomes and `installed-market.json`. Personal item/price/source rows remain private.
