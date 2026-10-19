@@ -14,10 +14,13 @@ Read [the continuation prompt](docs/next-conversation-prompt.md); current delive
       tail/external invalidation and atomic rollback/deduplication. The 30,000-source regression
       reproduces the old rescan. #111/b74f93b is merged after both exact-head checks; Windows clean
       91s: 1,736 Java passed/six skips, Java 11; 108 tooling passed. Synthetic median acceptance
-      173ms -> 18ms with identical results. Ready, NOT INSTALLED while RuneLite remains running;
-      normal player closure is required. Compatibility/preservation preflight passes. See
+      173ms -> 18ms with identical results. INSTALLED at 18:55:13Z through the supported updater
+      after owner-authorized normal agent closure. VERIFIED backup 20261019-105509-9ebbbcba;
+      installed hashes/task/62,073-row source prefix/1,470 effects/anchor/status/compatibility/scoped
+      GET checks pass, zero new financial effects. Supported Start reopened RuneLite. See
       docs/architecture/completed-offer-latency.md and docs/history/completed-offer-latency-2026-10-19.md.
-      Paired installation and fresh controlled source-to-ACK-to-guidance/sustained acceptance remain open.
+      Fresh controlled source-to-ACK-to-guidance/sustained acceptance remains open. Respect the owner
+      availability recorded privately in the delivery receipt; login/gameplay remain manual.
 
 - [x] Implement offline replay v6 canonical acquisition/exit provenance, final companion sale
       authority and delayed/revalidated displayed actions. Original source bindings reload on
@@ -25,7 +28,7 @@ Read [the continuation prompt](docs/next-conversation-prompt.md); current delive
       separate counts. See docs/architecture/replay-canonical-sale.md and
       docs/history/replay-canonical-sale-2026-10-19.md. Windows clean 81s: 1,732 Java passed/six
       existing skips, Java 11; 108 tooling passed; packaged twelve-scenario bundle reproduces.
-      Evaluator-only; #108 remains installed.
+      Evaluator-only; now included in installed #111.
       Complete replacement/persisted relist/real client acceptance and qualified benchmark/learning
       gates remain unchecked below.
 

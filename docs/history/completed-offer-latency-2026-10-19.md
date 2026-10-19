@@ -44,11 +44,25 @@ checkout was fast-forwarded; historical main is untouched. Candidate hashes and 
 are retained privately. Compatibility preflight passes for RuneLite 1.13.2. Read-only preservation
 of all 62,073 rows/1,470 effects/original anchor passes, with zero new financial effects.
 
-The update is READY, NOT INSTALLED: RuneLite is running and the supported updater requires the
-player to close it normally. The owner has been asked once; no force-close or game input is used.
-The installed #108 pair remains verified/responding. Once closed, use the supported unattended
-paired updater with the verified candidate, collect backup/task/manifest/financial/status/pipeline
-proof and launch normally. Record actual installation before claiming it. Source or benchmark
-results cannot establish installed behavior. Fresh manual login/GE and observed partial/full buy/sale-to-ACK-to-guidance
+Installed at 2026-10-19T18:55:13.6878737Z through `tools/apply-update.ps1 -Unattended -SkipBuild`.
+The owner explicitly authorized the agent to handle normal client closure. The agent used RuneLite's
+ordinary title-bar close control, verified its process exited, and sent no in-game input.
+Backup `20261019-105509-9ebbbcba` is VERIFIED.
+
+Installed plugin: 588,834 bytes, SHA256
+`c7cd789e7eaf139be07d6fa7c2eb0393caa48e9d94fb208a203730058521d522`.
+Installed companion: 18,091,427 bytes, SHA256
+`8fdca09d3e50afe010deb291d38280bcc8157c1bd8427740a22757620d678692`.
+Both match the tested candidate. Lifecycle remains 1; task XML/SDDL are byte-identical. All 62,073
+retained source rows, 1,470 financial effects and the sole original risk anchor are unchanged,
+with zero new financial effects. Status is PAIR VERIFIED / COMPANION RESPONDING; RuneLite 1.13.2
+compatibility and scoped GET pipeline pass (87 sale updates/23 unresolved/one range). With no fresh
+client capture, the account correctly waits for current cash/slots. No synthetic event was posted.
+
+Supported Start reopened RuneLite at 12:39 America/Anchorage; its actual process log loads the
+installed side-loaded plugin. Login was left untouched. Owner availability is retained in the private
+delivery receipt; no unavailable login or game action is requested.
+Agent-managed normal maintenance closure is now documented; force-killing and automatic gameplay
+remain prohibited. Fresh manual login/GE and observed partial/full buy/sale-to-ACK-to-guidance
 transitions remain required. Complete live trade-loop/price-quality, sustained latency, production
 replacement/relist replay, qualified 5m/30m/2h/8h benchmarks and validated learning stay open.
