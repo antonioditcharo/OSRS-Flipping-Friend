@@ -104,7 +104,7 @@ class PortfolioPanel extends JPanel
                 + " gp. Remaining loss allowance: " + explainer.formatNumber(risk.getRemainingLossBudget()) + " gp."));
             add(UiUtils.mutedText("Current unpriced stock cost reserved: "
                 + explainer.formatNumber(risk.getUncertainLossReserve()) + " gp. This is not recorded profit."));
-            if(risk.getUncertainLossReserve()>0)add(UiUtils.mutedText(risk.getReason()));
+            if(risk.isCurrentAccountPolicy() || risk.getUncertainLossReserve()>0)add(UiUtils.mutedText(risk.getReason()));
             if(risk.isCurrentAccountPolicy())add(UiUtils.mutedText("Historical uncertainty retained: "
                 +explainer.formatNumber(risk.getHistoricalUncertaintyReserve())
                 +" gp. Affected stock stays paused; this is not a confirmed loss or current bankroll."));

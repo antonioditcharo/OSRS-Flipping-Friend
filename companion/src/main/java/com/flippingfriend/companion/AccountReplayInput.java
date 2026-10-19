@@ -19,12 +19,12 @@ final class AccountReplayInput {
     Map<Integer,MarketIngestionService.Item> mapping=new TreeMap<>();
     List<Frame> frames=new ArrayList<>();
     static final class Frame {
-        long availableAt,observedAt;
+        long availableAt,observedAt,fiveMinuteStartedAt,hourlyStartedAt;
         JsonObject latest=new JsonObject(),fiveMinute=new JsonObject(),hourly=new JsonObject();
         Map<Integer,List<Candle>> shortHistory=new TreeMap<>(),longHistory=new TreeMap<>();
         List<Flow> flows=new ArrayList<>();
         MarketIngestionService.MarketState market(Map<Integer,MarketIngestionService.Item> mapping) {
-            return new MarketIngestionService.MarketState(mapping,latest,fiveMinute,hourly,observedAt);
+            return new MarketIngestionService.MarketState(mapping,latest,fiveMinute,hourly,observedAt,fiveMinuteStartedAt,hourlyStartedAt);
         }
     }
     static final class Flow {
@@ -52,6 +52,8 @@ final class AccountReplayInput {
                 || f.latest==null || f.fiveMinute==null || f.hourly==null || f.flows==null)
                 throw new IllegalArgumentException("Market availability must be strictly chronological");
             previous=f.availableAt;
+            aggregateClock(f.fiveMinuteStartedAt,300,f.observedAt);
+            aggregateClock(f.hourlyStartedAt,3600,f.observedAt);
             for(var e:f.latest.entrySet()) {
                 if(!mapping.containsKey(Integer.parseInt(e.getKey())) || !e.getValue().isJsonObject())throw new IllegalArgumentException("Unknown quoted item");
                 var q=e.getValue().getAsJsonObject();
@@ -67,6 +69,11 @@ final class AccountReplayInput {
                 throw new IllegalArgumentException("Invalid, future or duplicate execution-flow bucket");
         }
         if(frames.get(0).availableAt>startAt)throw new IllegalArgumentException("Start requires a frozen initial market observation");
+    }
+    private void aggregateClock(long start,long seconds,long observedAt) {
+        if(start==0)return; // Old frozen inputs retain missing clocks and cannot qualify quiet marks.
+        if(start<0 || start%seconds!=0 || Math.addExact(start,seconds)>observedAt)
+            throw new IllegalArgumentException("Aggregate price clock must be complete before the market observation");
     }
     private void history(Map<Integer,List<Candle>> histories,long seconds,long available) {
         if(histories==null)throw new IllegalArgumentException("Missing history map");

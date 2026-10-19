@@ -5,6 +5,15 @@ All unchecked release requirements remain visible below; detailed completion rec
 
 ## Active
 
+- [ ] Finish/verify the qualified quiet-stock valuation candidate, then obtain the owner's policy
+      decision before merge/install. #98's strict 120s-only bid rule reproduced long full-cost
+      reserve pauses despite cash/slots. Candidate uses timestamped completed public price/volume,
+      a 10% haircut/tax and bounded quantities; missing stock remains fully reserved. Keep original
+      accounting/anchors, confirmed-loss and final authority guards. See
+      docs/architecture/qualified-stock-risk-marks.md. Windows clean 121s: 1,680 Java passed/six
+      skips and 108 tooling tests pass; exact-head CI/owner decision/delivery remain pending.
+      Installed runtime remains #98. Receipt: docs/history/qualified-stock-valuation-2026-10-18.md.
+
 - [ ] Deliver/accept merged #98/f662310: current-stock valuation explanations,
       prompt recheck on fresh market evidence and native maximized Records/Missed flips windows.
       Preserve historical separation, exact reserves, quote/source guards and original loss anchor.

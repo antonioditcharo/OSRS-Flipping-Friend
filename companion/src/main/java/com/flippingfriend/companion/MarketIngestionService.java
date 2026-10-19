@@ -12,7 +12,7 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
 
-/** Polite cached ingestion of the public market feed; all raw responses are retained in SQLite. */
+/** Polite cached public-market ingestion; each aggregate retains its original publication clock. */
 final class MarketIngestionService
 {
 	private static final String BASE = "https://prices.runescape.wiki/api/v1/osrs/";
@@ -67,12 +67,17 @@ final class MarketIngestionService
 		// seconds old. There is no latency here to win by polling harder; the delay is upstream, in
 		// how the prices are published, and no cadence on our side reaches behind it.
 		JsonObject latest = fetch("latest").getAsJsonObject("data");
+		long latestCapturedAt=Instant.now().getEpochSecond();
 
 		JsonObject fiveMinute = state.fiveMinute;
+		long fiveMinuteAt = state.fiveMinuteStartedAt;
+		long nextFiveMinute = lastFiveMinute;
 		if (fiveMinute == null || fiveMinute.size() == 0 || now - lastFiveMinute >= FIVE_MINUTE_TTL)
 		{
-			fiveMinute = fetch("5m").getAsJsonObject("data");
-			lastFiveMinute = now;
+			JsonObject response = fetch("5m");
+			fiveMinute = response.getAsJsonObject("data");
+			fiveMinuteAt = bucketStart(response, 300, Instant.now().getEpochSecond());
+			nextFiveMinute = now;
 		}
 
 		// The hourly bar is a full hour of real trades rather than five minutes extrapolated, which
@@ -82,13 +87,31 @@ final class MarketIngestionService
 		// the learner. No learner ever read them: their only effect was two more requests a minute
 		// to a volunteer-run community API, in perpetuity, to fill a table nothing selects from.
 		JsonObject hourly = state.hourly;
+		long hourlyAt = state.hourlyStartedAt;
+		long nextHourly = lastHourly;
 		if (hourly == null || hourly.size() == 0 || now - lastHourly >= HOURLY_TTL)
 		{
-			hourly = fetch("1h").getAsJsonObject("data");
-			lastHourly = now;
+			JsonObject response = fetch("1h");
+			hourly = response.getAsJsonObject("data");
+			hourlyAt = bucketStart(response, 3600, Instant.now().getEpochSecond());
+			nextHourly = now;
 		}
 
-		state = new MarketState(mapping, latest, fiveMinute, hourly, now);
+		// Data, publication clocks and refresh clocks move together, including after a failed fetch.
+		state = new MarketState(mapping, latest, fiveMinute, hourly, latestCapturedAt,fiveMinuteAt,hourlyAt);
+		lastFiveMinute = nextFiveMinute;
+		lastHourly = nextHourly;
+	}
+
+	static long bucketStart(JsonObject response,long seconds,long capturedAt) {
+		if(!response.has("timestamp"))return 0; // Legacy/missing clock cannot qualify a stock mark.
+		var value=response.get("timestamp");
+		if(value==null || !value.isJsonPrimitive() || !value.getAsJsonPrimitive().isNumber())
+			throw new IllegalArgumentException("Published market bucket requires an integer clock");
+		long start=value.getAsBigDecimal().longValueExact();
+		if(start<=0 || start%seconds!=0 || Math.addExact(start,seconds)>capturedAt)
+			throw new IllegalArgumentException("Published market bucket must be complete before capture");
+		return start;
 	}
 
 	/*
@@ -167,14 +190,22 @@ final class MarketIngestionService
 		final JsonObject fiveMinute;
 		final JsonObject hourly;
 		final long observedAt;
+		final long fiveMinuteStartedAt,hourlyStartedAt;
 		MarketState(Map<Integer, Item> mapping, JsonObject latest, JsonObject fiveMinute,
 			JsonObject hourly, long observedAt)
+		{
+			this(mapping,latest,fiveMinute,hourly,observedAt,0,0);
+		}
+		MarketState(Map<Integer, Item> mapping, JsonObject latest, JsonObject fiveMinute,
+			JsonObject hourly, long observedAt,long fiveMinuteStartedAt,long hourlyStartedAt)
 		{
 			this.mapping = mapping;
 			this.latest = latest;
 			this.fiveMinute = fiveMinute;
 			this.hourly = hourly;
 			this.observedAt = observedAt;
+			this.fiveMinuteStartedAt=fiveMinuteStartedAt;
+			this.hourlyStartedAt=hourlyStartedAt;
 		}
 		static MarketState empty()
 		{

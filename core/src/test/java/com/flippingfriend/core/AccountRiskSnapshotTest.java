@@ -69,4 +69,12 @@ public class AccountRiskSnapshotTest {
         field=AccountRiskSnapshot.class.getDeclaredField("schemaVersion");field.setAccessible(true);
         field.set(current,"1");assertFalse(current.isValid());
     }
+    @Test public void priorCurrentAccountRiskRemainsReadableWithoutRewritingItsPolicy()throws Exception {
+        var current=risk().currentAccountPolicy(500000000,0).build();
+        var field=AccountRiskSnapshot.class.getDeclaredField("policyVersion");field.setAccessible(true);
+        assertEquals("CURRENT_ACCOUNT_V2",field.get(current));
+        field.set(current,"CURRENT_ACCOUNT_V1");
+        assertTrue(current.isValid());assertTrue(current.isCurrentAccountPolicy());
+        assertEquals("CURRENT_ACCOUNT_V1",field.get(current));
+    }
 }

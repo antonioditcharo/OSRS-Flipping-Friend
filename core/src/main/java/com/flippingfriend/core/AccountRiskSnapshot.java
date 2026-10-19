@@ -5,7 +5,8 @@ public final class AccountRiskSnapshot {
     private final String schemaVersion;
     private final String policyVersion;
     private final Long historicalUncertaintyReserve, unpricedManagedCostReserve;
-    public static final String CURRENT_ACCOUNT_POLICY="CURRENT_ACCOUNT_V1";
+    public static final String CURRENT_ACCOUNT_POLICY="CURRENT_ACCOUNT_V2";
+    private static final String LEGACY_CURRENT_ACCOUNT_POLICY="CURRENT_ACCOUNT_V1";
     private final String accountId, status, reason, windowId, sessionId;
     private final long evaluatedAt;
     private final Long validUntil;
@@ -56,7 +57,7 @@ public final class AccountRiskSnapshot {
         reason=summary+(b.currentAccount && b.unpriced>0 && remainingLossBudget<=0
             ? " Current stock reserve: "+String.format(java.util.Locale.ROOT,"%,d GP",b.unpriced)+". "
                 +b.valuationDetail+"Buy eligibility is rechecked automatically with new prices and current holdings. Historical uncertainty stays separate."
-            : "");
+            : b.currentAccount && !b.valuationDetail.isBlank()?" "+b.valuationDetail:"");
         if (!isValid()) throw new IllegalArgumentException("invalid available risk state");
     }
     public static AccountRiskSnapshot unavailable(String account, long at, String reason) {
@@ -100,7 +101,7 @@ public final class AccountRiskSnapshot {
         if ((!"1".equals(schemaVersion) && !"2".equals(schemaVersion)) || accountId == null || !accountId.matches("rs-[0-9a-f]{64}")
             || evaluatedAt < 0 || reason == null || reason.isBlank()) return false;
         if("2".equals(schemaVersion)) {
-            if(!CURRENT_ACCOUNT_POLICY.equals(policyVersion) || historicalUncertaintyReserve==null || historicalUncertaintyReserve<0
+            if(!currentPolicy(policyVersion) || historicalUncertaintyReserve==null || historicalUncertaintyReserve<0
                 || unpricedManagedCostReserve==null || unpricedManagedCostReserve<0 || uncertainLossReserve==null
                 || unpricedManagedCostReserve>uncertainLossReserve)return false;
         }else if(policyVersion!=null || historicalUncertaintyReserve!=null || unpricedManagedCostReserve!=null)return false;
@@ -130,7 +131,10 @@ public final class AccountRiskSnapshot {
         } catch (ArithmeticException overflow) { return false; }
     }
     public boolean isAvailable() { return "AVAILABLE".equals(status) && isValid(); }
-    public boolean isCurrentAccountPolicy() { return "2".equals(schemaVersion) && CURRENT_ACCOUNT_POLICY.equals(policyVersion); }
+    private static boolean currentPolicy(String value) {
+        return CURRENT_ACCOUNT_POLICY.equals(value) || LEGACY_CURRENT_ACCOUNT_POLICY.equals(value);
+    }
+    public boolean isCurrentAccountPolicy() { return "2".equals(schemaVersion) && currentPolicy(policyVersion); }
     public Long getHistoricalUncertaintyReserve() { return historicalUncertaintyReserve; }
     public Long getUnpricedManagedCostReserve() { return unpricedManagedCostReserve; }
     public String getAccountId() { return accountId; }
