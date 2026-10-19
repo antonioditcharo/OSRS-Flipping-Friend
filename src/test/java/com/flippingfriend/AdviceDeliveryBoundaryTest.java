@@ -84,6 +84,21 @@ public class AdviceDeliveryBoundaryTest {
         Fixture f=new Fixture();f.queueAdvice();f.clientQueue.remove().run();verify(f.guide).setSuggestion(f.advice);
         verify((TradeJournal)getField(f.plugin,"journal"),never()).sessionStats();
     }
+    @Test public void burstsOfRefreshRequestsCoalesceButNewCashStillGetsAFreshCapture()throws Exception {
+        Fixture f=new Fixture();var refresh=FlippingFriendPlugin.class.getDeclaredMethod("requestEngineRefresh");refresh.setAccessible(true);
+        for(int i=0;i<100;i++)refresh.invoke(f.plugin);
+        assertEquals("A burst must schedule one client capture",1,f.clientQueue.size());
+        f.clientQueue.remove().run();assertEquals(1,f.worker.tasks.size());
+        // A real change after capture invalidates the old result and requires exactly one successor.
+        f.plugin.onItemContainerChanged(new ItemContainerChanged(93,mock(ItemContainer.class)));
+        f.clientQueue.remove().run();
+        assertTrue("No second decision may queue behind an old calculation",f.worker.tasks.size()==1);
+        f.worker.tasks.remove().run();
+        assertEquals("One latest capture is queued after the obsolete calculation",1,f.clientQueue.size());
+        f.clientQueue.remove().run();assertEquals(1,f.worker.tasks.size());f.worker.tasks.remove().run();
+        f.clientQueue.remove().run();verify(f.guide).setSuggestion(f.advice);
+        assertTrue(f.clientQueue.isEmpty());assertTrue(f.worker.tasks.isEmpty());
+    }
     private Object getField(Object target,String name)throws Exception {
         var field=target.getClass().getDeclaredField(name);field.setAccessible(true);return field.get(target);
     }

@@ -55,6 +55,27 @@ import java.util.Map;
  */
 final class CandidateFactory
 {
+	private static final class HistoryAnalysis {
+		final long[] shortKey,longKey;
+		final int low;
+		final ItemFeatures features;
+		final MarketContext context;
+		final FillCurve curve;
+		HistoryAnalysis(long[] shortKey,long[] longKey,int low,ItemFeatures features,MarketContext context,FillCurve curve) {
+			this.shortKey=shortKey;this.longKey=longKey;this.low=low;this.features=features;this.context=context;this.curve=curve;
+		}
+	}
+	private final Map<Integer,HistoryAnalysis> historyAnalysis=new ConcurrentHashMap<>();
+	/** Exact value keys, not identity or a collision-prone hash; replay/mutable candles stay safe. */
+	private static long[] historyKey(List<Candle> rows) {
+		long[] key=new long[rows.size()*7];int i=0;
+		for(var row:rows) {
+			key[i++]=row.getTimestamp();key[i++]=row.getAvgLowPrice()==null?0:1;key[i++]=row.getAvgLowPrice()==null?0:row.getAvgLowPrice();
+			key[i++]=row.getAvgHighPrice()==null?0:1;key[i++]=row.getAvgHighPrice()==null?0:row.getAvgHighPrice();
+			key[i++]=row.getLowPriceVolume();key[i++]=row.getHighPriceVolume();
+		}
+		return key;
+	}
 	/** Live planning: five-minute bars for behaviour, hourly bars for regime and seasonality. */
 	static final String LIVE_SHORT_STEP = "5m";
 	static final String LIVE_LONG_STEP = "1h";
@@ -606,9 +627,18 @@ final class CandidateFactory
 			return java.util.Collections.emptyList();
 		}
 
-		ItemFeatures features = featureEngine.compute(itemId, shortSeries, bucketSeconds);
-		MarketContext context = MarketContext.from(series.series(itemId, longStep),
-			screened.price.getLow());
+		List<Candle> longSeries=series.series(itemId,longStep);
+		long[] shortKey=historyKey(shortSeries),longKey=historyKey(longSeries);
+		HistoryAnalysis analysis=historyAnalysis.get(itemId);
+		if(analysis==null || analysis.low!=screened.price.getLow()
+			|| !java.util.Arrays.equals(shortKey,analysis.shortKey) || !java.util.Arrays.equals(longKey,analysis.longKey)) {
+			analysis=new HistoryAnalysis(shortKey,longKey,screened.price.getLow(),
+				featureEngine.compute(itemId,shortSeries,bucketSeconds),MarketContext.from(longSeries,screened.price.getLow()),
+				FillCurve.overRecentHistory(shortSeries));
+			historyAnalysis.put(itemId,analysis);
+		}
+		ItemFeatures features=analysis.features;
+		MarketContext context=analysis.context;
 
 		ItemMetadata metadata = new ItemMetadata(itemId, screened.item.name, false,
 			screened.item.buyLimit, 0);
@@ -620,7 +650,7 @@ final class CandidateFactory
 			return java.util.Collections.emptyList();
 		}
 
-		FillCurve curve = FillCurve.overRecentHistory(shortSeries);
+		FillCurve curve = analysis.curve;
 		if (curve.isEmpty())
 		{
 			veto(itemId, screened.item.name, "Not enough traded history to estimate fills.");

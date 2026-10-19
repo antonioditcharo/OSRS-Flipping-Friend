@@ -1,9 +1,17 @@
 # Tasks
 
-Updated 18 October 2026. Read [HANDOFF.md](HANDOFF.md) for current source/runtime evidence.
+Updated 19 October 2026. Read [HANDOFF.md](HANDOFF.md) for current source/runtime evidence.
 All unchecked release requirements remain visible below; detailed completion receipts are in history.
 
 ## Active
+
+- [ ] Deliver/accept the implemented panel/performance/prompt-guidance increment. It adds scoped
+      session/period/reset, ledger-based profit/ROI/completed sales, conservative stock marks,
+      elapsed clock/rate, paged sales and estimated action profit/time. Five-second minimum spacing
+      is replaced by revision/validity reuse; source/history and candidate caches preserve final
+      current guards. Cross-account aggregation and broader cadence/benchmark measurement remain
+      deferred. Source, exact verification, runtime and player acceptance are distinct; see
+      docs/history/panel-speed-delivery-2026-10-19.md and the current HANDOFF checkpoint.
 
 - [ ] Accept owner-approved/installed #101/5260586 quiet-stock valuation: timestamped completed
       public price/volume, 10% haircut/tax and quantity limits. Direct bids retain 120s; qualified
@@ -164,8 +172,9 @@ All unchecked release requirements remain visible below; detailed completion rec
       and explicit published aggregate clocks for the approved risk marks. Complete production
       buy-replacement/relist/foreground acceptance coverage and a
       qualified frozen market benchmark remain open; fixtures are not performance evidence.
-- [ ] Add prospective session/cadence measurement and full-account replay; historical CSVs do not
-      contain the session clocks needed for a fair GP/hour baseline.
+- [ ] Finish prospective cadence/attendance and full-account return measurement. The new sidebar
+      adds independent prospective session cursors and elapsed clocks; installed/player acceptance
+      remains open. Historical CSVs still lack clocks/cadence labels for a fair GP/hour baseline.
 - [ ] Measure fill calibration, then add gated challenger learning and clearly separated paper data.
 - [ ] Close the feature-parity matrix in `docs/project-direction.md` and update user documentation.
       Deferred: validated forecast bands/actionable dump strategy, bank tags/badges/slot colors,

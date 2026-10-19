@@ -18,6 +18,7 @@ final class CompactSuggestionPanel extends JPanel {
     private final JTextArea item = text(UiUtils.TEXT);
     private final JTextArea price = text(new Color(255, 223, 0));
     private final JTextArea queued = text(UiUtils.WARNING);
+    private final JTextArea forecast = text(UiUtils.profitColor(1));
     private Suggestion shown = Suggestion.idle();
 
     CompactSuggestionPanel(ItemManager items, Explainer explainer) {
@@ -45,7 +46,7 @@ final class CompactSuggestionPanel extends JPanel {
                 }
             }
         }; words.setOpaque(false);
-        for (JTextArea line : new JTextArea[]{action, item, price, queued}) { line.setAlignmentX(LEFT_ALIGNMENT); words.add(line); }
+        for (JTextArea line : new JTextArea[]{action, item, price, forecast, queued}) { line.setAlignmentX(LEFT_ALIGNMENT); words.add(line); }
         add(words, BorderLayout.CENTER);
     }
 
@@ -67,6 +68,12 @@ final class CompactSuggestionPanel extends JPanel {
         boolean priced = shown.getType() == SuggestionType.BUY || shown.getType() == SuggestionType.SELL
             || shown.getType() == SuggestionType.MODIFY_BUY || shown.getType() == SuggestionType.MODIFY_SELL;
         price.setText(priced && shown.getPrice() > 0 ? "at " + explainer.formatNumber(shown.getPrice()) + " gp each" : "");
+        boolean projected=shown.getType()==SuggestionType.BUY || shown.getType()==SuggestionType.SELL;
+        forecast.setText(projected && shown.isProfitKnown() && shown.getExpectedMinutes()>0
+            ? "Est. "+explainer.formatGp(shown.getExpectedProfit())+" in "+Math.max(1,Math.round(shown.getExpectedMinutes()))+"min":"");
+        forecast.setVisible(!forecast.getText().isEmpty());
+        forecast.setToolTipText("Model estimate for this suggested trade, net of tax; not recorded profit or a guaranteed fill time.");
+        forecast.setForeground(UiUtils.profitColor(shown.getExpectedProfit()));
         queued.setText(pending != null && pending.isActionable() ? "Another action is waiting." : "");
         queued.setVisible(!queued.getText().isEmpty());
         icon.setVisible(shown.getItemId() > 0);

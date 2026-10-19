@@ -60,12 +60,14 @@ are in `docs/project-direction.md`; historical package notes are not proof of ru
   session-local lower bound and must not return on fill/collection or cached-container reads. Keep
   queued advice invalidation separate from ordered offer delivery. See
   docs/architecture/bounded-current-planning.md; source tests do not establish live buy readiness.
-- Keep the sidebar compact: current guided action, controls and durable recorded profit. Open
-  explanations, holdings/history/plan and settings separately; do not restore the old accordion
-  stack or label recorded totals as session profit. Preserve actual 5m/30m/2h/8h and visibly custom
-  legacy intervals. See docs/architecture/compact-panel.md.
+- Owner direction, 19 October 2026: expose Copilot-style information beside the guided action:
+  estimated profit/time, session/period/reset, durable realized profit, unrealized profit, completed
+  flips, ROI, elapsed time, hourly profit, portfolio value and paged sales. Keep unknowns/ranges and
+  scope explicit; historical totals are not session results. Measurement reset cannot reset risk or
+  financial history. Preserve actual 5m/30m/2h/8h and visibly custom legacy intervals; detailed
+  investigation/settings remain separate. See docs/architecture/panel-performance-and-latency.md.
   Investigation windows (all Records views and Missed flips) open maximized in native resizable
-  frames on RuneLite's monitor, with ordinary maximize/restore controls. Keep the sidebar compact.
+  frames on RuneLite's monitor, with ordinary maximize/restore controls. Do not restore old accordions.
 - Keep account-scoped API/database isolation intact. The old unscoped database is preserved and
   unassigned; do not infer its owner or merge it into a live account. One authoritative ledger
   for the planner, exits, UI, and reporting remains the next prerequisite for strategy tuning.

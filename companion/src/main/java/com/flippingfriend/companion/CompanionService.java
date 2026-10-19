@@ -62,6 +62,8 @@ final class CompanionService implements AutoCloseable
 	});
 	/** True while a re-plan is already queued, which makes further requests redundant. */
 	private final AtomicBoolean planQueued = new AtomicBoolean();
+	private volatile java.util.concurrent.CompletableFuture<Void> planCompletion = java.util.concurrent.CompletableFuture.completedFuture(null);
+	private volatile long lastPlannedRevision = -1, lastPlannedMarketAt = -1, lastPlannedSeriesRevision = -1;
 
 	/**
 	 * Fetches per-item history in the background so planning never waits on the network.
@@ -92,11 +94,9 @@ final class CompanionService implements AutoCloseable
 	/** How old market data may get before the companion stops calling itself healthy. */
 	private static final long STALE_MARKET_SECONDS = 120;
 	/**
-	 * The least time between two plan builds when nothing structural has changed. Short enough that
-	 * the plan is never stale against its 150-second life, long enough that a slot transition does not
-	 * rebuild it three times a second.
+	 * Renew unchanged plans before their expiry; this is not a delay on changed inputs.
 	 */
-	private static final long MIN_PLAN_SPACING_SECONDS = 5;
+	private static final long PLAN_RENEWAL_MARGIN_SECONDS = 30;
 
 	private volatile String healthReason = "Waiting for market data.";
 
@@ -410,11 +410,34 @@ final class CompanionService implements AutoCloseable
 		else resolved("Snapshot reconciliation");
 		// Positive snapshot evidence can repair an initial/restarted unknown-cost position.
 		refreshPositionFaults();
+		if(snapshot.isAutomaticTradeScope() && CurrentOfferReadSet.valid(store.planningProjections(accountId),snapshot,Instant.now().getEpochSecond()))
+			store.performanceSession(snapshot.getAccountId(),Instant.now().getEpochSecond(),false,java.util.UUID.randomUUID().toString());
 		requestPlan();
 	}
 	com.flippingfriend.core.AccountLedgerSnapshot ledger() throws Exception
 	{
 		return store.ledgerSnapshot(accountId);
+	}
+	synchronized com.flippingfriend.core.PerformanceSnapshot performance(String scope) throws Exception {
+		long now=Instant.now().getEpochSecond();
+		var result=store.performance(accountId,scope,now);
+		if(account!=null && currentPlanningProof(now)) {
+			var read=store.planningProjections(accountId);
+			var risk=DurableRisk.evaluate(read,account,DurablePlanningExposure.forAccount(read,account,now),market.state(),now);
+			if(risk.isAvailable()) {
+				long cost=0;for(var p:read.tradeScope.readyPositions())cost=Math.addExact(cost,p.getTotalCost());
+				result.unpricedCost=risk.getUnpricedManagedCostReserve();
+				result.unrealizedProfit=risk.getMarkedUnrealizedProfit();
+				result.portfolioValue=Math.addExact(Math.subtractExact(cost,result.unpricedCost),result.unrealizedProfit);
+			}
+		}
+		if(!result.isValid())throw new IllegalStateException("Invalid performance valuation");
+		return result;
+	}
+	synchronized void resetPerformanceSession(String request) throws Exception {
+		long now=Instant.now().getEpochSecond();
+		if(account==null || !currentPlanningProof(now))throw new IllegalStateException("Waiting for current account evidence");
+		store.performanceSession(accountId,now,true,request);
 	}
 
 	PositionStateView positions()
@@ -484,7 +507,17 @@ final class CompanionService implements AutoCloseable
 		return Math.max(0, Math.min(1, event.getPredictedCompletion()));
 	}
 
-	synchronized PortfolioPlan plan()
+	PortfolioPlan plan()
+	{
+		// The account POST schedules work. Give that work a short chance to finish on this very
+		// request, rather than returning WAIT and making the player sit through another client poll.
+		// Never hold the service monitor while waiting: offer acknowledgements must keep flowing.
+		try { planCompletion.get(400, java.util.concurrent.TimeUnit.MILLISECONDS); }
+		catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); }
+		catch (java.util.concurrent.ExecutionException | java.util.concurrent.TimeoutException pending) { }
+		synchronized(this) { return currentPlan(); }
+	}
+	private PortfolioPlan currentPlan()
 	{
 		PortfolioPlan current = plan;
 		long now = Instant.now().getEpochSecond();
@@ -695,33 +728,20 @@ final class CompanionService implements AutoCloseable
 			return;
 		}
 
-		// Planning is triggered by the market cycle, by every account snapshot and by every offer
-		// event, and an offer changing state produces several of those in a row. Six plans were built
-		// in four seconds during one slot transition, each one replacing what the player was looking
-		// at. The queue guard below stops two running at once; it does not stop them running
-		// back-to-back for ever.
-		//
-		// So: leave a little space between builds, unless the thing that actually matters has moved.
-		// A change in the free-slot count is exactly when a fresh plan is worth having immediately --
-		// that is the moment a trade becomes possible -- and it is also the moment the old plan is
-		// certainly wrong.
-		//
-		// Switching sell-only is the other such moment, and it was not covered. The plan carries a
-		// list of things to buy; the instant the player says they are winding down, that list is
-		// wrong in the way that matters most. Holding it behind the spacing -- and then behind the
-		// plan's own ninety-second lifetime -- is what made the mode take so long to look like it had
-		// done anything.
+		// Reuse only unchanged economic/market/history inputs within their validity. New inputs
+		// schedule immediately; queue coalescing prevents storms without a fixed latency floor.
 		AccountSnapshot snapshot = account;
 		int freeSlots = snapshot == null ? -1 : snapshot.getFreeSlots();
 		boolean sellOnly = snapshot != null && snapshot.isSellOnly();
 		long now = Instant.now().getEpochSecond();
 		var currentMarket=market.state();
-        var refusedRisk=plan==null?null:plan.getCanonicalRisk();
-        boolean newRiskEvidence=plan!=null && plan.getOutcome()==PortfolioPlanOutcome.DRAWDOWN_LIMIT_REACHED
-            && refusedRisk!=null && refusedRisk.getMarketObservedAt()!=null && currentMarket!=null
-            && currentMarket.observedAt>refusedRisk.getMarketObservedAt() && currentMarket.observedAt<=now;
-		if (plan!=null && freeSlots == lastPlanFreeSlots && sellOnly == lastPlanSellOnly
-			&& !newRiskEvidence && now - lastPlanAt < MIN_PLAN_SPACING_SECONDS)
+		var currentRisk=plan==null?null:plan.getCanonicalRisk();
+		if (plan!=null && lastPlannedRevision==planningInputRevision.get()
+			&& currentMarket!=null && currentMarket.observedAt==lastPlannedMarketAt
+			&& lastPlannedSeriesRevision==series.revision()
+			&& freeSlots == lastPlanFreeSlots && sellOnly == lastPlanSellOnly
+			&& plan.getExpiresAt()>now+PLAN_RENEWAL_MARGIN_SECONDS
+			&& (currentRisk==null || currentRisk.getValidUntil()!=null && currentRisk.getValidUntil()>now))
 		{
 			return;
 		}
@@ -730,6 +750,8 @@ final class CompanionService implements AutoCloseable
 		{
 			return;
 		}
+		var completion=new java.util.concurrent.CompletableFuture<Void>();
+		planCompletion=completion;
 		planThread.execute(() ->
 		{
 			planQueued.set(false);
@@ -748,6 +770,7 @@ final class CompanionService implements AutoCloseable
 			finally
 			{
 				planning = false;
+				completion.complete(null);
 			}
 		});
 	}
@@ -761,6 +784,8 @@ final class CompanionService implements AutoCloseable
 			return;
 		}
 		AccountSnapshot sourceSnapshot = snapshot;
+		var planningMarket=market.state();
+		long seriesRevision=series.revision();
 		Map<Integer,Long> bounds = new java.util.HashMap<>();
 		com.flippingfriend.core.AccountRiskSnapshot risk = null;
 		try
@@ -770,7 +795,7 @@ final class CompanionService implements AutoCloseable
 				DurablePlanningExposure.forAccount(read, snapshot,Instant.now().getEpochSecond());
 			if (exposure == null)
 				throw new IllegalStateException("durable exposure requires reconciliation");
-            risk=DurableRisk.evaluate(read,snapshot,exposure,market.state(),Instant.now().getEpochSecond());
+            risk=DurableRisk.evaluate(read,snapshot,exposure,planningMarket,Instant.now().getEpochSecond());
             if(!risk.isAvailable()) {
                 synchronized(this) {
                     if(revision!=planningInputRevision.get() || account!=sourceSnapshot)return;
@@ -800,13 +825,16 @@ final class CompanionService implements AutoCloseable
 			return;
 			}
 		}
-		PortfolioPlan computed = planner.plan(market.state(), snapshot,
+		PortfolioPlan computed = planner.plan(planningMarket, snapshot,
 			remainingBuyLimits(snapshot,Instant.now().getEpochSecond()), activeOffers.getActiveOffers())
 			.withUncertainCapitalBounds(bounds).withCanonicalRisk(risk);
         synchronized (this) {
-		if (revision!=planningInputRevision.get() || !samePlanningInputs(account,sourceSnapshot)
+		if (revision!=planningInputRevision.get() || market.state()!=planningMarket || !samePlanningInputs(account,sourceSnapshot)
             || (sourceSnapshot.isAutomaticTradeScope() && !currentPlanningProof(Instant.now().getEpochSecond()))) return;
 		plan = computed;
+		lastPlannedRevision=revision;
+		lastPlannedMarketAt=planningMarket.observedAt;
+		lastPlannedSeriesRevision=seriesRevision;
         }
 		try
 		{

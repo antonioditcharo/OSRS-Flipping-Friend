@@ -1,5 +1,9 @@
 # Compact action panel
 
+19 October 2026: the owner's expanded sidebar direction supersedes the action-only information
+restriction below. See [the current panel/latency contract](panel-performance-and-latency.md).
+This document retains the earlier implementation and delivery evidence.
+
 14 October 2026. Merged through approved PR #43 at `440c44f`, including #40 automatic trade scope,
 #41 walkthrough and #42 input assistance. The 1.13.2 pair is installed and manual login works.
 The live ledger/startup follow-up and remaining acceptance are in the newest [handoff](../../HANDOFF.md).

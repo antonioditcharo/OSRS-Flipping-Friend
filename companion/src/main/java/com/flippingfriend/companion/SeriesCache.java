@@ -50,6 +50,8 @@ import okhttp3.Response;
  */
 final class SeriesCache implements SeriesSource
 {
+    private final java.util.concurrent.atomic.AtomicLong revision=new java.util.concurrent.atomic.AtomicLong();
+    long revision(){return revision.get();}
 	private static final String BASE = "https://prices.runescape.wiki/api/v1/osrs/timeseries";
 
 	private static final Logger log = LoggerFactory.getLogger(SeriesCache.class);
@@ -172,7 +174,7 @@ final class SeriesCache implements SeriesSource
 				// anyone noticing. Now it says so, and retries within the minute.
 				log.warn("history fetch failed for item {} at {}: {}", itemId, timestep,
 					String.valueOf(ex.getMessage()));
-				cache.put(key, Cached.failed(Instant.now()));
+				cache.put(key, Cached.failed(Instant.now())); revision.incrementAndGet();
 				spent++;
 			}
 		}
@@ -191,7 +193,7 @@ final class SeriesCache implements SeriesSource
 	 */
 	void remember(int itemId, String timestep, List<Candle> candles, Instant fetchedAt)
 	{
-		cache.put(key(itemId, timestep), new Cached(candles, fetchedAt));
+		cache.put(key(itemId, timestep), new Cached(candles, fetchedAt)); revision.incrementAndGet();
 		dirty = true;
 	}
 
@@ -314,7 +316,7 @@ final class SeriesCache implements SeriesSource
 					expired++;
 					continue;
 				}
-				cache.put(key, cached);
+				cache.put(key, cached); revision.incrementAndGet();
 				restored++;
 			}
 		}
@@ -332,7 +334,7 @@ final class SeriesCache implements SeriesSource
 			//
 			// A partly built cache is dropped with it: half a cache is not better than none, and it
 			// re-warms within minutes.
-			cache.clear();
+			cache.clear(); revision.incrementAndGet();
 			log.warn("could not read the series cache at {}, starting cold: {}", file,
 				String.valueOf(ex.toString()));
 			return;

@@ -195,6 +195,8 @@ public class FlippingFriendPlugin extends Plugin
 	private final boolean[] nonemptyOfferSeen = new boolean[8];
 	private volatile long lastAccountRefresh;
 	private volatile long lastEngineRefresh;
+	private final AtomicBoolean engineRefreshInFlight=new AtomicBoolean(), engineRefreshRequested=new AtomicBoolean();
+	private final java.util.concurrent.atomic.AtomicLong engineRefreshEpoch=new java.util.concurrent.atomic.AtomicLong();
 	private volatile long lastPersist;
 	private volatile boolean exemptionsResolved;
 	private volatile Suggestion lastNotified = Suggestion.idle();
@@ -208,6 +210,7 @@ public class FlippingFriendPlugin extends Plugin
 	@Override
 	protected void startUp()
 	{
+        engineRefreshEpoch.incrementAndGet();engineRefreshInFlight.set(false);engineRefreshRequested.set(false);
         geInputAssist.start();
 		worker = Executors.newSingleThreadExecutor(r ->
 		{
@@ -251,6 +254,7 @@ public class FlippingFriendPlugin extends Plugin
 	@Override
 	protected void shutDown()
 	{
+        engineRefreshEpoch.incrementAndGet();engineRefreshInFlight.set(false);engineRefreshRequested.set(false);
         geInputAssist.stop();
         stepGuide.reset(); tradeConfirmGuard.reset();
 		offerObservationGeneration.incrementAndGet();
@@ -398,7 +402,7 @@ public class FlippingFriendPlugin extends Plugin
 	{
 		invalidateAccountAdvice();
         accountMonitor.observeBankContainer(event.getContainerId(),event.getItemContainer());
-		refreshAccountState();
+		refreshAccountState(this::requestEngineRefresh);
 	}
 
     @Subscribe
@@ -787,9 +791,25 @@ public class FlippingFriendPlugin extends Plugin
 
 	private void requestEngineRefresh()
 	{
+		if(worker==null || worker.isShutdown())return;
+		engineRefreshRequested.set(true);
+		if(!engineRefreshInFlight.compareAndSet(false,true))return;
+		engineRefreshRequested.set(false);
+		beginEngineRefresh(engineRefreshEpoch.get());
+	}
+	private void finishEngineRefresh(long epoch)
+	{
+		if(epoch!=engineRefreshEpoch.get())return;
+		engineRefreshInFlight.set(false);
+		if(engineRefreshRequested.get())requestEngineRefresh();
+	}
+	private void beginEngineRefresh(long epoch)
+	{
+		long guidanceStarted=System.nanoTime();
 		ExecutorService executor = worker;
 		if (executor == null || executor.isShutdown())
 		{
+			finishEngineRefresh(epoch);
 			return;
 		}
 
@@ -797,6 +817,9 @@ public class FlippingFriendPlugin extends Plugin
 
 		clientThread.invokeLater(() ->
 		{
+			boolean submitted=false;
+			try {
+			engineRefreshRequested.set(false);
             if(!offerTracker.hasCompleteOfferEvidence()){withdrawUnsupportedPriceAdvice();return;}
             if(client.getGameState()!=GameState.LOGGED_IN || !accountDataLoaded.get() || !hasProfile())return;
             if(!offerSnapshotReady)return;
@@ -858,6 +881,7 @@ public class FlippingFriendPlugin extends Plugin
 						committedByItem(), buyLimits.activeWindows(java.time.Instant.now()),
 						com.flippingfriend.model.SuggestionEngine.parseBlocked(config.blockedItems()),
 						engine.skippedItems(), offerTracker.itemsWithOpenOffers(), engine.isSellOnly(), positions.all(), observedOffers, observedAccount, planningObservation);
+					long publicationFinished=System.nanoTime();
 
 					// The companion owns new-position selection and gets first chance to supply collect advice.
 					// The built-in engine remains as the collect fallback and still owns reprice and sell decisions.
@@ -866,6 +890,7 @@ public class FlippingFriendPlugin extends Plugin
 					// cycle the portfolio list kept rendering an ever-older plan with nothing to say it
 					// was stale.
 					companion.refreshPlan();
+					long planFinished=System.nanoTime();
                     var risk=companion.currentRisk();
                     if(observedGeneration!=offerObservationGeneration.get() || observedRevision!=adviceObservationRevision.get())return;
                     if(risk!=null) {
@@ -972,6 +997,9 @@ public class FlippingFriendPlugin extends Plugin
 					stepGuide.setSuggestion(current);
                     recordVisibleAdvice();
 					panel.refresh();
+					log.info("Guidance delivered: {} ms from refresh request; capture/durable publication {} ms, plan/ledger {} ms, decision/delivery {} ms; {}",
+						(System.nanoTime()-guidanceStarted)/1_000_000,(publicationFinished-guidanceStarted)/1_000_000,
+						(planFinished-publicationFinished)/1_000_000,(System.nanoTime()-planFinished)/1_000_000,current.getType());
 				});
 				if (observedRevision==adviceObservationRevision.get() && !stepGuide.isPaused()) { notifyIfNeeded(suggestion); checkPriceDumps(); }
 
@@ -1005,7 +1033,10 @@ public class FlippingFriendPlugin extends Plugin
 					});
 				}
 			}
+			finally { finishEngineRefresh(epoch); }
 		});
+		submitted=true;
+		} finally { if(!submitted)finishEngineRefresh(epoch); }
 		});
 	}
 

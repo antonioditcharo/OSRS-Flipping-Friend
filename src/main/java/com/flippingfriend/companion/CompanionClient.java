@@ -136,6 +136,61 @@ public class CompanionClient
     /** Display-only durable records. Never an input to trading, ownership accounting or entry authority. */
     private volatile com.flippingfriend.core.AccountLedgerSnapshot lastHistoryLedger;
     private long ledgerGeneration;
+    private final java.util.concurrent.ExecutorService performanceWorker=java.util.concurrent.Executors.newSingleThreadExecutor(r->{
+        Thread t=new Thread(r,"flipping-friend-performance");t.setDaemon(true);return t;
+    });
+    private final AtomicBoolean performanceQueued=new AtomicBoolean();
+    private volatile com.flippingfriend.core.PerformanceSnapshot performance;
+    private volatile String performanceScope="SESSION",performanceError="";
+    private volatile long lastPerformanceRequest;
+    private long performanceGeneration;
+    public synchronized void setPerformanceScope(String scope) {
+        if(!Set.of("SESSION","DAY","WEEK","ALL").contains(scope))throw new IllegalArgumentException("Unknown performance scope");
+        if(!scope.equals(performanceScope)){performanceScope=scope;performance=null;performanceGeneration++;lastPerformanceRequest=0;}
+        requestPerformanceRefresh();
+    }
+    public String performanceScope(){return performanceScope;}
+    public String performanceError(){return performanceError;}
+    public synchronized com.flippingfriend.core.PerformanceSnapshot performance() {
+        String account=accountContext();var current=performance;
+        long age=current==null?Long.MAX_VALUE:Instant.now().getEpochSecond()-current.observedAt;
+        return replayEnabled && current!=null && age>=0 && age<=150 && java.util.Objects.equals(account,current.accountId)
+            && performanceScope.equals(current.scope)?current:null;
+    }
+    /** Records never run on the decision worker, and never authorize a trade. */
+    public synchronized void requestPerformanceRefresh() {
+        String account=accountContext();long now=System.currentTimeMillis();
+        if(!replayEnabled || account==null || now-lastPerformanceRequest<2000 || !performanceQueued.compareAndSet(false,true))return;
+        lastPerformanceRequest=now;long generation=performanceGeneration;String scope=performanceScope;
+        performanceWorker.execute(()->{
+            try {
+                var result=gson.fromJson(request("performance/current?scope="+scope,"GET",null,ACCOUNT_READ_TIMEOUT_MILLIS,account),
+                    com.flippingfriend.core.PerformanceSnapshot.class);
+                synchronized(this) {
+                    if(generation!=performanceGeneration || !java.util.Objects.equals(account,accountContext()) || !scope.equals(performanceScope))return;
+                    if(result==null || !result.isValid() || !account.equals(result.accountId) || !scope.equals(result.scope)
+                        || result.observedAt>Instant.now().getEpochSecond())throw new IllegalStateException("Invalid account performance response");
+                    performance=result;performanceError="";
+                }
+            }catch(Exception failure){synchronized(this){if(generation==performanceGeneration && java.util.Objects.equals(account,accountContext()))performanceError="Performance is updating";}}
+            finally{performanceQueued.set(false);}
+        });
+    }
+    public synchronized void resetPerformanceSession() {
+        String account=accountContext();if(account==null || !replayEnabled)return;
+        long generation=performanceGeneration;
+        String requestId=UUID.randomUUID().toString();
+        performanceWorker.execute(()->{
+            try {
+                request("performance/session","POST",gson.toJson(java.util.Map.of("requestId",requestId)),ACCOUNT_READ_TIMEOUT_MILLIS,account);
+                synchronized(this) {
+                    if(generation!=performanceGeneration || !java.util.Objects.equals(account,accountContext()))return;
+                    performance=null;performanceGeneration++;lastPerformanceRequest=0;performanceError="";
+                }
+                requestPerformanceRefresh();
+            }catch(Exception unavailable){synchronized(this){if(generation==performanceGeneration)performanceError="Session reset unavailable; retry after account checks finish";}}
+        });
+    }
 	@Inject private com.flippingfriend.session.StockDeclarations stockDeclarations;
 	private final AtomicLong stockReviewGeneration = new AtomicLong();
 	public long stockReviewVersion() { return stockReviewGeneration.get(); }
@@ -187,6 +242,7 @@ public class CompanionClient
 			lastLedger = null;
             lastHistoryLedger = null;
             ledgerGeneration++;
+            performance=null;performanceGeneration++;lastPerformanceRequest=0;performanceError="";
 			canonicalOffers.clear(); ledger.clear();
             lastPresented = null;
 			observedAccountId = current;
@@ -1215,6 +1271,7 @@ public class CompanionClient
                 accountContext();
                 replayGeneration.incrementAndGet();
                 ledgerGeneration++;
+                performanceGeneration++;performance=null;lastPerformanceRequest=0;
                 replayEnabled = true;
                 retryDelayMillis = INITIAL_RETRY_DELAY_MILLIS;
                 nextRetryAtMillis = 0;
@@ -1223,6 +1280,7 @@ public class CompanionClient
         public synchronized void pauseOfferReplay()
         {
                 replayEnabled = false;
+                performanceGeneration++;performance=null;lastPerformanceRequest=0;
                 replayGeneration.incrementAndGet();
                 ledgerGeneration++;
                 nextRetryAtMillis = Long.MAX_VALUE;

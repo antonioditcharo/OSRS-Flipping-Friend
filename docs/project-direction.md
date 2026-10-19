@@ -12,6 +12,17 @@ original assessment context. The supplied [Copilot baseline](benchmarks/copilot-
 contains 2,117 flip summaries across two accounts and 17,240 execution records for one account.
 Historical session/cadence labels are unavailable; GP/hour remains unmeasured.
 
+## Panel and prompt-guidance continuation — 19 October 2026
+
+The owner's expanded sidebar request adds scoped session/period/reset, durable profit/ROI/completed
+sales, elapsed clock/known realized hourly rate, conservative stock marks, paged sales and action
+profit/time estimates. Independent measurement resets preserve financial/risk anchors. Revision-
+based planning, validated history/analysis caches and immediate completion address repeated analysis
+and five-second transitions. [Contract](architecture/panel-performance-and-latency.md) and
+[delivery/acceptance receipt](history/panel-speed-delivery-2026-10-19.md) distinguish tested source,
+installed runtime and player outcomes. Cross-account aggregation, complete cadence/attendance and
+terminal-adjusted account benchmarks remain open; runtime learning stays HOLD. Read HANDOFF first.
+
 ## Installed continuation — 18 October 2026
 
 Owner-approved #101 is installed after both exact-head checks. It addresses the reproduced quiet

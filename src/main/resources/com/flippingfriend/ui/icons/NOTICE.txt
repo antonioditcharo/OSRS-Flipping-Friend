@@ -8,3 +8,5 @@ more_horiz: png/navigation/more_horiz/materialicons/24dp/1x/baseline_more_horiz_
 open_in_new: png/action/open_in_new/materialicons/24dp/1x/baseline_open_in_new_black_24dp.png
 zoom_in, zoom_out, home: png/action/<name>/materialicons/24dp/1x/baseline_<name>_black_24dp.png
 Runtime tinting supplies foreground colors. No Flipping Copilot brand assets are packaged.
+chevron_left, chevron_right: png/navigation/<name>/materialicons/24dp/1x/baseline_<name>_black_24dp.png
+pie_chart: png/editor/pie_chart/materialicons/24dp/1x/baseline_pie_chart_black_24dp.png

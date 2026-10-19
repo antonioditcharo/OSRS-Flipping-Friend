@@ -117,6 +117,26 @@ public class AccountApiIsolationTest
         }
     }
 
+    @Test public void performanceReadsAndMeasurementResetRequireTheExactAuthenticatedAccount()throws Exception {
+        Gson gson=new Gson();Path root=folder.newFolder().toPath();
+        String one=AccountIdentity.fromProfileKey("performance-one"),two=AccountIdentity.fromProfileKey("performance-two");
+        try(var legacy=new SqliteStore(root.resolve("legacy.db"));var market=new CompanionService(gson,legacy);
+            var accounts=new CompanionAccounts(root.resolve("accounts"),market);
+            var api=new ApiServer("test-token",gson,market,accounts,new InetSocketAddress("127.0.0.1",0))) {
+            api.start();String endpoint="accounts/"+one+"/performance/current?scope=ALL";
+            assertEquals(400,request(api,endpoint,two,null));assertEquals(400,request(api,endpoint,null,null));
+            assertEquals(405,request(api,endpoint,one,"{}"));
+            var unauthorized=connection(api,endpoint,one);unauthorized.setRequestProperty("X-Flipping-Friend-Token","wrong");
+            try{assertEquals(401,unauthorized.getResponseCode());}finally{unauthorized.disconnect();}
+            var report=gson.fromJson(body(api,endpoint,one),com.flippingfriend.core.PerformanceSnapshot.class);
+            assertTrue(report.isValid());assertEquals(one,report.accountId);assertEquals(0,report.saleUpdates);
+            assertEquals(400,request(api,"accounts/"+one+"/performance/current?scope=invalid",one,null));
+            String reset="accounts/"+one+"/performance/session";
+            assertEquals(405,request(api,reset,one,null));assertEquals(400,request(api,reset,two,"{\"requestId\":\"test\"}"));
+            assertEquals("A reset cannot invent a current capture",400,request(api,reset,one,"{\"requestId\":\"test\"}"));
+            assertEquals(0,legacy.eventCount(PerformanceRead.SESSION_EVENT));assertEquals(0,legacy.positionEventCount());
+        }
+    }
     private HttpURLConnection connection(ApiServer api, String endpoint, String account) throws Exception
     {
         HttpURLConnection connection = (HttpURLConnection) new URL("http://127.0.0.1:" + api.port() + "/v1/" + endpoint).openConnection();
