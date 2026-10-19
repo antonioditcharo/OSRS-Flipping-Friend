@@ -9,6 +9,16 @@ Continuation impact order: trade-loop reliability/exit-context provenance, actua
 latency, production-policy account replay/returns, validated learning, then remaining product gaps.
 Read [the continuation prompt](docs/next-conversation-prompt.md); current delivery facts below govern.
 
+- [ ] Deliver/accept the coherent trade-continuation batch: exact durable buy remainders and restart,
+      shared buy/sell callbacks, fresh quantity-bounded replacement planning/forecasts, foreground
+      maintenance acceptance, stale/overflow quote guards and replay v7 persisted intents/volume
+      integrity. Windows clean 92s: 1,761 Java passed/six skips, Java 11; 108 tooling passed;
+      packaged twelve-scenario schema bundle reproduces. Exact-head CI/merge/update pending; #114
+      remains installed. Contract/receipt: docs/architecture/trade-continuations.md and
+      docs/history/trade-continuation-batch-2026-10-19.md. Controlled partial cancel/collect/replace/
+      relist/restart, real foreground/editor/transport parity, sustained timing and qualified market
+      return/learning gates remain open. Batch related fixes before full verification and delivery.
+
 - [ ] Deliver/accept cancelled-sale intent recovery: retain the exact observed collected remainder
       through slot reuse/retention/restart; distinguish already-working listings from a later
       replacement and reject stale episode advice. Two prior-source regressions fail; source fixes
@@ -247,8 +257,9 @@ Read [the continuation prompt](docs/next-conversation-prompt.md); current delive
       scenarios. Replay v6 retains shared display stability, quiet-stock/qualified mark clocks and
       patient pricing; original plans now qualify through canonical sources/restart and final sale
       authority. Abstract displayed actions require a later delay/revalidation. Complete production
-      buy-replacement/persisted relist/real client acceptance coverage and a
+      real foreground/editor/transport and remaining action-order policy coverage and a
       qualified frozen market benchmark remain open; fixtures are not performance evidence.
+      Queued v7 now exercises shared durable buy/sell continuations and bounded replacement plans.
 - [ ] Finish prospective cadence/attendance and full-account return measurement. The new sidebar
       adds independent prospective session cursors and elapsed clocks; installed/player acceptance
       remains open. Historical CSVs still lack clocks/cadence labels for a fair GP/hour baseline.

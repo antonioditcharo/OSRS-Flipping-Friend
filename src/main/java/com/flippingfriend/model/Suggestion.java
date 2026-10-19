@@ -45,6 +45,7 @@ public class Suggestion
 	private boolean lossCut;
     private boolean profitKnown = true;
     private String recommendationId,adviceAccountId;
+    private String maintenanceOfferIdentity;
     private long quoteAgeSeconds,adviceExpiresAt;
     private com.flippingfriend.core.ExecutionForecast executionForecast;
     private Double legCompletionProbability;
@@ -123,6 +124,7 @@ public class Suggestion
 	public boolean isProfitKnown() { return profitKnown; }
     public String getRecommendationId(){return recommendationId;}
     public String getAdviceAccountId(){return adviceAccountId;}
+    public String getMaintenanceOfferIdentity(){return maintenanceOfferIdentity;}
     public long getQuoteAgeSeconds(){return quoteAgeSeconds;}
     public long getAdviceExpiresAt(){return adviceExpiresAt;}
     public com.flippingfriend.core.ExecutionForecast getExecutionForecast(){return executionForecast;}
@@ -208,7 +210,8 @@ public class Suggestion
 			&& other.itemId == itemId
 			&& other.price == price
 			&& other.quantity == quantity
-			&& other.slot == slot && other.profitKnown == profitKnown;
+			&& other.slot == slot && other.profitKnown == profitKnown
+            && java.util.Objects.equals(maintenanceOfferIdentity,other.maintenanceOfferIdentity);
 	}
 
 	/**
@@ -222,7 +225,7 @@ public class Suggestion
 	public boolean isSameTradeAs(Suggestion other)
 	{
 		return other != null && other.type == type && other.itemId == itemId
-			&& other.slot == slot;
+			&& other.slot == slot && java.util.Objects.equals(maintenanceOfferIdentity,other.maintenanceOfferIdentity);
 	}
 
 	public static final class Builder
@@ -244,6 +247,7 @@ public class Suggestion
 		private String headline = "";
 		private String detail = "";
         private String recommendationId,adviceAccountId;
+        private String maintenanceOfferIdentity;
         private long quoteAgeSeconds,adviceExpiresAt;
         private com.flippingfriend.core.ExecutionForecast executionForecast;
         private Double legCompletionProbability;
@@ -281,6 +285,7 @@ public class Suggestion
 		private boolean lossCut;
         private boolean profitKnown = true;
         public Builder profitKnown(boolean known) { profitKnown = known; return this; }
+        public Builder maintenanceSource(String identity){maintenanceOfferIdentity=identity;return this;}
 
 		public Builder lossCut(boolean lossCut)
 		{
@@ -353,6 +358,7 @@ public class Suggestion
 			suggestion.lossCut = lossCut;
             suggestion.profitKnown = profitKnown;
             suggestion.recommendationId=recommendationId;suggestion.adviceAccountId=adviceAccountId;
+            suggestion.maintenanceOfferIdentity=maintenanceOfferIdentity;
             suggestion.quoteAgeSeconds=quoteAgeSeconds;suggestion.adviceExpiresAt=adviceExpiresAt;
             suggestion.executionForecast=executionForecast;suggestion.legCompletionProbability=legCompletionProbability;
 			return suggestion;

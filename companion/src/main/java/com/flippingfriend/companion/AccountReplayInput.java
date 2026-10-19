@@ -46,7 +46,7 @@ final class AccountReplayInput {
         for(var e:mapping.entrySet()) if(e.getKey()==null || e.getValue()==null || e.getValue().id!=e.getKey()
             || e.getKey()<=0 || e.getValue().buyLimit<=0 || e.getValue().name==null)
             throw new IllegalArgumentException("Invalid item mapping");
-        long previous=0;Set<String> flows=new HashSet<>();
+        long previous=0;Set<String> flows=new HashSet<>();Map<Integer,Long> flowEnds=new HashMap<>();
         for(Frame f:frames) {
             if(f==null || f.availableAt<=previous || f.availableAt>endAt || f.observedAt<=0 || f.observedAt>f.availableAt
                 || f.latest==null || f.fiveMinute==null || f.hourly==null || f.flows==null)
@@ -63,10 +63,14 @@ final class AccountReplayInput {
                 }
             }
             history(f.shortHistory,300,f.availableAt);history(f.longHistory,3600,f.availableAt);
-            for(Flow flow:f.flows) if(flow==null || !mapping.containsKey(flow.itemId) || flow.bucketStart<0
+            for(Flow flow:f.flows) {
+                if(flow==null || !mapping.containsKey(flow.itemId) || flow.bucketStart<0
                 || flow.bucketEnd-flow.bucketStart!=300 || flow.bucketEnd>f.availableAt || flow.low<=0 || flow.high<flow.low
-                || flow.lowVolume<0 || flow.highVolume<0 || !flows.add(flow.itemId+":"+flow.bucketStart))
+                || flow.lowVolume<0 || flow.highVolume<0 || !flows.add(flow.itemId+":"+flow.bucketStart)
+                || flow.bucketStart<flowEnds.getOrDefault(flow.itemId,0L))
                 throw new IllegalArgumentException("Invalid, future or duplicate execution-flow bucket");
+                flowEnds.put(flow.itemId,flow.bucketEnd);
+            }
         }
         if(frames.get(0).availableAt>startAt)throw new IllegalArgumentException("Start requires a frozen initial market observation");
     }

@@ -25,7 +25,8 @@ public class EntryDecisionPresentationNonActivationBoundaryTest
         Assert.assertTrue(client.contains("EntryDecisionPresenter.present(decision, plan, explainer, requestedAccount)"));
         Assert.assertFalse(plugin.contains("companion.nextBuySuggestion("));
         Assert.assertFalse(plugin.contains("engine.buyFallback()"));
-        Assert.assertEquals("3FD2AB90432921421D72D0671F0F34DECFB015F85217BDB2AC70CBF284FC6429",
+        // Reviewed additive maintenance-episode identity; entry authority remains in CompanionClient.
+        Assert.assertEquals("5FC0AF2033B8D8E0800853CBFDDDA9DEFDE842E25F4718CCDD0225B30FB900D3",
             sha256(suggestion));
     }
     private static String read(Path root, String path) throws Exception

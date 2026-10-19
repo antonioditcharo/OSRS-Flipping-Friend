@@ -73,6 +73,10 @@ public class TrackedOffer
 		this.lastChanged = firstSeen;
 	}
 
+    /** Local workflow identity; financial/source event keys remain unchanged. */
+    public String getContinuationIdentity() {
+        return com.flippingfriend.core.OfferContinuation.identity(slot,itemId,buying,price,totalQuantity,firstSeen,episodeIdentity);
+    }
 	/** Copy only observation fields on the client thread; never hand the live record to a worker. */
 	public TrackedOffer copyObservation()
 	{

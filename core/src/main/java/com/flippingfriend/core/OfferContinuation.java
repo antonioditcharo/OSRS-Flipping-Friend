@@ -1,0 +1,117 @@
+package com.flippingfriend.core;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.Objects;
+
+/** Local cancel/collect workflow evidence only. Never financial or order-placement authority. */
+public final class OfferContinuation {
+    public enum Status { WAITING, COLLECTED, CLOSED }
+    public static final class Observation {
+        public final int slot,item,price,total,filled;
+        public final long firstSeen;
+        public final boolean buying,collected;
+        public final String episode,state;
+        public Observation(int slot,int item,boolean buying,int price,int total,int filled,long firstSeen,
+                String episode,String state,boolean collected) {
+            this.slot=slot;this.item=item;this.buying=buying;this.price=price;this.total=total;this.filled=filled;
+            this.firstSeen=firstSeen;this.episode=episode;this.state=state;this.collected=collected;
+        }
+    }
+    // Existing sell-relist-intent.json field names are retained. Missing legacy buying means SELL.
+    private int item,slot,quantity,price,total,filled;
+    private long firstSeen,createdAt,expiresAt;
+    private String episode;
+    private boolean buying,managed,collectionVerified;
+    private int collectedRemaining,collectedFilled,maximumFilled;
+    private List<Key> existingSales;
+    private transient long revision;
+    private transient boolean closed;
+
+    private OfferContinuation() { }
+    public static OfferContinuation advise(Observation original,Collection<Observation> board,
+            boolean managed,long at,long expiresAt) {
+        if (original==null || original.slot<0 || original.slot>=8 || original.item<=0 || original.price<=0
+            || original.total<=0 || original.filled<0 || original.filled>=original.total || original.firstSeen<=0
+            || original.collected || !active(original) || at<original.firstSeen
+            || expiresAt!=0 && expiresAt<=at) return null;
+        var intent=new OfferContinuation();
+        intent.item=original.item;intent.slot=original.slot;intent.buying=original.buying;
+        intent.price=original.price;intent.total=original.total;intent.filled=original.filled;
+        intent.maximumFilled=original.filled;intent.quantity=original.total-original.filled;
+        intent.firstSeen=original.firstSeen;intent.episode=original.episode;intent.managed=managed;
+        intent.createdAt=at;intent.expiresAt=expiresAt;intent.existingSales=new ArrayList<>();
+        if(board!=null) for(var other:board)
+            if(other!=null && other.buying==intent.buying && other.item==intent.item && !intent.matches(other))
+                intent.existingSales.add(new Key(other));
+        return intent;
+    }
+    public boolean matches(Observation offer) {
+        return offer!=null && offer.buying==buying && offer.item==item && offer.slot==slot
+            && offer.firstSeen==firstSeen && Objects.equals(episode,offer.episode)
+            && (price==0 || price==offer.price) && (total==0 || total==offer.total);
+    }
+    public boolean valid(long now) {
+        return !closed && item>0 && slot>=0 && slot<8 && quantity>0 && firstSeen>0 && filled>=0
+            && (total==0 || total>=quantity && filled<total)
+            && (createdAt==0 || now>=createdAt) && (expiresAt==0 || now<=expiresAt);
+    }
+    /** Call before temporary settled evidence is pruned, and again before using a retained hint. */
+    public Status observe(Collection<Observation> board,Observation settled,long now) {
+        if(!valid(now)) return close();
+        Observation original=null;
+        if(board!=null) for(var offer:board) {
+            if(offer==null) continue;
+            if(matches(offer)) original=offer;
+            else if(offer.buying==buying && offer.item==item && !alreadyPresent(offer)) return close();
+        }
+        if(original!=null) {
+            if(!validCounter(original) || completed(original)) return close();
+            progress(original.filled);
+            return Status.WAITING; // Even a cancelled offer still in its slot is not collected.
+        }
+        if(matches(settled)) {
+            if(completed(settled) || !settled.collected || !cancelled(settled) || !validCounter(settled)) return close();
+            int remainder=Math.min(quantity,settled.total-settled.filled);
+            if(remainder<=0) return close();
+            progress(settled.filled);
+            if(!collectionVerified || collectedRemaining!=remainder || collectedFilled!=settled.filled) {
+                collectionVerified=true;collectedRemaining=remainder;collectedFilled=settled.filled;revision++;
+            }
+        }
+        return collectionVerified && collectedRemaining>0 && collectedRemaining<=quantity
+            ?Status.COLLECTED:Status.WAITING;
+    }
+    private boolean validCounter(Observation offer) {
+        return offer.total>0 && offer.filled>=Math.max(Math.max(filled,maximumFilled),collectedFilled)
+            && offer.filled<=offer.total;
+    }
+    private void progress(int value) { if(value>maximumFilled) { maximumFilled=value;revision++; } }
+    private Status close() { if(!closed) {closed=true;revision++;}return Status.CLOSED; }
+    private boolean alreadyPresent(Observation offer) {
+        if(existingSales!=null) for(var key:existingSales) if(key!=null && key.matches(offer)) return true;
+        return false;
+    }
+    private static boolean active(Observation o) {return (o.buying?"BUYING":"SELLING").equals(o.state);}
+    private static boolean completed(Observation o) {return (o.buying?"BOUGHT":"SOLD").equals(o.state);}
+    private static boolean cancelled(Observation o) {return (o.buying?"CANCELLED_BUY":"CANCELLED_SELL").equals(o.state);}
+    public int getItemId(){return item;}
+    public int getSlot(){return slot;}
+    public static String identity(int slot,int item,boolean buying,int price,int total,long firstSeen,String episode) {
+        return episode!=null?episode:slot+":"+item+":"+buying+":"+price+":"+total+":"+firstSeen;
+    }
+    public String getOriginalIdentity(){return identity(slot,item,buying,price,total,firstSeen,episode);}
+    public int getCollectedRemaining(){return collectedRemaining;}
+    public boolean isManaged(){return managed;}
+    public boolean isBuying(){return buying;}
+    public long getRevision(){return revision;}
+    public boolean isClosed(){return closed;}
+    public void requireManagedCost(){if(!managed){managed=true;revision++;}}
+    private static final class Key {
+        private int item,slot,price,total;private long firstSeen;private String episode;
+        Key(Observation offer){item=offer.item;slot=offer.slot;price=offer.price;total=offer.total;firstSeen=offer.firstSeen;episode=offer.episode;}
+        boolean matches(Observation offer){return item==offer.item && slot==offer.slot && price==offer.price
+            && total==offer.total && firstSeen==offer.firstSeen && Objects.equals(episode,offer.episode);}
+    }
+}

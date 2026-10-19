@@ -17,7 +17,7 @@
 | --- | --- |
 | Acquired quantity/cost and initial exit | Canonical acquisition remainder and original source-bound exit context in scoped `AccountLedgerSnapshot`, fresh ACK-drained client evidence, exact subset allocation; final companion sale policy. Client item plans cannot establish original context; see [acquisition provenance](acquisition-exit-context.md) |
 | Sell maintenance/relist | Same ledger and exact costs, current canonical offer episode/source and remaining quantity; local persisted manual sequence, final companion sale policy |
-| New/replacement buy | Existing final companion entry policy, acknowledged eight-slot/cash proof, canonical exposure, buy limits and durable risk; unchanged by this increment |
+| New/replacement buy | Final companion entry policy, acknowledged eight-slot/cash proof, canonical exposure, buy limits and durable risk. The continuation batch re-plans the exact bounded item/quantity with new economics and forecasts; the old reservation never authorizes funds |
 | Recorded totals/Performance/sale investigation | Scoped durable sale rows and tax/profit bounds; unknown historical money stays unknown |
 | Holdings and market charts | Canonical managed quantities; displayed target/market values remain estimates, not liquidation equity or realized profit |
 | Local history/bank trajectory | Explicitly labeled journal estimates; never fallback financial authority |
@@ -38,11 +38,24 @@ java -cp companion/build/libs/flipping-friend-companion.jar com.flippingfriend.c
 
 Each independent cadence (5m, 30m, 2h, 8h) runs at 0.1%, 0.5% and 1% counterparty-volume shares. An offer must predate the entire execution bucket plus the configured delay; touching a price cannot fill more than the scenario's available volume. Buy capital is reserved once. Partial fills, completed-but-uncollected items/proceeds, cancellation refunds, collection and later placement consume actual slots and sequential manual-action time. Missed visits delay those actions. Buy limits and risk use canonical projections in isolated synthetic databases. Restart reopens those databases without replaying financial rows or resetting the risk window. The synthetic identity/database names cannot be frozen by the real-account evaluator.
 
-The runner calls production candidate generation/portfolio optimization with an explicit clock, canonical current-offer/exposure/risk checks, entry policy, collection selection, buy-limit maintenance, `SellTimingEngine` and shared sale-maintenance pricing. Versions 2–4 added display stability, quiet non-loss exits and explicit completed aggregate clocks; version 5 added [patient pricing](patient-sale-pricing.md). [Version 6](replay-canonical-sale.md) qualifies original exit context through canonical sources and restart, calls transactional final companion sale authority, and separates displayed advice from delayed/revalidated manual actions. Old bundles require their retained evaluator; missing aggregate clocks cannot qualify marks. **Production-policy coverage is not complete:** local outbid-buy replacement intent, persisted sale-relist intent and the real client-thread/transport acceptance lifecycle remain open. The abstract display/action stages do not close those gates. Do not use this runner to pass a production-policy promotion gate.
+The runner calls production candidate generation/portfolio optimization with an explicit clock,
+canonical current-offer/exposure/risk checks, entry policy, collection selection, buy maintenance,
+`SellTimingEngine` and shared sale-maintenance pricing. Versions 2–5 added display stability, quiet
+exits, explicit aggregate clocks and patient pricing. [Version 6](replay-canonical-sale.md) qualifies
+original context and final companion sale authority with delayed/revalidated displayed actions.
+[Version 7](trade-continuations.md) persists the shared exact-episode buy/sell continuation state,
+uses shared outbid proposals and bounded replacement planning, and rejects overlapping volume
+windows. Old bundles require their retained evaluator; missing clocks cannot qualify marks.
+**Production-policy coverage is not complete:** real client-thread/editor/transport acceptance,
+remaining action-order/attendance policy and qualified market benchmarks remain open. The logical
+display/action model does not close those gates or authorize a production-policy promotion.
 
 Results report bag cash, locked remainder, collection proceeds, acquisition cost, conservatively taxed/haircut terminal marks, realized profit, equity-change lower bound, elapsed-hour rates, drawdown, losses, abstentions and interactions separately. Missing terminal marks contribute zero to a disclosed lower bound and set incomplete coverage; no sale/disposal is booked by terminal marking. Fixtures prove conservation, not market performance. A 10-unit 100 -> 120 GP example yields exactly 180 GP profit/20 GP tax in both simulation and the canonical ledger.
 
-The bundle retains input/result hashes and the executing packaged JAR, and verification recomputes all twelve scenarios. Real benchmark returns are pending an appropriate frozen market capture and complete production-policy replay. Version 6 covers production acquisition-bound exit qualification and final sale authority; the remaining boundaries are above. Historical Copilot exports still cannot provide missing session/cadence clocks.
+The bundle retains input/result hashes and the executing packaged JAR, and verification recomputes
+all twelve scenarios. Real benchmark returns remain pending complete production-policy replay and
+qualified frozen market evidence. V7's continuation fixtures are synthetic conservation checks.
+Historical Copilot exports still cannot provide missing session/cadence clocks.
 
 ## Offline challenger
 

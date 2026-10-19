@@ -435,8 +435,9 @@ public class FlippingFriendPlugin extends Plugin
             || !hasProfile() || !offerTracker.hasCompleteOfferEvidence() || stepGuide.isPaused()) return;
         Suggestion accepted=stepGuide.getSuggestion();
         int stop=accepted==null?0:(int)Math.round(accepted.getPrice()*(1-config.riskProfile().getLossCutPct()));
-        companion.recordPresentedAdvice(accepted,
-            com.flippingfriend.core.AccountIdentity.fromProfileKey(configManager.getRSProfileKey()),stop);
+        String account=com.flippingfriend.core.AccountIdentity.fromProfileKey(configManager.getRSProfileKey());
+        engine.recordPresentedMaintenance(accepted,account,java.time.Instant.now().getEpochSecond());
+        companion.recordPresentedAdvice(accepted,account,stop);
     }
     @Subscribe
     public void onMenuEntryAdded(net.runelite.api.events.MenuEntryAdded event) { tradeConfirmGuard.onMenuEntryAdded(event); }
@@ -1043,16 +1044,10 @@ public class FlippingFriendPlugin extends Plugin
     {
         if (proposed.getItemId() <= 0 || proposed.getQuantity() <= 0)
             return Suggestion.waiting("Replacement unavailable", "The cancelled remainder is not valid.");
-        java.util.Set<Integer> excluded = new java.util.HashSet<>(engine.skippedItems());
-        var plan = companion.lastPlan();
-        if (plan != null && plan.getAllocations() != null) for (var allocation : plan.getAllocations()) {
-            if (allocation != null && allocation.getCandidate() != null
-                && allocation.getCandidate().getItemId() != proposed.getItemId())
-                excluded.add(allocation.getCandidate().getItemId());
-        }
-        Suggestion authorized = companion.nextEntrySuggestion(new com.flippingfriend.model.Explainer(),
+        Suggestion authorized = companion.replacementSuggestion(proposed.getItemId(),proposed.getQuantity(),
+            new com.flippingfriend.model.Explainer(),
             com.flippingfriend.model.SuggestionEngine.parseBlocked(config.blockedItems()),
-            excluded, offerTracker.itemsWithOpenOffers());
+            engine.skippedItems(), offerTracker.itemsWithOpenOffers());
         if (authorized != null && authorized.getType() == SuggestionType.WAIT) return authorized;
         if (authorized == null || authorized.getType() != SuggestionType.BUY
             || authorized.getItemId() != proposed.getItemId() || authorized.getPrice() <= 0

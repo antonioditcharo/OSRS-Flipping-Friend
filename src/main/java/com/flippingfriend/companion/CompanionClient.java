@@ -791,6 +791,45 @@ public class CompanionClient
 			"No new buy will be suggested until the companion returns a current, valid entry decision.");
 	}
 
+    /** A collected remainder is only a size preference; re-plan it with fresh account authority. */
+    public Suggestion replacementSuggestion(int item,int cap,Explainer explainer,Set<String> blocked,
+            Set<Integer> skipped,Set<Integer> onOffer) {
+        String requested=accountContext();long generation=ledgerGeneration;
+        Suggestion waiting=Suggestion.waiting("Checking your replacement",
+            "Waiting for a fresh eligible order within the cancelled remainder.");
+        if(item<=0 || cap<=0 || requested==null || skipped.contains(item) || onOffer.contains(item) || offerEvidencePending())return waiting;
+        long sentAt=Instant.now().getEpochSecond();
+        try {
+            var reply=gson.fromJson(request("policy/replacement?item="+item+"&quantityCap="+cap,
+                "GET",null,ACCOUNT_READ_TIMEOUT_MILLIS,requested),com.flippingfriend.core.ReplacementEntry.class);
+            if(generation!=ledgerGeneration || !java.util.Objects.equals(requested,accountContext()) || offerEvidencePending())return waiting;
+            Suggestion result=presentReplacement(reply,item,cap,requested,sentAt,Instant.now().getEpochSecond(),explainer);
+            if(result==null || result.getType()==SuggestionType.BUY && blocked.contains(result.getItemName().toLowerCase(java.util.Locale.ROOT)))return waiting;
+            return result;
+        }catch(Exception unavailable){lastError=unavailable.getMessage();return waiting;}
+    }
+    static Suggestion presentReplacement(com.flippingfriend.core.ReplacementEntry reply,int item,int cap,String account,
+            long sentAt,long receivedAt,Explainer explainer) {
+        if(reply==null || !com.flippingfriend.core.ReplacementEntry.VERSION.equals(reply.getVersion())
+            || !java.util.Objects.equals(account,reply.getAccountId()) || reply.getItemId()!=item || reply.getQuantityCap()!=cap
+            || reply.getAccountObservedAt()<=0 || reply.getAccountObservedAt()>receivedAt || receivedAt-reply.getAccountObservedAt()>150
+            || reply.getPlan()==null || reply.getPlan().getCreatedAt()>receivedAt || reply.getPlan().getExpiresAt()<=receivedAt
+            || reply.getDecision()==null || !validEntryDecision(reply.getDecision())
+            || !"companion-entry-1".equals(reply.getDecision().getPolicyVersion())
+            || reply.getDecision().getDecidedAt()<sentAt || reply.getDecision().getDecidedAt()>receivedAt
+            || receivedAt-reply.getDecision().getDecidedAt()>5
+            || reply.getDecision().getInputObservedAt()>reply.getDecision().getDecidedAt()
+            || receivedAt-reply.getDecision().getInputObservedAt()>150) return null;
+        var presented=EntryDecisionPresenter.present(reply.getDecision(),reply.getPlan(),explainer,account);
+        if(presented==null)return null;
+        var result=presented.getSuggestion();
+        if(result.getType()==SuggestionType.BUY && reply.getPlan().getAllocations().stream().noneMatch(a->a!=null
+            && a.getCandidate()!=null && a.getCandidate().getItemId()==item && a.getCandidate().getQuantity()==result.getQuantity()
+            && a.getCandidate().getBuyPrice()==result.getPrice() && a.getCandidate().getExpiresAt()>receivedAt))return null;
+        return result.getType()!=SuggestionType.BUY || result.getItemId()==item && result.getQuantity()>0 && result.getQuantity()<=cap
+            ?result:null;
+    }
+
 	PresentedEntryDecision nextEntryDecisionPresentation(Explainer explainer,
 		Set<String> blocked, Set<Integer> skipped, Set<Integer> onOffer,
 		EntryDecisionFetcher fetcher)

@@ -2,6 +2,10 @@
 
 19 October 2026. Read HANDOFF for tested, merged, installed and player-accepted states.
 
+The later [trade-continuation batch](trade-continuations.md) shares this state with buy replacement
+and replay, retains the legacy file shape, tracks maximum observed counters and creates new
+promises only at exact-episode foreground acceptance. The checkpoint below describes #114.
+
 Two regression-first cases exposed lost relist guidance. The old intent treated every other sale
 of the item as its replacement, including a listing already working when maintenance was advised.
 It also relied on the tracker's temporary settled-slot record on every read. Reusing that slot or

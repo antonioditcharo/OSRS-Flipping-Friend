@@ -12,7 +12,7 @@ import java.util.*;
 
 /** One simulated account, one bankroll and eight physical slots; never opens a live database. */
 final class AccountReplay implements AutoCloseable {
-    static final String VERSION="account-replay-6";
+    static final String VERSION="account-replay-7";
     private static final String ACCOUNT=AccountIdentity.fromProfileKey("synthetic-account-replay-only");
     interface Entries {
         PortfolioPlan plan(MarketIngestionService.MarketState market,AccountSnapshot account,
@@ -57,7 +57,7 @@ final class AccountReplay implements AutoCloseable {
         final long elapsedSeconds,initialCoins,bagCoins,lockedBuyCoins,collectionCoins,inventoryCost,terminalValueLower;
         final long equityLower,netEquityChangeLower,realizedProfit,tax,maximumDrawdown,interactions,completedSales,losingSales,saleUpdates,losingSaleUpdates;
         final boolean terminalMarksComplete;
-        final long authorizedSales,withdrawnGuidance;
+        final long authorizedSales,withdrawnGuidance,replacementBuys,relistedSales;
         final double netEquityGpPerElapsedHourLower,realizedGpPerElapsedHour;
         final Map<String,Integer> abstentions;
         final List<String> actions;
@@ -65,6 +65,7 @@ final class AccountReplay implements AutoCloseable {
             cadenceMinutes=r.cadence;captureShareBps=r.share;actionSeconds=r.input.actionSeconds;missedVisits=r.missed;
             completionModel=r.completionModel;
             authorizedSales=r.authorizedSales;withdrawnGuidance=r.withdrawnGuidance;
+            replacementBuys=r.replacementBuys;relistedSales=r.relistedSales;
             elapsedSeconds=end-r.input.startAt;initialCoins=r.input.initialCoins;bagCoins=r.cash;
             lockedBuyCoins=r.locked();collectionCoins=r.collection();inventoryCost=r.cost();
             long marked=r.mark(end,true);terminalValueLower=marked;terminalMarksComplete=r.marksComplete;
@@ -85,6 +86,11 @@ final class AccountReplay implements AutoCloseable {
     private final int cadence,share;
     private SqliteStore store;
     private final Path syntheticDatabase;
+    private final Path continuationFile;
+    private static final class Continuations {OfferContinuation buy,sell;}
+    private Continuations continuations=new Continuations();
+    private OfferContinuation.Status sellContinuationStatus=OfferContinuation.Status.CLOSED;
+    private final ReplacementEntryPlanner replacementPlanner;
     private final Gson json=new Gson();
     private final Offer[] offers=new Offer[8];
     private final Map<Integer,Position> stocks=new TreeMap<>();
@@ -101,7 +107,7 @@ final class AccountReplay implements AutoCloseable {
     private final List<String> actions=new ArrayList<>();
     private AccountReplayInput.Frame frame;
     private long now,sequence,cash,realized,taxPaid,interactions,saleUpdates,completedSales,losses,losingSaleUpdates,drawdown,peak;
-    private long authorizedSales,withdrawnGuidance;
+    private long authorizedSales,withdrawnGuidance,replacementBuys,relistedSales;
     private int missed; private boolean marksComplete=true;
     private final String completionModel;
     private final boolean baseline;
@@ -128,9 +134,13 @@ final class AccountReplay implements AutoCloseable {
         }
         completionModel=challenger==null?ExecutionForecast.MODEL_VERSION:ExecutionEvaluationMain.hash(AccountReplayMain.bytes(challenger));
         entries=fixture==null?planner::plan:fixture;
+        replacementPlanner=new ReplacementEntryPlanner(entries::plan);
         List<ItemMetadata> metadata=new ArrayList<>();
         for(var item:input.mapping.values())metadata.add(new ItemMetadata(item.id,item.name,item.members,item.buyLimit,0));
-        tax.resolveExemptions(metadata);syntheticDatabase=newSyntheticDatabase;store=new SqliteStore(newSyntheticDatabase);
+        tax.resolveExemptions(metadata);syntheticDatabase=newSyntheticDatabase;
+        continuationFile=newSyntheticDatabase.resolveSibling(newSyntheticDatabase.getFileName()+".continuations.json");
+        if(java.nio.file.Files.exists(continuationFile))throw new IllegalArgumentException("New synthetic continuation file required");
+        store=new SqliteStore(newSyntheticDatabase);
     }
     Result run() throws Exception {
         int index=0,visitIndex=0,restartIndex=0;
@@ -148,6 +158,10 @@ final class AccountReplay implements AutoCloseable {
                 store.close();store=new SqliteStore(syntheticDatabase);
                 limits.restore(store.buyLimitProjections(),Instant.ofEpochSecond(now));restartIndex++;
                 restoreOfferBindings();
+                continuations=java.nio.file.Files.exists(continuationFile)
+                    ?json.fromJson(java.nio.file.Files.readString(continuationFile),Continuations.class):new Continuations();
+                if(continuations==null)throw new IllegalStateException("Missing synthetic continuation state");
+                observeContinuations(null);
                 advisedPrices.clear(); // The live display cache is session-local too.
                 // The simulated game world persists. No old financial observation is replayed.
                 var ledger=store.ledgerSnapshot(ACCOUNT,now);
@@ -159,7 +173,7 @@ final class AccountReplay implements AutoCloseable {
                 }
                 if(pending!=null) {
                     // A restarted foreground must accept guidance again; old displayed advice is withdrawn.
-                    withdrawnGuidance++;pending=now<visitEnd && visit!=next?guide():null;
+                    withdrawnGuidance++;pending=now<visitEnd && visit!=next?display(guide()):null;
                     action=pending!=null && now+input.actionSeconds<=visitEnd?now+input.actionSeconds:Long.MAX_VALUE;
                 }
             }
@@ -167,7 +181,7 @@ final class AccountReplay implements AutoCloseable {
                 pending=null;action=Long.MAX_VALUE;
                 if(input.missedVisitIndices.contains(visitIndex++))missed++;
                 else {
-                    visitEnd=Math.addExact(now,input.visitSeconds);pending=guide();
+                    visitEnd=Math.addExact(now,input.visitSeconds);pending=display(guide());
                     if(pending!=null)action=Math.addExact(now,input.actionSeconds);
                 }
                 visit=Math.addExact(visit,cadence*60L);
@@ -175,9 +189,9 @@ final class AccountReplay implements AutoCloseable {
             if(action==next) {
                 Guidance current=guide(); // Fresh canonical sources and final authority at the actual action time.
                 if(pending.sameOrder(current) && pending.validUntil>now) {
-                    execute(pending);pending=guide();
+                    execute(pending);pending=display(guide());
                 } else {
-                    withdrawnGuidance++;abstain("DISPLAYED_GUIDANCE_CHANGED");pending=current;
+                    withdrawnGuidance++;abstain("DISPLAYED_GUIDANCE_CHANGED");pending=display(current);
                 }
                 action=pending!=null && now+input.actionSeconds<=visitEnd?now+input.actionSeconds:Long.MAX_VALUE;
             }
@@ -192,14 +206,43 @@ final class AccountReplay implements AutoCloseable {
         if(collection.isActionable())return offerGuidance("COLLECT",offers[collection.getSlot()],0,null,false);
         MarketIngestionService.MarketState market=frame.market(input.mapping);
         if(now-market.observedAt>120){abstain("MARKET_DATA_STALE");return null;}
-        var buyDecision=new BuyMaintenanceServiceAdapter().decide(events(),market,limits,now);
-        if(buyDecision!=null && buyDecision.getAction()==OfferLifecycleAction.CANCEL_BUY) {
-            for(Offer offer:offers)if(offer!=null && offer.buy && offer.identity.equals(buyDecision.getCandidateId()))
-                return offerGuidance("CANCEL_BUY",offer,0,null,false);
+        var buyStatus=observeContinuations(null);
+        if(buyStatus==OfferContinuation.Status.COLLECTED) {
+            var planning=currentEntryAccount(account,market);
+            if(planning==null)return null;
+            var reply=replacementPlanner.plan(continuations.buy.getItemId(),continuations.buy.getCollectedRemaining(),market,
+                planning,limits.remaining(input.mapping,Instant.ofEpochSecond(now)),events(),now);
+            if(reply.getDecision().getAction()!=OfferLifecycleAction.PLACE_BUY){abstain(reply.getDecision().getReasonCode());return null;}
+            return entryGuidance(reply.getPlan(),reply.getPlan().getAllocations().get(0).getCandidate(),freeSlot(),
+                "REPLACE_BUY",continuations.buy.getOriginalIdentity());
         }
         var sale=store.saleProjections(ACCOUNT,now);
         Map<Integer,PositionProjection> canonical=new TreeMap<>();
         for(var p:sale.ledger.getTradingPositions())canonical.put(p.getItemId(),p);
+        if(sellContinuationStatus==OfferContinuation.Status.COLLECTED && freeSlot()>=0) {
+            var holding=canonical.get(continuations.sell.getItemId());
+            var relist=sellGuidance(holding,continuations.sell.getCollectedRemaining(),sale,account,market,
+                "RELIST_SELL",continuations.sell.getOriginalIdentity());
+            if(relist==null)abstain("RELIST_EVIDENCE_OR_PRICE_UNAVAILABLE");
+            return relist;
+        }
+        var buyDecision=new BuyMaintenanceServiceAdapter().decide(events(),market,limits,now);
+        if(buyDecision!=null && buyDecision.getAction()==OfferLifecycleAction.CANCEL_BUY) {
+            for(Offer offer:offers)if(offer!=null && offer.buy && offer.identity.equals(buyDecision.getCandidateId())
+                && offer.placedAt<=now && (now-offer.placedAt)/60>=horizon.staleOfferMinutes()) {
+                if(continuations.buy!=null && continuations.buy.getItemId()==offer.item){continuations.buy=null;saveContinuations();}
+                return offerGuidance("CANCEL_BUY",offer,0,null,false);
+            }
+        }
+        for(Offer offer:offers)if(offer!=null && offer.buy && !offer.terminal) {
+            var quote=latest(offer.item);
+            if(quote==null || quote.getLow()==null || quote.getLow()>=Integer.MAX_VALUE)continue;
+            int price=advisedPrices.price(offer.item,true,quote.getLow()+1,now);
+            var proposal=BuyRepricePricing.quote(offer.item,offer.price,offer.remaining(),offer.placedAt,quote,
+                aggregate(offer.item,market),horizon,tax,now,price,input.minimumProfit);
+            if(proposal==null)continue;
+            return offerGuidance(proposal.replace?"REPRICE_BUY":"CANCEL_BUY",offer,price,null,false);
+        }
         for(Offer offer:offers)if(offer!=null && !offer.buy && !offer.terminal) {
             var holding=canonical.get(offer.item);
             var proposal=maintenance.quote(offer.item,offer.price,offer.remaining(),position(holding),latest(offer.item),
@@ -218,29 +261,11 @@ final class AccountReplay implements AutoCloseable {
         int slot=freeSlot();
         if(slot<0){abstain("NO_FREE_SLOT");return null;}
         for(var holding:canonical.values()) {
-            Position stock=position(holding);
-            int quantity=inventory.getOrDefault(stock.getItemId(),0);if(quantity<=0 || offered(stock.getItemId()))continue;
-            LatestPrice quote=latest(stock.getItemId());
-            var decision=exits.evaluateManagedExit(stock,quote,null,frame.shortHistory.getOrDefault(stock.getItemId(),List.of()),
-                horizon,Instant.ofEpochSecond(now),input.minimumProfit,true,false,false);
-            if(!decision.isSell())continue;
-            int price=advisedPrices.price(stock.getItemId(),false,decision.getPrice(),now);
-            long cost=SaleAccounting.allocateCost(stock.getTotalCost(),stock.getQuantity(),quantity);
-            if(decision.getAction()!=SellDecision.Action.CUT) {
-                int floor=tax.breakEvenSellPriceForCost(stock.getItemId(),cost,quantity);
-                if(floor<=0)continue;price=Math.max(price,SellTimingEngine.protectedPrice(stock,horizon,Instant.ofEpochSecond(now),floor));
-            }
-            boolean cut=decision.getAction()==SellDecision.Action.CUT;
-            if(!authorizeSale(sale,account,market,stock.getItemId(),price,quantity,holding.getSourceEventId(),cut,-1))continue;
-            return new Guidance("SELL",slot,stock.getItemId(),price,quantity,null,holding.getSourceEventId(),
-                holding.getTotalCost(),0,cut,now,null,null,holding.getExitContext(),Long.MAX_VALUE);
+            if(offered(holding.getItemId()) || continuations.buy!=null && continuations.buy.getItemId()==holding.getItemId())continue;
+            var advice=sellGuidance(holding,Integer.MAX_VALUE,sale,account,market,"SELL",null);
+            if(advice!=null)return advice;
         }
-        var read=store.planningProjections(ACCOUNT);
-        var exposure=DurablePlanningExposure.forAccount(read,account,now);
-        if(exposure==null){abstain("CURRENT_EVIDENCE_UNAVAILABLE");return null;}
-        var risk=DurableRisk.evaluate(read,account,exposure,market,now);
-        if(!risk.isAvailable()){abstain("DURABLE_RISK_UNAVAILABLE: "+risk.getReason());return null;}
-        account=account.withPlanningRestrictions(exposure.committedByItem,exposure.unavailableEntryItems).withCanonicalRisk(risk);
+        account=currentEntryAccount(account,market);if(account==null)return null;
         Map<Integer,Integer> remaining=limits.remaining(input.mapping,Instant.ofEpochSecond(now));
         PortfolioPlan plan=entries.plan(market,account,remaining,events(),Instant.ofEpochSecond(now));
         PortfolioAllocation allocation=plan.getAllocations().isEmpty()?null:plan.getAllocations().get(0);
@@ -253,11 +278,44 @@ final class AccountReplay implements AutoCloseable {
             || new PortfolioOptimizer().optimize(List.of(c),constraints,plan.getCorrelationId(),now).getAllocations().isEmpty()) {
             abstain("ENTRY_CONSTRAINTS_CHANGED");return null;
         }
+        return entryGuidance(plan,c,slot,"BUY",null);
+    }
+    private AccountSnapshot currentEntryAccount(AccountSnapshot account,MarketIngestionService.MarketState market)throws Exception {
+        var read=store.planningProjections(ACCOUNT);
+        var exposure=DurablePlanningExposure.forAccount(read,account,now);
+        if(exposure==null){abstain("CURRENT_EVIDENCE_UNAVAILABLE");return null;}
+        var risk=DurableRisk.evaluate(read,account,exposure,market,now);
+        if(!risk.isAvailable()){abstain("DURABLE_RISK_UNAVAILABLE: "+risk.getReason());return null;}
+        return account.withPlanningRestrictions(exposure.committedByItem,exposure.unavailableEntryItems).withCanonicalRisk(risk);
+    }
+    private Guidance entryGuidance(PortfolioPlan plan,PortfolioCandidate c,int slot,String kind,String original) {
         int stop=(int)Math.round(c.getBuyPrice()*(1-horizon.getProfile().getLossCutPct()));
         AcquisitionExitContext context=c.getSellPrice()>stop && c.getSellHours()>0
             ?new AcquisitionExitContext(c.getSellPrice(),stop,c.getSellHours()*60):null;
-        return new Guidance("BUY",slot,c.getItemId(),c.getBuyPrice(),c.getQuantity(),null,null,0,0,false,now,c,plan.getCorrelationId(),context,
+        return new Guidance(kind,slot,c.getItemId(),c.getBuyPrice(),c.getQuantity(),original,null,0,0,false,now,c,plan.getCorrelationId(),context,
             Math.min(c.getExpiresAt(),plan.getExpiresAt()));
+    }
+    private Guidance sellGuidance(PositionProjection holding,int cap,SqliteStore.SaleProjections sale,AccountSnapshot account,
+            MarketIngestionService.MarketState market,String kind,String original) {
+        if(holding==null || freeSlot()<0)return null;
+        for(var offer:offers)if(offer!=null && offer.buy && offer.item==holding.getItemId())return null;
+        int listed=0;for(var offer:offers)if(offer!=null && !offer.buy && offer.item==holding.getItemId())listed+=offer.remaining();
+        Position stock=position(holding);
+        int quantity=Math.min(cap,Math.min(inventory.getOrDefault(stock.getItemId(),0),stock.getQuantity()-listed));
+        if(quantity<=0)return null;
+        var decision=exits.evaluateManagedExit(stock,latest(stock.getItemId()),null,frame.shortHistory.getOrDefault(stock.getItemId(),List.of()),
+            horizon,Instant.ofEpochSecond(now),input.minimumProfit,true,false,false);
+        if(!decision.isSell())return null;
+        int price=advisedPrices.price(stock.getItemId(),false,decision.getPrice(),now);
+        long cost=SaleAccounting.allocateCost(stock.getTotalCost(),stock.getQuantity(),quantity);
+        if(decision.getAction()!=SellDecision.Action.CUT) {
+            int floor=tax.breakEvenSellPriceForCost(stock.getItemId(),cost,quantity);
+            if(floor<=0)return null;price=Math.max(price,SellTimingEngine.protectedPrice(stock,horizon,Instant.ofEpochSecond(now),floor));
+        }
+        boolean cut=decision.getAction()==SellDecision.Action.CUT;
+        if(!authorizeSale(sale,account,market,stock.getItemId(),price,quantity,holding.getSourceEventId(),cut,-1))return null;
+        return new Guidance(kind,freeSlot(),stock.getItemId(),price,quantity,original,holding.getSourceEventId(),
+            holding.getTotalCost(),0,cut,now,null,null,holding.getExitContext(),Long.MAX_VALUE);
     }
     private static Position position(PositionProjection p) {
         if(p==null)return null;
@@ -279,14 +337,28 @@ final class AccountReplay implements AutoCloseable {
         switch(advice.kind) {
             case "COLLECT": collect(offers[advice.slot]);break;
             case "CANCEL_BUY": cancel(offers[advice.slot]);break;
+            case "REPRICE_BUY": cancel(offers[advice.slot]);break;
             case "CANCEL_SELL": authorizedSales++;cancel(offers[advice.slot]);break;
             case "SELL": authorizedSales++;place(advice);break;
+            case "RELIST_SELL": authorizedSales++;relistedSales++;place(advice);break;
+            case "REPLACE_BUY": replacementBuys++;place(advice);break;
             case "BUY": place(advice);break;
             default: throw new IllegalStateException("Unknown displayed replay action");
         }
     }
+    private Guidance display(Guidance advice)throws Exception {
+        if(advice!=null) {
+            if("REPRICE_BUY".equals(advice.kind))rememberContinuation(offers[advice.slot],true);
+            if("CANCEL_SELL".equals(advice.kind))rememberContinuation(offers[advice.slot],false);
+            if("CANCEL_BUY".equals(advice.kind) && continuations.buy!=null && continuations.buy.getItemId()==advice.item) {
+                continuations.buy=null;saveContinuations();
+            }
+        }
+        return advice;
+    }
     private void place(Guidance advice) throws Exception {
-        int slot=advice.slot,item=advice.item,price=advice.price,quantity=advice.quantity;boolean buy="BUY".equals(advice.kind);
+        int slot=advice.slot,item=advice.item,price=advice.price,quantity=advice.quantity;
+        boolean buy="BUY".equals(advice.kind) || "REPLACE_BUY".equals(advice.kind);
         if(quantity<=0 || price<=0 || offers[slot]!=null)throw new IllegalStateException("Invalid simulated placement");
         if(buy)cash=Math.subtractExact(cash,Math.multiplyExact((long)price,quantity));
         else inventory.merge(item,-quantity,Integer::sum);
@@ -306,7 +378,8 @@ final class AccountReplay implements AutoCloseable {
             inventory.merge(offer.item,offer.filled,Integer::sum);
             cash=Math.addExact(cash,(long)offer.remaining()*offer.price);
         } else {inventory.merge(offer.item,offer.remaining(),Integer::sum);cash=Math.addExact(cash,offer.collectionCoins);}
-        int slot=offer.slot;offers[slot]=null;publishEmpty(slot);action("COLLECT "+offer.identity);
+        int slot=offer.slot;offers[slot]=null;publishEmpty(slot);
+        observeContinuations(observation(offer,true));action("COLLECT "+offer.identity);
     }
     private void flow(AccountReplayInput.Flow flow) throws Exception {
         if(flow.bucketEnd>now)throw new IllegalStateException("Future execution bucket");
@@ -368,7 +441,8 @@ final class AccountReplay implements AutoCloseable {
     }
     private OfferEvent publish(Offer o) throws Exception {
         var e=o.lastObservation==null && o.origin!=null?o.origin:event(o,null);
-        accept(e);o.lastObservation=e;limits.restore(store.buyLimitProjections(),Instant.ofEpochSecond(now));return e;
+        accept(e);o.lastObservation=e;limits.restore(store.buyLimitProjections(),Instant.ofEpochSecond(now));
+        observeContinuations(null);return e;
     }
     private OfferEvent event(Offer o,Guidance advice) {
         String type=o.terminal?(o.cancelled?(o.buy?"CANCELLED_BUY":"CANCELLED_SELL"):(o.buy?"BOUGHT":"SOLD")):(o.buy?"BUYING":"SELLING");
@@ -413,6 +487,49 @@ final class AccountReplay implements AutoCloseable {
         }
     }
     private Collection<OfferEvent> events(){List<OfferEvent> values=new ArrayList<>();for(Offer o:offers)if(o!=null)values.add(o.lastObservation);return values;}
+    private static OfferContinuation.Observation observation(Offer o,boolean collected) {
+        return new OfferContinuation.Observation(o.slot,o.item,o.buy,o.price,o.quantity,o.filled,o.placedAt,o.identity,
+            o.terminal?(o.cancelled?(o.buy?"CANCELLED_BUY":"CANCELLED_SELL"):(o.buy?"BOUGHT":"SOLD")):(o.buy?"BUYING":"SELLING"),collected);
+    }
+    private List<OfferContinuation.Observation> observedBoard() {
+        var board=new ArrayList<OfferContinuation.Observation>();
+        for(var offer:offers)if(offer!=null)board.add(observation(offer,false));
+        return board;
+    }
+    private void rememberContinuation(Offer offer,boolean buying)throws Exception {
+        var current=buying?continuations.buy:continuations.sell;
+        if(current!=null && current.valid(now) && current.matches(observation(offer,false)))return;
+        var created=OfferContinuation.advise(observation(offer,false),observedBoard(),!buying,now,buying?now+1800:0);
+        if(buying)continuations.buy=created;else continuations.sell=created;
+        saveContinuations();
+    }
+    private OfferContinuation.Status observeContinuations(OfferContinuation.Observation settled)throws Exception {
+        var board=observedBoard();boolean changed=false;
+        var buyStatus=OfferContinuation.Status.CLOSED;sellContinuationStatus=OfferContinuation.Status.CLOSED;
+        if(continuations.buy!=null) {
+            if(!continuations.buy.isBuying())throw new IllegalStateException("Wrong continuation side");
+            long revision=continuations.buy.getRevision();buyStatus=continuations.buy.observe(board,settled,now);
+            changed=continuations.buy.getRevision()!=revision;
+            if(buyStatus==OfferContinuation.Status.CLOSED)continuations.buy=null;
+        }
+        if(continuations.sell!=null) {
+            if(continuations.sell.isBuying())throw new IllegalStateException("Wrong continuation side");
+            long revision=continuations.sell.getRevision();sellContinuationStatus=continuations.sell.observe(board,settled,now);
+            changed|=continuations.sell.getRevision()!=revision;
+            if(sellContinuationStatus==OfferContinuation.Status.CLOSED)continuations.sell=null;
+        }
+        if(changed)saveContinuations();return buyStatus;
+    }
+    private void saveContinuations()throws Exception {
+        var temp=continuationFile.resolveSibling(continuationFile.getFileName()+".tmp");
+        java.nio.file.Files.writeString(temp,json.toJson(continuations));
+        try {java.nio.file.Files.move(temp,continuationFile,java.nio.file.StandardCopyOption.ATOMIC_MOVE,java.nio.file.StandardCopyOption.REPLACE_EXISTING);}
+        catch(java.nio.file.AtomicMoveNotSupportedException unsupported){java.nio.file.Files.move(temp,continuationFile,java.nio.file.StandardCopyOption.REPLACE_EXISTING);}
+    }
+    private com.flippingfriend.data.Candle aggregate(int item,MarketIngestionService.MarketState market) {
+        var raw=market.fiveMinute.get(Integer.toString(item));
+        return raw==null || !raw.isJsonObject()?null:json.fromJson(raw,com.flippingfriend.data.Candle.class);
+    }
     private long mark(long at,boolean haircut) {
         marksComplete=true;long value=0;
         for(Position p:stocks.values()) {
