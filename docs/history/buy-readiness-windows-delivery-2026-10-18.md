@@ -1,8 +1,11 @@
 # Current-stock buy pauses and maximized investigation windows
 
 18 October 2026 (America/Anchorage). Source branch `codex/buy-readiness-and-window-size`.
-This increment is not yet installed; runtime remains the verified #96 pair. Standard verification
-passes; both exact-head CI checks, paired delivery and player acceptance remain pending.
+PR [#98](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/98) is merged as `f662310` after
+both exact-head Windows/Linux checks passed on source `82e883b698c044a803cd60da35fe04a65b11822f`,
+run [39192695351](https://github.com/antonioditcharo/OSRS-Flipping-Friend/actions/runs/39192695351).
+The clean primary checkout fast-forwarded. Paired delivery awaits the requested normal RuneLite
+close; installed runtime remains the verified #96 pair. Installed/native player acceptance is pending.
 
 The owner reports intermittent buy pauses apparently concerning inaccurate records, and requests
 full-screen native investigation windows. Read-only retained plan analysis distinguishes legacy
@@ -49,6 +52,14 @@ the final build adds the confirmed-loss explanation regression. No financial or 
 Candidate plugin: 566,292 bytes, SHA-256 `742b80336e5fb2e8ad30a98c79ae80f8f417e75a4a862b9e2a1921ab4562706e`.
 Candidate companion: 18,044,098 bytes, SHA-256 `5522a6945fdbe192131cc56524b884c6144128b5e2f5579578ebb1fc210c3acc`.
 These are verified build identities, not a claim of installation.
+
+An additional read-only comparison uses a previously retained actual account/market capture and
+the retained #96 evaluator versus the new packaged evaluator. Every financial risk field is
+identical. This particular available-risk example also retains its original explanation; blocked
+quote details/recovery are established by the regression fixtures, not inferred from that example.
+`frozen-risk-comparison.json` retains the comparison privately. Current pre-update financial proof
+freezes 44,076 canonical rows, 1,393 financial effects and the sole original loss anchor. The
+current task XML/SDDL and installed #96 manifest are retained for after-update comparison.
 
 Private receipts: `before-fix.log`, `before-companion-fix.log`, `targeted-final.log`,
 `clean-build.log`, `python-tests.log`, retained scoped GETs and `retained-refusals.json` under the

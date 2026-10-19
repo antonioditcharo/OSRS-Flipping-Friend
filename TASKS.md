@@ -5,11 +5,12 @@ All unchecked release requirements remain visible below; detailed completion rec
 
 ## Active
 
-- [ ] Deliver/accept `codex/buy-readiness-and-window-size`: current-stock valuation explanations,
+- [ ] Deliver/accept merged #98/f662310: current-stock valuation explanations,
       prompt recheck on fresh market evidence and native maximized Records/Missed flips windows.
       Preserve historical separation, exact reserves, quote/source guards and original loss anchor.
       Windows clean 92s: 1,658 Java passed/six skips, Java 11; 108 tooling tests pass.
-      Both exact-head CI checks, paired delivery and player acceptance remain pending.
+      Both exact-head Windows/Linux checks pass. Paired delivery awaits the requested normal
+      RuneLite close; installed/native player acceptance remains pending. Genuine risk waits remain.
       Current installed runtime is #96. See docs/history/buy-readiness-windows-delivery-2026-10-18.md.
 
 - [ ] Deliver/accept the source graph increment in docs/architecture/market-graphs.md: independent
