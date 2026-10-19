@@ -9,6 +9,13 @@ Continuation impact order: trade-loop reliability/exit-context provenance, actua
 latency, production-policy account replay/returns, validated learning, then remaining product gaps.
 Read [the continuation prompt](docs/next-conversation-prompt.md); current delivery facts below govern.
 
+- [ ] Deliver and accept completed-offer latency source: reuse the validated canonical prefix
+      during prospective terminal prediction qualification, retaining earliest-original checks,
+      tail/external invalidation and atomic rollback/deduplication. The 30,000-source regression
+      reproduces the old rescan. See docs/architecture/completed-offer-latency.md and
+      docs/history/completed-offer-latency-2026-10-19.md. Exact build/CI/install and fresh controlled
+      source-to-ACK-to-guidance acceptance remain distinct; broader latency gates stay open below.
+
 - [x] Implement offline replay v6 canonical acquisition/exit provenance, final companion sale
       authority and delayed/revalidated displayed actions. Original source bindings reload on
       restart; missing context remains unknown. Completed sell orders and disposal updates have
