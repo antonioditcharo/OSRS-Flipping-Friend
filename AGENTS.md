@@ -114,6 +114,11 @@ are in `docs/project-direction.md`; historical package notes are not proof of ru
   Unknown live offer exposure, unbounded scope, confirmed losses, cash/slot/funding and buy-limit
   guards still apply. Unseen or unpriced proven stock has zero terminal value for entry risk,
   reserving its full exact cost without inventing a sale, current price or disposal.
+  Owner decision, 18 October 2026: CURRENT_ACCOUNT_V2 may value quiet stock using qualified
+  completed public-price/volume evidence with trades no older than 15 minutes, a 10% price haircut,
+  tax and quantity limits; quiet marks cannot credit gains. Direct marks retain the 120s rule.
+  Unseen or unsupported quantities keep their full exact-cost reserve. Preserve publication clocks
+  and every loss/source/cash/slot/limit guard; see docs/architecture/qualified-stock-risk-marks.md.
   Restart cannot reset the original loss anchor or confirmed losses.
   Client journal drawdown or wire-supplied canonicalRisk cannot authorize buys. Unknown profit stays
   unknown; preserve financial event identities/risk anchors under retention. Read

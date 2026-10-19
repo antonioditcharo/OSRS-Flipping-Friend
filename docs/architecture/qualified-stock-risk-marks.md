@@ -1,9 +1,10 @@
 # Qualified public-market stock risk marks
 
-18 October 2026. Candidate on `codex/qualified-stock-risk-marks`; not installed or owner-approved.
-The installed #98 policy still requires a last instant-sell trade within 120 seconds. This proposed
-change requires an explicit owner decision because it changes that risk rule; it is not a history
-repair, a guaranteed executable price or a learned calibration.
+18 October 2026. The owner explicitly approved this policy and the supported #101 pair is installed.
+[Delivery and acceptance receipt](../history/qualified-stock-valuation-2026-10-18.md). This replaces
+the strict 120-second-only rule from #98 with the qualified fallback below. It is not a history
+repair, a guaranteed executable price or a learned calibration. Fresh source/valuation and READY
+plan checks pass; sustained, final eligible entry and player acceptance remain pending.
 
 ## Problem and boundary
 
@@ -13,7 +14,7 @@ reserve after two minutes, exhaust the whole account's loss allowance and freeze
 The #98 explanation/retry fix did not change this valuation. A failing regression reproduces the
 freeze with synthetic two-unit stock costing 76M against a 100M account.
 
-The candidate retains the direct mark for a supported bid within 120 seconds. For a quieter bid,
+The implementation retains the direct mark for a supported bid within 120 seconds. For a quieter bid,
 CURRENT_ACCOUNT_V2 can use a discounted public-market estimate only when all of these hold:
 
 - The global feed is at most 120 seconds old; both low/high trade clocks are supported, no later
@@ -29,7 +30,7 @@ CURRENT_ACCOUNT_V2 can use a discounted public-market estimate only when all of 
   haircut rounded down and current-rule tax. Quiet marks cannot credit unrealized gains. Evidence
   expiry also shortens the risk snapshot's validity.
 
-The 900-second horizon, volume shares and 10% haircut are explicit proposed risk-policy choices,
+The 900-second horizon, volume shares and 10% haircut are explicit owner-approved risk-policy choices,
 not calibrated confidence bounds, order-book depth or a guarantee of liquidation. They have not
 been established by the account backtester or prospective return evidence. No scenario/prediction
 band or Copilot private endpoint supplies authority.

@@ -14,6 +14,15 @@ Historical session/cadence labels are unavailable; GP/hour remains unmeasured.
 
 ## Installed continuation — 18 October 2026
 
+Owner-approved #101 is installed after both exact-head checks. It addresses the reproduced quiet
+stock valuation freeze with completed public price/volume support, a 10% haircut/tax and quantity
+limits, while retaining full reserves for unsupported stock and every accounting/entry guard.
+The cutoff/shares/haircut are explicit policy choices, not calibrated liquidation bounds. Verified
+delivery checks, fresh eight-slot/valuation proof and READY plans pass; sustained, final eligible
+entry and player acceptance remain pending. Current slots are all occupied; no slots were cleared
+to force approval.
+[Current receipt](history/qualified-stock-valuation-2026-10-18.md).
+
 The #98 pair is installed after both exact-head checks. Current-stock valuation pauses name their
 item, exact reserve and missing/aged evidence, and retry promptly when newer market evidence
 arrives. All Records views and Missed flips open native maximized frames. Verified backup,

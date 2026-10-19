@@ -6,6 +6,12 @@ reported and affected stock stays paused, while verified current funds may suppo
 The earlier account-wide historical reserve charge below is superseded; original anchors, exact
 losses, current unpriced-stock reserves and live exposure/evidence guards remain active.
 
+18 October owner-approved continuation: [qualified quiet-stock marks](qualified-stock-risk-marks.md)
+add timestamped completed public price/volume support, a 10% price haircut/tax and quantity limits
+for trades within 15 minutes. Direct marks retain 120 seconds. Unsupported/unseen stock still has
+zero terminal value/full-cost reserve. The original anchor, confirmed losses and allowance arithmetic
+do not change; quiet marks cannot credit gains. This is a stated policy choice, not a calibrated bound.
+
 Implementation contract, 15 October 2026, for the active recommendation breaker. Local
 journal/session figures remain explicitly local estimates and cannot authorize new buys.
 

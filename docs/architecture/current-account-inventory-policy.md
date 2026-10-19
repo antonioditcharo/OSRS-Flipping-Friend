@@ -13,9 +13,10 @@ realized profit/tax bounds and confirmed losses remain unchanged. Restart cannot
 The full prospective historical uncertainty calculation remains present as a separate reported
 amount; it does not become recorded loss, profit, current holdings or spendable money.
 
-AccountRiskSnapshot schema 2 identifies CURRENT_ACCOUNT_V1 and separates historical uncertainty
+AccountRiskSnapshot schema 2 identifies CURRENT_ACCOUNT_V2 and separates historical uncertainty
 from current unpriced managed-stock cost. Old schema 1 arithmetic remains readable, while schema
-and policy validation prevent a new-policy result being silently downgraded. The companion always
+and policy validation prevent a new-policy result being silently downgraded. Prior CURRENT_ACCOUNT_V1
+snapshots remain readable without rewriting their identity. The companion always
 calculates authority from its own ledger; a client-supplied canonicalRisk never authorizes entry.
 
 Entry still requires fresh acknowledged cash/eight-slot receipts, known causal scope, consistent
@@ -39,14 +40,19 @@ their full exact cost is reserved. This can reduce or exhaust the allowance; it 
 a current quote, realized loss, sale, collection or disposal. Future/malformed quotes, scope or
 arithmetic still refuse evidence. Exits keep their own fresh-price requirements.
 
-Current risk marks require an instant-sell trade within 120 seconds. A quiet item's old quote can
-therefore cause a genuine current-stock reserve even while the public feed is fresh. This is
-separate from historical uncertainty. A blocked valuation names the stock, quantity, exact reserve,
-missing physical/quote evidence or trade age and cutoff; the card says "Waiting for stock valuation"
-and the details explain automatic reevaluation. A newer market snapshot retries a risk refusal
-inside the ordinary plan-spacing window, through the same full proof/financial checks. Diagnostic
-text cannot change authority, cost, loss allowance or the original anchor. Actual current-offer
-proof failures show their own scoped explanation; old/foreign diagnostics are withheld.
+Owner decision, 18 October 2026: direct marks retain the 120-second instant-sell trade rule.
+The approved [qualified stock-mark policy](qualified-stock-risk-marks.md) additionally permits
+discounted estimates for quiet stock with two-sided trades within 15 minutes and independently
+timestamped completed public price/volume support. A 10% price haircut, current tax, volume quantity
+caps and no quiet-mark gain credit apply. These are explicit policy choices, not calibrated bounds
+or promised executable liquidity. Every unseen/unsupported remaining unit retains its full cost
+reserve; the risk snapshot expires with its earliest source deadline.
+
+A blocked valuation names the stock, quantity, exact reserve and unsupported evidence. This is
+separate from historical uncertainty. New market evidence retries a risk refusal inside ordinary
+plan spacing, through the same full proof/financial checks. Diagnostic text cannot change cost,
+loss allowance or the original anchor. Current-offer proof failures retain their own scoped
+explanation; old/foreign diagnostics are withheld. Installation is recorded separately in HANDOFF.
 
 The sell engine retains an unseen purchase record and reports its unconfirmed location instead
 of proposing a phantom sale/withdrawal or holding the last slot for it. Current partial buys still
