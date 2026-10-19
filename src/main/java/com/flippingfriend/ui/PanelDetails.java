@@ -39,7 +39,7 @@ final class PanelDetails {
     private final JButton copyQuantity = new JButton("Copy quantity"), copyPrice = new JButton("Copy price");
     private Suggestion shown = Suggestion.idle();
     private boolean syncing;
-    private JDialog dialog;
+    private JFrame dialog;
     private BiConsumer<String, JComponent> presenter;
 
     PanelDetails(PositionsPanel holdings, HistoryPanel history, PortfolioPanel plan, StatsPanel performance,
@@ -136,15 +136,9 @@ final class PanelDetails {
         select(name);
         if (presenter != null) { presenter.accept(name, tabs); return; }
         if (dialog == null) {
-            dialog = new JDialog(SwingUtilities.getWindowAncestor(owner), "Flipping Friend - "+name, Dialog.ModalityType.MODELESS);
-            dialog.setDefaultCloseOperation(JDialog.HIDE_ON_CLOSE); dialog.setContentPane(tabs);
-            dialog.setSize(730, 540); dialog.setLocationRelativeTo(owner);
+            dialog = InvestigationWindow.create(SwingUtilities.getWindowAncestor(owner), "Flipping Friend - "+name,tabs);
         }
-        if("Price graph".equals(name) && dialog.getWidth()<1000) {
-            Rectangle screen=GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
-            dialog.setSize(Math.min(1320,screen.width-40),Math.min(820,screen.height-40));dialog.setLocationRelativeTo(owner);
-        }
-        dialog.setVisible(true);
+        InvestigationWindow.show(dialog);
     }
     private void refreshSelected() {
         String name = tabs.getTitleAt(tabs.getSelectedIndex());

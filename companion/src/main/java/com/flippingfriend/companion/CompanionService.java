@@ -715,8 +715,13 @@ final class CompanionService implements AutoCloseable
 		int freeSlots = snapshot == null ? -1 : snapshot.getFreeSlots();
 		boolean sellOnly = snapshot != null && snapshot.isSellOnly();
 		long now = Instant.now().getEpochSecond();
+		var currentMarket=market.state();
+        var refusedRisk=plan==null?null:plan.getCanonicalRisk();
+        boolean newRiskEvidence=plan!=null && plan.getOutcome()==PortfolioPlanOutcome.DRAWDOWN_LIMIT_REACHED
+            && refusedRisk!=null && refusedRisk.getMarketObservedAt()!=null && currentMarket!=null
+            && currentMarket.observedAt>refusedRisk.getMarketObservedAt() && currentMarket.observedAt<=now;
 		if (plan!=null && freeSlots == lastPlanFreeSlots && sellOnly == lastPlanSellOnly
-			&& now - lastPlanAt < MIN_PLAN_SPACING_SECONDS)
+			&& !newRiskEvidence && now - lastPlanAt < MIN_PLAN_SPACING_SECONDS)
 		{
 			return;
 		}

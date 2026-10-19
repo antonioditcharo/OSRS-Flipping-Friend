@@ -98,6 +98,13 @@ final class EntryDecisionPresenter
                 return Suggestion.waiting("Market data is not ready",
                     "No new buy will be suggested until the companion has current market data.");
             case ACCOUNT_STATE_UNAVAILABLE:
+                var unavailableRisk=plan==null?null:plan.getCanonicalRisk();
+                long checkedAt=java.time.Instant.now().getEpochSecond();
+                if(unavailableRisk!=null && unavailableRisk.isValid() && !unavailableRisk.isAvailable()
+                    && account!=null && account.equals(unavailableRisk.getAccountId())
+                    && plan.getCreatedAt()<=checkedAt && plan.getExpiresAt()>checkedAt
+                    && unavailableRisk.getEvaluatedAt()<=checkedAt && checkedAt-unavailableRisk.getEvaluatedAt()<=150)
+                    return Suggestion.waiting("Verifying current account",unavailableRisk.getReason());
             case COMPANION_UNAVAILABLE:
                 return Suggestion.waiting("Companion unavailable",
                     "No new buy will be suggested until the companion has a current account projection.");
@@ -123,8 +130,13 @@ final class EntryDecisionPresenter
                     && plan.getCreatedAt()<=now && plan.getExpiresAt()>now
                     && risk.getEvaluatedAt()<=now && now-risk.getEvaluatedAt()<=150
                     && risk.getValidUntil()>=now && risk.getRemainingLossBudget()<=0) {
-                    String headline=risk.getRiskCapital()>0 && risk.getUncertainLossReserve()>0
-                        ? "Trade evidence affects account risk" : "New buys are paused";
+                    String headline="New buys are paused";
+                    if(risk.isCurrentAccountPolicy()) {
+                        if(risk.getUnpricedManagedCostReserve()>0
+                            && risk.getRemainingLossBudget()>-risk.getUnpricedManagedCostReserve())
+                            headline="Waiting for stock valuation";
+                    }else if(risk.getRiskCapital()>0 && risk.getUncertainLossReserve()>0)
+                        headline="Trade evidence affects account risk";
                     return Suggestion.waiting(headline,risk.getReason());
                 }
                 // A missing/foreign/expired diagnostic cannot explain this account's refusal.

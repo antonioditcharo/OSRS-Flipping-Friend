@@ -43,7 +43,7 @@ public final class AccountRiskSnapshot {
         drawdownUpper = conservativeNet < 0 ? Math.negateExact(conservativeNet) : 0;
         remainingLossBudget = Math.subtractExact(fifteenPercent(riskCapital), drawdownUpper);
         status = "AVAILABLE";
-        reason = remainingLossBudget > 0 ? b.currentAccount && b.historical>0
+        String summary = remainingLossBudget > 0 ? b.currentAccount && b.historical>0
                 ? "Current-account risk available. Incomplete historical trades remain paused."
                 : "Durable account risk available."
             : riskCapital == 0 ? "No observed trading capital is available."
@@ -53,6 +53,10 @@ public final class AccountRiskSnapshot {
                     + "This reserve is not a confirmed loss."
                 : b.currentAccount?"The recorded and currently reserved loss guard has reached its 15% allowance."
                     : "The conservative account loss bound has reached its 15% risk allowance.";
+        reason=summary+(b.currentAccount && b.unpriced>0 && remainingLossBudget<=0
+            ? " Current stock reserve: "+String.format(java.util.Locale.ROOT,"%,d GP",b.unpriced)+". "
+                +b.valuationDetail+"Buy eligibility is rechecked automatically with new prices and current holdings. Historical uncertainty stays separate."
+            : "");
         if (!isValid()) throw new IllegalArgumentException("invalid available risk state");
     }
     public static AccountRiskSnapshot unavailable(String account, long at, String reason) {
@@ -67,6 +71,7 @@ public final class AccountRiskSnapshot {
         private long startingCapital, currentCapital, lower, upper, marked, reserve, bounded, unresolved, untracked, validUntil;
         private boolean currentAccount;
         private long historical,unpriced;
+        private String valuationDetail="";
         private Builder(String account, String window, String session, long start, long cursor, long at, long marketAt) {
             accountId = account; windowId = window; sessionId = session; startedAt = start;
             this.cursor = cursor; this.at = at; this.marketAt = marketAt;
@@ -83,6 +88,8 @@ public final class AccountRiskSnapshot {
             currentAccount=true;historical=historicalReserve;unpriced=unpricedOpenCost;return this;
         }
         public Builder validUntil(long value) { validUntil = value; return this; }
+        /** Display explanation only; this text never changes reserve arithmetic or entry authority. */
+        public Builder valuationDetail(String value) { valuationDetail=value==null?"":value;return this; }
         public AccountRiskSnapshot build() { return new AccountRiskSnapshot(this); }
     }
     /** Exact integer floor without multiplying a full account value by fifteen. */

@@ -11,7 +11,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import javax.swing.JDialog;
+import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
@@ -21,7 +21,7 @@ import javax.swing.table.AbstractTableModel;
 /** Opened separately. Evidence is read-only; no buttons mutate accounting or classify belongings. */
 final class MissedFlipsWindow {
     private final CompanionClient companion;
-    private JDialog dialog;
+    private JFrame dialog;
     private JPanel content;
     private JTable table;
     private String displayedAccount;
@@ -62,11 +62,9 @@ final class MissedFlipsWindow {
         refresh();
         if (presenter != null) { presenter.accept("Missed flips", content); return; }
         if (dialog == null) {
-            dialog = new JDialog(owner, "Missed flips", java.awt.Dialog.ModalityType.MODELESS);
-            dialog.setDefaultCloseOperation(JDialog.HIDE_ON_CLOSE);
-            dialog.setContentPane(content); dialog.setSize(1100, 460); dialog.setLocationRelativeTo(owner);
+            dialog = InvestigationWindow.create(owner,"Missed flips",content);
         }
-        dialog.setVisible(true);
+        InvestigationWindow.show(dialog);
     }
     void refresh() {
         refresh(true);

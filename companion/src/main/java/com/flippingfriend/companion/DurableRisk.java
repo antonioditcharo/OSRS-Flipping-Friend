@@ -31,8 +31,11 @@ final class DurableRisk {
                 return AccountRiskSnapshot.unavailable(id,now,"Waiting for fresh prices to evaluate account risk.");
             for(var offer:read.offers)if(offer.getState()!=OfferLifecycleState.EMPTY
                 && exposure.unavailableEntryItems.contains(offer.getItemId()))
-                return AccountRiskSnapshot.unavailable(id,now,"An active offer has unresolved trade evidence. Finish or collect that offer before new entries.");
+                return AccountRiskSnapshot.unavailable(id,now,"The current offer for "
+                    +(offer.getItemName()==null?"Item "+offer.getItemId():offer.getItemName())
+                    +" has unresolved execution evidence. Finish or collect that offer before new entries. Historical records stay separate.");
             long marked=0, unpricedCost=0;
+            List<String> valuationDetails=new ArrayList<>();
             long validUntil=Math.min(Math.addExact(market.observedAt,120),Math.addExact(account.getObservedAt(),150));
             for(var p:read.tradeScope.readyPositions()) {
                 int observed=account.getObservedHoldings()==null?0:account.getObservedHoldings().getOrDefault(p.getItemId(),0);
@@ -44,15 +47,20 @@ final class DurableRisk {
                 int quantity=(int)Math.min(p.getQuantity(),physical);
                 long visibleCost=quantity==0?0:SaleAccounting.allocateCost(p.getTotalCost(),p.getQuantity(),quantity);
                 unpricedCost=Math.addExact(unpricedCost,p.getTotalCost()-visibleCost);
+                describeReserve(valuationDetails,p.getItemName(),p.getItemId(),p.getQuantity()-quantity,
+                    p.getTotalCost()-visibleCost,"not in the current inventory, collection boxes or unsold GE stock");
                 if(quantity==0)continue;
                 var quote=market.latest==null?null:market.latest.getAsJsonObject(Integer.toString(p.getItemId()));
                 if(quote==null || !quote.has("low") || quote.get("low").isJsonNull()
                     || !quote.has("lowTime") || quote.get("lowTime").isJsonNull())
-                    {unpricedCost=Math.addExact(unpricedCost,visibleCost);continue;}
+                    {unpricedCost=Math.addExact(unpricedCost,visibleCost);
+                        describeReserve(valuationDetails,p.getItemName(),p.getItemId(),quantity,visibleCost,"no instant-sell quote available");continue;}
                 long bid=exactInteger(quote.get("low")), quoteAt=exactInteger(quote.get("lowTime"));
                 if(bid<=0 || bid>Integer.MAX_VALUE || quoteAt<=0 || quoteAt>now)
                     return AccountRiskSnapshot.unavailable(id,now,"A managed item's instant-sell quote is unsupported or in the future.");
-                if(now-quoteAt>120){unpricedCost=Math.addExact(unpricedCost,visibleCost);continue;}
+                if(now-quoteAt>120){unpricedCost=Math.addExact(unpricedCost,visibleCost);
+                    describeReserve(valuationDetails,p.getItemName(),p.getItemId(),quantity,visibleCost,
+                        "last instant-sell trade "+(now-quoteAt)+"s ago; the current risk mark requires a trade within 120s");continue;}
                 validUntil=Math.min(validUntil,Math.addExact(quoteAt,120));
                 var item=market.mapping.get(p.getItemId());
                 String name=item==null?null:item.name;
@@ -76,10 +84,17 @@ final class DurableRisk {
                 .realized(evidence.profitLower,evidence.profitUpper,evidence.boundedSales).marked(marked)
                 .validUntil(validUntil)
                 .uncertainty(unpricedCost,evidence.unresolvedManagedSales,evidence.untrackedUnpricedSales)
+                .valuationDetail(String.join(" ",valuationDetails)+(valuationDetails.isEmpty()?"":" "))
                 .currentAccountPolicy(historicalReserve,unpricedCost).build();
         }catch(RuntimeException malformed) {
             return AccountRiskSnapshot.unavailable(id,now,"Account risk evidence cannot be evaluated: "+malformed.getClass().getSimpleName()+".");
         }
+    }
+
+    private static void describeReserve(List<String> details,String name,int item,int quantity,long cost,String reason) {
+        if(quantity<=0 || cost<=0)return;
+        details.add(quantity+" × "+(name==null || name.isBlank()?"Item "+item:name)+": "+reason+" ("
+            +String.format(Locale.ROOT,"%,d GP",cost)+" reserved).");
     }
 
     private static long exactInteger(com.google.gson.JsonElement value) {

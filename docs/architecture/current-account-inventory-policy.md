@@ -39,6 +39,15 @@ their full exact cost is reserved. This can reduce or exhaust the allowance; it 
 a current quote, realized loss, sale, collection or disposal. Future/malformed quotes, scope or
 arithmetic still refuse evidence. Exits keep their own fresh-price requirements.
 
+Current risk marks require an instant-sell trade within 120 seconds. A quiet item's old quote can
+therefore cause a genuine current-stock reserve even while the public feed is fresh. This is
+separate from historical uncertainty. A blocked valuation names the stock, quantity, exact reserve,
+missing physical/quote evidence or trade age and cutoff; the card says "Waiting for stock valuation"
+and the details explain automatic reevaluation. A newer market snapshot retries a risk refusal
+inside the ordinary plan-spacing window, through the same full proof/financial checks. Diagnostic
+text cannot change authority, cost, loss allowance or the original anchor. Actual current-offer
+proof failures show their own scoped explanation; old/foreign diagnostics are withheld.
+
 The sell engine retains an unseen purchase record and reports its unconfirmed location instead
 of proposing a phantom sale/withdrawal or holding the last slot for it. Current partial buys still
 retain their stop/cancel and replacement workflows. Positive observed holdings are capped to the
