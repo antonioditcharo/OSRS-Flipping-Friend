@@ -12,9 +12,11 @@ latency, complete production replay/returns, gated learning and remaining produc
 2e30f76 (run 39279920742). Windows clean 66s: 1,726 Java passed/six existing skips, Java 11;
 108 tooling passed. VERIFIED backup 20261019-081258-a59c264b; installed pair/task XML/SDDL,
 all 61,527 retained event-log rows/1,469 financial effects/original loss anchor, status,
-1.13.2 compatibility and scoped GETs pass. Supported Start reopened RuneLite. Fresh login/GE and
-controlled buy/partial/collect/sell/cancel/relist/restart acceptance remain pending; the retained
-snapshot is aged, and its matching eight IDs do not establish current proof or a current setting.
+1.13.2 compatibility and scoped GETs pass. Supported Start reopened RuneLite;
+fresh authenticated eight-slot source proof/zero pending outbox/scoped Performance now pass after
+manual login. Fresh READY and final PLACE_BUY GET pass (156ms/250ms). Client delivered BUY/COLLECT/
+WAIT; full buy/partial/collect/sell/cancel/relist/restart and price-quality acceptance remain open.
+One subsequent legitimate financial append preserves the original prefix and anchor.
 [Contract](docs/architecture/acquisition-exit-context.md) and
 [receipt](docs/history/acquisition-exit-delivery-2026-10-19.md) retain source, tests and delivery.
 

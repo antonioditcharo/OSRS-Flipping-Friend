@@ -75,3 +75,27 @@ and player pricing-quality acceptance remain pending. Legacy plans stay unknown;
 does not resolve issue #70 or backfill history. Private delivery-state.json, individual CI receipt,
 installed artifacts, backup/task/prefix receipts and status/compatibility/pipeline/start logs retain
 the delivery evidence. Later documentation changes require no JAR reinstall.
+
+## Fresh post-login checkpoint
+
+Subsequent manual login produces fresh authenticated eight-slot source bindings at age ten seconds;
+all eight account read-set IDs resolve to accepted account/slot/capture-matching observations.
+The account-scoped outbox has zero pending events at that read. Scoped Performance is readable.
+Fresh portfolio READY and final PLACE_BUY / ENTRY_CANDIDATE_SELECTED GET pass in 156ms/250ms,
+with the current account in normal mode and six free slots at the captured frame. Earlier
+inconsistent-current-observation WAIT reads remain recorded; no guard was bypassed to obtain READY.
+
+Actual launched Client-thread deliveries include 19 BUY cards (median 1,466ms/max 2,578ms), three
+COLLECT cards (median 709ms/max 3,433ms) and nine WAIT cards (median 1,134ms/max 2,473ms).
+These are an early, uncontrolled request-to-delivery sample with diagnostic reads also active;
+they are not exact game-event-to-frame transitions, a comparable speed benchmark or sustained
+acceptance. The separate learning read took 2,140ms and remains OBSERVING/HOLD_FOR_VALIDATION.
+Do not attribute these timings to a new performance optimization in #108.
+
+One legitimate subsequent financial append increases effects to 1,470; the original 61,527-row
+source prefix, 1,469 effects and sole risk anchor remain unchanged. The immediate installation
+receipt separately records zero new effects before launch. Private fresh-final-entry.json,
+installed-108-read.json, fresh-runtime-details.json and delivery-state.json retain the source,
+scoped responses, timing and boundaries. Controlled complete trade-loop/original-exit-context/
+price-quality/partial/relist/restart and owner UI acceptance remain pending; fresh entry authority
+does not establish those outcomes. No financial replay, adoption or learning promotion occurred.

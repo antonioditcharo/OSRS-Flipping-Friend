@@ -38,8 +38,10 @@ PR #108 is merged as `fe8a33b9548559253968073e58d7aea69bd8078f` and INSTALLED at
 Windows/Linux checks. Windows clean 66s: 1,726 Java passed/six existing skips, Java 11;
 108 tooling passed. VERIFIED backup `20261019-081258-a59c264b`; pair/task XML/SDDL, all 61,527
 retained event-log rows/1,469 financial effects/original risk anchor, status, 1.13.2 compatibility
-and scoped GETs pass. Supported Start reopened RuneLite. Fresh login/GE and controlled acceptance
-remain pending; aged matching eight-slot IDs do not establish current proof or a current setting.
+and scoped GETs pass. Supported Start reopened RuneLite. Subsequent manual login yields fresh
+authenticated eight-slot source proof, zero pending outbox, scoped Performance, READY and final
+PLACE_BUY (156ms/250ms). Client delivered BUY/COLLECT/WAIT. One legitimate financial append
+preserves the old prefix/anchor. Controlled full-loop/price-quality and sustained timing remain open.
 Do not reinstall #108 merely to repeat delivery. Read newest HANDOFF and
 `docs/history/acquisition-exit-delivery-2026-10-19.md` for actual delivery/acceptance state.
 
