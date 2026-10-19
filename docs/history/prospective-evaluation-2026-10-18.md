@@ -57,3 +57,25 @@ Private `local-data/quiet-market-exit-20261018/execution-capture` and
 refusals. This step neither refits the training model nor activates learning. Chronological replay
 now shares v3 quiet-stock pricing, but its remaining production-policy and real benchmark gaps
 still prevent promotion.
+
+## Later #96 source checkpoint before the paired update
+
+The explicitly scoped read-only freezer now retains **39,153 source rows, cursor 44,075, 95
+episodes**. Source/evaluator revision is `1ebe4f807854d21d9d8c42e4192fc58c9e763b6a`; production
+writer remains installed #94. Manifest SHA-256:
+`78fb54743124a85439e73435046852dd8a4180ea4f44f543e7c41631964af9ec`.
+Forty-five forecasts qualify: 18 known completions, zero known incomplete, 27 ambiguous.
+
+The unchanged 20-forecast training model was evaluated using its own retained fitting JAR against
+the genuinely later cohort: **25 eligible, 13 known, 12 uncertain**. These include 11 cancelled/
+censored, 13 completed-interval and one open/censored outcome. Paired Brier-change bounds are
+**[-0.0216976956, +0.0124855575]**, with side/horizon/confidence and chronological slices also
+permitting degradation. HOLD_FOR_VALIDATION remains: fewer than 20 informative later outcomes,
+no required worst-case improvement, and missing independent whole-account return/loss evidence
+and explicit release approval. Counts, known profitable sales or graph scenarios cannot override it.
+
+A new fit from the full 45-forecast prefix is frozen solely for genuinely later validation. It
+has no runtime loader/activation. The new training fit is not held-out evidence. Private
+`local-data/market-graph-20261018/{execution-capture,prospective-challenger}` and
+`prospective-challenger-validation.json` retain the complete source/evaluator/model/bounds.
+Unknown and censored labels, immutable prediction bindings and the original account data persist.

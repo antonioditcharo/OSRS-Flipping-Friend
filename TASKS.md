@@ -10,9 +10,11 @@ All unchecked release requirements remain visible below; detailed completion rec
       explicitly experimental historical-return bands with reproducible rolling-origin evaluation.
       Native QA/full build pass: 1,653 Java passed/six skips and 108 tooling tests. Frozen evaluation
       reproduces; all four horizons have worse known-target MAE than persistence. Keep display-only.
-      Both exact-head CI checks, paired delivery and installed owner acceptance remain pending.
+      #96/1ebe4f8 is merged/installed after both exact-head CI checks passed. Verified backup,
+      hashes/Java 11/task/financial-prefix/status/compatibility/scoped GET checks pass; supported
+      Start reopened RuneLite. Fresh login/installed owner graph and guidance acceptance is pending.
       See docs/history/market-graph-delivery-2026-10-18.md.
-      Installed runtime remains #94. Public market data and other players' trades never become
+      Installed runtime includes #94 sells and #96 graphs. Other players' trades never become
       this account's missing ledger rows or execution samples. Validated forecast quality remains open.
 
 - [x] Deliver/accept initial sell guidance in installed #94. Owner reported indefinite verification
@@ -126,7 +128,7 @@ All unchecked release requirements remain visible below; detailed completion rec
       evaluation against a frozen baseline with return/loss/calibration guardrails.
       A reproducible bounded-logit/minimax Brier fitter and chronological validation CLI now exist;
       unknown/censored labels remain visible. The earlier validation has zero paired Brier improvement;
-      the newer fit's later seven-forecast cohort (two known/five unknown) still permits degradation.
+      the newer fit's later 25-forecast cohort (13 known/12 uncertain) still permits degradation.
       No model activates. See
       docs/history/prospective-evaluation-2026-10-18.md. Runtime promotion/compatible forecast loader, rollback
       and drift controls remain unimplemented. No fitted artifact activates learning.
