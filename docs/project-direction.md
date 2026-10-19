@@ -14,16 +14,23 @@ Historical session/cadence labels are unavailable; GP/hour remains unmeasured.
 
 ## Installed continuation — 18 October 2026
 
+The native market-graph increment is source-verified and awaiting CI/paired delivery/player
+acceptance; [current graph receipt](history/market-graph-delivery-2026-10-18.md). It adds real public
+low/high/volume history, selected-item investigation and experimental historical-return scenarios.
+Frozen one-item price error is worse than persistence at all four tested horizons; these scenarios
+do not enter trading policy or execution learning. No Copilot all-users log feed is introduced.
+
 The owner subsequently reported continued sale waiting. Fresh GETs reproduce a quiet last-trade
 freshness refusal on verified held stock. The shared client/companion/replay non-loss limit fix is
 tested, merged and installed in #94; [current receipt](history/quiet-market-sale-delivery-2026-10-18.md).
 Replay v3 distinguishes the changed exit semantics. Entry, risk marks, loss-cut/maintenance
-freshness and historical accounting guards remain; real player acceptance is still required.
+freshness and historical accounting guards remain. Owner confirms the initial Sell-card check
+"Looks good"; full partial/cancel/relist/restart acceptance remains required.
 
 The owner-selected current-account policy and combined sell-verification fixes through #94 are
 installed. Historical unknown money stays visible/affected stock paused, while verified current
-funds can support unrelated buys. Owner-confirmed buy availability is recorded; fresh updated
-sell/maintenance and controlled trading acceptance remain pending. The [delivery receipt](history/sale-guidance-delivery-2026-10-18.md)
+funds can support unrelated buys. Owner confirms buy availability and initial sell guidance;
+complete maintenance/controlled trading acceptance remains pending. The [delivery receipt](history/quiet-market-sale-delivery-2026-10-18.md)
 separates source, tests, installed pair, financial preservation and acceptance.
 Replay v3 shares live display-price stability and quiet-stock pricing; complete replacement/relist/foreground coverage
 and qualified market benchmarks remain open. [New frozen evidence/fitting](history/prospective-evaluation-2026-10-18.md)

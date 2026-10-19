@@ -1,54 +1,39 @@
-# Native sidebar visual QA
+# Market graph design QA
 
-14 October 2026. Scope: production Swing components, synthetic data, RuneLite 1.13.1 RuneLiteLAF.
-No live game screenshot, login or game input was produced. Product Design's reference-first and
-comparison workflow is adapted to the requested Java plugin; no web prototype replaces it.
+Reference: retained user screenshot `local-data/market-graph-20261018/reference.png`.
+Prior sidebar receipt is preserved in [native-sidebar-design-qa-2026-10-14.md](docs/history/native-sidebar-design-qa-2026-10-14.md). Native window chrome is 26px; compare its 1905x1000 content with the actual Swing render, not a website prototype.
 
-## Reference and comparable artifacts
+## Pass 1 — blocked
 
-Reference: public [Copilot screenshot at hub revision c8dbb515](https://github.com/cbrewitt/flipping-copilot/blob/c8dbb5155c44156ed3050c50155b086c25815556/images/flipping-copilot-ui.png).
-Full image 1034x499; sidebar crop x=767..1005, y=0..498 is 239x499.
-Local source: `.gradle/reference/flipping-copilot-ui.png` (ignored public reference).
+Source and `local-data/market-graph-20261018/render-1/graph-1905.png` plus `graph-730.png` were opened together in one comparison. Both show the native RuneLite dark graph. Data differ deliberately: the source search says Huasca seed but its statistics say Gilded 2h sword; Friend binds all values to the selected Huasca seed from independently captured public data. Copilot forecasts are not copied or represented as validated.
 
-Implementation: `build/ui/compact-buy.png`, 239x499 at 1x raster density; narrow stress 225x499;
-opened detail views 730x540. Captures paint actual FlippingFriendPanel / PanelDetails components
-with RuneLite fonts and RuneLiteLAF. A local mock ItemManager supplies a sprite from the public
-reference only for comparison; production uses ItemManager images. CI without that local fixture
-still checks the actual image callback.
+- [P2] Time-axis labels overlap at 730px; reduce tick count according to available plot width.
+- [P2] Native selected-tab background loses text contrast; use the real records window dark-tab component and a visible selected underline.
+- [P3] RuneLite small font is slightly denser than the reference. Keep the product font while checking readable narrow labels after the fixes.
 
-Inspected full source/render together in `.gradle/reference/panel-comparison.png` (498x529 with
-labels/gutter), then focused source/render in `.gradle/reference/panel-comparison-focus.png`
-(498x240). These ignored local comparisons can be regenerated from the linked source and committed
-target render. Review captures are under `docs/images/compact-*.png` and `details-*.png`.
-Reviewed before/after, BUY, manual SELL, paused, waiting, long item, Recommendation, Settings,
-Holdings and Performance. Fixtures contain no personal account data.
+Mandatory surfaces: fonts are genuine bundled RuneLite fonts; layout has the same search/ranges/legend/chart/volumes/statistics structure; blue/orange price and band tokens match the reference; Material PNG controls are original licensed source assets; graphs are quantitative Java2D plots rather than image approximations; experimental copy explicitly describes historical ranges. Item icon is provided by the real runtime ItemManager and absent in the standalone fixture. Primary controls are exercised as actual Swing interactions.
 
-## Review and iteration
+Fixes are applied; a new capture and comparison are required.
 
-| Check | Result |
+final result: blocked (pass 1)
+
+## Pass 4 — native rendering passed
+
+Source and the actual RuneLiteLAF implementation in `local-data/market-graph-20261018/render-4/` were opened together in one comparison, including 1905x1000, 1000x680 and 730x540. The 26px native source title bar is excluded from the content comparison; Java raster density is 1x. This is production Swing component rendering, not a mock web page.
+
+Earlier P2s are resolved: adaptive time ticks have no overlap, dark native tabs retain readable selected text and an underline. Controls/legend align with the plot at wide sizes and remain available at narrow sizes. The right panel keeps its item name, genuine RuneLite item sprite and statistics consistent with the selected chart. Forecast/history and volume regions remain distinct. Wrapped status/source text is visible at 730px.
+
+| Required surface | Evidence/result |
 | --- | --- |
-| Layout | Action, four-icon row, cadence, risk and recorded total fit 239x499; old accordion/onboarding removed. |
-| Fonts | Native RuneLite regular/small/bold, exact quantity and full GP precision readable at 1x. |
-| Spacing | Centered action caption, short rows, thin rules; detail content shares a 12px left inset. |
-| Colors | Charcoal, bright instruction, gold amount/selected presets, green profit/red losses and disabled controls. |
-| Assets | Real Material PNGs with LICENSE/NOTICE and ItemManager callback; no drawn icon glyph substitutes. |
-| Copy | Actual quantity/unit price, cancel/collect/relist, Recorded profit, unresolved/unavailable coverage. |
-| Connections | Production controls exercise graph, records, settings, skip/block, pause, cadence, risk and sell-only. |
-| Overflow | Long item and max integer price wrap at 225px with geometry checks; explanations remain in details. |
+| Fonts | Actual RuneLite small/regular/bold fonts; native data labels readable at 1x. Slightly denser label style is retained as P3 product consistency. |
+| Spacing/layout | Wide plot, lower side volumes, fixed information column, native search and range/zoom controls. Narrow view keeps all primary controls and uses fewer time ticks. |
+| Colors/tokens | Charcoal plot/surfaces, blue low/orange high lines, translucent same-side ranges, dashed medians and contrasting selected tabs. |
+| Images/icons | Real ItemManager sprite path exercised with an independently sourced RuneLite CDN item image; licensed original Material zoom/reset/expand PNGs. No generated/fake chart or icon artwork. |
+| Copy/data | Selected-item binding correct; UTC times, partial volume, unknown fields and experimental historical ranges are explicit. No claimed Copilot model, fill guarantee or learning promotion. |
+| Interactions | Native tests exercise name/ID search, explicit suggested-item switch, real time ranges, zoom/reset, keyboard navigation and projection toggle. Runtime expand/restore uses the current monitor work area. |
 
-Iterations fixed a preset remaining highlighted under a custom cadence, cached narrow line heights,
-and mixed Settings alignment. Each has a failing automated case before its fix. An initial details
-measurement included FlatLaf's default border instead of the component's actual border; the fixture
-false positive was corrected before identifying the remaining long-item clip (16px for 48px).
-The final geometry gate passes. A connection review then caught inventory-only cash replacing the old planner budget; a failing test now preserves bank/collection coins, bankroll cap and the F2P indicator, followed by the footer correction.
+Intentional differences: own Friend navigation; range controls above rather than over price observations; source and experimental-method explanation; independently sourced Huasca data rather than the reference's mismatched Gilded statistics/private forecasts. No guide line is invented when the current instruction is for another item. These preserve the requested functional workflow while retaining evidence boundaries.
 
-Intentional differences: own branding/Material icons; inline risk; exact durable Recorded profit
-instead of an unsupported session/reset counter; records opened separately instead of mixing
-estimated journal rows into realized totals. No invented cloud controls or recent-profit figures.
-This matches the reference's compact workflow while preserving the project's accounting contracts.
+P0/P1/P2 findings: none remaining in the rendered scope. Live monitor scaling, window focus, current-monitor expand/restore and owner acceptance remain separate release checks. The existing compact sidebar receipt remains archived rather than overwritten.
 
-No actionable P0/P1/P2 visual issue remains in the rendered scope. Live scaling, window focus,
-real sprite loading and owner-operated GE acceptance remain pending and are not claimed observed.
-Acceptance steps: `docs/architecture/compact-panel.md`.
-
-final result: passed (native rendering scope only; live acceptance pending)
+final result: passed (native rendering scope; installed/player acceptance pending)

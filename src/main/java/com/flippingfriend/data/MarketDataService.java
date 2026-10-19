@@ -81,6 +81,7 @@ public class MarketDataService
 	private final WikiPriceClient client;
 	private final Gson gson;
 	private final Path cacheDir;
+    private final GraphHistoryCache graphHistory;
 
 	private final AtomicReference<MarketSnapshot> snapshot = new AtomicReference<>(MarketSnapshot.empty());
 	private final AtomicBoolean running = new AtomicBoolean();
@@ -144,6 +145,8 @@ public class MarketDataService
 		this.client = client;
 		this.gson = gson;
 		this.cacheDir = storage.sharedDir();
+        graphHistory=new GraphHistoryCache((item,step)->companion==null?null:companion.fetchSeries(item,step),
+            (item,step)->client==null?null:client.fetchTimeseries(item,step));
 	}
 
 	/**
@@ -177,6 +180,7 @@ public class MarketDataService
 		}
 
 		startedAt = Instant.now();
+        graphHistory.start();
 		failures.clear();
 
 		ThreadFactory threads = r ->
@@ -320,6 +324,7 @@ public class MarketDataService
 
 	public void stop()
 	{
+        graphHistory.close();
 		if (!running.compareAndSet(true, false))
 		{
 			return;
@@ -331,6 +336,10 @@ public class MarketDataService
 		}
 		updateListener = null;
 	}
+
+    /** A separate focused cache and worker; these reads cannot change production strategy inputs. */
+    public List<Candle> getGraphSeries(int item,String step){return graphHistory.get(item,step);}
+    public String graphHistoryProblem(int item,String step){return graphHistory.problem(item,step);}
 
 	/**
 	 * History for one item, fetched on demand and cached. Returns an empty list rather than blocking

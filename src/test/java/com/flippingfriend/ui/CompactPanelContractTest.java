@@ -100,7 +100,9 @@ public class CompactPanelContractTest {
         });
         assertEquals(Arrays.asList("Price graph","Settings","Performance","Recommendation","Price graph","Plan","Holdings",
             "Performance","Recorded sales","Local history","Bank estimate","Market drops","Settings","Missed flips"),opened);
-        verify(market,atLeastOnce()).getSeries(561,"1h"); verify(market,never()).getSeries(4151,"1h");
+        verify(market,atLeastOnce()).getGraphSeries(561,"1h");
+        verify(market,never()).getGraphSeries(eq(4151),anyString());
+        verify(market,never()).getSeries(anyInt(),anyString());
     }
     @Test public void controlsDisableForNonBuyAdviceAndFollowGuideCorrections() throws Exception {
         when(guide.getSuggestion()).thenReturn(Suggestion.builder(SuggestionType.SELL).item(2361,"Adamant bar").quantity(5).price(222).profitKnown(false).build());

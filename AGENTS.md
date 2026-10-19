@@ -118,6 +118,9 @@ are in `docs/project-direction.md`; historical package notes are not proof of ru
   docs/architecture/durable-risk-window.md. Source verification is not live acceptance.
 - Prefer complete player workflows and behavioral regression tests over new inactive scaffolding.
   Preserve manual game interaction while preparing feature parity.
+  Public chart history/projection scenarios are separate from account executions and production
+  strategy inputs. They cannot repair financial gaps, promote learning or authorize orders. Keep
+  their source, uncertainty and experimental display status explicit; see docs/architecture/market-graphs.md.
 - The owner authorizes agent-managed routine backup verification, paired updates and launching.
   Batch fixes and acceptance checks; do not require a response, pasted log or INSTALL confirmation
   for each routine step. Use tools/apply-update.ps1 -Unattended for a verified existing installation.

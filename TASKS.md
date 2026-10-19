@@ -5,6 +5,16 @@ All unchecked release requirements remain visible below; detailed completion rec
 
 ## Active
 
+- [ ] Deliver/accept the source graph increment in docs/architecture/market-graphs.md: independent
+      public 5m/1h/6h history, low/high/volume, selected-item stats, ranges/zoom/pan/reset/expand and
+      explicitly experimental historical-return bands with reproducible rolling-origin evaluation.
+      Native QA/full build pass: 1,653 Java passed/six skips and 108 tooling tests. Frozen evaluation
+      reproduces; all four horizons have worse known-target MAE than persistence. Keep display-only.
+      Both exact-head CI checks, paired delivery and installed owner acceptance remain pending.
+      See docs/history/market-graph-delivery-2026-10-18.md.
+      Installed runtime remains #94. Public market data and other players' trades never become
+      this account's missing ledger rows or execution samples. Validated forecast quality remains open.
+
 - [x] Deliver/accept initial sell guidance in installed #94. Owner reported indefinite verification
       after #91/#92; fresh scoped GETs reproduce SALE_QUOTE_STALE for verified held stock. Shared
       client/companion/replay non-loss limit is installed after both exact-head checks. Windows clean:
