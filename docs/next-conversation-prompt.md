@@ -33,6 +33,11 @@ rebuilding already implemented capabilities:
 
 ## Delivery state at this handoff
 
+Completed-offer latency source reuses the validated canonical prefix during terminal prediction
+qualification, preserving original-source/transaction checks and external/tail/rollback invalidation.
+Read docs/architecture/completed-offer-latency.md and docs/history/completed-offer-latency-2026-10-19.md
+for measured source, exact-head CI and actual installed state; do not infer installation from source.
+
 Offline replay v6 adds canonical original-context qualification, transactional final companion sale
 authority and delayed/revalidated displayed actions, including restart withdrawal. See
 docs/architecture/replay-canonical-sale.md and docs/history/replay-canonical-sale-2026-10-19.md.

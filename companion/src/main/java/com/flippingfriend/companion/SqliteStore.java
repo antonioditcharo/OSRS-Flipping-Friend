@@ -341,35 +341,31 @@ final class SqliteStore implements AutoCloseable
             try (var rows=sql.executeQuery()) { if (rows.next()) return 0; }
         }
         OfferEvent origin=null;
-        var parser=new com.google.gson.Gson();
-        try (var sql=connection.prepareStatement(
-                "SELECT event_id,payload FROM event_log WHERE event_id IS NOT NULL AND event_id<>'' ORDER BY id");
-                var rows=sql.executeQuery()) {
-            while (rows.next()) {
-                OfferEvent recorded;
-                try { recorded=parser.fromJson(rows.getString(2),OfferEvent.class); }
-                catch (RuntimeException malformed) { return 0; }
-                if (recorded==null || !rows.getString(1).equals(recorded.getEventId())) return 0;
-                boolean same=java.util.Objects.equals(event.getAccountId(),recorded.getAccountId())
-                    && java.util.Objects.equals(event.getSessionId(),recorded.getSessionId())
-                    && java.util.Objects.equals(event.getOfferIdentity(),recorded.getOfferIdentity())
-                    && event.getSlot()==recorded.getSlot();
-                if (same) {
-                    if (!TradeGapEvidence.valid(recorded) || recorded.getItemId()!=event.getItemId()
-                            || recorded.isBuying()!=event.isBuying() || recorded.getFirstSeenAt()!=event.getFirstSeenAt()
-                            || recorded.getPrice()!=event.getPrice() || recorded.getTotalQuantity()!=event.getTotalQuantity()
-                            || !"1".equals(recorded.getPredictionEvidenceVersion()) || !recorded.isPredictionComparable()
-                            || !event.getPredictionSourceEventId().equals(recorded.getPredictionSourceEventId())) return 0;
-                    if (origin==null) {
-                        origin=recorded;
-                        if (!origin.getEventId().equals(event.getPredictionSourceEventId())
-                                || !ExecutionObservationLedger.qualifiesOriginal(origin)) return 0;
-                    }
-                    if (recorded.getSequence()<origin.getSequence() || recorded.getObservedAt()<origin.getObservedAt()) return 0;
+        // Accounting/ledger reads already validate this immutable account prefix. Reuse it and
+        // validate the indexed tail inside this same transaction instead of decoding every old
+        // source again on a completed fill. External changes and rollback discard the prefix.
+        var history=offerHistory(event.getAccountId());
+        if(history==null)return 0;
+        for (OfferEvent recorded:history) {
+            boolean same=java.util.Objects.equals(event.getAccountId(),recorded.getAccountId())
+                && java.util.Objects.equals(event.getSessionId(),recorded.getSessionId())
+                && java.util.Objects.equals(event.getOfferIdentity(),recorded.getOfferIdentity())
+                && event.getSlot()==recorded.getSlot();
+            if (same) {
+                if (!TradeGapEvidence.valid(recorded) || recorded.getItemId()!=event.getItemId()
+                        || recorded.isBuying()!=event.isBuying() || recorded.getFirstSeenAt()!=event.getFirstSeenAt()
+                        || recorded.getPrice()!=event.getPrice() || recorded.getTotalQuantity()!=event.getTotalQuantity()
+                        || !"1".equals(recorded.getPredictionEvidenceVersion()) || !recorded.isPredictionComparable()
+                        || !event.getPredictionSourceEventId().equals(recorded.getPredictionSourceEventId())) return 0;
+                if (origin==null) {
+                    origin=recorded;
+                    if (!origin.getEventId().equals(event.getPredictionSourceEventId())
+                            || !ExecutionObservationLedger.qualifiesOriginal(origin)) return 0;
                 }
-                if (event.getEventId().equals(recorded.getEventId()))
-                    return origin==null?0:origin.getPredictedMinutes();
+                if (recorded.getSequence()<origin.getSequence() || recorded.getObservedAt()<origin.getObservedAt()) return 0;
             }
+            if (event.getEventId().equals(recorded.getEventId()))
+                return origin==null?0:origin.getPredictedMinutes();
         }
         return 0;
     }

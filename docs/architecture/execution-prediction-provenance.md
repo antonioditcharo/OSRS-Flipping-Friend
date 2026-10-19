@@ -56,6 +56,10 @@ A same-second later heartbeat cannot declare itself the original source. Interve
 invalidations cannot restore qualification. The original source prediction is used even when the
 terminal payload carries newer advice. The raw terminal JSON is preserved unchanged.
 
+The [completed-offer latency increment](completed-offer-latency.md) reuses the existing validated
+canonical prefix and validates its indexed tail during acceptance. External changes/rollback
+discard it; earliest-original qualification and atomic accounting/sample acceptance remain.
+
 Missing, unsupported or inconsistent optional evidence supplies no paired prediction; real fills,
 costs, limits and unknown money still follow the existing accounting rules. Economic contradictions
 retain their existing reconciliation exclusions. Source acceptance, accounting, the legacy counted

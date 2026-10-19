@@ -8,6 +8,13 @@ latency, complete production replay/returns, gated learning and remaining produc
 
 ## Current source and installed runtime
 
+Completed-offer latency source now reuses the validated canonical prefix instead of decoding all
+old sources again for each prospective terminal prediction. The 30,000-event rescan regression,
+external deletion/corruption/tail and rollback/retry guards are covered. Source delivery/measurement:
+[contract](docs/architecture/completed-offer-latency.md) and
+[receipt](docs/history/completed-offer-latency-2026-10-19.md). This runtime change requires paired
+delivery after exact-head CI; #108 remains the installed pair until that receipt records installation.
+
 Offline replay v6 now qualifies original acquisition context through canonical sources/restart,
 uses final companion sale authority and separates displayed advice from a later revalidated manual
 action. Completed orders and incremental disposal counts differ. This evaluator-only increment
