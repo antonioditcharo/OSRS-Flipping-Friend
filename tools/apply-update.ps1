@@ -346,7 +346,7 @@ if ($StartOnly) {
 
 Assert-SourceRuneLiteRelease
 
-# Never close RuneLite or send game input. The player closes every client before installation.
+# This installer never closes RuneLite or sends game input. Close clients normally before installation.
 $processes = @(Get-CimInstance Win32_Process -ErrorAction Stop)
 if ($processes | Where-Object { $_.Name -eq 'RuneLite.exe' -or $_.CommandLine -match 'net\.runelite\.client\.RuneLite' }) {
     throw 'Close RuneLite before setup or updating. No game process was stopped.'

@@ -144,6 +144,9 @@ are in `docs/project-direction.md`; historical package notes are not proof of ru
   Collect status, compatibility, pipeline and logs directly. Tooling/docs-only changes need no JAR
   reinstall when runtime source is unchanged. See docs/development-workflow.md. Login and in-game
   actions remain manual; never force-kill the client or change databases to unblock advice.
+  Owner authorization, 19 October 2026: the agent must handle normal RuneLite window closure for
+  routine paired maintenance. Use the application's normal close controls; never force-kill it.
+  The updater still requires the client fully closed. Login and all in-game actions remain manual.
   For a verified existing limited task which cannot be maintained without elevation, the supported
   wrapper's -Unattended -UserProcess transition leaves task XML/ACLs unchanged. It requires the
   tested companion startup guard, exact current-user process ownership, atomic runtime replacement,

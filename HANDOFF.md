@@ -12,28 +12,32 @@ Completed-offer latency #111/b74f93b is MERGED after both exact-head CI checks f
 Windows clean 91s: 1,736 Java passed/six skips, Java 11; 108 tooling passed. Synthetic median
 terminal acceptance is 173ms -> 18ms with identical financial/prediction results. It reuses the
 validated canonical prefix; the 30,000-event rescan, external/tail and rollback guards are covered.
-Paired update is READY, NOT INSTALLED: RuneLite remains running and normal player closure is required.
-Compatibility preflight passes; 62,073 source rows/1,470 effects/original anchor are frozen/preserved.
+INSTALLED at 2026-10-19T18:55:13Z via the supported unattended updater after owner-authorized normal
+agent window closure. VERIFIED backup 20261019-105509-9ebbbcba; installed hashes/task XML/SDDL,
+all 62,073 source rows/1,470 effects/original anchor, status, 1.13.2 compatibility and scoped GETs pass.
+Zero update-created financial effects. Supported Start reopened RuneLite; its installed plugin loads.
+Fresh login/trading and sustained timing remain pending. Owner availability is recorded privately in
+local-data/completion-latency-20261019/delivery-state.json; do not request unavailable login or automate game input.
 Source delivery/measurement:
 [contract](docs/architecture/completed-offer-latency.md) and
-[receipt](docs/history/completed-offer-latency-2026-10-19.md). #108 remains installed until supported
-paired delivery is recorded. Controlled fills/ACK/instruction and sustained latency stay open.
+[receipt](docs/history/completed-offer-latency-2026-10-19.md). Controlled fills/ACK/instruction and
+sustained latency stay open; historical #108 freshness does not establish current buy readiness.
 
 Offline replay v6 now qualifies original acquisition context through canonical sources/restart,
 uses final companion sale authority and separates displayed advice from a later revalidated manual
 action. Completed orders and incremental disposal counts differ. This evaluator-only increment
-needs no live-pair replacement; #108 remains installed. Remaining buy-replacement/persisted-relist/
+needs no separate live-pair replacement; it is included in installed #111. Remaining buy-replacement/persisted-relist/
 real client acceptance and qualified benchmark gates stay open. See
 [replay contract](docs/architecture/replay-canonical-sale.md) and
 [verification](docs/history/replay-canonical-sale-2026-10-19.md).
 
-#108/fe8a33b is INSTALLED at 2026-10-19T16:13:02Z after both exact-head checks passed for
+Included #108/fe8a33b was installed at 2026-10-19T16:13:02Z after both exact-head checks passed for
 2e30f76 (run 39279920742). Windows clean 66s: 1,726 Java passed/six existing skips, Java 11;
 108 tooling passed. VERIFIED backup 20261019-081258-a59c264b; installed pair/task XML/SDDL,
 all 61,527 retained event-log rows/1,469 financial effects/original loss anchor, status,
 1.13.2 compatibility and scoped GETs pass. Supported Start reopened RuneLite;
-fresh authenticated eight-slot source proof/zero pending outbox/scoped Performance now pass after
-manual login. Fresh READY and final PLACE_BUY GET pass (156ms/250ms). Client delivered BUY/COLLECT/
+during that earlier manual login, fresh authenticated eight-slot source proof/zero pending outbox/
+scoped Performance passed. Fresh READY and final PLACE_BUY GET passed (156ms/250ms). Client delivered BUY/COLLECT/
 WAIT; full buy/partial/collect/sell/cancel/relist/restart and price-quality acceptance remain open.
 One subsequent legitimate financial append preserves the original prefix and anchor.
 [Contract](docs/architecture/acquisition-exit-context.md) and
@@ -124,8 +128,9 @@ original prediction bindings/deduplication. TASKS retains every unchecked gate.
 Both exact-head Windows/Linux checks must pass before merge; fast-forward the clean primary/default
 CoPilot's-Rebuild-from-Main checkout. Use tools/apply-update.ps1 -Unattended for a verified existing
 pair, -SkipBuild only for verified artifacts. The lifecycle=1 normal-user process leaves protected
-task XML/SDDL unchanged. Never force-kill RuneLite or send game input. Agent reads logs, status,
-compatibility and scoped pipeline directly; only closure/login/GE actions require the player.
+task XML/SDDL unchanged. Owner authorizes the agent to close RuneLite normally through its window
+controls; never force-kill it or send game input. Agent reads logs, status, compatibility and scoped
+pipeline directly; login/GE actions require the player.
 See docs/development-workflow.md and docs/architecture/user-process-updates.md.
 
 Detailed prior handoff is preserved in docs/history/handoff-through-2026-10-18-qualified-stock.md;

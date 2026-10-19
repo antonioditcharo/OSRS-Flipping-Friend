@@ -72,8 +72,11 @@ Gradle clean therefore does not need to remove a JAR held by the running client.
 build/runtime-extras are not moved or repaired. Version/platform guards and saved login are retained.
 
 Build/test while the client is open, then group runtime changes into one final installation/restart.
-The installer still requires RuneLite closed before replacing the pair. Never force-kill the game
-or inject input to make an update convenient. Some UI acceptance genuinely needs a new client load;
+The installer still requires RuneLite closed before replacing the pair. Owner authorization,
+19 October 2026: the agent handles normal RuneLite window closure for routine paired maintenance,
+using the application's ordinary close controls. Verify that its process exits before updating.
+Never force-kill the game or inject in-game input. Login and GE actions remain manual.
+Some UI acceptance genuinely needs a new client load;
 batch those checks rather than restarting after each test. The agent can start the client directly;
 login and all offers remain manual. The numbered wrappers retain their interactive self-service path.
 

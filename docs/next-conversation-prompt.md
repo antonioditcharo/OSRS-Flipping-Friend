@@ -35,8 +35,14 @@ rebuilding already implemented capabilities:
 
 Completed-offer latency #111/b74f93b is merged with both exact-head checks and Windows clean
 1,736 Java passed/six skips, Java 11; 108 tooling passed. Synthetic median acceptance is 173ms -> 18ms,
-with identical financial/prediction results. READY, NOT INSTALLED while RuneLite remains running;
-normal player closure is required. #108 remains installed. Source reuses the canonical prefix during terminal prediction
+with identical financial/prediction results. INSTALLED at 18:55:13Z on 19 October after the agent
+closed RuneLite normally with explicit owner authorization. VERIFIED backup 20261019-105509-9ebbbcba;
+pair/task/62,073 source rows/1,470 effects/original anchor/status/compatibility/scoped GETs pass,
+zero update-created financial effects. Supported Start reopened RuneLite and loads the installed
+plugin. Fresh login/trading/sustained acceptance is pending; availability is recorded privately in
+local-data/completion-latency-20261019/delivery-state.json. Agent handles normal maintenance closure;
+login/GE stay manual.
+Source reuses the canonical prefix during terminal prediction
 qualification, preserving original-source/transaction checks and external/tail/rollback invalidation.
 Read docs/architecture/completed-offer-latency.md and docs/history/completed-offer-latency-2026-10-19.md
 for measured source, exact-head CI and actual installed state; do not infer installation from source.
@@ -44,10 +50,10 @@ for measured source, exact-head CI and actual installed state; do not infer inst
 Offline replay v6 adds canonical original-context qualification, transactional final companion sale
 authority and delayed/revalidated displayed actions, including restart withdrawal. See
 docs/architecture/replay-canonical-sale.md and docs/history/replay-canonical-sale-2026-10-19.md.
-This evaluator-only increment needs no installation or game restart; #108 remains installed.
+This evaluator-only increment needs no separate installation or game restart; installed #111 includes it.
 Production replacement/persisted relist/real client acceptance and qualified benchmarks remain open.
 
-PR #108 is merged as `fe8a33b9548559253968073e58d7aea69bd8078f` and INSTALLED at
+Included PR #108 merged as `fe8a33b9548559253968073e58d7aea69bd8078f` and was previously installed at
 2026-10-19T16:13:02Z. Exact source `2e30f76c03653b7127a8a6daf5c2fc536497fea8` passed both
 Windows/Linux checks. Windows clean 66s: 1,726 Java passed/six existing skips, Java 11;
 108 tooling passed. VERIFIED backup `20261019-081258-a59c264b`; pair/task XML/SDDL, all 61,527
@@ -56,7 +62,7 @@ and scoped GETs pass. Supported Start reopened RuneLite. Subsequent manual login
 authenticated eight-slot source proof, zero pending outbox, scoped Performance, READY and final
 PLACE_BUY (156ms/250ms). Client delivered BUY/COLLECT/WAIT. One legitimate financial append
 preserves the old prefix/anchor. Controlled full-loop/price-quality and sustained timing remain open.
-Do not reinstall #108 merely to repeat delivery. Read newest HANDOFF and
+Do not reinstall #111 or older #108 merely to repeat delivery. Read newest HANDOFF and
 `docs/history/acquisition-exit-delivery-2026-10-19.md` for actual delivery/acceptance state.
 
 Live original target/stop/sell-duration context now comes from the exact prospective canonical
