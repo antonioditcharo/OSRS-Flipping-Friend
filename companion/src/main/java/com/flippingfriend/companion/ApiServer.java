@@ -70,6 +70,8 @@ final class ApiServer implements AutoCloseable
 			case "learning/current": learning(exchange); break;
 			case "performance/current": performance(exchange); break;
 			case "performance/session": performanceSession(exchange); break;
+            case "trade-review/current": tradeReview(exchange,false);break;
+            case "trade-review": tradeReview(exchange,true);break;
 			case "action": action(exchange); break;
 			case "policy/entry": entryDecision(exchange); break;
             case "policy/replacement": replacementEntry(exchange);break;
@@ -148,6 +150,20 @@ final class ApiServer implements AutoCloseable
 			scoped.resetPerformanceSession(body.get("requestId").getAsString());respond(exchange,200,"{\"accepted\":true}");
 		}catch(Exception failure){respond(exchange,400,error(failure));}
 	}
+    private void tradeReview(HttpExchange exchange,boolean write)throws IOException {
+        if(!authorized(exchange))return;
+        if(!(write?"POST":"GET").equals(exchange.getRequestMethod())){respond(exchange,405,"{\"error\":\"Unsupported method\"}");return;}
+        var scoped=accountService(exchange);if(scoped==null)return;
+        try {
+            if(!write){respond(exchange,200,gson.toJson(scoped.tradeReview()));return;}
+            byte[] bytes=exchange.getRequestBody().readNBytes(256*1024+1);
+            if(bytes.length>256*1024)throw new IllegalArgumentException("Review request too large");
+            var request=gson.fromJson(new String(bytes,StandardCharsets.UTF_8),com.flippingfriend.core.TradeReviewSnapshot.Request.class);
+            if(request==null)throw new IllegalArgumentException("Review request required");
+            requirePayloadAccount(exchange,request.accountId);
+            respond(exchange,200,gson.toJson(scoped.reviewTrades(request)));
+        }catch(Exception failure){respond(exchange,400,error(failure));}
+    }
 
     private void learning(HttpExchange exchange) throws IOException {
         if(!authorized(exchange))return;

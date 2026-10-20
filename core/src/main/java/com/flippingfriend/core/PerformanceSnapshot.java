@@ -14,6 +14,7 @@ public final class PerformanceSnapshot {
         public final Long gross,matchedCost,taxLower,taxUpper;
         public final List<String> accountingReasons;
         public final boolean completed;
+        public boolean archived;
         public Sale(String offer,int item,String name,long quantity,long at,long updates,Long low,Long high,boolean completed) {
             this(offer,item,name,quantity,at,updates,low,high,completed,null,null,null,null,null);
         }
@@ -28,6 +29,7 @@ public final class PerformanceSnapshot {
     public final String accountId, scope, sessionId;
     public final long observedAt, startedAt, positionCursor, saleUpdates, unresolvedSales, completedFlips, appliedCost;
     public final long profitLower, profitUpper;
+    public long archivedUnresolvedSales;
     public final List<Sale> sales;
     /** Null means no current proven valuation. Partial marks are explicitly identified by reserve. */
     public Long unrealizedProfit, portfolioValue, unpricedCost;
@@ -62,10 +64,12 @@ public final class PerformanceSnapshot {
         return accountId!=null && accountId.matches("rs-[0-9a-f]{64}") && scope!=null && Set.of("SESSION","DAY","WEEK","ALL").contains(scope)
             && observedAt>=0 && startedAt>=0 && startedAt<=observedAt && positionCursor>=0
             && saleUpdates>=0 && unresolvedSales>=0 && unresolvedSales<=saleUpdates && completedFlips>=0
+            && archivedUnresolvedSales>=0 && archivedUnresolvedSales<=unresolvedSales
             && appliedCost>=0 && profitLower<=profitUpper && sales!=null
             && sales.stream().allMatch(s->s!=null && s.itemId>0 && s.quantity>0 && s.updates>0
                 && s.observedAt>=0 && s.observedAt<=observedAt && (s.profitLower==null)==(s.profitUpper==null)
                 && (s.profitLower==null || s.profitLower<=s.profitUpper)
+                && (!s.archived || s.profitLower==null)
                 && (s.gross==null || s.gross>=0) && (s.matchedCost==null || s.matchedCost>=0)
                 && (s.taxLower==null)==(s.taxUpper==null)
                 && (s.taxLower==null || s.gross!=null && s.taxLower>=0 && s.taxLower<=s.taxUpper && s.taxUpper<=s.gross)

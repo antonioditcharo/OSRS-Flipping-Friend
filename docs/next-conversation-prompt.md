@@ -33,6 +33,12 @@ rebuilding already implemented capabilities:
 
 ## Delivery state at this handoff
 
+Read local-data/trade-review-20261020/delivery-state.json first for reversible review archival and
+transaction-bound durable automatic accounting. Only closed unmatched sales with no retained
+purchase records can be archived; original records/risk/coverage stay intact and new failures stay
+visible. Read docs/architecture/trade-review-archive.md. Owner is away until 20 October 17:30 local;
+continue offline without another login request before then. This supersedes earlier availability.
+
 Read local-data/sale-evidence-20261020/delivery-state.json first for the latest startup sale
 accounting/evidence batch. The owner now reports logged in with GE open, superseding prior
 availability deferrals. Restore only recorded accounting mode before offer drain, never stale

@@ -90,4 +90,58 @@ public class StartupSaleAccountingTest {
             assertEquals(before,s.positionEventCount());assertEquals(299,s.ledgerSnapshot(account).getTradingPositions().get(0).getTotalCost());
         }
     }
+    @Test public void aLegacySnapshotCannotDowngradeEstablishedAutomaticAccounting()throws Exception {
+        Path db=folder.newFolder().toPath().resolve("downgrade.db");
+        try(var s=new SqliteStore(db);var legacy=new SqliteStore(folder.newFolder().toPath().resolve("market.db"));
+            var market=new CompanionService(gson,legacy);var service=market.forAccountStore(s,account)) {
+            seed(s);service.rehydrate();int snapshots=s.eventCount("ACCOUNT_STATE");
+            var old=new AccountSnapshot("old-client",at+6,100000,0,8,8,true,false,0).withAccountId(account);
+            try{service.account(old);fail("Legacy snapshot changed accounting mode");}catch(IllegalArgumentException expected){}
+            assertEquals(snapshots,s.eventCount("ACCOUNT_STATE"));
+            service.offer(event("sale","SOLD",3,360,7));
+            assertEquals(55,s.ledgerSnapshot(account).getProfitLower());assertTrue(s.positionProjections().isEmpty());
+        }
+    }
+    @Test public void accountingAuthorityDoesNotDependOnTheCallersInMemoryModeFlag()throws Exception {
+        Path db=folder.newFolder().toPath().resolve("authority.db");
+        try(var s=new SqliteStore(db)) {
+            seed(s);var e=event("sale","SOLD",3,360,7);
+            s.recordAndProjectOffer(e,gson.toJson(e),false);
+            assertEquals(55,s.ledgerSnapshot(account).getProfitLower());assertEquals(0,s.ledgerSnapshot(account).getUnresolvedSales());
+        }
+        try(var s=new SqliteStore(db)) {
+            s.pruneEvents(0);assertTrue("Accounting mode must survive snapshot retention",s.recordedAutomaticTradeScope(account));
+            assertEquals(55,s.ledgerSnapshot(account).getProfitLower());
+        }
+    }
+    @Test public void failedFirstAutomaticCaptureDoesNotLeaveAnUncommittedModeOrAdoptLegacyStock()throws Exception {
+        Path db=folder.newFolder().toPath().resolve("mode-rollback.db");
+        try(var s=new SqliteStore(db,stage->{if(stage.equals("ACCOUNT_EVENT_RECORDED"))throw new java.io.IOException("fixture failure");})) {
+            var capture=new AccountSnapshot("capture",at,100000,0,8,8,true,false,0).withAccountId(account).withAutomaticTradeScope();
+            try{s.recordAndReconcileAccount(capture,PositionStateView.from(capture),gson.toJson(capture));fail();}catch(java.io.IOException expected){}
+            assertFalse(s.recordedAutomaticTradeScope(account));assertEquals(0,s.eventCount("AUTOMATIC_ACCOUNTING_V1"));assertEquals(0,s.positionEventCount());
+        }
+        try(var s=new SqliteStore(db)){assertFalse(s.recordedAutomaticTradeScope(account));assertEquals(0,s.eventCount("ACCOUNT_STATE"));}
+    }
+    @Test public void historicalAutomaticModeSurvivesALaterLegacySnapshotAndRetentionBeforeAMarkerExists()throws Exception {
+        Path db=folder.newFolder().toPath().resolve("old-mode.db");
+        try(var s=new SqliteStore(db)) {
+            var automatic=new AccountSnapshot("auto",at,100000,0,8,8,true,false,0).withAccountId(account).withAutomaticTradeScope();
+            var legacy=new AccountSnapshot("legacy",at+1,100000,0,8,8,true,false,0).withAccountId(account);
+            s.recordEvent(at,"auto","ACCOUNT_STATE",gson.toJson(automatic));s.recordEvent(at+1,"legacy","ACCOUNT_STATE",gson.toJson(legacy));
+            assertTrue(s.recordedAutomaticTradeScope(account));assertEquals(0,s.eventCount("AUTOMATIC_ACCOUNTING_V1"));
+            s.pruneEvents(0);assertEquals(1,s.eventCount("ACCOUNT_STATE"));assertEquals(0,s.positionEventCount());
+        }
+        try(var s=new SqliteStore(db)){assertTrue(s.recordedAutomaticTradeScope(account));assertEquals(0,s.positionEventCount());}
+    }
+    @Test public void measurementReviewAndFutureMetadataNeverEnterOfferRehydration()throws Exception {
+        try(var s=new SqliteStore(folder.newFolder().toPath().resolve("metadata.db"))) {
+            var open=event("open","BUYING",0,0,1);var done=event("done","BOUGHT",3,299,2);
+            s.recordAndProjectOffer(open,gson.toJson(open),false);s.recordAndProjectOffer(done,gson.toJson(done),false);
+            s.recordEvent(at,"session",PerformanceRead.SESSION_EVENT,"{}");s.recordEvent(at,"review",TradeReviewRead.EVENT_TYPE,"{}");
+            s.recordEvent(at,"future","FUTURE_METADATA","{}");
+            assertEquals(List.of(gson.toJson(open),gson.toJson(done)),s.recentOfferEvents(at));
+            assertEquals(1,s.positionEventCount());assertEquals(299,s.ledgerSnapshot(account).getTradingPositions().get(0).getTotalCost());
+        }
+    }
 }

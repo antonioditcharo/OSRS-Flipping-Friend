@@ -17,6 +17,35 @@ import static org.junit.Assert.*;
 public class AccountApiIsolationTest
 {
     @Rule public final TemporaryFolder folder = new TemporaryFolder();
+    @Test public void tradeReviewAnnotationsRequireAuthenticatedExactAccountScopeAndNeverPostAnOffer()throws Exception {
+        Gson gson=new Gson();Path root=folder.newFolder().toPath();String one=AccountIdentity.fromProfileKey("review-api"),two=AccountIdentity.fromProfileKey("other");
+        try(var legacy=new SqliteStore(root.resolve("legacy.db"));var market=new CompanionService(gson,legacy);
+            var accounts=new CompanionAccounts(root.resolve("accounts"),market);var api=new ApiServer("test-token",gson,market,accounts,new InetSocketAddress("127.0.0.1",0))) {
+            api.start();String read="accounts/"+one+"/trade-review/current",write="accounts/"+one+"/trade-review";
+            assertEquals(400,request(api,read,two,null));assertEquals(405,request(api,read,one,"{}"));assertEquals(405,request(api,write,one,null));
+            var unauthorized=connection(api,read,one);unauthorized.setRequestProperty("X-Flipping-Friend-Token","wrong");
+            try{assertEquals(401,unauthorized.getResponseCode());}finally{unauthorized.disconnect();}
+            var review=gson.fromJson(body(api,read,one),com.flippingfriend.core.TradeReviewSnapshot.class);assertTrue(review.isValid());assertTrue(review.states.isEmpty());
+            String bad=gson.toJson(new com.flippingfriend.core.TradeReviewSnapshot.Request(two,"wrong-account",1,true,java.util.List.of("source")));
+            assertEquals(400,request(api,write,one,bad));assertEquals(400,request(api,write,one,"{}"));
+            long at=Instant.now().getEpochSecond()-10;
+            var open=OfferEvent.builder("fixture",at,"SELLING").accountId(one).eventIdentity("open","session","sale")
+                .slot(0).item(561,"Nature rune").price(120).quantities(3,0).sequence(1).build();
+            var sold=OfferEvent.builder("fixture",at+1,"SOLD").accountId(one).eventIdentity("sold","session","sale")
+                .slot(0).item(561,"Nature rune").price(120).quantities(3,3).spent(360).sequence(2).build();
+            var empty=OfferEvent.builder("fixture",at+2,"EMPTY").accountId(one).eventIdentity("empty","session",null).slot(0).sequence(3).build();
+            for(var event:java.util.List.of(open,sold,empty))assertEquals(202,request(api,"accounts/"+one+"/events/ge-offer",one,gson.toJson(event)));
+            review=gson.fromJson(body(api,read,one),com.flippingfriend.core.TradeReviewSnapshot.class);
+            assertEquals(com.flippingfriend.core.TradeReviewSnapshot.ELIGIBLE,review.states.get("sold"));
+            String archive=gson.toJson(new com.flippingfriend.core.TradeReviewSnapshot.Request(one,"archive",review.positionCursor,true,java.util.List.of("sold")));
+            assertEquals(200,request(api,write,one,archive));assertEquals(200,request(api,write,one,archive));
+            review=gson.fromJson(body(api,read,one),com.flippingfriend.core.TradeReviewSnapshot.class);
+            assertEquals(com.flippingfriend.core.TradeReviewSnapshot.ARCHIVED,review.states.get("sold"));
+            var ledger=gson.fromJson(body(api,"accounts/"+one+"/ledger/current",one),com.flippingfriend.core.AccountLedgerSnapshot.class);
+            assertEquals(1,ledger.getUnresolvedSales());assertEquals(360L,ledger.getRecentSales().get(0).getGross().longValue());assertNull(ledger.getRecentSales().get(0).getProfitLower());
+            assertEquals(0,legacy.positionEventCount());assertEquals(0,legacy.eventCount(TradeReviewRead.EVENT_TYPE));
+        }
+    }
 
     @Test public void requestsRequireScopeAndCannotReadOrWriteAnotherAccountsOffer() throws Exception
     {

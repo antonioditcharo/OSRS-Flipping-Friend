@@ -439,6 +439,12 @@ final class CompanionService implements AutoCloseable
 		if(account==null || !currentPlanningProof(now))throw new IllegalStateException("Waiting for current account evidence");
 		store.performanceSession(accountId,now,true,request);
 	}
+    synchronized com.flippingfriend.core.TradeReviewSnapshot tradeReview()throws Exception {
+        return store.tradeReview(accountId,Instant.now().getEpochSecond());
+    }
+    synchronized com.flippingfriend.core.TradeReviewSnapshot reviewTrades(com.flippingfriend.core.TradeReviewSnapshot.Request request)throws Exception {
+        return store.reviewTrades(accountId,request,Instant.now().getEpochSecond());
+    }
 
 	PositionStateView positions()
 	{

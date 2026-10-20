@@ -5,6 +5,15 @@ All unchecked release requirements remain visible below; detailed completion rec
 
 ## Active
 
+- [ ] Deliver/accept reversible review archival and durable accounting mode. Only closed unmatched
+      sales without earlier recorded purchases qualify; retain recoverable evidence and all
+      financial rows/unknown coverage/risk guards. New failures remain visible; exact-source review
+      requests survive retry/restart and can be restored. Reject accounting-mode downgrade and
+      retain its nonfinancial marker under snapshot pruning. Fourteen added tests include reproduced accounting-mode and metadata-boundary failures. Contract/receipt: docs/architecture/trade-review-archive.md and
+      docs/history/trade-review-archive-delivery-2026-10-20.md; actual delivery state:
+      local-data/trade-review-20261020/delivery-state.json. Owner defers login/GE verification until
+      20 October after 17:30 local. Controlled workflow/timing/replay/returns/learning remain open.
+
 - [ ] Deliver/accept startup sale accounting and evidence display. Restore this account's recorded
       automatic scope before pre-snapshot offer drain; never restore stale spending authority.
       Count accepted terminal sales after full SELLING progress without another disposal. Explain

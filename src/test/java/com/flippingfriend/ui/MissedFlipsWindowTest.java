@@ -5,6 +5,31 @@ import org.junit.Test;
 import static org.junit.Assert.*;
 import static org.mockito.Mockito.*;
 public class MissedFlipsWindowTest {
+    @Test public void archiveViewsKeepCurrentGapsAndRetainedPurchasesVisibleAndRestoreTheExactSelectedSource()throws Exception {
+        var companion=mock(com.flippingfriend.companion.CompanionClient.class);String account=AccountIdentity.fromProfileKey("review-ui");
+        var old=new MissedFlipEvidence("old","old-offer",561,"Old unmatched sale","DISPOSE",1,2,null,100L,2L,2L,null,null,"Unknown cost");
+        var keep=new MissedFlipEvidence("keep","keep-offer",562,"Retained purchase evidence","DISPOSE",1,3,null,100L,2L,2L,null,null,"Unknown cost");
+        var eligible=new MissedFlipEvidence("eligible","closed",563,"Closed unmatched sale","DISPOSE",1,4,null,100L,2L,2L,null,null,"Unknown cost");
+        var gap=new MissedFlipEvidence("gap",null,0,null,"RECONCILE",0,5,null,null,null,null,null,null,"Unassigned gap");
+        var ledger=new AccountLedgerSnapshot(account,100,3,0,0,3,0,0,6,6,List.of()).withTradeEvidence(List.of(),List.of(gap,eligible,keep,old));
+        var review=new TradeReviewSnapshot(account,100,10,java.util.Map.of("old",TradeReviewSnapshot.ARCHIVED,"keep",TradeReviewSnapshot.RETAINED,"eligible",TradeReviewSnapshot.ELIGIBLE),java.util.Set.of("old"));
+        when(companion.historyLedger()).thenReturn(ledger);when(companion.tradeReview()).thenReturn(review);
+        var window=new MissedFlipsWindow(companion);javax.swing.JComponent[] view=new javax.swing.JComponent[1];window.setPresenter((n,c)->view[0]=c);
+        javax.swing.SwingUtilities.invokeAndWait(()->{
+            window.open(null);var tree=CompactPanelContractTest.tree(view[0]);
+            var table=(javax.swing.JTable)tree.stream().filter(c->c instanceof javax.swing.JTable).findFirst().orElseThrow();
+            var select=(javax.swing.JComboBox<?>)tree.stream().filter(c->"trade-review-view".equals(c.getName())).findFirst().orElseThrow();
+            var archive=(javax.swing.JButton)tree.stream().filter(c->"archive-eligible-trades".equals(c.getName())).findFirst().orElseThrow();
+            var restore=(javax.swing.JButton)tree.stream().filter(c->"restore-reviewed-trade".equals(c.getName())).findFirst().orElseThrow();
+            assertEquals(3,table.getRowCount());assertEquals("Unidentified offer",table.getValueAt(0,1));assertTrue(ledger.hasUnboundedReconciliation());
+            archive.doClick();verify(companion).reviewTrades(account,10,List.of("eligible"),true);
+            select.setSelectedItem("Archived");assertEquals(1,table.getRowCount());assertEquals("old",table.getValueAt(0,9));
+            table.setRowSelectionInterval(0,0);assertTrue(restore.isEnabled());restore.doClick();verify(companion).reviewTrades(account,10,List.of("old"),false);
+            select.setSelectedItem("All");assertEquals(4,table.getRowCount());
+            when(companion.historyLedger()).thenReturn(new AccountLedgerSnapshot(AccountIdentity.fromProfileKey("other"),100,0,0,0,0,0,0,0,0,List.of()).withTradeEvidence(List.of(),List.of()));
+            window.refresh();assertEquals(0,table.getRowCount());assertFalse(archive.isEnabled());assertFalse(restore.isEnabled());window.dispose();
+        });
+    }
     @Test public void unidentifiedOfferShowsItsReasonWithUnavailableMoneyAndNoClassificationControls() {
         var evidence=new MissedFlipEvidence("unidentified-clear",null,0,null,"RECONCILE",0,2,
             null,null,null,null,null,null,"offer cleared before a terminal observation");

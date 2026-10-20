@@ -67,6 +67,11 @@ final class SqliteStore implements AutoCloseable
 	private final TransactionCheckpoint checkpoint;
 	/** Immutable metadata is cached only after its transaction commits. No cached absence. */
 	private final Map<String,RiskWindow> riskWindows = new HashMap<>();
+    private static final String ACCOUNTING_MODE="AUTOMATIC_ACCOUNTING_V1";
+    // Presence means automatic; true additionally proves the non-expiring marker exists.
+    private final Map<String,Boolean> automaticModes=new HashMap<>();
+    private com.flippingfriend.core.TradeReviewSnapshot cachedTradeReview;
+    private java.util.Set<Integer> cachedReviewLiveItems=java.util.Set.of();
 	// Accepted canonical sources are append-only. Keep their validated prefix in RAM, reading only
 	// the indexed tail. External commits and every rollback discard it. Live eight-slot evidence
 	// is always reread. In particular a failed transaction cannot publish a prefix.
@@ -78,6 +83,8 @@ final class SqliteStore implements AutoCloseable
 	private void discardCanonicalHistory() {
 		canonicalHistory=null; canonicalHistoryAccount=null; canonicalHistoryCursor=0;
 		scopedEffects=null;scopedEffectsCursor=-1;
+        automaticModes.clear();
+        cachedTradeReview=null;cachedReviewLiveItems=java.util.Set.of();
 	}
 
 	/**
@@ -250,6 +257,9 @@ final class SqliteStore implements AutoCloseable
 				connection.commit();
 				return new ProjectedEventAcceptance(acceptance, null, null, null);
 			}
+            boolean recordedMode=event.getAccountId()!=null && recordedAutomaticTradeScope(event.getAccountId());
+            automaticScope=automaticScope || recordedMode;
+            if(automaticScope)recordAutomaticMode(event.getAccountId(),event.getObservedAt());
 			OfferLifecycleProjection previous = offerProjection(event.getSlot());
 			OfferLifecycleTransition transition = OfferLifecycleReducer.apply(previous, event);
 			if (transition.isAccepted()) {
@@ -272,6 +282,7 @@ final class SqliteStore implements AutoCloseable
 			if (transition.isAccepted() && !hasOfferAccountingGap(event.getOfferIdentity()))
 				new ExecutionRecorder(this).record(event, executionPrediction(event));
 			connection.commit();
+            if(automaticScope)automaticModes.put(event.getAccountId(),true);
             ProjectedEventAcceptance result=new ProjectedEventAcceptance(acceptance, transition, position, buyLimit);
             result.planningStateChanged=!samePlanningState(previous,transition.getProjection());
             return result;
@@ -1075,14 +1086,129 @@ final class SqliteStore implements AutoCloseable
     /** Recover only the accounting mode of this explicitly scoped account, never its spending proof. */
     synchronized boolean recordedAutomaticTradeScope(String account) throws Exception {
         com.flippingfriend.core.AccountIdentity.require(account);
+        checkCanonicalDataVersion(account);
+        if(automaticModes.containsKey(account))return true;
+        try(var s=connection.prepareStatement("SELECT payload FROM event_log WHERE event_type=? ORDER BY id LIMIT 1")) {
+            s.setString(1,ACCOUNTING_MODE);
+            try(var r=s.executeQuery()) {
+                if(r.next()) {
+                    var mode=new com.google.gson.Gson().fromJson(r.getString(1),com.google.gson.JsonObject.class);
+                    if(mode==null || !mode.has("accountId") || !account.equals(mode.get("accountId").getAsString())
+                        || !mode.has("version") || !"1".equals(mode.get("version").getAsString()))
+                        throw new IllegalStateException("Recorded accounting mode does not match this account");
+                    if(connection.getAutoCommit())automaticModes.put(account,true);
+                    return true;
+                }
+            }
+        }
         try(var s=connection.prepareStatement("SELECT payload FROM event_log WHERE event_type='ACCOUNT_STATE' ORDER BY id DESC LIMIT 1");
             var r=s.executeQuery()) {
-            if(!r.next())return false;
-            AccountSnapshot snapshot=new com.google.gson.Gson().fromJson(r.getString(1),AccountSnapshot.class);
-            if(snapshot==null || !account.equals(snapshot.getAccountId()))
-                throw new IllegalStateException("Recorded accounting scope does not match this account");
-            return snapshot.isAutomaticTradeScope();
+            if(r.next() && snapshotAutomaticMode(account,r.getString(1))) {
+                if(connection.getAutoCommit())automaticModes.put(account,false);
+                return true;
+            }
         }
+        // A legacy client may already have appended a false flag before this prevention existed.
+        // Positive recorded activation remains authoritative; this does not restore an old account capture.
+        try(var s=connection.prepareStatement("SELECT payload FROM event_log WHERE event_type='ACCOUNT_STATE' " +
+            "AND CASE WHEN json_valid(payload) THEN json_extract(payload,'$.automaticTradeScope') END=1 ORDER BY id DESC");
+            var r=s.executeQuery()) {
+            while(r.next())if(snapshotAutomaticMode(account,r.getString(1))) {
+                if(connection.getAutoCommit())automaticModes.put(account,false);
+                return true;
+            }
+        }
+        return false;
+    }
+    private boolean snapshotAutomaticMode(String account,String payload) {
+        final com.google.gson.JsonElement parsed;
+        try{parsed=com.google.gson.JsonParser.parseString(payload);}catch(com.google.gson.JsonParseException invalid){return false;}
+        if(parsed==null || !parsed.isJsonObject())return false;
+        var snapshot=parsed.getAsJsonObject();var owner=snapshot.get("accountId");
+        if(owner==null || owner.isJsonNull())return false; // Unassigned legacy rows prove no ownership or mode.
+        if(!owner.isJsonPrimitive() || !account.equals(owner.getAsString()))
+            throw new IllegalStateException("Recorded accounting scope does not match this account");
+        var mode=snapshot.get("automaticTradeScope");
+        return mode!=null && mode.isJsonPrimitive() && mode.getAsJsonPrimitive().isBoolean() && mode.getAsBoolean();
+    }
+    private void recordAutomaticMode(String account,long at)throws Exception {
+        com.flippingfriend.core.AccountIdentity.require(account);
+        recordedAutomaticTradeScope(account); // Validate an existing marker even for explicit automatic callers.
+        if(Boolean.TRUE.equals(automaticModes.get(account)))return;
+        try(var s=connection.prepareStatement("SELECT payload FROM event_log WHERE event_type=? LIMIT 1")) {
+            s.setString(1,ACCOUNTING_MODE);try(var r=s.executeQuery()){if(r.next())return;}
+        }
+        recordEvent(at,account,ACCOUNTING_MODE,new com.google.gson.Gson().toJson(java.util.Map.of("version",1,"accountId",account)));
+    }
+    private List<TradeReviewRead.Row> tradeReviewRows()throws Exception {
+        List<TradeReviewRead.Row> rows=new ArrayList<>();
+        try(var s=connection.createStatement();var r=s.executeQuery(
+            "SELECT p.id,p.source_event_id,p.source_offer_identity,p.item_id,EXISTS(SELECT 1 FROM position_event b WHERE b.effect_type='ACQUIRE' AND b.item_id=p.item_id AND b.id<p.id) " +
+            "FROM position_event p WHERE p.effect_type='DISPOSE' AND p.profit_lower IS NULL ORDER BY p.id")) {
+            while(r.next())if(r.getString(2)!=null && !r.getString(2).isBlank())
+                rows.add(new TradeReviewRead.Row(r.getLong(1),r.getString(2),r.getString(3),r.getInt(4),r.getBoolean(5)));
+        }
+        return rows;
+    }
+    private java.util.Set<String> archivedTradeSources(String account)throws Exception {
+        java.util.Set<String> archived=new java.util.HashSet<>();
+        try(var s=connection.prepareStatement("SELECT payload FROM event_log WHERE event_type=? ORDER BY id")) {
+            s.setString(1,TradeReviewRead.EVENT_TYPE);try(var r=s.executeQuery()) {
+                while(r.next()) {
+                    var request=new com.google.gson.Gson().fromJson(r.getString(1),com.flippingfriend.core.TradeReviewSnapshot.Request.class);
+                    if(request==null || !request.isValid() || !account.equals(request.accountId))throw new IllegalStateException("Invalid account trade-review history");
+                    if(request.archive)archived.addAll(request.sourceEventIds);else archived.removeAll(request.sourceEventIds);
+                }
+            }
+        }
+        return archived;
+    }
+    synchronized com.flippingfriend.core.TradeReviewSnapshot tradeReview(String account,long now)throws Exception {
+        com.flippingfriend.core.AccountIdentity.require(account);
+        long cursor;try(var s=connection.createStatement();var r=s.executeQuery("SELECT COALESCE(MAX(id),0) FROM position_event")){r.next();cursor=r.getLong(1);}
+        java.util.Set<String> rejected=new java.util.HashSet<>();
+        try(var s=connection.createStatement();var r=s.executeQuery("SELECT source_event_id FROM position_event WHERE effect_type='RECONCILE'")){while(r.next())rejected.add(r.getString(1));}
+        java.util.Set<Integer> live=new java.util.HashSet<>(automaticTradeScope(account).positions.keySet());
+        for(var p:positionProjections())if(p.getQuantity()>0 || p.getTotalCost()>0)live.add(p.getItemId());
+        for(var p:offerProjections())if(p.getState()!=com.flippingfriend.core.OfferLifecycleState.EMPTY && p.getItemId()>0)live.add(p.getItemId());
+        var history=offerHistory(account); // Validate the appended canonical tail even on a cache hit.
+        if(history!=null && cachedTradeReview!=null && account.equals(cachedTradeReview.accountId)
+            && cachedTradeReview.observedAt<=now && cursor==cachedTradeReview.positionCursor && live.equals(cachedReviewLiveItems))
+            return new com.flippingfriend.core.TradeReviewSnapshot(account,now,cursor,cachedTradeReview.states,cachedTradeReview.archivedSources);
+        var result=TradeReviewRead.classify(account,now,cursor,tradeReviewRows(),history,rejected,live,archivedTradeSources(account));
+        if(history!=null){cachedTradeReview=result;cachedReviewLiveItems=java.util.Set.copyOf(live);}
+        return result;
+    }
+    synchronized com.flippingfriend.core.TradeReviewSnapshot reviewTrades(String account,
+        com.flippingfriend.core.TradeReviewSnapshot.Request request,long now)throws Exception {
+        if(request==null || !request.isValid() || !account.equals(request.accountId))throw new IllegalArgumentException("Invalid account trade-review request");
+        if(!connection.getAutoCommit())throw new IllegalStateException("Review requires its own transaction");
+        connection.setAutoCommit(false);
+        try {
+            String payload=new com.google.gson.Gson().toJson(request);
+            try(var s=connection.prepareStatement("SELECT payload FROM event_log WHERE event_type=? AND correlation_id=?")) {
+                s.setString(1,TradeReviewRead.EVENT_TYPE);s.setString(2,request.requestId);try(var r=s.executeQuery()) {
+                    if(r.next()) {
+                        if(!payload.equals(r.getString(1)))throw new IllegalArgumentException("Review identity was already used for another request");
+                        var result=tradeReview(account,now);connection.commit();return result;
+                    }
+                }
+            }
+            var current=tradeReview(account,now);
+            if(request.positionCursor>current.positionCursor)throw new IllegalArgumentException("Future review cursor");
+            java.util.Map<String,Long> cursors=new java.util.HashMap<>();for(var row:tradeReviewRows())cursors.put(row.source,row.id);
+            for(String source:request.sourceEventIds) {
+                if(!cursors.containsKey(source) || cursors.get(source)>request.positionCursor
+                    || request.archive && !com.flippingfriend.core.TradeReviewSnapshot.ELIGIBLE.equals(current.states.get(source))
+                    || !request.archive && !current.archivedSources.contains(source))
+                    throw new IllegalArgumentException("Selected trade is not eligible for this review action");
+            }
+            recordEvent(now,request.requestId,TradeReviewRead.EVENT_TYPE,payload);
+            cachedTradeReview=null;
+            checkpoint.reached("TRADE_REVIEW_RECORDED");
+            var result=tradeReview(account,now);connection.commit();return result;
+        }catch(Exception failure){connection.rollback();discardCanonicalHistory();throw failure;}
+        finally{connection.setAutoCommit(true);}
     }
 	synchronized com.flippingfriend.core.PerformanceSnapshot performance(String account,String scope,long now) throws Exception {
 		com.flippingfriend.core.AccountIdentity.require(account);
@@ -1112,7 +1238,9 @@ final class SqliteStore implements AutoCloseable
                     && "SOLD".equals(e.getEventType()) && e.getFilledQuantity()==e.getTotalQuantity()
                     && e.getTotalQuantity()>0)completed.add(e.getOfferIdentity());
             }
-			var result=PerformanceRead.aggregate(account,scope,performanceSession(),now,recordedSales(""),completed);
+            java.util.Set<String> archived;
+            try{archived=tradeReview(account,now).effectiveArchived();}catch(Exception unavailable){archived=java.util.Set.of();}
+			var result=PerformanceRead.aggregate(account,scope,performanceSession(),now,recordedSales(""),completed,archived);
 			connection.commit();return result;
 		}catch(Exception e){connection.rollback();discardCanonicalHistory();throw e;}
 		finally{connection.setAutoCommit(true);}
@@ -1133,7 +1261,10 @@ final class SqliteStore implements AutoCloseable
 		connection.setAutoCommit(false);
 		try
 		{
+			if(!snapshot.isAutomaticTradeScope() && snapshot.getAccountId()!=null && recordedAutomaticTradeScope(snapshot.getAccountId()))
+                throw new IllegalArgumentException("Automatic account accounting cannot be downgraded by a legacy snapshot");
 			recordEvent(snapshot.getObservedAt(), snapshot.getCorrelationId(), "ACCOUNT_STATE", payload);
+            if(snapshot.isAutomaticTradeScope())recordAutomaticMode(snapshot.getAccountId(),snapshot.getObservedAt());
 			checkpoint.reached("ACCOUNT_EVENT_RECORDED");
 			SnapshotReconciliationResult result = new SnapshotReconciliationResult();
 			Map<Integer, PositionSnapshot> seen = view.byItem();
@@ -1153,6 +1284,7 @@ final class SqliteStore implements AutoCloseable
 			RiskWindow window = startRiskWindowIfProven(snapshot,evaluatedAt);
 			connection.commit();
 			cacheRiskWindow(window);
+            if(snapshot.isAutomaticTradeScope())automaticModes.put(snapshot.getAccountId(),true);
 			return result;
 		}
 		catch (Exception failure)
@@ -1437,7 +1569,13 @@ final class SqliteStore implements AutoCloseable
 		long cutoff = Instant.now().getEpochSecond() - (long) keepDays * 86_400;
 		try (PreparedStatement statement = connection.prepareStatement(
 			"DELETE FROM event_log WHERE observed_at < ? AND event_type='ACCOUNT_STATE' "
-				+ "AND (event_id IS NULL OR event_id='')"))
+				+ "AND (event_id IS NULL OR event_id='') "
+                + "AND id NOT IN (SELECT MIN(a.id) FROM event_log a WHERE a.event_type='ACCOUNT_STATE' "
+                + "AND CASE WHEN json_valid(a.payload) THEN json_extract(a.payload,'$.automaticTradeScope') END=1 "
+                + "AND NOT EXISTS (SELECT 1 FROM event_log m WHERE m.event_type='AUTOMATIC_ACCOUNTING_V1' "
+                + "AND CASE WHEN json_valid(m.payload) THEN json_extract(m.payload,'$.version') END=1 "
+                + "AND json_extract(m.payload,'$.accountId')=json_extract(a.payload,'$.accountId')) "
+                + "GROUP BY json_extract(a.payload,'$.accountId'))"))
 		{
 			statement.setLong(1, cutoff);
 			return statement.executeUpdate();
@@ -1773,8 +1911,9 @@ final class SqliteStore implements AutoCloseable
 	{
 		List<String> payloads = new ArrayList<>();
 		try (PreparedStatement statement = connection.prepareStatement(
-			"SELECT payload FROM event_log WHERE observed_at >= ? AND event_type <> 'ACCOUNT_STATE' "
-				+ "AND event_type <> 'LEGACY_IMPORT' AND event_type <> 'RISK_WINDOW_V1' ORDER BY observed_at ASC, id ASC"))
+			"SELECT payload FROM event_log WHERE observed_at >= ? "
+                + "AND event_type IN ('EMPTY','BUYING','BOUGHT','CANCELLED_BUY','SELLING','SOLD','CANCELLED_SELL') "
+                + "ORDER BY observed_at ASC, id ASC"))
 		{
 			statement.setLong(1, since);
 			try (ResultSet result = statement.executeQuery())

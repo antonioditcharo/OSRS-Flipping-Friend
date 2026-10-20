@@ -71,6 +71,13 @@ are in `docs/project-direction.md`; historical package notes are not proof of ru
 - Keep account-scoped API/database isolation intact. The old unscoped database is preserved and
   unassigned; do not infer its owner or merge it into a live account. One authoritative ledger
   for the planner, exits, UI, and reporting remains the next prerequisite for strategy tuning.
+- Owner direction, 20 October 2026: prune unrecoverable historical review clutter through a
+  reversible, exact-source archive. Closed unmatched sales with no earlier recorded acquisition
+  may be archived from active review; retained purchase evidence stays visible for investigation.
+  Keep every original financial/source row, unknown coverage, gap, loss anchor and live risk guard;
+  archival never clears exposure, adopts stock or creates profit. New unresolved sources stay
+  visible. See docs/architecture/trade-review-archive.md. Login/GE verification is deferred until
+  20 October after 17:30 local; continue offline without another login request before then.
 - Live Performance reads the durable account ledger. Do not fall back to journal estimates,
   backfill old unpriced sales, or infer placement/tax rules from first-seen timestamps. Preserve
   rule profiles and tax/profit ranges; a divisible average does not prove homogeneous fills.

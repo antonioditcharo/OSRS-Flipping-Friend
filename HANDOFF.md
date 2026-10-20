@@ -8,6 +8,18 @@ latency, complete production replay/returns, gated learning and remaining produc
 
 ## Current source and installed runtime
 
+Newest batch adds reversible review archival for closed unmatched sales with no earlier recorded
+acquisition. Archive is exact-source/cursor scoped, idempotent and undoable; financial rows, unknown
+coverage, quantities, costs, gaps, anchors and all risk/entry guards stay intact. Purchase records
+remain visible for investigation; new failures are never silently archived. Durable automatic
+accounting mode cannot be downgraded by legacy snapshots or a caller's memory flag and survives
+snapshot retention/rollback. Fourteen new tests cover the accounting boundary and reversible archive.
+[Contract](docs/architecture/trade-review-archive.md) /
+[receipt](docs/history/trade-review-archive-delivery-2026-10-20.md); actual source/CI/install/live state:
+local-data/trade-review-20261020/delivery-state.json. Owner is away until 20 October 17:30 local;
+continue offline, do not request login beforehand. This supersedes the preceding availability note.
+All controlled trade-loop, sustained timing, complete replay, return and learning gates remain open.
+
 Newest batch fixes startup sale accounting: a scoped companion restores its recorded automatic
 accounting mode before draining offer events, without restoring stale cash/slot authority. Full
 SELLING counters followed by accepted SOLD count one completed flip even when SOLD adds no money.
