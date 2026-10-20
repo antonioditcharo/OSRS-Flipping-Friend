@@ -131,9 +131,8 @@ public class StepGuide
 	 * <p>
 	 * So a change that arrives mid-entry is <em>queued</em> rather than applied. The player finishes
 	 * what they started, the panel tells them what is waiting, and the moment the editor closes the
-	 * queued advice takes over. Nothing is ever more urgent than not fumbling the offer already being
-	 * typed: a finished offer waits indefinitely, and a sale a few seconds later is a rounding error
-	 * against placing the wrong trade entirely.
+	 * queued advice takes over. A fresh stop for the same purchase withdraws that entry immediately;
+	 * other interruptions keep the original receipt's bounded lifetime instead of renewing it.
 	 */
 	public synchronized void setSuggestion(Suggestion suggestion)
 	{
@@ -144,11 +143,15 @@ public class StepGuide
             adviceGeneration.incrementAndGet();entryStarted=false;editingControl=null;
             quantityDone=false;priceDone=false;
         }
-        // A refusal withdraws entry authority. It must not wait behind the buy it invalidates.
-        if (incoming.getType() == SuggestionType.WAIT
-            && (tracked.getType() == SuggestionType.BUY || tracked.getType() == SuggestionType.MODIFY_BUY)) {
+        // A refusal or same-item stop withdraws entry authority. Neither may wait behind the
+        // purchase it invalidates. Unrelated stops still use the bounded mid-entry queue.
+        boolean buying=tracked.getType()==SuggestionType.BUY || tracked.getType()==SuggestionType.MODIFY_BUY;
+        boolean purchaseStopped=incoming.isLossCut() && incoming.getItemId()==tracked.getItemId()
+            && (incoming.getType()==SuggestionType.SELL || incoming.getType()==SuggestionType.CANCEL);
+        if (buying && (incoming.getType()==SuggestionType.WAIT || purchaseStopped)) {
             adviceGeneration.incrementAndGet();
-            tracked = incoming; trackedAt=receivedAt; pending = null; editorQuote = null;
+            tracked = incoming; trackedAt=receivedAt; pending = null;
+            if(!purchaseStopped || editorQuote!=null && editorQuote.getItemId()==incoming.getItemId())editorQuote=null;
             quantityDone = false; priceDone = false; entryStarted = false; editingControl = null;
             return;
         }

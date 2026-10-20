@@ -64,4 +64,32 @@ public class GuidanceLifetimeTest {
             .adviceContext("account","old",0,java.time.Instant.now().getEpochSecond()-1).build();
         guide.setSuggestion(expired);assertFalse(guide.getSuggestion().isActionable());
     }
+    @Test public void aFreshStopOnTheSameItemImmediatelyWithdrawsItsMidEntryBuyAndQueuedProgress() {
+        for(var type:new SuggestionType[]{SuggestionType.BUY,SuggestionType.MODIFY_BUY}) {
+            guide.reset();guide.setSuggestion(advice(type,561));beginEntry();
+            long generation=guide.getAdviceGeneration();
+            guide.setSuggestion(advice(SuggestionType.BUY,562));assertNotNull(guide.getPending());
+            var stop=Suggestion.builder(type==SuggestionType.BUY?SuggestionType.SELL:SuggestionType.CANCEL)
+                .item(561,"Fixture").quantity(4).price(80).slot(0).lossCut(true).build();
+            guide.setSuggestion(stop);
+            assertSame("A stop must not queue behind the purchase it supersedes",stop,guide.getSuggestion());assertNull(guide.getPending());
+            assertTrue(guide.getAdviceGeneration()>generation);
+            guide.onSetupClosed();assertSame(stop,guide.getSuggestion());
+            // The input helper also checks this generation before delivering a queued numeric key.
+        }
+    }
+    @Test public void stoppingAnUnderlyingBuyDoesNotReplaceAnUnrelatedPersonalSaleQuote() {
+        guide.setSuggestion(advice(SuggestionType.BUY,561));beginEntry();
+        var personal=advice(SuggestionType.SELL,563);guide.setEditorQuote(personal);
+        var stop=Suggestion.builder(SuggestionType.CANCEL).item(561,"Fixture").quantity(4).price(80).lossCut(true).build();
+        guide.setSuggestion(stop);assertSame(personal,guide.getSuggestion());guide.setEditorQuote(null);
+        assertSame(stop,guide.getSuggestion());
+    }
+    @Test public void anUnrelatedStopStillRespectsTheBoundedManualEditorDeferral() {
+        var original=advice(SuggestionType.MODIFY_BUY,561);guide.setSuggestion(original);beginEntry();
+        var stop=Suggestion.builder(SuggestionType.SELL).item(562,"Other").quantity(4).price(80).lossCut(true).build();
+        guide.setSuggestion(stop);assertSame(original,guide.getSuggestion());assertSame(stop,guide.getPending());
+        clock.addAndGet(StepGuide.MAX_ADVICE_AGE_NANOS);assertEquals(SuggestionType.WAIT,guide.getSuggestion().getType());
+        guide.setSuggestion(stop);assertSame(stop,guide.getSuggestion());assertNull(guide.getPending());
+    }
 }

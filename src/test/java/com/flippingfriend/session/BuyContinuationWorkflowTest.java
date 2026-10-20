@@ -123,6 +123,72 @@ public class BuyContinuationWorkflowTest {
     private static Object read(Object target,String name)throws Exception {
         var field=target.getClass().getDeclaredField(name);field.setAccessible(true);return field.get(target);
     }
+    /** Run the real client capture with an open matching editor, holding the worker for later. */
+    private void captureOpenMaintenanceEditor(Fixture f,Suggestion shown)throws Exception {
+        var plugin=new FlippingFriendPlugin();var client=mock(Client.class);
+        when(client.getGameState()).thenReturn(GameState.LOGGED_IN);
+        when(client.getVarpValue(net.runelite.api.gameval.VarPlayerID.TRADINGPOST_SEARCH)).thenReturn(shown.getItemId());
+        var resolver=mock(com.flippingfriend.overlay.GeWidgetResolver.class);when(resolver.isSetupOpen()).thenReturn(true);
+        var guide=new com.flippingfriend.overlay.StepGuide(client,resolver);guide.setSuggestion(shown);
+        var thread=mock(net.runelite.client.callback.ClientThread.class);
+        doAnswer(call->{((Runnable)call.getArgument(0)).run();return null;}).when(thread).invokeLater(any(Runnable.class));
+        var executor=mock(java.util.concurrent.ExecutorService.class);
+        var profiles=mock(net.runelite.client.config.ConfigManager.class);when(profiles.getRSProfileKey()).thenReturn("buy-continuation");
+        var state=new AccountState(true,true,false,100000000,0,0,7,8,100000,false,Map.of(),Map.of(),Map.of());
+        when(f.account.refresh()).thenReturn(state);
+        GrandExchangeOffer[] raw=new GrandExchangeOffer[8];
+        for(int i=0;i<8;i++) {raw[i]=mock(GrandExchangeOffer.class);when(raw[i].getState()).thenReturn(GrandExchangeOfferState.EMPTY);}
+        when(raw[0].getState()).thenReturn(GrandExchangeOfferState.BUYING);when(raw[0].getItemId()).thenReturn(561);
+        when(raw[0].getPrice()).thenReturn(1000L);when(raw[0].getTotalQuantity()).thenReturn(100);
+        when(client.getGrandExchangeOffers()).thenReturn(raw);
+        inject(plugin,"client",client);inject(plugin,"clientThread",thread);inject(plugin,"worker",executor);
+        inject(plugin,"engine",f.engine);inject(plugin,"stepGuide",guide);inject(plugin,"widgetResolver",resolver);
+        inject(plugin,"accountMonitor",f.account);inject(plugin,"offerTracker",f.tracker);inject(plugin,"configManager",profiles);
+        inject(plugin,"companion",read(f.engine,"companion"));inject(plugin,"panel",mock(com.flippingfriend.ui.FlippingFriendPanel.class));
+        ((java.util.concurrent.atomic.AtomicBoolean)read(plugin,"accountDataLoaded")).set(true);inject(plugin,"offerSnapshotReady",true);
+        var capture=FlippingFriendPlugin.class.getDeclaredMethod("beginEngineRefresh",long.class);capture.setAccessible(true);capture.invoke(plugin,0L);
+        verify(executor).execute(any(Runnable.class));
+    }
+    @Test public void anOpenMaintenanceEditorCannotPinAnOldRepriceAheadOfAFreshStop()throws Exception {
+        var f=new Fixture();var old=f.present();captureOpenMaintenanceEditor(f,old);
+        f.progress(GrandExchangeOfferState.BUYING,4);stoppedStock(f,4,false,now);
+        var next=f.engine.refresh(false);assertEquals(SuggestionType.CANCEL,next.getType());assertTrue(next.isLossCut());
+        assertTrue("Revalidation does not erase the saved promise before acceptance",f.intent.isPending(561,f.tracker,f.storage.accountId(),now));
+    }
+    @Test public void anOpenMaintenanceEditorCannotHideACompletedOrCancelledOffer()throws Exception {
+        for(var state:new GrandExchangeOfferState[]{GrandExchangeOfferState.BOUGHT,GrandExchangeOfferState.CANCELLED_BUY}) {
+            var f=new Fixture();var old=f.present();captureOpenMaintenanceEditor(f,old);f.progress(state,state==GrandExchangeOfferState.BOUGHT?100:6);
+            var next=f.engine.refresh(false);assertEquals(SuggestionType.COLLECT,next.getType());assertEquals(0,next.getSlot());
+        }
+    }
+    @Test public void anOpenMaintenanceEditorCannotRenewAnUnsupportedMarketDecision()throws Exception {
+        var f=new Fixture();var old=f.present();captureOpenMaintenanceEditor(f,old);
+        when(f.market.getSnapshot()).thenReturn(MarketSnapshot.empty());when(f.market.unavailableReason()).thenReturn("Fixture feed unavailable");
+        var next=f.engine.refresh(false);assertEquals(SuggestionType.WAIT,next.getType());assertFalse(next.isActionable());
+        assertTrue(new BuyRepriceIntent(f.storage).isPending(561,f.tracker,f.storage.accountId(),now));
+    }
+    @Test public void terminalCollectionAndExplicitWindDownDoNotRequireMarketPrices()throws Exception {
+        for(var state:new GrandExchangeOfferState[]{GrandExchangeOfferState.BOUGHT,GrandExchangeOfferState.CANCELLED_BUY}) {
+            var f=new Fixture();f.progress(state,state==GrandExchangeOfferState.BOUGHT?100:6);
+            when(f.market.getSnapshot()).thenReturn(MarketSnapshot.empty());
+            var next=f.engine.refresh(false);assertEquals(SuggestionType.COLLECT,next.getType());assertEquals(561,next.getItemId());
+            assertEquals(state==GrandExchangeOfferState.BOUGHT?100:6,next.getQuantity());
+        }
+        var f=new Fixture();f.engine.setSellOnly(true);when(f.market.getSnapshot()).thenReturn(MarketSnapshot.empty());
+        var next=f.engine.refresh(false);assertEquals(SuggestionType.CANCEL,next.getType());assertEquals(561,next.getItemId());
+        assertEquals("BUYING",f.tracker.getOffer(0).getState());assertNull(f.positions.get(561));
+    }
+    @Test public void collectingAnUnpricedPersonalSaleDoesNotEnrollStockOrInventItsCost()throws Exception {
+        for(var state:new GrandExchangeOfferState[]{GrandExchangeOfferState.SOLD,GrandExchangeOfferState.CANCELLED_SELL}) {
+            var f=new Fixture();var sale=mock(GrandExchangeOffer.class);when(sale.getState()).thenReturn(state);
+            when(sale.getItemId()).thenReturn(562);when(sale.getPrice()).thenReturn(120L);when(sale.getTotalQuantity()).thenReturn(10);
+            int filled=state==GrandExchangeOfferState.SOLD?10:5;
+            when(sale.getQuantitySold()).thenReturn(filled);when(sale.getSpent()).thenReturn(filled*120L);
+            f.tracker.onOfferChanged(1,sale);when(f.market.getSnapshot()).thenReturn(MarketSnapshot.empty());
+            var next=f.engine.refresh(false);assertEquals(SuggestionType.COLLECT,next.getType());assertEquals(1,next.getSlot());
+            assertEquals(562,next.getItemId());assertEquals(filled,next.getQuantity());assertNull(f.positions.get(562));
+        }
+    }
     @Test public void aSavedRepriceMustNotHideAFreshStopOnTheWorkingPartialBuy()throws Exception {
         var f=new Fixture();f.present();f.progress(GrandExchangeOfferState.BUYING,4);stoppedStock(f,4,false,now);
         var next=f.engine.refresh(false);assertNotNull(next);assertEquals(SuggestionType.CANCEL,next.getType());assertTrue(next.isLossCut());

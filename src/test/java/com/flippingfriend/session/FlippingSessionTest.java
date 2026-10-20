@@ -581,28 +581,17 @@ public class FlippingSessionTest
 			replacement.getQuantity());
 	}
 
-	/**
-	 * A modification the player has not finished is held steady, and released the moment they are
-	 * done with it.
-	 * <p>
-	 * The plugin pins the card while the offer editor is open on that item, so it cannot change under
-	 * someone who is typing into it. That pin is returned ahead of every other decision, so a pin
-	 * that is never released does not merely delay the next recommendation -- it drops all of them,
-	 * for as long as it stands. It used to be released only when the whole Grand Exchange window was
-	 * closed, and cancelling an offer closes the editor while leaving the Exchange open.
-	 */
+	/** Revalidation preserves an unchanged order, then advances when the real offer changes. */
 	@Test
-	public void aHeldCardIsReleasedRatherThanWedgingTheEngine() throws Exception
+	public void anUnchangedRepriceStaysSteadyButAChangedOfferAdvancesTheWorkflow() throws Exception
 	{
 		plantStaleBuyOffer();
 		Suggestion reprice = engine.refresh(true);
 		assertEquals(SuggestionType.MODIFY_BUY, reprice.getType());
 
-		engine.setPendingAdjustment(reprice);
-		assertTrue("while it is pinned, it is what the plugin says",
+		assertTrue("a fresh evaluation of the same unchanged order stays steady",
 			engine.refresh(true).sameAs(reprice));
 
-		engine.setPendingAdjustment(null);
 		offers.onOfferChanged(0, offer(GrandExchangeOfferState.CANCELLED_BUY, true, 1_900, 5_000, 0));
 		assertEquals("and once released, the chain runs on", SuggestionType.COLLECT,
 			engine.refresh(true).getType());

@@ -8,7 +8,16 @@ latency, complete production replay/returns, gated learning and remaining produc
 
 ## Current source and installed runtime
 
-Newest source: fresh stops supersede healthy-accumulation continuation holds; accepted stop sales
+Newest source removes the editor's engine pin: maintenance, completed offers, prices and fresh
+stops are revalidated on every pass. StepGuide retains bounded typing protection; a same-item stop
+withdraws its old buy immediately. Fallback collection and explicit wind-down do not wait for
+market data. Nine added tests include five old-behavior failures. [Contract](docs/architecture/live-guidance-revalidation.md) /
+[receipt](docs/history/live-revalidation-delivery-2026-10-20.md); actual source/CI/install/live state:
+local-data/live-revalidation-20261020/delivery-state.json. Read it first. Owner deferred manual login/
+game tests until 20 October after 17:30 local. All controlled full-loop, sustained timing, complete
+production replay, qualified return/learning and remaining parity gates stay open.
+
+Included #125: fresh stops supersede healthy-accumulation continuation holds; accepted stop sales
 must durably remove old rebuy promises before delivery. Fresh listed stops also precede ordinary
 relists/replacements and bypass prior ordinary write backoff. Exact quantities/costs/original exit
 context and stale-price/final authority guards remain. Replay V10 follows these paths through
@@ -24,7 +33,7 @@ includes #123. Read local-data/runelite-1133-20261020/delivery-state.json for ac
 install/native status, then the workflow receipt below. [Compatibility contract](docs/architecture/runelite-compatibility.md).
 Login and controlled game actions remain manual. Financial history and the original anchor persist.
 
-Newest source: cancellation identity and bounded guidance lifetime. Saved account/episode commitments
+Included #123/#124: cancellation identity and bounded guidance lifetime. Saved account/episode commitments
 exempt guided buy cancellations even after a changed card or restart; same-item/uncommitted cards
 cannot excuse unrelated cancellations. Local foreground/pending/editor advice and queued numeric
 keys retain a bounded receipt lifetime, delayed callbacks revalidate and persistent errors withdraw

@@ -837,23 +837,8 @@ public class FlippingFriendPlugin extends Plugin
             if(client.getGameState()!=GameState.LOGGED_IN || !accountDataLoaded.get() || !hasProfile())return;
             if(!offerSnapshotReady)return;
             com.flippingfriend.session.AccountState observedState=accountMonitor.refresh();
-			boolean isSetupOpen = widgetResolver.isSetupOpen();
-			int setupItemId = isSetupOpen ? client.getVarpValue(VarPlayerID.TRADINGPOST_SEARCH) : -1;
-			Suggestion active = stepGuide.getSuggestion();
-
-			// Hold the reprice card still while the player is in the editor for that same item, and
-			// let it go the instant they are not.
-			//
-			// This used to be released only when the whole Grand Exchange was closed, and the engine
-			// returns a held card ahead of everything else -- so closing the offer editor while
-			// leaving the Exchange open left the plugin frozen on a reprice for an offer that no
-			// longer existed. Every recommendation behind it was dropped for as long as the window
-			// stayed open, which is the whole session for anyone who flips with it up. Cancelling an
-			// offer is precisely the action that closes the editor and leaves the Exchange open, so
-			// the card most likely to wedge the engine was the one the player had just acted on.
-			boolean midAdjustment = active != null && isSetupOpen
-				&& setupItemId == active.getItemId() && active.getType().isModify();
-			engine.setPendingAdjustment(midAdjustment ? active : null);
+			// Editor deferral belongs to StepGuide. It must not bypass live engine validation or
+			// turn a repeatedly returned old maintenance card into a freshly validated receipt.
 			java.util.List<TrackedOffer> observedOffers = new java.util.ArrayList<>();
 			for (TrackedOffer offer : offerTracker.getOffers()) observedOffers.add(offer.copyObservation());
 			String observedProfile = configManager.getRSProfileKey();

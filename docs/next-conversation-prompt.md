@@ -33,6 +33,14 @@ rebuilding already implemented capabilities:
 
 ## Delivery state at this handoff
 
+Read local-data/live-revalidation-20261020/delivery-state.json first for newest actual source/CI/
+install/live state. The engine no longer pins a maintenance card while its editor is open; it
+revalidates current fills/stops/market conditions. Same-item stops withdraw buys immediately;
+unrelated typing remains bounded in StepGuide. Fallback collection/explicit wind-down need no
+market price. Contract: docs/architecture/live-guidance-revalidation.md. Owner deferred manual
+login/game testing until 20 October after 17:30 local; do not ask again beforehand. Preserve every
+controlled workflow/timing/complete replay/qualified return and learning gate below.
+
 Read local-data/stop-continuation-20261020/delivery-state.json first for the newest actual source/
 CI/install/live state. Fresh stops supersede continuation holds and durably remove old rebuy
 promises before accepted stop sales; listed fresh stops precede ordinary relists/replacements.
