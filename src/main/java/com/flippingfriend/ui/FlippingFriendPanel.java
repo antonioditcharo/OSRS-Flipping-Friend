@@ -33,7 +33,9 @@ public class FlippingFriendPanel extends PluginPanel {
     private final PanelDetails details;
     private final MissedFlipsWindow missedFlips;
     private final SidebarPerformance performance;
-    private final Timer performanceTimer=new Timer(1000,event->refreshPerformance());
+    // A logout or expired guide may produce no later engine callback. Refresh the visible action
+    // as well as measurements; rendering never clears durable workflow state.
+    private final Timer performanceTimer=new Timer(1000,event->refreshOnEdt());
     private final ButtonGroup cadenceGroup = new ButtonGroup(), riskGroup = new ButtonGroup();
     private final Map<CheckInterval, JToggleButton> cadences = new LinkedHashMap<>();
     private final Map<RiskProfile, JToggleButton> risks = new LinkedHashMap<>();
@@ -169,9 +171,11 @@ public class FlippingFriendPanel extends PluginPanel {
         if (SwingUtilities.isEventDispatchThread()) refreshOnEdt(); else SwingUtilities.invokeLater(this::refreshOnEdt);
     }
     private void refreshOnEdt() {
-        Suggestion active = stepGuide.getSuggestion();
-        suggestion.update(active, stepGuide.getPending());
         AccountState account = accountMonitor.getState();
+        boolean loggedIn=account!=null && account.isLoggedIn();
+        Suggestion active = loggedIn?stepGuide.getSuggestion():Suggestion.waiting("Log in to start",
+            "Log in and open the Grand Exchange for current account guidance.");
+        suggestion.update(active, loggedIn?stepGuide.getPending():null);
         AccountLedgerSnapshot ledger = account != null && account.isLoggedIn() ? companion.lastLedger() : null;
         refreshPerformance();
         AccountLedgerSnapshot history = account != null && account.isLoggedIn() ? companion.historyLedger() : null;

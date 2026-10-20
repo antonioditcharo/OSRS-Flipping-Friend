@@ -8,8 +8,8 @@ completed-flip count. No account database was edited or replayed.
 
 The batch restores recorded account-specific accounting mode before drain, independently of fresh
 spending authority; follows accepted completion after incremental sales; and delivers explanatory,
-selectable sale evidence with clearly labeled journal estimates. Eight new behavioral tests include
-two reproduced old-source failures. [Contract](../architecture/startup-sale-accounting.md).
+selectable sale evidence with clearly labeled journal estimates. Nine new behavioral tests include
+three reproduced old-source failures. [Contract](../architecture/startup-sale-accounting.md).
 
 Actual source head, PR, both individual exact-head CI checks, merge, verified paired artifacts,
 backup/task preservation, financial-prefix/anchor checks and post-launch observations are recorded

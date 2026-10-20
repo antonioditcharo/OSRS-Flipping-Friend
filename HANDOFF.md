@@ -12,7 +12,8 @@ Newest batch fixes startup sale accounting: a scoped companion restores its reco
 accounting mode before draining offer events, without restoring stale cash/slot authority. Full
 SELLING counters followed by accepted SOLD count one completed flip even when SOLD adds no money.
 Sale rows retain proceeds/tax/matched-cost evidence, explain unmatched cost and open the selected
-Recorded sale; local journal estimates are labeled. Eight added tests include two reproduced old
+Recorded sale; local journal estimates are labeled. The visible heartbeat also withdraws old
+buy instructions on logout or guide expiry without deleting durable plans. Nine added tests include three reproduced old
 failures. [Contract](docs/architecture/startup-sale-accounting.md) /
 [receipt](docs/history/startup-sale-accounting-delivery-2026-10-20.md); actual source/CI/install/live state:
 local-data/sale-evidence-20261020/delivery-state.json. User is now logged in with GE open; this

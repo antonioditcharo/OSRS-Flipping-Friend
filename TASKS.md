@@ -9,7 +9,7 @@ All unchecked release requirements remain visible below; detailed completion rec
       automatic scope before pre-snapshot offer drain; never restore stale spending authority.
       Count accepted terminal sales after full SELLING progress without another disposal. Explain
       unmatched cost while preserving known proceeds/tax and all historical financial rows; sale
-      rows open selected Recorded sales. Eight new tests include two old failures. Contract/receipt:
+      rows open selected Recorded sales. Withdraw stale logout/expired cards on the visible heartbeat. Nine new tests include three old failures. Contract/receipt:
       docs/architecture/startup-sale-accounting.md and docs/history/startup-sale-accounting-delivery-2026-10-20.md;
       actual delivery state: local-data/sale-evidence-20261020/delivery-state.json. Owner now reports
       logged in/GE open, superseding prior deferrals. Controlled workflow, timing, complete replay,

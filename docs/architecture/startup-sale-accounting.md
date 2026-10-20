@@ -39,3 +39,8 @@ rejected terminal and partial cancellation; foreign account; grouped unresolved 
 sidebar-to-selected-evidence navigation and filtered details. Standard Windows/Linux release
 checks and paired delivery remain required. Controlled player trade-loop and sustained timing,
 complete production replay, qualified return and learning-promotion gates remain open.
+
+A native pre-install check also reproduced a stale buy card after logout: only Performance
+refreshed on the visible heartbeat, while the engine stops on logout. The heartbeat now refreshes
+the whole visible panel and fences active/pending advice on account login state. Expired guide
+receipts are reread too. This is presentation withdrawal, never deletion of saved plans or trades.
