@@ -21,6 +21,8 @@ slot, original prediction and exit-context binding. The public batch is bounded 
 slots; invalid factories, account switches, overflow or a failed replacement do not consume a
 durable sequence or save part of the frame. The existing file format and legacy wire keys remain.
 An authenticated EMPTY retains its existing binding-release rule. Physical evidence is not coalesced.
+The [persistence follow-up](offer-persistence-recovery.md) retains a valid failed frame in memory
+for forced atomic worker retry under its original reserved identities, ahead of later callbacks.
 
 HTTP delivery remains one ordered request and one verified acknowledgement per source. Only the
 identity-matched acknowledged prefix is removed in a single local replacement. A bad or missing

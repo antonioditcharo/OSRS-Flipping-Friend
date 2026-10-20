@@ -338,7 +338,7 @@ public class CompanionClient
                     : offerFactory(observed.get(slot),expectedAccountId,true,observation.getObservedAt()));
             }
             try {
-                for(var event:outbox.enqueueObservedOffers(factories)) {
+                for(var event:enqueueObservedOffers(factories)) {
                     receipt.put(event.getSlot(),event.getEventId());rememberCanonicalOffer(event);
                 }
                 lastLedger=null;
@@ -432,7 +432,7 @@ public class CompanionClient
                 { lastError = "Could not persist offer event: account identity changed or unavailable"; return null; }
                 try
                 {
-                        OfferEvent event = outbox.enqueueObservedOffer(offerFactory(offer,expectedAccountId,authenticated,now));
+                        OfferEvent event = enqueueObservedOffers(java.util.Collections.singletonList(offerFactory(offer,expectedAccountId,authenticated,now))).get(0);
                         lastLedger = null;
                         rememberCanonicalOffer(event);
                         if(replay) replayPendingOffers();
@@ -498,7 +498,7 @@ public class CompanionClient
                 { lastError = "Could not persist offer event: account identity changed or unavailable"; return null; }
                 try
                 {
-                        OfferEvent event = outbox.enqueueObservedOffer(clearedFactory(slot,expectedAccountId,authenticated,now));
+                        OfferEvent event = enqueueObservedOffers(java.util.Collections.singletonList(clearedFactory(slot,expectedAccountId,authenticated,now))).get(0);
                         lastLedger = null;
                         canonicalOffers.remove(slot);
                         if(replay) replayPendingOffers();
@@ -602,6 +602,22 @@ public class CompanionClient
         try { if (!outbox.pending().isEmpty()) return null; }
         catch (Exception unavailable) { return null; }
         return lastLedger();
+    }
+
+    private java.util.List<OfferEvent> enqueueObservedOffers(java.util.List<OfferEventOutbox.EventFactory> factories)throws Exception {
+        try { return outbox.enqueueObservedOffers(factories); }
+        catch(Exception unavailable) {
+            // Keep account proof and cached advice withdrawn while the outbox retains this tail.
+            lastLedger=null;invalidateEntryAdvice();
+            long generation=replayGeneration.get(),now=retryClock.getAsLong();
+            synchronized(replayScheduling) {
+                if(replayLifecycleIsCurrent(generation)) {
+                    nextRetryAtMillis=Math.min(nextRetryAtMillis,now+retryDelayMillis);
+                    if(replayRunning.get())replayRescheduleGeneration=generation;
+                }
+            }
+            throw unavailable;
+        }
     }
 
 	/**
@@ -1133,9 +1149,14 @@ public class CompanionClient
 
 	public Suggestion nextAction()
 	{
+		String requestedAccount=accountContext();long generation=replayGeneration.get();
+		if(requestedAccount==null || offerEvidencePending())return null;
 		try
 		{
-			return toSuggestion(get("action", CompanionAction.class));
+			var action=get("action", CompanionAction.class);
+            if(generation!=replayGeneration.get() || !java.util.Objects.equals(requestedAccount,accountContext())
+                || offerEvidencePending())return null;
+			return toSuggestion(action);
 		}
 		catch (Exception ex)
 		{
@@ -1240,6 +1261,7 @@ public class CompanionClient
                 try
                 {
                         if (!replayLifecycleIsCurrent(generation)) return ReplayResult.STALE;
+                        outbox.retryUnsaved();
                         var acknowledged=new java.util.ArrayList<OfferEvent>();boolean failed=false;
                         for (OfferEvent event : outbox.pending())
                         {

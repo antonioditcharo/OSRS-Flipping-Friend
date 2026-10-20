@@ -31,8 +31,7 @@ public class OfferClearedPublicationBoundaryTest
 
                 Assert.assertTrue(client.contains(
                         "public void publishOfferCleared(int slot)"));
-                Assert.assertTrue(client.contains(
-                        "outbox.enqueueObservedOffer(clearedFactory(slot,expectedAccountId,authenticated,now))"));
+                // Public cleared-event persistence/retry is exercised by OfferPersistenceRecoveryTest.
                 Assert.assertTrue(client.contains(
                         "clearedFactory(slot,expectedAccountId,true,observation.getObservedAt())"));
                 Assert.assertTrue(client.contains(".slot(slot)"));
