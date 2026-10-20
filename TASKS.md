@@ -9,6 +9,14 @@ Continuation impact order: trade-loop reliability/exit-context provenance, actua
 latency, production-policy account replay/returns, validated learning, then remaining product gaps.
 Read [the continuation prompt](docs/next-conversation-prompt.md); current delivery facts below govern.
 
+- [ ] Deliver/accept ordered-observation and retry fixes: preserve late/completion retry wakeups,
+      batch copied-frame/ACK-prefix local persistence (16 replacements to 2), retain individual
+      source delivery, exact identities/provenance and current account proof. Windows clean 91s:
+      1,784 Java passed/six existing skips, Java 11; 108 tooling passed. Source verified; actual
+      CI/merge/install is in local-data/loopback-latency-20261019/delivery-state.json. See
+      docs/architecture/ordered-observation-batches.md and linked consolidated receipt. Fresh
+      installed ACK drain/eight-slot, controlled trade-loop and sustained timing remain open.
+
 - [x] Implement offline replay v8 exit/maintenance priorities, last-slot protection, partial-buy
       stops and new-evidence displays within attended visits. Five old-source regressions fail;
       seven new tests plus existing replay cases pass. Windows clean 129s: 1,768 Java passed/six
