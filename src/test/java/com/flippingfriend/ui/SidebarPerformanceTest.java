@@ -61,6 +61,15 @@ public class SidebarPerformanceTest {
         assertTrue(CompactPanelContractTest.tree(windows.get(0)).stream().filter(c->c instanceof JTextArea).anyMatch(c->((JTextArea)c).getText().contains("exact-source")));
         verify(f.market,never()).getGraphSeries(eq(561),anyString());
     }
+    @Test public void archivedSalesLeaveTheActionListButNeverDisappearFromCoverageOrBecomeProfit()throws Exception {
+        var f=new CompactPanelContractTest();f.setup();long now=java.time.Instant.now().getEpochSecond();
+        var archived=new PerformanceSnapshot.Sale("archived",562,"Old archived sale",1,now,1,null,null,true);archived.archived=true;
+        var fresh=new PerformanceSnapshot.Sale("new",561,"New unresolved sale",1,now,1,null,null,true);
+        var p=new PerformanceSnapshot(AccountIdentity.fromProfileKey("synthetic"),"ALL",null,now,0,0,2,2,0,0,0,0,java.util.List.of(archived,fresh));p.archivedUnresolvedSales=1;
+        when(f.companion.performance()).thenReturn(p);f.refresh();String text=text(f.panel);
+        assertFalse(text.contains("Old archived sale"));assertTrue(text.contains("New unresolved sale"));
+        assertTrue(text.contains("2 unresolved"));assertTrue(text.contains("1 archived (kept in coverage)"));assertTrue(text.contains("Unresolved"));assertTrue(p.isValid());assertEquals(0,p.profitLower);
+    }
     @Test public void renderNativeExpandedPanelAndShortViewport()throws Exception {
         var old=UIManager.getLookAndFeel();
         try {

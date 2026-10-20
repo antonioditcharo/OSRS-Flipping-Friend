@@ -143,6 +143,9 @@ public class CompanionClient
     });
     private final AtomicBoolean performanceQueued=new AtomicBoolean();
     private volatile com.flippingfriend.core.PerformanceSnapshot performance;
+    private volatile com.flippingfriend.core.TradeReviewSnapshot tradeReview;
+    private final AtomicBoolean tradeReviewQueued=new AtomicBoolean();
+    private volatile String tradeReviewError="";
     private volatile String performanceScope="SESSION",performanceError="";
     private volatile long lastPerformanceRequest;
     private long performanceGeneration;
@@ -153,6 +156,34 @@ public class CompanionClient
     }
     public String performanceScope(){return performanceScope;}
     public String performanceError(){return performanceError;}
+    public String tradeReviewError(){return tradeReviewError;}
+    public boolean tradeReviewUpdating(){return tradeReviewQueued.get();}
+    public synchronized com.flippingfriend.core.TradeReviewSnapshot tradeReview() {
+        var result=tradeReview;String account=accountContext();long now=Instant.now().getEpochSecond();
+        return replayEnabled && result!=null && account!=null && account.equals(result.accountId)
+            && result.observedAt<=now && now-result.observedAt<=150?result:null;
+    }
+    public synchronized void reviewTrades(String expectedAccount,long cursor,java.util.List<String> sources,boolean archive) {
+        String account=accountContext();var current=tradeReview();
+        if(account==null || !account.equals(expectedAccount) || current==null || current.positionCursor!=cursor
+            || !tradeReviewQueued.compareAndSet(false,true))return;
+        long generation=performanceGeneration;
+        var body=new com.flippingfriend.core.TradeReviewSnapshot.Request(account,UUID.randomUUID().toString(),cursor,archive,sources);
+        if(!body.isValid()){tradeReviewQueued.set(false);return;}
+        performanceWorker.execute(()->{
+            try {
+                var result=gson.fromJson(request("trade-review","POST",gson.toJson(body),ACCOUNT_READ_TIMEOUT_MILLIS,account),com.flippingfriend.core.TradeReviewSnapshot.class);
+                synchronized(this) {
+                    if(generation!=performanceGeneration || !account.equals(accountContext()))return;
+                    if(result==null || !result.isValid() || !account.equals(result.accountId) || result.observedAt>Instant.now().getEpochSecond())
+                        throw new IllegalStateException("Invalid account review response");
+                    tradeReview=result;tradeReviewError="";performance=null;lastPerformanceRequest=0;
+                }
+                requestPerformanceRefresh();
+            }catch(Exception unavailable){synchronized(this){if(generation==performanceGeneration && account.equals(accountContext()))tradeReviewError="Review update failed; records remain unchanged. Refresh and retry.";}}
+            finally{tradeReviewQueued.set(false);}
+        });
+    }
     public synchronized com.flippingfriend.core.PerformanceSnapshot performance() {
         String account=accountContext();var current=performance;
         long age=current==null?Long.MAX_VALUE:Instant.now().getEpochSecond()-current.observedAt;
@@ -174,6 +205,16 @@ public class CompanionClient
                         || result.observedAt>Instant.now().getEpochSecond())throw new IllegalStateException("Invalid account performance response");
                     performance=result;performanceError="";
                 }
+                try {
+                    var review=gson.fromJson(request("trade-review/current","GET",null,ACCOUNT_READ_TIMEOUT_MILLIS,account),com.flippingfriend.core.TradeReviewSnapshot.class);
+                    synchronized(this) {
+                        if(generation==performanceGeneration && account.equals(accountContext())) {
+                            if(review==null || !review.isValid() || !account.equals(review.accountId) || review.observedAt>Instant.now().getEpochSecond())
+                                throw new IllegalStateException("Invalid account review response");
+                            tradeReview=review;tradeReviewError="";
+                        }
+                    }
+                }catch(Exception unavailable){synchronized(this){if(generation==performanceGeneration && account.equals(accountContext())){tradeReview=null;tradeReviewError="Review archive is unavailable; all evidence remains visible.";}}}
             }catch(Exception failure){synchronized(this){if(generation==performanceGeneration && java.util.Objects.equals(account,accountContext()))performanceError="Performance is updating";}}
             finally{performanceQueued.set(false);}
         });
@@ -245,6 +286,7 @@ public class CompanionClient
             lastHistoryLedger = null;
             ledgerGeneration++;
             performance=null;performanceGeneration++;lastPerformanceRequest=0;performanceError="";
+            tradeReview=null;tradeReviewError="";
 			canonicalOffers.clear(); ledger.clear();
             lastPresented = null;
 			observedAccountId = current;
@@ -1368,6 +1410,7 @@ public class CompanionClient
                 replayGeneration.incrementAndGet();
                 ledgerGeneration++;
                 performanceGeneration++;performance=null;lastPerformanceRequest=0;
+                tradeReview=null;tradeReviewError="";
                 replayEnabled = true;
                 retryDelayMillis = INITIAL_RETRY_DELAY_MILLIS;
                 nextRetryAtMillis = 0;
@@ -1377,6 +1420,7 @@ public class CompanionClient
         {
                 replayEnabled = false;
                 performanceGeneration++;performance=null;lastPerformanceRequest=0;
+                tradeReview=null;tradeReviewError="";
                 replayGeneration.incrementAndGet();
                 ledgerGeneration++;
                 nextRetryAtMillis = Long.MAX_VALUE;

@@ -76,7 +76,7 @@ final class SidebarPerformance extends JPanel {
             :ledger==null?"Unavailable":ledger.getBoundedSales()==0 && ledger.getSales()>0?"Unresolved":range(low,high));
         profit.setForeground(low>0?UiUtils.profitColor(1):high<0?UiUtils.profitColor(-1):UiUtils.TEXT);
         profit.setToolTipText("Realized after-tax profit from durable sales in the selected measurement window. Unknown profit is excluded and counted below.");
-        coverage.setText(available?measurement.saleUpdates+" updates · "+measurement.unresolvedSales+" unresolved":ledger==null?"Waiting for account records":ledger.getSales()+" updates · "+ledger.getUnresolvedSales()+" unresolved");
+        coverage.setText(available?measurement.archivedUnresolvedSales>0?"<html>"+measurement.saleUpdates+" updates · "+measurement.unresolvedSales+" unresolved<br>"+measurement.archivedUnresolvedSales+" archived (kept in coverage)</html>":measurement.saleUpdates+" updates · "+measurement.unresolvedSales+" unresolved":ledger==null?"Waiting for account records":ledger.getSales()+" updates · "+ledger.getUnresolvedSales()+" unresolved");
         coverage.setToolTipText(Objects.toString(companion.performanceError(),"")+" Sale timestamps are observations; partial fills count once per completed sell offer. Historical coverage may be incomplete.");
         for(JLabel value:values.values()){value.setText("Unavailable");value.setForeground(UiUtils.TEXT);value.setToolTipText(null);}
         if(available) {
@@ -109,15 +109,16 @@ final class SidebarPerformance extends JPanel {
                 values.get("Unrealized profit").setToolTipText(tip);
             }
         }
-        int size=available?measurement.sales.size():0,totalPages=Math.max(1,(size+9)/10);pageNumber=Math.min(pageNumber,totalPages-1);
+        java.util.List<PerformanceSnapshot.Sale> visible=available?measurement.sales.stream().filter(s->!s.archived).collect(java.util.stream.Collectors.toList()):java.util.List.of();
+        int size=visible.size(),totalPages=Math.max(1,(size+9)/10);pageNumber=Math.min(pageNumber,totalPages-1);
         page.setText("Page "+(pageNumber+1)+" of "+totalPages);previous.setEnabled(available && pageNumber>0);next.setEnabled(available && pageNumber+1<totalPages);
         String signature=available?measurement.accountId+measurement.scope+measurement.sessionId+pageNumber+measurement.sales.toString():"none";
         // Serialization compares values, so a two-second update does not rebuild unchanged rows or reset focus.
         if(available)signature=new com.google.gson.Gson().toJson(measurement.sales)+measurement.scope+measurement.accountId+pageNumber;
         if(signature.equals(saleSignature))return;saleSignature=signature;sales.removeAll();
-        if(size==0){JLabel empty=new JLabel(available?"No recorded sales in this window":"Waiting for recorded sales");style(empty);addSale(empty);}
+        if(size==0){JLabel empty=new JLabel(available?measurement.archivedUnresolvedSales>0?"Archived sales: see Missed flips":"No recorded sales in this window":"Waiting for recorded sales");style(empty);addSale(empty);}
         else for(int i=pageNumber*10;i<Math.min(size,(pageNumber+1)*10);i++) {
-            var sale=measurement.sales.get(i);JPanel line=row();
+            var sale=visible.get(i);JPanel line=row();
             JLabel name=new JLabel(sale.quantity+" × "+sale.itemName);style(name);
             String reasons=sale.accountingReasons==null?"":String.join("; ",sale.accountingReasons);
             JLabel result=new JLabel(sale.profitLower==null?SaleEvidenceText.status(reasons):shortRange(sale.profitLower,sale.profitUpper));style(result);

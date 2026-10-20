@@ -14,16 +14,20 @@ final class PerformanceRead {
     static final class Group {
         String offer,name;int item;long quantity,at,updates,low,high;boolean unknown,completed;
         long gross,cost,taxLow,taxHigh;boolean missingGross,missingTax;
-        Set<String> reasons=new LinkedHashSet<>();
-        PerformanceSnapshot.Sale snapshot() { return new PerformanceSnapshot.Sale(offer,item,name,quantity,at,updates,
+        Set<String> reasons=new LinkedHashSet<>();boolean archived=true;
+        PerformanceSnapshot.Sale snapshot() { var sale=new PerformanceSnapshot.Sale(offer,item,name,quantity,at,updates,
             unknown?null:low,unknown?null:high,completed,missingGross?null:gross,cost,
-            missingGross||missingTax?null:taxLow,missingGross||missingTax?null:taxHigh,new ArrayList<>(reasons)); }
+            missingGross||missingTax?null:taxLow,missingGross||missingTax?null:taxHigh,new ArrayList<>(reasons));sale.archived=archived;return sale; }
     }
     static PerformanceSnapshot aggregate(String account,String scope,Session session,long now,List<RecordedSale> rows,
         Set<String> completedOffers) {
+        return aggregate(account,scope,session,now,rows,completedOffers,Set.of());
+    }
+    static PerformanceSnapshot aggregate(String account,String scope,Session session,long now,List<RecordedSale> rows,
+        Set<String> completedOffers,Set<String> archivedSources) {
         if(!Set.of("SESSION","DAY","WEEK","ALL").contains(scope))throw new IllegalArgumentException("Unknown performance scope");
         long since=scope.equals("DAY")?Math.max(0,now-86400):scope.equals("WEEK")?Math.max(0,now-604800):0;
-        long updates=0,unresolved=0,low=0,high=0,cost=0;
+        long updates=0,unresolved=0,low=0,high=0,cost=0,archived=0;
         Map<String,Group> groups=new LinkedHashMap<>();
         for(var sale:rows) {
             if(sale.getObservedAt()>now)throw new IllegalStateException("Future sale evidence");
@@ -34,6 +38,8 @@ final class PerformanceRead {
             else {low=Math.addExact(low,sale.getProfitLower());high=Math.addExact(high,sale.getProfitUpper());cost=Math.addExact(cost,sale.getAppliedCost());}
             String key=sale.getOfferIdentity()==null?"unidentified-row:"+sale.getRowId():sale.getOfferIdentity();
             Group g=groups.computeIfAbsent(key,k->new Group());
+            boolean rowArchived=sale.getProfitLower()==null && archivedSources.contains(sale.getSourceEventId());
+            if(rowArchived)archived++;g.archived&=rowArchived;
             if(g.item!=0 && g.item!=sale.getItemId())throw new IllegalStateException("Inconsistent sale identity");
             g.offer=sale.getOfferIdentity();g.item=sale.getItemId();g.name=sale.getItemName();g.updates++;
             g.quantity=Math.addExact(g.quantity,sale.getQuantity());g.at=Math.max(g.at,sale.getObservedAt());
@@ -50,8 +56,9 @@ final class PerformanceRead {
         long completed=0;
         for(Group g:groups.values()){sales.add(g.snapshot());if(g.completed && !g.unknown)completed++;}
         sales.sort(Comparator.comparingLong((PerformanceSnapshot.Sale s)->s.observedAt).reversed().thenComparing(s->Objects.toString(s.offerIdentity,"")));
-        return new PerformanceSnapshot(account,scope,session==null?null:session.id,now,
+        var report=new PerformanceSnapshot(account,scope,session==null?null:session.id,now,
             scope.equals("SESSION")?(session==null?now:session.startedAt):since,session==null?0:session.cursor,
             updates,unresolved,completed,cost,low,high,sales);
+        report.archivedUnresolvedSales=archived;return report;
     }
 }
