@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <!-- RuneLite's bundled default writes to the real player's client.log. Tests use console only. -->
+    <appender name="TEST_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder><pattern>[%thread] %level %logger{36} - %msg%n</pattern></encoder>
+    </appender>
+    <root level="INFO"><appender-ref ref="TEST_CONSOLE"/></root>
+</configuration>

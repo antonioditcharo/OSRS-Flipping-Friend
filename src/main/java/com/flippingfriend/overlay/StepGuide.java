@@ -44,6 +44,24 @@ public class StepGuide
 
     public boolean isPaused() { return paused; }
     public long getAdviceGeneration() { return adviceGeneration.get(); }
+    /** A failed authority/durability guard must also withdraw an in-progress sell/editor quote. */
+    public synchronized void withdrawAdvice(Suggestion reason) {
+        if(reason==null || reason.getType()!=SuggestionType.WAIT)throw new IllegalArgumentException("Withdrawal needs a reason");
+        adviceGeneration.incrementAndGet();tracked=reason;pending=null;editorQuote=null;
+        quantityDone=false;priceDone=false;entryStarted=false;editingControl=null;
+    }
+    /** Withdraw only the declined trade, preserving an unrelated personal editor quote. */
+    public synchronized void withdrawTrade(Suggestion declined,Suggestion reason) {
+        if(declined==null)return;
+        if(reason==null || reason.getType()!=SuggestionType.WAIT)throw new IllegalArgumentException("Withdrawal needs a reason");
+        boolean changed=false;
+        if(tracked.isSameTradeAs(declined)) {
+            tracked=reason;quantityDone=false;priceDone=false;entryStarted=false;editingControl=null;changed=true;
+        }
+        if(pending!=null && pending.isSameTradeAs(declined)){pending=null;changed=true;}
+        if(editorQuote!=null && editorQuote.isSameTradeAs(declined)){editorQuote=null;changed=true;}
+        if(changed)adviceGeneration.incrementAndGet();
+    }
     /** Changes guidance only. No client API, game input or accounting write. */
     public synchronized void setPaused(boolean value) {
         if (paused == value) return;

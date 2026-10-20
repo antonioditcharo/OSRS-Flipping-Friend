@@ -82,6 +82,23 @@ public class AdviceDeliveryBoundaryTest {
         verify(f.guide,never()).setSuggestion(modify);
         verify(f.companion).nextEntrySuggestion(any(),anySet(),anySet(),anySet());
     }
+    @Test public void aRefusedSaleCannotStayActionableBehindTheRealMidEntryGuide()throws Exception {
+        Fixture f=new Fixture();when(f.companion.nextAction()).thenReturn(null);
+        var engine=(SuggestionEngine)getField(f.plugin,"engine");
+        var rejected=Suggestion.builder(SuggestionType.MODIFY_SELL).item(561,"Listed").quantity(10).price(100).slot(0)
+            .maintenanceSource("original-sale").build();
+        when(engine.refresh(false)).thenReturn(rejected);when(engine.recordPresentedMaintenance(any(),anyString(),anyLong())).thenReturn(true);
+        when(f.companion.authorizeSale(rejected)).thenReturn(null);
+        when(f.companion.nextEntrySuggestion(any(),anySet(),anySet(),anySet())).thenReturn(f.advice);
+        var client=(Client)getField(f.plugin,"client");when(client.isClientThread()).thenReturn(true);
+        var resolver=mock(GeWidgetResolver.class);when(resolver.isSetupOpen()).thenReturn(true);
+        var quantity=mock(net.runelite.api.widgets.Widget.class);when(resolver.getQuantityControl()).thenReturn(quantity);
+        var guide=new StepGuide(client,resolver);guide.setSuggestion(rejected);
+        var click=mock(net.runelite.api.events.MenuOptionClicked.class);when(click.getWidget()).thenReturn(quantity);guide.onMenuOptionClicked(click);
+        f.set("stepGuide",guide);f.queueAdvice();f.clientQueue.remove().run();
+        assertSame("The declined sell must be withdrawn before a successor can be deferred behind it",f.advice,guide.getSuggestion());
+        assertNull(guide.getPending());verify(f.companion,never()).recordPresentedAdvice(eq(rejected),anyString(),anyInt());
+    }
     @Test public void startupAccountSnapshotCannotPublishBeforeFirstLoggedInServerTick()throws Exception {
         Fixture f=new Fixture(false);
         Method refresh=FlippingFriendPlugin.class.getDeclaredMethod("requestEngineRefresh");refresh.setAccessible(true);
@@ -205,10 +222,24 @@ public class AdviceDeliveryBoundaryTest {
             .slot(0).maintenanceSource("accepted-episode").build();
         when(f.guide.getSuggestion()).thenReturn(accepted);
         var engine=(SuggestionEngine)getField(f.plugin,"engine");
+        when(engine.recordPresentedMaintenance(eq(accepted),anyString(),anyLong())).thenReturn(true);
         f.computeAdvice();verify(engine,never()).recordPresentedMaintenance(any(),anyString(),anyLong());
         f.clientQueue.remove().run();
         verify(engine).recordPresentedMaintenance(eq(accepted),eq(com.flippingfriend.core.AccountIdentity.fromProfileKey("fixture")),anyLong());
         verify(engine,never()).recordPresentedMaintenance(eq(f.advice),anyString(),anyLong());
+    }
+    @Test public void anUnsavedMaintenancePromiseWithdrawsInsteadOfRecordingOrNotifyingIt()throws Exception {
+        for(var type:List.of(SuggestionType.MODIFY_BUY,SuggestionType.MODIFY_SELL,SuggestionType.CANCEL)) {
+            Fixture f=new Fixture();when(f.guide.isPaused()).thenReturn(false);
+            var notifier=mock(net.runelite.client.Notifier.class);f.set("notifier",notifier);
+            var accepted=Suggestion.builder(type).item(561,"Uncommitted").quantity(10).price(100).slot(0).maintenanceSource("episode").build();
+            when(f.guide.getSuggestion()).thenReturn(accepted);
+            doAnswer(call->{when(f.guide.getSuggestion()).thenReturn(call.getArgument(0));return null;})
+                .when(f.guide).withdrawAdvice(any());
+            f.computeAdvice();f.clientQueue.remove().run();
+            verify(f.guide).withdrawAdvice(argThat(s->s.getType()==SuggestionType.WAIT));
+            verify(f.companion,never()).recordPresentedAdvice(any(),anyString(),anyInt());verifyNoInteractions(notifier);
+        }
     }
     @Test public void anUnavailableReplacementDecisionWithdrawsTheLocalBuy()throws Exception {
         Fixture f=new Fixture();when(f.companion.nextAction()).thenReturn(null);

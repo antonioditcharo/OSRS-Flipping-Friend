@@ -436,7 +436,14 @@ public class FlippingFriendPlugin extends Plugin
         Suggestion accepted=stepGuide.getSuggestion();
         int stop=accepted==null?0:(int)Math.round(accepted.getPrice()*(1-config.riskProfile().getLossCutPct()));
         String account=com.flippingfriend.core.AccountIdentity.fromProfileKey(configManager.getRSProfileKey());
-        engine.recordPresentedMaintenance(accepted,account,java.time.Instant.now().getEpochSecond());
+        boolean saved=engine.recordPresentedMaintenance(accepted,account,java.time.Instant.now().getEpochSecond());
+        if(accepted!=null && (accepted.getType()==SuggestionType.MODIFY_BUY || accepted.getType()==SuggestionType.MODIFY_SELL
+                || accepted.getType()==SuggestionType.CANCEL) && !saved) {
+            stepGuide.withdrawAdvice(Suggestion.waiting("Saving this trade workflow",
+                "The cancellation/replacement sequence could not be committed for the current offer. Keep the offer working; existing records are retained and guidance will retry."));
+            if(engine.deferUnsavedMaintenance(accepted,java.time.Instant.now().getEpochSecond()))requestEngineRefresh();
+            return;
+        }
         companion.recordPresentedAdvice(accepted,account,stop);
     }
     @Subscribe
@@ -916,6 +923,7 @@ public class FlippingFriendPlugin extends Plugin
 
                 engine.setObservedAccount(observedAccount);
                 Suggestion continuationRefusal=null;
+                Suggestion rejectedPriceAdvice=null;
                 Suggestion suggestion = companion.nextAction();
 				if (suggestion == null)
 				{
@@ -930,11 +938,17 @@ public class FlippingFriendPlugin extends Plugin
 				if (suggestion != null && (suggestion.getType() == SuggestionType.MODIFY_BUY
 					|| suggestion.getType() == SuggestionType.CANCEL))
 				{
+                    Suggestion proposed=suggestion;
 					suggestion = companion.selectBuyMaintenanceCancellation(suggestion);
+                    if(suggestion==null || suggestion.getType()==SuggestionType.WAIT)rejectedPriceAdvice=proposed;
 				}
 				if(suggestion!=null && (suggestion.getType()==SuggestionType.MODIFY_SELL
                     || suggestion.getType()==SuggestionType.SELL && suggestion.isProfitKnown()))
-                    suggestion=companion.authorizeSale(suggestion);
+                {
+                    Suggestion proposed=suggestion;
+                    suggestion=companion.authorizeSale(proposed);
+                    if(suggestion!=proposed)rejectedPriceAdvice=proposed;
+                }
 				if (suggestion == null)
 				{
 					// The two rejection controls the player actually has. These were honoured only by
@@ -982,6 +996,7 @@ public class FlippingFriendPlugin extends Plugin
 				// naming different items. Chaining them makes the order explicit.
 				consecutiveRefreshFailures.set(0);
 				Suggestion settled = suggestion;
+                Suggestion declined = rejectedPriceAdvice;
 				clientThread.invokeLater(() ->
 				{
                     if(epoch!=engineRefreshEpoch.get())return;
@@ -998,17 +1013,19 @@ public class FlippingFriendPlugin extends Plugin
                     Suggestion current = settled;
                     if(current.getAdviceExpiresAt()>0 && current.getAdviceExpiresAt()<=java.time.Instant.now().getEpochSecond()
                         || current.getAdviceAccountId()!=null && !current.getAdviceAccountId().equals(observedAccount)) {
-                        stepGuide.setSuggestion(Suggestion.waiting("Refreshing this order","The queued quote is no longer current. Its workflow and purchase records are retained."));
+                        stepGuide.withdrawAdvice(Suggestion.waiting("Refreshing this order","The queued quote is no longer current. Its workflow and purchase records are retained."));
                         panel.refresh();requestEngineRefresh();return;
                     }
 
+                    stepGuide.withdrawTrade(declined,Suggestion.waiting("Refreshing this trade",
+                        "The previous instruction was declined by current validation. Existing offers and purchase records are retained."));
 					stepGuide.setSuggestion(current);
                     recordVisibleAdvice();
 					panel.refresh();
                     if(!stepGuide.isPaused())notifyIfNeeded(stepGuide.getSuggestion());
 					log.info("Guidance delivered: {} ms from refresh request; capture/durable publication {} ms, plan/ledger {} ms, decision/delivery {} ms; {}",
 						(System.nanoTime()-guidanceStarted)/1_000_000,(publicationFinished-guidanceStarted)/1_000_000,
-						(planFinished-publicationFinished)/1_000_000,(System.nanoTime()-planFinished)/1_000_000,current.getType());
+						(planFinished-publicationFinished)/1_000_000,(System.nanoTime()-planFinished)/1_000_000,stepGuide.getSuggestion().getType());
 				});
 				if (epoch==engineRefreshEpoch.get() && observedRevision==adviceObservationRevision.get() && !stepGuide.isPaused())checkPriceDumps();
 
@@ -1054,7 +1071,7 @@ public class FlippingFriendPlugin extends Plugin
 	/** Called on the client thread, including at the final advice-delivery boundary. */
 	private void withdrawUnsupportedPriceAdvice()
 	{
-		stepGuide.setSuggestion(Suggestion.waiting("Offer data requires reconciliation",
+		stepGuide.withdrawAdvice(Suggestion.waiting("Offer data requires reconciliation",
 			"An observed offer price exceeds this plugin's supported range. Advice is paused; "
 				+ "the observation and prior accounting are retained for a compatible update."));
 		panel.refresh();

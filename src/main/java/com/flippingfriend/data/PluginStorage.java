@@ -140,6 +140,25 @@ public class PluginStorage
 		}
 	}
 
+    /** A workflow commitment is acknowledged only after forced, atomic replacement. */
+    public boolean writeDurably(Path file, byte[] contents) {
+        try {
+            Files.createDirectories(file.getParent());
+            Path temp=file.resolveSibling(file.getFileName()+".tmp");
+            try(var channel=java.nio.channels.FileChannel.open(temp,StandardOpenOption.CREATE,
+                    StandardOpenOption.TRUNCATE_EXISTING,StandardOpenOption.WRITE)) {
+                var buffer=java.nio.ByteBuffer.wrap(contents);
+                while(buffer.hasRemaining())channel.write(buffer);
+                channel.force(true);
+            }
+            // No non-atomic fallback: preserve the previous document on failure.
+            Files.move(temp,file,StandardCopyOption.ATOMIC_MOVE,StandardCopyOption.REPLACE_EXISTING);
+            return true;
+        }catch(Exception unavailable) {
+            log.warn("could not commit {}: {}",file.getFileName(),unavailable.getClass().getSimpleName());
+            return false;
+        }
+    }
 	/** Appends one JSON object per line. Used by the trade journal, which is only ever added to. */
 	public void appendLine(Path file, String line)
 	{
