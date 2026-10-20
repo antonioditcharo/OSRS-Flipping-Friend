@@ -19,10 +19,7 @@ import net.runelite.client.util.AsyncBufferedImage;
 /**
  * The last few completed flips, read from the saved journal.
  * <p>
- * This is the visible proof that trades are being recorded. A profit total alone gives no way to
- * tell a working tracker from a broken one; a list of individual flips with what was paid, what it
- * sold for and how long it took does. It is also the same data the calibrator learns from, so if
- * something looks wrong here it is wrong there too.
+ * A local estimate, separate from durable account Performance and execution learning.
  */
 class HistoryPanel extends JPanel
 {
@@ -61,7 +58,7 @@ class HistoryPanel extends JPanel
 		lastSignature = signature;
 
 		removeAll();
-		add(UiUtils.mutedText("Local journal figures may include estimated tax or cost."));
+		add(UiUtils.mutedText("Local estimates may include estimated tax or cost. Recorded sales explains differences from account Performance."));
 		add(UiUtils.gap(UiUtils.SPACE_XS));
 
 		if (recent.isEmpty())
@@ -142,8 +139,9 @@ class HistoryPanel extends JPanel
 
 		row.add(text, BorderLayout.CENTER);
 
-		JLabel profit = UiUtils.label(explainer.formatGp(record.getProfit()),
+		JLabel profit = UiUtils.label("≈ "+explainer.formatGp(record.getProfit()),
 			UiUtils.profitColor(record.getProfit()), FontManager.getRunescapeBoldFont());
+		profit.setToolTipText(record.isCostReconstructed()?"Local estimate with reconstructed cost and estimated tax; excluded from durable Performance.":"Local journal estimate; tax or cost may differ from the durable account ledger.");
 		profit.setVerticalAlignment(SwingConstants.TOP);
 		row.add(profit, BorderLayout.EAST);
 

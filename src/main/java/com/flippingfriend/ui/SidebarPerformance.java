@@ -21,10 +21,12 @@ final class SidebarPerformance extends JPanel {
     private final JButton previous,next,reset;
     private final JPanel footer;
     private final Runnable investigate;
+    private final java.util.function.Consumer<String> investigateSale;
     private int pageNumber;
     private String saleSignature="";
-    SidebarPerformance(CompanionClient companion,Explainer explainer,Runnable investigate,Runnable portfolio,java.util.function.IntConsumer graph) {
+    SidebarPerformance(CompanionClient companion,Explainer explainer,Runnable investigate,Runnable portfolio,java.util.function.Consumer<String> investigateSale,java.util.function.IntConsumer graph) {
         this.companion=companion;this.explainer=explainer;this.investigate=investigate;
+        this.investigateSale=investigateSale;
         setName("sidebar-performance");setOpaque(false);setLayout(new BoxLayout(this,BoxLayout.Y_AXIS));
         scope.setName("performance-scope");scope.setFont(FontManager.getRunescapeSmallFont());
         scope.setToolTipText("Measurements use durable account sale updates. Historical coverage may be incomplete.");
@@ -56,7 +58,7 @@ final class SidebarPerformance extends JPanel {
         next=PanelIcons.button("sales-next","chevron_right","Next recorded sales page",()->{pageNumber++;saleSignature="";update(companion.performance(),null,true,graph);});
         JPanel pages=row();footer=pages;JPanel controls=new JPanel(new FlowLayout(FlowLayout.CENTER,0,0));controls.setOpaque(false);style(page);
         controls.add(previous);controls.add(page);controls.add(next);pages.add(controls);
-        pages.add(PanelIcons.button("sales-expand","open_in_new","Investigate recorded sales",investigate),BorderLayout.EAST);
+        pages.add(PanelIcons.button("sales-expand","open_in_new","Investigate recorded sales",()->investigateSale.accept(null)),BorderLayout.EAST);
     }
     JComponent footer(){return footer;}
     private static void style(JLabel label){label.setFont(FontManager.getRunescapeSmallFont());label.setForeground(UiUtils.TEXT);}
@@ -117,13 +119,18 @@ final class SidebarPerformance extends JPanel {
         else for(int i=pageNumber*10;i<Math.min(size,(pageNumber+1)*10);i++) {
             var sale=measurement.sales.get(i);JPanel line=row();
             JLabel name=new JLabel(sale.quantity+" × "+sale.itemName);style(name);
-            JLabel result=new JLabel(sale.profitLower==null?"Unknown":shortRange(sale.profitLower,sale.profitUpper));style(result);
+            String reasons=sale.accountingReasons==null?"":String.join("; ",sale.accountingReasons);
+            JLabel result=new JLabel(sale.profitLower==null?SaleEvidenceText.status(reasons):shortRange(sale.profitLower,sale.profitUpper));style(result);
             if(sale.profitLower!=null)result.setForeground(sale.profitLower>0?UiUtils.profitColor(1):sale.profitUpper<0?UiUtils.profitColor(-1):UiUtils.TEXT);
             line.add(name);line.add(result,BorderLayout.EAST);
-            String tip=sale.itemName+" · "+sale.updates+" sale updates · "+(sale.completed?"Completed":"Partial/unconfirmed completion")+" · "+Objects.toString(sale.offerIdentity,"Unknown offer identity");
+            String detail=sale.itemName+" · "+sale.updates+" sale updates · "+(sale.completed?"Completed":"Partial/unconfirmed completion")
+                +"\nGross: "+amount(sale.gross)+" · Matched cost: "+amount(sale.matchedCost)
+                +"\nTax: "+(sale.taxLower==null?"Unknown":range(sale.taxLower,sale.taxUpper))
+                +"\n"+SaleEvidenceText.explain(reasons)+"\nOpen the recorded sale evidence.";
+            String tip="<html>"+SaleEvidenceText.html(detail)+"</html>";
             line.setToolTipText(tip);name.setToolTipText(tip);result.setToolTipText(tip);
             line.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-            java.awt.event.MouseAdapter click=new java.awt.event.MouseAdapter(){@Override public void mouseClicked(java.awt.event.MouseEvent e){graph.accept(sale.itemId);}};
+            java.awt.event.MouseAdapter click=new java.awt.event.MouseAdapter(){@Override public void mouseClicked(java.awt.event.MouseEvent e){investigateSale.accept(sale.offerIdentity);}};
             line.addMouseListener(click);name.addMouseListener(click);result.addMouseListener(click);addSale(line);
         }
         sales.setMaximumSize(new Dimension(Integer.MAX_VALUE,sales.getPreferredSize().height));revalidate();repaint();
@@ -144,6 +151,7 @@ final class SidebarPerformance extends JPanel {
         return tip.append("</html>").toString();
     }
     private void addSale(JComponent c){c.setAlignmentX(LEFT_ALIGNMENT);c.setMaximumSize(new Dimension(Integer.MAX_VALUE,c.getPreferredSize().height));sales.add(c);}
+    private String amount(Long amount){return amount==null?"Unknown":explainer.formatNumber(amount)+" GP";}
     private String shortRange(long a,long b){return a==b?explainer.formatGp(a):explainer.formatGp(a)+"…"+explainer.formatGp(b);}
     private String range(long a,long b){return a==b?explainer.formatNumber(a)+" gp":explainer.formatNumber(a)+" to "+explainer.formatNumber(b)+" gp";}
     private static String percent(long p,long cost){return String.format(Locale.ROOT,"%.3f%%",p*100.0/cost);}

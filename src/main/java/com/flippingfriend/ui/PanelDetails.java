@@ -158,6 +158,7 @@ final class PanelDetails {
     void setPresenter(BiConsumer<String, JComponent> presenter) { this.presenter = presenter; }
     void setGraphItemManager(net.runelite.client.game.ItemManager items){graph.setItemManager(items);}
     void openItemGraph(Component owner,int item){graph.showItem(item);open(owner,"Price graph");}
+    void openSale(Component owner,String offer){open(owner,"Recorded sales");recordedSales.selectOffer(offer);}
     void dispose() { graph.dispose();if (dialog != null) { dialog.dispose(); dialog = null; } }
     private void copy(String text) { Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(text), null); }
 }

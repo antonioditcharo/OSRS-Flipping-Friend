@@ -154,10 +154,24 @@ public class CompactPanelContractTest {
         when(companion.historyLedger()).thenReturn(history);refresh();
         Component[] view=new Component[1];SwingUtilities.invokeAndWait(()->view[0]=panel.detailsComponent("Recorded sales"));
         var table=tree(view[0]).stream().filter(c->c instanceof JTable).map(c->(JTable)c).findFirst().orElseThrow();
-        assertEquals(1,table.getRowCount());assertEquals("Unknown",table.getValueAt(0,6));
+        assertEquals(1,table.getRowCount());assertEquals("Cost unmatched",table.getValueAt(0,6));
         assertTrue(text(view[0]).contains("showing last confirmed history"));
         assertTrue(text(panel).contains("Unavailable"));
         when(monitor.getState()).thenReturn(AccountState.loggedOut());refresh();assertEquals(0,table.getRowCount());
+    }
+    @Test public void visibleHeartbeatWithdrawsLoggedOutActionsWithoutWaitingForAnotherEngineResult()throws Exception {
+        assertTrue(text(panel).contains("Nature rune"));assertTrue(button("skip-action").isEnabled());
+        when(monitor.getState()).thenReturn(AccountState.loggedOut());
+        // Fire the production Swing heartbeat directly: no engine callback or explicit refresh.
+        try {
+            var field=FlippingFriendPanel.class.getDeclaredField("performanceTimer");field.setAccessible(true);
+            javax.swing.Timer timer=(javax.swing.Timer)field.get(panel);
+            SwingUtilities.invokeAndWait(()->{for(var listener:timer.getActionListeners())listener.actionPerformed(new java.awt.event.ActionEvent(timer,0,"tick"));});
+        }catch(ReflectiveOperationException e){throw new AssertionError(e);}
+        assertFalse(text(panel).contains("Nature rune"));assertTrue(text(panel).contains("Log in to start"));
+        assertFalse(button("skip-action").isEnabled());assertFalse(button("block-action").isEnabled());
+        assertFalse(button("graph-action").isEnabled());assertTrue(text(panel).contains("Log in to see account guidance"));
+        assertFalse(text(panel).contains("Budget:"));verify(guide,never()).reset();verify(engine,never()).skip(anyInt());
     }
     @Test public void narrowSidebarKeepsAccountAndCoverageVisibleRatherThanAtZeroHeight() throws Exception {
         SwingUtilities.invokeAndWait(()->{
