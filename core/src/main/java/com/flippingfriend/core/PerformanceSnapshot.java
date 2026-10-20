@@ -9,10 +9,20 @@ public final class PerformanceSnapshot {
         public final int itemId;
         public final long quantity, observedAt, updates;
         public final Long profitLower, profitUpper;
+        /** Recorded amounts only; null preserves missing or legacy detail. Matched cost is not
+         * necessarily the full cost when profit is unresolved. */
+        public final Long gross,matchedCost,taxLower,taxUpper;
+        public final List<String> accountingReasons;
         public final boolean completed;
         public Sale(String offer,int item,String name,long quantity,long at,long updates,Long low,Long high,boolean completed) {
+            this(offer,item,name,quantity,at,updates,low,high,completed,null,null,null,null,null);
+        }
+        public Sale(String offer,int item,String name,long quantity,long at,long updates,Long low,Long high,boolean completed,
+            Long gross,Long matchedCost,Long taxLow,Long taxHigh,List<String> reasons) {
             this.offerIdentity=offer;itemId=item;itemName=name;this.quantity=quantity;observedAt=at;this.updates=updates;
             profitLower=low;profitUpper=high;this.completed=completed;
+            this.gross=gross;this.matchedCost=matchedCost;taxLower=taxLow;taxUpper=taxHigh;
+            accountingReasons=reasons==null?null:Collections.unmodifiableList(new ArrayList<>(reasons));
         }
     }
     public final String accountId, scope, sessionId;
@@ -55,7 +65,11 @@ public final class PerformanceSnapshot {
             && appliedCost>=0 && profitLower<=profitUpper && sales!=null
             && sales.stream().allMatch(s->s!=null && s.itemId>0 && s.quantity>0 && s.updates>0
                 && s.observedAt>=0 && s.observedAt<=observedAt && (s.profitLower==null)==(s.profitUpper==null)
-                && (s.profitLower==null || s.profitLower<=s.profitUpper))
+                && (s.profitLower==null || s.profitLower<=s.profitUpper)
+                && (s.gross==null || s.gross>=0) && (s.matchedCost==null || s.matchedCost>=0)
+                && (s.taxLower==null)==(s.taxUpper==null)
+                && (s.taxLower==null || s.gross!=null && s.taxLower>=0 && s.taxLower<=s.taxUpper && s.taxUpper<=s.gross)
+                && (s.accountingReasons==null || s.accountingReasons.stream().allMatch(Objects::nonNull)))
             && (unrealizedProfit==null)==(portfolioValue==null) && (unrealizedProfit==null)==(unpricedCost==null)
             && (portfolioValue==null || portfolioValue>=0 && unpricedCost>=0) && validStockValuation();
     }

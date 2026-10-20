@@ -13,10 +13,11 @@ import javax.swing.table.*;
 /** Investigates the same durable sale rows as Performance. Unknown bounds stay visible. */
 final class RecordedSalesPanel extends JPanel {
     private final JLabel coverage=new JLabel("Waiting for account ledger");
-    private final DefaultTableModel model=new DefaultTableModel(new String[]{"Observed (UTC)","Item","Qty","Gross GP","Applied cost GP","Tax GP","Profit GP"},0) {
+    private final DefaultTableModel model=new DefaultTableModel(new String[]{"Observed (UTC)","Item","Qty","Gross GP","Matched cost GP","Tax GP","Profit GP"},0) {
         @Override public boolean isCellEditable(int row,int column){return false;}
     };
     private final JTable table=new JTable(model);
+    private final JTextField filter=new JTextField();
     private final JTextArea evidence=CompactSuggestionPanel.text(UiUtils.TEXT);
     private List<RecordedSale> rows=List.of();
     private String lastSignature;
@@ -24,7 +25,7 @@ final class RecordedSalesPanel extends JPanel {
         super(new BorderLayout(8,8));setBackground(UiUtils.CARD);setPreferredSize(new Dimension(680,420));
         JPanel header=new JPanel(new BorderLayout(8,8));header.setOpaque(false);
         coverage.setForeground(UiUtils.TEXT);
-        header.add(coverage,BorderLayout.NORTH);JTextField filter=new JTextField();filter.setToolTipText("Filter recorded sales by item, date or amount");
+        header.add(coverage,BorderLayout.NORTH);filter.setToolTipText("Filter recorded sales by item, date or amount");
         JPanel search=new JPanel(new BorderLayout(6,0));search.setOpaque(false);
         JLabel searchLabel=new JLabel("Filter sales:");searchLabel.setForeground(UiUtils.TEXT);searchLabel.setLabelFor(filter);
         search.add(searchLabel,BorderLayout.WEST);search.add(filter,BorderLayout.CENTER);header.add(search,BorderLayout.SOUTH);
@@ -39,7 +40,8 @@ final class RecordedSalesPanel extends JPanel {
         });
         table.getSelectionModel().addListSelectionListener(e->{int selected=table.getSelectedRow();
             if(selected<0){evidence.setText("");return;}var sale=rows.get(table.convertRowIndexToModel(selected));
-            evidence.setText("Source: "+Objects.toString(sale.getSourceEventId(),"Legacy identity unavailable")
+            String reason=Objects.toString(sale.getReason(),"");
+            evidence.setText(SaleEvidenceText.explain(reason)+"\n\nSource: "+Objects.toString(sale.getSourceEventId(),"Legacy identity unavailable")
                 +"\nOffer: "+Objects.toString(sale.getOfferIdentity(),"Unknown")+"\nTax rule: "+Objects.toString(sale.getTaxPolicy(),"Unknown")
                 +"\n"+Objects.toString(sale.getReason(),"No recorded accounting explanation"));
         });
@@ -58,8 +60,17 @@ final class RecordedSalesPanel extends JPanel {
         if(signature.toString().equals(lastSignature))return;lastSignature=signature.toString();
         rows=incoming==null?List.of():incoming;model.setRowCount(0);
         for(var sale:rows)model.addRow(new Object[]{Instant.ofEpochSecond(sale.getObservedAt()).toString(),sale.getItemName()+" (#"+sale.getItemId()+")",
-            sale.getQuantity(),sale.getGross()==null?"Unknown":sale.getGross(),sale.getProfitLower()==null?"Unknown (matched "+sale.getAppliedCost()+")":sale.getAppliedCost(),range(sale.getTaxLower(),sale.getTaxUpper()),range(sale.getProfitLower(),sale.getProfitUpper())});
+            sale.getQuantity(),sale.getGross()==null?"Unknown":sale.getGross(),sale.getAppliedCost(),range(sale.getTaxLower(),sale.getTaxUpper()),sale.getProfitLower()==null?SaleEvidenceText.status(Objects.toString(sale.getReason(),"")):range(sale.getProfitLower(),sale.getProfitUpper())});
         evidence.setText("");
+    }
+    void selectOffer(String offer) {
+        if(offer==null)return;
+        filter.setText("");
+        for(int i=0;i<rows.size();i++)if(offer.equals(rows.get(i).getOfferIdentity())) {
+            int view=table.convertRowIndexToView(i);table.setRowSelectionInterval(view,view);
+            table.scrollRectToVisible(table.getCellRect(view,0,true));return;
+        }
+        evidence.setText("This offer is outside the most recent recorded sale details available here. Its measurement remains in Performance.");
     }
     private static String range(Long lower,Long upper){return lower==null?"Unknown":lower.equals(upper)?lower.toString():lower+" to "+upper;}
 }

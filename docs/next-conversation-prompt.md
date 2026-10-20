@@ -33,6 +33,13 @@ rebuilding already implemented capabilities:
 
 ## Delivery state at this handoff
 
+Read local-data/sale-evidence-20261020/delivery-state.json first for the latest startup sale
+accounting/evidence batch. The owner now reports logged in with GE open, superseding prior
+availability deferrals. Restore only recorded accounting mode before offer drain, never stale
+cash/slot authority. Completed-sale measurement follows full SELLING then accepted SOLD without
+rebooking money. Preserve all historical unmatched-cost rows and explain recorded evidence;
+no journal-profit fallback or financial repair. Contract: docs/architecture/startup-sale-accounting.md.
+
 Read local-data/offer-persistence-20261020/delivery-state.json first for newest actual source/CI/
 install/live state. Forced atomic outbox commits retain valid unsaved observations under their
 original identities/order/plan binding for account-scoped worker retry, preserve changed files,

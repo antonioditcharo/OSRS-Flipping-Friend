@@ -41,6 +41,26 @@ public class SidebarPerformanceTest {
         var value=CompactPanelContractTest.tree(f.panel).stream().filter(c->"metric-unrealized-profit".equals(c.getName())).map(c->(JLabel)c).findFirst().orElseThrow();
         assertTrue(value.getToolTipText().contains("Priced portion only"));assertTrue(value.getToolTipText().contains("not lost"));
     }
+    @Test public void unmatchedSaleOpensItsAccountingEvidenceAndRetainsKnownProceedsAndTax()throws Exception {
+        var f=new CompactPanelContractTest();f.setup();long now=java.time.Instant.now().getEpochSecond();
+        String reason="COST_BASIS_UNRESOLVED; EXACT_UNDER_RECORDED_RULE; disposal has no durable position";
+        var sale=new PerformanceSnapshot.Sale("target",561,"Nature rune",2,now,1,null,null,true,240L,0L,4L,4L,java.util.List.of(reason));
+        var p=new PerformanceSnapshot(AccountIdentity.fromProfileKey("synthetic"),"ALL",null,now,0,0,1,1,0,0,0,0,java.util.List.of(sale));
+        var row=new RecordedSale(1,now,561,"Nature rune",2,0,"exact-source","target",240L,4L,4L,null,null,SaleAccounting.CURRENT_POLICY,reason);
+        when(f.companion.performance()).thenReturn(p);
+        when(f.companion.lastLedger()).thenReturn(new AccountLedgerSnapshot(p.accountId,now,1,0,0,1,0,0,4,4,java.util.List.of()).withRecentSales(java.util.List.of(row)));
+        java.util.List<String> opened=new ArrayList<>();java.util.List<Component> windows=new ArrayList<>();
+        f.panel.setWindowPresenter((name,content)->{opened.add(name);windows.add(content);});f.refresh();
+        JLabel result=CompactPanelContractTest.tree(f.panel).stream().filter(c->c instanceof JLabel && "Cost unmatched".equals(((JLabel)c).getText())).map(c->(JLabel)c).findFirst().orElseThrow();
+        assertTrue(result.getToolTipText().contains("Gross: 240 GP"));assertTrue(result.getToolTipText().contains("Tax: 4 gp"));
+        assertTrue(result.getToolTipText().contains("does not mean the purchase record was deleted"));
+        SwingUtilities.invokeAndWait(()->{for(var listener:result.getMouseListeners())listener.mouseClicked(new java.awt.event.MouseEvent(result,java.awt.event.MouseEvent.MOUSE_CLICKED,0,0,1,1,1,false));});
+        assertEquals(java.util.List.of("Recorded sales"),opened);
+        JTable table=CompactPanelContractTest.tree(windows.get(0)).stream().filter(c->c instanceof JTable).map(c->(JTable)c).filter(t->t.getColumnCount()==7).findFirst().orElseThrow();
+        assertEquals(0,table.getSelectedRow());assertEquals("Cost unmatched",table.getValueAt(0,6));
+        assertTrue(CompactPanelContractTest.tree(windows.get(0)).stream().filter(c->c instanceof JTextArea).anyMatch(c->((JTextArea)c).getText().contains("exact-source")));
+        verify(f.market,never()).getGraphSeries(eq(561),anyString());
+    }
     @Test public void renderNativeExpandedPanelAndShortViewport()throws Exception {
         var old=UIManager.getLookAndFeel();
         try {

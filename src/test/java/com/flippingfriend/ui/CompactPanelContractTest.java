@@ -154,7 +154,7 @@ public class CompactPanelContractTest {
         when(companion.historyLedger()).thenReturn(history);refresh();
         Component[] view=new Component[1];SwingUtilities.invokeAndWait(()->view[0]=panel.detailsComponent("Recorded sales"));
         var table=tree(view[0]).stream().filter(c->c instanceof JTable).map(c->(JTable)c).findFirst().orElseThrow();
-        assertEquals(1,table.getRowCount());assertEquals("Unknown",table.getValueAt(0,6));
+        assertEquals(1,table.getRowCount());assertEquals("Cost unmatched",table.getValueAt(0,6));
         assertTrue(text(view[0]).contains("showing last confirmed history"));
         assertTrue(text(panel).contains("Unavailable"));
         when(monitor.getState()).thenReturn(AccountState.loggedOut());refresh();assertEquals(0,table.getRowCount());

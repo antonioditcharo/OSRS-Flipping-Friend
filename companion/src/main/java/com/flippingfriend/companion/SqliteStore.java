@@ -1040,7 +1040,8 @@ final class SqliteStore implements AutoCloseable
 	private List<com.flippingfriend.core.RecordedSale> recordedSales(String limit) throws Exception {
 		List<com.flippingfriend.core.RecordedSale> result=new ArrayList<>();
 		try(Statement statement=connection.createStatement();ResultSet r=statement.executeQuery(
-			"SELECT id,observed_at,item_id,item_name,quantity,applied_cost_basis,source_event_id,source_offer_identity,gross_proceeds,tax_lower,tax_upper,profit_lower,profit_upper,sale_tax_policy,sale_accounting_reason FROM position_event WHERE effect_type='DISPOSE' ORDER BY id DESC"+limit)) {
+			"SELECT id,observed_at,item_id,item_name,quantity,applied_cost_basis,source_event_id,source_offer_identity,gross_proceeds,tax_lower,tax_upper,profit_lower,profit_upper,sale_tax_policy,"+
+                "CASE WHEN transition_reason IS NULL THEN sale_accounting_reason ELSE COALESCE(sale_accounting_reason,'Incomplete accounting') || '; ' || transition_reason END FROM position_event WHERE effect_type='DISPOSE' ORDER BY id DESC"+limit)) {
 			while(r.next())result.add(new com.flippingfriend.core.RecordedSale(r.getLong(1),r.getLong(2),r.getInt(3),r.getString(4),r.getInt(5),r.getLong(6),
 				r.getString(7),r.getString(8),nullableLong(r,9),nullableLong(r,10),nullableLong(r,11),nullableLong(r,12),nullableLong(r,13),r.getString(14),r.getString(15)));
 		}
@@ -1071,6 +1072,18 @@ final class SqliteStore implements AutoCloseable
 		var session=new PerformanceRead.Session(requestId,now,cursor);
 		recordEvent(now,requestId,PerformanceRead.SESSION_EVENT,new com.google.gson.Gson().toJson(session));
 	}
+    /** Recover only the accounting mode of this explicitly scoped account, never its spending proof. */
+    synchronized boolean recordedAutomaticTradeScope(String account) throws Exception {
+        com.flippingfriend.core.AccountIdentity.require(account);
+        try(var s=connection.prepareStatement("SELECT payload FROM event_log WHERE event_type='ACCOUNT_STATE' ORDER BY id DESC LIMIT 1");
+            var r=s.executeQuery()) {
+            if(!r.next())return false;
+            AccountSnapshot snapshot=new com.google.gson.Gson().fromJson(r.getString(1),AccountSnapshot.class);
+            if(snapshot==null || !account.equals(snapshot.getAccountId()))
+                throw new IllegalStateException("Recorded accounting scope does not match this account");
+            return snapshot.isAutomaticTradeScope();
+        }
+    }
 	synchronized com.flippingfriend.core.PerformanceSnapshot performance(String account,String scope,long now) throws Exception {
 		com.flippingfriend.core.AccountIdentity.require(account);
 		if(!connection.getAutoCommit())throw new IllegalStateException("Performance requires its own read");
@@ -1078,14 +1091,27 @@ final class SqliteStore implements AutoCloseable
 		try {
 			java.util.Set<String> completed=new java.util.HashSet<>();
 			java.util.Set<String> disposalSources=new java.util.HashSet<>();
+			java.util.Set<String> gappedOffers=new java.util.HashSet<>();
 			try(var s=connection.createStatement();var r=s.executeQuery("SELECT source_event_id FROM position_event WHERE effect_type='DISPOSE'")) {
 				while(r.next())disposalSources.add(r.getString(1));
+			}
+			try(var s=connection.createStatement();var r=s.executeQuery("SELECT source_offer_identity FROM position_event WHERE effect_type='RECONCILE'")) {
+				while(r.next())gappedOffers.add(r.getString(1));
 			}
 			var history=offerHistory(account);
 			// A sell order counts once, after observed full completion and with bounded realized
 			// profit. Partial updates still contribute their actual money but never inflate flips.
-			if(history!=null)for(var e:history)if(disposalSources.contains(e.getEventId()) && !e.isBuying() && "SOLD".equals(e.getEventType())
-				&& e.getFilledQuantity()==e.getTotalQuantity() && e.getTotalQuantity()>0)completed.add(e.getOfferIdentity());
+            java.util.Set<String> disposedOffers=new java.util.HashSet<>();
+            if(history!=null)for(var e:history) {
+                if(e.getObservedAt()>now)continue;
+                String key=e.getOfferIdentity()+":"+e.getItemId();
+                if(disposalSources.contains(e.getEventId()) && !e.isBuying())disposedOffers.add(key);
+                // Full SELLING counters can book the final delta before the terminal SOLD frame.
+                // That terminal must be accepted, in the same recorded episode, and follow a sale.
+                if(disposedOffers.contains(key) && !gappedOffers.contains(e.getOfferIdentity()) && !e.isBuying()
+                    && "SOLD".equals(e.getEventType()) && e.getFilledQuantity()==e.getTotalQuantity()
+                    && e.getTotalQuantity()>0)completed.add(e.getOfferIdentity());
+            }
 			var result=PerformanceRead.aggregate(account,scope,performanceSession(),now,recordedSales(""),completed);
 			connection.commit();return result;
 		}catch(Exception e){connection.rollback();discardCanonicalHistory();throw e;}

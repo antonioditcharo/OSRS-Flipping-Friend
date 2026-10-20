@@ -8,6 +8,18 @@ latency, complete production replay/returns, gated learning and remaining produc
 
 ## Current source and installed runtime
 
+Newest batch fixes startup sale accounting: a scoped companion restores its recorded automatic
+accounting mode before draining offer events, without restoring stale cash/slot authority. Full
+SELLING counters followed by accepted SOLD count one completed flip even when SOLD adds no money.
+Sale rows retain proceeds/tax/matched-cost evidence, explain unmatched cost and open the selected
+Recorded sale; local journal estimates are labeled. Eight added tests include two reproduced old
+failures. [Contract](docs/architecture/startup-sale-accounting.md) /
+[receipt](docs/history/startup-sale-accounting-delivery-2026-10-20.md); actual source/CI/install/live state:
+local-data/sale-evidence-20261020/delivery-state.json. User is now logged in with GE open; this
+supersedes prior availability deferrals. Existing seven unmatched-cost sales are preserved, with
+no profit backfill, financial replay or risk reset. Full controlled workflow/timing/complete replay/
+qualified return and learning gates remain open.
+
 Newest source hardens offer persistence: forced atomic outbox commits, account-scoped retry of
 unsaved observations under their original IDs/order/plan binding, changed-file preservation and
 worker retry wakeups. Unsaved sources cannot expose an old prefix or cached companion collection;

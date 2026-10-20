@@ -13,8 +13,11 @@ final class PerformanceRead {
     }
     static final class Group {
         String offer,name;int item;long quantity,at,updates,low,high;boolean unknown,completed;
+        long gross,cost,taxLow,taxHigh;boolean missingGross,missingTax;
+        Set<String> reasons=new LinkedHashSet<>();
         PerformanceSnapshot.Sale snapshot() { return new PerformanceSnapshot.Sale(offer,item,name,quantity,at,updates,
-            unknown?null:low,unknown?null:high,completed); }
+            unknown?null:low,unknown?null:high,completed,missingGross?null:gross,cost,
+            missingGross||missingTax?null:taxLow,missingGross||missingTax?null:taxHigh,new ArrayList<>(reasons)); }
     }
     static PerformanceSnapshot aggregate(String account,String scope,Session session,long now,List<RecordedSale> rows,
         Set<String> completedOffers) {
@@ -34,6 +37,11 @@ final class PerformanceRead {
             if(g.item!=0 && g.item!=sale.getItemId())throw new IllegalStateException("Inconsistent sale identity");
             g.offer=sale.getOfferIdentity();g.item=sale.getItemId();g.name=sale.getItemName();g.updates++;
             g.quantity=Math.addExact(g.quantity,sale.getQuantity());g.at=Math.max(g.at,sale.getObservedAt());
+            g.cost=Math.addExact(g.cost,sale.getAppliedCost());
+            if(sale.getGross()==null)g.missingGross=true;else g.gross=Math.addExact(g.gross,sale.getGross());
+            if(sale.getTaxLower()==null)g.missingTax=true;
+            else {g.taxLow=Math.addExact(g.taxLow,sale.getTaxLower());g.taxHigh=Math.addExact(g.taxHigh,sale.getTaxUpper());}
+            if(sale.getReason()!=null && !sale.getReason().isBlank())g.reasons.add(sale.getReason());
             if(sale.getProfitLower()==null)g.unknown=true;
             else {g.low=Math.addExact(g.low,sale.getProfitLower());g.high=Math.addExact(g.high,sale.getProfitUpper());}
             g.completed=completedOffers.contains(key);

@@ -40,6 +40,15 @@ public class PerformanceReadTest {
         assertEquals(2,report.saleUpdates);assertEquals(53,report.profitLower);assertEquals(54,report.profitUpper);assertEquals(300,report.appliedCost);
         assertEquals(3,PerformanceRead.aggregate(account,"WEEK",null,100001,rows,Set.of()).saleUpdates);
     }
+    @Test public void groupedSalesKeepAmountsAndReasonsWhenOnePartialHasUnmatchedCost() {
+        String reason="COST_BASIS_UNRESOLVED; disposal has no durable position";
+        var unknown=new RecordedSale(2,102,561,"Nature rune",1,0,"source-2","same",120L,2L,2L,null,null,SaleAccounting.CURRENT_POLICY,reason);
+        var report=PerformanceRead.aggregate(account,"ALL",null,200,List.of(row(1,"same",101,100,18L,18L),unknown),Set.of("same"));
+        var sale=report.sales.get(0);assertNull(sale.profitLower);assertEquals(Long.valueOf(240),sale.gross);
+        assertEquals(Long.valueOf(100),sale.matchedCost);assertEquals(Long.valueOf(4),sale.taxLower);
+        assertEquals(List.of(reason),sale.accountingReasons);assertEquals(18,report.profitLower);assertEquals(0,report.completedFlips);
+        assertTrue(report.isValid());
+    }
     @Test public void sessionResetIsIdempotentDurableAndCannotResetRiskOrFinancialEffects()throws Exception {
         var database=folder.newFolder().toPath().resolve("session.db");
         try(var store=new SqliteStore(database)) {

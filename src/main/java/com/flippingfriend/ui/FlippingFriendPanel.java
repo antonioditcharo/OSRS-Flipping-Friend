@@ -100,7 +100,7 @@ public class FlippingFriendPanel extends PluginPanel {
             risks.put(value, button); riskGroup.add(button); riskRow.add(button);
         }
         add(content, riskRow, 7); add(content, divider(), 12);
-        performance=new SidebarPerformance(companion,explainer,()->open("Performance"),()->open("Holdings"),item->details.openItemGraph(this,item));
+        performance=new SidebarPerformance(companion,explainer,()->open("Performance"),()->open("Holdings"),offer->details.openSale(this,offer),item->details.openItemGraph(this,item));
         add(content,performance,4);
         JPanel footer=row(new BorderLayout());footer.add(performance.footer(),BorderLayout.NORTH);
         JPanel funding=row(new GridLayout(0,1));funding.setBorder(BorderFactory.createMatteBorder(1,0,0,0,UiUtils.DIVIDER));

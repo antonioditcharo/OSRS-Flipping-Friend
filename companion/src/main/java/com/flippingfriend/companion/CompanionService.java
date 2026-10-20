@@ -83,6 +83,8 @@ final class CompanionService implements AutoCloseable
 	});
 
 	private volatile AccountSnapshot account;
+    // Accounting mode outlasts a process. Restoring it must not restore stale cash/slot authority.
+    private boolean automaticTradeScope;
 	/** When the last plan was built, and against how many free slots, for the spacing rule below. */
 	private volatile long lastPlanAt;
     private final java.util.concurrent.atomic.AtomicLong planningInputRevision=new java.util.concurrent.atomic.AtomicLong();
@@ -204,6 +206,7 @@ final class CompanionService implements AutoCloseable
 	 */
 	void rehydrate() throws Exception
 	{
+        automaticTradeScope=accountId!=null && store.recordedAutomaticTradeScope(accountId);
 		java.util.List<BuyLimitProjection> durableBuyLimits = store.buyLimitProjections();
 		buyLimits.restore(durableBuyLimits);
 		boolean restoreBuyLimitsFromEvents = durableBuyLimits.isEmpty();
@@ -396,6 +399,7 @@ final class CompanionService implements AutoCloseable
 		}
         boolean changed=!samePlanningInputs(account,snapshot);
 		account = snapshot;
+        automaticTradeScope=snapshot.isAutomaticTradeScope();
         // A complete new receipt must retry a transient proof failure even if cash/slots are
         // unchanged. Otherwise plan spacing can retain the refusal from its in-flight offers.
         boolean retryUnavailable = plan != null
@@ -446,7 +450,7 @@ final class CompanionService implements AutoCloseable
 		if (event == null || (accountId != null && !accountId.equals(event.getAccountId())))
 			throw new IllegalArgumentException("offer account identity mismatch");
 		SqliteStore.ProjectedEventAcceptance projected =
-			store.recordAndProjectOffer(event, gson.toJson(event), account != null && account.isAutomaticTradeScope());
+			store.recordAndProjectOffer(event, gson.toJson(event), automaticTradeScope);
 		if (projected.acceptance == SqliteStore.EventAcceptance.DUPLICATE)
 		{
 			return projected.acceptance;

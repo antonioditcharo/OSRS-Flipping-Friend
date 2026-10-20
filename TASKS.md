@@ -5,6 +5,16 @@ All unchecked release requirements remain visible below; detailed completion rec
 
 ## Active
 
+- [ ] Deliver/accept startup sale accounting and evidence display. Restore this account's recorded
+      automatic scope before pre-snapshot offer drain; never restore stale spending authority.
+      Count accepted terminal sales after full SELLING progress without another disposal. Explain
+      unmatched cost while preserving known proceeds/tax and all historical financial rows; sale
+      rows open selected Recorded sales. Eight new tests include two old failures. Contract/receipt:
+      docs/architecture/startup-sale-accounting.md and docs/history/startup-sale-accounting-delivery-2026-10-20.md;
+      actual delivery state: local-data/sale-evidence-20261020/delivery-state.json. Owner now reports
+      logged in/GE open, superseding prior deferrals. Controlled workflow, timing, complete replay,
+      qualified returns and learning gates remain open.
+
 Continuation impact order: trade-loop reliability/exit-context provenance, actual cold/event-to-advice
 latency, production-policy account replay/returns, validated learning, then remaining product gaps.
 Read [the continuation prompt](docs/next-conversation-prompt.md); current delivery facts below govern.

@@ -13,8 +13,8 @@ controls; Records/settings and the wide native investigation windows.
 
 Performance selects Session, Last 24 hours, Last 7 days or Recorded history. Every selected durable
 DISPOSE row contributes; the investigation list's 100-row cap is never an aggregation denominator.
-Source-offer sales are grouped and paged ten per page. A row opens its item graph; the expansion
-control opens durable performance. Scope and unknown coverage stay visible.
+Source-offer sales are grouped and paged ten per page. A row opens its selected recorded sale evidence; the expansion
+control opens Recorded sales. The graph remains available from sale details. Scope and unknown coverage stay visible.
 
 | Metric | Definition / uncertainty |
 | --- | --- |
