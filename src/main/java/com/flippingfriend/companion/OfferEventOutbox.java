@@ -25,13 +25,19 @@ public final class OfferEventOutbox
 	private static final int FORMAT_VERSION = 1;
 	private final PluginStorage storage;
 	private final Gson gson;
+    private final ReplaceCheckpoint checkpoint;
 
 	@Inject
 	public OfferEventOutbox(PluginStorage storage)
+	{ this(storage,(file,temp)->{}); }
+
+    OfferEventOutbox(PluginStorage storage,ReplaceCheckpoint checkpoint)
 	{
 		this.storage = storage;
 		this.gson = storage.gson();
+        this.checkpoint=checkpoint;
 	}
+    @FunctionalInterface interface ReplaceCheckpoint {void beforeReplace(Path file,Path temp)throws Exception;}
 
 	public synchronized OfferEvent enqueue(EventFactory factory) throws Exception
 	{
@@ -45,20 +51,32 @@ public final class OfferEventOutbox
     private OfferEvent enqueue(EventFactory factory,boolean bindPrediction) throws Exception
 	{
 		if (factory == null) throw new IllegalArgumentException("factory is required");
+        return enqueue(java.util.Collections.singletonList(factory),bindPrediction).get(0);
+    }
+    /** One copied frame, one local replacement; every source retains its own identity and order. */
+    public synchronized List<OfferEvent> enqueueObservedOffers(List<EventFactory> factories)throws Exception {
+        return enqueue(factories,true);
+    }
+    private List<OfferEvent> enqueue(List<EventFactory> factories,boolean bindPrediction)throws Exception {
+        if(factories==null || factories.isEmpty() || factories.size()>8 || factories.stream().anyMatch(java.util.Objects::isNull))
+            throw new IllegalArgumentException("One to eight observation factories are required");
 		State state = loadRequired();
-		long sequence = state.nextSequence;
-		String eventId = UUID.randomUUID().toString();
-		OfferEvent event = factory.build(eventId, state.sessionId, sequence);
-		validate(event, eventId, state.sessionId, sequence);
-		if (event.getAccountId() != null && !state.accountId.equals(event.getAccountId()))
-			throw new IllegalArgumentException("factory changed account identity");
-		event = event.withAccountId(state.accountId);
 		State updated = state.copy();
-		updated.nextSequence = sequence + 1;
-        if(bindPrediction)event=bindPrediction(event,updated);
-		updated.pending.add(event);
+        List<OfferEvent> created=new ArrayList<>();
+        java.util.Set<Integer> observedSlots=new java.util.HashSet<>();
+        for(var factory:factories) {
+            long sequence=updated.nextSequence;String eventId=UUID.randomUUID().toString();
+            OfferEvent event=factory.build(eventId,state.sessionId,sequence);
+            validate(event,eventId,state.sessionId,sequence);
+            if(event.getAccountId()!=null && !state.accountId.equals(event.getAccountId()))
+                throw new IllegalArgumentException("factory changed account identity");
+            event=event.withAccountId(state.accountId);updated.nextSequence=Math.addExact(sequence,1);
+            if(bindPrediction && !observedSlots.add(event.getSlot()))throw new IllegalArgumentException("Duplicate observation slot");
+            if(bindPrediction)event=bindPrediction(event,updated);
+            updated.pending.add(event);created.add(event);
+        }
 		write(updated);
-		return event;
+		return Collections.unmodifiableList(created);
 	}
     private OfferEvent bindPrediction(OfferEvent event,State updated) {
         if(event.getSlot()<0 || event.getSlot()>=8)throw new IllegalArgumentException("invalid observation slot");
@@ -116,6 +134,22 @@ public final class OfferEventOutbox
                 return false;
         }
 
+    /** Remove only a complete matched prefix; concurrent appends remain durable and ordered. */
+    synchronized boolean acknowledgePrefix(List<OfferEvent> prefix,String expectedAccount)throws Exception {
+        if(prefix==null || expectedAccount==null || !expectedAccount.equals(storage.accountId()))return false;
+        if(prefix.isEmpty())return true;
+        State state=loadRequired();List<OfferEvent> ordered=new ArrayList<>(state.pending);
+        ordered.sort(Comparator.comparingLong(OfferEvent::getSequence));
+        if(prefix.size()>ordered.size())return false;
+        java.util.Set<String> accepted=new java.util.HashSet<>();
+        for(int i=0;i<prefix.size();i++) {
+            var ack=prefix.get(i);var pending=ordered.get(i);
+            if(ack==null || !expectedAccount.equals(ack.getAccountId()) || !same(ack.getEventId(),pending.getEventId())
+                || !same(ack.getSessionId(),pending.getSessionId()) || ack.getSequence()!=pending.getSequence())return false;
+            accepted.add(ack.getEventId());
+        }
+        State updated=state.copy();updated.pending.removeIf(e->accepted.contains(e.getEventId()));write(updated);return true;
+    }
 	public synchronized String sessionId() throws Exception
 	{
 		return loadRequired().sessionId;
@@ -201,6 +235,7 @@ public final class OfferEventOutbox
 			{
 				gson.toJson(state, writer);
 			}
+            checkpoint.beforeReplace(file,temp);
 			Files.move(temp, file, StandardCopyOption.REPLACE_EXISTING);
 		}
 		catch (Exception failure)

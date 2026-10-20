@@ -33,6 +33,13 @@ rebuilding already implemented capabilities:
 
 ## Delivery state at this handoff
 
+Newest ordered-observation/retry batch is source-verified and pending CI/paired delivery. It fixes
+lost tail/completion retry wakeups and reduces local frame/ACK persistence from sixteen replacements
+to two without combining or dropping individual source delivery. Windows clean 91s: 1,784 Java
+passed/six skips, Java 11; 108 tooling passed. Read docs/architecture/ordered-observation-batches.md,
+its receipt, and private local-data/loopback-latency-20261019/delivery-state.json for actual delivery.
+Do not infer installation from source or offline tests. Runtime #116 remains until verified update.
+
 The current offline evaluator is replay v8: ready exits before routine maintenance, stop/winner
 and mixed-offer priority, last-slot protection, partial-buy stops, and evidence-driven guidance
 within an active manual visit. Read docs/architecture/replay-exit-attendance.md and its linked

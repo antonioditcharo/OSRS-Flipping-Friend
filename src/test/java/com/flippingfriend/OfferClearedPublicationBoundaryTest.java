@@ -32,10 +32,12 @@ public class OfferClearedPublicationBoundaryTest
                 Assert.assertTrue(client.contains(
                         "public void publishOfferCleared(int slot)"));
                 Assert.assertTrue(client.contains(
-                        "outbox.enqueueObservedOffer((eventId, sessionId, sequence) ->"));
+                        "outbox.enqueueObservedOffer(clearedFactory(slot,expectedAccountId,authenticated,now))"));
+                Assert.assertTrue(client.contains(
+                        "clearedFactory(slot,expectedAccountId,true,observation.getObservedAt())"));
                 Assert.assertTrue(client.contains(".slot(slot)"));
                 Assert.assertTrue(client.contains(
-                        ".eventIdentity(eventId, sessionId, null)"));
+                        ".eventIdentity(eventId,sessionId,null)"));
                 Assert.assertTrue(client.contains(".sequence(sequence)"));
                 Assert.assertTrue(client.contains(
                         "replayPendingOffers()"));

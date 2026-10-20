@@ -8,6 +8,15 @@ latency, complete production replay/returns, gated learning and remaining produc
 
 ## Current source and installed runtime
 
+Ordered-observation/retry batch is source-verified, pending CI/paired delivery: two reproduced lost
+retry wakeups fixed; eight copied observations and verified ACKs need two local replacements rather
+than sixteen. Every source/ACK still travels individually in order; original prediction/exit keys,
+backoff, lifecycle and account proof remain guarded. Windows clean 91s: 1,784 Java passed/six skips,
+Java 11; 108 tooling passed. [Contract](docs/architecture/ordered-observation-batches.md) /
+[receipt](docs/history/ordered-observation-batches-2026-10-19.md); actual delivery is in private
+local-data/loopback-latency-20261019/delivery-state.json. Runtime #116 below remains installed until
+that receipt confirms replacement. Controlled full-loop and sustained timing remain open.
+
 Offline replay v8 adds exit-before-maintenance ordering, stop/winner and mixed-offer priority,
 last-slot exit protection, partial-buy stops and evidence-driven displays within attended visits.
 Five regressions reproduce old failures; Windows clean 129s: 1,768 Java passed/six existing skips,

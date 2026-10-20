@@ -63,6 +63,8 @@ public class CompanionClient
         private final OfferEventOutbox outbox;
         private final LongSupplier retryClock;
         private final AtomicBoolean replayRunning = new AtomicBoolean();
+        private final Object replayScheduling=new Object();
+        private long replayRescheduleGeneration=-1;
         private final AtomicLong replayGeneration = new AtomicLong();
         private final AtomicLong retryRequestGeneration = new AtomicLong(-1);
         private volatile boolean replayEnabled;
@@ -328,13 +330,20 @@ public class CompanionClient
             if(!expectedAccountId.equals(observation.getAccountId()) || state!=observation.getState() || age<0 || age>150)return;
             java.util.List<TrackedOffer> observed=observation.getSlots();
             onOffer=new java.util.HashSet<>();
+            var factories=new java.util.ArrayList<OfferEventOutbox.EventFactory>();
             for(int slot=0;slot<8;slot++) {
                 if(observed.get(slot)!=null)onOffer.add(observed.get(slot).getItemId());
-                OfferEvent event=observed.get(slot)==null
-                    ? publishOfferCleared(slot,expectedAccountId,true,observation.getObservedAt(),false)
-                    : publishOffer(observed.get(slot),expectedAccountId,true,observation.getObservedAt(),false);
-                if(event==null)return;
-                receipt.put(slot,event.getEventId());
+                factories.add(observed.get(slot)==null
+                    ? clearedFactory(slot,expectedAccountId,true,observation.getObservedAt())
+                    : offerFactory(observed.get(slot),expectedAccountId,true,observation.getObservedAt()));
+            }
+            try {
+                for(var event:outbox.enqueueObservedOffers(factories)) {
+                    receipt.put(event.getSlot(),event.getEventId());rememberCanonicalOffer(event);
+                }
+                lastLedger=null;
+            }catch(Exception failure) {
+                lastError="Could not persist offer observations: "+failure.getMessage();return;
             }
         }else {
             // Legacy callers cannot supply current-read proof or release bounded-history planning.
@@ -421,35 +430,9 @@ public class CompanionClient
                 if (offer == null) return null;
                 if (expectedAccountId == null || !expectedAccountId.equals(accountContext()))
                 { lastError = "Could not persist offer event: account identity changed or unavailable"; return null; }
-                String state = offer.getState() == null ? "OBSERVED" : offer.getState();
-                SuggestionLedger.Advice advice = ledger.attribute(offer.getItemId(), offer.isBuying(), now);
                 try
                 {
-                        OfferEvent event = outbox.enqueueObservedOffer((eventId, sessionId, sequence) ->
-                        {
-                                long start = offer.getFirstSeen() > 0 ? offer.getFirstSeen() : now;
-                                OfferEvent.Builder builder = OfferEvent.builder(UUID.randomUUID().toString(), now, state)
-                                        .accountId(expectedAccountId)
-                                        .authenticatedObservation(authenticated)
-                                        .eventIdentity(eventId, sessionId,
-                                                offer.getEpisodeIdentity() == null
-                                                    ? offer.getSlot() + "@" + start + ":" + offer.getItemId()
-                                                    : offer.getEpisodeIdentity())
-                                        .slot(offer.getSlot()).item(offer.getItemId(), offer.getItemName())
-                                        .buying(offer.isBuying()).price(offer.getPrice())
-                                        .quantities(offer.getTotalQuantity(), offer.getQuantityFilled())
-                                        .spent(offer.getSpent()).sequence(sequence).firstSeenAt(offer.getFirstSeen());
-                                if (advice != null)
-                                {
-                                        builder.recommendation(advice.getRecommendationId(), advice.getPrice(),
-                                                advice.getQuantity(), advice.getQuoteAgeSeconds(),
-                                                advice.getPredictedMinutes(), advice.getPredictedCompletion());
-                                        builder.predictionEvidence(null,advice.getRecordedAt(),false);
-                                        builder.executionForecast(advice.getForecast());
-                                        builder.exitContext(advice.getExitContext());
-                                }
-                                return builder.build();
-                        });
+                        OfferEvent event = outbox.enqueueObservedOffer(offerFactory(offer,expectedAccountId,authenticated,now));
                         lastLedger = null;
                         rememberCanonicalOffer(event);
                         if(replay) replayPendingOffers();
@@ -461,6 +444,31 @@ public class CompanionClient
                         return null;
                 }
         }
+
+    private OfferEventOutbox.EventFactory offerFactory(TrackedOffer offer,String expectedAccountId,boolean authenticated,long now) {
+        String state=offer.getState()==null?"OBSERVED":offer.getState();
+        SuggestionLedger.Advice advice=ledger.attribute(offer.getItemId(),offer.isBuying(),now);
+        return (eventId,sessionId,sequence)->{
+            long start=offer.getFirstSeen()>0?offer.getFirstSeen():now;
+            var builder=OfferEvent.builder(UUID.randomUUID().toString(),now,state).accountId(expectedAccountId)
+                .authenticatedObservation(authenticated).eventIdentity(eventId,sessionId,
+                    offer.getEpisodeIdentity()==null?offer.getSlot()+"@"+start+":"+offer.getItemId():offer.getEpisodeIdentity())
+                .slot(offer.getSlot()).item(offer.getItemId(),offer.getItemName()).buying(offer.isBuying()).price(offer.getPrice())
+                .quantities(offer.getTotalQuantity(),offer.getQuantityFilled()).spent(offer.getSpent()).sequence(sequence).firstSeenAt(offer.getFirstSeen());
+            if(advice!=null) {
+                builder.recommendation(advice.getRecommendationId(),advice.getPrice(),advice.getQuantity(),advice.getQuoteAgeSeconds(),
+                    advice.getPredictedMinutes(),advice.getPredictedCompletion());
+                builder.predictionEvidence(null,advice.getRecordedAt(),false);
+                builder.executionForecast(advice.getForecast());builder.exitContext(advice.getExitContext());
+            }
+            return builder.build();
+        };
+    }
+
+    private OfferEventOutbox.EventFactory clearedFactory(int slot,String expectedAccountId,boolean authenticated,long now) {
+        return (eventId,sessionId,sequence)->OfferEvent.builder(UUID.randomUUID().toString(),now,"EMPTY")
+            .accountId(expectedAccountId).authenticatedObservation(authenticated).eventIdentity(eventId,sessionId,null).slot(slot).sequence(sequence).build();
+    }
 
         public void publishOfferCleared(int slot)
         {
@@ -490,12 +498,7 @@ public class CompanionClient
                 { lastError = "Could not persist offer event: account identity changed or unavailable"; return null; }
                 try
                 {
-                        OfferEvent event = outbox.enqueueObservedOffer((eventId, sessionId, sequence) ->
-                                OfferEvent.builder(UUID.randomUUID().toString(), now, "EMPTY")
-                                        .accountId(expectedAccountId)
-                                        .authenticatedObservation(authenticated)
-                                        .eventIdentity(eventId, sessionId, null).slot(slot)
-                                        .sequence(sequence).build());
+                        OfferEvent event = outbox.enqueueObservedOffer(clearedFactory(slot,expectedAccountId,authenticated,now));
                         lastLedger = null;
                         canonicalOffers.remove(slot);
                         if(replay) replayPendingOffers();
@@ -1226,11 +1229,18 @@ public class CompanionClient
 
         private ReplayResult replayPendingOffers(OfferEventSender sender, long generation)
         {
-                if (!replayRunning.compareAndSet(false, true)) return ReplayResult.BUSY;
+                synchronized(replayScheduling) {
+                    if (!replayRunning.compareAndSet(false, true)) {
+                        if(replayLifecycleIsCurrent(generation))replayRescheduleGeneration=generation;
+                        return ReplayResult.BUSY;
+                    }
+                    if(replayRescheduleGeneration==generation)replayRescheduleGeneration=-1;
+                }
                 ReplayResult result = ReplayResult.FAILED;
                 try
                 {
                         if (!replayLifecycleIsCurrent(generation)) return ReplayResult.STALE;
+                        var acknowledged=new java.util.ArrayList<OfferEvent>();boolean failed=false;
                         for (OfferEvent event : outbox.pending())
                         {
                                 if (!replayLifecycleIsCurrent(generation)) return ReplayResult.STALE;
@@ -1240,18 +1250,22 @@ public class CompanionClient
                                 {
                                         if (!replayLifecycleIsCurrent(generation)) return ReplayResult.STALE;
                                         lastError = failure.getMessage();
-                                        return ReplayResult.FAILED;
+                                        failed=true;break;
                                 }
                                 if (!replayLifecycleIsCurrent(generation)) return ReplayResult.STALE;
-                                if (!consumeAcknowledgement(event, response))
+                                if (!validAcknowledgement(event, response))
                                 {
                                         if (!replayLifecycleIsCurrent(generation)) return ReplayResult.STALE;
                                         lastError = "Companion returned an invalid offer acknowledgement.";
-                                        return ReplayResult.FAILED;
+                                        failed=true;break;
                                 }
+                                acknowledged.add(event);
                                 if (!replayLifecycleIsCurrent(generation)) return ReplayResult.STALE;
                         }
-                        result = ReplayResult.DRAINED;
+                        if (!replayLifecycleIsCurrent(generation)) return ReplayResult.STALE;
+                        if(!acknowledged.isEmpty() && !outbox.acknowledgePrefix(acknowledged,acknowledged.get(0).getAccountId()))
+                            throw new IllegalStateException("Offer acknowledgement prefix changed before persistence");
+                        result=failed?ReplayResult.FAILED:outbox.pending().isEmpty()?ReplayResult.DRAINED:ReplayResult.MORE_PENDING;
                         return result;
                 }
                 catch (Exception failure)
@@ -1262,6 +1276,7 @@ public class CompanionClient
                 }
                 finally
                 {
+                    synchronized(replayScheduling) {
                         if (replayLifecycleIsCurrent(generation))
                         {
                                 long now = retryClock.getAsLong();
@@ -1275,8 +1290,16 @@ public class CompanionClient
                                         nextRetryAtMillis = now + retryDelayMillis;
                                         retryDelayMillis = Math.min(MAX_RETRY_DELAY_MILLIS, retryDelayMillis * 2);
                                 }
+                                else if(result==ReplayResult.MORE_PENDING) {
+                                    retryDelayMillis=INITIAL_RETRY_DELAY_MILLIS;nextRetryAtMillis=now;
+                                }
+                                if(replayRescheduleGeneration==generation) {
+                                    if(result==ReplayResult.DRAINED || result==ReplayResult.MORE_PENDING)nextRetryAtMillis=now;
+                                    replayRescheduleGeneration=-1;
+                                }
                         }
                         replayRunning.set(false);
+                    }
                 }
         }
 
@@ -1285,7 +1308,7 @@ public class CompanionClient
                 return replayEnabled && generation == replayGeneration.get();
         }
 
-        private enum ReplayResult { DRAINED, FAILED, STALE, BUSY }
+        private enum ReplayResult { DRAINED, FAILED, STALE, BUSY, MORE_PENDING }
 
         public boolean requestPendingOfferReplay(Executor executor)
         {
@@ -1352,6 +1375,10 @@ public class CompanionClient
 
         boolean consumeAcknowledgement(OfferEvent event, String response) throws Exception
         {
+                if(!validAcknowledgement(event,response))return false;
+                return outbox.acknowledge(event.getEventId(),event.getSessionId(),event.getSequence());
+        }
+        private boolean validAcknowledgement(OfferEvent event,String response) {
 		if (event != null && event.getAccountId() != null
 			&& !event.getAccountId().equals(storage.accountId())) return false;
                 OfferEventAcknowledgementResponse ack;
@@ -1361,7 +1388,7 @@ public class CompanionClient
                         || !same(event.getEventId(), ack.getEventId())
                         || !same(event.getSessionId(), ack.getSessionId())
                         || event.getSequence() != ack.getSequence()) return false;
-                return outbox.acknowledge(event.getEventId(), event.getSessionId(), event.getSequence());
+                return true;
         }
 
         private static boolean same(String left, String right) { return left != null && left.equals(right); }
