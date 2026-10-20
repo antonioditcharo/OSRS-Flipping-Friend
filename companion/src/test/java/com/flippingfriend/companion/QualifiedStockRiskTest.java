@@ -76,7 +76,8 @@ public class QualifiedStockRiskTest {
             var market=supported();market.hourly.getAsJsonObject("561").addProperty("lowPriceVolume",19);
             var risk=evaluate(store,account,market);
             assertEquals(Long.valueOf(38_000_000),risk.getUnpricedManagedCostReserve());
-            assertEquals(Long.valueOf(-5_366_000),risk.getMarkedUnrealizedProfit());assertTrue(risk.getRemainingLossBudget()<0);
+            assertEquals(Long.valueOf(-5_366_000),risk.getMarkedUnrealizedProfit());assertTrue(risk.getRemainingLossBudget()>0);
+            assertEquals(38_000_000,risk.getValuationUncertaintyExcluded());assertEquals(Set.of(561),risk.getValuationPausedItems());
         }
     }
     @Test public void aFallingCurrentBidAndTaxStillExhaustTheLossAllowance()throws Exception {

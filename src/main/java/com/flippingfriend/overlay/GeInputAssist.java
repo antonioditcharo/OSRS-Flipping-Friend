@@ -123,6 +123,7 @@ public final class GeInputAssist implements KeyListener {
     }
 
     private void fill(Target requested) {
+        if(requested.advice.getAdviceExpiresAt()>0 && requested.advice.getAdviceExpiresAt()<=java.time.Instant.now().getEpochSecond())return;
         Target current = readTarget();
         if (current == null || !current.samePrompt(requested)) return;
         // Sole permitted input write: a player-requested value in the already open numeric prompt.

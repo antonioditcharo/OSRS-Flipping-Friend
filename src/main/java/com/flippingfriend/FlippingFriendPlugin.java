@@ -822,6 +822,7 @@ public class FlippingFriendPlugin extends Plugin
 		{
 			boolean submitted=false;
 			try {
+            if(epoch!=engineRefreshEpoch.get())return;
 			engineRefreshRequested.set(false);
             if(!offerTracker.hasCompleteOfferEvidence()){withdrawUnsupportedPriceAdvice();return;}
             if(client.getGameState()!=GameState.LOGGED_IN || !accountDataLoaded.get() || !hasProfile())return;
@@ -864,7 +865,10 @@ public class FlippingFriendPlugin extends Plugin
 			{
 				try
 				{
-					if (observedGeneration != offerObservationGeneration.get() || observedRevision!=adviceObservationRevision.get()) return;
+                    if(epoch!=engineRefreshEpoch.get())return;
+					if (observedGeneration != offerObservationGeneration.get() || observedRevision!=adviceObservationRevision.get()) {
+                        requestEngineRefresh();return;
+                    }
 					if (!offerTracker.hasCompleteOfferEvidence())
 					{
 						clientThread.invokeLater(this::withdrawUnsupportedPriceAdvice);
@@ -911,12 +915,17 @@ public class FlippingFriendPlugin extends Plugin
 					// The decision chain: companion collect, then built-in recovery, then companion buy, then fallback buy.
 
                 engine.setObservedAccount(observedAccount);
+                Suggestion continuationRefusal=null;
                 Suggestion suggestion = companion.nextAction();
 				if (suggestion == null)
 				{
 					suggestion = engine.refresh(false);
                     if (suggestion != null && suggestion.getType() == SuggestionType.BUY)
+                    {
                         suggestion = authorizeReplacement(suggestion);
+                        if(suggestion.getType()==SuggestionType.WAIT){continuationRefusal=suggestion;suggestion=null;}
+                    }
+                    else if(engine.isContinuationWait(suggestion)){continuationRefusal=suggestion;suggestion=null;}
 				}
 				if (suggestion != null && (suggestion.getType() == SuggestionType.MODIFY_BUY
 					|| suggestion.getType() == SuggestionType.CANCEL))
@@ -942,14 +951,15 @@ public class FlippingFriendPlugin extends Plugin
 					// trade chosen on different rules in front of the player seconds after one chosen
 					// on these. With three slots, a single offer changing state was enough to trigger
 					// that, which is what reads as the system changing its mind.
-					if (planned.getType() == SuggestionType.BUY)
+					if (planned!=null && planned.getType() == SuggestionType.BUY)
 					{
 						suggestion = planned;
 					}
-					else if (companion.hasFreshPlan())
+					else if (planned!=null && companion.hasFreshPlan())
 					{
 						suggestion = planned;
 					}
+					else if(continuationRefusal!=null)suggestion=continuationRefusal;
 					else
 					{
 						suggestion = Suggestion.waiting("Companion entry decision unavailable",
@@ -974,8 +984,11 @@ public class FlippingFriendPlugin extends Plugin
 				Suggestion settled = suggestion;
 				clientThread.invokeLater(() ->
 				{
+                    if(epoch!=engineRefreshEpoch.get())return;
                     if (observedGeneration != offerObservationGeneration.get() || observedRevision!=adviceObservationRevision.get()
-                        || !java.util.Objects.equals(observedProfile, configManager.getRSProfileKey())) return;
+                        || !java.util.Objects.equals(observedProfile, configManager.getRSProfileKey())) {
+                        requestEngineRefresh();return;
+                    }
 					if (!offerTracker.hasCompleteOfferEvidence())
 					{
 						withdrawUnsupportedPriceAdvice();
@@ -983,15 +996,21 @@ public class FlippingFriendPlugin extends Plugin
 					}
                     if (observedGeneration != offerObservationGeneration.get() || observedRevision!=adviceObservationRevision.get()) return;
                     Suggestion current = settled;
+                    if(current.getAdviceExpiresAt()>0 && current.getAdviceExpiresAt()<=java.time.Instant.now().getEpochSecond()
+                        || current.getAdviceAccountId()!=null && !current.getAdviceAccountId().equals(observedAccount)) {
+                        stepGuide.setSuggestion(Suggestion.waiting("Refreshing this order","The queued quote is no longer current. Its workflow and purchase records are retained."));
+                        panel.refresh();requestEngineRefresh();return;
+                    }
 
 					stepGuide.setSuggestion(current);
                     recordVisibleAdvice();
 					panel.refresh();
+                    if(!stepGuide.isPaused())notifyIfNeeded(stepGuide.getSuggestion());
 					log.info("Guidance delivered: {} ms from refresh request; capture/durable publication {} ms, plan/ledger {} ms, decision/delivery {} ms; {}",
 						(System.nanoTime()-guidanceStarted)/1_000_000,(publicationFinished-guidanceStarted)/1_000_000,
 						(planFinished-publicationFinished)/1_000_000,(System.nanoTime()-planFinished)/1_000_000,current.getType());
 				});
-				if (observedRevision==adviceObservationRevision.get() && !stepGuide.isPaused()) { notifyIfNeeded(suggestion); checkPriceDumps(); }
+				if (epoch==engineRefreshEpoch.get() && observedRevision==adviceObservationRevision.get() && !stepGuide.isPaused())checkPriceDumps();
 
 			}
 			catch (Exception ex)
@@ -1015,7 +1034,7 @@ public class FlippingFriendPlugin extends Plugin
 							+ "the details.");
 					clientThread.invokeLater(() ->
 					{
-						if (observedGeneration != offerObservationGeneration.get()
+						if (epoch!=engineRefreshEpoch.get() || observedGeneration != offerObservationGeneration.get()
 							|| observedRevision != adviceObservationRevision.get()
 							|| !java.util.Objects.equals(observedProfile, configManager.getRSProfileKey())) return;
 						stepGuide.setSuggestion(problem);
@@ -1026,7 +1045,9 @@ public class FlippingFriendPlugin extends Plugin
 			finally { finishEngineRefresh(epoch); }
 		});
 		submitted=true;
-		} finally { if(!submitted)finishEngineRefresh(epoch); }
+		} catch(java.util.concurrent.RejectedExecutionException unavailable) {
+            log.debug("Guidance worker is unavailable; the next heartbeat will retry",unavailable);
+        } finally { if(!submitted)finishEngineRefresh(epoch); }
 		});
 	}
 

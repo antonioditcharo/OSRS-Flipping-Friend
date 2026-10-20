@@ -425,13 +425,7 @@ final class CompanionService implements AutoCloseable
 		var result=store.performance(accountId,scope,now);
 		if(account!=null && currentPlanningProof(now)) {
 			var read=store.planningProjections(accountId);
-			var risk=DurableRisk.evaluate(read,account,DurablePlanningExposure.forAccount(read,account,now),market.state(),now);
-			if(risk.isAvailable()) {
-				long cost=0;for(var p:read.tradeScope.readyPositions())cost=Math.addExact(cost,p.getTotalCost());
-				result.unpricedCost=risk.getUnpricedManagedCostReserve();
-				result.unrealizedProfit=risk.getMarkedUnrealizedProfit();
-				result.portfolioValue=Math.addExact(Math.subtractExact(cost,result.unpricedCost),result.unrealizedProfit);
-			}
+			StockPerformance.apply(result,read,account,market.state(),now);
 		}
 		if(!result.isValid())throw new IllegalStateException("Invalid performance valuation");
 		return result;

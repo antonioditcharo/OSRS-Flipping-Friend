@@ -34,26 +34,23 @@ final class DurableRisk {
                 return AccountRiskSnapshot.unavailable(id,now,"The current offer for "
                     +(offer.getItemName()==null?"Item "+offer.getItemId():offer.getItemName())
                     +" has unresolved execution evidence. Finish or collect that offer before new entries. Historical records stay separate.");
-            long marked=0, unpricedCost=0;
+            long marked=0, unpricedCost=0, unseenCost=0;
+            Set<Integer> valuationPaused=new HashSet<>();
             List<String> valuationDetails=new ArrayList<>();
             long validUntil=Math.min(Math.addExact(market.observedAt,120),Math.addExact(account.getObservedAt(),150));
             for(var p:read.tradeScope.readyPositions()) {
-                int observed=account.getObservedHoldings()==null?0:account.getObservedHoldings().getOrDefault(p.getItemId(),0);
-                long physical=observed;
-                // Unsold units in a current sell offer are physically on the GE, not in inventory.
-                for(var offer:read.offers)if(!offer.isBuying() && offer.getItemId()==p.getItemId()
-                    && offer.getState()!=OfferLifecycleState.EMPTY)
-                    physical=Math.addExact(physical,(long)offer.getTotalQuantity()-offer.getFilledQuantity());
-                int quantity=(int)Math.min(p.getQuantity(),physical);
+                int quantity=physicalQuantity(read,account,p);
                 long visibleCost=quantity==0?0:SaleAccounting.allocateCost(p.getTotalCost(),p.getQuantity(),quantity);
                 unpricedCost=Math.addExact(unpricedCost,p.getTotalCost()-visibleCost);
+                unseenCost=Math.addExact(unseenCost,p.getTotalCost()-visibleCost);
+                if(quantity<p.getQuantity())valuationPaused.add(p.getItemId());
                 describeReserve(valuationDetails,p.getItemName(),p.getItemId(),p.getQuantity()-quantity,
                     p.getTotalCost()-visibleCost,"not in the current inventory, collection boxes or unsold GE stock");
                 if(quantity==0)continue;
                 var quote=market.latest==null?null:market.latest.getAsJsonObject(Integer.toString(p.getItemId()));
                 if(quote==null || !quote.has("low") || quote.get("low").isJsonNull()
                     || !quote.has("lowTime") || quote.get("lowTime").isJsonNull())
-                    {unpricedCost=Math.addExact(unpricedCost,visibleCost);
+                    {unpricedCost=Math.addExact(unpricedCost,visibleCost);valuationPaused.add(p.getItemId());
                         describeReserve(valuationDetails,p.getItemName(),p.getItemId(),quantity,visibleCost,"no instant-sell quote available");continue;}
                 long bid=exactInteger(quote.get("low")), quoteAt=exactInteger(quote.get("lowTime"));
                 if(bid<=0 || bid>Integer.MAX_VALUE || quoteAt<=0 || quoteAt>now)
@@ -66,6 +63,7 @@ final class DurableRisk {
                     markedQuantity=mark.quantity;markPrice=mark.price;
                     markCost=markedQuantity==0?0:SaleAccounting.allocateCost(visibleCost,quantity,markedQuantity);
                     unpricedCost=Math.addExact(unpricedCost,visibleCost-markCost);
+                    if(markedQuantity<quantity)valuationPaused.add(p.getItemId());
                     describeReserve(valuationDetails,p.getItemName(),p.getItemId(),quantity-markedQuantity,visibleCost-markCost,
                         (markedQuantity==0?mark.detail:"completed public volume supports only "+markedQuantity+" of "+quantity+" physically observed units")
                             +"; a direct risk mark requires a trade within 120s, otherwise qualified support is required");
@@ -95,12 +93,21 @@ final class DurableRisk {
                 .capital(window.startingCapital,knownCapital(read,account,now))
                 .realized(evidence.profitLower,evidence.profitUpper,evidence.boundedSales).marked(marked)
                 .validUntil(validUntil)
-                .uncertainty(unpricedCost,evidence.unresolvedManagedSales,evidence.untrackedUnpricedSales)
+                .uncertainty(unseenCost,evidence.unresolvedManagedSales,evidence.untrackedUnpricedSales)
                 .valuationDetail(String.join(" ",valuationDetails)+(valuationDetails.isEmpty()?"":" "))
-                .currentAccountPolicy(historicalReserve,unpricedCost).build();
+                .verifiedCashPolicy(historicalReserve,unpricedCost,unseenCost,valuationPaused).build();
         }catch(RuntimeException malformed) {
             return AccountRiskSnapshot.unavailable(id,now,"Account risk evidence cannot be evaluated: "+malformed.getClass().getSimpleName()+".");
         }
+    }
+
+    static int physicalQuantity(SqliteStore.PlanningProjections read,AccountSnapshot account,PositionProjection position) {
+        long physical=account.getObservedHoldings()==null?0:account.getObservedHoldings().getOrDefault(position.getItemId(),0);
+        // Filled buy units are in copied holdings; unsold sell units are only in their GE offer.
+        for(var offer:read.offers)if(!offer.isBuying() && offer.getItemId()==position.getItemId()
+            && offer.getState()!=OfferLifecycleState.EMPTY)
+            physical=Math.addExact(physical,(long)offer.getTotalQuantity()-offer.getFilledQuantity());
+        return (int)Math.min(position.getQuantity(),physical);
     }
 
     private static void describeReserve(List<String> details,String name,int item,int quantity,long cost,String reason) {

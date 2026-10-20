@@ -84,4 +84,37 @@ public class AccountReplayContinuationTest {
         assertEquals(before.realizedProfit,after.realizedProfit);assertEquals(before.tax,after.tax);
         assertEquals(0,after.inventoryCost);assertEquals(3,after.authorizedSales);
     }
+    AccountReplayInput twoPending(boolean secondCompletes) {
+        var input=f.input(2,51);
+        for(var frame:input.frames) {
+            if(frame.availableAt>=f.start+600)for(int item:new int[]{1,2}) {
+                if(secondCompletes && item==2)continue;
+                var q=frame.latest.getAsJsonObject(""+item);q.addProperty("low",110);q.addProperty("high",140);
+            }
+            for(var flow:frame.flows) {
+                if(secondCompletes && flow.itemId==2)flow.lowVolume=frame.availableAt>=f.start+900?1000:0;
+                else {
+                    flow.lowVolume=frame.availableAt==f.start+600?300:frame.availableAt>f.start+600?1000:0;
+                    if(frame.availableAt>f.start+600)flow.low=110;
+                    flow.high=140;
+                }
+            }
+        }
+        return input;
+    }
+    AccountReplay.Entries pausedEntries(long until) {
+        return (m,a,l,o,at)->at.getEpochSecond()>=f.start+600 && at.getEpochSecond()<f.start+until
+            ?PortfolioPlan.unavailable(a.getCorrelationId(),PortfolioPlanOutcome.NO_ELIGIBLE_CANDIDATE,"Controlled replacement refusal",at.getEpochSecond())
+            :boundedEntries().plan(m,a,l,o,at);
+    }
+    @Test public void aRefusedReplacementCannotHideAnotherCollectedExitDuringManualVisits()throws Exception {
+        var input=twoPending(true);var result=run(input,pausedEntries(1800));
+        assertTrue(result.actions.toString(),result.actions.stream().anyMatch(a->a.contains("SELL 2 ") && Long.parseLong(a.split(" ")[0])<f.start+1800));
+    }
+    @Test public void twoCancelledRemaindersSurviveTheSameRestartAndReceiveSeparateFreshReplacements()throws Exception {
+        var input=twoPending(false);input.restartAt=List.of(f.start+1000);
+        var result=run(input,pausedEntries(1800));
+        assertEquals(result.actions.toString(),2,result.replacementBuys);
+        for(int item:new int[]{1,2})assertTrue(result.actions.toString(),result.actions.stream().anyMatch(a->a.contains("BUY "+item+" 7 @ 111")));
+    }
 }

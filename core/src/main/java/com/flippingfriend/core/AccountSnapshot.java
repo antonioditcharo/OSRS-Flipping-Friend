@@ -316,7 +316,9 @@ public final class AccountSnapshot
     public AccountSnapshot withCanonicalRisk(AccountRiskSnapshot risk) {
         if(risk==null || !risk.isAvailable() || !java.util.Objects.equals(accountId,risk.getAccountId())
                 || risk.getEvaluatedAt()<observedAt)throw new IllegalArgumentException("invalid canonical risk override");
-        AccountSnapshot copy=new AccountSnapshot(this,getCommittedByItem());copy.canonicalRisk=risk;return copy;
+        AccountSnapshot copy=new AccountSnapshot(this,getCommittedByItem());copy.canonicalRisk=risk;
+        java.util.Set<Integer> paused=new java.util.HashSet<>(getUnavailableEntryItems());
+        paused.addAll(risk.getValuationPausedItems());copy.unavailableEntryItems=Collections.unmodifiableSet(paused);return copy;
     }
     public AccountRiskSnapshot getCanonicalRisk() { return canonicalRisk; }
     /** Eight exact source observations, captured with the cash/slot state on the client thread. */

@@ -40,7 +40,7 @@ final class SidebarPerformance extends JPanel {
         profit.setName("measured-profit");profit.setFont(FontManager.getRunescapeBoldFont().deriveFont(20f));addLine(profit);
         style(coverage);coverage.setFont(FontManager.getRunescapeSmallFont());addLine(coverage);
         stats.setOpaque(false);
-        for(String key:new String[]{"Unrealized profit","Flips made","ROI","Session time","Hourly profit","Portfolio value"}) {
+        for(String key:new String[]{"Available cash","Stock purchase cost","Unrealized profit","Flips made","ROI","Session time","Hourly profit","Portfolio value"}) {
             JPanel line=row();JLabel label=new JLabel(key+":");style(label);label.setForeground(UiUtils.MUTED);line.add(label,BorderLayout.WEST);
             JLabel value=new JLabel("Unavailable");style(value);value.setName("metric-"+key.toLowerCase(Locale.ROOT).replace(' ','-'));
             line.add(value,BorderLayout.EAST);values.put(key,value);stats.add(line);
@@ -76,8 +76,14 @@ final class SidebarPerformance extends JPanel {
         profit.setToolTipText("Realized after-tax profit from durable sales in the selected measurement window. Unknown profit is excluded and counted below.");
         coverage.setText(available?measurement.saleUpdates+" updates · "+measurement.unresolvedSales+" unresolved":ledger==null?"Waiting for account records":ledger.getSales()+" updates · "+ledger.getUnresolvedSales()+" unresolved");
         coverage.setToolTipText(Objects.toString(companion.performanceError(),"")+" Sale timestamps are observations; partial fills count once per completed sell offer. Historical coverage may be incomplete.");
-        for(JLabel value:values.values()){value.setText("Unavailable");value.setForeground(UiUtils.TEXT);}
+        for(JLabel value:values.values()){value.setText("Unavailable");value.setForeground(UiUtils.TEXT);value.setToolTipText(null);}
         if(available) {
+            if(measurement.spendableCoins!=null) {
+                values.get("Available cash").setText(explainer.formatGp(measurement.spendableCoins));
+                values.get("Available cash").setToolTipText(explainer.formatNumber(measurement.spendableCoins)+" GP from current copied account evidence. Resale estimates are not spendable coins.");
+                values.get("Stock purchase cost").setText(explainer.formatGp(measurement.managedAcquisitionCost));
+                values.get("Stock purchase cost").setToolTipText(valuationTip(measurement));
+            }
             values.get("Flips made").setText(Long.toString(measurement.completedFlips));
             values.get("Flips made").setToolTipText("Fully completed, cost-matched sell orders. Partial updates contribute profit but do not inflate this count.");
             if(measurement.appliedCost>0)values.get("ROI").setText(percent(low,measurement.appliedCost)+(low==high?"":" to "+percent(high,measurement.appliedCost)));
@@ -95,9 +101,10 @@ final class SidebarPerformance extends JPanel {
             }
             if(measurement.portfolioValue!=null) {
                 boolean partial=measurement.unpricedCost>0;
-                values.get("Portfolio value").setText((partial?"≥ ":"")+explainer.formatGp(measurement.portfolioValue));
-                values.get("Unrealized profit").setText(partial?"Partly unpriced":explainer.formatGp(measurement.unrealizedProfit));
-                values.get("Unrealized profit").setToolTipText("Conservative net mark for proven managed stock; quiet marks have a haircut and no gain credit. Unpriced cost: "+explainer.formatGp(measurement.unpricedCost));
+                values.get("Portfolio value").setText("≈ "+explainer.formatGp(measurement.portfolioValue)+(partial?"*":""));
+                values.get("Unrealized profit").setText(explainer.formatGp(measurement.unrealizedProfit)+(partial?"*":""));
+                String tip=valuationTip(measurement);values.get("Portfolio value").setToolTipText(tip);
+                values.get("Unrealized profit").setToolTipText(tip);
             }
         }
         int size=available?measurement.sales.size():0,totalPages=Math.max(1,(size+9)/10);pageNumber=Math.min(pageNumber,totalPages-1);
@@ -120,6 +127,21 @@ final class SidebarPerformance extends JPanel {
             line.addMouseListener(click);name.addMouseListener(click);result.addMouseListener(click);addSale(line);
         }
         sales.setMaximumSize(new Dimension(Integer.MAX_VALUE,sales.getPreferredSize().height));revalidate();repaint();
+    }
+    private String valuationTip(PerformanceSnapshot measurement) {
+        StringBuilder tip=new StringBuilder("<html>Last-quoted after-tax estimates for observed trading stock; no guaranteed fill.<br>Cash and exact purchase costs are separate. Estimates never authorize buys.<br>");
+        if(measurement.unpricedCost!=null && measurement.unpricedCost>0)
+            tip.append("* Priced portion only; ").append(explainer.formatNumber(measurement.unpricedCost)).append(" GP of acquisition cost is unpriced, not lost.<br>");
+        if(measurement.stockValuations!=null)for(var stock:measurement.stockValuations) {
+            tip.append(stock.quantity).append(" × ").append(Objects.toString(stock.itemName,"Item "+stock.itemId).replace("&","&amp;").replace("<","&lt;").replace(">","&gt;"))
+                .append(": ").append(explainer.formatNumber(stock.totalCost)).append(" GP paid; ")
+                .append(stock.observedQuantity).append(" currently observed; ").append(stock.pricedQuantity).append(" priced");
+            if(stock.quotedAt>0)tip.append(" at ").append(explainer.formatNumber(stock.price)).append(" GP, trade ")
+                .append(Math.max(0,measurement.observedAt-stock.quotedAt)).append("s before this estimate");
+            if(!stock.unpricedReason.isEmpty())tip.append(". ").append(stock.unpricedReason);
+            tip.append("<br>");
+        }
+        return tip.append("</html>").toString();
     }
     private void addSale(JComponent c){c.setAlignmentX(LEFT_ALIGNMENT);c.setMaximumSize(new Dimension(Integer.MAX_VALUE,c.getPreferredSize().height));sales.add(c);}
     private String shortRange(long a,long b){return a==b?explainer.formatGp(a):explainer.formatGp(a)+"…"+explainer.formatGp(b);}

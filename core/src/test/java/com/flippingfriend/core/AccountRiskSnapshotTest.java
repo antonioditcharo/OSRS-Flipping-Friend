@@ -77,4 +77,16 @@ public class AccountRiskSnapshotTest {
         assertTrue(current.isValid());assertTrue(current.isCurrentAccountPolicy());
         assertEquals("CURRENT_ACCOUNT_V1",field.get(current));
     }
+    @Test public void verifiedCashPolicySeparatesPriceUncertaintyFromUnseenStockAndRetainsItemPauses()throws Exception {
+        var current=risk().uncertainty(2000,0,0).verifiedCashPolicy(500000000,20000000,2000,java.util.Set.of(561)).build();
+        assertTrue(current.isAvailable());assertTrue(current.isVerifiedCashPolicy());
+        assertEquals(19998000,current.getValuationUncertaintyExcluded());assertEquals(Long.valueOf(14998000),current.getRemainingLossBudget());
+        var snapshot=new AccountSnapshot("copied",190,1000000,0,8,8,true,false,0).withAccountId(account)
+            .withPlanningRestrictions(java.util.Map.of(561,20000000L),java.util.Set.of(562)).withCanonicalRisk(current);
+        assertEquals(java.util.Set.of(561,562),snapshot.getUnavailableEntryItems());
+        var excluded=AccountRiskSnapshot.class.getDeclaredField("valuationUncertaintyExcluded");excluded.setAccessible(true);
+        excluded.set(current,20000001L);assertFalse(current.isValid());excluded.set(current,19998000L);
+        var paused=AccountRiskSnapshot.class.getDeclaredField("valuationPausedItems");paused.setAccessible(true);
+        paused.set(current,java.util.Set.of());assertFalse(current.isValid());
+    }
 }

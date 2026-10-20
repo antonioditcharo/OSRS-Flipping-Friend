@@ -23,7 +23,8 @@ import static org.mockito.Mockito.*;
 public class AdviceDeliveryBoundaryTest {
     static final class Worker extends AbstractExecutorService {
         final Queue<Runnable> tasks=new ArrayDeque<>();
-        public void execute(Runnable r){tasks.add(r);} public void shutdown(){} public List<Runnable> shutdownNow(){return List.of();}
+        boolean reject;
+        public void execute(Runnable r){if(reject)throw new RejectedExecutionException("fixture unavailable executor");tasks.add(r);} public void shutdown(){} public List<Runnable> shutdownNow(){return List.of();}
         public boolean isShutdown(){return false;} public boolean isTerminated(){return false;}
         public boolean awaitTermination(long n,TimeUnit u){return true;}
     }
@@ -215,5 +216,38 @@ public class AdviceDeliveryBoundaryTest {
         f.queueAdvice();f.clientQueue.remove().run();
         verify(f.guide).setSuggestion(argThat(s->s.getType()==SuggestionType.WAIT));
         verify((TradePlans)getField(f.plugin,"tradePlans"),never()).plan(anyInt(),anyInt(),anyInt(),anyDouble(),anyLong());
+    }
+    @Test public void anOldLifecycleCaptureCannotPublishThroughTheRestartedWorker()throws Exception {
+        Fixture f=new Fixture();var request=FlippingFriendPlugin.class.getDeclaredMethod("requestEngineRefresh");request.setAccessible(true);
+        request.invoke(f.plugin);
+        ((java.util.concurrent.atomic.AtomicLong)getField(f.plugin,"engineRefreshEpoch")).incrementAndGet();
+        ((AtomicBoolean)getField(f.plugin,"engineRefreshInFlight")).set(false);
+        ((AtomicBoolean)getField(f.plugin,"engineRefreshRequested")).set(false);
+        request.invoke(f.plugin);assertEquals(2,f.clientQueue.size());
+        f.clientQueue.remove().run();assertTrue("A queued callback from the old load cannot publish or take worker ownership",f.worker.tasks.isEmpty());
+        f.clientQueue.remove().run();assertEquals(1,f.worker.tasks.size());f.worker.tasks.remove().run();
+        f.clientQueue.remove().run();verify(f.guide).setSuggestion(f.advice);
+    }
+    @Test public void aRejectedWorkerSubmissionDoesNotBreakTheClientCallbackOrLatchFutureRefreshes()throws Exception {
+        Fixture f=new Fixture();var request=FlippingFriendPlugin.class.getDeclaredMethod("requestEngineRefresh");request.setAccessible(true);
+        f.worker.reject=true;request.invoke(f.plugin);f.clientQueue.remove().run();
+        assertFalse(((AtomicBoolean)getField(f.plugin,"engineRefreshInFlight")).get());
+        f.worker.reject=false;f.queueAdvice();f.clientQueue.remove().run();verify(f.guide).setSuggestion(f.advice);
+    }
+    @Test public void aRefusedReplacementStillLetsTheFreshPlanOfferAnUnrelatedBuy()throws Exception {
+        Fixture f=new Fixture();when(f.companion.nextAction()).thenReturn(null);
+        var engine=(SuggestionEngine)getField(f.plugin,"engine");when(engine.refresh(false)).thenReturn(f.advice);
+        var refusal=Suggestion.waiting("Replacement paused","Its resale value is unpriced; its exact remainder is retained.");
+        when(f.companion.replacementSuggestion(anyInt(),anyInt(),any(),anySet(),anySet(),anySet())).thenReturn(refusal);
+        var unrelated=Suggestion.builder(SuggestionType.BUY).item(563,"Unrelated").quantity(5).price(100).build();
+        when(f.companion.nextEntrySuggestion(any(),anySet(),anySet(),anySet())).thenReturn(unrelated);
+        f.queueAdvice();f.clientQueue.remove().run();verify(f.guide).setSuggestion(unrelated);verify(f.guide,never()).setSuggestion(refusal);
+    }
+    @Test public void adviceExpiringInTheClientQueueIsWithdrawnAndImmediatelyRecomputed()throws Exception {
+        Fixture f=new Fixture();f.queueAdvice();
+        var expiry=Suggestion.class.getDeclaredField("adviceExpiresAt");expiry.setAccessible(true);
+        expiry.setLong(f.advice,java.time.Instant.now().getEpochSecond()-1);
+        f.clientQueue.remove().run();verify(f.guide,never()).setSuggestion(f.advice);
+        assertFalse("A discarded result must schedule fresh guidance",f.clientQueue.isEmpty());
     }
 }

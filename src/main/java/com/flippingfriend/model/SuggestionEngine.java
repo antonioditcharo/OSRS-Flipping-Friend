@@ -168,6 +168,9 @@ public class SuggestionEngine
     @Inject private com.flippingfriend.session.SellRelistIntent sellRelist;
     @Inject private com.flippingfriend.session.BuyRepriceIntent buyReprice;
     private volatile String observedAccount;
+    private volatile Suggestion continuationWait;
+    /** A retained continuation's refusal must not become an account-wide entry or exit lock. */
+    public boolean isContinuationWait(Suggestion suggestion) { return suggestion!=null && suggestion==continuationWait; }
     public void setObservedAccount(String account) {
         if(!java.util.Objects.equals(observedAccount,account)) {
             advisedPrices.clear();reprice=null;setPendingAdjustment(null);
@@ -370,6 +373,7 @@ public class SuggestionEngine
 
 	private Suggestion compute(boolean computeBuy)
 	{
+		continuationWait=null;
 		AccountState account = accountMonitor.getState();
 		MarketSnapshot market = marketData.getSnapshot();
 		Instant now = Instant.now();
@@ -452,15 +456,13 @@ public class SuggestionEngine
 		// instructed, and the next card told them to sell the single orb. A 586,800 gp plan replaced
 		// by a 13,600 gp one, by following the instruction it had just been given.
 		Suggestion replace = replaceRepricedBuy(market, account, now);
-		if (replace != null)
-		{
-			return replace;
-		}
+        Suggestion deferredWait=replace!=null && replace.getType()==SuggestionType.WAIT?replace:null;
 
         if (sellRelist != null) {
-            var remaining = sellRelist.collectedRequest(offers, observedAccount);
-            if (remaining != null && account.getFreeSlots() > 0) {
-                return relistSuggestion(remaining, market, horizon, account, now);
+            for(var remaining:sellRelist.collectedRequests(offers,observedAccount))if(account.getFreeSlots()>0) {
+                Suggestion relist=relistSuggestion(remaining, market, horizon, account, now);
+                if(relist!=null && relist.getType()!=SuggestionType.WAIT)return relist;
+                if(relist!=null)deferredWait=relist;
             }
         }
 
@@ -482,6 +484,9 @@ public class SuggestionEngine
 		{
 			return sell;
 		}
+        // awaitingReplacement still protects this accumulation's own partial fills. Other
+        // ready holdings must exit before another purchase, including a promised replacement.
+        if(replace!=null && replace.getType()!=SuggestionType.WAIT)return replace;
 
 		Suggestion adjust = adjustSuggestion(market, horizon, now);
 		if (adjust != null)
@@ -540,6 +545,7 @@ public class SuggestionEngine
 		{
 			return sellOnlyIdle();
 		}
+        if(deferredWait!=null){continuationWait=deferredWait;return deferredWait;}
 
 		if (!computeBuy)
 		{
@@ -841,7 +847,7 @@ public class SuggestionEngine
 	{
         if(buyReprice!=null) {
             if(!buyReprice.isPending(itemId,offers,observedAccount,now.getEpochSecond())) return false;
-            if(replacementRejected(itemId,marketData.getSnapshot())) {buyReprice.clear(observedAccount);return false;}
+            if(replacementRejected(itemId,marketData.getSnapshot())) {buyReprice.clearItem(observedAccount,itemId);return false;}
             return true;
         }
 		Reprice pending = reprice;
@@ -928,31 +934,37 @@ public class SuggestionEngine
             || parseBlocked(config.blockedItems()).contains(market.getItemName(item).toLowerCase(java.util.Locale.ROOT));
     }
     private void clearBuyPromise(int item,Instant now) {
-        if(buyReprice!=null && buyReprice.pendingItemId(offers,observedAccount,now.getEpochSecond())==item)
-            buyReprice.clear(observedAccount);
+        if(buyReprice!=null && buyReprice.isPending(item,offers,observedAccount,now.getEpochSecond()))
+            buyReprice.clearItem(observedAccount,item);
         if(reprice!=null && reprice.itemId==item)reprice=null;
     }
     private Suggestion replaceDurableBuy(MarketSnapshot market,AccountState account,Instant now) {
-        int item=buyReprice.pendingItemId(offers,observedAccount,now.getEpochSecond());
-        if(item<=0) return null;
-        if(replacementRejected(item,market)) {buyReprice.clear(observedAccount);return null;}
-        var pending=buyReprice.collectedRequest(offers,observedAccount,now.getEpochSecond());
-        if(pending==null || account.getFreeSlots()<=0) return null;
-        LatestPrice price=market.latest(item);
-        if(!freshSaleQuote(price,now) || price.getLow()>=Integer.MAX_VALUE)
-            return Suggestion.waiting("Checking the replacement price","A current two-sided quote is required before replacing the collected remainder.");
-        int quoted=price.getLow()+1;
-        var metadata=market.metadata(item);
-        int limit=metadata==null?0:metadata.getBuyLimit();
-        int allowed=limit>0?buyLimits.remaining(item,limit,now):0;
-        int quantity=replacementQuantity(pending.quantity,allowed,
-            account.spendableCoins(config.includeBankValue(),config.bankrollCap()),quoted);
-        if(quantity<=0) return Suggestion.waiting("Replacement waiting for funds or buy limit",
-            "The cancelled remainder is retained; fresh account evidence must support the next order.");
-        // This is a bounded request, not price/quantity authority. The companion re-plans this item
-        // with the cap before the foreground can accept or bind any displayed BUY forecast.
-        return Suggestion.builder(SuggestionType.BUY).item(item,market.getItemName(item)).price(quoted).quantity(quantity)
-            .headline("Recheck your "+market.getItemName(item)+" replacement").build();
+        if(account.getFreeSlots()<=0)return null;
+        Suggestion waiting=null;var risk=companion==null?null:companion.currentRisk();
+        for(var pending:buyReprice.collectedRequests(offers,observedAccount,now.getEpochSecond())) {
+            int item=pending.itemId;
+            if(replacementRejected(item,market)){buyReprice.clearItem(observedAccount,item);continue;}
+            if(offers.itemsWithOpenOffers().contains(item))continue;
+            if(risk!=null && risk.isAvailable() && observedAccount.equals(risk.getAccountId())
+                && risk.getValidUntil()>=now.getEpochSecond() && risk.getValuationPausedItems().contains(item)) {
+                waiting=Suggestion.waiting("Replacement retained","This item's valuation is uncertain. Its exact cancelled remainder is retained while unrelated trades are checked.");continue;
+            }
+            LatestPrice price=market.latest(item);
+            if(!freshSaleQuote(price,now) || price.getLow()>=Integer.MAX_VALUE) {
+                waiting=Suggestion.waiting("Checking the replacement price","A current two-sided quote is required before replacing the retained remainder.");continue;
+            }
+            int quoted=price.getLow()+1;var metadata=market.metadata(item);
+            int limit=metadata==null?0:metadata.getBuyLimit();
+            int allowed=limit>0?buyLimits.remaining(item,limit,now):0;
+            int quantity=replacementQuantity(pending.quantity,allowed,account.spendableCoins(config.includeBankValue(),config.bankrollCap()),quoted);
+            if(quantity<=0) {
+                waiting=Suggestion.waiting("Replacement waiting for funds or buy limit","The cancelled remainder is retained; fresh account evidence must support the next order.");continue;
+            }
+            // Only a bounded request: fresh companion authority still owns the displayed order.
+            return Suggestion.builder(SuggestionType.BUY).item(item,market.getItemName(item)).price(quoted).quantity(quantity)
+                .headline("Recheck your "+market.getItemName(item)+" replacement").build();
+        }
+        return waiting;
     }
 
 	/** What to do about an outstanding reprice on this pass. */

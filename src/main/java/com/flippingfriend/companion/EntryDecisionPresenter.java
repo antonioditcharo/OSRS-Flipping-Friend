@@ -132,7 +132,10 @@ final class EntryDecisionPresenter
                     && risk.getValidUntil()>=now && risk.getRemainingLossBudget()<=0) {
                     String headline="New buys are paused";
                     if(risk.isCurrentAccountPolicy()) {
-                        if(risk.getUnpricedManagedCostReserve()>0
+                        if(risk.isVerifiedCashPolicy() && risk.getUncertainLossReserve()>0
+                            && risk.getRemainingLossBudget()>-risk.getUncertainLossReserve())
+                            headline="Waiting for current holdings evidence";
+                        else if(!risk.isVerifiedCashPolicy() && risk.getUnpricedManagedCostReserve()>0
                             && risk.getRemainingLossBudget()>-risk.getUnpricedManagedCostReserve())
                             headline="Waiting for stock valuation";
                     }else if(risk.getRiskCapital()>0 && risk.getUncertainLossReserve()>0)

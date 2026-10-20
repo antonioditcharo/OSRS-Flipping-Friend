@@ -23,8 +23,10 @@ control opens durable performance. Scope and unknown coverage stay visible.
 | ROI | Known realized net bounds / their exact applied acquisition costs; unavailable at zero denominator; unknown-cost rows excluded |
 | Session time | Elapsed wall time including offline time from a separate durable measurement cursor; differs from Copilot's accumulated active-flipping clock |
 | Hourly profit | Known realized net bounds / elapsed wall time; Measuring under one minute; other scopes have no invented session clock/rate |
-| Unrealized profit | Conservative taxed mark on proven managed stock; unavailable/partly unpriced when proof or marks are incomplete |
-| Portfolio value | Conservative taxed managed-stock value excluding cash/personal items; lower bound when stock is unpriced; approved quiet marks retain haircut/quantity limits/no gain credit |
+| Available cash | Verified spendable coins from copied account evidence; includes only the existing conservative bank lower bound when enabled, never estimated resale proceeds |
+| Stock purchase cost | Exact canonical acquisition cost of remaining managed units; remains available when resale prices are missing |
+| Unrealized profit | Display-only last-quoted after-tax estimate on physically observed canonical stock; trade ages are explicit, and a star identifies the priced portion when quantities remain unpriced |
+| Portfolio value | Display-only last-quoted managed-stock estimate excluding cash/personal items; approximate, with explicit missing quantities/cost, never a liquidation guarantee or input to entry risk |
 
 These are recorded/display measurements, not whole-account terminal-adjusted benchmarks, validated
 forecasts or profit-superiority claims. Historical coverage can remain incomplete.

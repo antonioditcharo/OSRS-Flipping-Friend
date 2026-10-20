@@ -58,6 +58,22 @@ public class GeInputAssistTest {
         when(event.getKeyChar()).thenReturn((char)Character.toLowerCase(code)); return event;
     }
     private void drain() { List<Runnable> pending=new ArrayList<>(queued); queued.clear(); pending.forEach(Runnable::run); }
+    @Test public void adviceExpiringAfterThePlayerKeyPressCannotFillEitherLeg()throws Exception {
+        for(boolean sell:new boolean[]{false,true}) {
+            when(client.getVarbitValue(VarbitID.GE_NEWOFFER_TYPE)).thenReturn(sell?1:0);
+            when(title.getText()).thenReturn(sell?"How many do you wish to sell?":"How many do you wish to buy?");
+            var advice=Suggestion.builder(sell?SuggestionType.SELL:SuggestionType.BUY).item(561,"Nature rune").quantity(10).price(100)
+                .adviceContext(com.flippingfriend.core.AccountIdentity.fromProfileKey("synthetic-profile"),"current",0,java.time.Instant.now().getEpochSecond()+60).build();
+            guide.setSuggestion(advice);assist.refresh(true);assist.keyPressed(press(KeyEvent.VK_E));
+            var expiry=Suggestion.class.getDeclaredField("adviceExpiresAt");expiry.setAccessible(true);expiry.setLong(advice,java.time.Instant.now().getEpochSecond()-1);
+            assertEquals(SuggestionType.WAIT,guide.getSuggestion().getType());
+            // Identical fresh advice cannot revive an expired queued key press.
+            guide.setSuggestion(Suggestion.builder(sell?SuggestionType.SELL:SuggestionType.BUY).item(561,"Nature rune").quantity(10).price(100)
+                .adviceContext(com.flippingfriend.core.AccountIdentity.fromProfileKey("synthetic-profile"),"renewed",0,java.time.Instant.now().getEpochSecond()+60).build());
+            drain();assist.keyReleased(press(KeyEvent.VK_E));
+        }
+        verify(client,never()).setVarcStrValue(anyInt(),anyString());
+    }
     @Test public void entryRefusalCancelsAQueuedKeyFillEvenIfTheSameBuyReturns() {
         var quantity=mock(Widget.class);when(resolver.getQuantityControl()).thenReturn(quantity);
         var click=mock(net.runelite.api.events.MenuOptionClicked.class);when(click.getWidget()).thenReturn(quantity);

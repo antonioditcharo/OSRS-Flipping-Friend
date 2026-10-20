@@ -75,7 +75,8 @@ public class DurableRiskWindowTest {
             assertEquals(Long.valueOf(100000000),risk.getCurrentCapital());
             assertEquals(Long.valueOf(-3140),risk.getMarkedUnrealizedProfit());assertEquals(Long.valueOf(3140),risk.getDrawdownUpper());
             var missing=evaluate(s,a,null);assertTrue(missing.isAvailable());
-            assertEquals(Long.valueOf(10000),missing.getUncertainLossReserve());assertEquals(Long.valueOf(10000),missing.getDrawdownUpper());
+            assertEquals(Long.valueOf(0),missing.getUncertainLossReserve());assertEquals(Long.valueOf(0),missing.getDrawdownUpper());
+            assertEquals(10000,missing.getValuationUncertaintyExcluded());
         }
     }
     @Test public void mixedTaxBoundsStayRangesAndTheLowerProfitControlsRisk()throws Exception {

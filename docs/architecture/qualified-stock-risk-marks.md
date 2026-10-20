@@ -1,5 +1,10 @@
 # Qualified public-market stock risk marks
 
+19 October continuation: [owner-approved verified-cash policy](verified-cash-workflow-recovery.md)
+supersedes the global full-cost charge for valuation-only uncertainty in physically proven stock.
+These quote/publication/volume/haircut rules still determine qualified risk marks; unseen stock
+still reserves its exact cost and uncertain items remain unavailable for new entries.
+
 18 October 2026. The owner explicitly approved this policy and the supported #101 pair is installed.
 [Delivery and acceptance receipt](../history/qualified-stock-valuation-2026-10-18.md). This replaces
 the strict 120-second-only rule from #98 with the qualified fallback below. It is not a history
