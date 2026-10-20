@@ -109,6 +109,53 @@ public class BuyContinuationWorkflowTest {
         assertFalse(f.engine.isGuidedBuyCancellation(cancelled,com.flippingfriend.core.AccountIdentity.fromProfileKey("other"),now));
         assertFalse(f.engine.isGuidedBuyCancellation(cancelled,null,now));
     }
+    private void stoppedStock(Fixture f,int quantity,boolean collected,long quoteTime) throws Exception {
+        var companion=(CompanionClient)read(f.engine,"companion");
+        var stock=com.flippingfriend.core.PositionProjection.ready(561,"Nature rune",quantity,quantity*1000L,now-600,now,"buy","buy-episode")
+            .withExitContext(new com.flippingfriend.core.AcquisitionExitContext(1500,900,120).bind("buy"));
+        var ledger=new com.flippingfriend.core.AccountLedgerSnapshot(f.storage.accountId(),now,0,0,0,0,0,0,0,0,List.of())
+            .withTradeEvidence(List.of(stock),List.of());when(companion.tradingLedger()).thenReturn(ledger);
+        when(f.account.getState()).thenReturn(new AccountState(true,true,false,100000000,0,0,collected?8:7,8,0,false,
+            collected?Map.of(561,quantity):Map.of(),collected?Map.of(561,quantity):Map.of(),Map.of()));
+        when(f.market.getSnapshot()).thenReturn(new MarketSnapshot(Map.of(561,new ItemMetadata(561,"Nature rune",false,1000,0)),
+            Map.of(561,new LatestPrice(850,quoteTime,800,quoteTime)),Map.of(),Map.of(),Instant.ofEpochSecond(now)));
+    }
+    private static Object read(Object target,String name)throws Exception {
+        var field=target.getClass().getDeclaredField(name);field.setAccessible(true);return field.get(target);
+    }
+    @Test public void aSavedRepriceMustNotHideAFreshStopOnTheWorkingPartialBuy()throws Exception {
+        var f=new Fixture();f.present();f.progress(GrandExchangeOfferState.BUYING,4);stoppedStock(f,4,false,now);
+        var next=f.engine.refresh(false);assertNotNull(next);assertEquals(SuggestionType.CANCEL,next.getType());assertTrue(next.isLossCut());
+        assertTrue("Proposing the stop must not erase a promise before foreground acceptance",f.intent.isPending(561,f.tracker,f.storage.accountId(),now));
+        assertTrue(f.engine.recordPresentedMaintenance(next,f.storage.accountId(),now));
+        assertFalse(new BuyRepriceIntent(f.storage).isPending(561,f.tracker,f.storage.accountId(),now));
+    }
+    @Test public void aCollectedReplacementCannotRebuyAStockWhoseOriginalStopHasTriggered()throws Exception {
+        var f=new Fixture();f.present();f.cancelCollect();f.restart();stoppedStock(f,6,true,now);
+        var next=f.engine.refresh(false);assertNotNull(next);assertEquals(SuggestionType.SELL,next.getType());assertTrue(next.isLossCut());assertEquals(6,next.getQuantity());
+        assertTrue(f.intent.isPending(561,f.tracker,f.storage.accountId(),now));
+        assertTrue(f.engine.recordPresentedMaintenance(next,f.storage.accountId(),now));
+        assertFalse("The accepted stop must not resurrect an old rebuy after restart",new BuyRepriceIntent(f.storage).isPending(561,f.tracker,f.storage.accountId(),now));
+    }
+    @Test public void staleOrFutureStopQuotesKeepTheHealthyReplacementCommitment()throws Exception {
+        for(long quoteTime:new long[]{now-301,now+60}) {
+            var f=new Fixture();f.present();f.cancelCollect();f.restart();stoppedStock(f,6,true,quoteTime);
+            var next=f.engine.refresh(false);assertTrue(next==null || !next.isLossCut());
+            assertTrue(new BuyRepriceIntent(f.storage).isPending(561,f.tracker,f.storage.accountId(),now));
+            assertEquals(6,f.positions.get(561).getQuantity());assertEquals(6000,f.positions.get(561).getTotalCost());
+        }
+    }
+    @Test public void anAcceptedStopMustCommitItsSupersessionBeforeAnOldRebuyCanBeForgotten()throws Exception {
+        var f=new Fixture();f.present();f.cancelCollect();f.restart();stoppedStock(f,6,true,now);
+        var stop=f.engine.refresh(false);assertEquals(SuggestionType.SELL,stop.getType());assertTrue(stop.isLossCut());
+        var path=f.storage.accountDir().resolve("buy-reprice-intent.json");var before=java.nio.file.Files.readAllBytes(path);
+        var blocked=f.storage.accountDir().resolve("buy-reprice-intent.json.tmp");java.nio.file.Files.createDirectory(blocked);
+        assertFalse(f.engine.recordPresentedMaintenance(stop,f.storage.accountId(),now));assertArrayEquals(before,java.nio.file.Files.readAllBytes(path));
+        assertTrue("The old durable image remains protected until removal can commit",new BuyRepriceIntent(f.storage).isPending(561,f.tracker,f.storage.accountId(),now));
+        java.nio.file.Files.delete(blocked);assertTrue(f.engine.recordPresentedMaintenance(stop,f.storage.accountId(),now));
+        assertFalse(new BuyRepriceIntent(f.storage).isPending(561,f.tracker,f.storage.accountId(),now));
+        assertEquals(6000,f.positions.get(561).getTotalCost());
+    }
     @Test public void restartAfterLateFillCancellationAndSlotReuseRequestsOnlyTheExactRemainder()throws Exception {
         var f=new Fixture();assertEquals(SuggestionType.MODIFY_BUY,f.present().getType());
         f.cancelCollect(); // No worker read between cancellation/collection and reuse.

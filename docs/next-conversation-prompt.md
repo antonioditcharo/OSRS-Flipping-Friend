@@ -33,6 +33,14 @@ rebuilding already implemented capabilities:
 
 ## Delivery state at this handoff
 
+Read local-data/stop-continuation-20261020/delivery-state.json first for the newest actual source/
+CI/install/live state. Fresh stops supersede continuation holds and durably remove old rebuy
+promises before accepted stop sales; listed fresh stops precede ordinary relists/replacements.
+Replay V10 follows these paths. Contract: docs/architecture/stop-continuation-priority.md.
+Owner deferred login/game testing until the 20 October home batch after 17:30 local; do not ask
+again beforehand. Continue independent work; all controlled workflow/timing/benchmark/learning
+gates remain open.
+
 First read local-data/runelite-1133-20261020/delivery-state.json: the official release changed
 to 1.13.3 during #123 delivery. The old-API candidate was safely refused; the tested compatibility
 follow-up includes all #123 workflow changes. Actual CI/install/native/login state is in that receipt.

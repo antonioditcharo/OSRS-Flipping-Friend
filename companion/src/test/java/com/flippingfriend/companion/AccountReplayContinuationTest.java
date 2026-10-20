@@ -48,6 +48,56 @@ public class AccountReplayContinuationTest {
         assertFalse(result.actions.toString(),result.actions.stream().anyMatch(a->a.contains("SELL ") && Long.parseLong(a.split(" ")[0])<replacement));
         assertEquals(300,result.realizedProfit);assertEquals(100000300,result.equityLower);assertEquals(0,result.inventoryCost);
     }
+    @Test public void aFreshStopDuringAnAcceptedRepriceMustCancelTheBuyInsteadOfLeavingItsPartialStockStranded()throws Exception {
+        for(boolean restart:new boolean[]{false,true}) {
+            var input=repricing();
+            var stop=new AccountReplayInput.Frame();stop.availableAt=stop.observedAt=f.start+610;stop.latest=input.frames.get(10).latest.deepCopy();
+            var q=stop.latest.getAsJsonObject("1");q.addProperty("low",70);q.addProperty("high",80);q.addProperty("lowTime",stop.availableAt);q.addProperty("highTime",stop.availableAt);
+            input.frames.add(stop);input.frames.sort(Comparator.comparingLong(a->a.availableAt));
+            for(var frame:input.frames)if(frame.availableAt>stop.availableAt) {
+                var quote=frame.latest.getAsJsonObject("1");quote.addProperty("low",70);quote.addProperty("high",80);
+                for(var flow:frame.flows){flow.lowVolume=0;flow.low=70;flow.high=80;}
+            }
+            if(restart)input.restartAt=List.of(f.start+620,f.start+650);
+            var result=run(input,boundedEntries());
+            assertTrue(result.actions.toString(),result.actions.stream().anyMatch(a->a.contains("CANCEL ") && a.endsWith("remaining 7") && Long.parseLong(a.split(" ")[0])<f.start+710));
+            assertTrue(result.actions.toString(),result.actions.stream().anyMatch(a->a.contains("SELL 1 3 @ ")));
+            assertEquals(result.actions.toString(),0,result.replacementBuys);
+        }
+    }
+    @Test public void aFreshStopAfterCollectionExitsTheFilledUnitsWithoutResumingTheSavedRebuy()throws Exception {
+        var input=repricing();input.visitSeconds=30;input.restartAt=List.of(f.start+800);
+        for(var frame:input.frames)if(frame.availableAt>=f.start+700) {
+            var q=frame.latest.getAsJsonObject("1");q.addProperty("low",70);q.addProperty("high",80);
+            for(var flow:frame.flows){flow.lowVolume=0;flow.low=70;flow.high=80;}
+        }
+        var result=run(input,boundedEntries());
+        assertEquals(result.actions.toString(),0,result.replacementBuys);
+        assertTrue(result.actions.toString(),result.actions.stream().anyMatch(a->a.contains("SELL 1 3 @ ")));
+        assertEquals(result.actions.toString(),0,result.inventoryCost);assertTrue(result.realizedProfit<0);
+    }
+    @Test public void anOrdinaryRelistAfterRecoveryCannotHideAFreshStopOnAnotherListedSale()throws Exception {
+        var input=f.input(2,31);
+        for(var frame:input.frames) {
+            for(var flow:frame.flows)flow.highVolume=0;
+            if(frame.availableAt>=f.start+1200 && frame.availableAt<f.start+1240) {
+                var q=frame.latest.getAsJsonObject("1");q.addProperty("low",70);q.addProperty("high",80);
+            }
+            if(frame.availableAt>=f.start+1240) {
+                var q=frame.latest.getAsJsonObject("2");q.addProperty("low",70);q.addProperty("high",80);
+            }
+        }
+        var switchFrame=new AccountReplayInput.Frame();switchFrame.availableAt=switchFrame.observedAt=f.start+1240;
+        switchFrame.latest=input.frames.get(21).latest.deepCopy();
+        for(String item:new String[]{"1","2"}) {var q=switchFrame.latest.getAsJsonObject(item);q.addProperty("lowTime",switchFrame.availableAt);q.addProperty("highTime",switchFrame.availableAt);}
+        input.frames.add(switchFrame);input.frames.sort(Comparator.comparingLong(a->a.availableAt));
+        var result=run(input,f.fixtureEntries(10));
+        var actions=result.actions;
+        long firstRelist=actions.stream().filter(a->a.contains("SELL 1 ") && Long.parseLong(a.split(" ")[0])>f.start+1240).mapToLong(a->Long.parseLong(a.split(" ")[0])).findFirst().orElseThrow();
+        // Both original sale offers are still working when the first cancellation is shown.
+        assertTrue(actions.toString(),actions.stream().anyMatch(a->a.contains("CANCEL ") && Long.parseLong(a.split(" ")[0])>f.start+1240 && Long.parseLong(a.split(" ")[0])<firstRelist));
+        assertTrue(actions.toString(),actions.stream().anyMatch(a->a.contains("SELL 2 ") && Long.parseLong(a.split(" ")[0])>f.start+1240 && Long.parseLong(a.split(" ")[0])<firstRelist));
+    }
     @Test public void aFillDuringTheDisplayedCancellationReducesTheBoundAndRequiresAnotherActionDelay()throws Exception {
         var input=repricing();var extra=new AccountReplayInput.Frame();extra.availableAt=extra.observedAt=f.start+610;
         input.frames.get(10).flows.clear();input.frames.get(15).flows.clear(); // No overlapping rolling-volume evidence.

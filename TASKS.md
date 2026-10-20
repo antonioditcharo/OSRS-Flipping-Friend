@@ -9,6 +9,16 @@ Continuation impact order: trade-loop reliability/exit-context provenance, actua
 latency, production-policy account replay/returns, validated learning, then remaining product gaps.
 Read [the continuation prompt](docs/next-conversation-prompt.md); current delivery facts below govern.
 
+- [ ] Deliver/accept fresh stops through saved buy/sell continuations. Preserve healthy partial
+      accumulation promises; fresh stops cancel a working buy or sell its verified collected units.
+      Commit old-rebuy supersession before accepting a stop sale; failed saves withdraw it. Listed
+      fresh stops outrank ordinary relists/replacements and earlier ordinary write backoff. Replay
+      V10 covers delayed actions, partial collection, absence and restart. Four old failures and ten
+      new behavioral tests; docs/architecture/stop-continuation-priority.md links the receipt.
+      Actual source/CI/install/live state: local-data/stop-continuation-20261020/delivery-state.json.
+      Owner deferred manual login/game checks until the home batch after 20 October 17:30 local.
+      Full trade-loop, timing, complete production replay, return/learning and remaining parity stay open.
+
 - [ ] Deliver/accept cancellation identity and bounded guidance lifetime. Preserve committed
       account/episode replacement plans through changed cards/reconnect; distinguish uncommitted
       and later same-item offers. Bound local foreground/pending/editor/queued-input advice without

@@ -301,4 +301,12 @@ public class AdviceDeliveryBoundaryTest {
             verify(f.guide).withdrawAdvice(argThat(s->s.getType()==SuggestionType.WAIT));assertFalse(f.clientQueue.isEmpty());
         }
     }
+    @Test public void aStopSaleCannotBeRecordedOrLeftVisibleWhenItsOldRebuyCannotBeSuperseded()throws Exception {
+        var f=new Fixture();var engine=(SuggestionEngine)getField(f.plugin,"engine");when(f.companion.nextAction()).thenReturn(null);
+        var cut=Suggestion.builder(SuggestionType.SELL).item(561,"Stopped stock").quantity(6).price(800).lossCut(true).profitKnown(true).build();
+        when(engine.refresh(false)).thenReturn(cut);when(engine.recordPresentedMaintenance(eq(cut),anyString(),anyLong())).thenReturn(false);
+        var client=(Client)getField(f.plugin,"client");var guide=new StepGuide(client,mock(GeWidgetResolver.class));f.set("stepGuide",guide);
+        f.queueAdvice();f.clientQueue.remove().run();assertEquals(SuggestionType.WAIT,guide.getSuggestion().getType());
+        verify(f.companion,never()).recordPresentedAdvice(eq(cut),anyString(),anyInt());
+    }
 }
