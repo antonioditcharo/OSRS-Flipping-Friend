@@ -9,6 +9,16 @@ Continuation impact order: trade-loop reliability/exit-context provenance, actua
 latency, production-policy account replay/returns, validated learning, then remaining product gaps.
 Read [the continuation prompt](docs/next-conversation-prompt.md); current delivery facts below govern.
 
+- [ ] Deliver/accept cancellation identity and bounded guidance lifetime. Preserve committed
+      account/episode replacement plans through changed cards/reconnect; distinguish uncommitted
+      and later same-item offers. Bound local foreground/pending/editor/queued-input advice without
+      expiring durable plans; withdraw persistent failures behind an editor. Fifteen behavioral
+      tests, including three reproduced old-source failures, cover the boundaries. Contract/receipt:
+      docs/architecture/guidance-lifetime-and-cancellation.md and
+      docs/history/guidance-lifetime-delivery-2026-10-20.md. Actual source/CI/install/live state:
+      local-data/episode-guidance-20261020/delivery-state.json. Full controlled trading, sustained
+      timing, complete replay/returns/learning and remaining parity gates remain unchecked.
+
 - [ ] Deliver/accept durable maintenance delivery: forced atomic commits before cancellation
       promises; retry dirty collection/removal evidence across observations/profile switches; no
       cached overwrite of changed files or use of uncommitted replacement hints. Withdraw declined

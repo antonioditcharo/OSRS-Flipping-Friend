@@ -22,8 +22,12 @@ abstract class OfferContinuationStore {
     private static final class State {
         final List<OfferContinuation> intents;
         byte[] committed;
+        final Set<String> committedIdentities=new HashSet<>();
         boolean dirty;
-        State(List<OfferContinuation> intents,byte[] committed){this.intents=intents;this.committed=committed;}
+        State(List<OfferContinuation> intents,byte[] committed){
+            this.intents=intents;this.committed=committed;
+            for(var intent:intents)committedIdentities.add(intent.getOriginalIdentity());
+        }
     }
     // Keep unsaved callback evidence across profile switches without cross-account writes.
     private final Map<String,State> accounts=new HashMap<>();
@@ -79,6 +83,8 @@ abstract class OfferContinuationStore {
             byte[] image=gson.toJson(new Document(expected,state.intents)).getBytes(StandardCharsets.UTF_8);
             if(!storage.writeDurably(path,image))return false;
             state.committed=image;state.dirty=false;
+            state.committedIdentities.clear();
+            for(var intent:state.intents)state.committedIdentities.add(intent.getOriginalIdentity());
             return expected.equals(account());
         }catch(Exception unavailable){return false;}
     }
@@ -122,6 +128,12 @@ abstract class OfferContinuationStore {
         collectedAll(tracker,expected,now);
         State retained=expected!=null && expected.equals(account())?accounts.get(expected):null;
         return retained!=null && retained.intents.stream().anyMatch(intent->intent.getItemId()==item && intent.valid(now));
+    }
+    protected synchronized boolean acknowledgedCancellation(TrackedOffer offer,String expected,long now) {
+        if(!load(expected))return false;
+        var observation=observation(offer);
+        return state.intents.stream().anyMatch(intent->state.committedIdentities.contains(intent.getOriginalIdentity())
+            && intent.acknowledgesCancellation(observation,now));
     }
     protected synchronized int pendingItem(OfferTracker tracker,String expected,long now) {
         var collected=collectedAll(tracker,expected,now);

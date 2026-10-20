@@ -33,7 +33,14 @@ rebuilding already implemented capabilities:
 
 ## Delivery state at this handoff
 
-Read local-data/durable-maintenance-20261020/delivery-state.json first for the newest batch's actual
+Read local-data/episode-guidance-20261020/delivery-state.json first for the latest source/CI/install
+and live state. It binds guided buy cancellations to saved account/episode commitments instead of
+the changing visible card, bounds local/pending/editor/queued-input advice without expiring saved
+plans, rejects delayed client delivery and withdraws persistent mid-entry errors. Contract:
+docs/architecture/guidance-lifetime-and-cancellation.md. Controlled full-loop, sustained latency,
+complete production replay and qualified return/learning gates remain open.
+
+Earlier #122: local-data/durable-maintenance-20261020/delivery-state.json records that batch's actual
 source/CI/install and live status. It adds durable cancellation commitments, dirty progress/removal
 retries across profile changes, scoped ordinary backoff, changed-file preservation and immediate
 withdrawal of declined editor instructions. Contract: docs/architecture/durable-maintenance-delivery.md.

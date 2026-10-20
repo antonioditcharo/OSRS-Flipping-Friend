@@ -45,4 +45,16 @@ public class OfferContinuationTest {
         intent=OfferContinuation.advise(initial,List.of(initial),false,1100,2900);
         assertEquals(OfferContinuation.Status.CLOSED,intent.observe(List.of(),null,1099));
     }
+    @Test public void cancellationAcknowledgementRequiresTheExactEpisodeAndNonregressingIncompleteCounter() {
+        var original=offer(true,20,"BUYING",false,"original");var intent=OfferContinuation.advise(original,List.of(original),false,1100,0);
+        intent.observe(List.of(offer(true,40,"BUYING",false,"original")),null,1101);
+        assertTrue(intent.acknowledgesCancellation(offer(true,50,"CANCELLED_BUY",false,"original"),1102));
+        assertFalse(intent.acknowledgesCancellation(offer(true,30,"CANCELLED_BUY",false,"original"),1102));
+        assertFalse(intent.acknowledgesCancellation(offer(true,50,"CANCELLED_BUY",false,"new"),1102));
+        assertFalse(intent.acknowledgesCancellation(offer(true,100,"CANCELLED_BUY",false,"original"),1102));
+        assertFalse(intent.acknowledgesCancellation(offer(true,50,"CANCELLED_BUY",true,"original"),1102));
+        assertFalse(intent.acknowledgesCancellation(offer(true,50,"BUYING",false,"original"),1102));
+        assertFalse(intent.acknowledgesCancellation(offer(false,50,"CANCELLED_SELL",false,"original"),1102));
+        assertFalse(intent.acknowledgesCancellation(null,1102));
+    }
 }

@@ -96,6 +96,7 @@ public class FlippingFriendPlugin extends Plugin
 	 */
 	private static final int REFRESH_FAILURES_BEFORE_SAYING_SO = 3;
 
+    private java.util.function.LongSupplier adviceClock=System::nanoTime;
 	private final java.util.concurrent.atomic.AtomicInteger consecutiveRefreshFailures =
 		new java.util.concurrent.atomic.AtomicInteger();
 
@@ -705,12 +706,12 @@ public class FlippingFriendPlugin extends Plugin
 	 * the plugin itself was asking for, and how long an unfilled offer has to have stood before
 	 * cancelling it means anything.
 	 *
-	 * @param filled      how much had been bought when it was cancelled
-	 * @param ordered     how much had been asked for
+	 * @param cancelled   copied exact episode and cumulative progress at cancellation
 	 * @param minutesOpen how long the offer had been standing
 	 */
-	private void onBuyAbandoned(int itemId, int filled, int ordered, long minutesOpen)
+	private void onBuyAbandoned(com.flippingfriend.session.TrackedOffer cancelled, long minutesOpen)
 	{
+        int itemId=cancelled.getItemId(),filled=cancelled.getQuantityFilled(),ordered=cancelled.getTotalQuantity();
 		// Sell-only asked for this cancellation itself. Ending a session is not a view about the item,
 		// and the mode clears on login -- so without this exemption a routine wind-down would take
 		// every open item off the table for the next session too.
@@ -719,12 +720,12 @@ public class FlippingFriendPlugin extends Plugin
 			return;
 		}
 
-		// The plugin itself asked for this cancellation: the current advice is to reprice this
-		// exact buy offer. That is compliance, not rejection, and putting the item on an
-		// eight-hour cooldown for following the walkthrough is the opposite of what should happen.
-		Suggestion active = stepGuide.getSuggestion();
-		if (active != null && active.getType() == SuggestionType.MODIFY_BUY
-			&& active.getItemId() == itemId)
+        String profile=configManager.getRSProfileKey();
+        if(profile==null || profile.isEmpty())return;
+        // The displayed card may already have changed. Only a committed exact-episode promise
+        // establishes that this cancellation follows the walkthrough.
+		if (engine.isGuidedBuyCancellation(cancelled,com.flippingfriend.core.AccountIdentity.fromProfileKey(profile),
+            java.time.Instant.now().getEpochSecond()))
 		{
 			return;
 		}
@@ -997,6 +998,7 @@ public class FlippingFriendPlugin extends Plugin
 				consecutiveRefreshFailures.set(0);
 				Suggestion settled = suggestion;
                 Suggestion declined = rejectedPriceAdvice;
+                long validatedAt=adviceClock.getAsLong();
 				clientThread.invokeLater(() ->
 				{
                     if(epoch!=engineRefreshEpoch.get())return;
@@ -1011,7 +1013,9 @@ public class FlippingFriendPlugin extends Plugin
 					}
                     if (observedGeneration != offerObservationGeneration.get() || observedRevision!=adviceObservationRevision.get()) return;
                     Suggestion current = settled;
-                    if(current.getAdviceExpiresAt()>0 && current.getAdviceExpiresAt()<=java.time.Instant.now().getEpochSecond()
+                    long deliveryAge=adviceClock.getAsLong()-validatedAt;
+                    if(deliveryAge<0 || deliveryAge>=com.flippingfriend.overlay.StepGuide.MAX_ADVICE_AGE_NANOS
+                        || current.getAdviceExpiresAt()>0 && current.getAdviceExpiresAt()<=java.time.Instant.now().getEpochSecond()
                         || current.getAdviceAccountId()!=null && !current.getAdviceAccountId().equals(observedAccount)) {
                         stepGuide.withdrawAdvice(Suggestion.waiting("Refreshing this order","The queued quote is no longer current. Its workflow and purchase records are retained."));
                         panel.refresh();requestEngineRefresh();return;
@@ -1054,7 +1058,7 @@ public class FlippingFriendPlugin extends Plugin
 						if (epoch!=engineRefreshEpoch.get() || observedGeneration != offerObservationGeneration.get()
 							|| observedRevision != adviceObservationRevision.get()
 							|| !java.util.Objects.equals(observedProfile, configManager.getRSProfileKey())) return;
-						stepGuide.setSuggestion(problem);
+						stepGuide.withdrawAdvice(problem);
 						panel.refresh();
 					});
 				}

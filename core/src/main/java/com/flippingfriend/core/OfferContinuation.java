@@ -56,6 +56,11 @@ public final class OfferContinuation {
         return !closed && isWellFormed()
             && (createdAt==0 || now>=createdAt) && (expiresAt==0 || now<=expiresAt);
     }
+    /** Exact observed cancellation of this promise; it neither proves collection nor creates fills. */
+    public boolean acknowledgesCancellation(Observation offer,long now) {
+        return buying && valid(now) && matches(offer) && cancelled(offer) && validCounter(offer)
+            && !offer.collected && offer.filled<offer.total;
+    }
     /** Validate retained evidence independently of its legacy recommendation expiry. */
     public boolean isWellFormed() {
         return item>0 && slot>=0 && slot<8 && quantity>0 && firstSeen>0 && filled>=0 && price>=0

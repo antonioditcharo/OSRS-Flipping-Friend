@@ -372,7 +372,7 @@ public class OfferTracker
 			AbandonedBuyListener listener = abandonedBuyListener;
 			if (listener != null)
 			{
-				listener.onBuyAbandoned(itemId, filled, total, tracked.minutesOpen(now.getEpochSecond()));
+				listener.onBuyAbandoned(tracked.copyObservation(), tracked.minutesOpen(now.getEpochSecond()));
 			}
 		}
 
@@ -593,11 +593,10 @@ public class OfferTracker
 	public interface AbandonedBuyListener
 	{
 		/**
-		 * @param filled       how much had been bought when it was cancelled
-		 * @param ordered      how much had been asked for
+		 * @param cancelled    copied exact episode and cumulative progress at cancellation
 		 * @param minutesOpen  how long the offer had been standing
 		 */
-		void onBuyAbandoned(int itemId, int filled, int ordered, long minutesOpen);
+		void onBuyAbandoned(TrackedOffer cancelled, long minutesOpen);
 	}
 
 	public void setAbandonedBuyListener(AbandonedBuyListener listener)
