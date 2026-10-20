@@ -12,10 +12,13 @@ Read [the continuation prompt](docs/next-conversation-prompt.md); current delive
 - [ ] Deliver/accept ordered-observation and retry fixes: preserve late/completion retry wakeups,
       batch copied-frame/ACK-prefix local persistence (16 replacements to 2), retain individual
       source delivery, exact identities/provenance and current account proof. Windows clean 91s:
-      1,784 Java passed/six existing skips, Java 11; 108 tooling passed. Source verified; actual
-      CI/merge/install is in local-data/loopback-latency-20261019/delivery-state.json. See
-      docs/architecture/ordered-observation-batches.md and linked consolidated receipt. Fresh
-      installed ACK drain/eight-slot, controlled trade-loop and sustained timing remain open.
+      1,784 Java passed/six existing skips, Java 11; 108 tooling passed. #119/65a45dd merged after
+      both exact-head checks for 2fc548d and installed at 19:40 AKDT. VERIFIED backup, hashes/task/
+      65,712-row source prefix/1,485 effects/original anchor/status/compatibility/scoped reads pass,
+      zero update-created effects. Agent closed normally; RuneLite reopened and loads the plugin.
+      Actual post-login evidence is in local-data/loopback-latency-20261019/delivery-state.json;
+      docs/architecture/ordered-observation-batches.md links the receipt. Controlled trade-loop
+      and sustained timing remain open; source/install do not close those gates.
 
 - [x] Implement offline replay v8 exit/maintenance priorities, last-slot protection, partial-buy
       stops and new-evidence displays within attended visits. Five old-source regressions fail;
