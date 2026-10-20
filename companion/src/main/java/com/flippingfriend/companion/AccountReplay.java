@@ -12,7 +12,7 @@ import java.util.*;
 
 /** One simulated account, one bankroll and eight physical slots; never opens a live database. */
 final class AccountReplay implements AutoCloseable {
-    static final String VERSION="account-replay-9";
+    static final String VERSION="account-replay-10";
     private static final String ACCOUNT=AccountIdentity.fromProfileKey("synthetic-account-replay-only");
     interface Entries {
         PortfolioPlan plan(MarketIngestionService.MarketState market,AccountSnapshot account,
@@ -232,21 +232,24 @@ final class AccountReplay implements AutoCloseable {
         var sale=store.saleProjections(ACCOUNT,now);
         Map<Integer,PositionProjection> canonical=new TreeMap<>();
         for(var p:sale.ledger.getTradingPositions())canonical.put(p.getItemId(),p);
+        Guidance relist=null;
         for(var continuation:collectedSells)if(freeSlot()>=0) {
             var holding=canonical.get(continuation.getItemId());
-            var relist=sellGuidance(holding,continuation.getCollectedRemaining(),sale,account,market,
+            var candidate=sellGuidance(holding,continuation.getCollectedRemaining(),sale,account,market,
                 "RELIST_SELL",continuation.getOriginalIdentity());
-            if(relist==null)abstain("RELIST_EVIDENCE_OR_PRICE_UNAVAILABLE");
-            else return relist;
+            if(candidate==null)abstain("RELIST_EVIDENCE_OR_PRICE_UNAVAILABLE");
+            else if(relist==null || candidate.cut && !relist.cut)relist=candidate;
         }
+        if(relist!=null && relist.cut)return relist;
         // Live also keeps refused continuations while giving unrelated ready exits their turn.
         ExitProposal best=null;
         for(var holding:canonical.values()) {
-            if(continuations.buy.stream().anyMatch(intent->intent.getItemId()==holding.getItemId()))continue;
             if(holding.getQuantity()<=listed(holding.getItemId()))continue;
             Offer buying=openBuy(holding.getItemId());
             if(buying==null && inventory.getOrDefault(holding.getItemId(),0)<=0)continue;
             var decision=exitDecision(holding);
+            if(decision.getAction()!=SellDecision.Action.CUT
+                && continuations.buy.stream().anyMatch(intent->intent.getItemId()==holding.getItemId()))continue;
             if(buying!=null) {
                 if(decision.getAction()==SellDecision.Action.CUT)
                     return offerGuidance("CANCEL_BUY",buying,0,null,true);
@@ -254,6 +257,13 @@ final class AccountReplay implements AutoCloseable {
             }
             var candidate=saleProposal(holding,Integer.MAX_VALUE,decision);
             if(candidate!=null && (best==null || candidate.moreUrgentThan(best)))best=candidate;
+        }
+        if(best==null || best.decision.getAction()!=SellDecision.Action.CUT) {
+            for(Offer offer:offers)if(offer!=null && !offer.buy && !offer.terminal) {
+                var stop=maintenanceGuidance(offer,canonical.get(offer.item),sale,account,market,true);
+                if(stop!=null)return stop;
+            }
+            if(relist!=null)return relist;
         }
         if(best!=null) {
             if(freeSlot()<0) {
@@ -282,19 +292,8 @@ final class AccountReplay implements AutoCloseable {
                 if(proposal!=null)return offerGuidance(proposal.replace?"REPRICE_BUY":"CANCEL_BUY",offer,price,null,false);
                 continue;
             }
-            var holding=canonical.get(offer.item);
-            var proposal=maintenance.quote(offer.item,offer.price,offer.remaining(),position(holding),latest(offer.item),
-                frame.shortHistory.getOrDefault(offer.item,List.of()),horizon,Instant.ofEpochSecond(now),false,exits,tax,
-                offer.placedAt,sale.planning.saleProgressAt.getOrDefault(offer.slot,Long.MAX_VALUE));
-            if(proposal!=null){
-                int price=advisedPrices.price(offer.item,false,proposal.price,now);
-                if(!proposal.lossCut && proposal.costKnown) {
-                    if(proposal.floor<=0)continue;price=Math.max(price,proposal.floor);
-                }
-                if(offer.price-(long)price<horizon.outbidDeadband(offer.price))continue;
-                if(!authorizeSale(sale,account,market,offer.item,price,offer.remaining(),offer.lastObservation.getEventId(),proposal.lossCut,offer.slot))continue;
-                return offerGuidance("CANCEL_SELL",offer,price,holding,proposal.lossCut);
-            }
+            var proposal=maintenanceGuidance(offer,canonical.get(offer.item),sale,account,market,false);
+            if(proposal!=null)return proposal;
         }
         int slot=freeSlot();
         if(slot<0){abstain("NO_FREE_SLOT");return null;}
@@ -317,6 +316,20 @@ final class AccountReplay implements AutoCloseable {
             abstain("ENTRY_CONSTRAINTS_CHANGED");return null;
         }
         return entryGuidance(plan,c,slot,"BUY",null);
+    }
+    private Guidance maintenanceGuidance(Offer offer,PositionProjection holding,SqliteStore.SaleProjections sale,
+            AccountSnapshot account,MarketIngestionService.MarketState market,boolean stopsOnly) {
+        var proposal=maintenance.quote(offer.item,offer.price,offer.remaining(),position(holding),latest(offer.item),
+            frame.shortHistory.getOrDefault(offer.item,List.of()),horizon,Instant.ofEpochSecond(now),false,exits,tax,
+            offer.placedAt,sale.planning.saleProgressAt.getOrDefault(offer.slot,Long.MAX_VALUE));
+        if(proposal==null || stopsOnly && !proposal.lossCut)return null;
+        int price=advisedPrices.price(offer.item,false,proposal.price,now);
+        if(!proposal.lossCut && proposal.costKnown) {
+            if(proposal.floor<=0)return null;price=Math.max(price,proposal.floor);
+        }
+        if(offer.price-(long)price<horizon.outbidDeadband(offer.price))return null;
+        if(!authorizeSale(sale,account,market,offer.item,price,offer.remaining(),offer.lastObservation.getEventId(),proposal.lossCut,offer.slot))return null;
+        return offerGuidance("CANCEL_SELL",offer,price,holding,proposal.lossCut);
     }
     private AccountSnapshot currentEntryAccount(AccountSnapshot account,MarketIngestionService.MarketState market)throws Exception {
         var read=store.planningProjections(ACCOUNT);
@@ -409,7 +422,8 @@ final class AccountReplay implements AutoCloseable {
         if(advice!=null) {
             if("REPRICE_BUY".equals(advice.kind))rememberContinuation(offers[advice.slot],true);
             if("CANCEL_SELL".equals(advice.kind))rememberContinuation(offers[advice.slot],false);
-            if("CANCEL_BUY".equals(advice.kind) && continuations.buy.removeIf(intent->intent.getItemId()==advice.item))saveContinuations();
+            if(("CANCEL_BUY".equals(advice.kind) || advice.cut && ("SELL".equals(advice.kind) || "RELIST_SELL".equals(advice.kind)))
+                && continuations.buy.removeIf(intent->intent.getItemId()==advice.item))saveContinuations();
         }
         return advice;
     }

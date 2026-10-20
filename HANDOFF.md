@@ -8,6 +8,16 @@ latency, complete production replay/returns, gated learning and remaining produc
 
 ## Current source and installed runtime
 
+Newest source: fresh stops supersede healthy-accumulation continuation holds; accepted stop sales
+must durably remove old rebuy promises before delivery. Fresh listed stops also precede ordinary
+relists/replacements and bypass prior ordinary write backoff. Exact quantities/costs/original exit
+context and stale-price/final authority guards remain. Replay V10 follows these paths through
+collection/absence/restart. [Contract](docs/architecture/stop-continuation-priority.md) /
+[receipt](docs/history/stop-continuation-delivery-2026-10-20.md); first read actual source/CI/install/
+live state in local-data/stop-continuation-20261020/delivery-state.json. Owner deferred manual login
+and game testing until the 20 October home batch after 17:30 local; do not ask again beforehand.
+Controlled full-loop, sustained timing and qualified benchmark/learning gates remain open.
+
 The official game update moved RuneLite to 1.13.3 during #123 delivery. The updater rejected the
 1.13.2 pair unchanged; a tested compile/test/manifest and launcher-fixture compatibility update
 includes #123. Read local-data/runelite-1133-20261020/delivery-state.json for actual source/CI/

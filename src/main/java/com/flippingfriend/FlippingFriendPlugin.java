@@ -439,9 +439,10 @@ public class FlippingFriendPlugin extends Plugin
         String account=com.flippingfriend.core.AccountIdentity.fromProfileKey(configManager.getRSProfileKey());
         boolean saved=engine.recordPresentedMaintenance(accepted,account,java.time.Instant.now().getEpochSecond());
         if(accepted!=null && (accepted.getType()==SuggestionType.MODIFY_BUY || accepted.getType()==SuggestionType.MODIFY_SELL
-                || accepted.getType()==SuggestionType.CANCEL) && !saved) {
+                || accepted.getType()==SuggestionType.CANCEL
+                || accepted.getType()==SuggestionType.SELL && accepted.isProfitKnown() && accepted.isLossCut()) && !saved) {
             stepGuide.withdrawAdvice(Suggestion.waiting("Saving this trade workflow",
-                "The cancellation/replacement sequence could not be committed for the current offer. Keep the offer working; existing records are retained and guidance will retry."));
+                "The revised trade workflow could not be saved. Existing records and plans are retained; guidance will retry."));
             if(engine.deferUnsavedMaintenance(accepted,java.time.Instant.now().getEpochSecond()))requestEngineRefresh();
             return;
         }

@@ -25,6 +25,7 @@ public class ManagedSellRelistWorkflowTest {
         final CompanionClient companion = mock(CompanionClient.class);
         final OfferTracker offers = mock(OfferTracker.class);
         final MarketDataService market = mock(MarketDataService.class);
+        final AccountMonitor monitor=mock(AccountMonitor.class);
         final TradePlans plans=mock(TradePlans.class);
         final PluginStorage storage;
         final SuggestionEngine engine;
@@ -41,7 +42,7 @@ public class ManagedSellRelistWorkflowTest {
             when(offers.itemsBeingBought()).thenReturn(Set.of());
             var state = new AccountState(true, true, false, 100000000, 0, 0, 8, 8, 0, false,
                 Map.of(561, inventory), Map.of(561, inventory), Map.of());
-            var monitor = mock(AccountMonitor.class); when(monitor.getState()).thenReturn(state);
+            when(monitor.getState()).thenReturn(state);
             var metadata = mock(ItemMetadata.class); when(metadata.getName()).thenReturn("Nature rune");
             var snapshot = new MarketSnapshot(Map.of(561, metadata), Map.of(561,
                 new LatestPrice(price, now.getEpochSecond(), price, now.getEpochSecond())), Map.of(), Map.of(), now);
@@ -86,6 +87,34 @@ public class ManagedSellRelistWorkflowTest {
         var f=new Fixture(6,5881,6,1000,true);
         f.context(1200,0,120,now.getEpochSecond()-60);
         assertEquals(1200,f.next().getPrice());noReprice(f.maintenance(6));
+    }
+    @Test public void anOrdinaryRelistCannotHideAnotherHoldingsFreshStop()throws Exception {
+        var f=new Fixture(6,5881,6,1000,true);var original=f.companion.tradingLedger().getTradingPositions().get(0);
+        var stopped=PositionProjection.ready(562,"Chaos rune",6,6000,now.getEpochSecond()-600,now.getEpochSecond(),"buy-2","episode-2")
+            .withExitContext(new AcquisitionExitContext(1200,900,120).bind("buy-2"));
+        when(f.companion.tradingLedger()).thenReturn(ledger(List.of(original,stopped),List.of(),Map.of()));
+        when(f.monitor.getState()).thenReturn(new AccountState(true,true,false,100000000,0,0,8,8,0,false,
+            Map.of(561,6,562,6),Map.of(561,6,562,6),Map.of()));
+        var snapshot=f.market.getSnapshot();var metadata=new HashMap<>(snapshot.getMetadata());metadata.put(562,new ItemMetadata(562,"Chaos rune",false,1000,0));
+        when(f.market.getSnapshot()).thenReturn(new MarketSnapshot(metadata,Map.of(561,new LatestPrice(1000,now.getEpochSecond(),1000,now.getEpochSecond()),
+            562,new LatestPrice(850,now.getEpochSecond(),800,now.getEpochSecond())),Map.of(),Map.of(),now));
+        var next=f.next();assertEquals(562,next.getItemId());assertTrue(next.isLossCut());
+        assertEquals("The unrelated relist promise remains intact",6,new SellRelistIntent(f.storage).collectedRequest(f.offers,account).getQuantity());
+    }
+    @Test public void aListedFreshStopOutranksAnOrdinaryRelistAndItsEarlierWriteBackoff()throws Exception {
+        var f=new Fixture(6,5881,6,1000,true);var original=f.companion.tradingLedger().getTradingPositions().get(0);
+        var stopped=PositionProjection.ready(562,"Chaos rune",6,6000,now.getEpochSecond()-600,now.getEpochSecond(),"buy-2","episode-2")
+            .withExitContext(new AcquisitionExitContext(1200,900,120).bind("buy-2"));
+        when(f.companion.tradingLedger()).thenReturn(ledger(List.of(original,stopped),List.of(),Map.of()));
+        var live=new TrackedOffer(1,562,false,1200,6,now.getEpochSecond()-60);live.setState("SELLING");
+        when(f.offers.getOffers()).thenReturn(List.of(live));when(f.offers.getOffer(1)).thenReturn(live);when(f.offers.listedForSale()).thenReturn(Map.of(562,6));
+        var snapshot=f.market.getSnapshot();var metadata=new HashMap<>(snapshot.getMetadata());metadata.put(562,new ItemMetadata(562,"Chaos rune",false,1000,0));
+        when(f.market.getSnapshot()).thenReturn(new MarketSnapshot(metadata,Map.of(561,new LatestPrice(1000,now.getEpochSecond(),1000,now.getEpochSecond()),
+            562,new LatestPrice(850,now.getEpochSecond(),800,now.getEpochSecond())),Map.of(),Map.of(),now));
+        var ordinary=Suggestion.builder(SuggestionType.MODIFY_SELL).item(562,"Chaos rune").slot(1).quantity(6).price(1100).maintenanceSource(live.getContinuationIdentity()).build();
+        assertTrue(f.engine.deferUnsavedMaintenance(ordinary,now.getEpochSecond()));
+        var next=f.next();assertEquals(SuggestionType.MODIFY_SELL,next.getType());assertEquals(562,next.getItemId());assertTrue(next.isLossCut());
+        assertEquals(6,new SellRelistIntent(f.storage).collectedRequest(f.offers,account).getQuantity());
     }
     @Test public void actualManagedMaintenanceWaitsForFullPredictionAndCurrentProgress()throws Exception {
         var f=new Fixture(6,5881,6,1100,true);

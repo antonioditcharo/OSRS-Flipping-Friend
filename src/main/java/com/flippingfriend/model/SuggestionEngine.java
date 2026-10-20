@@ -194,6 +194,8 @@ public class SuggestionEngine
     /** Client-thread acceptance only: a worker proposal is not a promise shown to the player. */
     public boolean recordPresentedMaintenance(Suggestion accepted,String expectedAccount,long now) {
         if(accepted==null || expectedAccount==null || !expectedAccount.equals(observedAccount))return false;
+        if(accepted.getType()==SuggestionType.SELL && accepted.isProfitKnown() && accepted.isLossCut())
+            return clearBuyPromise(accepted.getItemId(),Instant.ofEpochSecond(now));
         if(accepted.getType()==SuggestionType.CANCEL) {
             var cancelled=offers.getOffer(accepted.getSlot());
             if(cancelled!=null && cancelled.isBuying() && cancelled.getItemId()==accepted.getItemId())
@@ -472,12 +474,14 @@ public class SuggestionEngine
 		// by a 13,600 gp one, by following the instruction it had just been given.
 		Suggestion replace = replaceRepricedBuy(market, account, now);
         Suggestion deferredWait=replace!=null && replace.getType()==SuggestionType.WAIT?replace:null;
+        Suggestion relist=null;
 
         if (sellRelist != null) {
             for(var remaining:sellRelist.collectedRequests(offers,observedAccount))if(account.getFreeSlots()>0) {
-                Suggestion relist=relistSuggestion(remaining, market, horizon, account, now);
-                if(relist!=null && relist.getType()!=SuggestionType.WAIT)return relist;
-                if(relist!=null)deferredWait=relist;
+                Suggestion candidate=relistSuggestion(remaining, market, horizon, account, now);
+                if(candidate!=null && candidate.getType()!=SuggestionType.WAIT) {
+                    if(relist==null || candidate.isLossCut() && !relist.isLossCut())relist=candidate;
+                } else if(candidate!=null)deferredWait=candidate;
             }
         }
 
@@ -495,6 +499,12 @@ public class SuggestionEngine
 		// repricing is exactly the one the sell pass has nothing to say about, and the reprice runs
 		// on the very next check.
 		Suggestion sell = sellSuggestion(market, horizon, account, now);
+        // Complete ordinary relists, but never let one hide a freshly supported stop elsewhere.
+        if(relist!=null && relist.isLossCut())return relist;
+        if(sell!=null && sell.isLossCut())return sell;
+        Suggestion listedStop=adjustSuggestion(market,horizon,now,true);
+        if(listedStop!=null)return listedStop;
+        if(relist!=null)return relist;
 		if (sell != null)
 		{
 			return sell;
@@ -633,9 +643,14 @@ public class SuggestionEngine
 	 */
 	private Suggestion adjustSuggestion(MarketSnapshot market, TradingHorizon horizon, Instant now)
 	{
+        return adjustSuggestion(market,horizon,now,false);
+    }
+    private Suggestion adjustSuggestion(MarketSnapshot market,TradingHorizon horizon,Instant now,boolean stopsOnly)
+	{
 		for (TrackedOffer offer : mostStrandedFirst(offers.getOffers(), market))
 		{
-            if(maintenanceRetryAfter.getOrDefault(offer.getContinuationIdentity(),0L)>now.getEpochSecond())continue;
+            if(stopsOnly && offer.isBuying())continue;
+            if(!stopsOnly && maintenanceRetryAfter.getOrDefault(offer.getContinuationIdentity(),0L)>now.getEpochSecond())continue;
 			String state = offer.getState();
 			boolean open = "BUYING".equals(state) || "SELLING".equals(state);
 			if (!open || offer.getQuantityFilled() >= offer.getTotalQuantity())
@@ -805,6 +820,7 @@ public class SuggestionEngine
                 if (proposal == null) continue;
                 int newPrice = proposal.price, breakEven = proposal.floor;
                 boolean costKnown = proposal.costKnown, isCut = proposal.lossCut;
+                if(stopsOnly && !isCut)continue;
                 long allocatedCost = proposal.allocatedCost;
 				// Settled through noise, and then floored again: stickiness must never be the thing
 				// that walks a price below what the position cost.
@@ -1583,7 +1599,7 @@ public class SuggestionEngine
 			// nothing and lets the partial fill through. That is how a player who cancelled exactly
 			// as instructed was then told to sell the one unit that had filled. The plugin owes them
 			// a replacement; until it has given them one, this is still a trade in progress.
-			if (awaitingReplacement(itemId, account, now))
+			if (decision.getAction()!=SellDecision.Action.CUT && awaitingReplacement(itemId, account, now))
 			{
 				TrackedOffer buy = openBuyFor(itemId);
 				statuses.put(itemId, buy == null
