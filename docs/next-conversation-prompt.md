@@ -33,19 +33,22 @@ rebuilding already implemented capabilities:
 
 ## Delivery state at this handoff
 
-Newest ordered-observation/retry batch is source-verified and pending CI/paired delivery. It fixes
+Newest ordered-observation/retry batch #119/65a45dd is merged after both exact-head checks for
+2fc548d and installed at 19:40 AKDT. It fixes
 lost tail/completion retry wakeups and reduces local frame/ACK persistence from sixteen replacements
 to two without combining or dropping individual source delivery. Windows clean 91s: 1,784 Java
 passed/six skips, Java 11; 108 tooling passed. Read docs/architecture/ordered-observation-batches.md,
 its receipt, and private local-data/loopback-latency-20261019/delivery-state.json for actual delivery.
-Do not infer installation from source or offline tests. Runtime #116 remains until verified update.
+VERIFIED backup 20261019-194000-1367235d; pair/task/source/financial-prefix/anchor/status/compatibility/
+scoped reads pass, zero update-created effects. RuneLite reopened and loads the installed plugin.
+Fresh manual trading, full-loop quality and sustained timing remain separate gates.
 
 The current offline evaluator is replay v8: ready exits before routine maintenance, stop/winner
 and mixed-offer priority, last-slot protection, partial-buy stops, and evidence-driven guidance
 within an active manual visit. Read docs/architecture/replay-exit-attendance.md and its linked
 verification receipt. Windows clean 129s: 1,768 Java passed/six skips, Java 11; 108 tooling passed;
 packaged twelve-scenario bundle reproduces. This evaluator-only source needs no paired restart; installed runtime
-remains #116. The owner is now home and manually logged in. Fresh authenticated eight-slot proof
+includes v8 through #119. The owner is now home; earlier manual login has fresh authenticated eight-slot proof
 and delivered BUY/SELL cards pass; full manual loop and sustained timings remain open.
 
 The trade-continuation batch #116/7e1385b is merged after both exact-head checks for 505a912 and

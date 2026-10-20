@@ -8,26 +8,29 @@ latency, complete production replay/returns, gated learning and remaining produc
 
 ## Current source and installed runtime
 
-Ordered-observation/retry batch is source-verified, pending CI/paired delivery: two reproduced lost
-retry wakeups fixed; eight copied observations and verified ACKs need two local replacements rather
-than sixteen. Every source/ACK still travels individually in order; original prediction/exit keys,
-backoff, lifecycle and account proof remain guarded. Windows clean 91s: 1,784 Java passed/six skips,
-Java 11; 108 tooling passed. [Contract](docs/architecture/ordered-observation-batches.md) /
-[receipt](docs/history/ordered-observation-batches-2026-10-19.md); actual delivery is in private
-local-data/loopback-latency-20261019/delivery-state.json. Runtime #116 below remains installed until
-that receipt confirms replacement. Controlled full-loop and sustained timing remain open.
+Ordered-observation/retry batch #119/65a45dd is MERGED after both exact-head checks for 2fc548d
+and INSTALLED at 2026-10-20T03:40:04Z (19 October, 19:40 AKDT). Two lost retry wakeups are fixed;
+eight copied observations/ACKs need two local replacements rather than sixteen, retaining individual
+ordered delivery and original keys/context. Windows clean 91s: 1,784 Java passed/six skips, Java 11;
+108 tooling passed. VERIFIED backup 20261019-194000-1367235d; installed pair/task/65,712 source rows/
+1,485 effects/original anchor/status/compatibility/scoped reads pass, zero update-created effects.
+Agent closed normally and supported Start reopened RuneLite; the installed plugin loads.
+[Contract](docs/architecture/ordered-observation-batches.md) /
+[receipt](docs/history/ordered-observation-batches-2026-10-19.md); fresh post-login evidence is in
+private local-data/loopback-latency-20261019/delivery-state.json. Controlled full-loop, sustained
+timing and qualified benchmark/learning gates remain open.
 
-Offline replay v8 adds exit-before-maintenance ordering, stop/winner and mixed-offer priority,
+Included offline replay v8 (#118/cde3133) adds exit-before-maintenance ordering, stop/winner and mixed-offer priority,
 last-slot exit protection, partial-buy stops and evidence-driven displays within attended visits.
 Five regressions reproduce old failures; Windows clean 129s: 1,768 Java passed/six existing skips,
 Java 11; 108 tooling passed; packaged twelve-scenario bundle reproduces. The contract and verification/delivery
 receipt are [here](docs/architecture/replay-exit-attendance.md) and
 [here](docs/history/replay-exit-attendance-2026-10-19.md). This is evaluator source, not a new
-installed player pair or a benchmark/learning promotion. Runtime remains #116 below. The owner is
+benchmark/learning promotion. Its evaluator is included in installed #119 above. The owner is
 home and manually logged in; fresh eight-slot/account proof and BUY/SELL delivery are observed.
 Full controlled trade-loop, price-quality and sustained timing acceptance remain open.
 
-Trade-continuation batch #116/7e1385b is MERGED after both exact-head checks for 505a912 and
+Included trade-continuation batch #116/7e1385b is MERGED after both exact-head checks for 505a912 and
 INSTALLED at 2026-10-19T21:48:48Z: durable exact buy remainders/restart, shared buy/sell
 continuation evidence, fresh quantity-bounded replacement plans/forecasts, accepted foreground
 maintenance identities and quote/volume guards. Replay v7 persists/reloads the shared intents and
