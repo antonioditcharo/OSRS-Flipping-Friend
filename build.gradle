@@ -13,7 +13,7 @@ repositories {
 
 // Pinned to the supported official RuneLite release. Update with compatibility regressions.
 // The installer and launcher require a matching official release and paired JAR manifest.
-ext.runeLiteVersion = '1.13.2'
+ext.runeLiteVersion = '1.13.3'
 
 dependencies {
     implementation project(':core')

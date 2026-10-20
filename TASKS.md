@@ -18,6 +18,9 @@ Read [the continuation prompt](docs/next-conversation-prompt.md); current delive
       docs/history/guidance-lifetime-delivery-2026-10-20.md. Actual source/CI/install/live state:
       local-data/episode-guidance-20261020/delivery-state.json. Full controlled trading, sustained
       timing, complete replay/returns/learning and remaining parity gates remain unchecked.
+      The game update required a tested 1.13.3 follow-up; actual combined compatibility/CI/install
+      state: local-data/runelite-1133-20261020/delivery-state.json. The 1.13.2 update was refused
+      before any installation change. See docs/architecture/runelite-compatibility.md.
 
 - [ ] Deliver/accept durable maintenance delivery: forced atomic commits before cancellation
       promises; retry dirty collection/removal evidence across observations/profile switches; no

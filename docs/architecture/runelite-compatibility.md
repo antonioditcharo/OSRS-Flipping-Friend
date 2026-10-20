@@ -1,5 +1,19 @@
 # Supported RuneLite release and paired update preflight
 
+20 October continuation: the official release changed to **1.13.3** during #123 delivery. The
+preflight rejected the 1.13.2 candidate before replacing files or stopping the companion. Source
+compile/test/manifest now target 1.13.3; launcher fixtures cover its classpath and refusal of the
+previous 1.13.2 plugin. The official
+[release comparison](https://github.com/runelite/runelite/compare/runelite-parent-1.13.2...runelite-parent-1.13.3)
+retains the GE long monetary methods, GE setup/chat constants and observation events used here.
+The changed Client interface adds account switching; this assistant does not invoke it or automate
+authentication. Existing observation, editor/highlight, player-key and cancellation regressions run
+against the new dependency. Actual full build, exact-head CI, paired install and native load state:
+local-data/runelite-1133-20261020/delivery-state.json. #123 workflow changes are included; no risk
+or financial data is migrated. Live login and controlled trading remain separate acceptance gates.
+
+Earlier compatibility receipt:
+
 14 October 2026. Tested source: `c32e7289b1466b8348d581e7c75447714e497232`, API **1.13.2**.
 See the newest [handoff](../../HANDOFF.md) for the installed pair and live acceptance status.
 

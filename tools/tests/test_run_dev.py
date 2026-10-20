@@ -142,7 +142,7 @@ class RunDevTest(unittest.TestCase):
 
     def configure_current_release(self):
         """Frozen official release fixture; source pin is copied from the real project."""
-        version = "1.13.2"
+        version = "1.13.3"
         self.bootstrap = {"version": version, "artifacts": []}
         for name in (f"client-{version}.jar", f"injected-client-{version}.jar",
                      f"runelite-api-{version}-runtime.jar", "support-2.jar"):
@@ -177,7 +177,7 @@ class RunDevTest(unittest.TestCase):
         classpath = arguments[arguments.index("-cp") + 1].split(";")
         expected = {str(self.repository / artifact["name"]) for artifact in self.bootstrap["artifacts"]
                     if artifact["name"] != "native-linux.jar"}
-        expected.add(str(self.fixture / "profile/.runelite/osrs-flipping-friend/developer-api/runelite-api-1.13.2.jar"))
+        expected.add(str(self.fixture / "profile/.runelite/osrs-flipping-friend/developer-api/runelite-api-1.13.3.jar"))
         self.assertEqual(expected, set(classpath), self.output)
         self.assertEqual(len(expected), len(classpath))
         self.assertEqual(before, {path.name: path.read_bytes() for path in self.repository.iterdir()})
@@ -196,8 +196,8 @@ class RunDevTest(unittest.TestCase):
 
     def test_current_release_rejects_the_pre_update_installed_plugin(self):
         self.configure_current_release()
-        self.write_plugin("1.13.1")
-        self.assert_no_launch("installed plugin targets 1.13.1")
+        self.write_plugin("1.13.2")
+        self.assert_no_launch("installed plugin targets 1.13.2")
 
     def test_source_api_mismatch_stops_instead_of_warn_and_launch(self):
         (self.checkout / "build.gradle").write_text("ext.runeLiteVersion = '1.12.39'\n", encoding="utf-8")
