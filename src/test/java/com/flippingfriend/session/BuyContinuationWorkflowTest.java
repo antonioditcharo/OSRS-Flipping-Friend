@@ -103,4 +103,25 @@ public class BuyContinuationWorkflowTest {
         assertNotNull(request);assertEquals(60,request.getQuantity());assertTrue(request.requiresManagedCost());
         assertEquals(json,java.nio.file.Files.readString(f.storage.accountDir().resolve("sell-relist-intent.json")));
     }
+    @Test public void aCollectedReplacementMustNotHideAnUnrelatedReadySaleEvenWhenItsQuoteIsStale()throws Exception {
+        for(boolean stale:new boolean[]{false,true}) {
+            var f=new Fixture();f.present();f.cancelCollect();f.restart();
+            var field=SuggestionEngine.class.getDeclaredField("companion");field.setAccessible(true);
+            var companion=(CompanionClient)field.get(f.engine);
+            var stock=com.flippingfriend.core.PositionProjection.ready(562,"Chaos rune",4,400,now-600,now,"known-buy","known-episode");
+            var ledger=new com.flippingfriend.core.AccountLedgerSnapshot(f.storage.accountId(),now,0,0,0,0,0,0,0,0,List.of())
+                .withTradeEvidence(List.of(stock),List.of());
+            when(companion.tradingLedger()).thenReturn(ledger);
+            when(f.account.getState()).thenReturn(new AccountState(true,true,false,100000000,0,0,8,8,0,false,
+                Map.of(561,6,562,4),Map.of(561,6,562,4),Map.of()));
+            when(f.market.getSnapshot()).thenReturn(new MarketSnapshot(Map.of(
+                561,new ItemMetadata(561,"Nature rune",false,1000,0),562,new ItemMetadata(562,"Chaos rune",false,1000,0)),
+                Map.of(561,new LatestPrice(1500,stale?now-901:now,1100,now),562,new LatestPrice(120,now,120,now)),Map.of(),Map.of(),Instant.ofEpochSecond(now)));
+            var next=f.engine.refresh(false);
+            assertEquals("A buy continuation must never starve another holding's exit",SuggestionType.SELL,next.getType());
+            assertEquals(562,next.getItemId());assertEquals(4,next.getQuantity());
+            assertEquals(94,new BuyRepriceIntent(f.storage).collectedRequest(f.tracker,f.storage.accountId(),now).quantity);
+            assertEquals(6,f.positions.get(561).getQuantity());assertEquals(6000,f.positions.get(561).getTotalCost());
+        }
+    }
 }

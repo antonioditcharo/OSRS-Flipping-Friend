@@ -37,7 +37,9 @@ public class SidebarPerformanceTest {
             1,1,0,0,0,0,java.util.List.of(new PerformanceSnapshot.Sale("unpriced",561,"Unknown-cost item",1,now,1,null,null,true)));
         p.unrealizedProfit=-100L;p.portfolioValue=1000L;p.unpricedCost=500L;
         when(f.companion.performance()).thenReturn(p);f.refresh();
-        assertTrue(text(f.panel).contains("Unresolved"));assertTrue(text(f.panel).contains("Partly unpriced"));assertTrue(text(f.panel).contains("Unknown"));
+        assertTrue(text(f.panel).contains("Unresolved"));assertTrue(text(f.panel).contains("-100 gp*"));assertTrue(text(f.panel).contains("Unknown"));
+        var value=CompactPanelContractTest.tree(f.panel).stream().filter(c->"metric-unrealized-profit".equals(c.getName())).map(c->(JLabel)c).findFirst().orElseThrow();
+        assertTrue(value.getToolTipText().contains("Priced portion only"));assertTrue(value.getToolTipText().contains("not lost"));
     }
     @Test public void renderNativeExpandedPanelAndShortViewport()throws Exception {
         var old=UIManager.getLookAndFeel();

@@ -40,6 +40,7 @@ public class StepGuide
     private volatile boolean paused;
     private final java.util.concurrent.atomic.AtomicLong adviceGeneration = new java.util.concurrent.atomic.AtomicLong();
     private static final Suggestion PAUSED = Suggestion.waiting("Recommendations paused", "Resume using the play button. Trade observations continue.");
+    private static final Suggestion EXPIRED = Suggestion.waiting("Refreshing this order", "This quote has expired. Purchase records and pending workflows are retained while current guidance is checked.");
 
     public boolean isPaused() { return paused; }
     public long getAdviceGeneration() { return adviceGeneration.get(); }
@@ -173,7 +174,7 @@ public class StepGuide
 	 */
 	public Suggestion getPending()
 	{
-		return pending;
+		return pending!=null && pending.getAdviceExpiresAt()>0 && pending.getAdviceExpiresAt()<=java.time.Instant.now().getEpochSecond()?null:pending;
 	}
 
 	/** Applies whatever was queued, once it is safe to do so. */
@@ -196,7 +197,11 @@ public class StepGuide
         }
         editorQuote = quote;
     }
-    public Suggestion getSuggestion() { return paused ? PAUSED : editorQuote == null ? tracked : editorQuote; }
+    public Suggestion getSuggestion() {
+        if(paused)return PAUSED;
+        Suggestion current=editorQuote==null?tracked:editorQuote;
+        return current.getAdviceExpiresAt()>0 && current.getAdviceExpiresAt()<=java.time.Instant.now().getEpochSecond()?EXPIRED:current;
+    }
 
     /** Clicking a control starts entry; only committed values establish completion. */
     public void onMenuOptionClicked(MenuOptionClicked event)

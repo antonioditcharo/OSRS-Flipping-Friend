@@ -27,6 +27,12 @@ public final class SellRelistIntent extends OfferContinuationStore {
         var intent=advance(tracker,expected,java.time.Instant.now().getEpochSecond());
         return intent==null?null:new CollectedRemainder(intent.getItemId(),intent.getCollectedRemaining(),intent.isManaged());
     }
+    public synchronized java.util.List<CollectedRemainder> collectedRequests(OfferTracker tracker,String expected) {
+        var requests=new java.util.ArrayList<CollectedRemainder>();
+        for(var intent:collectedAll(tracker,expected,java.time.Instant.now().getEpochSecond()))
+            requests.add(new CollectedRemainder(intent.getItemId(),intent.getCollectedRemaining(),intent.isManaged()));
+        return java.util.Collections.unmodifiableList(requests);
+    }
     public synchronized int[] collectedRemainder(OfferTracker tracker){return collectedRemainder(tracker,account());}
     public synchronized int[] collectedRemainder(OfferTracker tracker,String expected) {
         var request=collectedRequest(tracker,expected);

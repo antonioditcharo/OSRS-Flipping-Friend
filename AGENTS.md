@@ -117,6 +117,17 @@ are in `docs/project-direction.md`; historical package notes are not proof of ru
   them or count them as failures. See docs/architecture/frozen-execution-evaluation.md. The CLI
   reads only explicitly scoped existing databases; unassigned legacy data stays untouched.
 - Automatic runtime entry risk must use the durable prospective account window, realized profit
+  bounds and the owner-approved CURRENT_ACCOUNT_V3 verified-cash policy (19 October 2026).
+  The owner explicitly accepts uncertain resale value: physically proven acquired stock with
+  quiet/missing/volume-limited prices retains its exact cost and item entry pause, but valuation-only
+  uncertainty does not consume the whole account's loss allowance. Only fresh verified cash funds
+  unrelated entries. Unseen quantities retain their full-cost charge; confirmed losses, qualified
+  taxed marks, unknown live exposure/scope, funding, slot, source and limit guards remain active.
+  Never infer a sale or recover a deleted plan by replaying financial history. See
+  docs/architecture/verified-cash-workflow-recovery.md and the current delivery receipt in HANDOFF.
+  This supersedes the valuation-only full-cost charge in the retained V2 description below.
+  The original window, identities and data remain unchanged. Earlier policy:
+  Automatic runtime entry risk uses the durable prospective account window, realized profit
   bounds, current unpriced-stock reserves and taxed marks. Owner decision, 18 October 2026:
   use current-account policy. Retain incomplete historical trades/uncertainty separately in Missed
   flips and pause affected stock; verified current cash may support unrelated buys. Historical

@@ -53,9 +53,23 @@ public final class OfferContinuation {
             && (price==0 || price==offer.price) && (total==0 || total==offer.total);
     }
     public boolean valid(long now) {
-        return !closed && item>0 && slot>=0 && slot<8 && quantity>0 && firstSeen>0 && filled>=0
-            && (total==0 || total>=quantity && filled<total)
+        return !closed && isWellFormed()
             && (createdAt==0 || now>=createdAt) && (expiresAt==0 || now<=expiresAt);
+    }
+    /** Validate retained evidence independently of its legacy recommendation expiry. */
+    public boolean isWellFormed() {
+        return item>0 && slot>=0 && slot<8 && quantity>0 && firstSeen>0 && filled>=0 && price>=0
+            && total>=0 && maximumFilled>=0 && collectedFilled>=0 && createdAt>=0 && expiresAt>=0
+            && (total==0 || filled<total && quantity<=total-filled && maximumFilled<=total && collectedFilled<=total)
+            && (expiresAt==0 || expiresAt>createdAt)
+            && (createdAt==0 || createdAt>=firstSeen)
+            && (!collectionVerified || collectedRemaining>0 && collectedRemaining<=quantity
+                && (total==0 || collectedRemaining<=total-Math.max(filled,Math.max(maximumFilled,collectedFilled))));
+    }
+    /** Workflow evidence survives time; every resulting order still needs fresh final authority. */
+    public boolean retainForFreshRevalidation() {
+        if(!buying || expiresAt==0)return false;
+        expiresAt=0;revision++;return true;
     }
     /** Call before temporary settled evidence is pruned, and again before using a retained hint. */
     public Status observe(Collection<Observation> board,Observation settled,long now) {

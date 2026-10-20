@@ -33,7 +33,19 @@ rebuilding already implemented capabilities:
 
 ## Delivery state at this handoff
 
-Newest ordered-observation/retry batch #119/65a45dd is merged after both exact-head checks for
+First read local-data/stock-valuation-recovery-20261019/delivery-state.json for the newest batch's
+actual merge/installed state and consolidated live checks. Owner-approved CURRENT_ACCOUNT_V3 lets
+fresh verified cash support unrelated entries while valuation-only stock uncertainty remains
+reported and affected items stay paused. Unseen units, confirmed losses and every source/funding/
+cash/slot/limit guard remain. The same batch fixes continuation starvation, single-intent overwrites,
+clock-only loss of retained buy hints, old/rejected refresh work and expired foreground/input advice.
+Cash/canonical cost/last-quoted unrealized estimates are separate; quote ages and unknown quantities
+remain explicit. Replay V9 follows the same risk, queue, expiry and exit priorities. Read
+docs/architecture/verified-cash-workflow-recovery.md and its linked verification receipt. Do not
+reinstall merely because the older checkpoints below name a previous runtime. Controlled trading,
+sustained timing, remaining production parity and qualified return/learning gates remain open.
+
+Earlier installed ordered-observation/retry batch #119/65a45dd is merged after both exact-head checks for
 2fc548d and installed at 19:40 AKDT. It fixes
 lost tail/completion retry wakeups and reduces local frame/ACK persistence from sixteen replacements
 to two without combining or dropping individual source delivery. Windows clean 91s: 1,784 Java
@@ -43,7 +55,7 @@ VERIFIED backup 20261019-194000-1367235d; pair/task/source/financial-prefix/anch
 scoped reads pass, zero update-created effects. RuneLite reopened and loads the installed plugin.
 Fresh manual trading, full-loop quality and sustained timing remain separate gates.
 
-The current offline evaluator is replay v8: ready exits before routine maintenance, stop/winner
+Earlier offline replay v8 adds ready exits before routine maintenance, stop/winner
 and mixed-offer priority, last-slot protection, partial-buy stops, and evidence-driven guidance
 within an active manual visit. Read docs/architecture/replay-exit-attendance.md and its linked
 verification receipt. Windows clean 129s: 1,768 Java passed/six skips, Java 11; 108 tooling passed;

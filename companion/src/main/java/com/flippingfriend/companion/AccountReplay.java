@@ -12,7 +12,7 @@ import java.util.*;
 
 /** One simulated account, one bankroll and eight physical slots; never opens a live database. */
 final class AccountReplay implements AutoCloseable {
-    static final String VERSION="account-replay-8";
+    static final String VERSION="account-replay-9";
     private static final String ACCOUNT=AccountIdentity.fromProfileKey("synthetic-account-replay-only");
     interface Entries {
         PortfolioPlan plan(MarketIngestionService.MarketState market,AccountSnapshot account,
@@ -87,9 +87,11 @@ final class AccountReplay implements AutoCloseable {
     private SqliteStore store;
     private final Path syntheticDatabase;
     private final Path continuationFile;
-    private static final class Continuations {OfferContinuation buy,sell;}
+    private static final class Continuations {
+        List<OfferContinuation> buy=new ArrayList<>(),sell=new ArrayList<>();
+    }
     private Continuations continuations=new Continuations();
-    private OfferContinuation.Status sellContinuationStatus=OfferContinuation.Status.CLOSED;
+    private final List<OfferContinuation> collectedBuys=new ArrayList<>(),collectedSells=new ArrayList<>();
     private final ReplacementEntryPlanner replacementPlanner;
     private final Gson json=new Gson();
     private final Offer[] offers=new Offer[8];
@@ -217,30 +219,30 @@ final class AccountReplay implements AutoCloseable {
         if(collection.isActionable())return offerGuidance("COLLECT",offers[collection.getSlot()],0,null,false);
         MarketIngestionService.MarketState market=frame.market(input.mapping);
         if(now-market.observedAt>120){abstain("MARKET_DATA_STALE");return null;}
-        var buyStatus=observeContinuations(null);
-        if(buyStatus==OfferContinuation.Status.COLLECTED) {
+        observeContinuations(null);Guidance replacement=null;
+        for(var continuation:collectedBuys) {
             var planning=currentEntryAccount(account,market);
-            if(planning==null)return null;
-            var reply=replacementPlanner.plan(continuations.buy.getItemId(),continuations.buy.getCollectedRemaining(),market,
+            if(planning==null)break;
+            var reply=replacementPlanner.plan(continuation.getItemId(),continuation.getCollectedRemaining(),market,
                 planning,limits.remaining(input.mapping,Instant.ofEpochSecond(now)),events(),now);
-            if(reply.getDecision().getAction()!=OfferLifecycleAction.PLACE_BUY){abstain(reply.getDecision().getReasonCode());return null;}
-            return entryGuidance(reply.getPlan(),reply.getPlan().getAllocations().get(0).getCandidate(),freeSlot(),
-                "REPLACE_BUY",continuations.buy.getOriginalIdentity());
+            if(reply.getDecision().getAction()!=OfferLifecycleAction.PLACE_BUY){abstain(reply.getDecision().getReasonCode());continue;}
+            replacement=entryGuidance(reply.getPlan(),reply.getPlan().getAllocations().get(0).getCandidate(),freeSlot(),
+                "REPLACE_BUY",continuation.getOriginalIdentity());break;
         }
         var sale=store.saleProjections(ACCOUNT,now);
         Map<Integer,PositionProjection> canonical=new TreeMap<>();
         for(var p:sale.ledger.getTradingPositions())canonical.put(p.getItemId(),p);
-        if(sellContinuationStatus==OfferContinuation.Status.COLLECTED && freeSlot()>=0) {
-            var holding=canonical.get(continuations.sell.getItemId());
-            var relist=sellGuidance(holding,continuations.sell.getCollectedRemaining(),sale,account,market,
-                "RELIST_SELL",continuations.sell.getOriginalIdentity());
+        for(var continuation:collectedSells)if(freeSlot()>=0) {
+            var holding=canonical.get(continuation.getItemId());
+            var relist=sellGuidance(holding,continuation.getCollectedRemaining(),sale,account,market,
+                "RELIST_SELL",continuation.getOriginalIdentity());
             if(relist==null)abstain("RELIST_EVIDENCE_OR_PRICE_UNAVAILABLE");
-            return relist;
+            else return relist;
         }
-        // Same phase order as live: retained continuations, unlisted exits, maintenance, entries.
+        // Live also keeps refused continuations while giving unrelated ready exits their turn.
         ExitProposal best=null;
         for(var holding:canonical.values()) {
-            if(continuations.buy!=null && continuations.buy.getItemId()==holding.getItemId())continue;
+            if(continuations.buy.stream().anyMatch(intent->intent.getItemId()==holding.getItemId()))continue;
             if(holding.getQuantity()<=listed(holding.getItemId()))continue;
             Offer buying=openBuy(holding.getItemId());
             if(buying==null && inventory.getOrDefault(holding.getItemId(),0)<=0)continue;
@@ -263,6 +265,7 @@ final class AccountReplay implements AutoCloseable {
             }
             return sellGuidance(best,sale,account,market,"SELL",null);
         }
+        if(replacement!=null)return replacement;
         var ordered=new ArrayList<Offer>();
         for(var offer:offers)if(offer!=null && !offer.terminal)ordered.add(offer);
         ordered.sort(Comparator.comparingDouble(this::strandedBy).reversed().thenComparingInt(o->o.slot));
@@ -406,9 +409,7 @@ final class AccountReplay implements AutoCloseable {
         if(advice!=null) {
             if("REPRICE_BUY".equals(advice.kind))rememberContinuation(offers[advice.slot],true);
             if("CANCEL_SELL".equals(advice.kind))rememberContinuation(offers[advice.slot],false);
-            if("CANCEL_BUY".equals(advice.kind) && continuations.buy!=null && continuations.buy.getItemId()==advice.item) {
-                continuations.buy=null;saveContinuations();
-            }
+            if("CANCEL_BUY".equals(advice.kind) && continuations.buy.removeIf(intent->intent.getItemId()==advice.item))saveContinuations();
         }
         return advice;
     }
@@ -554,27 +555,24 @@ final class AccountReplay implements AutoCloseable {
     }
     private void rememberContinuation(Offer offer,boolean buying)throws Exception {
         var current=buying?continuations.buy:continuations.sell;
-        if(current!=null && current.valid(now) && current.matches(observation(offer,false)))return;
-        var created=OfferContinuation.advise(observation(offer,false),observedBoard(),!buying,now,buying?now+1800:0);
-        if(buying)continuations.buy=created;else continuations.sell=created;
-        saveContinuations();
+        for(var intent:current)if(intent.valid(now) && intent.matches(observation(offer,false)))return;
+        var created=OfferContinuation.advise(observation(offer,false),observedBoard(),!buying,now,0);
+        if(created!=null){current.add(created);saveContinuations();}
     }
     private OfferContinuation.Status observeContinuations(OfferContinuation.Observation settled)throws Exception {
         var board=observedBoard();boolean changed=false;
-        var buyStatus=OfferContinuation.Status.CLOSED;sellContinuationStatus=OfferContinuation.Status.CLOSED;
-        if(continuations.buy!=null) {
-            if(!continuations.buy.isBuying())throw new IllegalStateException("Wrong continuation side");
-            long revision=continuations.buy.getRevision();buyStatus=continuations.buy.observe(board,settled,now);
-            changed=continuations.buy.getRevision()!=revision;
-            if(buyStatus==OfferContinuation.Status.CLOSED)continuations.buy=null;
+        collectedBuys.clear();collectedSells.clear();
+        for(boolean buy:new boolean[]{true,false}) {
+            var iterator=(buy?continuations.buy:continuations.sell).iterator();
+            while(iterator.hasNext()) {
+                var intent=iterator.next();if(intent==null || intent.isBuying()!=buy)throw new IllegalStateException("Wrong continuation side");
+                long revision=intent.getRevision();var status=intent.observe(board,settled,now);changed|=intent.getRevision()!=revision;
+                if(status==OfferContinuation.Status.CLOSED){iterator.remove();changed=true;}
+                else if(status==OfferContinuation.Status.COLLECTED)(buy?collectedBuys:collectedSells).add(intent);
+            }
         }
-        if(continuations.sell!=null) {
-            if(continuations.sell.isBuying())throw new IllegalStateException("Wrong continuation side");
-            long revision=continuations.sell.getRevision();sellContinuationStatus=continuations.sell.observe(board,settled,now);
-            changed|=continuations.sell.getRevision()!=revision;
-            if(sellContinuationStatus==OfferContinuation.Status.CLOSED)continuations.sell=null;
-        }
-        if(changed)saveContinuations();return buyStatus;
+        if(changed)saveContinuations();
+        return !collectedBuys.isEmpty()?OfferContinuation.Status.COLLECTED:continuations.buy.isEmpty()?OfferContinuation.Status.CLOSED:OfferContinuation.Status.WAITING;
     }
     private void saveContinuations()throws Exception {
         var temp=continuationFile.resolveSibling(continuationFile.getFileName()+".tmp");

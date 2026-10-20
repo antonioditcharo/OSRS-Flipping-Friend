@@ -9,6 +9,16 @@ Continuation impact order: trade-loop reliability/exit-context provenance, actua
 latency, production-policy account replay/returns, validated learning, then remaining product gaps.
 Read [the continuation prompt](docs/next-conversation-prompt.md); current delivery facts below govern.
 
+- [ ] Deliver/accept the verified-cash and workflow-recovery batch. Owner-approved V3 separates
+      valuation-only uncertainty from missing physical stock; preserve confirmed losses, source/
+      exposure/cash/slot/limit guards and pause uncertain items. Durable continuation queues retain
+      separate exact remainders, including retained legacy hints; unrelated exits/entries survive
+      refusal, refresh/restart and expired advice. Performance shows cash, cost and quoted estimates
+      with quantity/age/unknown detail. See docs/architecture/verified-cash-workflow-recovery.md,
+      its consolidated receipt and local-data/stock-valuation-recovery-20261019/delivery-state.json
+      for actual source/CI/install/live state. Controlled trade-loop, sustained timing, real market
+      benchmark and learning gates remain open. Older checkpoints below are included history.
+
 - [ ] Deliver/accept ordered-observation and retry fixes: preserve late/completion retry wakeups,
       batch copied-frame/ACK-prefix local persistence (16 replacements to 2), retain individual
       source delivery, exact identities/provenance and current account proof. Windows clean 91s:
@@ -25,8 +35,8 @@ Read [the continuation prompt](docs/next-conversation-prompt.md); current delive
       seven new tests plus existing replay cases pass. Windows clean 129s: 1,768 Java passed/six
       existing skips, Java 11; 108 tooling passed; packaged twelve-scenario bundle reproduces.
       See docs/architecture/replay-exit-attendance.md and
-      docs/history/replay-exit-attendance-2026-10-19.md. Installed player pair remains #116; no
-      restart is required. Manual login/eight-slot proof/BUY and SELL delivery now pass, while
+      docs/history/replay-exit-attendance-2026-10-19.md. V8 is included in installed #119; V9 source
+      follows the current batch above. Manual login/eight-slot proof/BUY and SELL delivery pass, while
       full controlled trade-loop, sustained timing, further replay parity and qualified return/
       learning gates remain open below.
 

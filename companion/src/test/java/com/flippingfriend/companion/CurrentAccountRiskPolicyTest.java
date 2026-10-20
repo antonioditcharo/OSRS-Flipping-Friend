@@ -66,12 +66,12 @@ public class CurrentAccountRiskPolicyTest {
             f.capture(store,100000000);f.buy(store,"stock",5,1000000);var account=f.capture(store,95000000);
             var risk=f.evaluate(store,account,null);
             assertTrue("Zero terminal value safely bounds missing prices: "+risk.getReason(),risk.isAvailable());
-            assertEquals(Long.valueOf(5000000),risk.getUncertainLossReserve());
-            assertEquals(Long.valueOf(5000000),risk.getDrawdownUpper());assertEquals(Long.valueOf(10000000),risk.getRemainingLossBudget());
+            assertEquals(Long.valueOf(0),risk.getUncertainLossReserve());assertEquals(5000000,risk.getValuationUncertaintyExcluded());
+            assertEquals(Long.valueOf(0),risk.getDrawdownUpper());assertEquals(Long.valueOf(15000000),risk.getRemainingLossBudget());
             var read=store.planningProjections(f.account);var market=f.market(1000000);
             market.latest.getAsJsonObject("561").addProperty("lowTime",f.at-121);
             risk=DurableRisk.evaluate(read,account,DurablePlanningExposure.forAccount(read,account,f.at),market,f.at);
-            assertTrue(risk.isAvailable());assertEquals(Long.valueOf(5000000),risk.getUncertainLossReserve());
+            assertTrue(risk.isAvailable());assertEquals(Long.valueOf(0),risk.getUncertainLossReserve());assertEquals(5000000,risk.getValuationUncertaintyExcluded());
             assertEquals(1,store.ledgerSnapshot(f.account).getTradingPositions().size());
         }
     }
@@ -98,7 +98,7 @@ public class CurrentAccountRiskPolicyTest {
             var read=store.planningProjections(f.account);var exposure=DurablePlanningExposure.forAccount(read,account,f.at);
             var market=f.market(1000000);market.latest.getAsJsonObject("561").addProperty("lowTime",f.at-121);
             int effects=store.positionEventCount();var stale=DurableRisk.evaluate(read,account,exposure,market,f.at);
-            assertTrue(stale.isAvailable());assertTrue(stale.getRemainingLossBudget()<0);
+            assertTrue(stale.isAvailable());assertTrue(stale.getRemainingLossBudget()>0);assertEquals(Set.of(561),stale.getValuationPausedItems());
             assertTrue(stale.getReason(),stale.getReason().contains("Nature rune"));
             assertTrue(stale.getReason(),stale.getReason().contains("121s"));
             assertTrue(stale.getReason(),stale.getReason().contains("120s"));
@@ -114,6 +114,10 @@ public class CurrentAccountRiskPolicyTest {
             var read=store.planningProjections(f.account);var old=f.market(1000000);
             old.latest.getAsJsonObject("561").addProperty("lowTime",f.at-121);
             var risk=DurableRisk.evaluate(read,account,DurablePlanningExposure.forAccount(read,account,f.at),old,f.at);
+            // A retained V2 refusal is re-evaluated; old policy snapshots are not rewritten.
+            risk=AccountRiskSnapshot.builder(f.account,risk.getWindowId(),risk.getSessionId(),risk.getWindowStartedAt(),
+                risk.getLedgerCursor(),f.at,f.at).capital(100000000,100000000).uncertainty(20000000,0,0)
+                .currentAccountPolicy(0,20000000).build();
             assertTrue(risk.getRemainingLossBudget()<0);
             try(var service=new CompanionService(f.gson,store)) {
                 var helper=new BoundedPlanningStateTest();helper.set(service,"account",account);

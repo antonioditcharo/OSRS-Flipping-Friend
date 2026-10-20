@@ -8,6 +8,16 @@ latency, complete production replay/returns, gated learning and remaining produc
 
 ## Current source and installed runtime
 
+Newest source: verified-cash/workflow recovery under owner-approved CURRENT_ACCOUNT_V3; quiet-price
+uncertainty cannot freeze unrelated cash-funded entries. Exits precede buy continuations; multiple
+durable continuations survive restart and elapsed time; expired queued/displayed/input advice is
+withdrawn and recomputed. Cash, exact purchase cost and last-quoted stock estimates are separate.
+Read [contract](docs/architecture/verified-cash-workflow-recovery.md) and
+[receipt](docs/history/verified-cash-workflow-recovery-2026-10-19.md). Actual merge/installed flags,
+exact artifact/backup/source-prefix/anchor and fresh acceptance evidence are maintained together in
+local-data/stock-valuation-recovery-20261019/delivery-state.json: read it first, do not infer runtime
+activation from source. The #119 checkpoint below is the earlier verified installation.
+
 Ordered-observation/retry batch #119/65a45dd is MERGED after both exact-head checks for 2fc548d
 and INSTALLED at 2026-10-20T03:40:04Z (19 October, 19:40 AKDT). Two lost retry wakeups are fixed;
 eight copied observations/ACKs need two local replacements rather than sixteen, retaining individual
