@@ -33,6 +33,14 @@ rebuilding already implemented capabilities:
 
 ## Delivery state at this handoff
 
+The current offline evaluator is replay v8: ready exits before routine maintenance, stop/winner
+and mixed-offer priority, last-slot protection, partial-buy stops, and evidence-driven guidance
+within an active manual visit. Read docs/architecture/replay-exit-attendance.md and its linked
+verification receipt. Windows clean 129s: 1,768 Java passed/six skips, Java 11; 108 tooling passed;
+packaged twelve-scenario bundle reproduces. This evaluator-only source needs no paired restart; installed runtime
+remains #116. The owner is now home and manually logged in. Fresh authenticated eight-slot proof
+and delivered BUY/SELL cards pass; full manual loop and sustained timings remain open.
+
 The trade-continuation batch #116/7e1385b is merged after both exact-head checks for 505a912 and
 installed at 21:48:48Z: exact durable buy remainders/restart, shared buy/sell
 continuation state, fresh bounded replacement entry/forecasts, accepted maintenance episode context,
@@ -146,11 +154,12 @@ inspection; its eight-slot identity result must also be fresh before it establis
    hit a timing target. Report median/tail/cold behavior and end-to-end scope honestly.
 
 3. **Finish production-policy account replay and return measurement before ranking/strategy claims.**
-   Replay v7 source models shared cash/eight slots/limits/partial fills/tax/visits/restart/conservative
+   Replay v8 source models shared cash/eight slots/limits/partial fills/tax/visits/restart/conservative
    terminal marks, canonical original context, final sale authority and delayed revalidated advice.
    Its twelve schema/synthetic scenarios are not market performance. Shared durable buy/sell
-   continuation and bounded replacement coverage are implemented in v7. Complete real client-thread/
-   editor/transport acceptance and remaining action-order coverage.
+   continuation and bounded replacement coverage are implemented in v7. V8 fixes exit priority,
+   mixed maintenance, partial stops, last-slot protection and arrivals during active visits.
+   Complete real client-thread/editor/transport acceptance and remaining source/feature/attendance coverage.
    Use qualified chronological frozen market evidence and prospective account
    clocks/cadence/attendance. Benchmark 100M GP, members, eight GE slots separately at 5m, 30m, 2h
    and 8h; compare net account returns over elapsed time, losses and conservative terminal inventory.

@@ -9,6 +9,16 @@ Continuation impact order: trade-loop reliability/exit-context provenance, actua
 latency, production-policy account replay/returns, validated learning, then remaining product gaps.
 Read [the continuation prompt](docs/next-conversation-prompt.md); current delivery facts below govern.
 
+- [x] Implement offline replay v8 exit/maintenance priorities, last-slot protection, partial-buy
+      stops and new-evidence displays within attended visits. Five old-source regressions fail;
+      seven new tests plus existing replay cases pass. Windows clean 129s: 1,768 Java passed/six
+      existing skips, Java 11; 108 tooling passed; packaged twelve-scenario bundle reproduces.
+      See docs/architecture/replay-exit-attendance.md and
+      docs/history/replay-exit-attendance-2026-10-19.md. Installed player pair remains #116; no
+      restart is required. Manual login/eight-slot proof/BUY and SELL delivery now pass, while
+      full controlled trade-loop, sustained timing, further replay parity and qualified return/
+      learning gates remain open below.
+
 - [ ] Deliver/accept the coherent trade-continuation batch: exact durable buy remainders and restart,
       shared buy/sell callbacks, fresh quantity-bounded replacement planning/forecasts, foreground
       maintenance acceptance, stale/overflow quote guards and replay v7 persisted intents/volume
