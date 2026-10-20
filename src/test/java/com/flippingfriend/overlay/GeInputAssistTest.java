@@ -74,6 +74,15 @@ public class GeInputAssistTest {
         }
         verify(client,never()).setVarcStrValue(anyInt(),anyString());
     }
+    @Test public void localAdviceExpiryCannotBeRevivedForAnOldQueuedKeyByIdenticalFreshAdvice() {
+        var clock=new java.util.concurrent.atomic.AtomicLong(100);
+        guide=new StepGuide(client,resolver,clock::get);guide.setSuggestion(buy(100));
+        assist.stop();assist=new GeInputAssist(client,thread,keys,profiles,config,guide,resolver);assist.start();assist.refresh(true);
+        assist.keyPressed(press(KeyEvent.VK_E));clock.addAndGet(StepGuide.MAX_ADVICE_AGE_NANOS);
+        guide.setSuggestion(buy(100));drain();verify(client,never()).setVarcStrValue(anyInt(),anyString());
+        assist.refresh(true);assist.keyReleased(press(KeyEvent.VK_E));assist.keyPressed(press(KeyEvent.VK_E));drain();
+        verify(client).setVarcStrValue(VarClientStr.INPUT_TEXT,"10");
+    }
     @Test public void entryRefusalCancelsAQueuedKeyFillEvenIfTheSameBuyReturns() {
         var quantity=mock(Widget.class);when(resolver.getQuantityControl()).thenReturn(quantity);
         var click=mock(net.runelite.api.events.MenuOptionClicked.class);when(click.getWidget()).thenReturn(quantity);

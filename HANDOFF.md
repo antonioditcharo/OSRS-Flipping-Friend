@@ -8,7 +8,16 @@ latency, complete production replay/returns, gated learning and remaining produc
 
 ## Current source and installed runtime
 
-Newest source: durable maintenance delivery. Continuation writes require forced atomic replacement;
+Newest source: cancellation identity and bounded guidance lifetime. Saved account/episode commitments
+exempt guided buy cancellations even after a changed card or restart; same-item/uncommitted cards
+cannot excuse unrelated cancellations. Local foreground/pending/editor advice and queued numeric
+keys retain a bounded receipt lifetime, delayed callbacks revalidate and persistent errors withdraw
+mid-entry guidance. Read [contract](docs/architecture/guidance-lifetime-and-cancellation.md) and
+[receipt](docs/history/guidance-lifetime-delivery-2026-10-20.md). Actual source/CI/install/backup/
+financial preservation/live flags: local-data/episode-guidance-20261020/delivery-state.json. Read it
+first. Controlled full-loop, sustained timing, return/learning and remaining parity gates stay open.
+
+Earlier installed #122: durable maintenance delivery. Continuation writes require forced atomic replacement;
 dirty progress/removals retry across unchanged observations and account switches. Uncommitted
 cancellation advice is withdrawn; ordinary failure is episode-scoped so unrelated guidance continues.
 Declined foreground sells cannot remain actionable behind the real editor queue. Read

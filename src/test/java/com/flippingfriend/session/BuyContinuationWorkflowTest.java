@@ -58,6 +58,57 @@ public class BuyContinuationWorkflowTest {
     static void inject(Object target,String name,Object value)throws Exception {
         var field=target.getClass().getDeclaredField(name);field.setAccessible(true);field.set(target,value);
     }
+    private SkipList cancellationListener(Fixture f,Suggestion visible)throws Exception {
+        var plugin=new FlippingFriendPlugin();var skips=mock(SkipList.class);
+        inject(plugin,"engine",f.engine);inject(plugin,"skipList",skips);inject(plugin,"config",f.config);
+        inject(plugin,"companion",mock(CompanionClient.class));inject(plugin,"client",mock(Client.class));
+        inject(plugin,"widgetResolver",mock(com.flippingfriend.overlay.GeWidgetResolver.class));
+        var guide=mock(com.flippingfriend.overlay.StepGuide.class);when(guide.getSuggestion()).thenReturn(visible);inject(plugin,"stepGuide",guide);
+        var profiles=mock(net.runelite.client.config.ConfigManager.class);when(profiles.getRSProfileKey()).thenReturn("buy-continuation");inject(plugin,"configManager",profiles);
+        var callback=FlippingFriendPlugin.class.getDeclaredMethod("onBuyAbandoned",TrackedOffer.class,long.class);callback.setAccessible(true);
+        f.tracker.setAbandonedBuyListener((cancelled,minutes)-> {
+            try {callback.invoke(plugin,cancelled,minutes);}catch(Exception e){throw new AssertionError(e);}
+        });
+        return skips;
+    }
+    @Test public void committedRepriceCancellationSurvivesRestartAndAChangedVisibleCard()throws Exception {
+        var f=new Fixture();f.present();f.restart();
+        var skips=cancellationListener(f,Suggestion.waiting("Checking current offers","The original workflow is retained."));
+        f.cancelCollect();
+        verify(skips,never()).skipUntilCooldownEnds(anyInt(),any());
+        assertEquals(94,f.intent.collectedRequest(f.tracker,f.storage.accountId(),now).quantity);
+    }
+    @Test public void aVisibleSameItemCardCannotExcuseAnUncommittedCancellation()throws Exception {
+        var f=new Fixture();var unshown=f.engine.refresh(false);
+        var skips=cancellationListener(f,unshown);f.cancelCollect();
+        verify(skips).skipUntilCooldownEnds(eq(561),any());
+    }
+    @Test public void anInitialFailedCommitDoesNotExcuseCancellationButDirtyProgressOnAnAcceptedPromiseDoes()throws Exception {
+        for(boolean committed:new boolean[]{false,true}) {
+            var f=new Fixture();var shown=f.engine.refresh(false);
+            if(committed)assertTrue(f.engine.recordPresentedMaintenance(shown,f.storage.accountId(),now));
+            var blocked=f.storage.accountDir().resolve("buy-reprice-intent.json.tmp");java.nio.file.Files.createDirectory(blocked);
+            if(!committed)assertFalse(f.engine.recordPresentedMaintenance(shown,f.storage.accountId(),now));
+            var skips=cancellationListener(f,committed?Suggestion.idle():shown);f.cancelCollect();
+            verify(skips,committed?never():times(1)).skipUntilCooldownEnds(eq(561),any());
+            if(committed) {
+                assertNull(f.intent.collectedRequest(f.tracker,f.storage.accountId(),now));java.nio.file.Files.delete(blocked);
+                assertEquals(94,f.intent.collectedRequest(f.tracker,f.storage.accountId(),now).quantity);
+            }
+        }
+    }
+    @Test public void aNewSameItemEpisodeCannotBorrowTheOldSavedCancellationExemption()throws Exception {
+        var f=new Fixture();var old=f.present();f.cancelCollect();f.progress(GrandExchangeOfferState.BUYING,0);
+        var skips=cancellationListener(f,old);f.cancelCollect();verify(skips).skipUntilCooldownEnds(eq(561),any());
+        assertNull(f.intent.collectedRequest(f.tracker,f.storage.accountId(),now));
+    }
+    @Test public void aRestoredPromiseIsScopedToItsAccountEvenBeforeTheFirstNewEngineRefresh()throws Exception {
+        var f=new Fixture();f.present();f.restart();f.engine.setObservedAccount(null);
+        var cancelled=f.tracker.getOffer(0).copyObservation();cancelled.setState("CANCELLED_BUY");cancelled.setQuantityFilled(6);
+        assertTrue(f.engine.isGuidedBuyCancellation(cancelled,f.storage.accountId(),now));
+        assertFalse(f.engine.isGuidedBuyCancellation(cancelled,com.flippingfriend.core.AccountIdentity.fromProfileKey("other"),now));
+        assertFalse(f.engine.isGuidedBuyCancellation(cancelled,null,now));
+    }
     @Test public void restartAfterLateFillCancellationAndSlotReuseRequestsOnlyTheExactRemainder()throws Exception {
         var f=new Fixture();assertEquals(SuggestionType.MODIFY_BUY,f.present().getType());
         f.cancelCollect(); // No worker read between cancellation/collection and reuse.

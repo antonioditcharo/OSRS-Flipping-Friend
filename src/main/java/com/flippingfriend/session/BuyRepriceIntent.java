@@ -16,6 +16,9 @@ public final class BuyRepriceIntent extends OfferContinuationStore {
         return adviseOffer(offer,expected,false,tracker,now,0);
     }
     public synchronized void observe(OfferTracker tracker,String expected,long now){advance(tracker,expected,now);}
+    public synchronized boolean isGuidedCancellation(TrackedOffer offer,String expected,long now) {
+        return acknowledgedCancellation(offer,expected,now);
+    }
     public synchronized Request collectedRequest(OfferTracker tracker,String expected,long now) {
         var intent=advance(tracker,expected,now);
         return intent==null?null:new Request(intent.getItemId(),intent.getCollectedRemaining());

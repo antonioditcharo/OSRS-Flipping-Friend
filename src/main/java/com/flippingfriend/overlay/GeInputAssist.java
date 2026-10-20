@@ -91,7 +91,8 @@ public final class GeInputAssist implements KeyListener {
         if (canvas == null || !canvas.hasFocus()) return null;
         long adviceGeneration = guide.getAdviceGeneration();
         GeEditorValues values = GeEditorValues.read(client, resolver);
-        Suggestion advice = guide.getSuggestion();
+        StepGuide.AdviceReceipt receipt=guide.getAdviceReceipt();
+        Suggestion advice = receipt.suggestion;
         if (values == null || !values.contextMatches(advice)) return null;
         int mode = client.getVarcIntValue(VarClientInt.INPUT_TYPE);
         if (mode != 7 && mode != 30) return null;
@@ -109,7 +110,7 @@ public final class GeInputAssist implements KeyListener {
         else return null;
         Keybind key = config.fillRecommendedInputKey();
         if (value <= 0 || key == null || Keybind.NOT_SET.equals(key)) return null;
-        return new Target(generation.get(), adviceGeneration, profiles.getRSProfileKey(), key, values, advice, mode, prompt, title, input, value);
+        return new Target(generation.get(), adviceGeneration, profiles.getRSProfileKey(), key, values, receipt, mode, prompt, title, input, value);
     }
 
     @Override public void keyPressed(KeyEvent event) {
@@ -123,7 +124,7 @@ public final class GeInputAssist implements KeyListener {
     }
 
     private void fill(Target requested) {
-        if(requested.advice.getAdviceExpiresAt()>0 && requested.advice.getAdviceExpiresAt()<=java.time.Instant.now().getEpochSecond())return;
+        if(!guide.isReceiptValid(requested.receipt))return;
         Target current = readTarget();
         if (current == null || !current.samePrompt(requested)) return;
         // Sole permitted input write: a player-requested value in the already open numeric prompt.
@@ -146,13 +147,14 @@ public final class GeInputAssist implements KeyListener {
         final Keybind key;
         final GeEditorValues editor;
         final Suggestion advice;
+        final StepGuide.AdviceReceipt receipt;
         final int mode, value;
         final String prompt;
         final Widget title, input;
-        Target(long generation, long adviceGeneration, String profile, Keybind key, GeEditorValues editor, Suggestion advice,
+        Target(long generation, long adviceGeneration, String profile, Keybind key, GeEditorValues editor, StepGuide.AdviceReceipt receipt,
             int mode, String prompt, Widget title, Widget input, int value) {
             this.generation = generation; this.adviceGeneration = adviceGeneration; this.profile = profile; this.key = key; this.editor = editor;
-            this.advice = advice; this.mode = mode; this.prompt = prompt; this.title = title; this.input = input; this.value = value;
+            this.receipt=receipt;this.advice = receipt.suggestion; this.mode = mode; this.prompt = prompt; this.title = title; this.input = input; this.value = value;
         }
         boolean samePrompt(Target other) {
             return generation == other.generation && adviceGeneration == other.adviceGeneration && Objects.equals(profile, other.profile) && key.equals(other.key)

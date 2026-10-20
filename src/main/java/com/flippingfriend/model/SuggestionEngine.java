@@ -187,6 +187,10 @@ public class SuggestionEngine
         }
         observedAccount=account;
     }
+    /** The saved account/episode commitment survives a changed card or reconnect before refresh. */
+    public boolean isGuidedBuyCancellation(com.flippingfriend.session.TrackedOffer offer,String account,long now) {
+        return buyReprice!=null && buyReprice.isGuidedCancellation(offer,account,now);
+    }
     /** Client-thread acceptance only: a worker proposal is not a promise shown to the player. */
     public boolean recordPresentedMaintenance(Suggestion accepted,String expectedAccount,long now) {
         if(accepted==null || expectedAccount==null || !expectedAccount.equals(observedAccount))return false;

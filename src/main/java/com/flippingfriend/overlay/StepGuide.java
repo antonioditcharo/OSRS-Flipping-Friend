@@ -28,6 +28,9 @@ public class StepGuide
 {
 	private final Client client;
 	private final GeWidgetResolver resolver;
+    public static final long MAX_ADVICE_AGE_NANOS=java.util.concurrent.TimeUnit.SECONDS.toNanos(60);
+    private final java.util.function.LongSupplier adviceClock;
+    private long trackedAt,pendingAt,editorQuoteAt;
 
 	private volatile Suggestion tracked = Suggestion.idle();
 	/** Advice that arrived mid-entry and is waiting for the editor to close. */
@@ -87,9 +90,33 @@ public class StepGuide
 	@Inject
 	public StepGuide(Client client, GeWidgetResolver resolver)
 	{
+        this(client,resolver,System::nanoTime);
+    }
+    StepGuide(Client client,GeWidgetResolver resolver,java.util.function.LongSupplier adviceClock)
+	{
 		this.client = client;
 		this.resolver = resolver;
+        this.adviceClock=adviceClock;
 	}
+
+    static final class AdviceReceipt {
+        final Suggestion suggestion;final long issuedAt;
+        AdviceReceipt(Suggestion suggestion,long issuedAt){this.suggestion=suggestion;this.issuedAt=issuedAt;}
+    }
+    private boolean expired(Suggestion advice,long issuedAt) {
+        long age=adviceClock.getAsLong()-issuedAt;
+        return advice.getAdviceExpiresAt()>0 && advice.getAdviceExpiresAt()<=java.time.Instant.now().getEpochSecond()
+            || advice.isActionable() && (age<0 || age>=MAX_ADVICE_AGE_NANOS);
+    }
+    synchronized AdviceReceipt getAdviceReceipt() {
+        if(paused)return new AdviceReceipt(PAUSED,adviceClock.getAsLong());
+        Suggestion advice=editorQuote==null?tracked:editorQuote;
+        long at=editorQuote==null?trackedAt:editorQuoteAt;
+        return new AdviceReceipt(expired(advice,at)?EXPIRED:advice,at);
+    }
+    synchronized boolean isReceiptValid(AdviceReceipt receipt) {
+        return receipt!=null && !paused && receipt.suggestion.isActionable() && !expired(receipt.suggestion,receipt.issuedAt);
+    }
 
 	/**
 	 * Takes new advice, unless doing so would pull the walkthrough out from under a half-entered
@@ -112,18 +139,23 @@ public class StepGuide
 	{
         if (paused) return;
 		Suggestion incoming = suggestion == null ? Suggestion.idle() : suggestion;
+        long receivedAt=adviceClock.getAsLong();
+        if(expired(tracked,trackedAt)) {
+            adviceGeneration.incrementAndGet();entryStarted=false;editingControl=null;
+            quantityDone=false;priceDone=false;
+        }
         // A refusal withdraws entry authority. It must not wait behind the buy it invalidates.
         if (incoming.getType() == SuggestionType.WAIT
             && (tracked.getType() == SuggestionType.BUY || tracked.getType() == SuggestionType.MODIFY_BUY)) {
             adviceGeneration.incrementAndGet();
-            tracked = incoming; pending = null; editorQuote = null;
+            tracked = incoming; trackedAt=receivedAt; pending = null; editorQuote = null;
             quantityDone = false; priceDone = false; entryStarted = false; editingControl = null;
             return;
         }
 		if (incoming.sameAs(tracked))
 		{
             // Refresh the forecast payload while retaining progress on identical order inputs.
-            tracked = incoming;
+            tracked = incoming;trackedAt=receivedAt;
 			pending = null;
 			return;
 		}
@@ -134,7 +166,7 @@ public class StepGuide
 		// trade waits.
 		if (isMidEntry() && !incoming.isSameTradeAs(tracked))
 		{
-			pending = incoming;
+			pending = incoming;pendingAt=receivedAt;
 			return;
 		}
 
@@ -142,7 +174,7 @@ public class StepGuide
 		int oldPrice = tracked.getPrice();
 		int oldQuantity = tracked.getQuantity();
 
-		tracked = incoming;
+		tracked = incoming;trackedAt=receivedAt;
 		pending = null;
 		
 		if (!correction)
@@ -190,9 +222,9 @@ public class StepGuide
 	 * Advice that arrived while the player was mid-entry and is waiting its turn, or null.
 	 * Surfaced by the panel so the interruption is visible rather than silently deferred.
 	 */
-	public Suggestion getPending()
+	public synchronized Suggestion getPending()
 	{
-		return pending!=null && pending.getAdviceExpiresAt()>0 && pending.getAdviceExpiresAt()<=java.time.Instant.now().getEpochSecond()?null:pending;
+		return pending!=null && expired(pending,pendingAt)?null:pending;
 	}
 
 	/** Applies whatever was queued, once it is safe to do so. */
@@ -200,7 +232,7 @@ public class StepGuide
 	{
 		if (pending != null)
 		{
-			tracked = pending;
+			tracked = expired(pending,pendingAt)?EXPIRED:pending;trackedAt=pendingAt;
 			pending = null;
 		}
 	}
@@ -214,11 +246,10 @@ public class StepGuide
             quantityDone = true; priceDone = false;
         }
         editorQuote = quote;
+        editorQuoteAt=adviceClock.getAsLong();
     }
     public Suggestion getSuggestion() {
-        if(paused)return PAUSED;
-        Suggestion current=editorQuote==null?tracked:editorQuote;
-        return current.getAdviceExpiresAt()>0 && current.getAdviceExpiresAt()<=java.time.Instant.now().getEpochSecond()?EXPIRED:current;
+        return getAdviceReceipt().suggestion;
     }
 
     /** Clicking a control starts entry; only committed values establish completion. */
@@ -248,7 +279,7 @@ public class StepGuide
     }
 
 	/** Clears progress when the editor closes, so re-opening it starts the walkthrough again. */
-	public void onSetupClosed()
+	public synchronized void onSetupClosed()
 	{
         editorQuote = null;
 		quantityDone = false;

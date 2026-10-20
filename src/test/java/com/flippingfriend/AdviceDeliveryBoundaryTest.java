@@ -281,4 +281,24 @@ public class AdviceDeliveryBoundaryTest {
         f.clientQueue.remove().run();verify(f.guide,never()).setSuggestion(f.advice);
         assertFalse("A discarded result must schedule fresh guidance",f.clientQueue.isEmpty());
     }
+    @Test public void persistentRefreshFailureWithdrawsARealMidEntrySaleAndItsPersonalQuote()throws Exception {
+        var f=new Fixture();var client=(Client)getField(f.plugin,"client");when(client.isClientThread()).thenReturn(true);
+        var resolver=mock(GeWidgetResolver.class);when(resolver.isSetupOpen()).thenReturn(true);
+        var quantity=mock(net.runelite.api.widgets.Widget.class);when(resolver.getQuantityControl()).thenReturn(quantity);
+        var guide=new StepGuide(client,resolver);guide.setSuggestion(Suggestion.builder(SuggestionType.SELL).item(561,"Stock").quantity(10).price(110).build());
+        var click=mock(net.runelite.api.events.MenuOptionClicked.class);when(click.getWidget()).thenReturn(quantity);guide.onMenuOptionClicked(click);
+        guide.setEditorQuote(Suggestion.builder(SuggestionType.SELL).item(562,"Personal").quantity(2).price(99).build());
+        f.set("stepGuide",guide);when(f.companion.nextAction()).thenThrow(new IllegalStateException("fixture unavailable"));
+        for(int i=0;i<3;i++) {f.computeAdvice();while(!f.clientQueue.isEmpty())f.clientQueue.remove().run();}
+        assertEquals(SuggestionType.WAIT,guide.getSuggestion().getType());assertNull(guide.getPending());
+        doReturn(f.advice).when(f.companion).nextAction();f.queueAdvice();f.clientQueue.remove().run();assertSame(f.advice,guide.getSuggestion());
+    }
+    @Test public void localAdviceCannotReceiveAFreshLifetimeAfterWaitingTooLongInTheClientQueue()throws Exception {
+        for(long delay:new long[]{StepGuide.MAX_ADVICE_AGE_NANOS,-1}) {
+            var f=new Fixture();var clock=new java.util.concurrent.atomic.AtomicLong(100);
+            f.set("adviceClock",(java.util.function.LongSupplier)clock::get);f.queueAdvice();clock.addAndGet(delay);
+            f.clientQueue.remove().run();verify(f.guide,never()).setSuggestion(f.advice);
+            verify(f.guide).withdrawAdvice(argThat(s->s.getType()==SuggestionType.WAIT));assertFalse(f.clientQueue.isEmpty());
+        }
+    }
 }
