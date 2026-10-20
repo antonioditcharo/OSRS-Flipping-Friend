@@ -3,8 +3,7 @@ package com.flippingfriend.companion;
 import com.flippingfriend.core.OfferEvent;
 import com.flippingfriend.data.PluginStorage;
 import com.google.gson.Gson;
-import java.io.Reader;
-import java.io.Writer;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -26,6 +25,8 @@ public final class OfferEventOutbox
 	private final PluginStorage storage;
 	private final Gson gson;
     private final ReplaceCheckpoint checkpoint;
+    /** Valid unsaved appends retain their exact IDs/order/bindings until this account can commit. */
+    private final java.util.Map<String,State> unsaved=new java.util.HashMap<>();
 
 	@Inject
 	public OfferEventOutbox(PluginStorage storage)
@@ -60,7 +61,7 @@ public final class OfferEventOutbox
     private List<OfferEvent> enqueue(List<EventFactory> factories,boolean bindPrediction)throws Exception {
         if(factories==null || factories.isEmpty() || factories.size()>8 || factories.stream().anyMatch(java.util.Objects::isNull))
             throw new IllegalArgumentException("One to eight observation factories are required");
-		State state = loadRequired();
+		State state = loadRequired(true);
 		State updated = state.copy();
         List<OfferEvent> created=new ArrayList<>();
         java.util.Set<Integer> observedSlots=new java.util.HashSet<>();
@@ -75,7 +76,7 @@ public final class OfferEventOutbox
             if(bindPrediction)event=bindPrediction(event,updated);
             updated.pending.add(event);created.add(event);
         }
-		write(updated);
+		write(updated,true);
 		return Collections.unmodifiableList(created);
 	}
     private OfferEvent bindPrediction(OfferEvent event,State updated) {
@@ -155,17 +156,22 @@ public final class OfferEventOutbox
 		return loadRequired().sessionId;
 	}
 
-	private State loadRequired() throws Exception
+	private State loadRequired() throws Exception { return loadRequired(false); }
+	private State loadRequired(boolean appending) throws Exception
 	{
 		if (!storage.hasAccount()) throw new IllegalStateException("account profile is required");
 		String accountId = com.flippingfriend.core.AccountIdentity.require(storage.accountId());
+		State retained=unsaved.get(accountId);
+		if(retained!=null) {
+            // Another callback must join the retained tail even if the disk is still unavailable.
+            // Reads/ACKs cannot expose a prefix or deliver sources before that entire tail commits.
+            if(!appending)throw new IOException("offer observations await durable local storage");
+            return retained;
+        }
 		Path file = storage.accountDir(accountId).resolve(FILE_NAME);
-		if (!Files.exists(file)) return new State(UUID.randomUUID().toString(), accountId, file);
-		State state;
-		try (Reader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8))
-		{
-			state = gson.fromJson(reader, State.class);
-		}
+		byte[] image=readImage(file);
+		if (image==null) return new State(UUID.randomUUID().toString(), accountId, file);
+		State state=gson.fromJson(new String(image,StandardCharsets.UTF_8),State.class);
 		if (state == null || state.formatVersion != FORMAT_VERSION || blank(state.sessionId)
 			|| state.nextSequence < 1 || state.pending == null)
 		{
@@ -176,6 +182,7 @@ public final class OfferEventOutbox
 			throw new IllegalStateException("outbox belongs to another account");
 		state.accountId = accountId;
 		state.file = file;
+        state.committedImage=image;
 		java.util.Set<String> eventIds = new java.util.HashSet<>();
 		java.util.Set<Long> sequences = new java.util.HashSet<>();
 		for (int index = 0; index < state.pending.size(); index++)
@@ -218,32 +225,58 @@ public final class OfferEventOutbox
                     || !origin.getEventId().equals(origin.getPredictionSourceEventId()))))
                 throw new IllegalStateException("invalid prediction binding schema or source");
         }
-		if (upgraded) write(state);
+		if (upgraded && !appending) write(state);
 		return state;
 	}
+    /** Worker-only retry. Ordinary readers must withhold authority without doing a forced write. */
+    synchronized void retryUnsaved()throws Exception {
+        if(!storage.hasAccount())throw new IllegalStateException("account profile is required");
+        String account=com.flippingfriend.core.AccountIdentity.require(storage.accountId());
+        State retained=unsaved.get(account);if(retained!=null)write(retained,true);
+    }
 
 	private void write(State state) throws Exception
+	{ write(state,false); }
+	private void write(State state,boolean retainAppend) throws Exception
 	{
+		if(retainAppend)unsaved.put(state.accountId,state);
 		if (!state.accountId.equals(storage.accountId()))
 			throw new IllegalStateException("account changed before saving the outbox");
 		Path file = state.file;
-		Files.createDirectories(file.getParent());
 		Path temp = file.resolveSibling(file.getFileName() + ".tmp");
 		try
 		{
-			try (Writer writer = Files.newBufferedWriter(temp, StandardCharsets.UTF_8))
-			{
-				gson.toJson(state, writer);
-			}
+            verifyDestination(state);
+            Files.createDirectories(file.getParent());
+            byte[] image=gson.toJson(state).getBytes(StandardCharsets.UTF_8);
+            try(var channel=java.nio.channels.FileChannel.open(temp,java.nio.file.StandardOpenOption.CREATE,
+                    java.nio.file.StandardOpenOption.TRUNCATE_EXISTING,java.nio.file.StandardOpenOption.WRITE)) {
+                var buffer=java.nio.ByteBuffer.wrap(image);while(buffer.hasRemaining())channel.write(buffer);
+                channel.force(true);
+            }
             checkpoint.beforeReplace(file,temp);
-			Files.move(temp, file, StandardCopyOption.REPLACE_EXISTING);
+            if(!state.accountId.equals(storage.accountId()))throw new IllegalStateException("account changed before outbox replacement");
+            verifyDestination(state);
+            // Never fall back to a non-atomic replacement or expose an unforced delivery event.
+			Files.move(temp, file, StandardCopyOption.ATOMIC_MOVE,StandardCopyOption.REPLACE_EXISTING);
+            state.committedImage=image;
+            unsaved.remove(state.accountId,state);
 		}
 		catch (Exception failure)
 		{
-			Files.deleteIfExists(temp);
+			try{Files.deleteIfExists(temp);}catch(Exception cleanup){failure.addSuppressed(cleanup);}
 			throw failure;
 		}
 	}
+    private void verifyDestination(State state)throws IOException {
+        byte[] current=readImage(state.file);
+        if(!java.util.Arrays.equals(current,state.committedImage))
+            throw new IOException("outbox changed outside this observation commit; retained evidence awaits verification");
+    }
+    private static byte[] readImage(Path file)throws IOException {
+        try{return Files.readAllBytes(file);}
+        catch(java.nio.file.NoSuchFileException absent){return null;}
+    }
 
 	private static void validate(OfferEvent event, String eventId, String sessionId, long sequence)
 	{
@@ -271,6 +304,7 @@ public final class OfferEventOutbox
 		private String sessionId;
 		private String accountId;
 		private transient Path file;
+        private transient byte[] committedImage;
 		private long nextSequence = 1;
 		private List<OfferEvent> pending = new ArrayList<>();
         private java.util.Map<Integer,PredictionBinding> predictions;
@@ -280,6 +314,7 @@ public final class OfferEventOutbox
 		private State copy()
 		{
 			State copy = new State(sessionId, accountId, file);
+			copy.committedImage=committedImage;
 			copy.nextSequence = nextSequence;
 			copy.pending = new ArrayList<>(pending);
             copy.predictions=new java.util.HashMap<>(predictions);

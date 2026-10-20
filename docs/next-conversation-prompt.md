@@ -33,6 +33,15 @@ rebuilding already implemented capabilities:
 
 ## Delivery state at this handoff
 
+Read local-data/offer-persistence-20261020/delivery-state.json first for newest actual source/CI/
+install/live state. Forced atomic outbox commits retain valid unsaved observations under their
+original identities/order/plan binding for account-scoped worker retry, preserve changed files,
+withdraw old companion collection and keep forced retries off ordinary UI reads. Contract:
+docs/architecture/offer-persistence-recovery.md. An uncommitted memory tail cannot survive process
+death before storage succeeds; its authority remains withheld. Owner deferred manual game tests
+until 20 October after 17:30 local. Preserve all controlled workflow/timing/complete replay/return
+and learning gates below.
+
 Read local-data/live-revalidation-20261020/delivery-state.json first for newest actual source/CI/
 install/live state. The engine no longer pins a maintenance card while its editor is open; it
 revalidates current fills/stops/market conditions. Same-item stops withdraw buys immediately;

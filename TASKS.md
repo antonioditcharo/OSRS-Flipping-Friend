@@ -9,6 +9,15 @@ Continuation impact order: trade-loop reliability/exit-context provenance, actua
 latency, production-policy account replay/returns, validated learning, then remaining product gaps.
 Read [the continuation prompt](docs/next-conversation-prompt.md); current delivery facts below govern.
 
+- [ ] Accept forced atomic offer persistence and retry after local save failure. Retain original
+      IDs/order/counters/plan binding across later callbacks and profile switches; preserve changed
+      files, keep UI reads free of forced retries and withdraw stale companion collection. Ten new
+      tests include eight reproduced old-behavior failures. Contract/receipt:
+      docs/architecture/offer-persistence-recovery.md and docs/history/offer-persistence-delivery-2026-10-20.md;
+      actual source/CI/install/live state: local-data/offer-persistence-20261020/delivery-state.json.
+      Memory-only unsaved evidence is not a crash-durability claim. Owner deferred manual tests until
+      20 October after 17:30 local; full trade-loop/timing/complete replay/return/learning stay open.
+
 - [ ] Accept live-guidance revalidation with a maintenance editor open: every engine pass checks
       current work; same-item stops withdraw buys, unrelated typing stays bounded, and fallback
       collection/explicit wind-down do not require market prices. Nine added tests include five

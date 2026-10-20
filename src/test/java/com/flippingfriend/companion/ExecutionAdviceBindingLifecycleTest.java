@@ -45,7 +45,7 @@ public class ExecutionAdviceBindingLifecycleTest {
         var after=new Fixture(root,"one").publish(AT,100,10,0,"late",120);
         assertNull(after.getRecommendationId());assertFalse(after.isPredictionComparable());
     }
-    @Test public void failedSaveCannotInvalidateOriginalOrConsumeSequence()throws Exception {
+    @Test public void failedSaveRetainsChangedInputsAndCannotRequalifyTheOriginalPrediction()throws Exception {
         Fixture f=new Fixture(folder.newFolder().toPath(),"one");
         var first=f.publish(AT,100,10,0,"original",12);byte[] before=Files.readAllBytes(f.file);
         Path temp=f.file.resolveSibling(f.file.getFileName()+".tmp");
@@ -55,8 +55,11 @@ public class ExecutionAdviceBindingLifecycleTest {
         assertArrayEquals(before,Files.readAllBytes(f.file));
         Files.delete(obstruction);Files.delete(temp);
         var retry=f.publish(AT+2,100,10,10,"later",120);
-        assertEquals(first.getSequence()+1,retry.getSequence());assertTrue(retry.isPredictionComparable());
-        assertEquals(12,retry.getPredictedMinutes(),0);assertEquals(1000,retry.getSpent());
+        assertEquals(first.getSequence()+2,retry.getSequence());assertFalse(retry.isPredictionComparable());
+        assertEquals(0,retry.getPredictedMinutes(),0);assertEquals(1000,retry.getSpent());
+        var pending=new OfferEventOutbox(f.storage).pending();assertEquals(3,pending.size());
+        assertEquals("A price change cannot vanish merely because its first save failed",101,pending.get(1).getPrice());
+        assertEquals(first.getEventId(),pending.get(1).getPredictionSourceEventId());
     }
     @Test public void changingBackToOriginalInputsDoesNotRestoreComparability()throws Exception {
         Fixture f=new Fixture(folder.newFolder().toPath(),"one");f.publish(AT,100,10,0,"original",12);

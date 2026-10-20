@@ -55,7 +55,8 @@ public class OfferObservationBatchTest {
         assertArrayEquals(before,Files.readAllBytes(file));
         try{outbox.acknowledgePrefix(first,storage.accountId());fail();}catch(java.io.IOException expected){}
         assertArrayEquals(before,Files.readAllBytes(file));assertFalse(Files.exists(file.resolveSibling(file.getFileName()+".tmp")));
-        fail.set(false);assertEquals(9,outbox.enqueueObservedOffers(List.of(observation(0,120,3,200))).get(0).getSequence());
+        fail.set(false);assertEquals(17,outbox.enqueueObservedOffers(List.of(observation(0,120,3,200))).get(0).getSequence());
+        assertEquals("The eight unsaved observations must precede the later callback",17,new OfferEventOutbox(storage).pending().size());
     }
     @Test public void prefixAcknowledgementRejectsHolesForeignScopeAndDuplicateKeysWithoutAnyRemoval()throws Exception {
         var storage=TestStorage.rootedAt(folder.newFolder().toPath(),"bad-prefix");var outbox=new OfferEventOutbox(storage);

@@ -8,7 +8,18 @@ latency, complete production replay/returns, gated learning and remaining produc
 
 ## Current source and installed runtime
 
-Newest source removes the editor's engine pin: maintenance, completed offers, prices and fresh
+Newest source hardens offer persistence: forced atomic outbox commits, account-scoped retry of
+unsaved observations under their original IDs/order/plan binding, changed-file preservation and
+worker retry wakeups. Unsaved sources cannot expose an old prefix or cached companion collection;
+ordinary UI reads do not retry fsync. Ten added tests include eight reproduced old-behavior failures.
+[Contract](docs/architecture/offer-persistence-recovery.md) /
+[receipt](docs/history/offer-persistence-delivery-2026-10-20.md); actual source/CI/install/live state:
+local-data/offer-persistence-20261020/delivery-state.json. Read it first. Manual game tests remain
+deferred until 20 October after 17:30 local; all controlled workflow/timing/complete replay/qualified
+return and learning gates remain open. Memory-only evidence cannot survive process death before
+its first successful storage commit; source authority stays withheld throughout that outage.
+
+Included #126 removes the editor's engine pin: maintenance, completed offers, prices and fresh
 stops are revalidated on every pass. StepGuide retains bounded typing protection; a same-item stop
 withdraws its old buy immediately. Fallback collection and explicit wind-down do not wait for
 market data. Nine added tests include five old-behavior failures. [Contract](docs/architecture/live-guidance-revalidation.md) /
