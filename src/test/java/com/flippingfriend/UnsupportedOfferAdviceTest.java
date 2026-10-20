@@ -56,7 +56,7 @@ public class UnsupportedOfferAdviceTest
 			refresh.setAccessible(true);
 			refresh.invoke(plugin);
 			assertTrue("blocked refresh must replace the old card", repaint.await(3, TimeUnit.SECONDS));
-			Mockito.verify(guide).setSuggestion(Mockito.argThat(value -> value != null && !value.isActionable()));
+			Mockito.verify(guide).withdrawAdvice(Mockito.argThat(value -> value != null && !value.isActionable()));
 			Mockito.verifyNoInteractions(companion);
 		}
 		finally { worker.shutdownNow(); assertTrue(worker.awaitTermination(3, TimeUnit.SECONDS)); }

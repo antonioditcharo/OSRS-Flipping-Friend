@@ -12,8 +12,8 @@ public final class BuyRepriceIntent extends OfferContinuationStore {
         private Request(int itemId,int quantity){this.itemId=itemId;this.quantity=quantity;}
     }
     @Inject public BuyRepriceIntent(PluginStorage storage){super(storage,"buy-reprice-intent.json",true);}
-    public synchronized void advise(TrackedOffer offer,String expected,OfferTracker tracker,long now) {
-        adviseOffer(offer,expected,false,tracker,now,0);
+    public synchronized boolean advise(TrackedOffer offer,String expected,OfferTracker tracker,long now) {
+        return adviseOffer(offer,expected,false,tracker,now,0);
     }
     public synchronized void observe(OfferTracker tracker,String expected,long now){advance(tracker,expected,now);}
     public synchronized Request collectedRequest(OfferTracker tracker,String expected,long now) {
@@ -27,6 +27,6 @@ public final class BuyRepriceIntent extends OfferContinuationStore {
     }
     public synchronized boolean isPending(int item,OfferTracker tracker,String expected,long now){return pending(item,tracker,expected,now);}
     public synchronized int pendingItemId(OfferTracker tracker,String expected,long now){return pendingItem(tracker,expected,now);}
-    public synchronized void clear(String expected){abandon(expected);}
-    public synchronized void clearItem(String expected,int item){abandonItem(expected,item);}
+    public synchronized boolean clear(String expected){return abandon(expected);}
+    public synchronized boolean clearItem(String expected,int item){return abandonItem(expected,item);}
 }

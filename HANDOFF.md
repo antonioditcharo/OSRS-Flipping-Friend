@@ -1,6 +1,6 @@
 # Agent handoff
 
-Updated 19 October 2026 (America/Anchorage). Read AGENTS.md and TASKS.md.
+Updated 20 October 2026 (America/Anchorage). Read AGENTS.md and TASKS.md.
 
 Next-conversation prompt and impact order: [continuation](docs/next-conversation-prompt.md).
 Start with reliable margin-preserving trade workflows/target provenance, then measured cold/event
@@ -8,15 +8,27 @@ latency, complete production replay/returns, gated learning and remaining produc
 
 ## Current source and installed runtime
 
-Newest source: verified-cash/workflow recovery under owner-approved CURRENT_ACCOUNT_V3; quiet-price
-uncertainty cannot freeze unrelated cash-funded entries. Exits precede buy continuations; multiple
-durable continuations survive restart and elapsed time; expired queued/displayed/input advice is
-withdrawn and recomputed. Cash, exact purchase cost and last-quoted stock estimates are separate.
-Read [contract](docs/architecture/verified-cash-workflow-recovery.md) and
-[receipt](docs/history/verified-cash-workflow-recovery-2026-10-19.md). Actual merge/installed flags,
-exact artifact/backup/source-prefix/anchor and fresh acceptance evidence are maintained together in
-local-data/stock-valuation-recovery-20261019/delivery-state.json: read it first, do not infer runtime
-activation from source. The #119 checkpoint below is the earlier verified installation.
+Newest source: durable maintenance delivery. Continuation writes require forced atomic replacement;
+dirty progress/removals retry across unchanged observations and account switches. Uncommitted
+cancellation advice is withdrawn; ordinary failure is episode-scoped so unrelated guidance continues.
+Declined foreground sells cannot remain actionable behind the real editor queue. Read
+[contract](docs/architecture/durable-maintenance-delivery.md) and
+[receipt](docs/history/durable-maintenance-delivery-2026-10-20.md). Actual source/CI/install/backup/
+financial preservation/live flags are consolidated in local-data/durable-maintenance-20261020/delivery-state.json;
+read it first. Source is not automatically installed; controlled full-loop and sustained timing stay open.
+
+Earlier #121/8230bae is merged/installed at 19 October 23:52 AKDT: owner-approved CURRENT_ACCOUNT_V3
+allows unrelated verified-cash entries through valuation-only uncertainty, retaining affected-item
+pauses and all physical/source/loss/funding guards. Multiple durable continuations no longer expire
+by advice clock; refused continuations cannot hide other exits/entries; cash/cost/quoted estimates
+are separate. Windows clean 112s: 1,805 Java passed/six skips, 108 tooling passed; both exact-head CI
+passed. VERIFIED backup, hashes/task, 81,220-source/1,526-effect prefix and original anchor pass,
+zero update-created effects. Fresh login has eight-slot proof, empty outbox, READY/final PLACE_BUY,
+all five original holding target/stop/duration plans and exact quantities/costs preserved. Owner placed
+three buys; latest WAIT had all eight slots occupied. Cold 8.1s and warm 1–3s guidance are observations,
+not sustained acceptance. [Contract](docs/architecture/verified-cash-workflow-recovery.md) /
+[receipt](docs/history/verified-cash-workflow-recovery-2026-10-19.md); private evidence remains in
+local-data/stock-valuation-recovery-20261019/delivery-state.json. Learning remains HOLD.
 
 Ordered-observation/retry batch #119/65a45dd is MERGED after both exact-head checks for 2fc548d
 and INSTALLED at 2026-10-20T03:40:04Z (19 October, 19:40 AKDT). Two lost retry wakeups are fixed;

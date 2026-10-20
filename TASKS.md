@@ -1,6 +1,6 @@
 # Tasks
 
-Updated 19 October 2026. Read [HANDOFF.md](HANDOFF.md) for current source/runtime evidence.
+Updated 20 October 2026. Read [HANDOFF.md](HANDOFF.md) for current source/runtime evidence.
 All unchecked release requirements remain visible below; detailed completion receipts are in history.
 
 ## Active
@@ -8,6 +8,15 @@ All unchecked release requirements remain visible below; detailed completion rec
 Continuation impact order: trade-loop reliability/exit-context provenance, actual cold/event-to-advice
 latency, production-policy account replay/returns, validated learning, then remaining product gaps.
 Read [the continuation prompt](docs/next-conversation-prompt.md); current delivery facts below govern.
+
+- [ ] Deliver/accept durable maintenance delivery: forced atomic commits before cancellation
+      promises; retry dirty collection/removal evidence across observations/profile switches; no
+      cached overwrite of changed files or use of uncommitted replacement hints. Withdraw declined
+      foreground sells before applying successors; preserve unrelated personal quotes/new episodes.
+      Episode-local ordinary backoff keeps unrelated exits/entries available. Contract/receipt:
+      docs/architecture/durable-maintenance-delivery.md and docs/history/durable-maintenance-delivery-2026-10-20.md;
+      actual source/CI/install/live flags: local-data/durable-maintenance-20261020/delivery-state.json.
+      Controlled full-loop, sustained timing, return/learning and remaining parity gates stay open.
 
 - [ ] Deliver/accept the verified-cash and workflow-recovery batch. Owner-approved V3 separates
       valuation-only uncertainty from missing physical stock; preserve confirmed losses, source/

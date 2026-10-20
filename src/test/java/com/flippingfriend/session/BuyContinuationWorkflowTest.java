@@ -69,6 +69,25 @@ public class BuyContinuationWorkflowTest {
         var otherAccount=new BuyRepriceIntent(TestStorage.rootedAt(f.storage.root(),"another"));
         assertNull(otherAccount.collectedRequest(f.tracker,com.flippingfriend.core.AccountIdentity.fromProfileKey("another"),now));
     }
+    @Test public void cancellationGuidanceRequiresItsDurableCommitAndCanRetryWithoutAnotherProposal()throws Exception {
+        var f=new Fixture();var advice=f.engine.refresh(false);assertEquals(SuggestionType.MODIFY_BUY,advice.getType());
+        var blocked=f.storage.accountDir().resolve("buy-reprice-intent.json.tmp");java.nio.file.Files.createDirectory(blocked);
+        assertFalse(f.engine.recordPresentedMaintenance(advice,f.storage.accountId(),now));
+        assertNull(f.positions.get(561));assertEquals("BUYING",f.tracker.getOffer(0).getState());
+        java.nio.file.Files.delete(blocked);
+        assertTrue(f.engine.recordPresentedMaintenance(advice,f.storage.accountId(),now));
+        f.cancelCollect();f.restart();assertEquals(94,f.intent.collectedRequest(f.tracker,f.storage.accountId(),now).quantity);
+        assertEquals(6,f.positions.get(561).getQuantity());assertEquals(6000,f.positions.get(561).getTotalCost());
+    }
+    @Test public void anUnsavableOrdinaryModificationDoesNotStarveFreshUnrelatedEntries()throws Exception {
+        var f=new Fixture();var advice=f.engine.refresh(false);assertEquals(SuggestionType.MODIFY_BUY,advice.getType());
+        var blocked=f.storage.accountDir().resolve("buy-reprice-intent.json.tmp");java.nio.file.Files.createDirectory(blocked);
+        assertFalse(f.engine.recordPresentedMaintenance(advice,f.storage.accountId(),now));
+        assertTrue(f.engine.deferUnsavedMaintenance(advice,now));
+        assertNull("Null hands the next unrelated entry to the authoritative companion",f.engine.refresh(false));
+        assertTrue(f.intent.isPending(561,f.tracker,f.storage.accountId(),now));
+        java.nio.file.Files.delete(blocked);assertTrue(f.engine.recordPresentedMaintenance(advice,f.storage.accountId(),now));
+    }
     @Test public void fullCompletionAndSellOnlyDoNotLeaveAnOldBuyPromiseForTheNextLogin()throws Exception {
         var f=new Fixture();f.present();f.progress(GrandExchangeOfferState.BOUGHT,100);f.progress(GrandExchangeOfferState.EMPTY,0);f.restart();
         assertEquals(0,f.intent.pendingItemId(f.tracker,f.storage.accountId(),now));

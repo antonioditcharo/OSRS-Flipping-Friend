@@ -106,6 +106,16 @@ public class SuggestionEngine
 
 	private final AtomicReference<Suggestion> current = new AtomicReference<>(Suggestion.idle());
 	private volatile Suggestion pendingAdjustment = null;
+    private final java.util.concurrent.ConcurrentMap<String,Long> maintenanceRetryAfter=new java.util.concurrent.ConcurrentHashMap<>();
+    /** Back off one unsavable ordinary workflow so other exits/entries can still run. */
+    public boolean deferUnsavedMaintenance(Suggestion declined,long now) {
+        if(declined==null || declined.isLossCut() || sellOnly)return false;
+        var offer=offers.getOffer(declined.getSlot());
+        if(offer==null || offer.getItemId()!=declined.getItemId())return false;
+        maintenanceRetryAfter.put(offer.getContinuationIdentity(),now+30);
+        if(pendingAdjustment!=null && pendingAdjustment.isSameTradeAs(declined))setPendingAdjustment(null);
+        return true;
+    }
 	/**
 	 * A buy this engine told the player to cancel so it could be re-placed higher, or null.
 	 * <p>
@@ -173,28 +183,28 @@ public class SuggestionEngine
     public boolean isContinuationWait(Suggestion suggestion) { return suggestion!=null && suggestion==continuationWait; }
     public void setObservedAccount(String account) {
         if(!java.util.Objects.equals(observedAccount,account)) {
-            advisedPrices.clear();reprice=null;setPendingAdjustment(null);
+            advisedPrices.clear();reprice=null;setPendingAdjustment(null);maintenanceRetryAfter.clear();
         }
         observedAccount=account;
     }
     /** Client-thread acceptance only: a worker proposal is not a promise shown to the player. */
-    public void recordPresentedMaintenance(Suggestion accepted,String expectedAccount,long now) {
-        if(accepted==null || expectedAccount==null || !expectedAccount.equals(observedAccount))return;
+    public boolean recordPresentedMaintenance(Suggestion accepted,String expectedAccount,long now) {
+        if(accepted==null || expectedAccount==null || !expectedAccount.equals(observedAccount))return false;
         if(accepted.getType()==SuggestionType.CANCEL) {
             var cancelled=offers.getOffer(accepted.getSlot());
             if(cancelled!=null && cancelled.isBuying() && cancelled.getItemId()==accepted.getItemId())
-                clearBuyPromise(accepted.getItemId(),Instant.ofEpochSecond(now));
-            return;
+                return clearBuyPromise(accepted.getItemId(),Instant.ofEpochSecond(now));
+            return false;
         }
         boolean buy=accepted.getType()==SuggestionType.MODIFY_BUY;
-        if(!buy && accepted.getType()!=SuggestionType.MODIFY_SELL)return;
+        if(!buy && accepted.getType()!=SuggestionType.MODIFY_SELL)return true;
         var offer=offers.getOffer(accepted.getSlot());
         if(offer==null || offer.isBuying()!=buy || offer.getItemId()!=accepted.getItemId()
             || offer.getRemaining()!=accepted.getQuantity() || accepted.getMaintenanceOfferIdentity()==null
             || !accepted.getMaintenanceOfferIdentity().equals(offer.getContinuationIdentity())
-            || !(buy?"BUYING":"SELLING").equals(offer.getState()))return;
-        if(buy && buyReprice!=null)buyReprice.advise(offer,expectedAccount,offers,now);
-        if(!buy && sellRelist!=null)sellRelist.advise(offer,expectedAccount,accepted.isProfitKnown(),offers);
+            || !(buy?"BUYING":"SELLING").equals(offer.getState()))return false;
+        return buy ? buyReprice!=null && buyReprice.advise(offer,expectedAccount,offers,now)
+            : sellRelist!=null && sellRelist.advise(offer,expectedAccount,accepted.isProfitKnown(),offers);
     }
 
     public boolean hasTradeEvidence() {
@@ -377,6 +387,7 @@ public class SuggestionEngine
 		AccountState account = accountMonitor.getState();
 		MarketSnapshot market = marketData.getSnapshot();
 		Instant now = Instant.now();
+        maintenanceRetryAfter.entrySet().removeIf(e->e.getValue()<=now.getEpochSecond());
 
 		// The reprice the player is partway through carrying out, held still so it does not change
 		// under them. Checked after the account is read rather than before, because a card pinned
@@ -620,6 +631,7 @@ public class SuggestionEngine
 	{
 		for (TrackedOffer offer : mostStrandedFirst(offers.getOffers(), market))
 		{
+            if(maintenanceRetryAfter.getOrDefault(offer.getContinuationIdentity(),0L)>now.getEpochSecond())continue;
 			String state = offer.getState();
 			boolean open = "BUYING".equals(state) || "SELLING".equals(state);
 			if (!open || offer.getQuantityFilled() >= offer.getTotalQuantity())
@@ -933,10 +945,10 @@ public class SuggestionEngine
         return sellOnly || skippedItems().contains(item)
             || parseBlocked(config.blockedItems()).contains(market.getItemName(item).toLowerCase(java.util.Locale.ROOT));
     }
-    private void clearBuyPromise(int item,Instant now) {
-        if(buyReprice!=null && buyReprice.isPending(item,offers,observedAccount,now.getEpochSecond()))
-            buyReprice.clearItem(observedAccount,item);
+    private boolean clearBuyPromise(int item,Instant now) {
+        boolean saved=buyReprice==null || buyReprice.clearItem(observedAccount,item);
         if(reprice!=null && reprice.itemId==item)reprice=null;
+        return saved;
     }
     private Suggestion replaceDurableBuy(MarketSnapshot market,AccountState account,Instant now) {
         if(account.getFreeSlots()<=0)return null;

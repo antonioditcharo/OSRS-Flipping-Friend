@@ -18,8 +18,8 @@ public final class SellRelistIntent extends OfferContinuationStore {
     public synchronized void advise(TrackedOffer offer){advise(offer,account());}
     public synchronized void advise(TrackedOffer offer,String expected){advise(offer,expected,false);}
     public synchronized void advise(TrackedOffer offer,String expected,boolean managed){advise(offer,expected,managed,null);}
-    public synchronized void advise(TrackedOffer offer,String expected,boolean managed,OfferTracker tracker) {
-        adviseOffer(offer,expected,managed,tracker,java.time.Instant.now().getEpochSecond(),0);
+    public synchronized boolean advise(TrackedOffer offer,String expected,boolean managed,OfferTracker tracker) {
+        return adviseOffer(offer,expected,managed,tracker,java.time.Instant.now().getEpochSecond(),0);
     }
     public synchronized void observe(OfferTracker tracker,String expected){advance(tracker,expected,java.time.Instant.now().getEpochSecond());}
     public synchronized boolean requiresManagedCost(String expected){return managed(expected);}

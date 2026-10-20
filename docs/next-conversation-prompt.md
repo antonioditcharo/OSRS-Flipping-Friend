@@ -33,7 +33,14 @@ rebuilding already implemented capabilities:
 
 ## Delivery state at this handoff
 
-First read local-data/stock-valuation-recovery-20261019/delivery-state.json for the newest batch's
+Read local-data/durable-maintenance-20261020/delivery-state.json first for the newest batch's actual
+source/CI/install and live status. It adds durable cancellation commitments, dirty progress/removal
+retries across profile changes, scoped ordinary backoff, changed-file preservation and immediate
+withdrawal of declined editor instructions. Contract: docs/architecture/durable-maintenance-delivery.md.
+Do not reinstall an earlier checkpoint merely because the historical text below names it. Preserve
+all unchecked release gates; finish controlled workflows/latency before strategy or learning claims.
+
+Earlier installed #121: First read local-data/stock-valuation-recovery-20261019/delivery-state.json for the newest batch's
 actual merge/installed state and consolidated live checks. Owner-approved CURRENT_ACCOUNT_V3 lets
 fresh verified cash support unrelated entries while valuation-only stock uncertainty remains
 reported and affected items stay paused. Unseen units, confirmed losses and every source/funding/

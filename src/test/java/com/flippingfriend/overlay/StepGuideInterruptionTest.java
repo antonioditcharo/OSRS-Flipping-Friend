@@ -80,6 +80,30 @@ public class StepGuideInterruptionTest
         org.junit.Assert.assertSame(refusal,guide.getSuggestion());assertNull(guide.getPending());
         guide.onSetupClosed();org.junit.Assert.assertSame(refusal,guide.getSuggestion());
     }
+    @Test public void aWithdrawalAlsoRemovesTheInProgressSalePersonalQuoteAndQueuedAction() {
+        var sale=Suggestion.builder(SuggestionType.MODIFY_SELL).item(561,"Nature rune").quantity(10).price(150).slot(0).build();
+        guide.setSuggestion(sale);beginEntry();guide.setSuggestion(collect("Other item"));assertNotNull(guide.getPending());
+        guide.setEditorQuote(Suggestion.builder(SuggestionType.SELL).item(562,"Personal item").quantity(1).price(200).build());
+        long generation=guide.getAdviceGeneration();var reason=Suggestion.waiting("Workflow not saved","Keep the working offer.");
+        guide.withdrawAdvice(reason);
+        org.junit.Assert.assertSame(reason,guide.getSuggestion());assertNull(guide.getPending());assertTrue(guide.getAdviceGeneration()>generation);
+        guide.onSetupClosed();org.junit.Assert.assertSame(reason,guide.getSuggestion());
+    }
+    @Test public void aDeclinedTradeWithdrawsItsHiddenInstructionButPreservesAnUnrelatedPersonalQuote() {
+        var sale=Suggestion.builder(SuggestionType.MODIFY_SELL).item(561,"Managed").quantity(10).price(150).slot(0).maintenanceSource("old").build();
+        var personal=Suggestion.builder(SuggestionType.SELL).item(562,"Personal").quantity(1).price(200).profitKnown(false).build();
+        guide.setSuggestion(sale);beginEntry();guide.setEditorQuote(personal);
+        var reason=Suggestion.waiting("Declined","Keep the offer.");guide.withdrawTrade(sale,reason);
+        org.junit.Assert.assertSame(personal,guide.getSuggestion());guide.setEditorQuote(null);
+        org.junit.Assert.assertSame(reason,guide.getSuggestion());
+    }
+    @Test public void aDeclinedOldEpisodeDoesNotWithdrawANewSameItemSale() {
+        var old=Suggestion.builder(SuggestionType.MODIFY_SELL).item(561,"Managed").quantity(10).price(150).slot(0).maintenanceSource("old").build();
+        var current=Suggestion.builder(SuggestionType.MODIFY_SELL).item(561,"Managed").quantity(10).price(150).slot(0).maintenanceSource("new").build();
+        guide.setSuggestion(current);beginEntry();long generation=guide.getAdviceGeneration();
+        guide.withdrawTrade(old,Suggestion.waiting("Declined","Earlier episode."));
+        org.junit.Assert.assertSame(current,guide.getSuggestion());assertEquals(generation,guide.getAdviceGeneration());
+    }
 
 	@Test
 	public void adviceArrivingOffTheClientThreadIsStillApplied()
