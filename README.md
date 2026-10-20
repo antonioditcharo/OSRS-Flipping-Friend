@@ -17,8 +17,8 @@ batched player checks. The agent manages routine updates and reads diagnostics d
 The merged PR #43 replaces the stacked sidebar with a Flipping Copilot-style action
 panel: current trade, graph/pause/block/skip, 5m/30m/2h/8h cadence, risk and durable recorded profit.
 Gear opens preferences; More opens holdings, history, plan, full recommendation and Missed flips.
-It includes automatic ownership, walkthrough and search/input changes. The **RuneLite 1.13.2**
-installed pair and queued updates are identified in [HANDOFF.md](HANDOFF.md). Startup/UI
+It includes automatic ownership, walkthrough and search/input changes. The supported API is **RuneLite 1.13.3**;
+the installed pair and queued updates are identified in [HANDOFF.md](HANDOFF.md). Startup/UI
 and controlled trading acceptance remain pending. Reconciliation guards remain active. See
 [compatibility and update preflight](docs/architecture/runelite-compatibility.md),
 [workflow and acceptance](docs/architecture/compact-panel.md),
@@ -113,7 +113,7 @@ owned items from inventory, equipment, bank, or collection observations.
 
 Use an installed JDK compatible with Gradle 8.14. Compilation targets Java 11 bytecode; CI uses JDK 21.
 The RuneLite compile/test dependency is pinned in `build.gradle` and must be checked against the
-client actually used for live verification. The current tested pin is 1.13.2. Setup/Update checks
+client actually used for live verification. The current tested pin is 1.13.3. Setup/Update checks
 official release metadata before stopping the companion or replacing files; a release mismatch
 requires a tested source update. [Release readiness](docs/release-readiness.md) tracks publication
 gates separately from local build success.

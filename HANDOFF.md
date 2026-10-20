@@ -8,6 +8,12 @@ latency, complete production replay/returns, gated learning and remaining produc
 
 ## Current source and installed runtime
 
+The official game update moved RuneLite to 1.13.3 during #123 delivery. The updater rejected the
+1.13.2 pair unchanged; a tested compile/test/manifest and launcher-fixture compatibility update
+includes #123. Read local-data/runelite-1133-20261020/delivery-state.json for actual source/CI/
+install/native status, then the workflow receipt below. [Compatibility contract](docs/architecture/runelite-compatibility.md).
+Login and controlled game actions remain manual. Financial history and the original anchor persist.
+
 Newest source: cancellation identity and bounded guidance lifetime. Saved account/episode commitments
 exempt guided buy cancellations even after a changed card or restart; same-item/uncommitted cards
 cannot excuse unrelated cancellations. Local foreground/pending/editor advice and queued numeric

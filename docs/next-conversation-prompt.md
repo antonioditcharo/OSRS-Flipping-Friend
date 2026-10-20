@@ -33,6 +33,11 @@ rebuilding already implemented capabilities:
 
 ## Delivery state at this handoff
 
+First read local-data/runelite-1133-20261020/delivery-state.json: the official release changed
+to 1.13.3 during #123 delivery. The old-API candidate was safely refused; the tested compatibility
+follow-up includes all #123 workflow changes. Actual CI/install/native/login state is in that receipt.
+The compatibility contract is docs/architecture/runelite-compatibility.md. Preserve all gates below.
+
 Read local-data/episode-guidance-20261020/delivery-state.json first for the latest source/CI/install
 and live state. It binds guided buy cancellations to saved account/episode commitments instead of
 the changing visible card, bounds local/pending/editor/queued-input advice without expiring saved
