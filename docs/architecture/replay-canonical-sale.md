@@ -3,6 +3,8 @@
 The later [v7 continuation contract](trade-continuations.md) adds shared persisted buy/sell intents,
 bounded replacement planning and non-overlapping flow evidence. HANDOFF records actual delivery.
 This document retains the v6 checkpoint; complete production-policy and benchmark gates stay open.
+The later [v8 checkpoint](replay-exit-attendance.md) fixes exit/maintenance priority and evidence
+arrival during active visits without changing the installed pair or completing those gates.
 
 19 October 2026. `account-replay-6` is an offline evaluator increment. Installed player behavior
 remains the #108 pair described in HANDOFF; running this evaluator needs no client restart.

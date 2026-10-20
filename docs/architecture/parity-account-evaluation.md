@@ -45,7 +45,10 @@ exits, explicit aggregate clocks and patient pricing. [Version 6](replay-canonic
 original context and final companion sale authority with delayed/revalidated displayed actions.
 [Version 7](trade-continuations.md) persists the shared exact-episode buy/sell continuation state,
 uses shared outbid proposals and bounded replacement planning, and rejects overlapping volume
-windows. Old bundles require their retained evaluator; missing clocks cannot qualify marks.
+windows. [Version 8](replay-exit-attendance.md) puts ready exits before maintenance, ranks stops/
+winners and mixed maintenance, reserves the last exit slot, stops a losing partial accumulation
+and reacts to new evidence during an attended visit. Old bundles require their retained evaluator;
+missing clocks cannot qualify marks.
 **Production-policy coverage is not complete:** real client-thread/editor/transport acceptance,
 remaining action-order/attendance policy and qualified market benchmarks remain open. The logical
 display/action model does not close those gates or authorize a production-policy promotion.

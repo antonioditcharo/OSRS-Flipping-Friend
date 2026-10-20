@@ -8,6 +8,16 @@ latency, complete production replay/returns, gated learning and remaining produc
 
 ## Current source and installed runtime
 
+Offline replay v8 adds exit-before-maintenance ordering, stop/winner and mixed-offer priority,
+last-slot exit protection, partial-buy stops and evidence-driven displays within attended visits.
+Five regressions reproduce old failures; Windows clean 129s: 1,768 Java passed/six existing skips,
+Java 11; 108 tooling passed; packaged twelve-scenario bundle reproduces. The contract and verification/delivery
+receipt are [here](docs/architecture/replay-exit-attendance.md) and
+[here](docs/history/replay-exit-attendance-2026-10-19.md). This is evaluator source, not a new
+installed player pair or a benchmark/learning promotion. Runtime remains #116 below. The owner is
+home and manually logged in; fresh eight-slot/account proof and BUY/SELL delivery are observed.
+Full controlled trade-loop, price-quality and sustained timing acceptance remain open.
+
 Trade-continuation batch #116/7e1385b is MERGED after both exact-head checks for 505a912 and
 INSTALLED at 2026-10-19T21:48:48Z: durable exact buy remainders/restart, shared buy/sell
 continuation evidence, fresh quantity-bounded replacement plans/forecasts, accepted foreground
@@ -47,8 +57,8 @@ sustained latency stay open; historical #108 freshness does not establish curren
 Included offline replay v6 qualifies original acquisition context through canonical sources/restart,
 uses final companion sale authority and separates displayed advice from a later revalidated manual
 action. Completed orders and incremental disposal counts differ. This evaluator-only increment
-needs no separate live-pair replacement; it is included in installed #111. The queued v7 batch adds
-shared replacement/persisted-relist coverage; real client acceptance and qualified benchmark gates
+needs no separate live-pair replacement; it is included in installed #111. V7 adds shared
+replacement/persisted-relist coverage; v8's offline changes are above. Real client acceptance and qualified benchmark gates
 stay open. See
 [replay contract](docs/architecture/replay-canonical-sale.md) and
 [verification](docs/history/replay-canonical-sale-2026-10-19.md).
