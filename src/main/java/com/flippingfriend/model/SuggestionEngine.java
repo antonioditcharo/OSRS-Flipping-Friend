@@ -105,7 +105,6 @@ public class SuggestionEngine
 	private final com.flippingfriend.model.arbitrage.ArbitrageRegistry arbitrageRegistry;
 
 	private final AtomicReference<Suggestion> current = new AtomicReference<>(Suggestion.idle());
-	private volatile Suggestion pendingAdjustment = null;
     private final java.util.concurrent.ConcurrentMap<String,Long> maintenanceRetryAfter=new java.util.concurrent.ConcurrentHashMap<>();
     /** Back off one unsavable ordinary workflow so other exits/entries can still run. */
     public boolean deferUnsavedMaintenance(Suggestion declined,long now) {
@@ -113,7 +112,6 @@ public class SuggestionEngine
         var offer=offers.getOffer(declined.getSlot());
         if(offer==null || offer.getItemId()!=declined.getItemId())return false;
         maintenanceRetryAfter.put(offer.getContinuationIdentity(),now+30);
-        if(pendingAdjustment!=null && pendingAdjustment.isSameTradeAs(declined))setPendingAdjustment(null);
         return true;
     }
 	/**
@@ -140,26 +138,6 @@ public class SuggestionEngine
 	 */
 	private static final long REPRICE_VALID_SECONDS = 1_800;
 	
-	/** When the held card was pinned, so a pin that is never released cannot outlive its reason. */
-	private volatile long pendingAdjustmentAt;
-
-	/**
-	 * How long a held card may stand without being re-pinned.
-	 * <p>
-	 * A backstop, not the mechanism. The caller re-pins on every refresh while the player is in the
-	 * editor, so this only expires when those refreshes stop arriving -- and a card that is returned
-	 * ahead of every other decision must not be able to freeze the engine for the rest of a session
-	 * because one client-thread call was missed. The walkthrough holds its own advice steady while an
-	 * offer is half-typed, so letting this go early costs nothing.
-	 */
-	private static final long PENDING_ADJUSTMENT_SECONDS = 300;
-
-	public void setPendingAdjustment(Suggestion pending)
-	{
-		this.pendingAdjustment = pending;
-		this.pendingAdjustmentAt = pending == null ? 0 : Instant.now().getEpochSecond();
-	}
-
 	/** Everything looked at on the last pass, accepted and rejected, for the shadow trader. */
 	/**
 	 * What the sell engine concluded about each holding on the last pass, published for the panel.
@@ -183,7 +161,7 @@ public class SuggestionEngine
     public boolean isContinuationWait(Suggestion suggestion) { return suggestion!=null && suggestion==continuationWait; }
     public void setObservedAccount(String account) {
         if(!java.util.Objects.equals(observedAccount,account)) {
-            advisedPrices.clear();reprice=null;setPendingAdjustment(null);maintenanceRetryAfter.clear();
+            advisedPrices.clear();reprice=null;maintenanceRetryAfter.clear();
         }
         observedAccount=account;
     }
@@ -395,24 +373,6 @@ public class SuggestionEngine
 		Instant now = Instant.now();
         maintenanceRetryAfter.entrySet().removeIf(e->e.getValue()<=now.getEpochSecond());
 
-		// The reprice the player is partway through carrying out, held still so it does not change
-		// under them. Checked after the account is read rather than before, because a card pinned
-		// while logged in used to survive logging out: the engine returned it ahead of the
-		// logged-in check and went on telling a logged-out player to adjust an offer.
-		Suggestion pending = pendingAdjustment;
-		if (pending != null)
-		{
-			if (now.getEpochSecond() - pendingAdjustmentAt > PENDING_ADJUSTMENT_SECONDS
-				|| !account.isLoggedIn())
-			{
-				setPendingAdjustment(null);
-			}
-			else
-			{
-				return pending;
-			}
-		}
-
 		if (!account.isLoggedIn())
 		{
 			return Suggestion.waiting("Log in to start",
@@ -424,6 +384,16 @@ public class SuggestionEngine
 			return Suggestion.waiting("Ironman accounts cannot flip",
 				"Ironman accounts can only buy bonds on the Grand Exchange, so there is nothing "
 					+ "for this plugin to suggest.");
+		}
+
+		// Collection and an explicit wind-down need current offers, not a market price.
+		// StepGuide alone protects mid-entry presentation; every engine pass revalidates live work.
+		Suggestion collect = collectSuggestion(market);
+		if (collect != null) return collect;
+		if (sellOnly)
+		{
+			Suggestion abandon = abandonBuySuggestion(market);
+			if (abandon != null) return abandon;
 		}
 
 		if (!market.isUsable())
@@ -440,23 +410,6 @@ public class SuggestionEngine
 
 		TradingHorizon horizon = TradingHorizon.of(config.riskProfile(), config.checkInterval(),
 			config.targetHoldMinutes());
-
-		Suggestion collect = collectSuggestion(market);
-		if (collect != null)
-		{
-			return collect;
-		}
-
-		// Above repricing, because there is no point tuning the price of an offer that is about to be
-		// abandoned. Largest reservation first, so the coins come back in the order that frees the most.
-		if (sellOnly)
-		{
-			Suggestion abandon = abandonBuySuggestion(market);
-			if (abandon != null)
-			{
-				return abandon;
-			}
-		}
 
 		// Finishing what the player has already started comes before starting anything new.
 		//

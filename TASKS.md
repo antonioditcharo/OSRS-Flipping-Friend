@@ -9,6 +9,15 @@ Continuation impact order: trade-loop reliability/exit-context provenance, actua
 latency, production-policy account replay/returns, validated learning, then remaining product gaps.
 Read [the continuation prompt](docs/next-conversation-prompt.md); current delivery facts below govern.
 
+- [ ] Accept live-guidance revalidation with a maintenance editor open: every engine pass checks
+      current work; same-item stops withdraw buys, unrelated typing stays bounded, and fallback
+      collection/explicit wind-down do not require market prices. Nine added tests include five
+      old-behavior failures; contract/receipt: docs/architecture/live-guidance-revalidation.md and
+      docs/history/live-revalidation-delivery-2026-10-20.md. Actual source/CI/install/live state:
+      local-data/live-revalidation-20261020/delivery-state.json. Manual tests deferred until owner
+      returns after 20 October 17:30 local. Controlled trade-loop, sustained timing, complete replay,
+      qualified returns/learning and remaining parity requirements below remain open.
+
 - [ ] Deliver/accept fresh stops through saved buy/sell continuations. Preserve healthy partial
       accumulation promises; fresh stops cancel a working buy or sell its verified collected units.
       Commit old-rebuy supersession before accepting a stop sale; failed saves withdraw it. Listed

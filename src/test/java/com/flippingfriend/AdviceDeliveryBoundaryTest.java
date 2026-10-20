@@ -99,6 +99,23 @@ public class AdviceDeliveryBoundaryTest {
         assertSame("The declined sell must be withdrawn before a successor can be deferred behind it",f.advice,guide.getSuggestion());
         assertNull(guide.getPending());verify(f.companion,never()).recordPresentedAdvice(eq(rejected),anyString(),anyInt());
     }
+    @Test public void aSameItemStopReplacesTheRealMidEntryBuyAndCommitsBeforeItsAdviceEvidence()throws Exception {
+        Fixture f=new Fixture();when(f.guide.isPaused()).thenReturn(false);
+        var client=(Client)getField(f.plugin,"client");when(client.isClientThread()).thenReturn(true);
+        var resolver=mock(GeWidgetResolver.class);when(resolver.isSetupOpen()).thenReturn(true);
+        var quantity=mock(net.runelite.api.widgets.Widget.class);when(resolver.getQuantityControl()).thenReturn(quantity);
+        var guide=new StepGuide(client,resolver);guide.setSuggestion(f.advice);
+        var click=mock(net.runelite.api.events.MenuOptionClicked.class);when(click.getWidget()).thenReturn(quantity);guide.onMenuOptionClicked(click);
+        f.set("stepGuide",guide);f.set("notifier",mock(net.runelite.client.Notifier.class));
+        var stop=Suggestion.builder(SuggestionType.SELL).item(562,"Fixture").quantity(4).price(80).lossCut(true).build();
+        when(f.companion.nextAction()).thenReturn(stop);
+        var engine=(SuggestionEngine)getField(f.plugin,"engine");when(engine.recordPresentedMaintenance(eq(stop),anyString(),anyLong())).thenReturn(true);
+        f.queueAdvice();f.clientQueue.remove().run();assertSame(stop,guide.getSuggestion());assertNull(guide.getPending());
+        var order=inOrder(engine,f.companion);
+        order.verify(engine).recordPresentedMaintenance(eq(stop),anyString(),anyLong());
+        order.verify(f.companion).recordPresentedAdvice(eq(stop),anyString(),anyInt());
+        verify(f.companion,never()).recordPresentedAdvice(eq(f.advice),anyString(),anyInt());
+    }
     @Test public void startupAccountSnapshotCannotPublishBeforeFirstLoggedInServerTick()throws Exception {
         Fixture f=new Fixture(false);
         Method refresh=FlippingFriendPlugin.class.getDeclaredMethod("requestEngineRefresh");refresh.setAccessible(true);
