@@ -4,9 +4,15 @@ Continue in `C:\Users\Antonio\OSRS Flipping Friend Rebuild`.
 Implement, verify and deliver reliable trade/inventory workflow batches; do not stop at a roadmap.
 Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
-Read `local-data/sale-maintenance-diagnostics-20261021/delivery-state.json` FIRST, then current
+Read `local-data/ordinary-sale-queue-20261021/delivery-state.json` FIRST, then current
 AGENTS.md, HANDOFF.md and TASKS.md. The receipt distinguishes source/tests/CI/merge/install/player
 acceptance. Older PR checkpoints and availability notes are historical, not installation proof.
+
+The newest workflow slice queues all later eligible ordinary sale reductions after a first final
+authority refusal. Only the presented authorized episode commits its durable continuation; exact
+costs/remaining caps and original buy/stop priority remain. Read the
+[contract](architecture/ordinary-sale-maintenance-queue.md). Installed #135 diagnostics and post-login
+eight-slot/outbox proof remain in `local-data/sale-maintenance-diagnostics-20261021/delivery-state.json`.
 
 The newest small batch explains active managed-sale waits in Records → Recommendation through the
 existing shared evaluator. Pricing and authority remain unchanged; original actual sell estimates
