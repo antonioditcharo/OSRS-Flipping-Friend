@@ -203,6 +203,44 @@ public class BuyContinuationWorkflowTest {
         assertTrue(f.engine.recordPresentedMaintenance(next,f.storage.accountId(),now));
         assertFalse("The accepted stop must not resurrect an old rebuy after restart",new BuyRepriceIntent(f.storage).isPending(561,f.tracker,f.storage.accountId(),now));
     }
+    @Test public void refusedReplacementExitsOnlyTheAcquiredPartialAndRetiresPromiseOnlyOnAcceptance()throws Exception {
+        var f=new Fixture();f.present();f.cancelCollect();f.restart();stoppedStock(f,6,true,now);f.quote(now,now);
+        var candidate=f.engine.refresh(false);assertEquals(SuggestionType.BUY,candidate.getType());assertEquals(94,candidate.getQuantity());
+        var exit=f.engine.exitAfterReplacementRefusal(Set.of(561));assertNotNull(exit);assertEquals(SuggestionType.SELL,exit.getType());
+        assertFalse(exit.isLossCut());assertEquals(6,exit.getQuantity());assertTrue(exit.isProfitKnown());
+        assertEquals(94,new BuyRepriceIntent(f.storage).collectedRequest(f.tracker,f.storage.accountId(),now).quantity);
+        assertNull(f.engine.exitAfterReplacementRefusal(Set.of(562)));
+        assertTrue(f.engine.recordPresentedMaintenance(exit,f.storage.accountId(),now));
+        assertFalse(new BuyRepriceIntent(f.storage).isPending(561,f.tracker,f.storage.accountId(),now));
+        assertEquals(6000,f.positions.get(561).getTotalCost());assertEquals(6,f.positions.get(561).getQuantity());
+    }
+    @Test public void laterObservedPartialSaleClosesOldRebuyWithoutChangingAcquisitionOrAdoptingOtherUnits()throws Exception {
+        for(boolean later:new boolean[]{false,true}) {
+            var f=new Fixture();f.present();f.cancelCollect();
+            var sale=new TrackedOffer(1,561,false,1500,6,now+(later?1:-3601));sale.startEpisodeIdentity();sale.setState("SELLING");
+            var type=new com.google.gson.reflect.TypeToken<List<TrackedOffer>>(){}.getType();
+            f.storage.writeJson(f.storage.accountDir().resolve("offers.json"),List.of(sale),type);
+            var restored=new OfferTracker(f.storage,f.positions,f.limits,mock(TradeJournal.class),new TaxCalculator(),new TradePlans(f.storage));restored.load();
+            assertEquals(!later,f.intent.isPending(561,restored,f.storage.accountId(),now+2));
+            assertEquals(!later,new BuyRepriceIntent(f.storage).isPending(561,restored,f.storage.accountId(),now+2));
+            assertEquals(6,f.positions.get(561).getQuantity());assertEquals(6000,f.positions.get(561).getTotalCost());
+        }
+    }
+    @Test public void locallyUnaffordableRemainderCannotStrandTheAcquiredPartialBehindTheLastSlotReserve()throws Exception {
+        var f=new Fixture();f.present();f.cancelCollect();f.restart();stoppedStock(f,6,true,now);f.quote(now,now);
+        when(f.account.getState()).thenReturn(new AccountState(true,true,false,0,0,0,1,8,0,false,Map.of(561,1000),Map.of(561,1000),Map.of()));
+        var exit=f.engine.refresh(false);assertNotNull(exit);assertEquals(SuggestionType.SELL,exit.getType());assertEquals(6,exit.getQuantity());
+        assertFalse(exit.isLossCut());assertEquals(94,f.intent.collectedRequest(f.tracker,f.storage.accountId(),now).quantity);
+    }
+    @Test public void failedHealthyExitSupersessionKeepsTheRemainderDurableForRetry()throws Exception {
+        var f=new Fixture();f.present();f.cancelCollect();f.restart();stoppedStock(f,6,true,now);f.quote(now,now);
+        f.engine.refresh(false);var exit=f.engine.exitAfterReplacementRefusal(Set.of(561));assertNotNull(exit);
+        var blocked=f.storage.accountDir().resolve("buy-reprice-intent.json.tmp");java.nio.file.Files.createDirectory(blocked);
+        assertFalse(f.engine.recordPresentedMaintenance(exit,f.storage.accountId(),now));
+        assertEquals(94,new BuyRepriceIntent(f.storage).collectedRequest(f.tracker,f.storage.accountId(),now).quantity);
+        java.nio.file.Files.delete(blocked);assertTrue(f.engine.recordPresentedMaintenance(exit,f.storage.accountId(),now));
+        assertFalse(new BuyRepriceIntent(f.storage).isPending(561,f.tracker,f.storage.accountId(),now));
+    }
     @Test public void staleOrFutureStopQuotesKeepTheHealthyReplacementCommitment()throws Exception {
         for(long quoteTime:new long[]{now-301,now+60}) {
             var f=new Fixture();f.present();f.cancelCollect();f.restart();stoppedStock(f,6,true,quoteTime);

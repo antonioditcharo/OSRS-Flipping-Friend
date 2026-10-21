@@ -33,6 +33,8 @@ public final class PerformanceSnapshot {
     public final List<Sale> sales;
     /** Null means no current proven valuation. Partial marks are explicitly identified by reserve. */
     public Long unrealizedProfit, portfolioValue, unpricedCost;
+    /** Prospective exits are display estimates, independent of instant-sale marks and entry risk. */
+    public Long intendedExitValue, unplannedCost, instantSaleProfit;
     /** Exact copied cash and canonical acquisition cost, independent of resale estimates. */
     public Long spendableCoins, managedAcquisitionCost;
     public List<Stock> stockValuations;
@@ -40,6 +42,7 @@ public final class PerformanceSnapshot {
         public final int itemId,quantity,observedQuantity,pricedQuantity,price;
         public final String itemName,unpricedReason;
         public final long totalCost,quotedAt,netValue,pricedProfit;
+        public List<ExitQuote> exitQuotes;
         public Stock(int item,String name,int quantity,int observed,int priced,long cost,int price,long quotedAt,long net,String reason) {
             itemId=item;itemName=name;this.quantity=quantity;observedQuantity=observed;pricedQuantity=priced;
             totalCost=cost;this.price=price;this.quotedAt=quotedAt;netValue=net;unpricedReason=reason;
@@ -52,6 +55,12 @@ public final class PerformanceSnapshot {
             return price>0 && quotedAt>0 && quotedAt<=at && netValue<=Math.multiplyExact((long)price,pricedQuantity)
                 && pricedProfit==Math.subtractExact(netValue,SaleAccounting.allocateCost(totalCost,quantity,pricedQuantity));
         }
+    }
+    public static final class ExitQuote {
+        public final int quantity,price;
+        public final long netValue;
+        public final String source;
+        public ExitQuote(int quantity,int price,long netValue,String source){this.quantity=quantity;this.price=price;this.netValue=netValue;this.source=source;}
     }
     public PerformanceSnapshot(String account,String scope,String session,long at,long start,long cursor,
         long updates,long unresolved,long completed,long cost,long low,long high,List<Sale> sales) {
@@ -78,18 +87,33 @@ public final class PerformanceSnapshot {
             && (portfolioValue==null || portfolioValue>=0 && unpricedCost>=0) && validStockValuation();
     }
     private boolean validStockValuation() {
-        if(spendableCoins==null && managedAcquisitionCost==null && stockValuations==null)return true; // Legacy display reads.
+        if(spendableCoins==null && managedAcquisitionCost==null && stockValuations==null)
+            return intendedExitValue==null && unplannedCost==null && instantSaleProfit==null; // Legacy display reads.
         if(spendableCoins==null || spendableCoins<0 || managedAcquisitionCost==null || managedAcquisitionCost<0
             || stockValuations==null || portfolioValue==null)return false;
         try {
-            long cost=0,unpriced=0,net=0,profit=0;Set<Integer> items=new HashSet<>();
+            long cost=0,unpriced=0,net=0,profit=0,exitNet=0,exitCost=0;Set<Integer> items=new HashSet<>();
             for(var stock:stockValuations) {
                 if(stock==null || !stock.isValid(observedAt) || !items.add(stock.itemId))return false;
                 cost=Math.addExact(cost,stock.totalCost);net=Math.addExact(net,stock.netValue);profit=Math.addExact(profit,stock.pricedProfit);
                 long pricedCost=stock.pricedQuantity==0?0:SaleAccounting.allocateCost(stock.totalCost,stock.quantity,stock.pricedQuantity);
                 unpriced=Math.addExact(unpriced,stock.totalCost-pricedCost);
+                if(intendedExitValue!=null) {
+                    if(stock.exitQuotes==null)return false;int quantity=0;
+                    for(var exit:stock.exitQuotes) {
+                        if(exit==null || exit.quantity<=0 || exit.price<=0 || exit.netValue<0 || exit.source==null
+                            || exit.netValue>Math.multiplyExact((long)exit.price,exit.quantity))return false;
+                        quantity=Math.addExact(quantity,exit.quantity);exitNet=Math.addExact(exitNet,exit.netValue);
+                    }
+                    if(quantity>stock.observedQuantity)return false;
+                    if(quantity>0)exitCost=Math.addExact(exitCost,SaleAccounting.allocateCost(stock.totalCost,stock.quantity,quantity));
+                }
             }
-            return managedAcquisitionCost==cost && unpricedCost==unpriced && portfolioValue==net && unrealizedProfit==profit;
+            if(managedAcquisitionCost!=cost || unpricedCost!=unpriced || portfolioValue!=net)return false;
+            if(intendedExitValue==null)return unplannedCost==null && instantSaleProfit==null && unrealizedProfit==profit;
+            return intendedExitValue>=0 && unplannedCost!=null && instantSaleProfit!=null
+                && intendedExitValue==exitNet && unplannedCost==Math.subtractExact(cost,exitCost)
+                && instantSaleProfit==profit && unrealizedProfit==Math.subtractExact(exitNet,exitCost);
         }catch(RuntimeException unsupported){return false;}
     }
 }

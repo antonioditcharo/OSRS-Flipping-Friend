@@ -84,6 +84,12 @@ public final class OfferContinuation {
             if(offer==null) continue;
             if(matches(offer)) original=offer;
             else if(offer.buying==buying && offer.item==item && !alreadyPresent(offer)) return close();
+            // After collection the player may start exiting the partial acquisition manually.
+            // A provably later sale supersedes the old rebuy; an older personal listing does not.
+            else if(buying && collectionVerified && !offer.buying && offer.item==item
+                && offer.firstSeen>createdAt && offer.firstSeen>firstSeen && offer.firstSeen<=now && offer.episode!=null
+                && offer.total>0 && offer.filled>=0 && offer.filled<=offer.total
+                && (active(offer) || completed(offer)))return close();
         }
         if(original!=null) {
             if(!validCounter(original) || completed(original)) return close();

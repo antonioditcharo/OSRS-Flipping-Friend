@@ -173,6 +173,7 @@ public class AdviceDeliveryBoundaryTest {
         f.set("notifier",mock(net.runelite.client.Notifier.class));
         var accepted=Suggestion.builder(SuggestionType.SELL).item(561,"Accepted").quantity(10).price(100).build();
         when(f.guide.getSuggestion()).thenReturn(accepted);
+        when(((SuggestionEngine)getField(f.plugin,"engine")).recordPresentedMaintenance(eq(accepted),anyString(),anyLong())).thenReturn(true);
         f.computeAdvice();f.clientQueue.remove().run();
         verify(f.guide).setSuggestion(f.advice);
         verify(f.companion).recordPresentedAdvice(eq(accepted),eq(com.flippingfriend.core.AccountIdentity.fromProfileKey("fixture")),anyInt());
@@ -196,6 +197,27 @@ public class AdviceDeliveryBoundaryTest {
         f.queueAdvice();f.clientQueue.remove().run();
         verify(f.guide,never()).setSuggestion(f.advice);
         verify(f.guide).setSuggestion(refusal);
+    }
+    @Test public void refusedFirstRemainderCannotHideALaterAuthorizedReplacement()throws Exception {
+        Fixture f=new Fixture();when(f.companion.nextAction()).thenReturn(null);
+        var engine=(SuggestionEngine)getField(f.plugin,"engine");when(engine.refresh(false)).thenReturn(f.advice);
+        var second=Suggestion.builder(SuggestionType.BUY).item(28997,"Dual macuahuitl").quantity(2).price(3725000).build();
+        when(engine.replacementCandidates()).thenReturn(List.of(f.advice,second));
+        when(f.companion.replacementSuggestion(eq(562),eq(10),any(),anySet(),anySet(),anySet()))
+            .thenReturn(Suggestion.waiting("Insufficient funds","The earlier remainder is retained."));
+        when(f.companion.replacementSuggestion(eq(28997),eq(2),any(),anySet(),anySet(),anySet())).thenReturn(second);
+        f.queueAdvice();f.clientQueue.remove().run();verify(f.guide).setSuggestion(second);
+        verify(f.companion,never()).nextEntrySuggestion(any(),anySet(),anySet(),anySet());
+    }
+    @Test public void refusedRemainderOffersVerifiedPartialExitThroughFinalSaleAuthority()throws Exception {
+        Fixture f=new Fixture();when(f.companion.nextAction()).thenReturn(null);
+        var engine=(SuggestionEngine)getField(f.plugin,"engine");when(engine.refresh(false)).thenReturn(f.advice);
+        when(f.companion.replacementSuggestion(anyInt(),anyInt(),any(),anySet(),anySet(),anySet()))
+            .thenReturn(Suggestion.waiting("Replacement paused","Current entry authority refused."));
+        var exit=Suggestion.builder(SuggestionType.SELL).item(562,"Partial").quantity(3).price(150).expectedProfit(50).build();
+        when(engine.exitAfterReplacementRefusal(Set.of(562))).thenReturn(exit);
+        f.queueAdvice();f.clientQueue.remove().run();verify(f.companion).authorizeSale(exit);verify(f.guide).setSuggestion(exit);
+        verify(f.companion,never()).nextEntrySuggestion(any(),anySet(),anySet(),anySet());
     }
     @Test public void replacementUsesTheActualFreshAuthorizedOrderRatherThanTheLocalProposal()throws Exception {
         Fixture f=new Fixture();when(f.companion.nextAction()).thenReturn(null);

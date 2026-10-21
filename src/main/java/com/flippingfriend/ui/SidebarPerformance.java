@@ -42,14 +42,14 @@ final class SidebarPerformance extends JPanel {
         profit.setName("measured-profit");profit.setFont(FontManager.getRunescapeBoldFont().deriveFont(20f));addLine(profit);
         style(coverage);coverage.setFont(FontManager.getRunescapeSmallFont());addLine(coverage);
         stats.setOpaque(false);
-        for(String key:new String[]{"Available cash","Stock purchase cost","Unrealized profit","Flips made","ROI","Session time","Hourly profit","Portfolio value"}) {
+        for(String key:new String[]{"Available cash","Stock purchase cost","Unrealized profit","Instant-sale P/L","Flips made","ROI","Session time","Hourly profit","Portfolio value"}) {
             JPanel line=row();JLabel label=new JLabel(key+":");style(label);label.setForeground(UiUtils.MUTED);line.add(label,BorderLayout.WEST);
             JLabel value=new JLabel("Unavailable");style(value);value.setName("metric-"+key.toLowerCase(Locale.ROOT).replace(' ','-'));
             line.add(value,BorderLayout.EAST);values.put(key,value);stats.add(line);
             if(key.equals("Portfolio value") || key.equals("Unrealized profit")) {
                 line.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
                 line.addMouseListener(new java.awt.event.MouseAdapter(){@Override public void mouseClicked(java.awt.event.MouseEvent e){portfolio.run();}});
-                line.setToolTipText("Open managed holdings. Conservative taxed value; unpriced stock remains unknown, personal belongings excluded.");
+                line.setToolTipText("Open managed holdings. Expected exits and instant-sale estimates are separate; personal belongings excluded.");
             }
         }
         stats.setBorder(BorderFactory.createEmptyBorder(5,0,7,0));addLine(stats);
@@ -104,7 +104,17 @@ final class SidebarPerformance extends JPanel {
             if(measurement.portfolioValue!=null) {
                 boolean partial=measurement.unpricedCost>0;
                 values.get("Portfolio value").setText("≈ "+explainer.formatGp(measurement.portfolioValue)+(partial?"*":""));
-                values.get("Unrealized profit").setText(explainer.formatGp(measurement.unrealizedProfit)+(partial?"*":""));
+                boolean planned=measurement.intendedExitValue!=null;
+                boolean missingPlan=planned && measurement.unplannedCost>0;
+                values.get("Unrealized profit").setText(planned && missingPlan && measurement.unplannedCost.equals(measurement.managedAcquisitionCost)
+                    ?"Target unknown":explainer.formatGp(measurement.unrealizedProfit)+((planned?missingPlan:partial)?"*":""));
+                values.get("Unrealized profit").setForeground(UiUtils.profitColor(Long.compare(measurement.unrealizedProfit,0)));
+                if(measurement.instantSaleProfit!=null) {
+                    values.get("Instant-sale P/L").setText(partial && measurement.unpricedCost.equals(measurement.managedAcquisitionCost)
+                        ?"Unpriced":explainer.formatGp(measurement.instantSaleProfit)+(partial?"*":""));
+                    values.get("Instant-sale P/L").setForeground(UiUtils.profitColor(Long.compare(measurement.instantSaleProfit,0)));
+                    values.get("Instant-sale P/L").setToolTipText(valuationTip(measurement));
+                }
                 String tip=valuationTip(measurement);values.get("Portfolio value").setToolTipText(tip);
                 values.get("Unrealized profit").setToolTipText(tip);
             }
@@ -137,7 +147,9 @@ final class SidebarPerformance extends JPanel {
         sales.setMaximumSize(new Dimension(Integer.MAX_VALUE,sales.getPreferredSize().height));revalidate();repaint();
     }
     private String valuationTip(PerformanceSnapshot measurement) {
-        StringBuilder tip=new StringBuilder("<html>Last-quoted after-tax estimates for observed trading stock; no guaranteed fill.<br>Cash and exact purchase costs are separate. Estimates never authorize buys.<br>");
+        StringBuilder tip=new StringBuilder("<html>Unrealized profit: expected after-tax profit at current sell offers, then retained original targets for unlisted units.<br>Portfolio value and instant-sale P/L use last-quoted bids. No guaranteed fill.<br>Cash and exact purchase costs are separate. Estimates never authorize buys.<br>");
+        if(measurement.unplannedCost!=null && measurement.unplannedCost>0)
+            tip.append("* Expected exits cover only the planned portion; ").append(explainer.formatNumber(measurement.unplannedCost)).append(" GP of cost has an unknown target or unseen units, not a loss.<br>");
         if(measurement.unpricedCost!=null && measurement.unpricedCost>0)
             tip.append("* Priced portion only; ").append(explainer.formatNumber(measurement.unpricedCost)).append(" GP of acquisition cost is unpriced, not lost.<br>");
         if(measurement.stockValuations!=null)for(var stock:measurement.stockValuations) {
@@ -148,6 +160,8 @@ final class SidebarPerformance extends JPanel {
                 .append(Math.max(0,measurement.observedAt-stock.quotedAt)).append("s before this estimate");
             if(!stock.unpricedReason.isEmpty())tip.append(". ").append(stock.unpricedReason);
             tip.append("<br>");
+            if(stock.exitQuotes!=null)for(var exit:stock.exitQuotes)tip.append(exit.source).append(": ").append(exit.quantity)
+                .append(" × ").append(explainer.formatNumber(exit.price)).append(" GP; ").append(explainer.formatNumber(exit.netValue)).append(" GP after tax.<br>");
         }
         return tip.append("</html>").toString();
     }

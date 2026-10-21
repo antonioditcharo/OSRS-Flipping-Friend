@@ -7,6 +7,10 @@ financial guards remain requirements. Delivery/acceptance: newest HANDOFF and li
 
 ## Connected information
 
+The 20 October [exit-profit update](exit-profit-and-replacement.md) changes primary unrealized
+profit to expected after-tax exits at current listings/proven original targets. Instant-sale P/L
+is separate; portfolio value retains bid estimates. Their unknown coverage and risk are distinct.
+
 Current action/quantity/exact unit price, authentic item sprite and estimated after-tax profit/time;
 graph, holdings, pause, block, skip; actual 5m/30m/2h/8h and visibly custom intervals; existing risk
 controls; Records/settings and the wide native investigation windows.

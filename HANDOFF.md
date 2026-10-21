@@ -8,14 +8,22 @@ latency, complete production replay/returns, gated learning and remaining produc
 
 ## Current source and installed runtime
 
+Current batch separates expected exit profit from instant-sale P/L and fixes refused cancelled-buy
+queue scheduling, verified partial exits and durable rebuy supersession on healthy/observed sales.
+Eleven new behavioral tests; [contract](docs/architecture/exit-profit-and-replacement.md) /
+[receipt](docs/history/exit-profit-replacement-delivery-2026-10-20.md). Read actual source/CI/install/
+live state in local-data/exit-profit-replacement-20261020/delivery-state.json first. Owner is home
+and actively trading; earlier login deferrals are superseded. All controlled workflow, sustained
+timing, complete replay, qualified return and learning gates remain open.
+
 Newest batch commits authenticated callback sources to the forced atomic outbox before worker
 dispatch; logout, stopped/rejected workers and later advice changes cannot erase an accepted source.
 Capture is local-only; HTTP remains on the worker. Drained queues wake without bypassing backoff or
 acknowledging later appends. Nine new tests include four reproduced pre-outbox losses.
 [Contract](docs/architecture/capture-before-dispatch.md) /
 [receipt](docs/history/capture-dispatch-delivery-2026-10-20.md); actual source/CI/install/live state:
-local-data/capture-dispatch-20261020/delivery-state.json. Read it first. Owner defers login until
-20 October after 17:30 local. Controlled workflow/local-disk/sustained latency/complete replay/returns
+local-data/capture-dispatch-20261020/delivery-state.json. PR #130 is merged and installed; fresh
+logged-in eight-slot/ACK evidence passes. Controlled workflow/local-disk/sustained latency/complete replay/returns
 and learning gates remain open. PR #129 archive annotations and all financial/risk data persist.
 
 Newest batch adds reversible review archival for closed unmatched sales with no earlier recorded
