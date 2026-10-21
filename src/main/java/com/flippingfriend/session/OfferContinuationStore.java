@@ -104,6 +104,10 @@ abstract class OfferContinuationStore {
     }
     protected synchronized boolean adviseOffer(TrackedOffer original,String expected,boolean managed,OfferTracker tracker,
             long now,long expiresAt) {
+        return adviseOffer(original,expected,managed,tracker,now,expiresAt,null);
+    }
+    protected synchronized boolean adviseOffer(TrackedOffer original,String expected,boolean managed,OfferTracker tracker,
+            long now,long expiresAt,String saleRepriceSource) {
         if(!load(expected) || original==null || original.isBuying()!=buying)return false;
         var observation=observation(original);
         for(var retired:state.retirements)if(retired.continuation.matches(observation))return false;
@@ -115,10 +119,12 @@ abstract class OfferContinuationStore {
         }
         for(var intent:state.intents)if(intent.matches(observation) && intent.valid(now)) {
             long revision=intent.getRevision();if(managed)intent.requireManagedCost();
+            if(saleRepriceSource!=null && intent.getSaleRepriceSource()==null)intent.bindSaleRepriceSource(saleRepriceSource,original.getLastFillObservedAt());
             state.dirty|=intent.getRevision()!=revision;return commit(expected);
         }
         var created=OfferContinuation.advise(observation,board(tracker),managed,now,expiresAt);
         if(created==null)return false;
+        if(saleRepriceSource!=null)created.bindSaleRepriceSource(saleRepriceSource,original.getLastFillObservedAt());
         state.intents.add(created);state.dirty=true;return commit(expected);
     }
     protected synchronized List<OfferContinuation> collectedAll(OfferTracker tracker,String expected,long now) {

@@ -134,7 +134,7 @@ public class SuggestionChurnTest
 				int bid = entry.getValue()[0];
 				int ask = entry.getValue()[1];
 				latest.put(entry.getKey(), new LatestPrice(ask, now - 30, bid, now - 30));
-				five.put(entry.getKey(), new Candle(now, ask, bid, 4_000, 4_000));
+				five.put(entry.getKey(), new Candle((now/300-1)*300, ask, bid, 4_000, 4_000));
 				hourly.put(entry.getKey(), new Candle(now, ask, bid, 48_000, 48_000));
 			}
 			return new MarketSnapshot(metadata, latest, five, hourly, Instant.now());

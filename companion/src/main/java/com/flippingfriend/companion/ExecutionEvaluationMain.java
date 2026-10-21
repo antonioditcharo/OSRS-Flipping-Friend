@@ -20,10 +20,16 @@ public final class ExecutionEvaluationMain {
         if(args.length==2 && "verify".equals(args[0])) {
             System.out.println(summary(verify(Path.of(args[1]))));return;
         }
+        if(args.length==2 && "audit".equals(args[0])) {
+            System.out.println(JSON.toJson(audit(Path.of(args[1]))));return;
+        }
         if(args.length==3 && "compare".equals(args[0])) {
             System.out.println(JSON.toJson(compare(Path.of(args[1]),Path.of(args[2]))));return;
         }
-        throw new IllegalArgumentException("Usage: freeze <scoped-db> <account-id> <new-local-data-directory> <source-revision>; verify <directory>; compare <training-directory> <validation-directory>");
+        throw new IllegalArgumentException("Usage: freeze <scoped-db> <account-id> <new-local-data-directory> <source-revision>; verify <directory>; audit <directory>; compare <training-directory> <validation-directory>");
+    }
+    static ExecutionForecastAudit audit(Path directory)throws Exception {
+        return new ExecutionForecastAudit(verify(directory));
     }
     static void freeze(Path database,String account,Path output,String revision)throws Exception {
         AccountIdentity.require(account);

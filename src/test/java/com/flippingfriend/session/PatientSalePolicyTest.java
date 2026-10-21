@@ -35,17 +35,18 @@ public class PatientSalePolicyTest {
     @Test public void healthyMaintenanceDoesNotJumpToBreakEvenWhenTheQuoteDips() {
         var p=stock(130);
         var quote=maintenance(p,1120,1000,1021,130,130,false);
-        if(quote!=null)assertTrue("Do not erase the planned profit on one routine adjustment",quote.price>tax.breakEvenSellPriceForCost(561,1000000,1000));
+        assertNotNull(quote);assertTrue("A supported reduction must retain the exact taxed cost",quote.price>=tax.breakEvenSellPriceForCost(561,1000000,1000));
     }
     SaleMaintenancePricing.Quote maintenance(Position p,int ask,int remaining,int high,long age,long idle,boolean sellOnly) {
         return new SaleMaintenancePricing().quote(561,ask,remaining,p,market(high,0),series(high),horizon,now,sellOnly,exits,tax,
             now.getEpochSecond()-age*60,now.getEpochSecond()-idle*60);
     }
-    @Test public void fullPredictionAndRecentFillsProtectWorkingOffers() {
-        assertNull(maintenance(stock(300),1200,1000,1140,119,119,false));
+    @Test public void supportedDisplacementCanPrecedeFullPredictionButRecentFillsProtectWorkingOffers() {
+        assertNotNull(maintenance(stock(300),1200,1000,1140,119,119,false));
+        assertNull(maintenance(stock(300),1200,1000,1140,7,7,false));
         assertNull(maintenance(stock(300),1200,900,1140,150,1,false));
         assertNotNull(maintenance(stock(300),1200,900,1140,150,10,false));
-        assertEquals(1120,maintenance(stock(300),1200,900,1100,150,10,false).price);
+        assertEquals(1099,maintenance(stock(300),1200,900,1100,150,10,false).price);
     }
     @Test public void stopAndPlayerWindDownRemainPromptEvenJustAfterAFill() {
         assertTrue(maintenance(stock(1),1200,900,900,1,0,false).lossCut);
@@ -62,15 +63,15 @@ public class PatientSalePolicyTest {
             assertNull(new SaleMaintenancePricing().quote(561,1120,1000,p,market(1021,0),bars,horizon,now,false,exits,tax,
                 now.getEpochSecond()-180*60,now.getEpochSecond()-180*60));
     }
-    @Test public void noOriginalTargetKeepsAHealthyListingAndNeverInventsProfitForPersonalStock() {
+    @Test public void noOriginalTargetStillAllowsSupportedNonLossMaintenanceAndNeverInventsPersonalProfit() {
         var p=stock(200);p.setTargetSellPrice(0);
-        assertNull(maintenance(p,1200,1000,1100,200,200,false));
+        assertNotNull(maintenance(p,1200,1000,1100,200,200,false));
         var personal=maintenance(null,1200,1000,1100,200,200,false);
         assertNotNull(personal);assertFalse(personal.costKnown);
     }
-    @Test public void matureTargetCanBeRepricedDownWithoutSurrenderingTheTargetOrCurrentHigherMarket() {
+    @Test public void routineMaintenanceMayReduceTheReferenceTargetWhileInitialListingKeepsAHigherMarket() {
         var q=maintenance(stock(200),1300,1000,1100,200,200,false);
-        assertNotNull(q);assertEquals(1120,q.price);
+        assertNotNull(q);assertEquals(1099,q.price);
         var decision=exits.evaluateManagedExit(stock(4),market(1150,0),null,series(1150),horizon,now,40000,true,false,false);
         assertEquals(1150,decision.getPrice());
     }

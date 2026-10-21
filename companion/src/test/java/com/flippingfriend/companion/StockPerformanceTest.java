@@ -67,6 +67,29 @@ public class StockPerformanceTest {
             assertEquals(before.getDrawdownUpper(),f.evaluate(store,account,40).getDrawdownUpper());assertEquals(effects,store.positionEventCount());
         }
     }
+    @Test public void mixedOriginalPlansRemainVisibleWithRangesWithoutChangingAccounting()throws Exception {
+        try(var store=new SqliteStore(folder.newFolder().toPath().resolve("mixed-plans.db"))) {
+            f.capture(store,100000000);plannedBuy(store);
+            var raw=OfferEvent.builder("fixture",f.at,"BUYING").accountId(f.account).authenticatedObservation(true)
+                .eventIdentity("second-"+(++f.sequence),f.session,"second-buy").sequence(f.sequence).slot(0)
+                .item(561,"Nature rune").buying(true).price(50).quantities(2,0).firstSeenAt(f.at)
+                .recommendation("second-plan",50,2,0,10,.75).predictionEvidence(null,f.at-1,false)
+                .exitContext(new AcquisitionExitContext(80,35,90)).build();
+            var origin=raw.withBoundPrediction(raw,true);f.accept(store,origin);
+            f.accept(store,f.event(0,"BOUGHT","second-buy",2,2,100,50).withBoundPrediction(origin,true));f.clear(store);
+            var account=f.capture(store,99999778).withObservedHoldings(Map.of(561,5));int effects=store.positionEventCount();
+            var row=report(store,account,f.market(40)).stockValuations.get(0);
+            assertEquals(222,row.totalCost);assertEquals(2,row.exitContexts.size());
+            assertEquals(Set.of(70,80),new HashSet<>(Arrays.asList(row.exitContexts.get(0).getContext().getTargetSellPrice(),row.exitContexts.get(1).getContext().getTargetSellPrice())));
+            assertEquals(80,row.exitQuotes.get(0).price);assertTrue(row.exitQuotes.get(0).source.contains("allocation unknown"));
+            assertEquals(effects,store.positionEventCount());
+            f.accept(store,f.event(0,"SOLD","partial-disposal",2,2,160,80));f.clear(store);
+            account=f.capture(store,99999938).withObservedHoldings(Map.of(561,3));row=report(store,account,f.market(40)).stockValuations.get(0);
+            assertEquals(134,row.totalCost);assertEquals(3,row.quantity);assertEquals(2,row.exitContexts.size());
+            assertEquals(1,row.exitContexts.get(0).getMinimumRemaining());assertEquals(3,row.exitContexts.get(0).getMaximumRemaining());
+            assertEquals(0,row.exitContexts.get(1).getMinimumRemaining());assertEquals(2,row.exitContexts.get(1).getMaximumRemaining());
+        }
+    }
     @Test public void currentListingOverridesOnlyItsUnsoldQuantityAndSubsetCostConservesEveryCoin()throws Exception {
         try(var store=new SqliteStore(folder.newFolder().toPath().resolve("listing.db"))) {
             f.capture(store,100000000);plannedBuy(store);var account=listedCapture(store,1,80,1);

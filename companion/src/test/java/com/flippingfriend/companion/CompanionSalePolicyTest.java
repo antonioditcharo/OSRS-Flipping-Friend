@@ -75,6 +75,35 @@ public class CompanionSalePolicyTest {
             assertEquals(OfferLifecycleAction.PLACE_SELL,decide(store,unequipped,position.getSourceEventId(),3,120,-1,now).getAction());
         }
     }
+    @Test public void acceptedReductionSurvivesLateFillCollectionAndRestartWithoutRestoringTheTarget()throws Exception {
+        var path=folder.newFolder().toPath().resolve("reprice-chain.db");long now=at+3600;
+        AccountSnapshot account;OfferEvent sale;
+        try(var store=new SqliteStore(path)) {
+            account=setup(store,new AcquisitionExitContext(140,90,120));
+            sale=event(0,"SELLING","reprice-chain",3,0,0,150,now);accept(store,sale);
+            assertEquals(OfferLifecycleAction.CANCEL_SELL,decide(store,account,sale.getEventId(),3,119,0,now).getAction());
+            accept(store,event(0,"SELLING","reprice-chain",3,1,150,150,now+1));
+            accept(store,event(0,"CANCELLED_SELL","reprice-chain",3,1,150,150,now+2));
+            var notCollected=store.saleProjections(id,now+2);
+            var remaining=notCollected.ledger.getTradingPositions().get(0);
+            assertEquals("Uncollected stock is still reserved in the cancelled slot", "SALE_QUANTITY_ALREADY_LISTED",new CompanionSalePolicy().decide(notCollected.planning,notCollected.ledger,
+                setupAccountAt(account,now+2),market(now+2,120),(i,s)->bars(now+2,120),561,119,2,remaining.getSourceEventId(),false,-1,now+2,sale.getEventId()).getReasonCode());
+            accept(store,event(0,"EMPTY",null,0,0,0,0,now+3));
+        }
+        try(var store=new SqliteStore(path)) {
+            var read=store.saleProjections(id,now+4);var remaining=read.ledger.getTradingPositions().get(0);
+            var policy=new CompanionSalePolicy();var fresh=setupAccountAt(account,now+4);
+            var accepted=policy.decide(read.planning,read.ledger,fresh,market(now+4,120),(i,s)->bars(now+4,120),
+                561,119,2,remaining.getSourceEventId(),false,-1,now+4,sale.getEventId());
+            assertEquals(OfferLifecycleAction.PLACE_SELL,accepted.getAction());
+            assertEquals(OfferLifecycleAction.WAIT,policy.decide(read.planning,read.ledger,fresh,market(now+4,120),(i,s)->bars(now+4,120),
+                561,119,3,remaining.getSourceEventId(),false,-1,now+4,sale.getEventId()).getAction());
+            assertEquals("A naked old price cannot bypass the original target",OfferLifecycleAction.WAIT,
+                policy.decide(read.planning,read.ledger,fresh,market(now+4,120),(i,s)->bars(now+4,120),
+                561,119,2,remaining.getSourceEventId(),false,-1,now+4).getAction());
+            assertEquals(201,remaining.getTotalCost());assertEquals(2,remaining.getQuantity());
+        }
+    }
     @Test public void saleMaintenanceBindsCurrentEpisodeSourceAndRemainingQuantity()throws Exception {
         try(var store=new SqliteStore(folder.newFolder().toPath().resolve("fixture.db"))) {
             var account=setup(store);long now=at+3600;
@@ -108,7 +137,7 @@ public class CompanionSalePolicyTest {
                 OfferLifecycleAction.PLACE_SELL,decide(store,account,p.getSourceEventId(),3,120,-1,now).getAction());
         }
     }
-    @Test public void finalAuthorityPreservesTheExactHealthyTargetForInitialAndMatureMaintenanceOrders()throws Exception {
+    @Test public void finalAuthorityPreservesInitialTargetAndAllowsEarlierSupportedNonLossMaintenance()throws Exception {
         try(var store=new SqliteStore(folder.newFolder().toPath().resolve("patient.db"))) {
             var account=setup(store,new AcquisitionExitContext(140,90,120));long now=at+3600;
             var position=store.ledgerSnapshot(id,now).getTradingPositions().get(0);
@@ -116,11 +145,11 @@ public class CompanionSalePolicyTest {
             assertEquals(OfferLifecycleAction.PLACE_SELL,decide(store,account,position.getSourceEventId(),3,140,-1,now).getAction());
             assertEquals(OfferLifecycleAction.WAIT,decide(store,account,position.getSourceEventId(),3,120,-1,now).getAction());
             var sale=event(0,"SELLING","patient",3,0,0,150,now);accept(store,sale);
-            assertEquals("Half the predicted time is not a stalled sale",OfferLifecycleAction.WAIT,decide(store,account,sale.getEventId(),3,140,0,now).getAction());
+            assertEquals("A completed displacement can precede the original forecast",OfferLifecycleAction.CANCEL_SELL,decide(store,account,sale.getEventId(),3,119,0,now).getAction());
             long later=at+3*3600;var heartbeat=event(0,"SELLING","patient",3,0,0,150,later);accept(store,heartbeat);
             account=setupAccountAt(account,later);
-            assertEquals(OfferLifecycleAction.CANCEL_SELL,decide(store,account,heartbeat.getEventId(),3,140,0,later).getAction());
-            assertEquals("Drift tolerance must not give away the protected profit",OfferLifecycleAction.WAIT,decide(store,account,heartbeat.getEventId(),3,119,0,later).getAction());
+            assertEquals(OfferLifecycleAction.CANCEL_SELL,decide(store,account,heartbeat.getEventId(),3,119,0,later).getAction());
+            assertEquals("The exact taxed acquisition floor remains protected",OfferLifecycleAction.WAIT,decide(store,account,heartbeat.getEventId(),3,100,0,later).getAction());
             assertEquals(301,store.ledgerSnapshot(id,later).getTradingPositions().get(0).getTotalCost());
         }
     }

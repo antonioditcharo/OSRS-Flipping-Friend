@@ -49,20 +49,31 @@ final class AutomaticTradeScope {
             if (quantity <= 0 || cost <= 0 || offer == null || offer.isBlank()) {
                 unsafeItems.add(item); return;
             }
+            var origins=new ArrayList<com.flippingfriend.core.AcquisitionExitSlice>(prior==null?java.util.List.of():prior.getExitContexts());
+            String origin=context==null?event:context.getSourceEventId();
+            boolean added=false;
+            for(int i=0;i<origins.size();i++)if(origins.get(i).getSourceEventId().equals(origin)
+                && java.util.Objects.equals(origins.get(i).getContext(),context)) {
+                origins.set(i,origins.get(i).add(quantity));added=true;break;
+            }
+            if(!added)origins.add(new com.flippingfriend.core.AcquisitionExitSlice(origin,context,quantity,quantity,when));
             positions.put(item, PositionProjection.ready(item, name,
                 Math.addExact(prior == null ? 0 : prior.getQuantity(), quantity),
                 Math.addExact(prior == null ? 0 : prior.getTotalCost(), cost),
-                prior == null ? when : prior.getOpenedAt(), when, event, offer).withExitContext(
-                    prior==null?context:java.util.Objects.equals(prior.getExitContext(),context)?context:null));
+                prior == null ? when : prior.getOpenedAt(), when, event, offer).withExitContexts(origins));
         } else if ("DISPOSE".equals(type)) {
             if (quantity <= 0) { unsafeItems.add(item); return; }
             if (prior == null) return; // An unrelated sale never creates a holding.
             int matched = Math.min(quantity, prior.getQuantity());
             long consumed = SaleAccounting.allocateCost(prior.getTotalCost(), prior.getQuantity(), matched);
             if (matched == prior.getQuantity()) positions.remove(item);
-            else positions.put(item, PositionProjection.ready(item, prior.getItemName(),
+            else {
+                var origins=new ArrayList<com.flippingfriend.core.AcquisitionExitSlice>();
+                for(var slice:prior.getExitContexts())origins.add(slice.afterDisposal(matched,prior.getQuantity()-matched));
+                positions.put(item, PositionProjection.ready(item, prior.getItemName(),
                 prior.getQuantity() - matched, prior.getTotalCost() - consumed,
-                prior.getOpenedAt(), when, event, offer).withExitContext(prior.getExitContext()));
+                prior.getOpenedAt(), when, event, offer).withExitContexts(origins));
+            }
         } else throw new IllegalArgumentException("unknown trade scope effect");
         if (positions.containsKey(item)) positionsAtEvent.put(event, positions.get(item));
     }

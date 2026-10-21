@@ -159,7 +159,7 @@ public final class AccountLedgerSnapshot
                     && p.getItemId() > 0 && p.getQuantity() > 0 && p.getTotalCost() > 0 && p.isCostKnown() && p.getSourceEventId() != null
                     && !p.getSourceEventId().isBlank() && p.getSourceOfferIdentity() != null && !p.getSourceOfferIdentity().isBlank()
                     && p.getOpenedAt() >= 0 && p.getUpdatedAt() >= p.getOpenedAt() && p.getUpdatedAt() <= observedAt
-                    && (p.getExitContext()==null || p.getExitContext().isBound()))
+                    && p.hasValidExitContexts())
                 && missedFlips.stream().allMatch(e -> e != null && e.isValid() && e.getObservedAt() <= observedAt))) && accountId != null && accountId.matches("rs-[0-9a-f]{64}")
             && observedAt >= 0 && sales >= 0 && boundedSales >= 0 && boundedSales <= sales
             && uncertainSales >= 0 && uncertainSales <= boundedSales && unresolvedSales == sales - boundedSales

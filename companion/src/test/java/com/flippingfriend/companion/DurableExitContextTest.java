@@ -65,9 +65,15 @@ public class DurableExitContextTest {
             accept(store,event("BOUGHT","second",start+3,start+4,10,10,1010,second));clear(store,start+5);
             var p=position(store,start+5);assertEquals(20,p.getQuantity());assertEquals(2020,p.getTotalCost());
             assertNull("A blended pool cannot assign a different purchase's original plan",p.getExitContext());
+            assertEquals(2,p.getExitContexts().size());
+            assertEquals(first.getExitContext(),p.getExitContexts().get(0).getContext());
+            assertEquals(second.getExitContext(),p.getExitContexts().get(1).getContext());
             accept(store,event("SELLING","sale",start+6,start+6,20,0,0,null));
             accept(store,event("SELLING","sale",start+6,start+7,20,10,1500,null));
             assertNull(position(store,start+7).getExitContext());assertEquals(1010,position(store,start+7).getTotalCost());
+            for(var slice:position(store,start+7).getExitContexts()) {
+                assertEquals(0,slice.getMinimumRemaining());assertEquals(10,slice.getMaximumRemaining());
+            }
             accept(store,event("SOLD","sale",start+6,start+8,20,20,3000,null));clear(store,start+9);
             var third=open("third",start+10,new AcquisitionExitContext(170,90,60));accept(store,third);
             accept(store,event("BOUGHT","third",start+10,start+11,10,10,1010,third));
@@ -94,5 +100,43 @@ public class DurableExitContextTest {
             var later=event("BOUGHT","buy",AT,AT+1,10,10,1010,json.fromJson(invented,OfferEvent.class));accept(store,later);
             assertNull(position(store,AT+1).getExitContext());assertEquals(1010,position(store,AT+1).getTotalCost());
         }
+    }
+    @Test public void sameSecondAcceptedExitIsCanonicalAcrossFillsAndRestartWithoutLearningPair()throws Exception {
+        Path db=folder.newFolder().toPath().resolve("same-second.db");OfferEvent original;
+        try(var store=new SqliteStore(db)) {
+            clear(store,AT-1);
+            var advice=CaptureOrder.next();var capture=CaptureOrder.next();
+            var raw=OfferEvent.builder("fixture",AT,"BUYING").accountId(account).authenticatedObservation(true)
+                .eventIdentity("event-"+(++sequence),"session","buy").sequence(sequence).slot(0).item(561,"Nature rune")
+                .buying(true).price(101).quantities(10,0).firstSeenAt(AT)
+                .recommendation("advice",101,10,0,0,0).predictionEvidence(null,AT,false)
+                .acceptedAdviceProof(new AcceptedAdviceProof(advice,capture)).exitContext(new AcquisitionExitContext(140,90,480)).build();
+            original=raw.withBoundPrediction(raw,false);accept(store,original);
+            assertFalse(original.isPredictionComparable());
+            accept(store,event("BUYING","buy",AT,AT+1,10,3,303,original));
+            assertEquals(original.getExitContext(),position(store,AT+1).getExitContext());
+        }
+        try(var store=new SqliteStore(db)) {
+            accept(store,event("BOUGHT","buy",AT,AT+3600,10,10,1010,original));
+            var p=position(store,AT+3600);
+            assertEquals(1010,p.getTotalCost());assertEquals(original.getExitContext(),p.getExitContext());
+        }
+    }
+    @Test public void replacementOriginsRetainRangesAndExactPooledCostAfterPartialDisposals()throws Exception {
+        var scope=new AutomaticTradeScope();
+        var first=new AcquisitionExitContext(1889,1685,66.55).bind("original");
+        var child=new AcquisitionExitContext(1899,1695,40.17).bind("replacement");
+        scope.apply("ACQUIRE",21948,"Bolts",550,975700,AT,"fill1","buy1",null,first);
+        scope.apply("ACQUIRE",21948,"Bolts",607,1082888,AT+1,"fill2","buy2",null,child);
+        var p=scope.positions.get(21948);assertEquals(2058588,p.getTotalCost());assertEquals(2,p.getExitContexts().size());
+        assertNull(p.getExitContext());
+        scope.apply("DISPOSE",21948,"Bolts",350,0,AT+2,"sale1","sell",null,null);
+        p=scope.positions.get(21948);assertEquals(807,p.getQuantity());assertEquals(1435852,p.getTotalCost());
+        assertEquals(200,p.getExitContexts().get(0).getMinimumRemaining());assertEquals(550,p.getExitContexts().get(0).getMaximumRemaining());
+        assertEquals(257,p.getExitContexts().get(1).getMinimumRemaining());assertEquals(607,p.getExitContexts().get(1).getMaximumRemaining());
+        scope.apply("DISPOSE",21948,"Bolts",807,0,AT+3,"sale2","sell",null,null);
+        scope.apply("ACQUIRE",21948,"Bolts",1,1800,AT+4,"fill3","buy3",null,child);
+        assertEquals(1,scope.positions.get(21948).getExitContexts().size());
+        assertEquals(child,scope.positions.get(21948).getExitContext());
     }
 }

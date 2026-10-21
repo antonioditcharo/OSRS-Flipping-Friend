@@ -398,8 +398,8 @@ public class PartialBuyTest
 	public void aPositionThroughItsStopStopsBuyingRatherThanSellingAroundTheBuy()
 	{
 		boardWithAPartFilledBuy();
-		// The item falls by half. Moderate cuts at five percent below cost, so this is well through
-		// the stop: continuing to accumulate it is the thing that makes no sense.
+		// This fixture explicitly retains the original stop. Today's risk profile cannot invent one.
+        positions.get(GRAPES).setStopPrice(380);
 		marketData.crashGrapes();
 		offers.setMarket(marketData.getSnapshot());
 

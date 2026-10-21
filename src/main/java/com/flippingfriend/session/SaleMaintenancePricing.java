@@ -9,7 +9,7 @@ import java.util.List;
 
 /** Pure sale-maintenance authority shared by the client, companion and chronological replay. */
 public final class SaleMaintenancePricing {
-    public static final String VERSION="patient-sale-maintenance-2";
+    public static final String VERSION="supported-sale-maintenance-3";
     public static final class Quote {
         public final int price, floor;
         public final long allocatedCost;
@@ -46,45 +46,40 @@ public final class SaleMaintenancePricing {
                 :"Finish session (sell only) is enabled; seeking a faster exit as requested.";
         } else {
             long at=now.getEpochSecond();
+            int supported=supportedLowerAsk(series,offerPrice,horizon,at);
             if(firstObservedAt<=0 || firstObservedAt>at || lastProgressAt<firstObservedAt || lastProgressAt>at
-                || (at-firstObservedAt)/60.0<horizon.patienceMinutes(known?position.getPredictedSellMinutes():0)
+                || at-firstObservedAt<horizon.staleOfferMinutes()*60
                 || at-lastProgressAt<horizon.staleOfferMinutes()*60
-                || !sustainedLowerAsk(series,offerPrice,horizon,at))return null;
+                || supported<=0)return null;
             if(known) {
                 if(floor<=0)return null;
-                floor=SellTimingEngine.protectedPrice(position,horizon,now,floor);
-                // Without an original target, do not invent permission to discard a healthy
-                // listing's profit. Reassess at the configured horizon, or on a real stop.
-                if(position.getTargetSellPrice()<=0 && position.minutesHeld(at)<horizon.maxHoldMinutes())
-                    floor=Math.max(floor,offerPrice);
             }
-            price=Math.max(floor,latest.getHigh()-1);
-            reason=!known ? "The full expected sell time has elapsed without recent fills, and two completed market buckets support a lower ask. Acquisition cost and profit remain unknown."
-                : position.minutesHeld(at)>=horizon.maxHoldMinutes()
-                ?"The holding horizon has elapsed, the offer has stalled, and two completed market buckets support a lower ask. The exact after-tax cost floor remains protected."
-                :"The full expected sell time has elapsed without recent fills, and two completed market buckets support a lower ask. The original target remains protected.";
+            price=Math.max(floor,Math.max(latest.getHigh()-1,supported));
+            reason=!known ? "The offer has no recent fills, and two completed market buckets support a lower ask. Acquisition cost and profit remain unknown."
+                :"The offer has no recent fills, and two completed market buckets support a profitable reduction. The exact after-tax acquisition cost remains protected; the original target is a reference, not a fill guarantee.";
         }
         if(offerPrice-(long)price<horizon.outbidDeadband(offerPrice))return null;
         return new Quote(price,floor,cost,known,cut,reason);
     }
     /** Two distinct, completed recent 5m buckets with actual buy-side trades; never one spot print. */
-    private static boolean sustainedLowerAsk(List<Candle> series,int ask,TradingHorizon horizon,long now) {
-        if(series==null)return false;
+    private static int supportedLowerAsk(List<Candle> series,int ask,TradingHorizon horizon,long now) {
+        if(series==null)return 0;
         var recent=new java.util.TreeMap<Long,Candle>();
         for(var bar:series)if(bar!=null && bar.getTimestamp()>0 && bar.getTimestamp()%300==0
             && bar.getTimestamp()<=now-300 && bar.getTimestamp()>=now-1800) {
             var old=recent.put(bar.getTimestamp(),bar);
             if(old!=null && (!java.util.Objects.equals(old.getAvgHighPrice(),bar.getAvgHighPrice())
-                || old.getHighPriceVolume()!=bar.getHighPriceVolume()))return false;
+                || old.getHighPriceVolume()!=bar.getHighPriceVolume()))return 0;
         }
-        if(recent.size()<2)return false;
-        int count=0;long previous=0;
+        if(recent.size()<2)return 0;
+        int count=0,supported=Integer.MAX_VALUE;long previous=0;
         for(var bar:recent.descendingMap().values()) {
-            if(count==0 && now-bar.getTimestamp()>900 || count>0 && previous-bar.getTimestamp()!=300)return false;
+            if(count==0 && now-bar.getTimestamp()>900 || count>0 && previous-bar.getTimestamp()!=300)return 0;
             if(bar.getAvgHighPrice()==null || bar.getAvgHighPrice()<=0 || bar.getHighPriceVolume()<=0
-                || ask-(long)bar.getAvgHighPrice()<horizon.outbidDeadband(ask))return false;
-            previous=bar.getTimestamp();if(++count==2)return true;
+                || ask-(long)bar.getAvgHighPrice()<horizon.outbidDeadband(ask))return 0;
+            supported=Math.min(supported,Math.max(1,bar.getAvgHighPrice()-1));
+            previous=bar.getTimestamp();if(++count==2)return supported;
         }
-        return false;
+        return 0;
     }
 }

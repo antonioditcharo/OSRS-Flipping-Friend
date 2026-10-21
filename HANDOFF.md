@@ -5,17 +5,26 @@ Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
 ## Current delivery
 
-Read `local-data/exit-queue-20261020/delivery-state.json` FIRST for actual tested, CI, merged,
-installed and remaining acceptance state. Source alone does not establish installation.
-[Current contract](docs/architecture/exit-authority-queue.md) /
-[delivery receipt](docs/history/exit-queue-delivery-2026-10-20.md).
+Read `local-data/trade-plan-maintenance-20261020/delivery-state.json` FIRST for actual source/tests,
+CI, merge, installation and manual acceptance. [Current contract](docs/architecture/trade-plan-maintenance.md) /
+[delivery receipt](docs/history/trade-plan-maintenance-delivery-2026-10-20.md).
 
-The current batch tries all eligible exact relists/holding exits/listed stops through final sale
-authority. Failed candidates retain their hints and every refused foreground/pending/editor trade
-is withdrawn before a successor. Stop/collection priority, exact saved caps, pooled subset costs,
-original plans and observation/account fences remain. Inventory is distinct from equipment; normal
-exits cap to actual inventory, and fresh account captures carry a separate inventory bound. Banked,
-equipped and personal stock is not disposed or automatically enrolled.
+The new batch preserves same-second accepted-advice ordering independently of prediction scoring,
+retains original acquisition plans with possible remaining origin ranges, and removes invented stops.
+Selected managed sell quantities use canonical subset costs and final authority on a worker. Earlier
+supported non-loss maintenance follows the exact cancellation/collection source into relisting;
+original targets remain context. Buy progress/deadline/stabilization and shared default horizons are
+corrected. Forecast diagnostics remain observational and unvalidated; learning stays fenced.
+
+The reported three-bludgeon original context is unavailable and stays unknown; those three units
+subsequently sold. The newer two-unit acquisition is a different episode. The bolts' original and
+replacement contexts survive corrected read-only projection, without financial replay or re-enrollment.
+
+#133 is merged as 6f1634f394befdd68556c1fb892c2249f7f00f1f after both exact-head checks. Its runtime
+installation is batched with this delivery. It tries every eligible exact exit through authority,
+withdraws refused advice and separates actual inventory from equipment. Bank/collection evidence,
+exact quantities/costs and personal stock remain distinct. [Contract](docs/architecture/exit-authority-queue.md) /
+[receipt](docs/history/exit-queue-delivery-2026-10-20.md).
 
 Previous #132 is merged as a1e70c1c0e0b8630ce52fb8aa61bb9b4ab3c584b and installed. Fresh manual
 login/eight-slot/empty-outbox proof passes. The Dual macuahuitl two-unit rebuy hint is now retired

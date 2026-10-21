@@ -190,10 +190,11 @@ final class ApiServer implements AutoCloseable
 			if(raw!=null)for(String part:raw.split("&")) {
 				String[] pair=part.split("=",2);if(pair.length!=2 || query.put(pair[0],java.net.URLDecoder.decode(pair[1],StandardCharsets.UTF_8))!=null)throw new IllegalArgumentException("invalid sale query");
 			}
-			if(!java.util.Set.of("item","price","quantity","source","cut","slot").equals(query.keySet())
+            var keys=new java.util.HashSet<>(query.keySet());keys.remove("repriceSource");
+			if(!java.util.Set.of("item","price","quantity","source","cut","slot").equals(keys)
 				|| !("true".equals(query.get("cut")) || "false".equals(query.get("cut"))))throw new IllegalArgumentException("invalid sale query");
 			respond(exchange,200,gson.toJson(scoped.saleDecision(Integer.parseInt(query.get("item")),Integer.parseInt(query.get("price")),
-				Integer.parseInt(query.get("quantity")),query.get("source"),Boolean.parseBoolean(query.get("cut")),Integer.parseInt(query.get("slot")),java.time.Instant.now().getEpochSecond())));
+				Integer.parseInt(query.get("quantity")),query.get("source"),Boolean.parseBoolean(query.get("cut")),Integer.parseInt(query.get("slot")),java.time.Instant.now().getEpochSecond(),query.get("repriceSource"))));
 		}catch(RuntimeException invalid){respond(exchange,400,"{\"error\":\"invalid sale query\"}");}
 	}
 

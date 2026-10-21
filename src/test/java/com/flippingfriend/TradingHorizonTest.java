@@ -12,6 +12,21 @@ import static org.junit.Assert.assertTrue;
  */
 public class TradingHorizonTest
 {
+	@Test
+	public void sharedRiskNamesRetainClientDefaultsAndExplicitTargets()
+	{
+		assertEquals(RiskProfile.LOW,TradingHorizon.profileForRisk("Cautious"));
+		assertEquals(RiskProfile.LOW,TradingHorizon.profileForRisk("LOW"));
+		assertEquals(RiskProfile.MODERATE,TradingHorizon.profileForRisk("Balanced"));
+		assertEquals(RiskProfile.MODERATE,TradingHorizon.profileForRisk(null));
+		assertEquals(RiskProfile.MODERATE,TradingHorizon.profileForRisk("MODERATE"));
+		assertEquals(RiskProfile.HIGH,TradingHorizon.profileForRisk("Aggressive"));
+		assertEquals(RiskProfile.HIGH,TradingHorizon.profileForRisk("HIGH"));
+		assertEquals(.75,TradingHorizon.legHorizonHours(RiskProfile.LOW,5,0),1e-9);
+		assertEquals(3,TradingHorizon.legHorizonHours(RiskProfile.MODERATE,5,0),1e-9);
+		assertEquals(4,TradingHorizon.legHorizonHours(RiskProfile.HIGH,5,0),1e-9);
+		assertEquals(6.4,TradingHorizon.legHorizonHours(RiskProfile.MODERATE,480,20),1e-9);
+	}
 	/**
 	 * The two settings were one, and that made a whole class of request impossible to express: slow
 	 * flips while standing at the Grand Exchange. Holding time is now asked for directly, and the

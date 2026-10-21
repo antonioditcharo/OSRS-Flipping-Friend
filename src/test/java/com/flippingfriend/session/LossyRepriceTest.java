@@ -81,6 +81,7 @@ public class LossyRepriceTest
 	private SuggestionEngine engine;
 	private OfferTracker offers;
 	private PositionBook positions;
+    private BuyLimitTracker buyLimits;
 	private FakeAccount account;
 	private FakeMarket marketData;
 
@@ -125,7 +126,7 @@ public class LossyRepriceTest
 			Map<Integer, LatestPrice> latest = new HashMap<>();
 			latest.put(ITEM, new LatestPrice(ask, now - 30, bid, now - 30));
 			Map<Integer, Candle> five = new HashMap<>();
-			five.put(ITEM, new Candle(now, ask, bid, 4_000, 4_000));
+			five.put(ITEM, new Candle((now/300-1)*300, ask, bid, 4_000, 4_000));
 			Map<Integer, Candle> hourly = new HashMap<>();
 			hourly.put(ITEM, new Candle(now, ask, bid, 48_000, 48_000));
 			return new MarketSnapshot(metadata, latest, five, hourly, Instant.now());
@@ -203,7 +204,7 @@ public class LossyRepriceTest
 		storage = TestStorage.rootedAt(root, "player");
 
 		positions = new PositionBook(storage);
-		BuyLimitTracker buyLimits = new BuyLimitTracker(storage);
+		buyLimits = new BuyLimitTracker(storage);
 		TradeJournal journal = new TradeJournal(storage, null, new AccountMonitor(null, null, null));
 		TradePlans plans = new TradePlans(storage);
 		offers = new OfferTracker(storage, positions, buyLimits, journal, tax, plans);
@@ -373,4 +374,27 @@ public class LossyRepriceTest
 		assertTrue("and it has to be worth doing: " + suggestion.getExpectedProfit(),
 			suggestion.getExpectedProfit() > 0);
 	}
+    @Test public void exhaustedLimitCancelsEvenBeforeRoutinePatience() throws Exception {
+        plantOffer(true,100,9000,0);buyLimits.recordPurchase(ITEM,13000,Instant.now());
+        var next=engine.refresh(false);
+        assertEquals(SuggestionType.CANCEL,next.getType());assertTrue(next.getDetail().contains("buy limit"));
+    }
+    @Test public void originalDeadlineCancelsAnUnchangedStalledBuyWithoutPromisingReplacement() throws Exception {
+        plantOffer(true,1000,9000,90);marketData.moveTo(1000,1100);
+        engine.setObservedAccount(storage.accountId());
+        var offer=offers.getOffer(0);
+        assertTrue(offers.freezeBuyMaintenanceDeadline(0,offer.getContinuationIdentity(),10,180,Instant.now().getEpochSecond(),storage.accountId())>0);
+        var next=engine.refresh(false);
+        assertEquals(SuggestionType.CANCEL,next.getType());assertTrue(next.getDetail().contains("not a promise"));
+        offer.observeFillAt(Instant.now().getEpochSecond());
+        var filling=engine.refresh(false);
+        assertTrue(filling==null || filling.getType()!=SuggestionType.CANCEL && filling.getType()!=SuggestionType.MODIFY_BUY);
+    }
+    @Test public void actualBuyRepriceCannotRetainTheUnchangedStandingPriceInTheOldTwoPercentCache() throws Exception {
+        plantOffer(true,1000,9000,90);marketData.moveTo(1010,1100);
+        var field=SuggestionEngine.class.getDeclaredField("advisedPrices");field.setAccessible(true);
+        ((AdvisedPriceTracker)field.get(engine)).price(ITEM,true,1000,Instant.now().getEpochSecond());
+        var next=engine.refresh(false);
+        assertEquals(SuggestionType.MODIFY_BUY,next.getType());assertEquals(1011,next.getPrice());
+    }
 }

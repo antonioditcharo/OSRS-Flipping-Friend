@@ -1,5 +1,9 @@
 # Accepted cancel/collect continuations and bounded replacement entries
 
+Current changes: [durable plans and timely maintenance](trade-plan-maintenance.md) supersede the
+same-second exclusion, mixed-plan erasure and full-horizon routine target veto described below.
+The retained original contract explains earlier behavior; current delivery comes from HANDOFF.
+
 19 October 2026. HANDOFF records actual source, installation and player acceptance separately.
 
 The batch fixes related breaks in the manual sequence: buy reprice intent was session-only and

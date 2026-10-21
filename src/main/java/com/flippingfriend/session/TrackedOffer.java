@@ -27,8 +27,11 @@ public class TrackedOffer
 	private long lastChanged;
     /** Observation clock of actual counter progress, not a heartbeat or an exact execution time. */
     private long lastFillObservedAt;
+    /** Frozen original-buy deadline, or a one-time conservative fallback; never a rolling ETA. */
+    private transient long buyMaintenanceDeadlineAt;
 	/** Additive identity for new episodes. Missing legacy identities keep the shipped key. */
 	private String episodeIdentity;
+    private transient com.flippingfriend.core.CaptureOrder firstCaptureOrder;
 
 	/**
 	 * The journal entry this offer is accruing, held here until the offer finishes.
@@ -71,6 +74,7 @@ public class TrackedOffer
 		this.totalQuantity = totalQuantity;
 		this.firstSeen = firstSeen;
 		this.lastChanged = firstSeen;
+        this.firstCaptureOrder=com.flippingfriend.core.CaptureOrder.next();
 	}
 
     /** Local workflow identity; financial/source event keys remain unchanged. */
@@ -84,9 +88,12 @@ public class TrackedOffer
 		copy.itemName = itemName; copy.quantityFilled = quantityFilled; copy.spent = spent;
 		copy.state = state; copy.lastChanged = lastChanged;
         copy.lastFillObservedAt=lastFillObservedAt;
+        copy.buyMaintenanceDeadlineAt=buyMaintenanceDeadlineAt;
 		copy.episodeIdentity = episodeIdentity;
+        copy.firstCaptureOrder=firstCaptureOrder;
 		return copy;
 	}
+    public com.flippingfriend.core.CaptureOrder getFirstCaptureOrder(){return firstCaptureOrder;}
 
 	void startEpisodeIdentity()
 	{
@@ -192,6 +199,18 @@ public class TrackedOffer
 	}
     public long getLastFillObservedAt() { return lastFillObservedAt>0?lastFillObservedAt:firstSeen; }
     public void observeFillAt(long at) { lastFillObservedAt=Math.max(lastFillObservedAt,at); }
+    public long getBuyMaintenanceDeadlineAt(){return buyMaintenanceDeadlineAt;}
+    void setBuyMaintenanceDeadlineAt(long value){buyMaintenanceDeadlineAt=value;}
+    public long freezeBuyMaintenanceDeadline(double originalMinutes,double fallbackMinutes,long now) {
+        if(buyMaintenanceDeadlineAt>0)return buyMaintenanceDeadlineAt;
+        boolean original=Double.isFinite(originalMinutes) && originalMinutes>0;
+        double minutes=original?originalMinutes:fallbackMinutes;
+        long start=original?firstSeen:now;
+        if(!buying || firstSeen<=0 || now<firstSeen || !Double.isFinite(minutes) || minutes<=0
+            || minutes>(Long.MAX_VALUE-start)/60.0)return 0;
+        buyMaintenanceDeadlineAt=start+(long)Math.ceil(minutes*60);
+        return buyMaintenanceDeadlineAt;
+    }
 
 	public void setLastChanged(long lastChanged)
 	{

@@ -36,6 +36,20 @@ public class SellRelistRecoveryTest {
         assertArrayEquals(new int[]{561,60},restarted.collectedRemainder(tracker));
         assertTrue(restarted.requiresManagedCost(storage.accountId()));
     }
+    @Test public void acceptedSourceAndOriginalProgressSurviveLateFillsAndRestart() throws Exception {
+        var storage=TestStorage.rootedAt(folder.newFolder().toPath(),"relist");
+        var intent=new SellRelistIntent(storage);var tracker=mock(OfferTracker.class);
+        var original=sale(0,120,1000,20,"SELLING",false);original.observeFillAt(1100);
+        when(tracker.getOffers()).thenReturn(List.of(original));when(tracker.getOffer(0)).thenReturn(original);
+        assertTrue(intent.advise(original,storage.accountId(),true,tracker,"accepted-source"));
+        original.setQuantityFilled(40);original.observeFillAt(2000);original.setState("CANCELLED_SELL");original.setCollected(true);
+        when(tracker.getOffers()).thenReturn(List.of());when(tracker.getOffer(0)).thenReturn(null);when(tracker.getSettledOffer(0)).thenReturn(original);
+        var request=new SellRelistIntent(storage).collectedRequest(tracker,storage.accountId());
+        assertNotNull(request);assertEquals(60,request.getQuantity());assertEquals("accepted-source",request.getSaleRepriceSource());
+        assertEquals(120,request.getOriginalPrice());assertEquals(1000,request.getFirstSeenAt());assertEquals(1100,request.getProgressAt());
+        when(tracker.getSettledOffer(0)).thenReturn(null);
+        assertEquals("accepted-source",new SellRelistIntent(storage).collectedRequest(tracker,storage.accountId()).getSaleRepriceSource());
+    }
     @Test public void anAlreadyWorkingSecondListingIsNotTheReplacement() throws Exception {
         var storage=TestStorage.rootedAt(folder.newFolder().toPath(),"relist");
         var intent=new SellRelistIntent(storage);var tracker=mock(OfferTracker.class);

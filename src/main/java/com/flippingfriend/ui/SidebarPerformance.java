@@ -162,6 +162,17 @@ final class SidebarPerformance extends JPanel {
             tip.append("<br>");
             if(stock.exitQuotes!=null)for(var exit:stock.exitQuotes)tip.append(exit.source).append(": ").append(exit.quantity)
                 .append(" × ").append(explainer.formatNumber(exit.price)).append(" GP; ").append(explainer.formatNumber(exit.netValue)).append(" GP after tax.<br>");
+            if(stock.exitContexts!=null)for(var origin:stock.exitContexts) {
+                tip.append("Acquisition plan: ").append(origin.getMinimumRemaining());
+                if(origin.getMaximumRemaining()!=origin.getMinimumRemaining())tip.append("–").append(origin.getMaximumRemaining());
+                tip.append(" possibly remaining units; ");
+                var context=origin.getContext();
+                if(context==null)tip.append("original target, stop and timing unknown");
+                else tip.append("target ").append(explainer.formatNumber(context.getTargetSellPrice())).append(" GP; stop ")
+                    .append(context.getStopPrice()>0?explainer.formatNumber(context.getStopPrice())+" GP":"unknown")
+                    .append("; original sell estimate ").append(String.format(Locale.ROOT,"%.1f",context.getPredictedSellMinutes())).append("m (unvalidated)");
+                tip.append(". Remaining origin ranges do not assign sold units to a lot.<br>");
+            }
         }
         return tip.append("</html>").toString();
     }

@@ -34,14 +34,7 @@ final class PortfolioPlanner
 	 * caused the drawdown is usually how a bad session becomes a ruinous one.
 	 */
 	static final double DRAWDOWN_LIMIT = 0.15;
-	/**
-	 * How much of a checking cycle an offer is expected to need. Matches {@code TradingHorizon}, which
-	 * has used the same figure on the plugin side since before the companion existed.
-	 */
-	private static final double HABIT_COMFORT_FACTOR = 0.8;
-	/** A round trip is a buy and a sell, so the patience budget is split between them. */
-	private static final int LEGS_PER_FLIP = 2;
-	// Exposure ceilings and leg horizon now come from the risk appetite. They are diversification
+	// Exposure ceilings come from the risk appetite. They are diversification
 	// limits, not a cap on how much of the bankroll may be used: the whole balance is always
 	// available, and at the boldest setting the ceilings are lifted entirely so the only limits left
 	// are the game's buy limit and what the market will actually absorb.
@@ -407,8 +400,8 @@ final class PortfolioPlanner
 	 * a floor under it, and only ever a floor -- someone who leaves offers for three hours should be
 	 * given a bigger order than someone stood at the Exchange, because an order that completes while
 	 * they are away holds its slot doing nothing until they return, whereas being present does not
-	 * make the market fill any faster. When the patience budget is unstated the risk appetite's own
-	 * horizon stands in its place.
+	 * make the market fill any faster. When the patience budget is unstated the corresponding
+	 * client profile's round-trip holding duration stands in its place.
 	 * <p>
 	 * This mirrors {@code TradingHorizon.legHorizonHours()} on the plugin side. Both settings have
 	 * been honoured there since they were added, but only the checking habit ever crossed the wire,
@@ -418,11 +411,9 @@ final class PortfolioPlanner
 	 */
 	static double horizonFor(AccountSnapshot account, RiskAppetite appetite)
 	{
-		double fromHabit = account.getCheckIntervalMinutes() * HABIT_COMFORT_FACTOR / 60.0;
-		double wanted = account.getTargetHoldMinutes() > 0
-			? account.getTargetHoldMinutes() / (double) LEGS_PER_FLIP / 60.0
-			: appetite.getHorizonHours();
-		return Math.max(wanted, fromHabit);
+		return com.flippingfriend.TradingHorizon.legHorizonHours(
+			com.flippingfriend.TradingHorizon.profileForRisk(appetite == null ? null : appetite.getName()),
+			account.getCheckIntervalMinutes(), account.getTargetHoldMinutes());
 	}
 
 

@@ -1,10 +1,17 @@
 # Tasks
 
 Updated 20 October 2026. Read [HANDOFF.md](HANDOFF.md) and the actual delivery receipt at
-`local-data/exit-queue-20261020/delivery-state.json` first. Implemented/tested, merged,
+`local-data/trade-plan-maintenance-20261020/delivery-state.json` first. Implemented/tested, merged,
 installed and player accepted are separate states. Owner is home; older login deferrals are superseded.
 
 ## Current batch
+
+- [ ] Deliver/accept same-second acquisition-plan binding, mixed-origin remaining ranges, no invented
+      stops, selected managed subset authority, earlier supported non-loss cancel/collect/relist,
+      progress-aware and bounded buy maintenance, shared horizons and frozen unvalidated diagnostics.
+      Preserve source/financial history and risk; controlled full-loop/restart acceptance remains open.
+      [Contract](docs/architecture/trade-plan-maintenance.md) /
+      [receipt](docs/history/trade-plan-maintenance-delivery-2026-10-20.md).
 
 - [ ] Deliver/accept all eligible exits through final companion authority, exact saved relist caps,
       stop priority and withdrawal of every rejected foreground/pending/editor trade. Separate actual
@@ -57,7 +64,7 @@ latency, complete production replay/returns, validated learning, then remaining 
       [Contract](docs/architecture/completed-offer-latency.md).
 - [ ] Accept acquisition-bound target/stop/sell-duration (#108) through partial fills/sales, ACK/relist/restart. Later snapshots/item TTL cannot create original plans; mixed/unproven context stays unknown. Finish consumer authority and production replay qualification.
       [Contract](docs/architecture/acquisition-exit-context.md).
-- [ ] Accept patient initial/maintenance selling (#105): protect available original healthy targets within horizon; routine reductions require full patience, no recent fills and sustained completed-market support. Preserve fresh stops/wind-down, exact floors, unknown cost and final authority.
+- [ ] Accept patient initial/maintenance selling (#105): protect available original healthy targets within horizon; routine reductions now follow the owner-approved earlier supported non-loss policy in the current contract, with no recent fills and sustained completed-market support. Preserve fresh stops/wind-down, exact floors, unknown cost and final authority.
       [Contract](docs/architecture/patient-sale-pricing.md).
 - [ ] Accept expanded panel/performance/prompt guidance (#103): session/period/reset, durable profit/ROI/completed orders, elapsed hourly results, marks, paged sales and estimated action profit/time. Reset preserves finance/risk; validate live UI and sustained delivery.
       [Contract](docs/architecture/panel-performance-and-latency.md).

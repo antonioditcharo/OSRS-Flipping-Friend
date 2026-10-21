@@ -59,6 +59,7 @@ public class OfferTracker
 	private final TradeJournal journal;
 	private final TaxCalculator taxCalculator;
 	private final TradePlans tradePlans;
+    private final BuyMaintenanceDeadlines maintenanceDeadlines;
 	@Inject private SellRelistIntent sellRelist;
 	@Inject private BuyRepriceIntent buyReprice;
 
@@ -92,6 +93,7 @@ public class OfferTracker
 		this.journal = journal;
 		this.taxCalculator = taxCalculator;
 		this.tradePlans = tradePlans;
+        this.maintenanceDeadlines=new BuyMaintenanceDeadlines(storage);
 	}
 
 	public void setChangeListener(Runnable listener)
@@ -157,6 +159,20 @@ public class OfferTracker
 	{
 		return bySlot.values();
 	}
+
+    /** Persist a one-time timeout without changing execution counters or source clocks. */
+    public synchronized long freezeBuyMaintenanceDeadline(int slot,String identity,double originalMinutes,double fallbackMinutes,long now,String expectedAccount) {
+        var offer=bySlot.get(slot);
+        if(offer==null || !offer.isBuying() || !"BUYING".equals(offer.getState())
+            || !java.util.Objects.equals(identity,offer.getContinuationIdentity()))return 0;
+        if(expectedAccount==null || !expectedAccount.equals(storage.accountId()))return 0;
+        try {
+            if(loadedFrom==null || !loadedFrom.equals(storage.accountDir(expectedAccount).resolve(FILE_NAME)))return 0;
+        }catch(IllegalStateException changed){return 0;}
+        long deadline=maintenanceDeadlines.freeze(expectedAccount,offer.copyObservation(),originalMinutes,fallbackMinutes,now);
+        if(deadline>0)offer.setBuyMaintenanceDeadlineAt(deadline);
+        return deadline;
+    }
 
 	/** Quantity of each item currently sitting unsold in an open sell offer. */
 	public Map<Integer, Integer> listedForSale()

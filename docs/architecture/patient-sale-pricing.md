@@ -1,5 +1,9 @@
 # Patient sale pricing
 
+Current changes: [durable plans and timely maintenance](trade-plan-maintenance.md) supersede the
+same-second exclusion, mixed-plan erasure and full-horizon routine target veto described below.
+The retained original contract explains earlier behavior; current delivery comes from HANDOFF.
+
 19 October 2026. The owner reports premature break-even/scrap-profit exits. Read HANDOFF for the
 installed versus queued pair; availability of a Sell card does not validate its pricing quality.
 

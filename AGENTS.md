@@ -91,8 +91,10 @@ are in `docs/project-direction.md`; historical package notes are not proof of ru
   existing sell. Keep current physical/source evidence and exact taxed floors; see
   docs/architecture/sale-guidance-delivery.md.
 - Healthy sell listings preserve an available original target within the configured holding
-  horizon. Routine reductions require full sell patience, no recent fills and sustained completed
-  market support; fresh stops and explicit player wind-down remain exceptions. Recheck target and
+  horizon. Owner decision, 20 October 2026: allow earlier supported profitable reductions before the holding
+  horizon, after max(8m, checking interval) placement/no-progress ages and two completed market buckets.
+  Preserve exact taxed cost; fresh proven stops and explicit player wind-down remain exceptions.
+  Read docs/architecture/trade-plan-maintenance.md for the superseding maintenance contract. Recheck target and
   exact taxed floors after stabilization and at final authority. Never use targets as risk values
   or invent missing original plans. See docs/architecture/patient-sale-pricing.md and current HANDOFF.
   Live target/stop/sell-duration context must follow the original prospective canonical acquisition,

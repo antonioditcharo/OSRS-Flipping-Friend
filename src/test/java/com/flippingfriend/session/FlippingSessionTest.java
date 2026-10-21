@@ -127,8 +127,8 @@ public class FlippingSessionTest
 		latest.put(ITEM, new LatestPrice(ASK, now - 30, BID, now - 30));
 		latest.put(OTHER, new LatestPrice(OTHER_ASK, now - 30, OTHER_BID, now - 30));
 		Map<Integer, Candle> five = new HashMap<>();
-		five.put(ITEM, new Candle(now, ASK, BID, 4_000, 4_000));
-		five.put(OTHER, new Candle(now, OTHER_ASK, OTHER_BID, 4_000, 4_000));
+		five.put(ITEM, new Candle((now/300-1)*300, ASK, BID, 4_000, 4_000));
+		five.put(OTHER, new Candle((now/300-1)*300, OTHER_ASK, OTHER_BID, 4_000, 4_000));
 		Map<Integer, Candle> hourly = new HashMap<>();
 		hourly.put(ITEM, new Candle(now, ASK, BID, 48_000, 48_000));
 		hourly.put(OTHER, new Candle(now, OTHER_ASK, OTHER_BID, 48_000, 48_000));

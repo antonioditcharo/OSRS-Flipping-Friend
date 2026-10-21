@@ -1,5 +1,9 @@
 # Acquisition-bound exit context
 
+Current changes: [durable plans and timely maintenance](trade-plan-maintenance.md) supersede the
+same-second exclusion, mixed-plan erasure and full-horizon routine target veto described below.
+The retained original contract explains earlier behavior; current delivery comes from HANDOFF.
+
 19 October 2026. Read HANDOFF for tested, merged, installed and player-accepted states.
 
 Live positions previously read the latest item-keyed `TradePlans` entry. Its six-hour TTL could

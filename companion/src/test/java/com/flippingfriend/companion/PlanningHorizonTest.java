@@ -30,10 +30,26 @@ public class PlanningHorizonTest
 	}
 
 	@Test
-	public void anUnstatedHoldLeavesTheRiskAppetiteInCharge()
+	public void anUnstatedHoldMatchesTheClientProfile()
 	{
-		assertEquals(RiskAppetite.BALANCED.getHorizonHours(),
+		assertEquals(3.0,
 			PortfolioPlanner.horizonFor(account(15, 0), RiskAppetite.BALANCED), 1e-9);
+	}
+
+	@Test
+	public void allProfilesAndActualBenchmarkCadencesShareTheClientHorizon()
+	{
+		RiskAppetite[] appetites = {RiskAppetite.CAUTIOUS, RiskAppetite.BALANCED, RiskAppetite.AGGRESSIVE};
+		com.flippingfriend.RiskProfile[] profiles = com.flippingfriend.RiskProfile.values();
+		com.flippingfriend.CheckInterval[] intervals = {com.flippingfriend.CheckInterval.FIVE_MINUTES,
+			com.flippingfriend.CheckInterval.THIRTY_MINUTES, com.flippingfriend.CheckInterval.TWO_HOURS,
+			com.flippingfriend.CheckInterval.EIGHT_HOURS, com.flippingfriend.CheckInterval.OCCASIONAL};
+		for (int i=0; i<appetites.length; i++) for (var interval:intervals) for (int target:new int[]{0,20,480})
+			assertEquals(appetites[i].getName()+" / "+interval+" / target "+target,
+				com.flippingfriend.TradingHorizon.of(profiles[i],interval,target).legHorizonHours(),
+				PortfolioPlanner.horizonFor(account(interval.getMinutes(),target),appetites[i]),1e-9);
+		assertEquals("a custom interval must not become the legacy three-hour cadence",211*.8/60,
+			PortfolioPlanner.horizonFor(account(211,20),RiskAppetite.BALANCED),1e-9);
 	}
 
 	@Test

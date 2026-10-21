@@ -10,14 +10,22 @@ import java.util.*;
 
 /** Final read-only authority for managed exits and observed sale maintenance. No cost comes from the request. */
 final class CompanionSalePolicy {
-    static final String VERSION="companion-sale-3";
+    static final String VERSION="companion-sale-4";
     static String identity(int item,int price,int quantity,String source,boolean cut,int slot) {
-        return item+":"+price+":"+quantity+":"+source+":"+cut+":"+slot;
+        return identity(item,price,quantity,source,cut,slot,null);
+    }
+    static String identity(int item,int price,int quantity,String source,boolean cut,int slot,String repriceSource) {
+        return item+":"+price+":"+quantity+":"+source+":"+cut+":"+slot+":"+(slot<0 && repriceSource!=null?repriceSource:"");
     }
     PolicyDecision decide(SqliteStore.PlanningProjections read,AccountLedgerSnapshot ledger,AccountSnapshot account,
         MarketIngestionService.MarketState market,SeriesSource history,int item,int price,int quantity,String source,
         boolean cut,int slot,long now) {
-        String identity=identity(item,price,quantity,source,cut,slot);
+        return decide(read,ledger,account,market,history,item,price,quantity,source,cut,slot,now,null);
+    }
+    PolicyDecision decide(SqliteStore.PlanningProjections read,AccountLedgerSnapshot ledger,AccountSnapshot account,
+        MarketIngestionService.MarketState market,SeriesSource history,int item,int price,int quantity,String source,
+        boolean cut,int slot,long now,String repriceSource) {
+        String identity=identity(item,price,quantity,source,cut,slot,repriceSource);
         PolicyDecisionType type=slot<0?PolicyDecisionType.EXIT:PolicyDecisionType.SELL_MAINTENANCE;
         try {
             if(account==null || account.getObservedAt()>now || now-account.getObservedAt()>150
@@ -38,7 +46,7 @@ final class CompanionSalePolicy {
             Position position=null;
             for(var p:ledger.getTradingPositions())if(!paused && p.getItemId()==item) {
                 position=new Position(item,p.getItemName(),p.getQuantity(),p.getTotalCost(),p.getOpenedAt(),true);
-                position.applyExitContext(p.getExitContext());
+                position.applyExitContexts(p.getExitContexts());
             }
             var tax=new TaxCalculator();List<ItemMetadata> metadata=new ArrayList<>();
             for(var m:market.mapping.values())metadata.add(new ItemMetadata(m.id,m.name,m.members,m.buyLimit,0));tax.resolveExemptions(metadata);
@@ -78,14 +86,28 @@ final class CompanionSalePolicy {
                     listed=Math.addExact(listed,offer.getTotalQuantity()-offer.getFilledQuantity());
                 }
                 if(quantity>position.getQuantity()-listed)return refusal(type,identity,source,now,"SALE_QUANTITY_ALREADY_LISTED");
-                var decision=exits.evaluateManagedExit(position,quote,null,series,horizon,at,account.getMinProfitPerFlip(),true,account.isSellOnly(),false);
+                SaleMaintenancePricing.Quote relist=null;
+                if(repriceSource!=null) {
+                    var proof=SaleRepriceEvidence.prove(read.history,repriceSource,account.getAccountId(),item,quantity,now);
+                    if(proof==null || !cut && !account.isSellOnly() &&
+                        (proof.original.getObservedAt()-proof.original.getFirstSeenAt()<horizon.staleOfferMinutes()*60
+                        || proof.original.getObservedAt()-proof.lastProgressAt<horizon.staleOfferMinutes()*60))
+                        return refusal(type,identity,source,now,"SALE_REPRICE_CHAIN_UNAVAILABLE");
+                    relist=new SaleMaintenancePricing().quote(item,proof.original.getPrice(),quantity,position,quote,series,horizon,at,
+                        account.isSellOnly(),exits,tax,proof.original.getFirstSeenAt(),proof.lastProgressAt);
+                    // The market may recover during collection. Do not require a fresh reduction then:
+                    // ordinary target-preserving placement remains independently available below.
+                }
+                var decision=relist==null?exits.evaluateManagedExit(position,quote,null,series,horizon,at,account.getMinProfitPerFlip(),true,account.isSellOnly(),false)
+                    :new SellDecision(relist.lossCut?SellDecision.Action.CUT:SellDecision.Action.SELL,relist.price,relist.reason,Double.NaN,
+                        tax.netProceeds(item,relist.price,quantity)-relist.allocatedCost);
                 if(!decision.isSell() || (decision.getAction()==SellDecision.Action.CUT)!=cut
                     || Math.abs((long)decision.getPrice()-price)>=horizon.outbidDeadband(decision.getPrice()))
                     return refusal(type,identity,source,now,"SALE_EXIT_CHANGED");
                 long cost=SaleAccounting.allocateCost(position.getTotalCost(),position.getQuantity(),quantity);
                 if(!cut && (!account.isSellOnly() || quote.stalestSideSeconds(at)>300)) {
                     int floor=tax.breakEvenSellPriceForCost(item,cost,quantity);
-                    if(floor<=0 || price<SellTimingEngine.protectedPrice(position,horizon,at,floor))
+                    if(floor<=0 || price<(relist==null?SellTimingEngine.protectedPrice(position,horizon,at,floor):floor))
                         return refusal(type,identity,source,now,"SALE_EXACT_COST_FLOOR");
                 }
             }
