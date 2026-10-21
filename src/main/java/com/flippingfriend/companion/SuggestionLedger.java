@@ -147,6 +147,7 @@ public class SuggestionLedger
 		private final long recordedAt;
         private final com.flippingfriend.core.ExecutionForecast forecast;
         private final com.flippingfriend.core.AcquisitionExitContext exitContext;
+        private final com.flippingfriend.core.CaptureOrder acceptedOrder=com.flippingfriend.core.CaptureOrder.next();
 		Advice(String recommendationId, int price, int quantity, long quoteAgeSeconds,
 			double predictedMinutes, double predictedCompletion, long suggestedAt)
 		{
@@ -185,5 +186,6 @@ public class SuggestionLedger
 		public long getRecordedAt() { return recordedAt; }
         public com.flippingfriend.core.ExecutionForecast getForecast(){return forecast;}
         public com.flippingfriend.core.AcquisitionExitContext getExitContext(){return exitContext;}
+        public com.flippingfriend.core.CaptureOrder getAcceptedOrder(){return acceptedOrder;}
 	}
 }

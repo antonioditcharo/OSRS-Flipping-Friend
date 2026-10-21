@@ -50,12 +50,13 @@ public class SaleGuidanceDeliveryTest {
                 boolean entry=exchange.getRequestURI().getPath().endsWith("policy/entry");
                 int slot=entry?-1:Integer.parseInt(q.get("slot"));
                 String source=replySource==null?q.get("source"):replySource;
-                String key=q.get("item")+":"+q.get("price")+":"+q.get("quantity")+":"+source+":"+q.get("cut")+":"+slot;
+                String key=q.get("item")+":"+q.get("price")+":"+q.get("quantity")+":"+source+":"+q.get("cut")+":"+slot
+                    +":"+(slot<0?q.getOrDefault("repriceSource",""):"");
                 var decision=entry?PolicyDecision.action("1","companion-entry-1","entry",PolicyDecisionType.ENTRY,OfferLifecycleAction.PLACE_BUY,
                     "ENTRY_CANDIDATE_SELECTED",now,now-1,"561:100:120:3",q.get("planId"))
-                    :PolicyDecision.action("1","companion-sale-3","decision",slot<0?PolicyDecisionType.EXIT:PolicyDecisionType.SELL_MAINTENANCE,
+                    :PolicyDecision.action("1","companion-sale-4","decision",slot<0?PolicyDecisionType.EXIT:PolicyDecisionType.SELL_MAINTENANCE,
                     slot<0?OfferLifecycleAction.PLACE_SELL:OfferLifecycleAction.CANCEL_SELL,"SALE_AUTHORIZED",now,now-1,key,source);
-                if(refusal!=null)decision=PolicyDecision.abstain("1","companion-sale-3","refused",
+                if(refusal!=null)decision=PolicyDecision.abstain("1","companion-sale-4","refused",
                     slot<0?PolicyDecisionType.EXIT:PolicyDecisionType.SELL_MAINTENANCE,
                     PolicyAbstentionReason.ACCOUNT_STATE_INCONSISTENT,refusal,now,now-1,key,source);
                 byte[] body=json.toJson(decision).getBytes(StandardCharsets.UTF_8);
@@ -104,6 +105,17 @@ public class SaleGuidanceDeliveryTest {
         assertNotNull("A slow valid entry read must not be reported as an unavailable companion",decision);
         assertEquals(OfferLifecycleAction.PLACE_BUY,decision.getAction());assertEquals("current-plan",decision.getRecommendationId());
         assertEquals("1",requested.get().get("rank"));
+    }
+    @Test public void aVerifiedReductionBindsItsExactSourceAndTheRelistSendsThatIdentity()throws Exception {
+        var offer=publishSale(0);acknowledge();ledger(true);
+        var modify=sale(true);assertSame(modify,client.authorizeSale(modify));
+        assertEquals(offer.getEventId(),modify.getSaleRepriceSource());
+        client.publishOfferCleared(2);acknowledge();ledger(true);
+        var relist=Suggestion.builder(SuggestionType.SELL).item(561,"Nature rune").quantity(3).price(120)
+            .profitKnown(true).saleRepriceSource(modify.getSaleRepriceSource()).build();
+        assertSame(relist,client.authorizeSale(relist));
+        assertEquals(offer.getEventId(),requested.get().get("repriceSource"));
+        assertEquals("acquisition",requested.get().get("source"));
     }
     @Test public void authenticatedPersonalSellOfferRetainsSourceForMaintenance()throws Exception {
         var offer=publishSale(0);acknowledge();ledger(false);

@@ -521,6 +521,9 @@ public class CompanionClient
                     advice.getPredictedMinutes(),advice.getPredictedCompletion());
                 builder.predictionEvidence(null,advice.getRecordedAt(),false);
                 builder.executionForecast(advice.getForecast());builder.exitContext(advice.getExitContext());
+                var order=offer.getFirstCaptureOrder();
+                if(advice.getAcceptedOrder().precedes(order))
+                    builder.acceptedAdviceProof(new com.flippingfriend.core.AcceptedAdviceProof(advice.getAcceptedOrder(),order));
             }
             return builder.build();
         };
@@ -984,15 +987,21 @@ public class CompanionClient
         String source=currentSaleSource(proposed,slot);
         String reason="SALE_DELIVERY_PENDING";
         if(source!=null)try {
-            String key=proposed.getItemId()+":"+proposed.getPrice()+":"+proposed.getQuantity()+":"+source+":"+proposed.isLossCut()+":"+slot;
+            String repriceSource=slot<0?proposed.getSaleRepriceSource():null;
+            String key=proposed.getItemId()+":"+proposed.getPrice()+":"+proposed.getQuantity()+":"+source+":"+proposed.isLossCut()+":"+slot
+                +":"+(repriceSource==null?"":repriceSource);
             String path="policy/sale?item="+proposed.getItemId()+"&price="+proposed.getPrice()+"&quantity="+proposed.getQuantity()
                 +"&source="+URLEncoder.encode(source,StandardCharsets.UTF_8.name())+"&cut="+proposed.isLossCut()+"&slot="+slot;
+            if(repriceSource!=null && !repriceSource.isBlank())path+="&repriceSource="+URLEncoder.encode(repriceSource,StandardCharsets.UTF_8.name());
             PolicyDecision decision=gson.fromJson(request(path,"GET",null,ACCOUNT_READ_TIMEOUT_MILLIS,requestedAccount),PolicyDecision.class);
             long receivedAt=Instant.now().getEpochSecond();
             if(validSaleDecision(decision,key,source,slot,now) && decision.getDecidedAt()<=receivedAt
                 && receivedAt-decision.getDecidedAt()<=5 && receivedAt-decision.getInputObservedAt()<=150
                 && java.util.Objects.equals(requestedAccount,accountContext()) && !offerEvidencePending()
-                && source.equals(currentSaleSource(proposed,slot))) {lastError="";return proposed;}
+                && source.equals(currentSaleSource(proposed,slot))) {
+                    if(slot>=0)proposed.bindSaleRepriceSource(source);
+                    lastError="";return proposed;
+                }
             reason=decision==null?"SALE_AUTHORITY_UNAVAILABLE":decision.getAction()==OfferLifecycleAction.WAIT
                 ?decision.getReasonCode():"SALE_SOURCE_CHANGED";
         }catch(Exception unavailable){reason="SALE_AUTHORITY_UNAVAILABLE";}
@@ -1032,7 +1041,7 @@ public class CompanionClient
         return null;
     }
     static boolean validSaleDecision(PolicyDecision decision,String identity,String source,int slot,long now) {
-        return decision!=null && "1".equals(decision.getSchemaVersion()) && "companion-sale-3".equals(decision.getPolicyVersion())
+        return decision!=null && "1".equals(decision.getSchemaVersion()) && "companion-sale-4".equals(decision.getPolicyVersion())
             && identity.equals(decision.getCandidateId()) && source.equals(decision.getRecommendationId())
             && decision.getDecisionType()==(slot<0?PolicyDecisionType.EXIT:PolicyDecisionType.SELL_MAINTENANCE)
             && decision.getAction()==(slot<0?OfferLifecycleAction.PLACE_SELL:OfferLifecycleAction.CANCEL_SELL)
@@ -1073,6 +1082,33 @@ public class CompanionClient
 		}
 		return selected;
 	}
+    /** Frozen comparable original BUY duration, never refreshed advice for this item. */
+    public double originalBuyExpectedMinutes(int slot) {
+        String account=accountContext();
+        var event=canonicalOffers.get(slot);
+        return event!=null && java.util.Objects.equals(account,event.getAccountId())?originalBuyDuration(event):Double.NaN;
+    }
+    private static double originalBuyDuration(OfferEvent event) {
+        if(!event.isAuthenticatedObservation() || !event.isBuying() || !"BUYING".equals(event.getEventType())
+            || event.getPredictionSourceEventId()==null)return Double.NaN;
+        var forecast=event.getExecutionForecast();
+        // Accepted callback ordering can preserve a model claim for workflow timing while the
+        // older second-resolution learning qualification deliberately remains false.
+        if(event.hasAcceptedExitProof() && forecast!=null
+            && forecast.matches(event.getItemId(),true,event.getPrice(),event.getTotalQuantity()))
+            return forecast.getExpectedTotalSeconds()/60;
+        return event.isPredictionComparable() && Double.isFinite(event.getPredictedMinutes()) && event.getPredictedMinutes()>0
+            ?event.getPredictedMinutes():Double.NaN;
+    }
+    public double originalBuyExpectedMinutes(TrackedOffer expected) {
+        if(expected==null || !expected.isBuying())return Double.NaN;
+        String account=accountContext();var event=canonicalOffers.get(expected.getSlot());
+        String identity=expected.getEpisodeIdentity()==null?expected.getSlot()+"@"+expected.getFirstSeen()+":"+expected.getItemId():expected.getEpisodeIdentity();
+        if(event==null || !java.util.Objects.equals(account,event.getAccountId()) || event.getItemId()!=expected.getItemId() || event.getPrice()!=expected.getPrice()
+            || event.getTotalQuantity()!=expected.getTotalQuantity() || event.getFirstSeenAt()!=expected.getFirstSeen()
+            || !identity.equals(event.getOfferIdentity()))return Double.NaN;
+        return originalBuyDuration(event);
+    }
 
 	private void rememberCanonicalOffer(OfferEvent event)
 	{

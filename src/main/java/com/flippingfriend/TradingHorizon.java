@@ -87,8 +87,28 @@ public class TradingHorizon
 	 */
 	public double legHorizonHours()
 	{
-		double fromWanted = wantedHoldMinutes() / (double) VISITS_PER_FLIP;
-		double fromHabit = interval.getMinutes() * COMFORT_FACTOR;
+		return legHorizonHours(profile, interval.getMinutes(), targetHoldMinutes);
+	}
+
+	/** Shared client/companion interpretation, including the public appetite aliases. */
+	public static RiskProfile profileForRisk(String risk)
+	{
+		if (risk == null) return RiskProfile.MODERATE;
+		switch (risk.toUpperCase(java.util.Locale.ROOT))
+		{
+			case "LOW": case "CAUTIOUS": return RiskProfile.LOW;
+			case "HIGH": case "AGGRESSIVE": return RiskProfile.HIGH;
+			default: return RiskProfile.MODERATE;
+		}
+	}
+
+	/** Raw minutes preserve custom intervals instead of rounding them to a named option. */
+	public static double legHorizonHours(RiskProfile profile, int checkIntervalMinutes, int targetHoldMinutes)
+	{
+		RiskProfile chosen = profile == null ? RiskProfile.MODERATE : profile;
+		double wanted = targetHoldMinutes > 0 ? targetHoldMinutes : chosen.getMaxHoldMinutes();
+		double fromWanted = wanted / VISITS_PER_FLIP;
+		double fromHabit = Math.max(0, checkIntervalMinutes) * COMFORT_FACTOR;
 		return Math.max(fromWanted, fromHabit) / 60.0;
 	}
 
@@ -162,7 +182,7 @@ public class TradingHorizon
 		if (isBuying)
 		{
 			boolean spotOutbid = spot.getLow() - currentPrice >= deadband;
-			boolean trendOutbid = trend == null || trend.getAvgHighPrice() == null || currentPrice < trend.getAvgHighPrice();
+			boolean trendOutbid = trend == null || trend.getAvgLowPrice() == null || currentPrice < trend.getAvgLowPrice();
 			return spotOutbid && trendOutbid;
 		}
 		else

@@ -4,16 +4,23 @@ Continue in `C:\Users\Antonio\OSRS Flipping Friend Rebuild`.
 Implement, verify and deliver reliable trade/inventory workflow batches; do not stop at a roadmap.
 Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
-Read `local-data/exit-queue-20261020/delivery-state.json` FIRST, then current
+Read `local-data/trade-plan-maintenance-20261020/delivery-state.json` FIRST, then current
 AGENTS.md, HANDOFF.md and TASKS.md. The receipt distinguishes source/tests/CI/merge/install/player
 acceptance. Older PR checkpoints and availability notes are historical, not installation proof.
 
-The current batch keeps all eligible exact relists/holding exits/listed stops through final sale
-authority and withdraws every refused instruction before a successor. Inventory is separate from
-equipment; initial exits use the actual inventory subset and exact pooled cost, and fresh captures
-carry an independent inventory bound. Keep bank/equipment/collection ownership and all financial/risk
-history. See [contract](architecture/exit-authority-queue.md) and
-[delivery](history/exit-queue-delivery-2026-10-20.md).
+The current batch retains same-second accepted advice with independent ordering proof and preserves
+mixed original acquisition plans with possible remaining quantity ranges. No missing plan may invent
+a stop. Selected managed sell subsets require canonical exact costs and final authority. Earlier
+supported profitable repricing must survive cancel/late fills/collect/capped relist/restart without
+restoring the old target. Buy progress/deadline/stabilization and shared default horizons are fixed;
+frozen timing diagnostics remain unvalidated. See [contract](architecture/trade-plan-maintenance.md)
+and [receipt](history/trade-plan-maintenance-delivery-2026-10-20.md).
+
+#133 is merged as 6f1634f394befdd68556c1fb892c2249f7f00f1f; installation is batched with this delivery.
+It preserves all eligible exact exits through final authority and inventory-only sale bounds.
+The reported historical three bludgeons have no recoverable original plan and were subsequently sold;
+the newer two-unit purchase is separate. Bolts retain two provable source plans. Never replay money,
+borrow a later item plan, or re-enroll disposed stock to manufacture a repair.
 
 Previous #132 is merged/installed, and fresh manual login/eight-slot/ACK proof confirms that Dual
 macuahuitl's old two-unit rebuy hint was retired with the exact recorded sale source. Other hints,

@@ -1,5 +1,5 @@
 param(
-    [ValidateSet('Freeze', 'Verify', 'Compare')][string]$Mode = 'Freeze',
+    [ValidateSet('Freeze', 'Verify', 'Audit', 'Compare')][string]$Mode = 'Freeze',
     [string]$AccountId,
     [string]$Capture,
     [string]$Validation,
@@ -39,6 +39,11 @@ switch ($Mode) {
         if (-not $Capture) { throw 'Specify -Capture.' }
         & $javaCommand -cp $companionJar $mainClass verify $Capture
         if ($LASTEXITCODE -ne 0) { throw "Capture verification failed (exit $LASTEXITCODE)." }
+    }
+    'Audit' {
+        if (-not $Capture) { throw 'Specify -Capture. Audit accepts a verified frozen bundle, not a live database.' }
+        & $javaCommand -cp $companionJar $mainClass audit $Capture
+        if ($LASTEXITCODE -ne 0) { throw "Frozen forecast audit failed (exit $LASTEXITCODE)." }
     }
     'Compare' {
         if (-not $Capture -or -not $Validation) { throw 'Specify training -Capture and later -Validation.' }

@@ -196,7 +196,7 @@ public class SuggestionEngine
             || !accepted.getMaintenanceOfferIdentity().equals(offer.getContinuationIdentity())
             || !(buy?"BUYING":"SELLING").equals(offer.getState()))return false;
         return buy ? buyReprice!=null && buyReprice.advise(offer,expectedAccount,offers,now)
-            : sellRelist!=null && sellRelist.advise(offer,expectedAccount,accepted.isProfitKnown(),offers);
+            : sellRelist!=null && sellRelist.advise(offer,expectedAccount,accepted.isProfitKnown(),offers,accepted.getSaleRepriceSource());
     }
 
     public boolean hasTradeEvidence() {
@@ -220,7 +220,7 @@ public class SuggestionEngine
         for (var p : ledger.getTradingPositions()) {
             Position position = new Position(p.getItemId(), p.getItemName(), p.getQuantity(),
                 p.getTotalCost(), p.getOpenedAt(), true);
-            position.applyExitContext(p.getExitContext());
+            position.applyExitContexts(p.getExitContexts());
             held.add(position);
         }
         return held;
@@ -657,12 +657,6 @@ public class SuggestionEngine
 			// would take two hours, an unfilled offer means nothing except that two hours is longer
 			// than fifteen minutes -- and that was enough to have a 90,000 gp position marked down by
 			// nearly 200,000.
-			long patience = horizon.staleOfferMinutes();
-			if (offer.isBuying() && offer.minutesOpen(now.getEpochSecond()) < patience)
-			{
-				continue;
-			}
-
 			if (offer.isBuying())
 			{
 				ItemMetadata metadata = market.metadata(offer.getItemId());
@@ -691,6 +685,20 @@ public class SuggestionEngine
 
 			String name = market.getItemName(offer.getItemId());
 			int remaining = offer.getRemaining();
+            if(offer.isBuying()) {
+                double original=companion==null?0:companion.originalBuyExpectedMinutes(offer);
+                long deadline=offers.freezeBuyMaintenanceDeadline(offer.getSlot(),offer.getContinuationIdentity(),original,
+                    horizon.legHorizonHours()*60,now.getEpochSecond(),observedAccount);
+                if(com.flippingfriend.session.BuyRepricePricing.overdue(offer.getFirstSeen(),offer.getLastFillObservedAt(),
+                    deadline,price,horizon,now.getEpochSecond())) {
+                    clearBuyPromise(offer.getItemId(),now);
+                    return Suggestion.builder(SuggestionType.CANCEL).maintenanceSource(offer.getContinuationIdentity())
+                        .item(offer.getItemId(),name).slot(offer.getSlot()).price(offer.getPrice()).quantity(remaining)
+                        .headline("Review the stalled "+name+" buy")
+                        .detail("The original buy waiting budget has elapsed without recent observed fills. Cancel this remainder and collect its coins and any acquired units. A fresh plan will reassess the returned capital; this is not a promise to replace the same order.")
+                        .build();
+                }
+            }
 
 			if (horizon.isOutbid(offer.isBuying(), offer.getPrice(), price, trend))
 			{
@@ -699,10 +707,10 @@ public class SuggestionEngine
 					if(price.getLow()>=Integer.MAX_VALUE)continue;
 					// Settled before it is judged, so the profitability gate below and the card the
 					// player reads are talking about the same price. See advisedPrice.
-					int newPrice = advisedPrice(offer.getItemId(), true, price.getLow() + 1,
+					int newPrice = advisedPrices.buyReprice(offer.getItemId(), offer.getPrice(), price.getLow() + 1,
 						now.getEpochSecond());
                     var buyQuote=com.flippingfriend.session.BuyRepricePricing.quote(offer.getItemId(),offer.getPrice(),remaining,
-                        offer.getFirstSeen(),price,trend,horizon,taxCalculator,now.getEpochSecond(),newPrice,config.minProfitPerFlip());
+                        offer.getFirstSeen(),offer.getLastFillObservedAt(),price,trend,horizon,taxCalculator,now.getEpochSecond(),newPrice,config.minProfitPerFlip());
                     if(buyQuote==null)continue;
                     int targetSellPrice=buyQuote.target;
                     long expectedProfit=buyQuote.profit;
@@ -1441,7 +1449,7 @@ public class SuggestionEngine
     private Position salePosition(com.flippingfriend.core.AccountLedgerSnapshot ledger, int item) {
         for (var p : ledger.getTradingPositions()) if (p.getItemId()==item) {
             var position = new Position(item,p.getItemName(),p.getQuantity(),p.getTotalCost(),p.getOpenedAt(),true);
-            position.applyExitContext(p.getExitContext()); return position;
+            position.applyExitContexts(p.getExitContexts()); return position;
         }
         return null;
     }
@@ -1475,6 +1483,12 @@ public class SuggestionEngine
         var series = marketData.getSeries(item,TIMESTEP);
         var decision = sellTiming.evaluateManagedExit(position,price,featureEngine.compute(item,series,BUCKET_SECONDS),
             series,horizon,now,config.minProfitPerFlip(),true,sellOnly,false);
+        var relist=remaining.getSaleRepriceSource()==null?null:new com.flippingfriend.session.SaleMaintenancePricing().quote(
+            item,remaining.getOriginalPrice(),quantity,position,price,series,horizon,now,sellOnly,sellTiming,taxCalculator,
+            remaining.getFirstSeenAt(),remaining.getProgressAt());
+        if(relist!=null)decision=new com.flippingfriend.session.SellDecision(relist.lossCut?com.flippingfriend.session.SellDecision.Action.CUT
+            :com.flippingfriend.session.SellDecision.Action.SELL,relist.price,relist.reason,Double.NaN,
+            taxCalculator.netProceeds(item,relist.price,quantity)-relist.allocatedCost);
         if (!decision.isSell()) return Suggestion.waiting("Waiting for a supported sell price",decision.getReason());
         boolean cut = decision.getAction()==SellDecision.Action.CUT;
         long cost = com.flippingfriend.core.SaleAccounting.allocateCost(position.getTotalCost(),position.getQuantity(),quantity);
@@ -1482,15 +1496,26 @@ public class SuggestionEngine
         if (!cut && (!sellOnly || !freshSaleQuote(price,now))) {
             int floor = taxCalculator.breakEvenSellPriceForCost(item,cost,quantity);
             if (floor<=0) return Suggestion.waiting("No non-loss sell price is available", "No legal price covers the recorded cost after tax.");
-            quoted = Math.max(quoted,SellTimingEngine.protectedPrice(position,horizon,now,floor));
+            quoted = Math.max(quoted,relist==null?SellTimingEngine.protectedPrice(position,horizon,now,floor):floor);
         }
         var forecast = sellTiming.forecastForOrder(item,quoted,quantity,series,horizon);
         double minutes = forecast==null?Double.NaN:forecast.getExpectedTotalSeconds()/60;
         return Suggestion.builder(SuggestionType.SELL).item(item,position.getItemName()).quantity(quantity)
             .price(quoted).lossCut(cut).profitKnown(true).expectedProfit(taxCalculator.netProceeds(item,quoted,quantity)-cost)
+            .saleRepriceSource(remaining.getSaleRepriceSource())
             .expectedMinutes(minutes).fillMinutes(0,minutes).executionForecast(forecast)
             .legCompletionProbability(forecast==null?null:forecast.getCompletionProbability())
             .headline((cut?"Cut your losses on ":"Relist your ")+position.getItemName()).detail(decision.getReason()).build();
+    }
+
+    /** Exact collected workflow context for a player-selected sale; final authority still rechecks it. */
+    public com.flippingfriend.session.SellRelistIntent.CollectedRemainder selectedSaleReprice(int item,int quantity) {
+        if(quantity<=0 || sellRelist==null || observedAccount==null)return null;
+        int inventory=accountMonitor.getState().getInventoryHoldings().getOrDefault(item,0);
+        if(quantity>inventory)return null;
+        for(var request:sellRelist.collectedRequests(offers,observedAccount))
+            if(request.getItemId()==item && request.getSaleRepriceSource()!=null && quantity<=request.getQuantity())return request;
+        return null;
     }
 
 	private Suggestion sellSuggestion(MarketSnapshot market, TradingHorizon horizon, AccountState account,

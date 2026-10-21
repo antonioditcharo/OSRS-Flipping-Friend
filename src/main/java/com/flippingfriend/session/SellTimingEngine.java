@@ -183,16 +183,16 @@ public class SellTimingEngine
 
     /** Price guard only; never a valuation, execution promise or invented historical target. */
     public static int protectedPrice(Position position,TradingHorizon horizon,Instant now,int costFloor) {
-        if(position!=null && position.isCostKnown() && position.minutesHeld(now.getEpochSecond())<horizon.maxHoldMinutes())
-            return Math.max(costFloor,position.getTargetSellPrice());
+        if(position!=null && position.isCostKnown())
+            return Math.max(Math.max(1,costFloor),position.protectedOriginalTarget(now.getEpochSecond(),horizon.maxHoldMinutes()));
         return Math.max(1,costFloor);
     }
     /** Callers must establish quote freshness before using this to authorize a loss. */
     static boolean throughStop(Position position,int marketSell,RiskProfile profile) {
         if(position==null || !position.isCostKnown() || marketSell<=0)return false;
-        int cost=position.getAverageCost(),stop=position.getStopPrice();
-        if(stop<=0 && cost>0)stop=Math.min(cost-1,cost-(int)Math.round(cost*profile.getLossCutPct()));
-        return marketSell<=stop;
+        int stop=position.getStopPrice();
+        // Missing original acquisition context cannot invent loss permission from today's settings.
+        return stop>0 && marketSell<=stop;
     }
 
 	/**

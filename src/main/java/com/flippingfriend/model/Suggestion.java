@@ -46,6 +46,7 @@ public class Suggestion
     private boolean profitKnown = true;
     private String recommendationId,adviceAccountId;
     private String maintenanceOfferIdentity;
+    private String saleRepriceSource;
     private long quoteAgeSeconds,adviceExpiresAt;
     private com.flippingfriend.core.ExecutionForecast executionForecast;
     private Double legCompletionProbability;
@@ -87,6 +88,16 @@ public class Suggestion
 	{
 		return new Builder(type);
 	}
+
+    public String getSaleRepriceSource() { return saleRepriceSource; }
+    /** Bound only after final authority accepted this exact working-sale source. */
+    public void bindSaleRepriceSource(String source) {
+        if(type!=SuggestionType.MODIFY_SELL || source==null || source.isBlank())
+            throw new IllegalArgumentException("A working sale source is required");
+        if(saleRepriceSource!=null && !saleRepriceSource.equals(source))
+            throw new IllegalStateException("Sale source changed");
+        saleRepriceSource=source;
+    }
 
 	public SuggestionType getType()
 	{
@@ -211,7 +222,8 @@ public class Suggestion
 			&& other.price == price
 			&& other.quantity == quantity
 			&& other.slot == slot && other.profitKnown == profitKnown
-            && java.util.Objects.equals(maintenanceOfferIdentity,other.maintenanceOfferIdentity);
+            && java.util.Objects.equals(maintenanceOfferIdentity,other.maintenanceOfferIdentity)
+            && java.util.Objects.equals(saleRepriceSource,other.saleRepriceSource);
 	}
 
 	/**
@@ -248,6 +260,7 @@ public class Suggestion
 		private String detail = "";
         private String recommendationId,adviceAccountId;
         private String maintenanceOfferIdentity;
+        private String saleRepriceSource;
         private long quoteAgeSeconds,adviceExpiresAt;
         private com.flippingfriend.core.ExecutionForecast executionForecast;
         private Double legCompletionProbability;
@@ -286,6 +299,7 @@ public class Suggestion
         private boolean profitKnown = true;
         public Builder profitKnown(boolean known) { profitKnown = known; return this; }
         public Builder maintenanceSource(String identity){maintenanceOfferIdentity=identity;return this;}
+        public Builder saleRepriceSource(String source){saleRepriceSource=source;return this;}
 
 		public Builder lossCut(boolean lossCut)
 		{
@@ -359,6 +373,7 @@ public class Suggestion
             suggestion.profitKnown = profitKnown;
             suggestion.recommendationId=recommendationId;suggestion.adviceAccountId=adviceAccountId;
             suggestion.maintenanceOfferIdentity=maintenanceOfferIdentity;
+            suggestion.saleRepriceSource=saleRepriceSource;
             suggestion.quoteAgeSeconds=quoteAgeSeconds;suggestion.adviceExpiresAt=adviceExpiresAt;
             suggestion.executionForecast=executionForecast;suggestion.legCompletionProbability=legCompletionProbability;
 			return suggestion;

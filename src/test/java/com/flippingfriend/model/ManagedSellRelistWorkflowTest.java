@@ -83,10 +83,10 @@ public class ManagedSellRelistWorkflowTest {
             return next();
         }
     }
-    @Test public void actualManagedGuidanceKeepsItsTargetAndDoesNotTurnItIntoABreakEvenReprice()throws Exception {
+    @Test public void legacyRelistKeepsItsTargetButSupportedMaintenanceMayReduceIt()throws Exception {
         var f=new Fixture(6,5881,6,1000,true);
         f.context(1200,0,120,now.getEpochSecond()-60);
-        assertEquals(1200,f.next().getPrice());noReprice(f.maintenance(6));
+        assertEquals(1200,f.next().getPrice());assertEquals(SuggestionType.MODIFY_SELL,f.maintenance(6).getType());
     }
     @Test public void anOrdinaryRelistCannotHideAnotherHoldingsFreshStop()throws Exception {
         var f=new Fixture(6,5881,6,1000,true);var original=f.companion.tradingLedger().getTradingPositions().get(0);
@@ -116,10 +116,10 @@ public class ManagedSellRelistWorkflowTest {
         var next=f.next();assertEquals(SuggestionType.MODIFY_SELL,next.getType());assertEquals(562,next.getItemId());assertTrue(next.isLossCut());
         assertEquals(6,new SellRelistIntent(f.storage).collectedRequest(f.offers,account).getQuantity());
     }
-    @Test public void actualManagedMaintenanceWaitsForFullPredictionAndCurrentProgress()throws Exception {
+    @Test public void actualManagedMaintenanceUsesSupportedDisplacementAndCurrentProgress()throws Exception {
         var f=new Fixture(6,5881,6,1100,true);
         f.context(1200,0,120,now.getEpochSecond()-100000);
-        noReprice(f.maintenance(6,119*60,119*60));
+        assertEquals(SuggestionType.MODIFY_SELL,f.maintenance(6,119*60,119*60).getType());
         noReprice(f.maintenance(6,150*60,60));
         assertEquals(SuggestionType.MODIFY_SELL,f.maintenance(6,150*60,10*60).getType());
     }

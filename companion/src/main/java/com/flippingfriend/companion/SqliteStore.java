@@ -462,6 +462,8 @@ final class SqliteStore implements AutoCloseable
 		{
 			PlanningProjections planning=readPlanningProjections(accountId);
             planning.saleProgressAt=saleProgressEvidence(accountId,planning.currentEvents);
+            // Exact cancel/collect relists are checked against this same durable source prefix.
+            planning.history=offerHistory(accountId);
 			checkpoint.reached("SALE_PLANNING_READ");
 			AccountLedgerSnapshot ledger=readLedgerSnapshot(accountId,evaluatedAt,planning.tradeScope);
 			connection.commit();

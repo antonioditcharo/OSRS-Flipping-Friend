@@ -67,6 +67,7 @@ public final class OfferEvent
     private final Boolean predictionComparable;
     private final ExecutionForecast executionForecast;
     private final AcquisitionExitContext exitContext;
+    private final AcceptedAdviceProof acceptedAdviceProof;
 
 	private OfferEvent(Builder builder)
 	{
@@ -101,6 +102,7 @@ public final class OfferEvent
         this.predictionComparable=builder.predictionComparable;
         this.executionForecast=builder.executionForecast;
         this.exitContext=builder.exitContext;
+        this.acceptedAdviceProof=builder.acceptedAdviceProof;
 	}
 
 	public static Builder builder(String correlationId, long observedAt, String eventType)
@@ -154,6 +156,9 @@ public final class OfferEvent
     public boolean isPredictionComparable() { return Boolean.TRUE.equals(predictionComparable); }
     public ExecutionForecast getExecutionForecast(){return executionForecast;}
     public AcquisitionExitContext getExitContext(){return exitContext;}
+    public AcceptedAdviceProof getAcceptedAdviceProof(){return acceptedAdviceProof;}
+    /** Prospective accepted order evidence independent of prediction scoring eligibility. */
+    public boolean hasAcceptedExitProof(){return acceptedAdviceProof!=null && acceptedAdviceProof.isValid();}
 
     private Builder copyBuilder() {
         Builder copy=builder(correlationId,observedAt,eventType).eventIdentity(eventId,sessionId,offerIdentity)
@@ -165,6 +170,7 @@ public final class OfferEvent
         copy.adviceObservedAt=adviceObservedAt;copy.predictionComparable=predictionComparable;
         copy.executionForecast=executionForecast;
         copy.exitContext=exitContext;
+        copy.acceptedAdviceProof=acceptedAdviceProof;
         return copy;
     }
     /** Freezes observational attribution, not proof of player intent. Economic/delivery fields stay intact. */
@@ -184,7 +190,15 @@ public final class OfferEvent
         // Same exact prospective binding as the original advice. Later item advice, changed
         // orders and missing originals cannot supply exit context. No lifetime expiry once bound.
         String exitSource=origin==null?null:origin.predictionSourceEventId==null?origin.eventId:origin.predictionSourceEventId;
-        copy.exitContext=comparable && buying && origin.exitContext!=null && origin.exitContext.isValid()
+        boolean accepted=matched && origin.hasAcceptedExitProof() && origin.authenticatedObservation
+            && origin.buying && origin.filledQuantity==0 && "BUYING".equals(origin.eventType)
+            && origin.firstSeenAt>0 && origin.firstSeenAt==origin.observedAt
+            && origin.getAdviceObservedAt()>0 && origin.getAdviceObservedAt()<=origin.firstSeenAt
+            && origin.firstSeenAt-origin.getAdviceObservedAt()<=600
+            && origin.price==price && origin.totalQuantity==totalQuantity
+            && origin.suggestedPrice==price && origin.suggestedQuantity==totalQuantity;
+        copy.acceptedAdviceProof=accepted?origin.acceptedAdviceProof:null;
+        copy.exitContext=(comparable || accepted) && buying && origin.exitContext!=null && origin.exitContext.isValid()
             && (origin.exitContext.getSourceEventId()==null || origin.exitContext.getSourceEventId().equals(exitSource))
             ? origin.exitContext.bind(origin.predictionSourceEventId==null?origin.eventId:origin.predictionSourceEventId):null;
         copy.executionForecast=matched?origin.executionForecast:null;
@@ -255,6 +269,7 @@ public final class OfferEvent
         private Boolean predictionComparable;
         private ExecutionForecast executionForecast;
         private AcquisitionExitContext exitContext;
+        private AcceptedAdviceProof acceptedAdviceProof;
 
 		private Builder(String correlationId, long observedAt, String eventType)
 		{
@@ -294,6 +309,7 @@ public final class OfferEvent
         }
         public Builder executionForecast(ExecutionForecast forecast){executionForecast=forecast;return this;}
         public Builder exitContext(AcquisitionExitContext value){exitContext=value;return this;}
+        public Builder acceptedAdviceProof(AcceptedAdviceProof value){acceptedAdviceProof=value;return this;}
 
 		/** Links this offer to the advice that prompted it. */
 		public Builder recommendation(String id, int price, int quantity, long quoteAge,

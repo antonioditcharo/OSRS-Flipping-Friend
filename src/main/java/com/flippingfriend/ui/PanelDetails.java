@@ -118,12 +118,27 @@ final class PanelDetails {
         if (shown.isActionable() && shown.getPrice() > 0) text.append("\nEstimated after-tax profit: ")
             .append(shown.isProfitKnown() ? explainer.formatGp(shown.getExpectedProfit()) : "Unavailable (unknown acquisition cost)");
         if (shown.getExpectedMinutes() > 0) text.append("\nEstimated duration: ").append(Math.round(shown.getExpectedMinutes())).append(" minutes");
+        text.append(forecastDescription(shown));
         if (shown.getBreakEvenPrice() > 0) text.append("\nBreak-even sell: ").append(explainer.formatNumber(shown.getBreakEvenPrice())).append(" gp");
         if (shown.getType() == com.flippingfriend.model.SuggestionType.BUY) text.append("\nModel confidence: ").append(Math.round(shown.getConfidence() * 100)).append("%");
         recommendation.setText(text.toString());
         copyQuantity.setEnabled(shown.getQuantity() > 0); copyPrice.setEnabled(shown.getPrice() > 0);
         syncing = true; interval.setSelectedItem(config.checkInterval()); sellOnly.setSelected(engine.isSellOnly()); syncing = false;
         if (dialog != null && dialog.isVisible()) refreshSelected();
+    }
+
+    /** A duration is an unvalidated estimate; completion probability has its own full-order horizon. */
+    static String forecastDescription(Suggestion advice) {
+        var forecast=advice.getExecutionForecast();
+        if (forecast!=null && forecast.isValid())
+            return "\n"+(forecast.isBuying()?"Buy":"Sell")+" full-order estimate: "
+                +Math.round(forecast.getExpectedTotalSeconds()/60)+" minutes. Modeled completion within "
+                +Math.round(forecast.getHorizonSeconds()/60)+" minutes: "
+                +Math.round(forecast.getCompletionProbability()*100)+"%."
+                +"\nPublic-price estimates are not validated against account outcomes. Actual fills can take longer; exceeding an estimate alone does not authorize a price reduction.";
+        return Double.isFinite(advice.getExpectedMinutes()) && advice.getExpectedMinutes()>0
+            ? "\nPublic-price timing estimate; not validated against account outcomes. A fill time is not guaranteed."
+            : "";
     }
     JComponent select(String name) {
         int index = new java.util.ArrayList<>(views.keySet()).indexOf(name);

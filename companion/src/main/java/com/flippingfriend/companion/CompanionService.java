@@ -651,10 +651,13 @@ final class CompanionService implements AutoCloseable
 		return actionSelector.select(activeOffers.getActiveOffers());
 	}
 	synchronized PolicyDecision saleDecision(int item,int price,int quantity,String source,boolean cut,int slot,long at) {
+        return saleDecision(item,price,quantity,source,cut,slot,at,null);
+    }
+    synchronized PolicyDecision saleDecision(int item,int price,int quantity,String source,boolean cut,int slot,long at,String repriceSource) {
 		try {
 			var read=store.saleProjections(accountId,at);
 			return new CompanionSalePolicy().decide(read.planning,read.ledger,account,
-				market.state(),series,item,price,quantity,source,cut,slot,at);
+				market.state(),series,item,price,quantity,source,cut,slot,at,repriceSource);
 		}catch(Exception unavailable){return null;}
 	}
 

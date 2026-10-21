@@ -130,6 +130,8 @@ public class FlippingFriendPlugin extends Plugin
 	@Inject
 	private SuggestionEngine engine;
 
+    @Inject private com.flippingfriend.model.SelectedSalePricing selectedSalePricing;
+
 	@Inject
 	private AccountMonitor accountMonitor;
 
@@ -201,6 +203,13 @@ public class FlippingFriendPlugin extends Plugin
 	private volatile long lastPersist;
 	private volatile boolean exemptionsResolved;
 	private volatile Suggestion lastNotified = Suggestion.idle();
+    private String editorSaleKey;
+    private Suggestion editorSaleQuote;
+    private long editorSaleValidatedAt;
+    private final AtomicBoolean editorSaleInFlight=new AtomicBoolean();
+    private final java.util.concurrent.atomic.AtomicLong editorSaleRequest=new java.util.concurrent.atomic.AtomicLong();
+    private long editorSaleContext;
+    private static final long EDITOR_SALE_CACHE_NANOS=java.util.concurrent.TimeUnit.SECONDS.toNanos(5);
 
 	@Provides
 	FlippingFriendConfig provideConfig(ConfigManager configManager)
@@ -211,6 +220,7 @@ public class FlippingFriendPlugin extends Plugin
 	@Override
 	protected void startUp()
 	{
+        editorSaleRequest.incrementAndGet();editorSaleContext++;editorSaleKey=null;editorSaleQuote=null;editorSaleInFlight.set(false);
         engineRefreshEpoch.incrementAndGet();engineRefreshInFlight.set(false);engineRefreshRequested.set(false);
         geInputAssist.start();
 		worker = Executors.newSingleThreadExecutor(r ->
@@ -233,7 +243,9 @@ public class FlippingFriendPlugin extends Plugin
 		clientToolbar.addNavigation(navigationButton);
 
 		// Skipping or blocking has to reach the walkthrough, and only this loop writes to it.
-		panel.setOnRejection(this::requestEngineRefresh);
+		panel.setOnRejection(()->clientThread.invokeLater(()->{
+            invalidateAccountAdvice();requestEngineRefresh();refreshSellSetupQuote();
+        }));
 
 		// Before start(), so the very first thing the market service does is ask next door for a feed
 		// rather than the internet for one. The companion runs whether or not the game is open and
@@ -422,10 +434,61 @@ public class FlippingFriendPlugin extends Plugin
 
     private void refreshSellSetupQuote() {
         int[] setup = client.getGameState() == GameState.LOGGED_IN && accountDataLoaded.get() && hasProfile() ? widgetResolver.sellSetup() : null;
-        Suggestion quote = setup == null || !offerTracker.hasCompleteOfferEvidence() ? null
-            : com.flippingfriend.model.ManualSalePrice.quote(setup[0], setup[1],
-                accountMonitor.getState().getInventoryHoldings().getOrDefault(setup[0], 0),
-                marketData.getSnapshot(), Instant.now());
+        if(setup==null) {if(editorSaleKey!=null)editorSaleContext++;editorSaleKey=null;editorSaleQuote=null;applyEditorSaleQuote(null);return;}
+        if(!offerTracker.hasCompleteOfferEvidence()) {
+            if(editorSaleKey!=null)editorSaleContext++;editorSaleKey=null;editorSaleQuote=null;
+            applyEditorSaleQuote(Suggestion.waiting("Checking the selected sale","Waiting for complete current offer observations."));return;
+        }
+        String profile=configManager.getRSProfileKey();
+        String account=com.flippingfriend.core.AccountIdentity.fromProfileKey(profile);
+        long generation=offerObservationGeneration.get(),revision=adviceObservationRevision.get();
+        int item=setup[0],quantity=setup[1];
+        var state=accountMonitor.getState();
+        int inventory=state.getInventoryHoldings().getOrDefault(item,0);
+        boolean sellOnly=engine.isSellOnly();
+        String key=account+":"+generation+":"+revision+":"+item+":"+quantity+":"+inventory+":"+sellOnly;
+        if(!key.equals(editorSaleKey)) {editorSaleContext++;editorSaleKey=key;editorSaleQuote=null;}
+        long age=adviceClock.getAsLong()-editorSaleValidatedAt;
+        if(editorSaleQuote!=null && age>=0 && age<EDITOR_SALE_CACHE_NANOS) {
+            applyEditorSaleQuote(editorSaleQuote);return;
+        }
+        applyEditorSaleQuote(Suggestion.waiting("Verifying the selected sale",
+            "Checking its recorded quantity, exact purchase cost and current sale authority."));
+        ExecutorService executor=worker;
+        if(executor==null || executor.isShutdown() || selectedSalePricing==null || !editorSaleInFlight.compareAndSet(false,true))return;
+        long request=editorSaleRequest.incrementAndGet(),context=editorSaleContext,epoch=engineRefreshEpoch.get();
+        var listed=Map.copyOf(offerTracker.listedForSale());
+        var buying=java.util.Set.copyOf(offerTracker.itemsBeingBought());
+        var horizon=TradingHorizon.of(config.riskProfile(),config.checkInterval(),config.targetHoldMinutes());
+        try {executor.execute(()->{
+            Suggestion result;
+            try {
+                result=selectedSalePricing.quote(item,quantity,inventory,account,companion.tradingLedger(),listed,buying,
+                    marketData.getSnapshot(),marketData.getSeries(item,"5m"),horizon,Instant.now(),sellOnly,engine.selectedSaleReprice(item,quantity));
+                if(result!=null && result.getType()==SuggestionType.SELL && result.isProfitKnown())
+                    result=companion.authorizeSale(result);
+                if(result==null)result=Suggestion.waiting("Refreshing the selected sale","A current supported sale price is unavailable.");
+            }catch(Exception unavailable) {result=Suggestion.waiting("Refreshing the selected sale","Current sale verification is unavailable; purchase records are retained.");}
+            Suggestion verified=result;long validated=adviceClock.getAsLong();
+            clientThread.invokeLater(()->{
+                if(request!=editorSaleRequest.get())return;
+                editorSaleInFlight.set(false);
+                int[] current=client.getGameState()==GameState.LOGGED_IN && accountDataLoaded.get() && hasProfile()?widgetResolver.sellSetup():null;
+                long deliveryAge=adviceClock.getAsLong()-validated;
+                if(epoch!=engineRefreshEpoch.get() || context!=editorSaleContext || !key.equals(editorSaleKey) || generation!=offerObservationGeneration.get() || revision!=adviceObservationRevision.get()
+                    || !java.util.Objects.equals(profile,configManager.getRSProfileKey()) || current==null
+                    || current[0]!=item || current[1]!=quantity || !offerTracker.hasCompleteOfferEvidence()
+                    || accountMonitor.getState().getInventoryHoldings().getOrDefault(item,0)!=inventory
+                    || engine.isSellOnly()!=sellOnly
+                    || deliveryAge<0 || deliveryAge>=EDITOR_SALE_CACHE_NANOS
+                    || verified.getAdviceExpiresAt()>0 && verified.getAdviceExpiresAt()<=Instant.now().getEpochSecond()) {
+                    refreshSellSetupQuote();return;
+                }
+                editorSaleQuote=verified;editorSaleValidatedAt=validated;applyEditorSaleQuote(verified);
+            });
+        });}catch(java.util.concurrent.RejectedExecutionException rejected) {editorSaleInFlight.set(false);}
+    }
+    private void applyEditorSaleQuote(Suggestion quote) {
         Suggestion previous = stepGuide.getSuggestion();
         stepGuide.setEditorQuote(quote);
         recordVisibleAdvice();
@@ -791,14 +854,20 @@ public class FlippingFriendPlugin extends Plugin
 	private void invalidateAccountAdvice()
 	{
 		adviceObservationRevision.incrementAndGet();
+		editorSaleContext++;editorSaleKey=null;editorSaleQuote=null;
 		companion.invalidateEntryAdvice();
 		Suggestion shown = stepGuide == null ? null : stepGuide.getSuggestion();
-		if (shown != null && shown.getType() == SuggestionType.BUY)
+		if (shown != null && (shown.getType() == SuggestionType.BUY || shown.getType()==SuggestionType.MODIFY_BUY
+            || shown.getType()==SuggestionType.SELL || shown.getType()==SuggestionType.MODIFY_SELL))
 		{
-			stepGuide.setSuggestion(Suggestion.waiting("Checking current account state",
-				"Cash, offers or preferences changed. Waiting for a fresh recommendation."));
+			stepGuide.withdrawAdvice(Suggestion.waiting("Checking current account state",
+				"Cash, inventory, offers or preferences changed. Waiting for a fresh recommendation."));
 			if (panel != null) panel.refresh();
 		}
+        else if(stepGuide!=null && stepGuide.withdrawPriceAdvice(Suggestion.waiting("Checking current account state",
+            "Inventory, offers or preferences changed. Hidden price instructions also need fresh verification."))) {
+            if(panel!=null)panel.refresh();
+        }
 	}
 
 	private void requestEngineRefresh()

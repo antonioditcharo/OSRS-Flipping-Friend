@@ -33,7 +33,7 @@ public class BuyContinuationWorkflowTest {
         }
         void quote(long highTime,long lowTime) {
             when(market.getSnapshot()).thenReturn(new MarketSnapshot(Map.of(561,new ItemMetadata(561,"Nature rune",false,1000,0)),
-                Map.of(561,new LatestPrice(1500,highTime,1100,lowTime)),Map.of(),Map.of(),Instant.ofEpochSecond(now)));
+                Map.of(561,new LatestPrice(1500,highTime,1100,lowTime)),Map.of(561,new Candle((now/300-1)*300,1500,1100,1000,1000)),Map.of(),Instant.ofEpochSecond(now)));
         }
         void restart()throws Exception {
             intent=new BuyRepriceIntent(storage);inject(tracker,"buyReprice",intent);

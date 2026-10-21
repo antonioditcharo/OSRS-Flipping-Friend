@@ -43,12 +43,14 @@ public final class PerformanceSnapshot {
         public final String itemName,unpricedReason;
         public final long totalCost,quotedAt,netValue,pricedProfit;
         public List<ExitQuote> exitQuotes;
+        public List<AcquisitionExitSlice> exitContexts;
         public Stock(int item,String name,int quantity,int observed,int priced,long cost,int price,long quotedAt,long net,String reason) {
             itemId=item;itemName=name;this.quantity=quantity;observedQuantity=observed;pricedQuantity=priced;
             totalCost=cost;this.price=price;this.quotedAt=quotedAt;netValue=net;unpricedReason=reason;
             pricedProfit=Math.subtractExact(net,priced==0?0:SaleAccounting.allocateCost(cost,quantity,priced));
         }
         public boolean isValid(long at) {
+            if(exitContexts!=null && exitContexts.stream().anyMatch(s->s==null || !s.isValid() || s.getMaximumRemaining()>quantity))return false;
             if(itemId<=0 || quantity<=0 || observedQuantity<0 || observedQuantity>quantity || pricedQuantity<0
                 || pricedQuantity>observedQuantity || totalCost<0 || netValue<0 || unpricedReason==null)return false;
             if(pricedQuantity==0)return price==0 && quotedAt==0 && netValue==0 && pricedProfit==0;

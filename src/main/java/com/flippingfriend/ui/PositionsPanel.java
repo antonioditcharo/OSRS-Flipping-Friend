@@ -75,19 +75,11 @@ class PositionsPanel extends JPanel
     void updateRecordedHistory(com.flippingfriend.core.AccountLedgerSnapshot history,boolean updating) {
         if(history==null && !recordedMode)return;
         recordedMode=true;
-        var previous=recordedLedger!=null && history!=null && recordedLedger.getAccountId().equals(history.getAccountId())
-            ? recordedPositions:List.<Position>of();
-        var fresh=tradingPositions==null?List.<Position>of():tradingPositions.get();
         List<Position> next=new ArrayList<>();
         if(history!=null && history.isValid() && history.getTradingPositions()!=null && !history.hasUnboundedReconciliation())
             for(var p:history.getTradingPositions()) {
                 Position display=new Position(p.getItemId(),p.getItemName(),p.getQuantity(),p.getTotalCost(),p.getOpenedAt(),true);
-                for(var source:java.util.List.of(previous,fresh))for(var context:source)
-                    if(context.getItemId()==p.getItemId() && context.getQuantity()==p.getQuantity() && context.getTotalCost()==p.getTotalCost()
-                        && context.getOpenedAt()==p.getOpenedAt()) {
-                        display.setTargetSellPrice(context.getTargetSellPrice());display.setStopPrice(context.getStopPrice());
-                        display.setPredictedSellMinutes(context.getPredictedSellMinutes());
-                    }
+                display.applyExitContexts(p.getExitContexts());
                 next.add(display);
             }
         recordedPositions=next;recordedLedger=history;
@@ -225,8 +217,7 @@ class PositionsPanel extends JPanel
 		{
 			return "";
 		}
-		double remaining = position.getPredictedSellMinutes() - position.minutesHeld(now);
-		return remaining > 0 ? explainer.formatDuration(remaining) : "longer than expected";
+        return explainer.formatDuration(position.getPredictedSellMinutes())+" original estimate (unvalidated)";
 	}
 
 	private JPanel buildRow(Position position)
@@ -393,7 +384,7 @@ class PositionsPanel extends JPanel
 					? "  ·  reached"
 					: "  ·  " + explainer.formatNumber(target - marketSell) + " gp to go";
 			footer.add(UiUtils.gap(2));
-			footer.add(labelledRow("Selling at", explainer.formatNumber(target) + " gp" + distance));
+			footer.add(labelledRow("Orig target", explainer.formatNumber(target) + " gp" + distance));
 		}
 
 		if (position.getStopPrice() > 0)
@@ -406,13 +397,13 @@ class PositionsPanel extends JPanel
 		// trade is running late rather than having to guess.
 		if (position.getPredictedSellMinutes() > 0)
 		{
-			double remaining = position.getPredictedSellMinutes() - minutes;
-			String text = remaining > 0
-				? "~" + explainer.formatDuration(remaining) + " left"
-				: "longer than expected";
+			String text = "~"+explainer.formatDuration(position.getPredictedSellMinutes())+" (unvalidated)";
 			footer.add(UiUtils.gap(2));
-			footer.add(labelledRow("Expected", text));
+			footer.add(labelledRow("Orig sell", text));
 		}
+        if(position.getExitContexts().size()>1) {
+            footer.add(UiUtils.gap(2));footer.add(labelledRow("Plans",position.getExitContexts().size()+" original origins; remaining lots uncertain"));
+        }
 
 		UiUtils.constrainWidth(footer);
 		return footer;

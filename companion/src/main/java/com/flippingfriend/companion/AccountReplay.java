@@ -12,7 +12,7 @@ import java.util.*;
 
 /** One simulated account, one bankroll and eight physical slots; never opens a live database. */
 final class AccountReplay implements AutoCloseable {
-    static final String VERSION="account-replay-10";
+    static final String VERSION="account-replay-11";
     private static final String ACCOUNT=AccountIdentity.fromProfileKey("synthetic-account-replay-only");
     interface Entries {
         PortfolioPlan plan(MarketIngestionService.MarketState market,AccountSnapshot account,
@@ -20,7 +20,7 @@ final class AccountReplay implements AutoCloseable {
     }
     static final class Offer {
         final int slot,item,price,quantity; final boolean buy; final long placedAt; final String identity;
-        int filled;long spent,collectionCoins,lastProgressAt,realizedProfit;boolean terminal,cancelled;
+        int filled;long spent,collectionCoins,lastProgressAt,realizedProfit,buyMaintenanceDeadlineAt;boolean terminal,cancelled;
         OfferEvent origin,lastObservation;
         Offer(int slot,int item,int price,int quantity,boolean buy,long at,String id) {
             this.slot=slot;this.item=item;this.price=price;this.quantity=quantity;this.buy=buy;placedAt=at;lastProgressAt=at;identity=id;
@@ -281,13 +281,20 @@ final class AccountReplay implements AutoCloseable {
         ordered.sort(Comparator.comparingDouble(this::strandedBy).reversed().thenComparingInt(o->o.slot));
         for(Offer offer:ordered) {
             if(offer.buy) {
-                if((now-offer.placedAt)/60<horizon.staleOfferMinutes())continue;
                 if(limits.remainingAt(offer.item,input.mapping.get(offer.item).buyLimit,Instant.ofEpochSecond(now))<=0)
                     return offerGuidance("CANCEL_BUY",offer,0,null,false);
                 var quote=latest(offer.item);
                 if(quote==null || quote.getLow()==null || quote.getLow()>=Integer.MAX_VALUE)continue;
-                int price=advisedPrices.price(offer.item,true,quote.getLow()+1,now);
-                var proposal=BuyRepricePricing.quote(offer.item,offer.price,offer.remaining(),offer.placedAt,quote,
+                if(offer.buyMaintenanceDeadlineAt<=0) {
+                    double expected=offer.origin!=null && ExecutionObservationLedger.qualifiesOriginal(offer.origin)
+                        ?offer.origin.getPredictedMinutes():0;
+                    boolean original=Double.isFinite(expected) && expected>0;
+                    offer.buyMaintenanceDeadlineAt=(original?offer.placedAt:now)+(long)Math.ceil((original?expected:horizon.legHorizonHours()*60)*60);
+                }
+                if(BuyRepricePricing.overdue(offer.placedAt,offer.lastProgressAt,offer.buyMaintenanceDeadlineAt,quote,horizon,now))
+                    return offerGuidance("CANCEL_BUY",offer,0,null,false);
+                int price=advisedPrices.buyReprice(offer.item,offer.price,quote.getLow()+1,now);
+                var proposal=BuyRepricePricing.quote(offer.item,offer.price,offer.remaining(),offer.placedAt,offer.lastProgressAt,quote,
                     aggregate(offer.item,market),horizon,tax,now,price,input.minimumProfit);
                 if(proposal!=null)return offerGuidance(proposal.replace?"REPRICE_BUY":"CANCEL_BUY",offer,price,null,false);
                 continue;
@@ -350,7 +357,19 @@ final class AccountReplay implements AutoCloseable {
             MarketIngestionService.MarketState market,String kind,String original) {
         if(holding==null || freeSlot()<0)return null;
         if(openBuy(holding.getItemId())!=null)return null;
-        var proposal=saleProposal(holding,cap,exitDecision(holding));
+        var decision=exitDecision(holding);String repriceSource=null;
+        if("RELIST_SELL".equals(kind))for(var intent:collectedSells)
+            if(Objects.equals(original,intent.getOriginalIdentity()) && intent.getSaleRepriceSource()!=null) {
+                int quantity=Math.min(cap,Math.min(inventory.getOrDefault(holding.getItemId(),0),holding.getQuantity()-listed(holding.getItemId())));
+                var quote=maintenance.quote(holding.getItemId(),intent.getOriginalPrice(),quantity,position(holding),latest(holding.getItemId()),
+                    frame.shortHistory.getOrDefault(holding.getItemId(),List.of()),horizon,Instant.ofEpochSecond(now),false,exits,tax,
+                    intent.getFirstSeenAt(),intent.getSaleRepriceProgressAt());
+                if(quote!=null)decision=new SellDecision(quote.lossCut?SellDecision.Action.CUT:SellDecision.Action.SELL,quote.price,quote.reason,Double.NaN,
+                    tax.netProceeds(holding.getItemId(),quote.price,quantity)-quote.allocatedCost);
+                repriceSource=intent.getSaleRepriceSource();break;
+            }
+        var proposal=saleProposal(holding,cap,decision);
+        if(proposal!=null)proposal.repriceSource=repriceSource;
         return proposal==null?null:sellGuidance(proposal,sale,account,market,kind,original);
     }
     private SellDecision exitDecision(PositionProjection holding) {
@@ -359,7 +378,7 @@ final class AccountReplay implements AutoCloseable {
             input.minimumProfit,inventory.getOrDefault(holding.getItemId(),0)>0,false,false);
     }
     private static final class ExitProposal {
-        final PositionProjection holding;final SellDecision decision;final int quantity;
+        final PositionProjection holding;final SellDecision decision;final int quantity;String repriceSource;
         ExitProposal(PositionProjection holding,SellDecision decision,int quantity){this.holding=holding;this.decision=decision;this.quantity=quantity;}
         boolean moreUrgentThan(ExitProposal other) {
             int cut=Boolean.compare(decision.getAction()==SellDecision.Action.CUT,other.decision.getAction()==SellDecision.Action.CUT);
@@ -382,17 +401,17 @@ final class AccountReplay implements AutoCloseable {
         long cost=SaleAccounting.allocateCost(stock.getTotalCost(),stock.getQuantity(),quantity);
         if(decision.getAction()!=SellDecision.Action.CUT) {
             int floor=tax.breakEvenSellPriceForCost(stock.getItemId(),cost,quantity);
-            if(floor<=0)return null;price=Math.max(price,SellTimingEngine.protectedPrice(stock,horizon,Instant.ofEpochSecond(now),floor));
+            if(floor<=0)return null;price=Math.max(price,proposal.repriceSource==null?SellTimingEngine.protectedPrice(stock,horizon,Instant.ofEpochSecond(now),floor):floor);
         }
         boolean cut=decision.getAction()==SellDecision.Action.CUT;
-        if(!authorizeSale(sale,account,market,stock.getItemId(),price,quantity,holding.getSourceEventId(),cut,-1))return null;
+        if(!authorizeSale(sale,account,market,stock.getItemId(),price,quantity,holding.getSourceEventId(),cut,-1,proposal.repriceSource))return null;
         return new Guidance(kind,freeSlot(),stock.getItemId(),price,quantity,original,holding.getSourceEventId(),
             holding.getTotalCost(),0,cut,now,null,null,holding.getExitContext(),Long.MAX_VALUE);
     }
     private static Position position(PositionProjection p) {
         if(p==null)return null;
         var result=new Position(p.getItemId(),p.getItemName(),p.getQuantity(),p.getTotalCost(),p.getOpenedAt(),true);
-        result.applyExitContext(p.getExitContext());return result;
+        result.applyExitContexts(p.getExitContexts());return result;
     }
     private Guidance offerGuidance(String kind,Offer offer,int price,PositionProjection holding,boolean cut) {
         return new Guidance(kind,offer.slot,offer.item,price,offer.remaining(),offer.identity,
@@ -401,7 +420,11 @@ final class AccountReplay implements AutoCloseable {
     }
     private boolean authorizeSale(SqliteStore.SaleProjections read,AccountSnapshot account,MarketIngestionService.MarketState market,
         int item,int price,int quantity,String source,boolean cut,int slot) {
-        var decision=new CompanionSalePolicy().decide(read.planning,read.ledger,account,market,history,item,price,quantity,source,cut,slot,now);
+        return authorizeSale(read,account,market,item,price,quantity,source,cut,slot,null);
+    }
+    private boolean authorizeSale(SqliteStore.SaleProjections read,AccountSnapshot account,MarketIngestionService.MarketState market,
+        int item,int price,int quantity,String source,boolean cut,int slot,String repriceSource) {
+        var decision=new CompanionSalePolicy().decide(read.planning,read.ledger,account,market,history,item,price,quantity,source,cut,slot,now,repriceSource);
         if(decision.getAction()==(slot<0?OfferLifecycleAction.PLACE_SELL:OfferLifecycleAction.CANCEL_SELL))return true;
         abstain(decision.getReasonCode());return false;
     }
@@ -571,7 +594,10 @@ final class AccountReplay implements AutoCloseable {
         var current=buying?continuations.buy:continuations.sell;
         for(var intent:current)if(intent.valid(now) && intent.matches(observation(offer,false)))return;
         var created=OfferContinuation.advise(observation(offer,false),observedBoard(),!buying,now,0);
-        if(created!=null){current.add(created);saveContinuations();}
+        if(created!=null){
+            if(!buying)created.bindSaleRepriceSource(offer.lastObservation.getEventId(),offer.lastProgressAt);
+            current.add(created);saveContinuations();
+        }
     }
     private OfferContinuation.Status observeContinuations(OfferContinuation.Observation settled)throws Exception {
         var board=observedBoard();boolean changed=false;
@@ -596,7 +622,10 @@ final class AccountReplay implements AutoCloseable {
     }
     private com.flippingfriend.data.Candle aggregate(int item,MarketIngestionService.MarketState market) {
         var raw=market.fiveMinute.get(Integer.toString(item));
-        return raw==null || !raw.isJsonObject()?null:json.fromJson(raw,com.flippingfriend.data.Candle.class);
+        if(raw==null || !raw.isJsonObject())return null;
+        var candle=json.fromJson(raw,com.flippingfriend.data.Candle.class);
+        if(candle.getTimestamp()==0)candle.setTimestamp(market.fiveMinuteStartedAt);
+        return candle;
     }
     private long mark(long at,boolean haircut) {
         marksComplete=true;long value=0;

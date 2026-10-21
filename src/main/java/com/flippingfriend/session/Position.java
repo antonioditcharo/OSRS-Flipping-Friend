@@ -133,6 +133,35 @@ public class Position
         if(context==null || !context.isBound())return;
         targetSellPrice=context.getTargetSellPrice();stopPrice=context.getStopPrice();
         predictedSellMinutes=context.getPredictedSellMinutes();
+        exitContexts=java.util.List.of(new com.flippingfriend.core.AcquisitionExitSlice(context.getSourceEventId(),context,quantity,quantity,openedAt));
+    }
+    private java.util.List<com.flippingfriend.core.AcquisitionExitSlice> exitContexts=java.util.List.of();
+    public java.util.List<com.flippingfriend.core.AcquisitionExitSlice> getExitContexts(){return exitContexts==null?java.util.List.of():java.util.Collections.unmodifiableList(exitContexts);}
+    /** Conservative common policy; remaining ranges deliberately do not identify sold lots. */
+    public void applyExitContexts(java.util.List<com.flippingfriend.core.AcquisitionExitSlice> contexts) {
+        exitContexts=contexts==null?java.util.List.of():java.util.List.copyOf(contexts);
+        targetSellPrice=0;stopPrice=0;predictedSellMinutes=0;
+        boolean complete=!exitContexts.isEmpty();int stop=Integer.MAX_VALUE;
+        for(var slice:exitContexts) {
+            if(slice.getMaximumRemaining()==0)continue;
+            var context=slice.getContext();
+            if(context==null){complete=false;continue;}
+            targetSellPrice=Math.max(targetSellPrice,context.getTargetSellPrice());
+            predictedSellMinutes=Math.max(predictedSellMinutes,context.getPredictedSellMinutes());
+            if(context.getStopPrice()<=0)complete=false;
+            else stop=Math.min(stop,context.getStopPrice());
+        }
+        stopPrice=complete && stop!=Integer.MAX_VALUE?stop:0;
+    }
+    /** Initial listing protection respects each still-possible original acquisition clock. */
+    public int protectedOriginalTarget(long now,long maxHoldMinutes) {
+        if(getExitContexts().isEmpty())return minutesHeld(now)<maxHoldMinutes?targetSellPrice:0;
+        int target=0;
+        for(var slice:getExitContexts())if(slice.getMaximumRemaining()>0 && slice.getContext()!=null) {
+            long start=slice.getOpenedAt()>0?slice.getOpenedAt():openedAt;
+            if(now>=start && (now-start)/60<maxHoldMinutes)target=Math.max(target,slice.getContext().getTargetSellPrice());
+        }
+        return target;
     }
 
 	/** Folds an additional purchase in, keeping the average cost exact. */

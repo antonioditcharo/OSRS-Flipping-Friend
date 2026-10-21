@@ -28,7 +28,7 @@ public class AdviceDeliveryBoundaryTest {
         public boolean isShutdown(){return false;} public boolean isTerminated(){return false;}
         public boolean awaitTermination(long n,TimeUnit u){return true;}
     }
-    static final class Fixture {
+    static class Fixture {
         final FlippingFriendPlugin plugin=new FlippingFriendPlugin();
         final Queue<Runnable> clientQueue=new ArrayDeque<>(); final Worker worker=new Worker();
         final StepGuide guide=mock(StepGuide.class);final CompanionClient companion=mock(CompanionClient.class);
@@ -156,7 +156,7 @@ public class AdviceDeliveryBoundaryTest {
     @Test public void changedCashImmediatelyWithdrawsAnAlreadyDisplayedBuy()throws Exception {
         Fixture f=new Fixture();when(f.guide.getSuggestion()).thenReturn(f.advice);
         f.plugin.onItemContainerChanged(new ItemContainerChanged(93,mock(ItemContainer.class)));
-        verify(f.guide).setSuggestion(argThat(s->s.getType()==SuggestionType.WAIT));
+        verify(f.guide).withdrawAdvice(argThat(s->s.getType()==SuggestionType.WAIT));
         verify(f.companion).invalidateEntryAdvice();
     }
     @Test public void queuedSellDoesNotEnterAdviceEvidenceBeforeClientDelivery()throws Exception {

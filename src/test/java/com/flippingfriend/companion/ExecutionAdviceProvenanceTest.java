@@ -17,6 +17,13 @@ public class ExecutionAdviceProvenanceTest {
     @Rule public TemporaryFolder folder=new TemporaryFolder();
     final Gson gson=new Gson();
     static final long now=1_700_000_000;
+    @Test public void unknownOrMissingAcceptedProofVersionsCannotBindAnExitPlan() {
+        var accepted=com.flippingfriend.core.CaptureOrder.next();var captured=com.flippingfriend.core.CaptureOrder.next();
+        var proof=new com.flippingfriend.core.AcceptedAdviceProof(accepted,captured);
+        assertTrue(proof.isValid());var wire=gson.toJsonTree(proof).getAsJsonObject();
+        wire.addProperty("formatVersion",2);assertFalse(gson.fromJson(wire,com.flippingfriend.core.AcceptedAdviceProof.class).isValid());
+        wire.remove("formatVersion");assertFalse(gson.fromJson(wire,com.flippingfriend.core.AcceptedAdviceProof.class).isValid());
+    }
     static final class Fixture {
         final PluginStorage storage;
         final OfferEventOutbox outbox;
@@ -116,6 +123,71 @@ public class ExecutionAdviceProvenanceTest {
             assertNull(source.getExitContext());
             assertNotNull(source.getEventId());assertTrue(source.getSequence()>0);
         }
+    }
+    @Test public void acceptedAdviceBeforeSameSecondCaptureRetainsExitWithoutPromotingLearning()throws Exception {
+        Fixture f=new Fixture(folder.newFolder().toPath());
+        f.ledger.recorded("original",561,true,100,10,0,12,.75,null,
+            new com.flippingfriend.core.AcquisitionExitContext(140,90,480));
+        var open=f.publish(offer(now-1,100,10,"BUYING",0),now-1);
+        assertFalse("Second-resolution prediction ordering remains ambiguous",open.isPredictionComparable());
+        assertNotNull(open.getExitContext());assertTrue(open.hasAcceptedExitProof());
+        assertEquals(0,open.getPredictedMinutes(),0);
+        for(var e:f.outbox.pending())assertTrue(f.outbox.acknowledge(e.getEventId(),e.getSessionId(),e.getSequence()));
+        Fixture restart=new Fixture(f.storage.root());
+        restart.ledger.recorded("new",561,true,100,10,0,999,.99,null,
+            new com.flippingfriend.core.AcquisitionExitContext(160,80,60));
+        var filled=restart.publish(offer(now-1,100,10,"BOUGHT",10),now+601);
+        assertEquals(open.getExitContext(),filled.getExitContext());
+        assertEquals(open.getAcceptedAdviceProof(),filled.getAcceptedAdviceProof());
+        assertFalse(filled.isPredictionComparable());
+    }
+    @Test public void laterAdviceInSameSecondCannotQualifyTheAlreadyCopiedOffer()throws Exception {
+        Fixture f=new Fixture(folder.newFolder().toPath());
+        var captured=offer(now-1,100,10,"BUYING",0);
+        f.ledger.recorded("later",561,true,100,10,0,12,.75,null,
+            new com.flippingfriend.core.AcquisitionExitContext(140,90,480));
+        var open=f.publish(captured.copyObservation(),now-1);
+        assertNull(open.getExitContext());assertFalse(open.hasAcceptedExitProof());
+        assertFalse(open.isPredictionComparable());
+    }
+    @Test public void validAcceptedExitDoesNotRequireAnEligibleForecast()throws Exception {
+        Fixture f=new Fixture(folder.newFolder().toPath());
+        f.ledger.recorded("original",561,true,100,10,0,0,0,null,
+            new com.flippingfriend.core.AcquisitionExitContext(140,90,480));
+        var open=f.publish(offer(now,100,10,"BUYING",0),now);
+        assertNotNull(open.getExitContext());assertTrue(open.hasAcceptedExitProof());assertFalse(open.isPredictionComparable());
+    }
+    @Test public void maintenanceDurationComesOnlyFromTheSameExactOriginalOpenBuy()throws Exception {
+        Fixture f=new Fixture(folder.newFolder().toPath());f.advice("original",100,10,12);
+        var tracked=offer(now,100,10,"BUYING",0);f.publish(tracked,now);
+        assertEquals(12,f.client.originalBuyExpectedMinutes(tracked),0);
+        f.advice("later",100,10,999);
+        assertEquals(12,f.client.originalBuyExpectedMinutes(tracked),0);
+        assertTrue(Double.isNaN(f.client.originalBuyExpectedMinutes(offer(now,100,9,"BUYING",0))));
+        assertTrue(Double.isNaN(f.client.originalBuyExpectedMinutes(offer(now+1,100,10,"BUYING",0))));
+        f.publish(offer(now,100,10,"BOUGHT",10),now+60);
+        assertTrue(Double.isNaN(f.client.originalBuyExpectedMinutes(tracked)));
+    }
+    @Test public void sameSecondAcceptedForecastCanTimeMaintenanceWithoutBecomingLearningEvidence()throws Exception {
+        Fixture f=new Fixture(folder.newFolder().toPath());
+        var forecast=new com.flippingfriend.core.ExecutionForecast(com.flippingfriend.core.ExecutionForecast.MODEL_VERSION,
+            .35,0,1,true,561,true,100,10,3,1,3600,12,12,120,
+            new com.flippingfriend.model.FillEstimate(.75,.2,100,.1),1,.2);
+        assertTrue(forecast.isValid());
+        f.ledger.recorded("same-second",561,true,100,10,0,12,.75,forecast,
+            new com.flippingfriend.core.AcquisitionExitContext(140,90,480));
+        var tracked=offer(now-1,100,10,"BUYING",0);var open=f.publish(tracked,now-1);
+        assertFalse(open.isPredictionComparable());assertEquals(0,open.getPredictedMinutes(),0);
+        assertEquals(12,f.client.originalBuyExpectedMinutes(tracked),1e-9);
+        f.advice("later",100,10,999);assertEquals(12,f.client.originalBuyExpectedMinutes(tracked),1e-9);
+    }
+    @Test public void missingCaptureOrderAfterRestoreCannotQualifySameSecondAdvice()throws Exception {
+        Fixture f=new Fixture(folder.newFolder().toPath());
+        f.ledger.recorded("original",561,true,100,10,0,12,.75,null,
+            new com.flippingfriend.core.AcquisitionExitContext(140,90,480));
+        var restored=gson.fromJson(gson.toJson(offer(now-1,100,10,"BUYING",0)),TrackedOffer.class);
+        assertNull(restored.getFirstCaptureOrder());
+        assertNull(f.publish(restored,now-1).getExitContext());
     }
     @Test public void refreshedPredictionCannotBorrowAnOlderIdenticalOrdersAdviceClock()throws Exception {
         Fixture f=new Fixture(folder.newFolder().toPath());

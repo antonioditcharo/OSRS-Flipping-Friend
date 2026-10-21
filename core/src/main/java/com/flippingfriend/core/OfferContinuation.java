@@ -23,6 +23,9 @@ public final class OfferContinuation {
     private int item,slot,quantity,price,total,filled;
     private long firstSeen,createdAt,expiresAt;
     private String episode;
+    /** Accepted working-sale source; legacy hints retain no permission to sacrifice a target. */
+    private String saleRepriceSource;
+    private long saleRepriceProgressAt;
     private boolean buying,managed,collectionVerified;
     private int collectedRemaining,collectedFilled,maximumFilled;
     private List<Key> existingSales;
@@ -68,6 +71,8 @@ public final class OfferContinuation {
             && (total==0 || filled<total && quantity<=total-filled && maximumFilled<=total && collectedFilled<=total)
             && (expiresAt==0 || expiresAt>createdAt)
             && (createdAt==0 || createdAt>=firstSeen)
+            && (saleRepriceSource==null || !buying && !saleRepriceSource.isBlank()
+                && saleRepriceProgressAt>=firstSeen && saleRepriceProgressAt<=createdAt)
             && (!collectionVerified || collectedRemaining>0 && collectedRemaining<=quantity
                 && (total==0 || collectedRemaining<=total-Math.max(filled,Math.max(maximumFilled,collectedFilled))));
     }
@@ -137,6 +142,20 @@ public final class OfferContinuation {
     public int getCollectedRemaining(){return collectedRemaining;}
     public boolean isManaged(){return managed;}
     public boolean isBuying(){return buying;}
+    public String getSaleRepriceSource(){return saleRepriceSource;}
+    public int getOriginalPrice(){return price;}
+    public long getFirstSeenAt(){return firstSeen;}
+    public long getSaleRepriceProgressAt(){return saleRepriceProgressAt;}
+    public void bindSaleRepriceSource(String source) {
+        bindSaleRepriceSource(source,firstSeen);
+    }
+    public void bindSaleRepriceSource(String source,long progressAt) {
+        if(buying || source==null || source.isBlank())throw new IllegalArgumentException("Sale source required");
+        if(progressAt<firstSeen)throw new IllegalArgumentException("Sale progress required");
+        if(saleRepriceSource!=null && !saleRepriceSource.equals(source))
+            throw new IllegalStateException("Accepted sale source changed");
+        if(saleRepriceSource==null){saleRepriceSource=source;saleRepriceProgressAt=progressAt;revision++;}
+    }
     public long getRevision(){return revision;}
     public boolean isClosed(){return closed;}
     public void requireManagedCost(){if(!managed){managed=true;revision++;}}

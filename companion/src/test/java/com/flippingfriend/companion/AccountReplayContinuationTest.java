@@ -17,7 +17,7 @@ public class AccountReplayContinuationTest {
                 if(quantity<=0 || account.getItemsOnOffer().contains(item.id))continue;
                 var quote=market.latest.getAsJsonObject(""+item.id);int buy=quote.get("low").getAsInt()+1,sell=quote.get("high").getAsInt();
                 var c=new PortfolioCandidate(item.id,item.name,"",buy,buy,buy,sell,sell,sell,quantity,limits.get(item.id),
-                    (long)(sell-sell/50-buy)*quantity,1,1,1,1,.01,.01,1,at.getEpochSecond()+90);
+                    (long)(sell-sell/50-buy)*quantity,1,1,1,1,1,.01,1,at.getEpochSecond()+90);
                 return new PortfolioPlan(account.getCorrelationId(),at.getEpochSecond(),at.getEpochSecond()+90,"READY","bounded fixture",0,
                     List.of(new PortfolioAllocation(1,c,"BUY")));
             }
@@ -25,7 +25,9 @@ public class AccountReplayContinuationTest {
         };
     }
     AccountReplayInput repricing() {
-        var input=f.input(1,41);
+        // Allow a full, non-overlapping execution bucket after progress-aware maintenance,
+        // manual collection/replacement and the final sell placement.
+        var input=f.input(1,61);
         for(var frame:input.frames) {
             if(frame.availableAt>=f.start+600) {var q=frame.latest.getAsJsonObject("1");q.addProperty("low",110);q.addProperty("high",140);}
             for(var flow:frame.flows) {
@@ -33,41 +35,51 @@ public class AccountReplayContinuationTest {
                 if(frame.availableAt>f.start+600)flow.low=110;
                 flow.high=140;
             }
+            completedBuyTrend(frame,1);
         }
         return input;
+    }
+    void completedBuyTrend(AccountReplayInput.Frame frame,int item) {
+        if(frame.availableAt<f.start+900)return;
+        frame.fiveMinuteStartedAt=(frame.availableAt/300-1)*300;
+        var bar=new JsonObject();bar.addProperty("avgHighPrice",140);bar.addProperty("avgLowPrice",110);
+        bar.addProperty("highPriceVolume",1000);bar.addProperty("lowPriceVolume",1000);
+        frame.fiveMinute.add(Integer.toString(item),bar);
     }
     AccountReplay.Result run(AccountReplayInput input,AccountReplay.Entries entries)throws Exception {
         try(var replay=new AccountReplay(input,5,100,folder.newFolder().toPath().resolve("synthetic.db"),entries)){return replay.run();}
     }
     @Test public void aPartialBuyReplacesOnlyItsCollectedRemainderBeforeSellingTheFilledUnits()throws Exception {
-        var input=repricing();input.visitSeconds=30;input.restartAt=List.of(f.start+700);
+        // This is a viable accumulation, not the separate overdue-abandonment scenario.
+        // Real progress earns the no-progress interval before routine repricing.
+        var input=repricing();input.visitSeconds=30;input.restartAt=List.of(f.start+1220,f.start+1252);
         var result=run(input,boundedEntries());
         assertEquals(result.actions.toString(),1,result.replacementBuys);
         assertTrue(result.actions.toString(),result.actions.stream().anyMatch(a->a.contains("BUY 1 7 @ 111")));
         long replacement=result.actions.stream().filter(a->a.contains("BUY 1 7 @ 111")).mapToLong(a->Long.parseLong(a.split(" ")[0])).findFirst().getAsLong();
         assertFalse(result.actions.toString(),result.actions.stream().anyMatch(a->a.contains("SELL ") && Long.parseLong(a.split(" ")[0])<replacement));
-        assertEquals(300,result.realizedProfit);assertEquals(100000300,result.equityLower);assertEquals(0,result.inventoryCost);
+        assertEquals(new Gson().toJson(result),300,result.realizedProfit);assertEquals(100000300,result.equityLower);assertEquals(0,result.inventoryCost);
     }
     @Test public void aFreshStopDuringAnAcceptedRepriceMustCancelTheBuyInsteadOfLeavingItsPartialStockStranded()throws Exception {
         for(boolean restart:new boolean[]{false,true}) {
             var input=repricing();
-            var stop=new AccountReplayInput.Frame();stop.availableAt=stop.observedAt=f.start+610;stop.latest=input.frames.get(10).latest.deepCopy();
+            var stop=new AccountReplayInput.Frame();stop.availableAt=stop.observedAt=f.start+1210;stop.latest=input.frames.get(20).latest.deepCopy();
             var q=stop.latest.getAsJsonObject("1");q.addProperty("low",70);q.addProperty("high",80);q.addProperty("lowTime",stop.availableAt);q.addProperty("highTime",stop.availableAt);
             input.frames.add(stop);input.frames.sort(Comparator.comparingLong(a->a.availableAt));
             for(var frame:input.frames)if(frame.availableAt>stop.availableAt) {
                 var quote=frame.latest.getAsJsonObject("1");quote.addProperty("low",70);quote.addProperty("high",80);
                 for(var flow:frame.flows){flow.lowVolume=0;flow.low=70;flow.high=80;}
             }
-            if(restart)input.restartAt=List.of(f.start+620,f.start+650);
+            if(restart)input.restartAt=List.of(f.start+1220,f.start+1250);
             var result=run(input,boundedEntries());
-            assertTrue(result.actions.toString(),result.actions.stream().anyMatch(a->a.contains("CANCEL ") && a.endsWith("remaining 7") && Long.parseLong(a.split(" ")[0])<f.start+710));
+            assertTrue(result.actions.toString(),result.actions.stream().anyMatch(a->a.contains("CANCEL ") && a.endsWith("remaining 7") && Long.parseLong(a.split(" ")[0])<f.start+1310));
             assertTrue(result.actions.toString(),result.actions.stream().anyMatch(a->a.contains("SELL 1 3 @ ")));
             assertEquals(result.actions.toString(),0,result.replacementBuys);
         }
     }
     @Test public void aFreshStopAfterCollectionExitsTheFilledUnitsWithoutResumingTheSavedRebuy()throws Exception {
-        var input=repricing();input.visitSeconds=30;input.restartAt=List.of(f.start+800);
-        for(var frame:input.frames)if(frame.availableAt>=f.start+700) {
+        var input=repricing();input.visitSeconds=30;input.restartAt=List.of(f.start+1240);
+        for(var frame:input.frames)if(frame.availableAt>=f.start+1240) {
             var q=frame.latest.getAsJsonObject("1");q.addProperty("low",70);q.addProperty("high",80);
             for(var flow:frame.flows){flow.lowVolume=0;flow.low=70;flow.high=80;}
         }
@@ -99,19 +111,23 @@ public class AccountReplayContinuationTest {
         assertTrue(actions.toString(),actions.stream().anyMatch(a->a.contains("SELL 2 ") && Long.parseLong(a.split(" ")[0])>f.start+1240 && Long.parseLong(a.split(" ")[0])<firstRelist));
     }
     @Test public void aFillDuringTheDisplayedCancellationReducesTheBoundAndRequiresAnotherActionDelay()throws Exception {
-        var input=repricing();var extra=new AccountReplayInput.Frame();extra.availableAt=extra.observedAt=f.start+610;
-        input.frames.get(10).flows.clear();input.frames.get(15).flows.clear(); // No overlapping rolling-volume evidence.
-        extra.latest=input.frames.get(10).latest.deepCopy();
-        var flow=new AccountReplayInput.Flow();flow.itemId=1;flow.bucketStart=f.start+310;flow.bucketEnd=f.start+610;
-        flow.low=100;flow.high=140;flow.lowVolume=400;flow.highVolume=1000;extra.flows.add(flow);
+        var input=repricing();var extra=new AccountReplayInput.Frame();extra.availableAt=extra.observedAt=f.start+1210;
+        input.frames.get(20).flows.clear();input.frames.get(25).flows.clear(); // No overlapping rolling-volume evidence.
+        extra.latest=input.frames.get(20).latest.deepCopy();
+        for(String side:new String[]{"lowTime","highTime"})extra.latest.getAsJsonObject("1").addProperty(side,extra.availableAt);
+        var flow=new AccountReplayInput.Flow();flow.itemId=1;flow.bucketStart=f.start+910;flow.bucketEnd=f.start+1210;
+        flow.low=100;flow.high=140;flow.lowVolume=100;flow.highVolume=1000;extra.flows.add(flow);
         input.frames.add(extra);input.frames.sort(Comparator.comparingLong(a->a.availableAt));
-        input.restartAt=List.of(f.start+620,f.start+652);
+        input.restartAt=List.of(f.start+1220,f.start+1252);
         var result=run(input,boundedEntries());
         assertEquals(result.actions.toString(),1,result.replacementBuys);
         assertTrue(result.actions.toString(),result.actions.stream().anyMatch(a->a.contains("CANCEL ") && a.endsWith("remaining 6")));
         assertTrue(result.actions.toString(),result.actions.stream().anyMatch(a->a.contains("BUY 1 6 @ 111")));
         assertFalse(result.actions.toString(),result.actions.stream().anyMatch(a->a.contains("BUY 1 7 @ 111")));
-        assertTrue(result.withdrawnGuidance>=2);assertEquals(310,result.realizedProfit);assertEquals(100000310,result.equityLower);
+        assertTrue(new Gson().toJson(result),result.withdrawnGuidance>=1);
+        long cancelled=result.actions.stream().filter(a->a.contains("CANCEL ")).mapToLong(a->Long.parseLong(a.split(" ")[0])).findFirst().orElseThrow();
+        assertTrue("The late fill withdraws cancellation until the no-progress interval and a new action delay",cancelled>=f.start+1210+8*60+input.actionSeconds);
+        assertEquals(new Gson().toJson(result),310,result.realizedProfit);assertEquals(100000310,result.equityLower);
     }
     @Test public void overlappingRollingFlowCannotSpendTheSamePublicVolumeTwice() {
         var input=f.input(1,11);var flow=input.frames.get(10).flows.get(0);
@@ -149,6 +165,7 @@ public class AccountReplayContinuationTest {
                     flow.high=140;
                 }
             }
+            completedBuyTrend(frame,1);completedBuyTrend(frame,2);
         }
         return input;
     }

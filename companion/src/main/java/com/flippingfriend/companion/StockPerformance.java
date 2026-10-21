@@ -32,6 +32,7 @@ final class StockPerformance {
             if(priced<observed)reason+=feedCurrent?"No supported last-quoted instant-sell estimate.":"Market feed is unavailable or stale.";
             var row=new PerformanceSnapshot.Stock(position.getItemId(),position.getItemName(),position.getQuantity(),observed,
                 priced,position.getTotalCost(),price,at,value,reason);
+            row.exitContexts=List.copyOf(position.getExitContexts());
             List<PerformanceSnapshot.ExitQuote> exits=new ArrayList<>();int remaining=observed;
             List<OfferEvent> current=new ArrayList<>(read.currentEvents.values());current.sort(Comparator.comparingInt(OfferEvent::getSlot));
             for(var offer:current) {
@@ -44,6 +45,11 @@ final class StockPerformance {
             var original=position.getExitContext();
             if(remaining>0 && original!=null && original.isBound()) {
                 var exit=exitQuote(remaining,original.getTargetSellPrice(),position.getItemName(),"Original exit target");
+                if(exit!=null){exits.add(exit);remaining=0;}
+            } else if(remaining>0 && !row.exitContexts.isEmpty()
+                && row.exitContexts.stream().allMatch(s->s.getContext()!=null && s.getContext().isBound())) {
+                int target=row.exitContexts.stream().mapToInt(s->s.getContext().getTargetSellPrice()).max().orElse(0);
+                var exit=exitQuote(remaining,target,position.getItemName(),"Mixed-plan target estimate (maximum target; origin allocation unknown)");
                 if(exit!=null){exits.add(exit);remaining=0;}
             }
             row.exitQuotes=Collections.unmodifiableList(exits);

@@ -65,6 +65,19 @@ public class StepGuide
         if(editorQuote!=null && editorQuote.isSameTradeAs(declined)){editorQuote=null;changed=true;}
         if(changed)adviceGeneration.incrementAndGet();
     }
+    /** Account changes also invalidate price advice hidden behind an editor WAIT or pending card. */
+    public synchronized boolean withdrawPriceAdvice(Suggestion reason) {
+        if(reason==null || reason.getType()!=SuggestionType.WAIT)throw new IllegalArgumentException("Withdrawal needs a reason");
+        boolean changed=false;
+        if(priceAdvice(tracked)) {tracked=reason;quantityDone=false;priceDone=false;entryStarted=false;editingControl=null;changed=true;}
+        if(priceAdvice(pending)){pending=null;changed=true;}
+        if(priceAdvice(editorQuote)){editorQuote=reason;changed=true;}
+        if(changed)adviceGeneration.incrementAndGet();return changed;
+    }
+    private static boolean priceAdvice(Suggestion advice) {
+        return advice!=null && (advice.getType()==SuggestionType.BUY || advice.getType()==SuggestionType.MODIFY_BUY
+            || advice.getType()==SuggestionType.SELL || advice.getType()==SuggestionType.MODIFY_SELL);
+    }
     /** Changes guidance only. No client API, game input or accounting write. */
     public synchronized void setPaused(boolean value) {
         if (paused == value) return;
@@ -174,6 +187,9 @@ public class StepGuide
 		}
 
 		boolean correction = incoming.isSameTradeAs(tracked);
+
+        boolean authorityChanged=correction && !java.util.Objects.equals(incoming.getSaleRepriceSource(),tracked.getSaleRepriceSource());
+        if(authorityChanged)adviceGeneration.incrementAndGet();
 		int oldPrice = tracked.getPrice();
 		int oldQuantity = tracked.getQuantity();
 
@@ -188,7 +204,7 @@ public class StepGuide
 		}
 		else
 		{
-			if (incoming.getPrice() != oldPrice)
+			if (authorityChanged || incoming.getPrice() != oldPrice)
 			{
 				priceDone = false;
 			}
@@ -242,9 +258,12 @@ public class StepGuide
 
     public synchronized void setEditorQuote(Suggestion quote) {
         if (paused) return;
-        // The managed instruction already prices these exact units. Other quantities remain personal.
-        if (quote != null && tracked.getType() == SuggestionType.SELL && quote.getType() == SuggestionType.SELL
-            && tracked.getItemId() == quote.getItemId() && tracked.getQuantity() == quote.getQuantity()) quote = null;
+        // A generic quote cannot establish that a different selection is personal stock.
+        // A newly verified managed subset, however, replaces the old order's exact quote.
+        if (quote != null && !quote.isProfitKnown() && tracked.getType() == SuggestionType.SELL
+            && tracked.isProfitKnown() && quote.getType() == SuggestionType.SELL && tracked.getItemId() == quote.getItemId())
+            quote=tracked.getQuantity()==quote.getQuantity()?null:Suggestion.waiting("Checking the selected quantity",
+                "This item has recorded trading stock. The selected units need a current managed-sale quote.");
         if (quote != null && (editorQuote == null || !quote.sameAs(editorQuote))) {
             quantityDone = true; priceDone = false;
         }
