@@ -5,6 +5,12 @@ Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
 ## Current delivery
 
+Restoration/acceptance batch: read `local-data/continuation-restoration-20261021/delivery-state.json`
+first for source, CI, merge and actual installation. Current-login observation copies preserve durable
+remainders across stale offer snapshots; cached EMPTY predecessors cannot invent collection. Exact
+accepted cancellations retire rebuy promises only after commit, not during worker proposals or from
+a delayed same-item card. [Contract](docs/architecture/continuation-restoration-boundaries.md).
+
 Sale continuation batch: read `local-data/sale-continuation-evidence-20261021/delivery-state.json`
 first for source/CI/merge and actual installation. A first verified source added to an older hint
 after later fills now has its own acceptance clock; it cannot invalidate/delete the original hint.

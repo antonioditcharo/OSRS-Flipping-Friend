@@ -220,6 +220,7 @@ public class FlippingFriendPlugin extends Plugin
 	@Override
 	protected void startUp()
 	{
+        offerTracker.resetContinuationObservations();
         editorSaleRequest.incrementAndGet();editorSaleContext++;editorSaleKey=null;editorSaleQuote=null;editorSaleInFlight.set(false);
         engineRefreshEpoch.incrementAndGet();engineRefreshInFlight.set(false);engineRefreshRequested.set(false);
         geInputAssist.start();
@@ -271,6 +272,7 @@ public class FlippingFriendPlugin extends Plugin
         geInputAssist.stop();
         stepGuide.reset(); tradeConfirmGuard.reset();
 		offerObservationGeneration.incrementAndGet();
+        offerTracker.resetContinuationObservations();
 		offerSnapshotReady = false;
 		restoreOffersPending = false;
 		java.util.Arrays.fill(nonemptyOfferSeen, false);
@@ -318,6 +320,7 @@ public class FlippingFriendPlugin extends Plugin
 		if (state == GameState.LOGGED_IN)
 		{
 			offerObservationGeneration.incrementAndGet();
+            if(offerTracker!=null)offerTracker.resetContinuationObservations();
 			offerSnapshotReady = false;
 			restoreOffersPending = false;
 			java.util.Arrays.fill(nonemptyOfferSeen, false);
@@ -333,6 +336,7 @@ public class FlippingFriendPlugin extends Plugin
 			|| state == GameState.LOGGING_IN || state == GameState.CONNECTION_LOST)
 		{
 			offerObservationGeneration.incrementAndGet();
+            if(offerTracker!=null)offerTracker.resetContinuationObservations();
 			offerSnapshotReady = false;
 			restoreOffersPending = false;
 			java.util.Arrays.fill(nonemptyOfferSeen, false);

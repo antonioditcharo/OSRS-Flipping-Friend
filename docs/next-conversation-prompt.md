@@ -4,9 +4,16 @@ Continue in `C:\Users\Antonio\OSRS Flipping Friend Rebuild`.
 Implement, verify and deliver reliable trade/inventory workflow batches; do not stop at a roadmap.
 Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
-Read `local-data/sale-continuation-evidence-20261021/delivery-state.json` FIRST, then current
+Read `local-data/continuation-restoration-20261021/delivery-state.json` FIRST, then current
 AGENTS.md, HANDOFF.md and TASKS.md. The receipt distinguishes source/tests/CI/merge/install/player
 acceptance. Older PR checkpoints and availability notes are historical, not installation proof.
+
+The current batch separates current-login continuation observations from cached offer recovery,
+preserves durable collected quantities across snapshot save lag and profile changes, and prevents
+unshown or stale cancellation cards from retiring accepted rebuy promises. Read the
+[contract](architecture/continuation-restoration-boundaries.md) and receipt for actual installation.
+Previous #139 is installed: independent later sale-source acceptance and accepted-board parallel
+sale evidence are retained. Its fresh post-login/manual loop acceptance remains pending.
 
 The newest batch preserves later first-source acceptance for old sell hints without changing their
 creation/episode/progress, and proves already-present parallel sales separately from new replacement

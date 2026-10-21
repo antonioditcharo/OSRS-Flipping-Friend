@@ -114,12 +114,14 @@ abstract class OfferContinuationStore {
     protected synchronized boolean adviseOffer(TrackedOffer original,String expected,boolean managed,OfferTracker tracker,
             long now,long expiresAt,String saleRepriceSource) {
         if(!load(expected) || original==null || original.isBuying()!=buying)return false;
+        var evidence=tracker==null?null:tracker.getContinuationEvidence();
+        if(evidence!=null && (!evidence.isAvailable() || !evidence.isForAccount(expected)))return false;
         if(saleRepriceSource!=null && (buying || saleRepriceSource.isBlank()
             || original.getLastFillObservedAt()<original.getFirstSeen() || original.getLastFillObservedAt()>now))return false;
         var observation=observation(original);
         for(var retired:state.retirements)if(retired.continuation.matches(observation))return false;
         if(tracker!=null) {
-            var current=observation(tracker.getOffer(original.getSlot()));
+            var current=observation(evidence==null?tracker.getOffer(original.getSlot()):evidence.getOffer(original.getSlot()));
             if(current==null || !Objects.equals(current.episode,observation.episode) || current.firstSeen!=observation.firstSeen
                 || current.item!=observation.item || current.buying!=buying || current.price!=observation.price
                 || current.total!=observation.total || !(buying?"BUYING":"SELLING").equals(current.state))return false;
@@ -131,18 +133,21 @@ abstract class OfferContinuationStore {
                 intent.bindSaleRepriceSource(saleRepriceSource,original.getLastFillObservedAt(),now);
             state.dirty|=intent.getRevision()!=revision;return commit(expected);
         }
-        var created=OfferContinuation.advise(observation,board(tracker),managed,now,expiresAt);
+        var created=OfferContinuation.advise(observation,board(tracker,evidence),managed,now,expiresAt);
         if(created==null)return false;
         if(saleRepriceSource!=null)created.bindSaleRepriceSource(saleRepriceSource,original.getLastFillObservedAt(),now);
         state.intents.add(created);state.dirty=true;return commit(expected);
     }
     protected synchronized List<OfferContinuation> collectedAll(OfferTracker tracker,String expected,long now) {
         if(!load(expected))return Collections.emptyList();
-        var board=board(tracker);var collected=new ArrayList<OfferContinuation>();boolean changed=false;
+        var evidence=tracker==null?null:tracker.getContinuationEvidence();
+        if(evidence!=null && (!evidence.isAvailable() || !evidence.isForAccount(expected)))return Collections.emptyList();
+        var board=board(tracker,evidence);var collected=new ArrayList<OfferContinuation>();boolean changed=false;
         var iterator=state.intents.iterator();
         while(iterator.hasNext()) {
             var intent=iterator.next();long revision=intent.getRevision();
-            var status=intent.observe(board,tracker==null?null:observation(tracker.getSettledOffer(intent.getSlot())),now);
+            var status=intent.observe(board,tracker==null?null:observation(evidence==null?
+                tracker.getSettledOffer(intent.getSlot()):evidence.getSettledOffer(intent.getSlot())),now);
             changed|=intent.getRevision()!=revision;
             if(status==OfferContinuation.Status.CLOSED){iterator.remove();changed=true;}
             else if(status==OfferContinuation.Status.COLLECTED)collected.add(intent);
@@ -195,13 +200,13 @@ abstract class OfferContinuationStore {
         }
         return commit(expected);
     }
-    private List<OfferContinuation.Observation> board(OfferTracker tracker) {
+    private List<OfferContinuation.Observation> board(OfferTracker tracker,OfferTracker.ContinuationEvidence evidence) {
         var result=new ArrayList<OfferContinuation.Observation>();
         if(tracker!=null) {
-            for(var offer:tracker.getOffers())result.add(observation(offer));
+            for(var offer:evidence==null?tracker.getOffers():evidence.getOffers())result.add(observation(offer));
             // A sale can complete/collect between worker passes. Preserve that exit decision too.
             if(buying)for(int slot=0;slot<8;slot++) {
-                var settled=tracker.getSettledOffer(slot);
+                var settled=evidence==null?tracker.getSettledOffer(slot):evidence.getSettledOffer(slot);
                 if(settled!=null && !settled.isBuying())result.add(observation(settled));
             }
         }

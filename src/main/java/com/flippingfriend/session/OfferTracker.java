@@ -76,6 +76,63 @@ public class OfferTracker
 	 */
 	private final Map<Integer, TrackedOffer> settled = new ConcurrentHashMap<>();
 
+    /** Immutable observation copies for continuation decisions; persisted offers never enter here. */
+    private final Map<Integer,TrackedOffer> continuationOffers=new java.util.HashMap<>();
+    private final Map<Integer,TrackedOffer> continuationSettled=new java.util.HashMap<>();
+    private final Object continuationObservationLock=new Object();
+    private String continuationAccount;
+    public static final class ContinuationEvidence {
+        private final Collection<TrackedOffer> offers;
+        private final Map<Integer,TrackedOffer> settled;
+        private final boolean available;
+        private final String accountId;
+        private ContinuationEvidence(Collection<TrackedOffer> offers,Map<Integer,TrackedOffer> settled,boolean available,String accountId) {
+            this.offers=java.util.Collections.unmodifiableCollection(offers);
+            this.settled=java.util.Collections.unmodifiableMap(settled);this.available=available;this.accountId=accountId;
+        }
+        public Collection<TrackedOffer> getOffers(){return offers;}
+        public TrackedOffer getSettledOffer(int slot){return settled.get(slot);}
+        public TrackedOffer getOffer(int slot){for(var offer:offers)if(offer.getSlot()==slot)return offer;return null;}
+        public boolean isAvailable(){return available;}
+        public boolean isForAccount(String expected){return accountId==null?offers.isEmpty() && settled.isEmpty():accountId.equals(expected);}
+    }
+    /** Reset independently of load(), including a reconnect to the same already-loaded account. */
+    public void resetContinuationObservations() {
+        synchronized(continuationObservationLock){continuationOffers.clear();continuationSettled.clear();continuationAccount=null;}
+    }
+    public ContinuationEvidence getContinuationEvidence() {
+        synchronized(continuationObservationLock) {
+            return new ContinuationEvidence(new ArrayList<>(continuationOffers.values()),
+                new java.util.HashMap<>(continuationSettled),!unresolvedPriceObservation,continuationAccount);
+        }
+    }
+    private static TrackedOffer continuationCopy(TrackedOffer offer) {
+        var copy=offer.copyObservation();copy.setCollected(offer.isCollected());return copy;
+    }
+    private void observedContinuationOffer(TrackedOffer offer) {
+        synchronized(continuationObservationLock) {
+            scopeContinuationObservations();
+            continuationOffers.put(offer.getSlot(),continuationCopy(offer));continuationSettled.remove(offer.getSlot());
+        }
+    }
+    private void observedContinuationEmpty(int slot,TrackedOffer done) {
+        synchronized(continuationObservationLock) {
+            scopeContinuationObservations();
+            var previous=continuationOffers.remove(slot);continuationSettled.remove(slot);
+            // EMPTY contains no counters. Only a processed nonempty predecessor can prove them.
+            if(done!=null && previous!=null && previous.getContinuationIdentity().equals(done.getContinuationIdentity())
+                && previous.getQuantityFilled()==done.getQuantityFilled() && previous.getSpent()==done.getSpent()
+                && java.util.Objects.equals(previous.getState(),done.getState()))
+                continuationSettled.put(slot,continuationCopy(done));
+        }
+    }
+    private void scopeContinuationObservations() {
+        String account=storage.accountId();
+        if(!java.util.Objects.equals(account,continuationAccount)) {
+            continuationOffers.clear();continuationSettled.clear();continuationAccount=account;
+        }
+    }
+
 	private Path loadedFrom;
 	private volatile boolean unresolvedPriceObservation;
 	private volatile Runnable changeListener;
@@ -121,6 +178,7 @@ public class OfferTracker
 
 		bySlot.clear();
 		settled.clear();
+        resetContinuationObservations();
 		unresolvedPriceObservation = java.nio.file.Files.exists(file.resolveSibling(UNSUPPORTED_PRICE_FILE));
 		long cutoff = Instant.now().getEpochSecond() - SETTLED_RETENTION_SECONDS;
 		for (TrackedOffer offer : storage.<List<TrackedOffer>>readJson(file, OFFER_LIST, new ArrayList<>()))
@@ -279,10 +337,12 @@ public class OfferTracker
 				writeJournalEntry(done, now);
 				done.setCollected(true);
 				settled.put(slot, done);
+                observedContinuationEmpty(slot,done);
 				checkpointRelist();
 				pruneSettled(now);
 				notifyChanged();
 			}
+            else observedContinuationEmpty(slot,null);
 			return;
 		}
 
@@ -404,6 +464,7 @@ public class OfferTracker
 			writeJournalEntry(tracked, now);
 		}
 
+        observedContinuationOffer(tracked);
 		notifyChanged();
 	}
 
@@ -652,6 +713,7 @@ public class OfferTracker
 	public synchronized void clear()
 	{
 		bySlot.clear();
+        resetContinuationObservations();
 		loadedFrom = null;
 	}
 }

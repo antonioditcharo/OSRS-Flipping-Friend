@@ -36,6 +36,14 @@ import static org.mockito.Mockito.*;
 /** Synthetic client observations and a paused worker; no game, HTTP or live account files. */
 public class OfferObservationBoundaryTest
 {
+    @Test public void everyLoginGenerationResetsContinuationObservationsEvenForTheSameProfile()throws Exception {
+        Fixture f=new Fixture();
+        for(var state:List.of(GameState.LOGGED_IN,GameState.HOPPING,GameState.LOGGING_IN,
+                GameState.CONNECTION_LOST,GameState.LOGIN_SCREEN,GameState.LOGGED_IN)) {
+            var changed=new GameStateChanged();changed.setGameState(state);f.plugin.onGameStateChanged(changed);
+        }
+        verify(f.tracker,times(6)).resetContinuationObservations();
+    }
     @Test public void loginResetDoesNotClearPersistedOffers() throws Exception
     {
         Fixture f = new Fixture();

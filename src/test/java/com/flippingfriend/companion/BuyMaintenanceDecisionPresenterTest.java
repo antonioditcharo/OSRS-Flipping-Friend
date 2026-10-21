@@ -21,6 +21,7 @@ public class BuyMaintenanceDecisionPresenterTest
         Assert.assertEquals(1, result.getSuggestion().getSlot());
         Assert.assertEquals(100, result.getSuggestion().getPrice());
         Assert.assertEquals(400, result.getSuggestion().getQuantity());
+        Assert.assertEquals("offer-1", result.getSuggestion().getMaintenanceOfferIdentity());
         Assert.assertTrue(result.getSuggestion().getDetail().contains("does not authorize a replacement"));
     }
     @Test public void holdAndAbstentionProduceExplicitWaitPresentations()
@@ -32,6 +33,18 @@ public class BuyMaintenanceDecisionPresenterTest
             PolicyAbstentionReason.MARKET_DATA_STALE, "MARKET_STALE", 20, 10, "offer-1", "plan-1");
         Assert.assertEquals(SuggestionType.WAIT,
             BuyMaintenanceDecisionPresenter.present(wait, offer()).getSuggestion().getType());
+    }
+    @Test public void legacyWireIdentityMapsToTheExistingLocalWorkflowIdentityWithoutRewritingItsSource() {
+        String wire="1@5:561";
+        var offer=OfferEvent.builder("legacy",10,"BUYING").eventIdentity("source","session",wire)
+            .slot(1).item(561,"Nature rune").buying(true).price(100).quantities(500,100).firstSeenAt(5)
+            .recommendation("plan-1",100,500,10,30).build();
+        var decision=PolicyDecision.action("1","policy","legacy-cancel",PolicyDecisionType.BUY_MAINTENANCE,
+            OfferLifecycleAction.CANCEL_BUY,"REASON",20,10,wire,"plan-1");
+        var presented=BuyMaintenanceDecisionPresenter.present(decision,offer);
+        Assert.assertNotNull(presented);
+        Assert.assertEquals("1:561:true:100:500:5",presented.getSuggestion().getMaintenanceOfferIdentity());
+        Assert.assertEquals(wire,offer.getOfferIdentity());Assert.assertEquals(wire,presented.getDecision().getCandidateId());
     }
     @Test public void identityLifecycleAndActionMismatchesFailClosed()
     {
