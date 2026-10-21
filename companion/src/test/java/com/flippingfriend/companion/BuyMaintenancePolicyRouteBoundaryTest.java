@@ -13,7 +13,7 @@ public class BuyMaintenancePolicyRouteBoundaryTest
         Path root = root();
         String api = Files.readString(root.resolve(
             "companion/src/main/java/com/flippingfriend/companion/ApiServer.java"), StandardCharsets.UTF_8);
-        assertTrue(api.contains("server.createContext(\"/v1/policy/buy-maintenance\", this::buyMaintenanceDecision)"));
+        assertTrue(api.contains("accountContext(\"/v1/policy/buy-maintenance\", this::buyMaintenanceDecision)"));
         assertTrue(api.contains("private void buyMaintenanceDecision(HttpExchange exchange)"));
         assertTrue(api.contains("if (!authorized(exchange)) return;"));
         assertTrue(api.contains("gson.toJson(service.buyMaintenanceDecision("));

@@ -5,10 +5,17 @@ Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
 ## Current delivery
 
+Runtime health follow-up: `local-data/health-request-isolation-20261021/delivery-state.json`
+records actual verification/installation. Live captures reproduced both HTTP workers blocked by
+account initialization/reads; the 60s starter retry alone did not resolve that occurrence. Global
+health now has a separate dispatch path, account work stays at two workers with a bounded queue,
+and routine refresh no longer scans diagnostic history. [Contract](docs/architecture/health-request-isolation.md).
+Global health is not account trade readiness. Read the receipt before assuming this runtime is installed.
+
 Starter tooling: `local-data/starter-health-retry-20261021/delivery-state.json` records the existing-
 listener health retry fix and verification. Start waits at most 60s for transient failures on the
 same port-owning PID, rejects credentials/protocol/body failures and never starts a second copy.
-The live starter works again. This is scripts-only; installed Java remains #136 and needs no reinstall.
+This script-only fix is merged as #137; the subsequent runtime blockage and delivery are separate above.
 
 Newest workflow slice: read `local-data/ordinary-sale-queue-20261021/delivery-state.json` for source,
 CI, merge and installed state. Ordinary sale reductions now retain every later eligible sale through

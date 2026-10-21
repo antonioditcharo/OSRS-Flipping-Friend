@@ -24,7 +24,7 @@ public class CompanionActionRouteBoundaryTest
                         "src/main/java/com/flippingfriend/FlippingFriendPlugin.java"));
 
                 assertTrue(api.contains(
-                        "server.createContext(\"/v1/action\", this::action)"));
+                        "accountContext(\"/v1/action\", this::action)"));
                 assertTrue(api.contains(
                         "private void action(HttpExchange exchange) throws IOException"));
                 assertTrue(api.contains(

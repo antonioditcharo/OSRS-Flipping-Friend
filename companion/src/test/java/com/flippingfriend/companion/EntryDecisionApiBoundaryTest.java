@@ -20,7 +20,7 @@ public class EntryDecisionApiBoundaryTest
             StandardCharsets.UTF_8);
 
         Assert.assertTrue(api.contains(
-            "server.createContext(\"/v1/policy/entry\", this::entryDecision)"));
+            "accountContext(\"/v1/policy/entry\", this::entryDecision)"));
         Assert.assertTrue(api.contains("if (!authorized(exchange)) return;"));
         Assert.assertTrue(api.contains("query.get(\"planId\")"));
         Assert.assertTrue(api.contains("query.get(\"rank\")"));

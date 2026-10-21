@@ -331,37 +331,12 @@ final class CompanionService implements AutoCloseable
 	}
 
 	/**
-	 * Bounds repeated diagnostic source scans. The account-scoped readout endpoint reads a fresh
-	 * snapshot on request; no elapsed wall time becomes an observation through this timer.
-	 */
-	private static final long CALIBRATION_INTERVAL_SECONDS = 600;
-
-	private volatile long lastCalibratedAt;
-
-	/**
-	 * Refreshes prospective readout evidence. Legacy totals do not identify wait versus work or
-	 * establish a validated challenger. Keep the public-price baseline until promotion gates exist.
+	 * No challenger has passed promotion gates. Diagnostic source scans belong to the explicit
+	 * account readout, not account initialization or market refresh under the account registry lock.
 	 */
 	private void refreshCalibration()
 	{
-		long now = Instant.now().getEpochSecond();
-		if (now - lastCalibratedAt < CALIBRATION_INTERVAL_SECONDS)
-		{
-			return;
-		}
-		lastCalibratedAt = now;
 		planner.setCalibration(FillCalibration.NEUTRAL);
-		try
-		{
-			var report=learningEvidence();
-			log.info("execution evidence: {} completed intervals, {} canceled censored; {} / {}",
-				report.getCompletedIntervals(),report.getCancelledCensored(),report.getStatus(),report.getPromotionStatus());
-		}
-		catch (Exception ex)
-		{
-			log.warn("could not read execution evidence; public-price baseline remains active: {}",
-				String.valueOf(ex.getMessage()));
-		}
 	}
 
     com.flippingfriend.core.ExecutionLearningReport learningEvidence() {

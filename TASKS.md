@@ -6,9 +6,15 @@ installed and player accepted are separate states. Owner is home; older login de
 
 ## Current batch
 
+- [x] Implement health request isolation and removal of automatic historical diagnostic scans.
+      Preserve scoped health, bounded overload/retry identities and all financial/risk authority.
+      Receipt: `local-data/health-request-isolation-20261021/delivery-state.json`;
+      [contract](docs/architecture/health-request-isolation.md). Read the receipt for verification/install;
+      sustained account latency and controlled trading acceptance remain open.
+
 - [x] Repair starter's single-probe refusal of an existing listener: bounded same-PID retry for
       transient health failures, fail-closed credential/protocol/body and listener-change checks,
-      no duplicate process/task/data changes. Live PowerShell 5.1 start passes; Java remains #136.
+      no duplicate process/task/data changes. #137 is merged; later live runtime blocking is tracked above.
       Receipt: `local-data/starter-health-retry-20261021/delivery-state.json`.
 
 - [ ] Accept all ordinary maintenance sale alternatives through final authority after a refused first

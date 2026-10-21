@@ -17,6 +17,12 @@ Start reuses a healthy existing companion. Transient health connection/server fa
 listener fail closed. It never starts a duplicate or stops a listener to recover health. Status stays
 read-only and reports its current probe without waiting. Script-only fixes require no JAR reinstall.
 
+Global health has a separate dispatch path from bounded account work; scoped health still requires
+the account service. Overload returns HTTP 503 without acknowledging an event, so original outbox
+identities must survive retries. Routine refresh uses the neutral baseline without scanning historical
+execution diagnostics. See [health isolation](architecture/health-request-isolation.md). A successful
+global health check is process/market evidence, not account trading acceptance.
+
 1. Diagnose from logs, authenticated GETs and read-only evidence. Reproduce real bugs with tests.
 2. Batch source fixes on a codex/ branch. Run appropriate tests and the standard verification once
    per candidate; repeat only for a new change, failure or unresolved concern. Capture concise results.
