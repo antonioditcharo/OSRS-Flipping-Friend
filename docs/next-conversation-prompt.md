@@ -33,6 +33,13 @@ rebuilding already implemented capabilities:
 
 ## Delivery state at this handoff
 
+First read local-data/exit-profit-replacement-20261020/delivery-state.json. Expected-exit unrealized
+profit is separate from instant-sale P/L; cancelled-buy queues try all eligible remainders before
+new buying and can exit verified partial stock after refusal. Healthy accepted sales require durable
+rebuy supersession; provably later observed sales retire old promises. Contract:
+docs/architecture/exit-profit-and-replacement.md. Owner is home and actively trading, superseding
+all earlier availability deferrals. Controlled workflows/timing/replay/returns/learning stay open.
+
 First read local-data/capture-dispatch-20261020/delivery-state.json for authenticated callback
 persistence before worker dispatch and bounded replay wakeups. Logout/shutdown cannot withdraw a
 committed observation; HTTP remains on the worker and account fences remain. Contract:

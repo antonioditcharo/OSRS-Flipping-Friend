@@ -41,6 +41,20 @@ public class SidebarPerformanceTest {
         var value=CompactPanelContractTest.tree(f.panel).stream().filter(c->"metric-unrealized-profit".equals(c.getName())).map(c->(JLabel)c).findFirst().orElseThrow();
         assertTrue(value.getToolTipText().contains("Priced portion only"));assertTrue(value.getToolTipText().contains("not lost"));
     }
+    @Test public void expectedTargetProfitAndNegativeInstantSaleHaveSeparateLabelsAndCoverage()throws Exception {
+        var f=new CompactPanelContractTest();f.setup();var p=fixture(0);
+        p.spendableCoins=1000L;p.managedAcquisitionCost=122L;p.portfolioValue=120L;p.unpricedCost=0L;
+        p.instantSaleProfit=-2L;p.unrealizedProfit=85L;p.intendedExitValue=207L;p.unplannedCost=0L;
+        var stock=new PerformanceSnapshot.Stock(561,"Nature rune",3,3,3,122,40,p.observedAt,120,"");
+        stock.exitQuotes=java.util.List.of(new PerformanceSnapshot.ExitQuote(3,70,207,"Original exit target"));p.stockValuations=java.util.List.of(stock);
+        assertTrue(p.isValid());when(f.companion.performance()).thenReturn(p);f.refresh();
+        var target=CompactPanelContractTest.tree(f.panel).stream().filter(c->"metric-unrealized-profit".equals(c.getName())).map(c->(JLabel)c).findFirst().orElseThrow();
+        var instant=CompactPanelContractTest.tree(f.panel).stream().filter(c->"metric-instant-sale-p/l".equals(c.getName())).map(c->(JLabel)c).findFirst().orElseThrow();
+        assertEquals("85 gp",target.getText());assertEquals("-2 gp",instant.getText());assertNotEquals(target.getForeground(),instant.getForeground());
+        assertTrue(target.getToolTipText().contains("Original exit target: 3 × 70"));
+        stock.exitQuotes=java.util.List.of();p.intendedExitValue=0L;p.unplannedCost=122L;p.unrealizedProfit=0L;
+        assertTrue(p.isValid());f.refresh();assertEquals("Target unknown",target.getText());
+    }
     @Test public void unmatchedSaleOpensItsAccountingEvidenceAndRetainsKnownProceedsAndTax()throws Exception {
         var f=new CompactPanelContractTest();f.setup();long now=java.time.Instant.now().getEpochSecond();
         String reason="COST_BASIS_UNRESOLVED; EXACT_UNDER_RECORDED_RULE; disposal has no durable position";

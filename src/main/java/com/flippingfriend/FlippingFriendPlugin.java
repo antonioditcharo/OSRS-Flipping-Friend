@@ -440,7 +440,7 @@ public class FlippingFriendPlugin extends Plugin
         boolean saved=engine.recordPresentedMaintenance(accepted,account,java.time.Instant.now().getEpochSecond());
         if(accepted!=null && (accepted.getType()==SuggestionType.MODIFY_BUY || accepted.getType()==SuggestionType.MODIFY_SELL
                 || accepted.getType()==SuggestionType.CANCEL
-                || accepted.getType()==SuggestionType.SELL && accepted.isProfitKnown() && accepted.isLossCut()) && !saved) {
+                || accepted.getType()==SuggestionType.SELL && accepted.isProfitKnown()) && !saved) {
             stepGuide.withdrawAdvice(Suggestion.waiting("Saving this trade workflow",
                 "The revised trade workflow could not be saved. Existing records and plans are retained; guidance will retry."));
             if(engine.deferUnsavedMaintenance(accepted,java.time.Instant.now().getEpochSecond()))requestEngineRefresh();
@@ -1072,17 +1072,23 @@ public class FlippingFriendPlugin extends Plugin
     {
         if (proposed.getItemId() <= 0 || proposed.getQuantity() <= 0)
             return Suggestion.waiting("Replacement unavailable", "The cancelled remainder is not valid.");
-        Suggestion authorized = companion.replacementSuggestion(proposed.getItemId(),proposed.getQuantity(),
-            new com.flippingfriend.model.Explainer(),
-            com.flippingfriend.model.SuggestionEngine.parseBlocked(config.blockedItems()),
-            engine.skippedItems(), offerTracker.itemsWithOpenOffers());
-        if (authorized != null && authorized.getType() == SuggestionType.WAIT) return authorized;
-        if (authorized == null || authorized.getType() != SuggestionType.BUY
-            || authorized.getItemId() != proposed.getItemId() || authorized.getPrice() <= 0
-            || authorized.getQuantity() <= 0 || authorized.getQuantity() > proposed.getQuantity())
-            return Suggestion.waiting("Replacement needs a current companion plan",
-                "No eligible entry fits this item's cancelled remainder. Waiting for a fresh plan; the old order will not be reused.");
-        return authorized;
+        var candidates=engine.replacementCandidates();
+        if(candidates==null || candidates.isEmpty())candidates=java.util.List.of(proposed);
+        java.util.Set<Integer> declined=new java.util.HashSet<>();Suggestion waiting=null;
+        for(var candidate:candidates) {
+            Suggestion authorized=companion.replacementSuggestion(candidate.getItemId(),candidate.getQuantity(),
+                new com.flippingfriend.model.Explainer(),
+                com.flippingfriend.model.SuggestionEngine.parseBlocked(config.blockedItems()),
+                engine.skippedItems(),offerTracker.itemsWithOpenOffers());
+            if(authorized!=null && authorized.getType()==SuggestionType.BUY && authorized.getItemId()==candidate.getItemId()
+                && authorized.getPrice()>0 && authorized.getQuantity()>0 && authorized.getQuantity()<=candidate.getQuantity())return authorized;
+            declined.add(candidate.getItemId());
+            waiting=authorized!=null && authorized.getType()==SuggestionType.WAIT?authorized
+                :Suggestion.waiting("Replacement waiting: "+candidate.getItemName(),"No current eligible entry fits the retained remainder; the original quantity is saved.");
+        }
+        var exit=engine.exitAfterReplacementRefusal(declined);
+        if(exit!=null)return exit;
+        return waiting==null?Suggestion.waiting("Replacement needs a current companion plan","The original remainder is retained."):waiting;
     }
 	/** A short, readable description of a failure, for a card rather than a log. */
 	private static String describe(Exception ex)

@@ -5,6 +5,16 @@ All unchecked release requirements remain visible below; detailed completion rec
 
 ## Active
 
+- [ ] Deliver/accept expected-exit unrealized profit and cancelled-buy recovery. Try every eligible
+      saved remainder through fresh final authority, exit verified partials after refusal and commit
+      healthy-sale supersession; later observed sales cannot leave a stale rebuy. Preserve exact
+      quantities/cost/tax, original targets, unknown coverage and separate instant-sale/risk values.
+      Eleven new behavioral tests. Contract/receipt: docs/architecture/exit-profit-and-replacement.md
+      and docs/history/exit-profit-replacement-delivery-2026-10-20.md; actual delivery state:
+      local-data/exit-profit-replacement-20261020/delivery-state.json. Owner is home/actively trading;
+      prior login deferrals are superseded. Controlled full-loop/restart, sustained timing, complete
+      replay, qualified returns and learning gates remain open.
+
 - [ ] Deliver/accept callback persistence before worker dispatch. Retain accepted fills/terminal/EMPTY
       sources and their original advice through logout, stopped/rejected workers, account switches
       and restart; capture performs no HTTP. Preserve retry backoff and concurrent prefix ACKs.

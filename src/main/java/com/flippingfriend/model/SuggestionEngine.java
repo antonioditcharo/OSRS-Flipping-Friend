@@ -157,11 +157,14 @@ public class SuggestionEngine
     @Inject private com.flippingfriend.session.BuyRepriceIntent buyReprice;
     private volatile String observedAccount;
     private volatile Suggestion continuationWait;
+    private volatile List<Suggestion> replacementCandidates=Collections.emptyList();
+    private final Set<Integer> locallyDeclinedReplacements=java.util.concurrent.ConcurrentHashMap.newKeySet();
+    public List<Suggestion> replacementCandidates(){return replacementCandidates;}
     /** A retained continuation's refusal must not become an account-wide entry or exit lock. */
     public boolean isContinuationWait(Suggestion suggestion) { return suggestion!=null && suggestion==continuationWait; }
     public void setObservedAccount(String account) {
         if(!java.util.Objects.equals(observedAccount,account)) {
-            advisedPrices.clear();reprice=null;maintenanceRetryAfter.clear();
+            advisedPrices.clear();reprice=null;maintenanceRetryAfter.clear();replacementCandidates=Collections.emptyList();locallyDeclinedReplacements.clear();
         }
         observedAccount=account;
     }
@@ -172,7 +175,7 @@ public class SuggestionEngine
     /** Client-thread acceptance only: a worker proposal is not a promise shown to the player. */
     public boolean recordPresentedMaintenance(Suggestion accepted,String expectedAccount,long now) {
         if(accepted==null || expectedAccount==null || !expectedAccount.equals(observedAccount))return false;
-        if(accepted.getType()==SuggestionType.SELL && accepted.isProfitKnown() && accepted.isLossCut())
+        if(accepted.getType()==SuggestionType.SELL && accepted.isProfitKnown())
             return clearBuyPromise(accepted.getItemId(),Instant.ofEpochSecond(now));
         if(accepted.getType()==SuggestionType.CANCEL) {
             var cancelled=offers.getOffer(accepted.getSlot());
@@ -368,6 +371,8 @@ public class SuggestionEngine
 	private Suggestion compute(boolean computeBuy)
 	{
 		continuationWait=null;
+        replacementCandidates=Collections.emptyList();
+        locallyDeclinedReplacements.clear();
 		AccountState account = accountMonitor.getState();
 		MarketSnapshot market = marketData.getSnapshot();
 		Instant now = Instant.now();
@@ -465,6 +470,10 @@ public class SuggestionEngine
         // awaitingReplacement still protects this accumulation's own partial fills. Other
         // ready holdings must exit before another purchase, including a promised replacement.
         if(replace!=null && replace.getType()!=SuggestionType.WAIT)return replace;
+        if(deferredWait!=null) {
+            var partialExit=exitAfterReplacementRefusal(locallyDeclinedReplacements);
+            if(partialExit!=null)return partialExit;
+        }
 
 		Suggestion adjust = adjustSuggestion(market, horizon, now);
 		if (adjust != null)
@@ -925,11 +934,13 @@ public class SuggestionEngine
     }
     private Suggestion replaceDurableBuy(MarketSnapshot market,AccountState account,Instant now) {
         if(account.getFreeSlots()<=0)return null;
+        List<Suggestion> candidates=new ArrayList<>();
         Suggestion waiting=null;var risk=companion==null?null:companion.currentRisk();
         for(var pending:buyReprice.collectedRequests(offers,observedAccount,now.getEpochSecond())) {
             int item=pending.itemId;
             if(replacementRejected(item,market)){buyReprice.clearItem(observedAccount,item);continue;}
             if(offers.itemsWithOpenOffers().contains(item))continue;
+            locallyDeclinedReplacements.add(item);
             if(risk!=null && risk.isAvailable() && observedAccount.equals(risk.getAccountId())
                 && risk.getValidUntil()>=now.getEpochSecond() && risk.getValuationPausedItems().contains(item)) {
                 waiting=Suggestion.waiting("Replacement retained","This item's valuation is uncertain. Its exact cancelled remainder is retained while unrelated trades are checked.");continue;
@@ -946,10 +957,26 @@ public class SuggestionEngine
                 waiting=Suggestion.waiting("Replacement waiting for funds or buy limit","The cancelled remainder is retained; fresh account evidence must support the next order.");continue;
             }
             // Only a bounded request: fresh companion authority still owns the displayed order.
-            return Suggestion.builder(SuggestionType.BUY).item(item,market.getItemName(item)).price(quoted).quantity(quantity)
-                .headline("Recheck your "+market.getItemName(item)+" replacement").build();
+            candidates.add(Suggestion.builder(SuggestionType.BUY).item(item,market.getItemName(item)).price(quoted).quantity(quantity)
+                .headline("Recheck your "+market.getItemName(item)+" replacement").build());
+            locallyDeclinedReplacements.remove(item);
         }
-        return waiting;
+        replacementCandidates=Collections.unmodifiableList(candidates);
+        return candidates.isEmpty()?waiting:candidates.get(0);
+    }
+
+    /** After fresh entry authority refuses every proposed remainder, finish its acquired stock. */
+    public Suggestion exitAfterReplacementRefusal(Set<Integer> declined) {
+        var account=accountMonitor.getState();var market=marketData.getSnapshot();
+        if(declined==null || !account.isLoggedIn() || !market.isUsable() || buyReprice==null)return null;
+        Set<Integer> refused=new HashSet<>(declined);refused.addAll(locallyDeclinedReplacements);
+        if(refused.isEmpty())return null;
+        long now=Instant.now().getEpochSecond();Set<Integer> collected=new HashSet<>();
+        for(var pending:buyReprice.collectedRequests(offers,observedAccount,now))
+            if(refused.contains(pending.itemId))collected.add(pending.itemId);
+        if(collected.isEmpty())return null;
+        return sellSuggestion(market,TradingHorizon.of(config.riskProfile(),config.checkInterval(),config.targetHoldMinutes()),
+            account,Instant.ofEpochSecond(now),collected);
     }
 
 	/** What to do about an outstanding reprice on this pass. */
@@ -1438,6 +1465,9 @@ public class SuggestionEngine
 
 	private Suggestion sellSuggestion(MarketSnapshot market, TradingHorizon horizon, AccountState account,
 		Instant now)
+	{ return sellSuggestion(market,horizon,account,now,null); }
+    private Suggestion sellSuggestion(MarketSnapshot market,TradingHorizon horizon,AccountState account,
+        Instant now,Set<Integer> declinedReplacements)
 	{
 		if (tradingPositions().isEmpty())
 		{
@@ -1453,6 +1483,7 @@ public class SuggestionEngine
 		for (Position position : tradingPositions())
 		{
 			int itemId = position.getItemId();
+            if(declinedReplacements!=null && !declinedReplacements.contains(itemId))continue;
 			if (position.getQuantity() <= 0)
 			{
 				continue;
@@ -1552,7 +1583,8 @@ public class SuggestionEngine
 			// nothing and lets the partial fill through. That is how a player who cancelled exactly
 			// as instructed was then told to sell the one unit that had filled. The plugin owes them
 			// a replacement; until it has given them one, this is still a trade in progress.
-			if (decision.getAction()!=SellDecision.Action.CUT && awaitingReplacement(itemId, account, now))
+			if (decision.getAction()!=SellDecision.Action.CUT && (declinedReplacements==null || !declinedReplacements.contains(itemId))
+                && awaitingReplacement(itemId, account, now))
 			{
 				TrackedOffer buy = openBuyFor(itemId);
 				statuses.put(itemId, buy == null
