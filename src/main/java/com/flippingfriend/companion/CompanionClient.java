@@ -428,6 +428,7 @@ public class CompanionClient
 			config.targetHoldMinutes(), positionSnapshots).withAccountId(accountId)
 			.withAutomaticTradeScope();
         snapshot=snapshot.withObservedHoldings(currentPhysicalHoldings(state));
+        snapshot=snapshot.withObservedInventory(state.getInventoryHoldings());
 		if(observation!=null) snapshot=snapshot.withOfferReadSet(receipt);
 		post("events/account-state", snapshot);
 	}
@@ -1009,6 +1010,8 @@ public class CompanionClient
                 "The remaining quantity or purchase cost is unresolved. See Missed flips; no sale or disposal is assumed.");
         if("SALE_STOCK_NOT_OBSERVED".equals(reason))return Suggestion.waiting("Locate the recorded stock",
             "The purchase is retained, but these units are not currently visible. Collect them or open their container before listing.");
+        if("SALE_STOCK_NOT_IN_INVENTORY".equals(reason))return Suggestion.waiting("Move the stock to inventory",
+            "Banked, equipped and uncollected stock stays on record. Only the captured inventory quantity can be listed now.");
         if("SALE_EXACT_COST_FLOOR".equals(reason))return Suggestion.waiting("Refreshing the non-loss sell price",
             "This price would not cover the exact recorded purchase cost after tax.");
         if("SALE_EXIT_CHANGED".equals(reason) || "SALE_PRICE_NOT_AUTHORIZED".equals(reason))

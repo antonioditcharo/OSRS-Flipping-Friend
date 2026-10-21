@@ -74,6 +74,18 @@ public class HoldingsVisibilityTest
 		assertEquals("what you are wearing is what you own", 1,
 			state.quantityHeld(MYSTIC_SMOKE_STAFF));
 	}
+    @Test public void equipmentInventoryBankAndCollectionKeepIndependentQuantities() {
+        put(InventoryID.INV,MYSTIC_SMOKE_STAFF,2);put(InventoryID.WORN,MYSTIC_SMOKE_STAFF,1);
+        put(InventoryID.BANK,MYSTIC_SMOKE_STAFF,5);put(InventoryID.GE_OFFER_3,MYSTIC_SMOKE_STAFF,4);
+        var state=monitor.refresh();assertEquals(12,state.quantityHeld(MYSTIC_SMOKE_STAFF));
+        assertEquals(Integer.valueOf(2),state.getInventoryHoldings().get(MYSTIC_SMOKE_STAFF));
+        assertEquals(Integer.valueOf(1),state.getEquipmentHoldings().get(MYSTIC_SMOKE_STAFF));
+        assertEquals(Integer.valueOf(5),state.getBankHoldings().get(MYSTIC_SMOKE_STAFF));
+        put(InventoryID.WORN,MYSTIC_SMOKE_STAFF,0);put(InventoryID.INV,MYSTIC_SMOKE_STAFF,3);
+        var unequipped=monitor.refresh();assertEquals(Integer.valueOf(3),unequipped.getInventoryHoldings().get(MYSTIC_SMOKE_STAFF));
+        assertEquals(12,unequipped.quantityHeld(MYSTIC_SMOKE_STAFF));
+        assertEquals(Integer.valueOf(2),state.getInventoryHoldings().get(MYSTIC_SMOKE_STAFF));
+    }
 
 	@Test
 	public void anItemInTheInventoryIsStillHeld()
@@ -115,7 +127,8 @@ public class HoldingsVisibilityTest
 
 		assertEquals("blocking new trades must preserve ownership evidence", 7,
 			state.quantityHeld(MYSTIC_SMOKE_STAFF));
-		assertEquals(3, state.getInventoryHoldings().get(MYSTIC_SMOKE_STAFF).intValue());
+		assertEquals(2, state.getInventoryHoldings().get(MYSTIC_SMOKE_STAFF).intValue());
+        assertEquals(1,state.getEquipmentHoldings().get(MYSTIC_SMOKE_STAFF).intValue());
 	}
 
 	@Test

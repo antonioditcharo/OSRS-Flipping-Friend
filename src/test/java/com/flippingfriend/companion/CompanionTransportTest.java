@@ -53,6 +53,19 @@ public class CompanionTransportTest {
         System.out.println("Eight scoped pooled reads ms="+(System.nanoTime()-started)/1_000_000.0);
         assertEquals(8,peers.size());assertEquals("Successful reads should return their transport to the pool",1,new HashSet<>(peers).size());
     }
+    @Test public void accountCapturePublishesInventorySeparatelyFromEquipmentCollectionAndCachedBank()throws Exception {
+        var received=new java.util.concurrent.atomic.AtomicReference<AccountSnapshot>();
+        server.createContext("/v1/accounts/",exchange->{try {
+            received.set(gson.fromJson(new String(exchange.getRequestBody().readAllBytes(),StandardCharsets.UTF_8),AccountSnapshot.class));
+            reply(exchange,200,"{\"ok\":true}");
+        }catch(Exception failure){throw new java.io.IOException(failure);}});
+        var state=new com.flippingfriend.session.AccountState(true,true,false,100000000,0,0,8,8,0,true,
+            Map.of(561,12),Map.of(561,2),Map.of(561,5),0,Map.of(561,1));
+        var config=org.mockito.Mockito.mock(com.flippingfriend.FlippingFriendConfig.class);
+        client.publishAccount(state,config,0,Map.of(),Map.of(),Set.of(),Set.of(),Set.of(),false,List.of());
+        assertNotNull(received.get());assertEquals(storage.accountId(),received.get().getAccountId());
+        assertEquals(Map.of(561,7),received.get().getObservedHoldings());assertEquals(Map.of(561,2),received.get().getObservedInventory());
+    }
     @Test public void serverConnectionCloseRetainsEveryScopedResponseWithoutReusingAClosedConnection()throws Exception {
         server.createContext("/v1/accounts/",exchange->{try{
             exchange.getResponseHeaders().set("Connection","close");reply(exchange,200,"{\"ok\":true}");

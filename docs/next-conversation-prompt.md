@@ -4,23 +4,25 @@ Continue in `C:\Users\Antonio\OSRS Flipping Friend Rebuild`.
 Implement, verify and deliver reliable trade/inventory workflow batches; do not stop at a roadmap.
 Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
-Read `local-data/continuation-disposition-20261020/delivery-state.json` FIRST, then current
+Read `local-data/exit-queue-20261020/delivery-state.json` FIRST, then current
 AGENTS.md, HANDOFF.md and TASKS.md. The receipt distinguishes source/tests/CI/merge/install/player
 acceptance. Older PR checkpoints and availability notes are historical, not installation proof.
 
-The current batch qualifies exact recorded sale sources and durably retires older collected rebuy
-promises with their complete original hint/source receipts. It also handles collected/cancelled-sale
-receipts and same-pass collection after tracker reload. See
-[contract](architecture/continuation-sale-disposition.md) and
-[delivery](history/continuation-sale-disposition-delivery-2026-10-20.md).
+The current batch keeps all eligible exact relists/holding exits/listed stops through final sale
+authority and withdraws every refused instruction before a successor. Inventory is separate from
+equipment; initial exits use the actual inventory subset and exact pooled cost, and fresh captures
+carry an independent inventory bound. Keep bank/equipment/collection ownership and all financial/risk
+history. See [contract](architecture/exit-authority-queue.md) and
+[delivery](history/exit-queue-delivery-2026-10-20.md).
 
-The important case was Dual macuahuitl: three acquired units had a recorded sale while a two-unit
-saved buy remainder remained. Recheck whether the installed client has committed its proven
-disposition. Never blindly delete it, infer disposal from absence or replay financial history.
-Before this batch, #131 was merged/installed; its receipt is
-`local-data/exit-profit-replacement-20261020/delivery-state.json`. It separates expected target/listing
-profit from instant-sale P/L, tries all eligible remainders through final authority and supports
-verified partial exits after refusal. Preserve those paths and all final guards.
+Previous #132 is merged/installed, and fresh manual login/eight-slot/ACK proof confirms that Dual
+macuahuitl's old two-unit rebuy hint was retired with the exact recorded sale source. Other hints,
+original source/financial rows and the risk anchor survive. Its actual receipt is
+`local-data/continuation-disposition-20261020/delivery-state.json`. Controlled full-loop/restart
+acceptance remains open. Do not delete hints or replay money to repair a workflow.
+Included #131 separates expected listing/target profit from instant-sale P/L, tries every eligible
+buy remainder through final authority and supports verified partial exits after refusal. Preserve
+those paths and all genuine source/physical/risk/funding/slot/limit guards.
 
 Owner is home and reported active trading; earlier login deferrals are superseded. Login and every
 GE/game action remain manual. Routine normal closure, backup verification, paired update and launch

@@ -62,6 +62,19 @@ public class CompanionSalePolicyTest {
             assertEquals(OfferLifecycleAction.WAIT,decide(store,account,source,2,1,-1,now).getAction());
         }
     }
+    @Test public void currentInventoryCapsFinalExitWithoutErasingOtherPhysicalStock()throws Exception {
+        try(var store=new SqliteStore(folder.newFolder().toPath().resolve("inventory.db"))) {
+            var account=setup(store).withObservedInventory(Map.of(561,1));long now=at+3600;
+            var position=store.ledgerSnapshot(id,now).getTradingPositions().get(0);
+            assertEquals(OfferLifecycleAction.PLACE_SELL,decide(store,account,position.getSourceEventId(),1,120,-1,now).getAction());
+            assertEquals("SALE_STOCK_NOT_IN_INVENTORY",decide(store,account,position.getSourceEventId(),2,120,-1,now).getReasonCode());
+            assertEquals(Integer.valueOf(3),account.getObservedHoldings().get(561));
+            assertEquals(3,store.ledgerSnapshot(id,now).getTradingPositions().get(0).getQuantity());
+            assertEquals(301,store.ledgerSnapshot(id,now).getTradingPositions().get(0).getTotalCost());
+            var unequipped=account.withObservedInventory(Map.of(561,3));
+            assertEquals(OfferLifecycleAction.PLACE_SELL,decide(store,unequipped,position.getSourceEventId(),3,120,-1,now).getAction());
+        }
+    }
     @Test public void saleMaintenanceBindsCurrentEpisodeSourceAndRemainingQuantity()throws Exception {
         try(var store=new SqliteStore(folder.newFolder().toPath().resolve("fixture.db"))) {
             var account=setup(store);long now=at+3600;

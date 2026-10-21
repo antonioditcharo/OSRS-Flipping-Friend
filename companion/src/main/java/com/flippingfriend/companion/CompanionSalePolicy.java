@@ -68,6 +68,8 @@ final class CompanionSalePolicy {
                 if(position==null || quantity>position.getQuantity())return refusal(type,identity,source,now,"SALE_ACQUISITION_UNAVAILABLE");
                 if(account.getObservedHoldings()==null || account.getObservedHoldings().getOrDefault(item,0)<quantity)
                     return refusal(type,identity,source,now,"SALE_STOCK_NOT_OBSERVED");
+                if(account.getObservedInventory()!=null && account.getObservedInventory().getOrDefault(item,0)<quantity)
+                    return refusal(type,identity,source,now,"SALE_STOCK_NOT_IN_INVENTORY");
                 PositionProjection canonical=null;for(var p:ledger.getTradingPositions())if(p.getItemId()==item)canonical=p;
                 if(canonical==null || !source.equals(canonical.getSourceEventId()))return refusal(type,identity,source,now,"SALE_ACQUISITION_CHANGED");
                 int listed=0;

@@ -158,13 +158,18 @@ public class SuggestionEngine
     private volatile String observedAccount;
     private volatile Suggestion continuationWait;
     private volatile List<Suggestion> replacementCandidates=Collections.emptyList();
+    private volatile List<Suggestion> saleCandidates=Collections.emptyList();
+    private List<Suggestion> stockSaleCandidates=Collections.emptyList(),listedStopCandidates=Collections.emptyList();
     private final Set<Integer> locallyDeclinedReplacements=java.util.concurrent.ConcurrentHashMap.newKeySet();
     public List<Suggestion> replacementCandidates(){return replacementCandidates;}
+    /** Ordered proposals only. Each exact order still requires final companion authority. */
+    public List<Suggestion> saleCandidates(){return saleCandidates;}
     /** A retained continuation's refusal must not become an account-wide entry or exit lock. */
     public boolean isContinuationWait(Suggestion suggestion) { return suggestion!=null && suggestion==continuationWait; }
     public void setObservedAccount(String account) {
         if(!java.util.Objects.equals(observedAccount,account)) {
             advisedPrices.clear();reprice=null;maintenanceRetryAfter.clear();replacementCandidates=Collections.emptyList();locallyDeclinedReplacements.clear();
+            saleCandidates=Collections.emptyList();stockSaleCandidates=Collections.emptyList();listedStopCandidates=Collections.emptyList();
         }
         observedAccount=account;
     }
@@ -372,6 +377,7 @@ public class SuggestionEngine
 	{
 		continuationWait=null;
         replacementCandidates=Collections.emptyList();
+        saleCandidates=Collections.emptyList();stockSaleCandidates=Collections.emptyList();listedStopCandidates=Collections.emptyList();
         locallyDeclinedReplacements.clear();
 		AccountState account = accountMonitor.getState();
 		MarketSnapshot market = marketData.getSnapshot();
@@ -436,11 +442,14 @@ public class SuggestionEngine
 		Suggestion replace = replaceRepricedBuy(market, account, now);
         Suggestion deferredWait=replace!=null && replace.getType()==SuggestionType.WAIT?replace:null;
         Suggestion relist=null;
+        List<Suggestion> relists=new ArrayList<>();Set<Integer> relistItems=new HashSet<>();
 
         if (sellRelist != null) {
             for(var remaining:sellRelist.collectedRequests(offers,observedAccount))if(account.getFreeSlots()>0) {
+                relistItems.add(remaining.getItemId());
                 Suggestion candidate=relistSuggestion(remaining, market, horizon, account, now);
                 if(candidate!=null && candidate.getType()!=SuggestionType.WAIT) {
+                    relists.add(candidate);
                     if(relist==null || candidate.isLossCut() && !relist.isLossCut())relist=candidate;
                 } else if(candidate!=null)deferredWait=candidate;
             }
@@ -460,10 +469,21 @@ public class SuggestionEngine
 		// repricing is exactly the one the sell pass has nothing to say about, and the reprice runs
 		// on the very next check.
 		Suggestion sell = sellSuggestion(market, horizon, account, now);
+        List<Suggestion> stockSales=new ArrayList<>(stockSaleCandidates);
+        // A generic holding exit cannot enlarge the exact cancelled-sale remainder.
+        stockSales.removeIf(candidate->relistItems.contains(candidate.getItemId()));
+        if(sell!=null && sell.getType()==SuggestionType.SELL)sell=stockSales.isEmpty()?null:stockSales.get(0);
+        Suggestion listedStop=adjustSuggestion(market,horizon,now,true);
+        List<Suggestion> orderedSales=new ArrayList<>();
+        for(var candidate:relists)if(candidate.isLossCut())orderedSales.add(candidate);
+        for(var candidate:stockSales)if(candidate.isLossCut())orderedSales.add(candidate);
+        orderedSales.addAll(listedStopCandidates);
+        for(var candidate:relists)if(!candidate.isLossCut())orderedSales.add(candidate);
+        for(var candidate:stockSales)if(!candidate.isLossCut())orderedSales.add(candidate);
+        saleCandidates=Collections.unmodifiableList(orderedSales);
         // Complete ordinary relists, but never let one hide a freshly supported stop elsewhere.
         if(relist!=null && relist.isLossCut())return relist;
         if(sell!=null && sell.isLossCut())return sell;
-        Suggestion listedStop=adjustSuggestion(market,horizon,now,true);
         if(listedStop!=null)return listedStop;
         if(relist!=null)return relist;
 		if (sell != null)
@@ -612,6 +632,8 @@ public class SuggestionEngine
     }
     private Suggestion adjustSuggestion(MarketSnapshot market,TradingHorizon horizon,Instant now,boolean stopsOnly)
 	{
+        List<Suggestion> stops=new ArrayList<>();
+        if(stopsOnly)listedStopCandidates=Collections.emptyList();
 		for (TrackedOffer offer : mostStrandedFirst(offers.getOffers(), market))
 		{
             if(stopsOnly && offer.isBuying())continue;
@@ -798,7 +820,7 @@ public class SuggestionEngine
 
 				// What the new price is actually worth. The reprice card carried no figure at all, so a
 				long change = costKnown ? taxCalculator.netProceeds(offer.getItemId(),newPrice,remaining)-allocatedCost : 0;
-				return Suggestion.builder(SuggestionType.MODIFY_SELL)
+				Suggestion candidate=Suggestion.builder(SuggestionType.MODIFY_SELL)
                     .maintenanceSource(offer.getContinuationIdentity())
 					.item(offer.getItemId(), name)
 					.slot(offer.getSlot())
@@ -813,9 +835,12 @@ public class SuggestionEngine
 						+ "running, so cancel this one, collect the items back, and list them again at "
 						+ explainer.formatNumber(newPrice) + " gp.")
 					.build();
+                if(stopsOnly){stops.add(candidate);continue;}
+                return candidate;
 			}
 		}
-		return null;
+		if(stopsOnly){listedStopCandidates=Collections.unmodifiableList(stops);return stops.isEmpty()?null:stops.get(0);}
+        return null;
 	}
 
 	/**
@@ -978,8 +1003,10 @@ public class SuggestionEngine
         for(var pending:buyReprice.collectedRequests(offers,observedAccount,now))
             if(refused.contains(pending.itemId))collected.add(pending.itemId);
         if(collected.isEmpty())return null;
-        return sellSuggestion(market,TradingHorizon.of(config.riskProfile(),config.checkInterval(),config.targetHoldMinutes()),
+        var exit=sellSuggestion(market,TradingHorizon.of(config.riskProfile(),config.checkInterval(),config.targetHoldMinutes()),
             account,Instant.ofEpochSecond(now),collected);
+        saleCandidates=stockSaleCandidates;
+        return exit;
     }
 
 	/** What to do about an outstanding reprice on this pass. */
@@ -1472,6 +1499,7 @@ public class SuggestionEngine
     private Suggestion sellSuggestion(MarketSnapshot market,TradingHorizon horizon,AccountState account,
         Instant now,Set<Integer> declinedReplacements)
 	{
+		stockSaleCandidates=Collections.emptyList();
 		if (tradingPositions().isEmpty())
 		{
 			positionStatuses.set(Collections.emptyMap());
@@ -1482,6 +1510,7 @@ public class SuggestionEngine
 		Map<Integer, Integer> listedForSale = offers.listedForSale();
 		java.util.Set<Integer> stillBuying = offers.itemsBeingBought();
 		SellCandidate best = null;
+        List<SellCandidate> candidates=new ArrayList<>();
 
 		for (Position position : tradingPositions())
 		{
@@ -1522,6 +1551,15 @@ public class SuggestionEngine
 			int held = account.quantityHeld(itemId);
 			boolean unconfirmed = false;
 			boolean inInventory = account.getInventoryHoldings().containsKey(itemId) && account.getInventoryHoldings().get(itemId) > 0;
+            int inventoryQuantity=account.getInventoryHoldings().getOrDefault(itemId,0);
+            if(held>0 && !inInventory && !stillBuying.contains(itemId)) {
+                int equipped=account.getEquipmentHoldings().getOrDefault(itemId,0);
+                int banked=account.getBankHoldings().getOrDefault(itemId,0);
+                String location=equipped>0?"Equipped stock is retained; move it to inventory before selling."
+                    :banked>0?"Banked stock is retained; withdraw the units you want to sell to inventory."
+                    :"Recorded stock is retained; collect it to inventory before selling.";
+                statuses.put(itemId,new PositionStatus(SellDecision.hold(location,0),false,false));continue;
+            }
 
 			if (held <= 0)
 			{
@@ -1629,7 +1667,8 @@ public class SuggestionEngine
 				continue;
 			}
 
-			int quantity = Math.min(held, toSell);
+			int quantity = Math.min(inventoryQuantity, toSell);
+            if(quantity<=0)continue;
 			// A second offer on an item already selling costs a second slot.
 			//
 			// The remainder of a part-filled buy arrives in dribs: an order for twenty thousand grapes
@@ -1649,6 +1688,7 @@ public class SuggestionEngine
 				continue;
 			}
 			SellCandidate candidate = new SellCandidate(position, decision, quantity, unconfirmed, inInventory);
+            candidates.add(candidate);
 			if (best == null || SellCandidate.MOST_URGENT_FIRST.compare(candidate, best) < 0)
 			{
 				best = candidate;
@@ -1683,8 +1723,18 @@ public class SuggestionEngine
 
 		positionStatuses.set(Collections.unmodifiableMap(statuses));
 
-		Position position = best.position;
-		SellDecision decision = best.decision;
+        candidates.sort(SellCandidate.MOST_URGENT_FIRST);
+        List<Suggestion> ready=new ArrayList<>();Suggestion waiting=null;
+        for(var candidate:candidates) {
+            var next=stockSaleSuggestion(candidate,market,horizon,now);
+            if(next.getType()==SuggestionType.SELL)ready.add(next);else if(waiting==null)waiting=next;
+        }
+        stockSaleCandidates=Collections.unmodifiableList(ready);
+        return ready.isEmpty()?waiting:ready.get(0);
+    }
+    private Suggestion stockSaleSuggestion(SellCandidate candidate,MarketSnapshot market,TradingHorizon horizon,Instant now) {
+		Position position = candidate.position;
+		SellDecision decision = candidate.decision;
 		int itemId = position.getItemId();
 		boolean cut = decision.getAction() == SellDecision.Action.CUT;
 
@@ -1693,20 +1743,20 @@ public class SuggestionEngine
 		// mind about a trade it has not changed its mind about.
 		int sellPrice = advisedPrice(itemId, false, decision.getPrice(), now.getEpochSecond());
         long allocatedCost=position.isCostKnown()?com.flippingfriend.core.SaleAccounting.allocateCost(
-            position.getTotalCost(),position.getQuantity(),best.quantity):0;
+            position.getTotalCost(),position.getQuantity(),candidate.quantity):0;
         if(position.isCostKnown() && !cut && (!sellOnly || !freshSaleQuote(market.latest(itemId),now))) {
-            int minimum=taxCalculator.breakEvenSellPriceForCost(itemId,allocatedCost,best.quantity);
+            int minimum=taxCalculator.breakEvenSellPriceForCost(itemId,allocatedCost,candidate.quantity);
             if(minimum<=0)return Suggestion.waiting("No non-loss sell price is available",
                 "No legal Grand Exchange price covers the recorded cost of these units after tax.");
             sellPrice=Math.max(sellPrice,SellTimingEngine.protectedPrice(position,horizon,now,minimum));
         }
-        var forecast = sellTiming.forecastForOrder(itemId,sellPrice,best.quantity,marketData.getSeries(itemId,TIMESTEP),horizon);
+        var forecast = sellTiming.forecastForOrder(itemId,sellPrice,candidate.quantity,marketData.getSeries(itemId,TIMESTEP),horizon);
         double sellMinutes = forecast == null ? Double.NaN : forecast.getExpectedTotalSeconds()/60;
 
-		long profit = taxCalculator.netProceeds(itemId,sellPrice,best.quantity)-allocatedCost;
+		long profit = taxCalculator.netProceeds(itemId,sellPrice,candidate.quantity)-allocatedCost;
 
 		int collectionSlot = -1;
-		if (!best.inInventory)
+		if (!candidate.inInventory)
 		{
 			for (TrackedOffer offer : offers.getOffers())
 			{
@@ -1725,7 +1775,7 @@ public class SuggestionEngine
 			.lossCut(cut)
 			.item(itemId, position.getItemName())
 			.price(sellPrice)
-			.quantity(best.quantity)
+			.quantity(candidate.quantity)
 			.slot(collectionSlot)
 			.expectedProfit(profit)
             .profitKnown(position.isCostKnown())

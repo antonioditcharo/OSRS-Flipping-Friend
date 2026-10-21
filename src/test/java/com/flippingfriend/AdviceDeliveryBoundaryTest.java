@@ -219,6 +219,58 @@ public class AdviceDeliveryBoundaryTest {
         f.queueAdvice();f.clientQueue.remove().run();verify(f.companion).authorizeSale(exit);verify(f.guide).setSuggestion(exit);
         verify(f.companion,never()).nextEntrySuggestion(any(),anySet(),anySet(),anySet());
     }
+    private Suggestion queuedSale(int item) {
+        return Suggestion.builder(SuggestionType.SELL).item(item,"Stock "+item).quantity(3).price(150).expectedProfit(50).build();
+    }
+    @Test public void refusedFirstRelistCannotHideALaterVerifiedExit()throws Exception {
+        var f=new Fixture();when(f.companion.nextAction()).thenReturn(null);var engine=(SuggestionEngine)getField(f.plugin,"engine");
+        var first=queuedSale(561);var second=queuedSale(562);
+        when(f.guide.isPaused()).thenReturn(false);when(f.guide.getSuggestion()).thenReturn(second);
+        when(engine.recordPresentedMaintenance(eq(second),anyString(),anyLong())).thenReturn(true);
+        f.set("notifier",mock(net.runelite.client.Notifier.class));
+        when(engine.refresh(false)).thenReturn(first);when(engine.saleCandidates()).thenReturn(List.of(first,second));
+        when(f.companion.authorizeSale(first)).thenReturn(Suggestion.waiting("Source changed","Retained for retry."));
+        f.queueAdvice();f.clientQueue.remove().run();
+        verify(f.companion).authorizeSale(second);verify(f.guide).setSuggestion(second);
+        verify(f.companion).recordPresentedAdvice(eq(second),anyString(),anyInt());
+        verify(f.companion,never()).recordPresentedAdvice(eq(first),anyString(),anyInt());
+        verify(f.companion,never()).nextEntrySuggestion(any(),anySet(),anySet(),anySet());
+    }
+    @Test public void allRefusedUnlistedExitsKeepTheirWaitAndNeverFallThroughToBuying()throws Exception {
+        var f=new Fixture();when(f.companion.nextAction()).thenReturn(null);var engine=(SuggestionEngine)getField(f.plugin,"engine");
+        var first=queuedSale(561);var second=queuedSale(562);var wait=Suggestion.waiting("Acquisition changed","Retained for retry.");
+        when(engine.refresh(false)).thenReturn(first);when(engine.saleCandidates()).thenReturn(List.of(first,second));
+        when(f.companion.authorizeSale(first)).thenReturn(wait);when(f.companion.authorizeSale(second)).thenReturn(null);
+        f.queueAdvice();f.clientQueue.remove().run();verify(f.guide).setSuggestion(wait);
+        verify(f.companion).authorizeSale(second);verify(f.companion,never()).nextEntrySuggestion(any(),anySet(),anySet(),anySet());
+    }
+    @Test public void everyRefusedExitIsWithdrawnFromTheRealMidEntryGuide()throws Exception {
+        var f=new Fixture();when(f.companion.nextAction()).thenReturn(null);var engine=(SuggestionEngine)getField(f.plugin,"engine");
+        var first=queuedSale(561);var second=queuedSale(562);when(engine.refresh(false)).thenReturn(first);
+        when(engine.saleCandidates()).thenReturn(List.of(first,second));when(f.companion.authorizeSale(any())).thenReturn(null);
+        var client=(Client)getField(f.plugin,"client");when(client.isClientThread()).thenReturn(true);
+        var resolver=mock(GeWidgetResolver.class);when(resolver.isSetupOpen()).thenReturn(true);
+        var quantity=mock(net.runelite.api.widgets.Widget.class);when(resolver.getQuantityControl()).thenReturn(quantity);
+        var guide=new StepGuide(client,resolver);guide.setSuggestion(first);
+        var click=mock(net.runelite.api.events.MenuOptionClicked.class);when(click.getWidget()).thenReturn(quantity);guide.onMenuOptionClicked(click);
+        f.set("stepGuide",guide);f.queueAdvice();f.clientQueue.remove().run();
+        assertEquals(SuggestionType.WAIT,guide.getSuggestion().getType());assertNull(guide.getPending());
+        verify(f.companion).authorizeSale(second);verify(f.companion,never()).recordPresentedAdvice(eq(first),anyString(),anyInt());
+    }
+    @Test public void changedInventoryDuringFirstAuthorityCheckStopsTheRemainingOldQueue()throws Exception {
+        var f=new Fixture();when(f.companion.nextAction()).thenReturn(null);var engine=(SuggestionEngine)getField(f.plugin,"engine");
+        var first=queuedSale(561);var second=queuedSale(562);when(engine.refresh(false)).thenReturn(first);
+        when(engine.saleCandidates()).thenReturn(List.of(first,second));
+        when(f.companion.authorizeSale(first)).thenAnswer(call->{f.plugin.onItemContainerChanged(new ItemContainerChanged(93,mock(ItemContainer.class)));return null;});
+        f.computeAdvice();verify(f.companion,never()).authorizeSale(second);verify(f.guide,never()).setSuggestion(second);
+    }
+    @Test public void anUnrelatedProposalCannotConsumeThePreviousSaleQueue()throws Exception {
+        var f=new Fixture();when(f.companion.nextAction()).thenReturn(null);var engine=(SuggestionEngine)getField(f.plugin,"engine");
+        var first=queuedSale(561);var old=queuedSale(562);when(engine.refresh(false)).thenReturn(first);
+        when(engine.saleCandidates()).thenReturn(List.of(old));when(f.companion.authorizeSale(first)).thenReturn(null);
+        f.queueAdvice();f.clientQueue.remove().run();verify(f.companion,never()).authorizeSale(old);
+        verify(f.guide).setSuggestion(argThat(s->s.getType()==SuggestionType.WAIT));
+    }
     @Test public void replacementUsesTheActualFreshAuthorizedOrderRatherThanTheLocalProposal()throws Exception {
         Fixture f=new Fixture();when(f.companion.nextAction()).thenReturn(null);
         var engine=(SuggestionEngine)getField(f.plugin,"engine");when(engine.refresh(false)).thenReturn(f.advice);

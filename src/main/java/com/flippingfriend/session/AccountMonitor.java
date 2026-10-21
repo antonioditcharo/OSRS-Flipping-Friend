@@ -109,6 +109,7 @@ public class AccountMonitor
 
 		Map<Integer, Integer> holdings = new HashMap<>();
 		Map<Integer, Integer> inventoryHoldings = new HashMap<>();
+        Map<Integer,Integer> equipmentHoldings=new HashMap<>();
 
 		long inventoryCoins = readContainer(client.getItemContainer(InventoryID.INV), inventoryHoldings);
 
@@ -117,10 +118,11 @@ public class AccountMonitor
 		// The equipment container was never read at all, so equipping something you had just bought
 		// put it in no container this method looks at -- and a Mystic smoke staff, which is a weapon,
 		// went missing exactly that way. Coins cannot be equipped, so the return value is discarded.
-		readContainer(client.getItemContainer(InventoryID.WORN), inventoryHoldings);
+		readContainer(client.getItemContainer(InventoryID.WORN), equipmentHoldings);
 		// Trading preferences belong to recommendation policy. A blocked item is still owned,
 		// and hiding it here would make inventory, bank and collection observations disagree.
 		merge(holdings, inventoryHoldings);
+        merge(holdings,equipmentHoldings);
 
 		ItemContainer bank = client.getItemContainer(InventoryID.BANK);
 		GrandExchangeOffer[] currentOffers=client.getGrandExchangeOffers();
@@ -149,7 +151,7 @@ public class AccountMonitor
 
 		AccountState updated = new AccountState(true, members, ironman, inventoryCoins, lastSeenBankCoins,
 			collectionCoins, freeSlots, totalSlots, committed, bankSeen, holdings, inventoryHoldings, lastSeenBankItems,
-			bankCash.available());
+			bankCash.available(),equipmentHoldings);
 		state.set(updated);
 		return updated;
 	}

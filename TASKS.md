@@ -1,14 +1,21 @@
 # Tasks
 
 Updated 20 October 2026. Read [HANDOFF.md](HANDOFF.md) and the actual delivery receipt at
-`local-data/continuation-disposition-20261020/delivery-state.json` first. Implemented/tested, merged,
+`local-data/exit-queue-20261020/delivery-state.json` first. Implemented/tested, merged,
 installed and player accepted are separate states. Owner is home; older login deferrals are superseded.
 
 ## Current batch
 
+- [ ] Deliver/accept all eligible exits through final companion authority, exact saved relist caps,
+      stop priority and withdrawal of every rejected foreground/pending/editor trade. Separate actual
+      inventory from equipment, preserve bank/collection evidence, cap initial exits to available
+      inventory with exact subset cost and verify the companion inventory bound.
+      [Contract](docs/architecture/exit-authority-queue.md) /
+      [receipt](docs/history/exit-queue-delivery-2026-10-20.md).
+
 - [ ] Deliver/accept exact recorded-sale disposition of older collected rebuy promises, durable source
       receipts, collected/cancelled-sale restart recovery and persistence retries across account switches.
-      Resolve the Dual macuahuitl hint only through proven source disposition. Preserve unrelated hints,
+      Installed #132 now retires Dual macuahuitl with its exact sale receipt after fresh login. Preserve unrelated hints,
       exact holdings/costs/plans, financial/source rows, CURRENT_ACCOUNT_V3 and every risk guard.
       [Contract](docs/architecture/continuation-sale-disposition.md) /
       [receipt](docs/history/continuation-sale-disposition-delivery-2026-10-20.md).
