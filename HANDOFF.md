@@ -8,6 +8,16 @@ latency, complete production replay/returns, gated learning and remaining produc
 
 ## Current source and installed runtime
 
+Newest batch commits authenticated callback sources to the forced atomic outbox before worker
+dispatch; logout, stopped/rejected workers and later advice changes cannot erase an accepted source.
+Capture is local-only; HTTP remains on the worker. Drained queues wake without bypassing backoff or
+acknowledging later appends. Nine new tests include four reproduced pre-outbox losses.
+[Contract](docs/architecture/capture-before-dispatch.md) /
+[receipt](docs/history/capture-dispatch-delivery-2026-10-20.md); actual source/CI/install/live state:
+local-data/capture-dispatch-20261020/delivery-state.json. Read it first. Owner defers login until
+20 October after 17:30 local. Controlled workflow/local-disk/sustained latency/complete replay/returns
+and learning gates remain open. PR #129 archive annotations and all financial/risk data persist.
+
 Newest batch adds reversible review archival for closed unmatched sales with no earlier recorded
 acquisition. Archive is exact-source/cursor scoped, idempotent and undoable; financial rows, unknown
 coverage, quantities, costs, gaps, anchors and all risk/entry guards stay intact. Purchase records

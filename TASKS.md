@@ -5,6 +5,15 @@ All unchecked release requirements remain visible below; detailed completion rec
 
 ## Active
 
+- [ ] Deliver/accept callback persistence before worker dispatch. Retain accepted fills/terminal/EMPTY
+      sources and their original advice through logout, stopped/rejected workers, account switches
+      and restart; capture performs no HTTP. Preserve retry backoff and concurrent prefix ACKs.
+      Nine new tests include four reproduced losses; see docs/architecture/capture-before-dispatch.md,
+      docs/history/capture-dispatch-delivery-2026-10-20.md and actual state in
+      local-data/capture-dispatch-20261020/delivery-state.json. Owner defers login until 20 October
+      after 17:30 local. Controlled workflows, local-disk/sustained timing, complete replay, qualified
+      returns and learning remain open.
+
 - [ ] Deliver/accept reversible review archival and durable accounting mode. Only closed unmatched
       sales without earlier recorded purchases qualify; retain recoverable evidence and all
       financial rows/unknown coverage/risk guards. New failures remain visible; exact-source review

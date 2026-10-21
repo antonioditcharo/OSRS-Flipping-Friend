@@ -1092,11 +1092,11 @@ public class FlippingFriendPlugin extends Plugin
 			? ex.getClass().getSimpleName() : message;
 	}
 
-	/** Never runs on the client thread: local IPC must not make RuneLite input lag. */
+	/** Persist the immutable source before worker/lifecycle dispatch; HTTP remains on the worker. */
 	private void publishOfferToCompanion(TrackedOffer offer)
 	{
 		ExecutorService executor = worker;
-		if (offer == null || executor == null || executor.isShutdown())
+		if (offer == null)
 		{
 			return;
 		}
@@ -1104,28 +1104,20 @@ public class FlippingFriendPlugin extends Plugin
 		String profile = configManager.getRSProfileKey();
 		if (profile == null || profile.isBlank()) return;
 		String account = com.flippingfriend.core.AccountIdentity.fromProfileKey(profile);
-		long generation = offerObservationGeneration.get();
         long observedAt=java.time.Instant.now().getEpochSecond();
-		executor.execute(() -> {
-			if (generation == offerObservationGeneration.get()) companion.publishObservedOffer(observation, account, observedAt);
-		});
+        companion.captureObservedOffer(observation,account,observedAt);
+        if(executor!=null && !executor.isShutdown())companion.requestPendingOfferReplay(executor);
 	}
 
 	private void publishOfferClearedToCompanion(int slot)
 	{
 		ExecutorService executor = worker;
-		if (executor == null || executor.isShutdown())
-		{
-			return;
-		}
 		String profile = configManager.getRSProfileKey();
 		if (profile == null || profile.isBlank()) return;
 		String account = com.flippingfriend.core.AccountIdentity.fromProfileKey(profile);
-		long generation = offerObservationGeneration.get();
         long observedAt=java.time.Instant.now().getEpochSecond();
-		executor.execute(() -> {
-			if (generation == offerObservationGeneration.get()) companion.publishObservedOfferCleared(slot, account, observedAt);
-		});
+        companion.captureObservedOfferCleared(slot,account,observedAt);
+        if(executor!=null && !executor.isShutdown())companion.requestPendingOfferReplay(executor);
 	}
 
 	private void notifyIfNeeded(Suggestion suggestion)

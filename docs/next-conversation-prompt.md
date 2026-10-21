@@ -33,6 +33,12 @@ rebuilding already implemented capabilities:
 
 ## Delivery state at this handoff
 
+First read local-data/capture-dispatch-20261020/delivery-state.json for authenticated callback
+persistence before worker dispatch and bounded replay wakeups. Logout/shutdown cannot withdraw a
+committed observation; HTTP remains on the worker and account fences remain. Contract:
+docs/architecture/capture-before-dispatch.md. Owner is away until 20 October after 17:30 local; do
+not request login beforehand. Preserve all controlled workflow/timing/replay/return/learning gates.
+
 Read local-data/trade-review-20261020/delivery-state.json first for reversible review archival and
 transaction-bound durable automatic accounting. Only closed unmatched sales with no retained
 purchase records can be archived; original records/risk/coverage stay intact and new failures stay
