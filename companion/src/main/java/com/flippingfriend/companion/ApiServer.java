@@ -4,12 +4,17 @@ import com.flippingfriend.core.AccountSnapshot;
 import com.flippingfriend.core.OfferEvent;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
+import com.sun.net.httpserver.HttpHandler;
 import com.google.gson.Gson;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.RejectedExecutionException;
 
 /** Authenticated loopback-only HTTP boundary. It intentionally exposes no control endpoint. */
 final class ApiServer implements AutoCloseable
@@ -17,6 +22,10 @@ final class ApiServer implements AutoCloseable
 	static final int PORT = 37_777;
 	private final HttpServer server;
 	private final ExecutorService executor = Executors.newFixedThreadPool(2);
+	// Slow scoped reads must not occupy the transport workers needed by the starter's health probe.
+	// Keep account work at its existing concurrency, and reject overload without acknowledging events.
+	private final ThreadPoolExecutor accountExecutor = new ThreadPoolExecutor(2, 2, 0, TimeUnit.SECONDS,
+		new ArrayBlockingQueue<>(64));
 	private final String token;
 	private final Gson gson;
 	private final CompanionService service;
@@ -34,25 +43,50 @@ final class ApiServer implements AutoCloseable
 		this.accounts = accounts;
 		if (!address.getAddress().isLoopbackAddress()) throw new IllegalArgumentException("loopback required");
 		server = HttpServer.create(address, 0);
-		server.createContext("/v1/health", this::health);
-		server.createContext("/v1/portfolio/current", this::portfolio);
-		server.createContext("/v1/action", this::action);
-		server.createContext("/v1/policy/entry", this::entryDecision);
-        server.createContext("/v1/policy/replacement",this::replacementEntry);
-		server.createContext("/v1/policy/buy-maintenance", this::buyMaintenanceDecision);
+		server.createContext("/v1/health", exchange -> {
+			if (exchange.getRequestHeaders().getFirst(com.flippingfriend.core.AccountIdentity.HEADER) == null)
+				health(exchange);
+			else dispatch(exchange, this::health);
+		});
+		accountContext("/v1/portfolio/current", this::portfolio);
+		accountContext("/v1/action", this::action);
+		accountContext("/v1/policy/entry", this::entryDecision);
+        accountContext("/v1/policy/replacement",this::replacementEntry);
+		accountContext("/v1/policy/buy-maintenance", this::buyMaintenanceDecision);
 		// Read-only, and serving nothing this process did not already fetch for itself. They exist so
 		// the plugin can start from a warm feed instead of rebuilding one from the internet on every
 		// launch.
-		server.createContext("/v1/market/snapshot", this::marketSnapshot);
-		server.createContext("/v1/market/series", this::marketSeries);
-		server.createContext("/v1/events/account-state", this::account);
-		server.createContext("/v1/events/ge-offer", this::offer);
-		server.createContext("/v1/accounts/", this::accountRoute);
+		accountContext("/v1/market/snapshot", this::marketSnapshot);
+		accountContext("/v1/market/series", this::marketSeries);
+		accountContext("/v1/events/account-state", this::account);
+		accountContext("/v1/events/ge-offer", this::offer);
+		accountContext("/v1/accounts/", this::accountRoute);
 		server.setExecutor(executor);
 	}
 
 	void start() { server.start(); }
 	int port() { return server.getAddress().getPort(); }
+
+	private void accountContext(String path, HttpHandler handler)
+	{
+		server.createContext(path, exchange -> dispatch(exchange, handler));
+	}
+
+	private void dispatch(HttpExchange exchange, HttpHandler handler) throws IOException
+	{
+		if (!authorized(exchange)) return;
+		try
+		{
+			accountExecutor.execute(() -> {
+				try { handler.handle(exchange); }
+				catch (IOException | RuntimeException error) { exchange.close(); }
+			});
+		}
+		catch (RejectedExecutionException busy)
+		{
+			respond(exchange, 503, "{\"error\":\"Companion account requests are busy; retry without changing event identity.\"}");
+		}
+	}
 
 	private void accountRoute(HttpExchange exchange) throws IOException
 	{
@@ -346,5 +380,5 @@ final class ApiServer implements AutoCloseable
 		exchange.getResponseBody().write(bytes);
 		exchange.close();
 	}
-	@Override public void close() { server.stop(0); executor.shutdownNow(); }
+	@Override public void close() { server.stop(0); executor.shutdownNow(); accountExecutor.shutdownNow(); }
 }
