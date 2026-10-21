@@ -910,7 +910,7 @@ public class FlippingFriendPlugin extends Plugin
 
                 engine.setObservedAccount(observedAccount);
                 Suggestion continuationRefusal=null;
-                Suggestion rejectedPriceAdvice=null;
+                java.util.List<Suggestion> rejectedPriceAdvice=new java.util.ArrayList<>();
                 Suggestion suggestion = companion.nextAction();
 				if (suggestion == null)
 				{
@@ -927,14 +927,13 @@ public class FlippingFriendPlugin extends Plugin
 				{
                     Suggestion proposed=suggestion;
 					suggestion = companion.selectBuyMaintenanceCancellation(suggestion);
-                    if(suggestion==null || suggestion.getType()==SuggestionType.WAIT)rejectedPriceAdvice=proposed;
+                    if(suggestion==null || suggestion.getType()==SuggestionType.WAIT)rejectedPriceAdvice.add(proposed);
 				}
 				if(suggestion!=null && (suggestion.getType()==SuggestionType.MODIFY_SELL
                     || suggestion.getType()==SuggestionType.SELL && suggestion.isProfitKnown()))
                 {
                     Suggestion proposed=suggestion;
-                    suggestion=companion.authorizeSale(proposed);
-                    if(suggestion!=proposed)rejectedPriceAdvice=proposed;
+                    suggestion=authorizeSaleCandidates(proposed,rejectedPriceAdvice,observedGeneration,observedRevision);
                 }
 				if (suggestion == null)
 				{
@@ -983,7 +982,7 @@ public class FlippingFriendPlugin extends Plugin
 				// naming different items. Chaining them makes the order explicit.
 				consecutiveRefreshFailures.set(0);
 				Suggestion settled = suggestion;
-                Suggestion declined = rejectedPriceAdvice;
+                java.util.List<Suggestion> declined = java.util.List.copyOf(rejectedPriceAdvice);
                 long validatedAt=adviceClock.getAsLong();
 				clientThread.invokeLater(() ->
 				{
@@ -1007,7 +1006,7 @@ public class FlippingFriendPlugin extends Plugin
                         panel.refresh();requestEngineRefresh();return;
                     }
 
-                    stepGuide.withdrawTrade(declined,Suggestion.waiting("Refreshing this trade",
+                    for(var refusal:declined)stepGuide.withdrawTrade(refusal,Suggestion.waiting("Refreshing this trade",
                         "The previous instruction was declined by current validation. Existing offers and purchase records are retained."));
 					stepGuide.setSuggestion(current);
                     recordVisibleAdvice();
@@ -1066,6 +1065,29 @@ public class FlippingFriendPlugin extends Plugin
 				+ "the observation and prior accounting are retained for a compatible update."));
 		panel.refresh();
 	}
+
+    /** A refusal concerns this exact exit. Check other ready exits before leaving stock waiting. */
+    private Suggestion authorizeSaleCandidates(Suggestion proposed,java.util.List<Suggestion> declined,long generation,long revision) {
+        var candidates=engine.saleCandidates();
+        // Only the queue that actually produced this proposal belongs to this decision pass.
+        if(candidates==null || !candidates.contains(proposed))candidates=java.util.List.of(proposed);
+        Suggestion waiting=null;boolean unlistedOrUrgent=false;
+        for(var candidate:candidates) {
+            if(generation!=offerObservationGeneration.get() || revision!=adviceObservationRevision.get())
+                return Suggestion.waiting("Refreshing sale evidence","The account observation changed while checking exits.");
+            if(candidate==null || candidate.getType()!=SuggestionType.SELL && candidate.getType()!=SuggestionType.MODIFY_SELL)continue;
+            var authorized=companion.authorizeSale(candidate);
+            if(generation!=offerObservationGeneration.get() || revision!=adviceObservationRevision.get())
+                return Suggestion.waiting("Refreshing sale evidence","The account observation changed while checking exits.");
+            if(authorized==candidate)return candidate;
+            declined.add(candidate);
+            unlistedOrUrgent|=candidate.getType()==SuggestionType.SELL || candidate.isLossCut();
+            if(waiting==null && authorized!=null && authorized.getType()==SuggestionType.WAIT)waiting=authorized;
+        }
+        if(waiting!=null)return waiting;
+        return unlistedOrUrgent?Suggestion.waiting("Refreshing sale evidence",
+            "No retained exit passed current validation. Purchase records and cancelled-sale remainders are retained."):null;
+    }
 
     /** A replacement spends cash again; its old reservation is not current entry authority. */
     private Suggestion authorizeReplacement(Suggestion proposed)

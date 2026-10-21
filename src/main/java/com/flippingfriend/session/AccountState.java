@@ -29,6 +29,7 @@ public class AccountState
 	private final Map<Integer, Integer> holdings;
 	private final Map<Integer, Integer> inventoryHoldings;
 	private final Map<Integer, Integer> bankHoldings;
+    private final Map<Integer, Integer> equipmentHoldings;
 
 	public AccountState(boolean loggedIn, boolean membersWorld, boolean ironman, long inventoryCoins,
 		long bankCoins, long collectionBoxCoins, int freeSlots, int totalSlots, long committedCoins,
@@ -43,6 +44,14 @@ public class AccountState
 		boolean bankSeen, Map<Integer, Integer> holdings, Map<Integer, Integer> inventoryHoldings,
 		Map<Integer, Integer> bankHoldings, long bankSpendableFloor)
 	{
+        this(loggedIn,membersWorld,ironman,inventoryCoins,bankCoins,collectionBoxCoins,freeSlots,totalSlots,
+            committedCoins,bankSeen,holdings,inventoryHoldings,bankHoldings,bankSpendableFloor,Collections.emptyMap());
+    }
+    public AccountState(boolean loggedIn,boolean membersWorld,boolean ironman,long inventoryCoins,long bankCoins,
+        long collectionBoxCoins,int freeSlots,int totalSlots,long committedCoins,boolean bankSeen,
+        Map<Integer,Integer> holdings,Map<Integer,Integer> inventoryHoldings,Map<Integer,Integer> bankHoldings,
+        long bankSpendableFloor,Map<Integer,Integer> equipmentHoldings)
+	{
 		this.bankSpendableFloor=Math.max(0,Math.min(bankCoins,bankSpendableFloor));
 		this.committedCoins = committedCoins;
 		this.bankSeen = bankSeen;
@@ -54,9 +63,10 @@ public class AccountState
 		this.collectionBoxCoins = collectionBoxCoins;
 		this.freeSlots = freeSlots;
 		this.totalSlots = totalSlots;
-		this.holdings = Collections.unmodifiableMap(holdings);
-		this.inventoryHoldings = Collections.unmodifiableMap(inventoryHoldings);
-		this.bankHoldings = Collections.unmodifiableMap(bankHoldings);
+		this.holdings = Collections.unmodifiableMap(new java.util.HashMap<>(holdings));
+		this.inventoryHoldings = Collections.unmodifiableMap(new java.util.HashMap<>(inventoryHoldings));
+		this.bankHoldings = Collections.unmodifiableMap(new java.util.HashMap<>(bankHoldings));
+        this.equipmentHoldings=Collections.unmodifiableMap(new java.util.HashMap<>(equipmentHoldings));
 	}
 
 	public static AccountState loggedOut()
@@ -136,6 +146,7 @@ public class AccountState
 	{
 		return bankHoldings;
 	}
+    public Map<Integer,Integer> getEquipmentHoldings(){return equipmentHoldings;}
 
 	public int quantityHeld(int itemId)
 	{

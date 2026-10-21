@@ -5,32 +5,33 @@ Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
 ## Current delivery
 
-Read `local-data/continuation-disposition-20261020/delivery-state.json` FIRST for actual tested,
-CI, merged, installed and remaining acceptance state. Source alone does not establish installation.
-[Current contract](docs/architecture/continuation-sale-disposition.md) /
-[delivery receipt](docs/history/continuation-sale-disposition-delivery-2026-10-20.md).
+Read `local-data/exit-queue-20261020/delivery-state.json` FIRST for actual tested, CI, merged,
+installed and remaining acceptance state. Source alone does not establish installation.
+[Current contract](docs/architecture/exit-authority-queue.md) /
+[delivery receipt](docs/history/exit-queue-delivery-2026-10-20.md).
 
-The current batch retires stale collected rebuy promises only from exact recorded later sale
-sources, retaining the original continuation and source receipt durably. It also checks collected
-and cancelled sale receipts after tracker reload and after collection in the same pass. Older
-personal listings, missing/foreign/stale/rejected evidence cannot retire hints. Failed writes
-withhold replacements and retry across account switches. No accounting or risk history is replayed.
+The current batch tries all eligible exact relists/holding exits/listed stops through final sale
+authority. Failed candidates retain their hints and every refused foreground/pending/editor trade
+is withdrawn before a successor. Stop/collection priority, exact saved caps, pooled subset costs,
+original plans and observation/account fences remain. Inventory is distinct from equipment; normal
+exits cap to actual inventory, and fresh account captures carry a separate inventory bound. Banked,
+equipped and personal stock is not disposed or automatically enrolled.
 
-The reported Dual macuahuitl two-unit continuation was still saved during fresh investigation
-after a recorded sale of its three acquired units. Current source qualifies that disposition;
-read the private delivery receipt for whether the installed client has actually retired it.
-Do not manually delete the hint, infer disposal from absence or replay its financial rows.
+Previous #132 is merged as a1e70c1c0e0b8630ce52fb8aa61bb9b4ab3c584b and installed. Fresh manual
+login/eight-slot/empty-outbox proof passes. The Dual macuahuitl two-unit rebuy hint is now retired
+with its exact recorded sale receipt; other hints and the original source/financial prefix/risk
+anchor survive. Subsequent genuine acquisitions changed the stock totals; they are not update
+effects. Actual proof: `local-data/continuation-disposition-20261020/delivery-state.json`.
+[Contract](docs/architecture/continuation-sale-disposition.md) /
+[receipt](docs/history/continuation-sale-disposition-delivery-2026-10-20.md).
 
-Before this batch, PR #131 was merged as ae4ea353a29f6afedb1a80f71894e399f50a573c and installed.
-Its receipt is `local-data/exit-profit-replacement-20261020/delivery-state.json`; its
-[contract](docs/architecture/exit-profit-and-replacement.md) separates intended-exit unrealized
-profit from instant-sale P/L, tries all eligible remainders through final authority, exits verified
-partials after refusal and durably supersedes rebuy promises on accepted healthy sales.
-Historical fresh eight-slot/empty-outbox proof passed; all slots were occupied. Recheck freshness.
+Included #131 separates intended-exit unrealized profit from instant-sale P/L, tries all eligible
+buy remainders through final authority and supports verified partial exits after refusal.
+[Contract](docs/architecture/exit-profit-and-replacement.md). Controlled full-loop acceptance remains open.
 
-Owner is home and has reported active trading. Earlier 17:30 login deferrals are superseded.
-Login and all game actions remain manual. Batch routine diagnostics/update/launch; do not request
-pasted logs or repeated confirmations.
+Owner is home and actively trading. Earlier login deferrals are superseded. Login and all game
+actions remain manual. Batch routine diagnostics/update/launch; do not request pasted logs or
+repeated confirmations.
 
 ## Runtime contracts and source locations
 

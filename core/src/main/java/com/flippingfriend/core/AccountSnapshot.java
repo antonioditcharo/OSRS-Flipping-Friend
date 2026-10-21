@@ -12,6 +12,7 @@ public final class AccountSnapshot
     private java.util.Set<Integer> unavailableEntryItems;
     /** Current inventory/equipment/collection evidence, excluding cached bank contents. Not ownership. */
     private Map<Integer,Integer> observedHoldings;
+    private Map<Integer,Integer> observedInventory;
     private final boolean automaticTradeScope;
 	private final Map<Integer, StockDeclaration> stockDeclarations;
 	private final String correlationId;
@@ -256,6 +257,7 @@ public final class AccountSnapshot
 		this.skippedItems = source.skippedItems; this.itemsOnOffer = source.itemsOnOffer;
 		this.positions = source.positions;
         this.observedHoldings=source.observedHoldings;
+        this.observedInventory=source.observedInventory;
 	}
 
 	private AccountSnapshot(AccountSnapshot source, Map<Integer, Long> exposure)
@@ -289,6 +291,7 @@ public final class AccountSnapshot
 		this.skippedItems = source.skippedItems; this.itemsOnOffer = source.itemsOnOffer;
 		this.positions = source.positions;
         this.observedHoldings=source.observedHoldings;
+        this.observedInventory=source.observedInventory;
 	}
 
 	/** Planning-only exposure override; all other account fields remain unchanged. */
@@ -311,6 +314,18 @@ public final class AccountSnapshot
     /** Null means the old publisher supplied no physical evidence; it cannot mark unseen stock. */
     public Map<Integer,Integer> getObservedHoldings() {
         return observedHoldings==null?null:Collections.unmodifiableMap(new java.util.HashMap<>(observedHoldings));
+    }
+    /** Physical ownership includes equipment/collection; only these captured units can be listed now. */
+    public AccountSnapshot withObservedInventory(Map<Integer,Integer> inventory) {
+        if(inventory==null || observedHoldings==null || inventory.entrySet().stream().anyMatch(e->e.getKey()==null
+            || e.getKey()<=0 || e.getValue()==null || e.getValue()<0
+            || e.getValue()>observedHoldings.getOrDefault(e.getKey(),0)))throw new IllegalArgumentException("invalid observed inventory");
+        AccountSnapshot copy=new AccountSnapshot(this,getCommittedByItem());
+        copy.observedInventory=Collections.unmodifiableMap(new java.util.HashMap<>(inventory));return copy;
+    }
+    /** Null on legacy captures; never synthesised from bank/equipment observations. */
+    public Map<Integer,Integer> getObservedInventory() {
+        return observedInventory==null?null:Collections.unmodifiableMap(new java.util.HashMap<>(observedInventory));
     }
     /** Server-derived planning override. A wire-supplied value is never an authority. */
     public AccountSnapshot withCanonicalRisk(AccountRiskSnapshot risk) {

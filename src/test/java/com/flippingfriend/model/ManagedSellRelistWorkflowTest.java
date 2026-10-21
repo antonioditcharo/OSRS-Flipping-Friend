@@ -222,6 +222,68 @@ public class ManagedSellRelistWorkflowTest {
         assertEquals(SuggestionType.WAIT,f.next().getType());
         assertEquals(6,f.companion.tradingLedger().getTradingPositions().get(0).getQuantity());
     }
+    private void addStock(Fixture f,int item,int quantity,long cost,int price,int stop) {
+        var trades=new ArrayList<>(f.companion.tradingLedger().getTradingPositions());
+        var stock=PositionProjection.ready(item,"Stock "+item,quantity,cost,now.getEpochSecond()-600,now.getEpochSecond(),"buy-"+item,"episode-"+item);
+        if(stop>0)stock=stock.withExitContext(new AcquisitionExitContext(price+400,stop,120).bind("buy-"+item));
+        trades.add(stock);when(f.companion.tradingLedger()).thenReturn(ledger(trades,List.of(),Map.of()));
+        var capture=f.monitor.getState();var held=new HashMap<>(capture.getHoldings());held.put(item,quantity);
+        var inventory=new HashMap<>(capture.getInventoryHoldings());inventory.put(item,quantity);
+        when(f.monitor.getState()).thenReturn(new AccountState(true,true,false,100000000,0,0,8,8,0,false,held,inventory,Map.of()));
+        var original=f.market.getSnapshot();var metadata=new HashMap<>(original.getMetadata());
+        metadata.put(item,new ItemMetadata(item,"Stock "+item,false,1000,0));
+        var prices=new HashMap<>(original.getLatest());prices.put(item,new LatestPrice(price,now.getEpochSecond(),price,now.getEpochSecond()));
+        when(f.market.getSnapshot()).thenReturn(new MarketSnapshot(metadata,prices,Map.of(),Map.of(),now));
+    }
+    @Test public void queueRetainsEveryRelistWithExactCapsAndNoGenericOversizedDuplicate()throws Exception {
+        var f=new Fixture(6,5881,6,1000,true);addStock(f,562,10,251,1000,0);
+        var second=new TrackedOffer(1,562,false,1200,8,now.getEpochSecond()-600);second.setState("SELLING");second.setQuantityFilled(2);
+        var book=new SellRelistIntent(f.storage);book.advise(second,account,true);
+        second.setState("CANCELLED_SELL");second.setQuantityFilled(5);second.setCollected(true);when(f.offers.getSettledOffer(1)).thenReturn(second);
+        var first=f.next();assertTrue(first.getHeadline().contains("Relist"));
+        var queue=f.engine.saleCandidates();assertEquals(2,queue.size());assertSame(first,queue.get(0));
+        var next=queue.get(1);assertEquals(562,next.getItemId());assertEquals(3,next.getQuantity());
+        assertEquals(tax.netProceeds(562,next.getPrice(),3)-SaleAccounting.allocateCost(251,10,3),next.getExpectedProfit());
+        assertEquals(2,new SellRelistIntent(f.storage).collectedRequests(f.offers,account).size());
+        f.engine.setObservedAccount(AccountIdentity.fromProfileKey("another"));assertTrue(f.engine.saleCandidates().isEmpty());
+    }
+    @Test public void unrelatedReadyStockAndAllStopsRemainAvailableAfterTheFirstRelist()throws Exception {
+        var f=new Fixture(6,5881,6,1000,true);addStock(f,562,3,251,1000,0);addStock(f,563,2,2000,800,900);
+        var next=f.next();assertEquals(563,next.getItemId());assertTrue(next.isLossCut());
+        var queue=f.engine.saleCandidates();assertEquals(3,queue.size());assertSame(next,queue.get(0));
+        assertEquals(561,queue.get(1).getItemId());assertEquals(562,queue.get(2).getItemId());
+        assertEquals(6,new SellRelistIntent(f.storage).collectedRequest(f.offers,account).getQuantity());
+        when(f.companion.tradingLedger()).thenReturn(null);f.next();assertTrue(f.engine.saleCandidates().isEmpty());
+    }
+    @Test public void normalExitCapsToInventoryInsteadOfIncludingCachedBankStock()throws Exception {
+        var f=new Fixture(6,5881,2,1000,true);inject(f.engine,"sellRelist",null);
+        when(f.monitor.getState()).thenReturn(new AccountState(true,true,false,100000000,0,0,8,8,0,true,
+            Map.of(561,6),Map.of(561,2),Map.of(561,4)));
+        var next=f.next();assertEquals(SuggestionType.SELL,next.getType());assertEquals(2,next.getQuantity());
+        assertEquals(tax.netProceeds(561,next.getPrice(),2)-SaleAccounting.allocateCost(5881,6,2),next.getExpectedProfit());
+        assertEquals(6,f.companion.tradingLedger().getTradingPositions().get(0).getQuantity());
+    }
+    @Test public void everyListedStopPrecedesHealthyRelistsInTheFinalAuthorityQueue()throws Exception {
+        var f=new Fixture(6,5881,6,1000,true);addStock(f,562,3,3000,800,900);addStock(f,563,2,2000,800,900);
+        var first=new TrackedOffer(1,562,false,1200,3,now.getEpochSecond()-60);first.setState("SELLING");
+        var second=new TrackedOffer(2,563,false,1200,2,now.getEpochSecond()-60);second.setState("SELLING");
+        when(f.offers.getOffers()).thenReturn(List.of(first,second));when(f.offers.getOffer(1)).thenReturn(first);when(f.offers.getOffer(2)).thenReturn(second);
+        when(f.offers.listedForSale()).thenReturn(Map.of(562,3,563,2));
+        var next=f.next();assertEquals(SuggestionType.MODIFY_SELL,next.getType());assertTrue(next.isLossCut());
+        var queue=f.engine.saleCandidates();assertEquals(3,queue.size());
+        assertTrue(queue.get(0).isLossCut());assertTrue(queue.get(1).isLossCut());assertFalse(queue.get(2).isLossCut());
+        assertEquals(561,queue.get(2).getItemId());
+    }
+    @Test public void equippedAndBankedAcquisitionsAreRetainedWithoutAnUnplaceableSellInstruction()throws Exception {
+        for(boolean equipped:new boolean[]{false,true}) {
+            var f=new Fixture(6,5881,0,1000,true);inject(f.engine,"sellRelist",null);
+            when(f.monitor.getState()).thenReturn(new AccountState(true,true,false,100000000,0,0,8,8,0,true,
+                Map.of(561,6),Map.of(),equipped?Map.of():Map.of(561,6),0,equipped?Map.of(561,6):Map.of()));
+            var next=f.next();assertTrue(next==null || next.getType()!=SuggestionType.SELL);assertTrue(f.engine.saleCandidates().isEmpty());
+            assertEquals(6,f.companion.tradingLedger().getTradingPositions().get(0).getQuantity());
+            assertEquals(5881,f.companion.tradingLedger().getTradingPositions().get(0).getTotalCost());
+        }
+    }
     private static void noReprice(Suggestion advice) {
         assertTrue("Unsafe maintenance must not produce a sell cancellation/reprice",
             advice==null || advice.getType()==SuggestionType.WAIT);
