@@ -694,11 +694,14 @@ public class SuggestionEngine
     }
     private Suggestion adjustSuggestion(MarketSnapshot market,TradingHorizon horizon,Instant now,boolean stopsOnly)
 	{
-        List<Suggestion> stops=new ArrayList<>();
+        List<Suggestion> stops=new ArrayList<>(),routineSales=new ArrayList<>();
         if(stopsOnly)listedStopCandidates=Collections.emptyList();
 		for (TrackedOffer offer : mostStrandedFirst(offers.getOffers(), market))
 		{
             if(stopsOnly && offer.isBuying())continue;
+            // Preserve the original first buy-vs-sale selection. Once a sale wins, collect
+            // other eligible sales without creating an unseen buy cancellation promise.
+            if(!stopsOnly && !routineSales.isEmpty() && offer.isBuying())continue;
             if(!stopsOnly && maintenanceRetryAfter.getOrDefault(offer.getContinuationIdentity(),0L)>now.getEpochSecond())continue;
 			String state = offer.getState();
 			boolean open = "BUYING".equals(state) || "SELLING".equals(state);
@@ -906,10 +909,15 @@ public class SuggestionEngine
 						+ explainer.formatNumber(newPrice) + " gp.")
 					.build();
                 if(stopsOnly){stops.add(candidate);continue;}
-                return candidate;
+                routineSales.add(candidate);
 			}
 		}
 		if(stopsOnly){listedStopCandidates=Collections.unmodifiableList(stops);return stops.isEmpty()?null:stops.get(0);}
+        if(!routineSales.isEmpty()) {
+            // Each exact proposal must still pass final authority and durable presentation.
+            saleCandidates=Collections.unmodifiableList(routineSales);
+            return routineSales.get(0);
+        }
         return null;
 	}
 

@@ -1,10 +1,16 @@
 # Tasks
 
 Updated 21 October 2026. Read [HANDOFF.md](HANDOFF.md) and the actual delivery receipt at
-`local-data/sale-maintenance-diagnostics-20261021/delivery-state.json` first. Implemented/tested, merged,
+`local-data/ordinary-sale-queue-20261021/delivery-state.json` first. Implemented/tested, merged,
 installed and player accepted are separate states. Owner is home; older login deferrals are superseded.
 
 ## Current batch
+
+- [ ] Accept all ordinary maintenance sale alternatives through final authority after a refused first
+      reduction. Persist only the presented exact episode; preserve late-fill/collection caps, original
+      costs/plans, earlier-buy and fresh-stop priority, rejection withdrawal and account isolation.
+      [Contract](docs/architecture/ordinary-sale-maintenance-queue.md) /
+      [receipt](docs/history/ordinary-sale-queue-delivery-2026-10-21.md).
 
 - [ ] Accept active managed-sale wait explanations in Records → Recommendation: shared evaluator,
       exact episode/progress and evidence expiry, separate original actual-order estimates and

@@ -5,6 +5,13 @@ Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
 ## Current delivery
 
+Newest workflow slice: read `local-data/ordinary-sale-queue-20261021/delivery-state.json` for source,
+CI, merge and installed state. Ordinary sale reductions now retain every later eligible sale through
+final authority; only the presented instruction commits its durable continuation. Pricing, buy/stop
+priority, exact costs and risk are unchanged. Controlled acceptance remains open.
+[Contract](docs/architecture/ordinary-sale-maintenance-queue.md) /
+[receipt](docs/history/ordinary-sale-queue-delivery-2026-10-21.md).
+
 Newest diagnostic batch: read `local-data/sale-maintenance-diagnostics-20261021/delivery-state.json`
 for verification, CI, merge and actual installation. Records → Recommendation adds active managed
 sale wait explanations from the shared evaluator, with observed clocks and unvalidated original
