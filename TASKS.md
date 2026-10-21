@@ -1,10 +1,17 @@
 # Tasks
 
 Updated 21 October 2026. Read [HANDOFF.md](HANDOFF.md) and the actual delivery receipt at
-`local-data/ordinary-sale-queue-20261021/delivery-state.json` first. Implemented/tested, merged,
+`local-data/sale-continuation-evidence-20261021/delivery-state.json` first. Implemented/tested, merged,
 installed and player accepted are separate states. Owner is home; older login deferrals are superseded.
 
 ## Current batch
+
+- [x] Implement independent later sale-source acceptance clocks and accepted-board parallel-sale
+      proof. Failed commits preserve hints; changed/new/cleared orders cannot borrow permission.
+      Paired sale policy 5 / replay 12; exact pooled cost and original financial/risk guards persist.
+      [Contract](docs/architecture/sale-continuation-evidence.md); delivery state in the newest receipt.
+- [ ] Accept both fixes through player cancel/late fills/collect/relist/restart, including parallel
+      same-item sale progress. Installation and source regressions do not establish this acceptance.
 
 - [x] Implement health request isolation and removal of automatic historical diagnostic scans.
       Preserve scoped health, bounded overload/retry identities and all financial/risk authority.

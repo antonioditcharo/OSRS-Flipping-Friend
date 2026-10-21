@@ -5,12 +5,21 @@ Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
 ## Current delivery
 
+Sale continuation batch: read `local-data/sale-continuation-evidence-20261021/delivery-state.json`
+first for source/CI/merge and actual installation. A first verified source added to an older hint
+after later fills now has its own acceptance clock; it cannot invalidate/delete the original hint.
+Existing parallel same-item sales no longer invalidate relist proof on a heartbeat or valid fill;
+new/changed/cleared orders remain refused. Paired sale policy 5 / replay 12; original financial,
+source, risk and exact-cost guards persist. [Contract](docs/architecture/sale-continuation-evidence.md).
+
 Runtime health follow-up: `local-data/health-request-isolation-20261021/delivery-state.json`
 records actual verification/installation. Live captures reproduced both HTTP workers blocked by
 account initialization/reads; the 60s starter retry alone did not resolve that occurrence. Global
 health now has a separate dispatch path, account work stays at two workers with a bounded queue,
 and routine refresh no longer scans diagnostic history. [Contract](docs/architecture/health-request-isolation.md).
 Global health is not account trade readiness. Read the receipt before assuming this runtime is installed.
+Subsequent manual login drained all 228 saved observations and supplied fresh authenticated eight-slot
+evidence. Genuine accounting effects arrived normally; this does not close controlled full-loop acceptance.
 
 Starter tooling: `local-data/starter-health-retry-20261021/delivery-state.json` records the existing-
 listener health retry fix and verification. Start waits at most 60s for transient failures on the

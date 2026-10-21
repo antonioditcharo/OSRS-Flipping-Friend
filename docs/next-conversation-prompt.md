@@ -4,9 +4,16 @@ Continue in `C:\Users\Antonio\OSRS Flipping Friend Rebuild`.
 Implement, verify and deliver reliable trade/inventory workflow batches; do not stop at a roadmap.
 Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
-Read `local-data/health-request-isolation-20261021/delivery-state.json` FIRST, then current
+Read `local-data/sale-continuation-evidence-20261021/delivery-state.json` FIRST, then current
 AGENTS.md, HANDOFF.md and TASKS.md. The receipt distinguishes source/tests/CI/merge/install/player
 acceptance. Older PR checkpoints and availability notes are historical, not installation proof.
+
+The newest batch preserves later first-source acceptance for old sell hints without changing their
+creation/episode/progress, and proves already-present parallel sales separately from new replacement
+orders. Paired sale policy 5 / replay 12. Read the [contract](architecture/sale-continuation-evidence.md)
+and actual receipt before assuming installation. Invalid historical hints are preserved, not repaired.
+The previous installed #138 health isolation has fresh post-login eight-slot and empty-outbox proof;
+all 228 earlier queued observations drained normally. Controlled full-loop acceptance remains open.
 
 Starter script delivery is recorded separately in
 `local-data/starter-health-retry-20261021/delivery-state.json`: bounded same-PID transient health
@@ -91,7 +98,7 @@ are authorized. Read logs/scoped authenticated GETs directly; do not repeatedly 
   Target display prices never become risk marks or funds. No database repair, financial replay,
   auto-adoption, outbox clearing, invented disposal or risk reset to force advice.
 - Batch related fixes/behavioral regressions before standard Windows clean test/JAR verification,
-  Java 11, 108-tooling-suite verification and one paired restart. Logs stay outside build/. Require both
+  Java 11, the full tooling suite and one paired restart. Logs stay outside build/. Require both
   exact-head Windows/Linux CI checks before merge; fast-forward the clean active default checkout.
 - Use `tools/apply-update.ps1 -Unattended`, -SkipBuild only for verified matching artifacts. Existing
   lifecycle 1 preserves task XML/ACLs without elevation. Normal close is authorized; never force-kill
