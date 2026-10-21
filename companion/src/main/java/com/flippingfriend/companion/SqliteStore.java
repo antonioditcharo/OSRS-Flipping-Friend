@@ -72,6 +72,9 @@ final class SqliteStore implements AutoCloseable
     private final Map<String,Boolean> automaticModes=new HashMap<>();
     private com.flippingfriend.core.TradeReviewSnapshot cachedTradeReview;
     private java.util.Set<Integer> cachedReviewLiveItems=java.util.Set.of();
+    private List<com.flippingfriend.core.ContinuationDisposition> cachedContinuationSales;
+    private long continuationSalesCursor=-1;
+    private int continuationSalesHistorySize=-1;
 	// Accepted canonical sources are append-only. Keep their validated prefix in RAM, reading only
 	// the indexed tail. External commits and every rollback discard it. Live eight-slot evidence
 	// is always reread. In particular a failed transaction cannot publish a prefix.
@@ -85,6 +88,8 @@ final class SqliteStore implements AutoCloseable
 		scopedEffects=null;scopedEffectsCursor=-1;
         automaticModes.clear();
         cachedTradeReview=null;cachedReviewLiveItems=java.util.Set.of();
+        cachedContinuationSales=null;continuationSalesCursor=-1;
+        continuationSalesHistorySize=-1;
 	}
 
 	/**
@@ -1042,7 +1047,8 @@ final class SqliteStore implements AutoCloseable
 				row.getLong(2), row.getLong(3), row.getLong(4), row.getLong(5), row.getLong(6),
 				row.getLong(7), row.getLong(8), positionProjections())
                 .withTradeEvidence(scope.readyPositions(), missedFlipEvidence(), scope.reconciliationScope)
-                .withRecentSales(recentSales());
+                .withRecentSales(recentSales())
+                .withContinuationDispositions(continuationSaleDispositions(accountId,evaluatedAt));
 		}
 	}
 	private List<com.flippingfriend.core.RecordedSale> recentSales() throws Exception {
@@ -1119,6 +1125,31 @@ final class SqliteStore implements AutoCloseable
             }
         }
         return false;
+    }
+    private List<com.flippingfriend.core.ContinuationDisposition> continuationSaleDispositions(String account,long now)throws Exception {
+        var history=offerHistory(account); // Validates account/source identities, external changes and appended tails.
+        if(history==null)return java.util.List.of();
+        long cursor;
+        try(var s=connection.createStatement();var r=s.executeQuery("SELECT COALESCE(MAX(id),0) FROM position_event")) {
+            r.next();cursor=r.getLong(1);
+        }
+        if(cachedContinuationSales==null || cursor!=continuationSalesCursor || history.size()!=continuationSalesHistorySize) {
+            java.util.Set<String> disposals=new java.util.HashSet<>(),rejected=new java.util.HashSet<>();
+            Map<String,OfferEvent> sources=new HashMap<>();for(var source:history)sources.put(source.getEventId(),source);
+            try(var s=connection.createStatement();var r=s.executeQuery(
+                "SELECT source_event_id,effect_type,item_id,source_offer_identity,observed_at,quantity FROM position_event WHERE effect_type IN ('DISPOSE','RECONCILE')")) {
+                while(r.next()) {
+                    String id=r.getString(1);
+                    if("RECONCILE".equals(r.getString(2))){rejected.add(id);continue;}
+                    var source=sources.get(id);
+                    if(source!=null && source.getItemId()==r.getInt(3) && java.util.Objects.equals(source.getOfferIdentity(),r.getString(4))
+                        && source.getObservedAt()==r.getLong(5) && r.getInt(6)>0 && r.getInt(6)<=source.getFilledQuantity())disposals.add(id);
+                }
+            }
+            cachedContinuationSales=ContinuationSaleRead.read(history,disposals,rejected);continuationSalesCursor=cursor;
+            continuationSalesHistorySize=history.size();
+        }
+        return cachedContinuationSales.stream().filter(sale->sale.getObservedAt()<=now).collect(java.util.stream.Collectors.toList());
     }
     private boolean snapshotAutomaticMode(String account,String payload) {
         final com.google.gson.JsonElement parsed;

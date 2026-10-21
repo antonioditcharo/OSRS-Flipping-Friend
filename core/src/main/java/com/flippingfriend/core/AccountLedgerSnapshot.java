@@ -10,6 +10,7 @@ public final class AccountLedgerSnapshot
     private String schemaVersion;
     private List<PositionProjection> tradingPositions;
     private List<RecordedSale> recentSales;
+    private List<ContinuationDisposition> continuationDispositions;
     private List<MissedFlipEvidence> missedFlips;
     /** Optional source-event scope. Empty item sets mean the gap still has account-wide uncertainty. */
     private java.util.Map<String, java.util.Set<Integer>> reconciliationScope;
@@ -44,6 +45,7 @@ public final class AccountLedgerSnapshot
         copy.schemaVersion = "2";
         copy.tradingPositions = Collections.unmodifiableList(new ArrayList<>(trades));
         copy.missedFlips = Collections.unmodifiableList(new ArrayList<>(missed));
+        copy.recentSales=recentSales;copy.continuationDispositions=continuationDispositions;
         if (!copy.isValid()) throw new IllegalArgumentException("invalid trade evidence");
         return copy;
     }
@@ -75,7 +77,19 @@ public final class AccountLedgerSnapshot
             taxBoundedSales,profitLower,profitUpper,taxLower,taxUpper,positions);
         copy.schemaVersion=schemaVersion;copy.tradingPositions=tradingPositions;copy.missedFlips=missedFlips;
         copy.reconciliationScope=reconciliationScope;copy.recentSales=Collections.unmodifiableList(new ArrayList<>(sales));
+        copy.continuationDispositions=continuationDispositions;
         if(!copy.isValid())throw new IllegalArgumentException("invalid sale history");return copy;
+    }
+    /** Independent of paged/recent sales: an old completed exit must not resurrect a rebuy. */
+    public List<ContinuationDisposition> getContinuationDispositions(){return continuationDispositions;}
+    public AccountLedgerSnapshot withContinuationDispositions(List<ContinuationDisposition> dispositions) {
+        if(dispositions==null)throw new IllegalArgumentException("Disposition evidence required");
+        AccountLedgerSnapshot copy=new AccountLedgerSnapshot(accountId,observedAt,sales,boundedSales,uncertainSales,
+            taxBoundedSales,profitLower,profitUpper,taxLower,taxUpper,positions);
+        copy.schemaVersion=schemaVersion;copy.tradingPositions=tradingPositions;copy.missedFlips=missedFlips;
+        copy.reconciliationScope=reconciliationScope;copy.recentSales=recentSales;
+        copy.continuationDispositions=Collections.unmodifiableList(new ArrayList<>(dispositions));
+        if(!copy.isValid())throw new IllegalArgumentException("Invalid continuation dispositions");return copy;
     }
     public List<MissedFlipEvidence> getMissedFlips() { return missedFlips; }
     /** Totals remain readable, but an unidentified lifecycle gap cannot establish safe holdings. */
@@ -125,6 +139,12 @@ public final class AccountLedgerSnapshot
 
     public boolean isValid()
     {
+        if(continuationDispositions!=null) {
+            java.util.Set<Integer> items=new java.util.HashSet<>();
+            for(var disposition:continuationDispositions)
+                if(disposition==null || !disposition.isValid() || disposition.getObservedAt()>observedAt
+                    || !items.add(disposition.getItemId()))return false;
+        }
         if(recentSales!=null) {
             if(recentSales.size()>100 || recentSales.size()>sales)return false;
             long prior=Long.MAX_VALUE;

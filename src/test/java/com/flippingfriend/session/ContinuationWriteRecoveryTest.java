@@ -83,4 +83,45 @@ public class ContinuationWriteRecoveryTest {
         var request=new SellRelistIntent(f.storage).collectedRequest(f.tracker,f.storage.accountId());
         assertNotNull(request);assertEquals(60,request.getQuantity());assertFalse(request.requiresManagedCost());
     }
+    private com.flippingfriend.core.AccountLedgerSnapshot saleLedger(String account,long placement,long at) {
+        return new com.flippingfriend.core.AccountLedgerSnapshot(account,at,0,0,0,0,0,0,0,0,List.of())
+            .withContinuationDispositions(List.of(new com.flippingfriend.core.ContinuationDisposition(561,"exact-sale-source","sale-episode",placement,at)));
+    }
+    private void collect(Fixture f) {
+        f.offer.setState("CANCELLED_BUY");f.offer.setQuantityFilled(40);f.offer.setCollected(true);
+        when(f.tracker.getOffers()).thenReturn(List.of());when(f.tracker.getSettledOffer(0)).thenReturn(f.offer);
+        f.book.observe(f.tracker,f.storage.accountId(),now+1);when(f.tracker.getSettledOffer(0)).thenReturn(null);
+    }
+    @Test public void exactRecordedDispositionRetiresOnlyTheOldPromiseAndKeepsItsReceiptAcrossRestart()throws Exception {
+        var f=new Fixture();collect(f);String account=f.storage.accountId();
+        var other=new TrackedOffer(1,562,true,100,5,now-600);other.startEpisodeIdentity();other.setState("BUYING");
+        when(f.tracker.getOffer(1)).thenReturn(other);when(f.tracker.getOffers()).thenReturn(List.of(other));
+        assertTrue(f.book.advise(other,account,f.tracker,now));when(f.tracker.getOffers()).thenReturn(List.of());
+        assertTrue(f.book.observeRecordedSales(saleLedger(account,now+1,now+2),account,now+2));
+        var restored=new BuyRepriceIntent(f.storage);
+        assertFalse(restored.isPending(561,f.tracker,account,now+3));assertTrue(restored.isPending(562,f.tracker,account,now+3));
+        String receipt=Files.readString(f.path);assertTrue(receipt.contains("exact-sale-source"));assertTrue(receipt.contains(f.offer.getEpisodeIdentity()));
+        assertTrue(receipt.contains("\"collectedRemaining\":60"));
+        f.offer.setState("BUYING");f.offer.setQuantityFilled(20);f.offer.setCollected(false);
+        when(f.tracker.getOffers()).thenReturn(List.of(f.offer));when(f.tracker.getOffer(0)).thenReturn(f.offer);
+        assertFalse("A retry of the retired original cannot create a new rebuy promise",restored.advise(f.offer,account,f.tracker,now+3));
+    }
+    @Test public void failedDispositionCommitWithholdsReplacementAndRetriesAfterAccountSwitch()throws Exception {
+        var f=new Fixture();collect(f);String account=f.storage.accountId();String before=Files.readString(f.path);
+        Files.createDirectory(f.blocked);assertFalse(f.book.observeRecordedSales(saleLedger(account,now+1,now+2),account,now+2));
+        assertNull(f.book.collectedRequest(f.tracker,account,now+2));assertEquals(before,Files.readString(f.path));
+        f.profile("second");assertNull(f.book.collectedRequest(f.tracker,f.storage.accountId(),now+3));
+        f.profile("first");Files.delete(f.blocked);f.book.observe(f.tracker,account,now+3);
+        assertFalse(new BuyRepriceIntent(f.storage).isPending(561,f.tracker,account,now+3));
+        assertTrue(Files.readString(f.path).contains("exact-sale-source"));
+    }
+    @Test public void olderPersonalSaleStaleFutureAndForeignLedgersCannotRetireAPromise()throws Exception {
+        var f=new Fixture();collect(f);String account=f.storage.accountId();
+        assertTrue(f.book.observeRecordedSales(saleLedger(account,now-1,now+2),account,now+2));
+        assertTrue(f.book.isPending(561,f.tracker,account,now+2));
+        assertFalse(f.book.observeRecordedSales(saleLedger(account,now+1,now+2),account,now+153));
+        assertFalse(f.book.observeRecordedSales(saleLedger(account,now+1,now+2),account,now+1));
+        assertFalse(f.book.observeRecordedSales(saleLedger(com.flippingfriend.core.AccountIdentity.fromProfileKey("other"),now+1,now+2),account,now+2));
+        assertEquals(60,f.book.collectedRequest(f.tracker,account,now+3).quantity);
+    }
 }

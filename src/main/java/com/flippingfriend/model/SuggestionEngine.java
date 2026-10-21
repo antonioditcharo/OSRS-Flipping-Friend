@@ -391,6 +391,9 @@ public class SuggestionEngine
 					+ "for this plugin to suggest.");
 		}
 
+		if(buyReprice!=null && companion!=null)
+            buyReprice.observeRecordedSales(companion.tradingLedger(),observedAccount,now.getEpochSecond());
+
 		// Collection and an explicit wind-down need current offers, not a market price.
 		// StepGuide alone protects mid-entry presentation; every engine pass revalidates live work.
 		Suggestion collect = collectSuggestion(market);

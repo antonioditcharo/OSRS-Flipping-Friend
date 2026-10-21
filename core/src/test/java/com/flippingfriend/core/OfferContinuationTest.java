@@ -57,4 +57,21 @@ public class OfferContinuationTest {
         assertFalse(intent.acknowledgesCancellation(offer(false,50,"CANCELLED_SELL",false,"original"),1102));
         assertFalse(intent.acknowledgesCancellation(null,1102));
     }
+    @Test public void simultaneousCollectionAndLaterCancelledSaleRetiresTheExactPromise() {
+        var initial=offer(true,20,"BUYING",false,"original");
+        var intent=OfferContinuation.advise(initial,List.of(initial),false,1100,0);
+        var sale=new OfferContinuation.Observation(1,561,false,120,40,10,1101,"later-sale","CANCELLED_SELL",true);
+        assertEquals(OfferContinuation.Status.CLOSED,intent.observe(List.of(sale),offer(true,40,"CANCELLED_BUY",true,"original"),1102));
+    }
+    @Test public void recordedSaleMustFollowTheOriginalPromiseAndCannotProveCollectionOrDisposeUnits() {
+        var initial=offer(true,20,"BUYING",false,"original");
+        var intent=OfferContinuation.advise(initial,List.of(initial),false,1100,0);
+        var later=new ContinuationDisposition(561,"fill","sale",1101,1200);
+        assertFalse(intent.supersededBy(later));
+        intent.observe(List.of(),offer(true,40,"CANCELLED_BUY",true,"original"),1200);
+        assertTrue(intent.supersededBy(later));assertEquals(60,intent.getCollectedRemaining());
+        assertFalse(intent.supersededBy(new ContinuationDisposition(561,"old-fill","old-sale",1099,1201)));
+        assertFalse(intent.supersededBy(new ContinuationDisposition(562,"other-fill","sale",1101,1201)));
+        assertFalse(intent.supersededBy(new ContinuationDisposition(561,"reused","original",1101,1201)));
+    }
 }

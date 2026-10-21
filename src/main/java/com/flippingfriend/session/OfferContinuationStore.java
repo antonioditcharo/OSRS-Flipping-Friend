@@ -13,7 +13,14 @@ abstract class OfferContinuationStore {
         int formatVersion=2;
         String accountId;
         List<OfferContinuation> continuations;
-        Document(String account,List<OfferContinuation> values){accountId=account;continuations=new ArrayList<>(values);}
+        List<Retirement> retiredContinuations;
+        Document(String account,State state){accountId=account;continuations=new ArrayList<>(state.intents);
+            retiredContinuations=new ArrayList<>(state.retirements);}
+    }
+    private static final class Retirement {
+        OfferContinuation continuation;
+        com.flippingfriend.core.ContinuationDisposition sale;
+        Retirement(OfferContinuation original,com.flippingfriend.core.ContinuationDisposition source){continuation=original;sale=source;}
     }
     private final PluginStorage storage;
     private final String file;
@@ -24,6 +31,7 @@ abstract class OfferContinuationStore {
         byte[] committed;
         final Set<String> committedIdentities=new HashSet<>();
         boolean dirty;
+        final List<Retirement> retirements=new ArrayList<>();
         State(List<OfferContinuation> intents,byte[] committed){
             this.intents=intents;this.committed=committed;
             for(var intent:intents)committedIdentities.add(intent.getOriginalIdentity());
@@ -51,6 +59,7 @@ abstract class OfferContinuationStore {
                 return false;
             }
             List<OfferContinuation> restored=new ArrayList<>();
+            List<Retirement> retirements=new ArrayList<>();
             if(image!=null) {
                 JsonElement tree=gson.fromJson(new String(image,StandardCharsets.UTF_8),JsonElement.class);
                 if(tree==null)return false;
@@ -62,14 +71,19 @@ abstract class OfferContinuationStore {
                         var document=gson.fromJson(object,Document.class);
                         if(document.formatVersion!=2 || !expected.equals(document.accountId) || document.continuations==null)return false;
                         restored.addAll(document.continuations);
+                        if(document.retiredContinuations!=null)retirements.addAll(document.retiredContinuations);
                     }else restored.add(gson.fromJson(object,OfferContinuation.class));
                 }
             }
             Set<String> identities=new HashSet<>();
             for(var intent:restored)if(intent==null || !intent.isWellFormed() || intent.isBuying()!=buying
                 || !identities.add(intent.getOriginalIdentity()))return false;
+            for(var retired:retirements)if(retired==null || retired.continuation==null || !retired.continuation.isWellFormed()
+                || !buying || !retired.continuation.supersededBy(retired.sale)
+                || !identities.add(retired.continuation.getOriginalIdentity()))return false;
             if(!expected.equals(account()))return false;
             state=new State(restored,image);accounts.put(expected,state);
+            state.retirements.addAll(retirements);
             for(var intent:restored)state.dirty|=intent.retainForFreshRevalidation();
             return true;
         }catch(Exception unreadable){return false;}
@@ -80,7 +94,7 @@ abstract class OfferContinuationStore {
             Path path=storage.accountDir(expected).resolve(file);
             if(!Arrays.equals(contents(path),state.committed))return false;
             if(!state.dirty)return true;
-            byte[] image=gson.toJson(new Document(expected,state.intents)).getBytes(StandardCharsets.UTF_8);
+            byte[] image=gson.toJson(new Document(expected,state)).getBytes(StandardCharsets.UTF_8);
             if(!storage.writeDurably(path,image))return false;
             state.committed=image;state.dirty=false;
             state.committedIdentities.clear();
@@ -92,6 +106,7 @@ abstract class OfferContinuationStore {
             long now,long expiresAt) {
         if(!load(expected) || original==null || original.isBuying()!=buying)return false;
         var observation=observation(original);
+        for(var retired:state.retirements)if(retired.continuation.matches(observation))return false;
         if(tracker!=null) {
             var current=observation(tracker.getOffer(original.getSlot()));
             if(current==null || !Objects.equals(current.episode,observation.episode) || current.firstSeen!=observation.firstSeen
@@ -152,9 +167,30 @@ abstract class OfferContinuationStore {
         if(!load(expected))return false;
         state.dirty|=state.intents.removeIf(intent->intent.getItemId()==item);return commit(expected);
     }
-    private static List<OfferContinuation.Observation> board(OfferTracker tracker) {
+    protected synchronized boolean observeSales(com.flippingfriend.core.AccountLedgerSnapshot ledger,String expected,long now) {
+        if(!buying || ledger==null || !ledger.isValid() || !Objects.equals(expected,ledger.getAccountId())
+            || ledger.getObservedAt()>now || now-ledger.getObservedAt()>150 || ledger.getContinuationDispositions()==null
+            || !load(expected))return false;
+        var iterator=state.intents.iterator();
+        while(iterator.hasNext()) {
+            var intent=iterator.next();
+            for(var sale:ledger.getContinuationDispositions())if(intent.supersededBy(sale)) {
+                state.retirements.add(new Retirement(intent,sale));iterator.remove();state.dirty=true;break;
+            }
+        }
+        return commit(expected);
+    }
+    private List<OfferContinuation.Observation> board(OfferTracker tracker) {
         var result=new ArrayList<OfferContinuation.Observation>();
-        if(tracker!=null)for(var offer:tracker.getOffers())result.add(observation(offer));return result;
+        if(tracker!=null) {
+            for(var offer:tracker.getOffers())result.add(observation(offer));
+            // A sale can complete/collect between worker passes. Preserve that exit decision too.
+            if(buying)for(int slot=0;slot<8;slot++) {
+                var settled=tracker.getSettledOffer(slot);
+                if(settled!=null && !settled.isBuying())result.add(observation(settled));
+            }
+        }
+        return result;
     }
     private static OfferContinuation.Observation observation(TrackedOffer offer) {
         return offer==null?null:new OfferContinuation.Observation(offer.getSlot(),offer.getItemId(),offer.isBuying(),offer.getPrice(),
