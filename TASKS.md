@@ -6,6 +6,11 @@ installed and player accepted are separate states. Owner is home; older login de
 
 ## Current batch
 
+- [x] Repair starter's single-probe refusal of an existing listener: bounded same-PID retry for
+      transient health failures, fail-closed credential/protocol/body and listener-change checks,
+      no duplicate process/task/data changes. Live PowerShell 5.1 start passes; Java remains #136.
+      Receipt: `local-data/starter-health-retry-20261021/delivery-state.json`.
+
 - [ ] Accept all ordinary maintenance sale alternatives through final authority after a refused first
       reduction. Persist only the presented exact episode; preserve late-fill/collection caps, original
       costs/plans, earlier-buy and fresh-stop priority, rejection withdrawal and account isolation.

@@ -8,6 +8,11 @@ Read `local-data/ordinary-sale-queue-20261021/delivery-state.json` FIRST, then c
 AGENTS.md, HANDOFF.md and TASKS.md. The receipt distinguishes source/tests/CI/merge/install/player
 acceptance. Older PR checkpoints and availability notes are historical, not installation proof.
 
+Starter script delivery is recorded separately in
+`local-data/starter-health-retry-20261021/delivery-state.json`: bounded same-PID transient health
+retry, fail-closed credentials/protocol/body/port-owner checks and no duplicate listener. Java stays
+at #136; script-only changes need no reinstall. Live PowerShell 5.1 start passes.
+
 The newest workflow slice queues all later eligible ordinary sale reductions after a first final
 authority refusal. Only the presented authorized episode commits its durable continuation; exact
 costs/remaining caps and original buy/stop priority remain. Read the
