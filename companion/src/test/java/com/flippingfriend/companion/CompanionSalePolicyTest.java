@@ -119,6 +119,38 @@ public class CompanionSalePolicyTest {
             assertEquals(OfferLifecycleAction.CANCEL_SELL,decide(store,later,heartbeat.getEventId(),2,119,0,now+601).getAction());
         }
     }
+    @Test public void anExistingParallelSaleCanFillWhileTheOtherRelistsWithTheExactRemainingPoolCostAfterRestart()throws Exception {
+        var path=folder.newFolder().toPath().resolve("parallel-relist.db");long now=at+3600;
+        AccountSnapshot account;OfferEvent accepted;
+        try(var store=new SqliteStore(path)) {
+            account=setup(store);
+            accept(store,event(0,"SELLING","sale-a",2,0,0,150,at+10));
+            var other=event(1,"SELLING","sale-b",1,0,0,145,at+100);
+            var raw=json.toJsonTree(other).getAsJsonObject();raw.addProperty("firstSeenAt",at+100);
+            accept(store,json.fromJson(raw,OfferEvent.class));
+            accepted=event(0,"SELLING","sale-a",2,0,0,150,now);accept(store,accepted);
+            assertEquals(OfferLifecycleAction.CANCEL_SELL,decide(store,account,accepted.getEventId(),2,119,0,now).getAction());
+            accept(store,event(0,"CANCELLED_SELL","sale-a",2,0,0,150,now+1));
+            accept(store,event(0,"EMPTY",null,0,0,0,0,now+2));
+            var sold=event(1,"SOLD","sale-b",1,1,145,145,now+3);
+            raw=json.toJsonTree(sold).getAsJsonObject();raw.addProperty("firstSeenAt",at+100);
+            accept(store,json.fromJson(raw,OfferEvent.class));
+        }
+        try(var store=new SqliteStore(path)) {
+            var read=store.saleProjections(id,now+4);var remaining=read.ledger.getTradingPositions().get(0);
+            assertEquals(2,remaining.getQuantity());assertEquals(201,remaining.getTotalCost());
+            var fresh=setupAccountAt(account,now+4).withObservedHoldings(Map.of(561,2)).withObservedInventory(Map.of(561,2));
+            var policy=new CompanionSalePolicy();int effects=store.positionEventCount();
+            var result=policy.decide(read.planning,read.ledger,fresh,market(now+4,120),(i,s)->bars(now+4,120),
+                561,119,2,remaining.getSourceEventId(),false,-1,now+4,accepted.getEventId());
+            assertEquals("An existing second sale is not a newly started replacement",OfferLifecycleAction.PLACE_SELL,result.getAction());
+            assertEquals(OfferLifecycleAction.WAIT,policy.decide(read.planning,read.ledger,fresh,market(now+4,120),(i,s)->bars(now+4,120),
+                561,100,2,remaining.getSourceEventId(),false,-1,now+4,accepted.getEventId()).getAction());
+            assertEquals(OfferLifecycleAction.WAIT,policy.decide(read.planning,read.ledger,fresh,market(now+4,120),(i,s)->bars(now+4,120),
+                561,119,3,remaining.getSourceEventId(),false,-1,now+4,accepted.getEventId()).getAction());
+            assertEquals(effects,store.positionEventCount());
+        }
+    }
     AccountSnapshot setupAccountAt(AccountSnapshot account,long now) {
         var value=json.toJsonTree(account).getAsJsonObject();value.addProperty("observedAt",now);
         return json.fromJson(value,AccountSnapshot.class);

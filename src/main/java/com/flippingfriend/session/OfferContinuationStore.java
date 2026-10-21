@@ -75,12 +75,7 @@ abstract class OfferContinuationStore {
                     }else restored.add(gson.fromJson(object,OfferContinuation.class));
                 }
             }
-            Set<String> identities=new HashSet<>();
-            for(var intent:restored)if(intent==null || !intent.isWellFormed() || intent.isBuying()!=buying
-                || !identities.add(intent.getOriginalIdentity()))return false;
-            for(var retired:retirements)if(retired==null || retired.continuation==null || !retired.continuation.isWellFormed()
-                || !buying || !retired.continuation.supersededBy(retired.sale)
-                || !identities.add(retired.continuation.getOriginalIdentity()))return false;
+            if(!validEvidence(restored,retirements))return false;
             if(!expected.equals(account()))return false;
             state=new State(restored,image);accounts.put(expected,state);
             state.retirements.addAll(retirements);
@@ -88,11 +83,21 @@ abstract class OfferContinuationStore {
             return true;
         }catch(Exception unreadable){return false;}
     }
+    private boolean validEvidence(List<OfferContinuation> intents,List<Retirement> retirements) {
+        Set<String> identities=new HashSet<>();
+        for(var intent:intents)if(intent==null || !intent.isWellFormed() || intent.isBuying()!=buying
+            || !identities.add(intent.getOriginalIdentity()))return false;
+        for(var retired:retirements)if(retired==null || retired.continuation==null || !retired.continuation.isWellFormed()
+            || !buying || !retired.continuation.supersededBy(retired.sale)
+            || !identities.add(retired.continuation.getOriginalIdentity()))return false;
+        return true;
+    }
     private boolean commit(String expected) {
         if(expected==null || !expected.equals(account()) || state!=accounts.get(expected))return false;
         try {
             Path path=storage.accountDir(expected).resolve(file);
             if(!Arrays.equals(contents(path),state.committed))return false;
+            if(!validEvidence(state.intents,state.retirements))return false;
             if(!state.dirty)return true;
             byte[] image=gson.toJson(new Document(expected,state)).getBytes(StandardCharsets.UTF_8);
             if(!storage.writeDurably(path,image))return false;
@@ -109,6 +114,8 @@ abstract class OfferContinuationStore {
     protected synchronized boolean adviseOffer(TrackedOffer original,String expected,boolean managed,OfferTracker tracker,
             long now,long expiresAt,String saleRepriceSource) {
         if(!load(expected) || original==null || original.isBuying()!=buying)return false;
+        if(saleRepriceSource!=null && (buying || saleRepriceSource.isBlank()
+            || original.getLastFillObservedAt()<original.getFirstSeen() || original.getLastFillObservedAt()>now))return false;
         var observation=observation(original);
         for(var retired:state.retirements)if(retired.continuation.matches(observation))return false;
         if(tracker!=null) {
@@ -117,14 +124,16 @@ abstract class OfferContinuationStore {
                 || current.item!=observation.item || current.buying!=buying || current.price!=observation.price
                 || current.total!=observation.total || !(buying?"BUYING":"SELLING").equals(current.state))return false;
         }
-        for(var intent:state.intents)if(intent.matches(observation) && intent.valid(now)) {
+        for(var intent:state.intents)if(intent.matches(observation)) {
+            if(!intent.valid(now))return false;
             long revision=intent.getRevision();if(managed)intent.requireManagedCost();
-            if(saleRepriceSource!=null && intent.getSaleRepriceSource()==null)intent.bindSaleRepriceSource(saleRepriceSource,original.getLastFillObservedAt());
+            if(saleRepriceSource!=null && intent.getSaleRepriceSource()==null)
+                intent.bindSaleRepriceSource(saleRepriceSource,original.getLastFillObservedAt(),now);
             state.dirty|=intent.getRevision()!=revision;return commit(expected);
         }
         var created=OfferContinuation.advise(observation,board(tracker),managed,now,expiresAt);
         if(created==null)return false;
-        if(saleRepriceSource!=null)created.bindSaleRepriceSource(saleRepriceSource,original.getLastFillObservedAt());
+        if(saleRepriceSource!=null)created.bindSaleRepriceSource(saleRepriceSource,original.getLastFillObservedAt(),now);
         state.intents.add(created);state.dirty=true;return commit(expected);
     }
     protected synchronized List<OfferContinuation> collectedAll(OfferTracker tracker,String expected,long now) {

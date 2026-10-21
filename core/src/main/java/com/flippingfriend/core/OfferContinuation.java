@@ -26,6 +26,8 @@ public final class OfferContinuation {
     /** Accepted working-sale source; legacy hints retain no permission to sacrifice a target. */
     private String saleRepriceSource;
     private long saleRepriceProgressAt;
+    /** A later first source binding does not change when the original workflow was created. */
+    private long saleRepriceAcceptedAt;
     private boolean buying,managed,collectionVerified;
     private int collectedRemaining,collectedFilled,maximumFilled;
     private List<Key> existingSales;
@@ -57,7 +59,7 @@ public final class OfferContinuation {
     }
     public boolean valid(long now) {
         return !closed && isWellFormed()
-            && (createdAt==0 || now>=createdAt) && (expiresAt==0 || now<=expiresAt);
+            && (createdAt==0 || now>=createdAt) && saleRepriceAcceptedAt<=now && (expiresAt==0 || now<=expiresAt);
     }
     /** Exact observed cancellation of this promise; it neither proves collection nor creates fills. */
     public boolean acknowledgesCancellation(Observation offer,long now) {
@@ -71,8 +73,11 @@ public final class OfferContinuation {
             && (total==0 || filled<total && quantity<=total-filled && maximumFilled<=total && collectedFilled<=total)
             && (expiresAt==0 || expiresAt>createdAt)
             && (createdAt==0 || createdAt>=firstSeen)
-            && (saleRepriceSource==null || !buying && !saleRepriceSource.isBlank()
-                && saleRepriceProgressAt>=firstSeen && saleRepriceProgressAt<=createdAt)
+            && saleRepriceAcceptedAt>=0
+            && (saleRepriceSource==null ? saleRepriceProgressAt==0 && saleRepriceAcceptedAt==0
+                : !buying && !saleRepriceSource.isBlank() && saleRepriceProgressAt>=firstSeen
+                && (saleRepriceAcceptedAt==0 ? saleRepriceProgressAt<=createdAt
+                    : saleRepriceAcceptedAt>=createdAt && saleRepriceProgressAt<=saleRepriceAcceptedAt))
             && (!collectionVerified || collectedRemaining>0 && collectedRemaining<=quantity
                 && (total==0 || collectedRemaining<=total-Math.max(filled,Math.max(maximumFilled,collectedFilled))));
     }
@@ -146,15 +151,20 @@ public final class OfferContinuation {
     public int getOriginalPrice(){return price;}
     public long getFirstSeenAt(){return firstSeen;}
     public long getSaleRepriceProgressAt(){return saleRepriceProgressAt;}
+    public long getSaleRepriceAcceptedAt(){return saleRepriceAcceptedAt==0?saleRepriceSource==null?0:createdAt:saleRepriceAcceptedAt;}
     public void bindSaleRepriceSource(String source) {
         bindSaleRepriceSource(source,firstSeen);
     }
     public void bindSaleRepriceSource(String source,long progressAt) {
+        bindSaleRepriceSource(source,progressAt,createdAt);
+    }
+    public void bindSaleRepriceSource(String source,long progressAt,long acceptedAt) {
         if(buying || source==null || source.isBlank())throw new IllegalArgumentException("Sale source required");
-        if(progressAt<firstSeen)throw new IllegalArgumentException("Sale progress required");
+        if(progressAt<firstSeen || acceptedAt<createdAt || acceptedAt<progressAt)
+            throw new IllegalArgumentException("Ordered sale progress and acceptance required");
         if(saleRepriceSource!=null && !saleRepriceSource.equals(source))
             throw new IllegalStateException("Accepted sale source changed");
-        if(saleRepriceSource==null){saleRepriceSource=source;saleRepriceProgressAt=progressAt;revision++;}
+        if(saleRepriceSource==null){saleRepriceSource=source;saleRepriceProgressAt=progressAt;saleRepriceAcceptedAt=acceptedAt;revision++;}
     }
     public long getRevision(){return revision;}
     public boolean isClosed(){return closed;}

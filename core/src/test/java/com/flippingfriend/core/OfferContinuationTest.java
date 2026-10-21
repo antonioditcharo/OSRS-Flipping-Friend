@@ -74,4 +74,30 @@ public class OfferContinuationTest {
         assertFalse(intent.supersededBy(new ContinuationDisposition(562,"other-fill","sale",1101,1201)));
         assertFalse(intent.supersededBy(new ContinuationDisposition(561,"reused","original",1101,1201)));
     }
+    @Test public void laterFirstSourceAcceptancePreservesCreationAndDoesNotEraseProgressOrTheRemainder() {
+        var initial=offer(false,20,"SELLING",false,"original");
+        var intent=OfferContinuation.advise(initial,List.of(initial),true,1100,0);
+        intent.bindSaleRepriceSource("accepted-later",1200,1800);
+        assertTrue(intent.isWellFormed());assertTrue(intent.valid(1800));assertFalse(intent.valid(1799));
+        assertEquals(1800,intent.getSaleRepriceAcceptedAt());assertEquals(1200,intent.getSaleRepriceProgressAt());
+        long revision=intent.getRevision();intent.bindSaleRepriceSource("accepted-later",1900,2000);
+        assertEquals("Refresh cannot move the accepted episode's evidence clocks",revision,intent.getRevision());
+        assertEquals(1800,intent.getSaleRepriceAcceptedAt());assertEquals(1200,intent.getSaleRepriceProgressAt());
+        assertEquals(OfferContinuation.Status.COLLECTED,intent.observe(List.of(),offer(false,50,"CANCELLED_SELL",true,"original"),2100));
+        assertEquals(50,intent.getCollectedRemaining());
+    }
+    @Test public void invalidAcceptanceCannotPartiallyBindOrReplaceAnExistingSource() {
+        var initial=offer(false,20,"SELLING",false,"original");
+        var intent=OfferContinuation.advise(initial,List.of(initial),true,1100,0);
+        for(long[] clocks:new long[][]{{1200,1100},{1000,1099},{999,1200}}) {
+            try{intent.bindSaleRepriceSource("invalid",clocks[0],clocks[1]);fail("Invalid clock ordering");}
+            catch(IllegalArgumentException expected){}
+            assertNull(intent.getSaleRepriceSource());assertTrue(intent.isWellFormed());
+        }
+        intent.bindSaleRepriceSource("original-source",1000);
+        assertEquals(1100,intent.getSaleRepriceAcceptedAt());
+        try{intent.bindSaleRepriceSource("different-source",1200,1300);fail("A bound source is immutable");}
+        catch(IllegalStateException expected){}
+        assertEquals("original-source",intent.getSaleRepriceSource());assertTrue(intent.valid(1300));
+    }
 }
