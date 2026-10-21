@@ -1100,6 +1100,21 @@ public class CompanionClient
         return event.isPredictionComparable() && Double.isFinite(event.getPredictedMinutes()) && event.getPredictedMinutes()>0
             ?event.getPredictedMinutes():Double.NaN;
     }
+    /** Diagnostic only: the original actual sale order forecast, never an acquisition estimate. */
+    public double originalSellExpectedMinutes(TrackedOffer expected) {
+        if(expected==null || expected.isBuying())return Double.NaN;
+        String account=accountContext();var event=canonicalOffers.get(expected.getSlot());
+        String identity=expected.getEpisodeIdentity()==null?expected.getSlot()+"@"+expected.getFirstSeen()+":"+expected.getItemId():expected.getEpisodeIdentity();
+        if(event==null || !java.util.Objects.equals(account,event.getAccountId()) || !event.isAuthenticatedObservation()
+            || event.isBuying() || !"SELLING".equals(event.getEventType()) || !event.isPredictionComparable()
+            || event.getItemId()!=expected.getItemId() || event.getPrice()!=expected.getPrice()
+            || event.getTotalQuantity()!=expected.getTotalQuantity()
+            || event.getPredictionSourceEventId()==null || event.getFirstSeenAt()!=expected.getFirstSeen()
+            || !identity.equals(event.getOfferIdentity()))return Double.NaN;
+        var forecast=event.getExecutionForecast();
+        return forecast!=null && forecast.matches(expected.getItemId(),false,expected.getPrice(),expected.getTotalQuantity())
+            ?forecast.getExpectedTotalSeconds()/60:Double.NaN;
+    }
     public double originalBuyExpectedMinutes(TrackedOffer expected) {
         if(expected==null || !expected.isBuying())return Double.NaN;
         String account=accountContext();var event=canonicalOffers.get(expected.getSlot());

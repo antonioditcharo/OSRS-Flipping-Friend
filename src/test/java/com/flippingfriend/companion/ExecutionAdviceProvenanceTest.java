@@ -168,6 +168,32 @@ public class ExecutionAdviceProvenanceTest {
         f.publish(offer(now,100,10,"BOUGHT",10),now+60);
         assertTrue(Double.isNaN(f.client.originalBuyExpectedMinutes(tracked)));
     }
+    @Test public void saleDiagnosticUsesOnlyOriginalActualOrderForecastAcrossRetryAndRestart()throws Exception {
+        Fixture f=new Fixture(folder.newFolder().toPath());
+        var forecast=new com.flippingfriend.core.ExecutionForecast(com.flippingfriend.core.ExecutionForecast.MODEL_VERSION,
+            .35,0,1,true,561,false,150,3,3,1,3600,12,12,120,
+            new com.flippingfriend.model.FillEstimate(.75,.2,100,.1),1,.2);
+        assertTrue(forecast.isValid());
+        f.ledger.recorded("original-sale",561,false,150,3,0,12,.75,forecast);
+        var sale=new TrackedOffer(0,561,false,150,3,now);sale.setState("SELLING");
+        assertTrue(f.publish(sale,now).isPredictionComparable());
+        assertEquals(12,f.client.originalSellExpectedMinutes(sale),1e-9);
+        f.ledger.recorded("later-sale",561,false,150,3,0,999,.9);
+        f.publish(sale,now+1);assertEquals(12,f.client.originalSellExpectedMinutes(sale),1e-9);
+        for(var event:f.outbox.pending())assertTrue(f.outbox.acknowledge(event.getEventId(),event.getSessionId(),event.getSequence()));
+        Fixture restart=new Fixture(f.storage.root());restart.publish(sale,now+10);
+        assertEquals(12,restart.client.originalSellExpectedMinutes(sale),1e-9);
+        var changed=new TrackedOffer(0,561,false,151,3,now);changed.setState("SELLING");
+        assertTrue(Double.isNaN(restart.client.originalSellExpectedMinutes(changed)));
+        sale.setState("SOLD");sale.setQuantityFilled(3);restart.publish(sale,now+20);
+        assertTrue(Double.isNaN(restart.client.originalSellExpectedMinutes(sale)));
+    }
+    @Test public void legacySaleEstimateAndFirstObservedFillsCannotAcquireForecastProvenance()throws Exception {
+        Fixture f=new Fixture(folder.newFolder().toPath());
+        f.ledger.recorded("legacy-sale",561,false,150,3,0,12,.75);
+        var sale=new TrackedOffer(0,561,false,150,3,now);sale.setState("SELLING");sale.setQuantityFilled(1);
+        f.publish(sale,now);assertTrue(Double.isNaN(f.client.originalSellExpectedMinutes(sale)));
+    }
     @Test public void sameSecondAcceptedForecastCanTimeMaintenanceWithoutBecomingLearningEvidence()throws Exception {
         Fixture f=new Fixture(folder.newFolder().toPath());
         var forecast=new com.flippingfriend.core.ExecutionForecast(com.flippingfriend.core.ExecutionForecast.MODEL_VERSION,
