@@ -226,6 +226,27 @@ public class BuyContinuationWorkflowTest {
             assertEquals(6,f.positions.get(561).getQuantity());assertEquals(6000,f.positions.get(561).getTotalCost());
         }
     }
+    @Test public void collectedCancelledSaleReceiptClosesOldRebuyAfterTrackerReload()throws Exception {
+        var f=new Fixture();f.present();f.cancelCollect();
+        var sale=new TrackedOffer(1,561,false,1500,6,now+1);sale.startEpisodeIdentity();sale.setState("CANCELLED_SELL");
+        sale.setQuantityFilled(2);sale.setCollected(true);
+        f.storage.writeJson(f.storage.accountDir().resolve("offers.json"),List.of(sale),new com.google.gson.reflect.TypeToken<List<TrackedOffer>>(){}.getType());
+        var restored=new OfferTracker(f.storage,f.positions,f.limits,mock(TradeJournal.class),new TaxCalculator(),new TradePlans(f.storage));restored.load();
+        assertTrue(restored.getOffers().isEmpty());assertFalse(f.intent.isPending(561,restored,f.storage.accountId(),now+2));
+        assertFalse(new BuyRepriceIntent(f.storage).isPending(561,restored,f.storage.accountId(),now+2));
+        assertEquals(6,f.positions.get(561).getQuantity());assertEquals(6000,f.positions.get(561).getTotalCost());
+    }
+    @Test public void engineConsultsRecordedDispositionBeforeSuggestingAHistoricalRemainder()throws Exception {
+        var f=new Fixture();assertTrue(f.intent.advise(f.tracker.getOffer(0),f.storage.accountId(),f.tracker,now-100));
+        f.cancelCollect();f.restart();
+        var ledger=new com.flippingfriend.core.AccountLedgerSnapshot(f.storage.accountId(),now,0,0,0,0,0,0,0,0,List.of())
+            .withContinuationDispositions(List.of(new com.flippingfriend.core.ContinuationDisposition(561,"past-sale","later-sale",now-50,now-10)));
+        when(((CompanionClient)read(f.engine,"companion")).tradingLedger()).thenReturn(ledger);
+        var next=f.engine.refresh(false);assertTrue(next==null || next.getType()!=SuggestionType.BUY);
+        assertTrue(f.engine.replacementCandidates().isEmpty());
+        assertFalse(new BuyRepriceIntent(f.storage).isPending(561,f.tracker,f.storage.accountId(),now));
+        assertEquals(6,f.positions.get(561).getQuantity());assertEquals(6000,f.positions.get(561).getTotalCost());
+    }
     @Test public void locallyUnaffordableRemainderCannotStrandTheAcquiredPartialBehindTheLastSlotReserve()throws Exception {
         var f=new Fixture();f.present();f.cancelCollect();f.restart();stoppedStock(f,6,true,now);f.quote(now,now);
         when(f.account.getState()).thenReturn(new AccountState(true,true,false,0,0,0,1,8,0,false,Map.of(561,1000),Map.of(561,1000),Map.of()));

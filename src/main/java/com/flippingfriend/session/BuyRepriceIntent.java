@@ -16,6 +16,9 @@ public final class BuyRepriceIntent extends OfferContinuationStore {
         return adviseOffer(offer,expected,false,tracker,now,0);
     }
     public synchronized void observe(OfferTracker tracker,String expected,long now){advance(tracker,expected,now);}
+    public synchronized boolean observeRecordedSales(com.flippingfriend.core.AccountLedgerSnapshot ledger,String expected,long now) {
+        return observeSales(ledger,expected,now);
+    }
     public synchronized boolean isGuidedCancellation(TrackedOffer offer,String expected,long now) {
         return acknowledgedCancellation(offer,expected,now);
     }

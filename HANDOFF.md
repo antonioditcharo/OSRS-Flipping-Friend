@@ -1,292 +1,93 @@
 # Agent handoff
 
 Updated 20 October 2026 (America/Anchorage). Read AGENTS.md and TASKS.md.
+Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
-Next-conversation prompt and impact order: [continuation](docs/next-conversation-prompt.md).
-Start with reliable margin-preserving trade workflows/target provenance, then measured cold/event
-latency, complete production replay/returns, gated learning and remaining product conveniences.
+## Current delivery
 
-## Current source and installed runtime
+Read `local-data/continuation-disposition-20261020/delivery-state.json` FIRST for actual tested,
+CI, merged, installed and remaining acceptance state. Source alone does not establish installation.
+[Current contract](docs/architecture/continuation-sale-disposition.md) /
+[delivery receipt](docs/history/continuation-sale-disposition-delivery-2026-10-20.md).
 
-Current batch separates expected exit profit from instant-sale P/L and fixes refused cancelled-buy
-queue scheduling, verified partial exits and durable rebuy supersession on healthy/observed sales.
-Eleven new behavioral tests; [contract](docs/architecture/exit-profit-and-replacement.md) /
-[receipt](docs/history/exit-profit-replacement-delivery-2026-10-20.md). Read actual source/CI/install/
-live state in local-data/exit-profit-replacement-20261020/delivery-state.json first. Owner is home
-and actively trading; earlier login deferrals are superseded. All controlled workflow, sustained
-timing, complete replay, qualified return and learning gates remain open.
+The current batch retires stale collected rebuy promises only from exact recorded later sale
+sources, retaining the original continuation and source receipt durably. It also checks collected
+and cancelled sale receipts after tracker reload and after collection in the same pass. Older
+personal listings, missing/foreign/stale/rejected evidence cannot retire hints. Failed writes
+withhold replacements and retry across account switches. No accounting or risk history is replayed.
 
-Newest batch commits authenticated callback sources to the forced atomic outbox before worker
-dispatch; logout, stopped/rejected workers and later advice changes cannot erase an accepted source.
-Capture is local-only; HTTP remains on the worker. Drained queues wake without bypassing backoff or
-acknowledging later appends. Nine new tests include four reproduced pre-outbox losses.
-[Contract](docs/architecture/capture-before-dispatch.md) /
-[receipt](docs/history/capture-dispatch-delivery-2026-10-20.md); actual source/CI/install/live state:
-local-data/capture-dispatch-20261020/delivery-state.json. PR #130 is merged and installed; fresh
-logged-in eight-slot/ACK evidence passes. Controlled workflow/local-disk/sustained latency/complete replay/returns
-and learning gates remain open. PR #129 archive annotations and all financial/risk data persist.
+The reported Dual macuahuitl two-unit continuation was still saved during fresh investigation
+after a recorded sale of its three acquired units. Current source qualifies that disposition;
+read the private delivery receipt for whether the installed client has actually retired it.
+Do not manually delete the hint, infer disposal from absence or replay its financial rows.
 
-Newest batch adds reversible review archival for closed unmatched sales with no earlier recorded
-acquisition. Archive is exact-source/cursor scoped, idempotent and undoable; financial rows, unknown
-coverage, quantities, costs, gaps, anchors and all risk/entry guards stay intact. Purchase records
-remain visible for investigation; new failures are never silently archived. Durable automatic
-accounting mode cannot be downgraded by legacy snapshots or a caller's memory flag and survives
-snapshot retention/rollback. Fourteen new tests cover the accounting boundary and reversible archive.
-[Contract](docs/architecture/trade-review-archive.md) /
-[receipt](docs/history/trade-review-archive-delivery-2026-10-20.md); actual source/CI/install/live state:
-local-data/trade-review-20261020/delivery-state.json. Owner is away until 20 October 17:30 local;
-continue offline, do not request login beforehand. This supersedes the preceding availability note.
-All controlled trade-loop, sustained timing, complete replay, return and learning gates remain open.
+Before this batch, PR #131 was merged as ae4ea353a29f6afedb1a80f71894e399f50a573c and installed.
+Its receipt is `local-data/exit-profit-replacement-20261020/delivery-state.json`; its
+[contract](docs/architecture/exit-profit-and-replacement.md) separates intended-exit unrealized
+profit from instant-sale P/L, tries all eligible remainders through final authority, exits verified
+partials after refusal and durably supersedes rebuy promises on accepted healthy sales.
+Historical fresh eight-slot/empty-outbox proof passed; all slots were occupied. Recheck freshness.
 
-Newest batch fixes startup sale accounting: a scoped companion restores its recorded automatic
-accounting mode before draining offer events, without restoring stale cash/slot authority. Full
-SELLING counters followed by accepted SOLD count one completed flip even when SOLD adds no money.
-Sale rows retain proceeds/tax/matched-cost evidence, explain unmatched cost and open the selected
-Recorded sale; local journal estimates are labeled. The visible heartbeat also withdraws old
-buy instructions on logout or guide expiry without deleting durable plans. Nine added tests include three reproduced old
-failures. [Contract](docs/architecture/startup-sale-accounting.md) /
-[receipt](docs/history/startup-sale-accounting-delivery-2026-10-20.md); actual source/CI/install/live state:
-local-data/sale-evidence-20261020/delivery-state.json. User is now logged in with GE open; this
-supersedes prior availability deferrals. Existing seven unmatched-cost sales are preserved, with
-no profit backfill, financial replay or risk reset. Full controlled workflow/timing/complete replay/
-qualified return and learning gates remain open.
+Owner is home and has reported active trading. Earlier 17:30 login deferrals are superseded.
+Login and all game actions remain manual. Batch routine diagnostics/update/launch; do not request
+pasted logs or repeated confirmations.
 
-Newest source hardens offer persistence: forced atomic outbox commits, account-scoped retry of
-unsaved observations under their original IDs/order/plan binding, changed-file preservation and
-worker retry wakeups. Unsaved sources cannot expose an old prefix or cached companion collection;
-ordinary UI reads do not retry fsync. Ten added tests include eight reproduced old-behavior failures.
-[Contract](docs/architecture/offer-persistence-recovery.md) /
-[receipt](docs/history/offer-persistence-delivery-2026-10-20.md); actual source/CI/install/live state:
-local-data/offer-persistence-20261020/delivery-state.json. Read it first. Manual game tests remain
-deferred until 20 October after 17:30 local; all controlled workflow/timing/complete replay/qualified
-return and learning gates remain open. Memory-only evidence cannot survive process death before
-its first successful storage commit; source authority stays withheld throughout that outage.
+## Runtime contracts and source locations
 
-Included #126 removes the editor's engine pin: maintenance, completed offers, prices and fresh
-stops are revalidated on every pass. StepGuide retains bounded typing protection; a same-item stop
-withdraws its old buy immediately. Fallback collection and explicit wind-down do not wait for
-market data. Nine added tests include five old-behavior failures. [Contract](docs/architecture/live-guidance-revalidation.md) /
-[receipt](docs/history/live-revalidation-delivery-2026-10-20.md); actual source/CI/install/live state:
-local-data/live-revalidation-20261020/delivery-state.json. Read it first. Owner deferred manual login/
-game tests until 20 October after 17:30 local. All controlled full-loop, sustained timing, complete
-production replay, qualified return/learning and remaining parity gates stay open.
+- Canonical accounting and ledger reads: companion SqliteStore/AutomaticTradeScope; exact costs,
+  original event IDs, duplicate handling, transactional accounting and unknown money persist.
+  [Automatic scope](docs/architecture/automatic-trade-scope.md),
+  [durable profit](docs/architecture/durable-profit-ledger.md).
+- Original acquisition target/stop/duration: canonical prospective acquisition context, never later
+  item-cache advice. [Exit context](docs/architecture/acquisition-exit-context.md),
+  [patient pricing](docs/architecture/patient-sale-pricing.md).
+- Continuations: core OfferContinuation; client OfferContinuationStore, BuyRepriceIntent,
+  SellRelistIntent, OfferTracker; SuggestionEngine and FlippingFriendPlugin own delivery/final checks.
+  [Continuations](docs/architecture/trade-continuations.md),
+  [durable maintenance](docs/architecture/durable-maintenance-delivery.md).
+- Captured sources commit to the forced atomic outbox before worker dispatch. Ordered retries,
+  account/generation fences and original bindings survive logout/restart/rejection.
+  [Capture](docs/architecture/capture-before-dispatch.md),
+  [persistence](docs/architecture/offer-persistence-recovery.md).
+- CURRENT_ACCOUNT_V3 is owner approved: only fresh verified cash funds unrelated entries.
+  Valuation-only uncertainty in physically proven stock pauses that item without charging the whole
+  account; unseen stock retains exact-cost reserves. All source/exposure/loss/slot/limit guards stay.
+  [Verified cash](docs/architecture/verified-cash-workflow-recovery.md).
+- Sidebar Performance reads durable account results. Expected exits, instant bids, portfolio marks,
+  historical totals and session results stay distinct. Reset never resets risk or financial history.
+  [Panel](docs/architecture/panel-performance-and-latency.md). Records/Missed flips use native maximized frames.
 
-Included #125: fresh stops supersede healthy-accumulation continuation holds; accepted stop sales
-must durably remove old rebuy promises before delivery. Fresh listed stops also precede ordinary
-relists/replacements and bypass prior ordinary write backoff. Exact quantities/costs/original exit
-context and stale-price/final authority guards remain. Replay V10 follows these paths through
-collection/absence/restart. [Contract](docs/architecture/stop-continuation-priority.md) /
-[receipt](docs/history/stop-continuation-delivery-2026-10-20.md); first read actual source/CI/install/
-live state in local-data/stop-continuation-20261020/delivery-state.json. Owner deferred manual login
-and game testing until the 20 October home batch after 17:30 local; do not ask again beforehand.
-Controlled full-loop, sustained timing and qualified benchmark/learning gates remain open.
+## Remaining release gates
 
-The official game update moved RuneLite to 1.13.3 during #123 delivery. The updater rejected the
-1.13.2 pair unchanged; a tested compile/test/manifest and launcher-fixture compatibility update
-includes #123. Read local-data/runelite-1133-20261020/delivery-state.json for actual source/CI/
-install/native status, then the workflow receipt below. [Compatibility contract](docs/architecture/runelite-compatibility.md).
-Login and controlled game actions remain manual. Financial history and the original anchor persist.
+TASKS.md retains every unchecked requirement. Priorities: complete reliable margin-preserving trade
+workflows, measured event/ACK/cold latency, complete production replay and qualified account returns,
+then validated learning and remaining product gaps.
 
-Included #123/#124: cancellation identity and bounded guidance lifetime. Saved account/episode commitments
-exempt guided buy cancellations even after a changed card or restart; same-item/uncommitted cards
-cannot excuse unrelated cancellations. Local foreground/pending/editor advice and queued numeric
-keys retain a bounded receipt lifetime, delayed callbacks revalidate and persistent errors withdraw
-mid-entry guidance. Read [contract](docs/architecture/guidance-lifetime-and-cancellation.md) and
-[receipt](docs/history/guidance-lifetime-delivery-2026-10-20.md). Actual source/CI/install/backup/
-financial preservation/live flags: local-data/episode-guidance-20261020/delivery-state.json. Read it
-first. Controlled full-loop, sustained timing, return/learning and remaining parity gates stay open.
+Controlled player placement/partial fills/cancel/late fills/collect/exact replacement or supported
+partial exit/sale completion/restart remain open. Offline tests and historical eight-slot proof
+cannot close them. Sustained latency, UI/search/player-key/context acceptance and complete production
+foreground/editor/transport replay remain open.
 
-Earlier installed #122: durable maintenance delivery. Continuation writes require forced atomic replacement;
-dirty progress/removals retry across unchanged observations and account switches. Uncommitted
-cancellation advice is withdrawn; ordinary failure is episode-scoped so unrelated guidance continues.
-Declined foreground sells cannot remain actionable behind the real editor queue. Read
-[contract](docs/architecture/durable-maintenance-delivery.md) and
-[receipt](docs/history/durable-maintenance-delivery-2026-10-20.md). Actual source/CI/install/backup/
-financial preservation/live flags are consolidated in local-data/durable-maintenance-20261020/delivery-state.json;
-read it first. Source is not automatically installed; controlled full-loop and sustained timing stay open.
+Keep issue #70 open. Old false-progress/startup gaps are not repaired by prevention. Counter maxima,
+aggregate holdings and the insufficient-overlap Copilot export cannot prove remaining stock or
+release exposure. Preserve every source/financial row, unknown cost/profit, account isolation and
+original loss anchor. Old unassigned data stays unassigned. Exact-source review archival only
+changes review visibility; retained purchases and all risk evidence persist.
 
-Earlier #121/8230bae is merged/installed at 19 October 23:52 AKDT: owner-approved CURRENT_ACCOUNT_V3
-allows unrelated verified-cash entries through valuation-only uncertainty, retaining affected-item
-pauses and all physical/source/loss/funding guards. Multiple durable continuations no longer expire
-by advice clock; refused continuations cannot hide other exits/entries; cash/cost/quoted estimates
-are separate. Windows clean 112s: 1,805 Java passed/six skips, 108 tooling passed; both exact-head CI
-passed. VERIFIED backup, hashes/task, 81,220-source/1,526-effect prefix and original anchor pass,
-zero update-created effects. Fresh login has eight-slot proof, empty outbox, READY/final PLACE_BUY,
-all five original holding target/stop/duration plans and exact quantities/costs preserved. Owner placed
-three buys; latest WAIT had all eight slots occupied. Cold 8.1s and warm 1–3s guidance are observations,
-not sustained acceptance. [Contract](docs/architecture/verified-cash-workflow-recovery.md) /
-[receipt](docs/history/verified-cash-workflow-recovery-2026-10-19.md); private evidence remains in
-local-data/stock-valuation-recovery-20261019/delivery-state.json. Learning remains HOLD.
+Benchmark 100M GP, members, eight slots at 5m/30m/2h/8h separately. Slot-hour rates, simulated price
+touches and twelve synthetic replay scenarios do not establish account returns. Runtime learning
+stays PUBLIC_PRICE_BASELINE / HOLD_FOR_VALIDATION. Compatible loader, promotion/rollback/drift and
+chronological return/loss/calibration validation remain unfinished. Public graphs remain display-only.
 
-Ordered-observation/retry batch #119/65a45dd is MERGED after both exact-head checks for 2fc548d
-and INSTALLED at 2026-10-20T03:40:04Z (19 October, 19:40 AKDT). Two lost retry wakeups are fixed;
-eight copied observations/ACKs need two local replacements rather than sixteen, retaining individual
-ordered delivery and original keys/context. Windows clean 91s: 1,784 Java passed/six skips, Java 11;
-108 tooling passed. VERIFIED backup 20261019-194000-1367235d; installed pair/task/65,712 source rows/
-1,485 effects/original anchor/status/compatibility/scoped reads pass, zero update-created effects.
-Agent closed normally and supported Start reopened RuneLite; the installed plugin loads.
-[Contract](docs/architecture/ordered-observation-batches.md) /
-[receipt](docs/history/ordered-observation-batches-2026-10-19.md); fresh post-login evidence is in
-private local-data/loopback-latency-20261019/delivery-state.json. Controlled full-loop, sustained
-timing and qualified benchmark/learning gates remain open.
+## Delivery and history
 
-Included offline replay v8 (#118/cde3133) adds exit-before-maintenance ordering, stop/winner and mixed-offer priority,
-last-slot exit protection, partial-buy stops and evidence-driven displays within attended visits.
-Five regressions reproduce old failures; Windows clean 129s: 1,768 Java passed/six existing skips,
-Java 11; 108 tooling passed; packaged twelve-scenario bundle reproduces. The contract and verification/delivery
-receipt are [here](docs/architecture/replay-exit-attendance.md) and
-[here](docs/history/replay-exit-attendance-2026-10-19.md). This is evaluator source, not a new
-benchmark/learning promotion. Its evaluator is included in installed #119 above. The owner is
-home and manually logged in; fresh eight-slot/account proof and BUY/SELL delivery are observed.
-Full controlled trade-loop, price-quality and sustained timing acceptance remain open.
+Require standard Windows clean test/JAR verification, Java 11, tooling tests and both exact-head
+Windows/Linux CI checks before merge; fast-forward the clean active default checkout. Use
+`tools/apply-update.ps1 -Unattended`, with -SkipBuild only for verified matching artifacts. Lifecycle
+1 preserves task XML/SDDL. Normal RuneLite window closure is authorized; never force-kill it or send
+game input. Verify backup, installed hashes, source/financial/risk preservation and scoped GETs.
+[Workflow](docs/development-workflow.md), [user-process updates](docs/architecture/user-process-updates.md).
 
-Included trade-continuation batch #116/7e1385b is MERGED after both exact-head checks for 505a912 and
-INSTALLED at 2026-10-19T21:48:48Z: durable exact buy remainders/restart, shared buy/sell
-continuation evidence, fresh quantity-bounded replacement plans/forecasts, accepted foreground
-maintenance identities and quote/volume guards. Replay v7 persists/reloads the shared intents and
-uses bounded replacement planning. Windows clean 92s: 1,761 Java passed/six skips, Java 11;
-108 tooling passed; packaged twelve-scenario schema bundle reproduces. VERIFIED backup
-20261019-134844-d16fc650; installed hashes/task XML/SDDL/62,073 source rows/1,470 effects/original
-anchor/status/compatibility/scoped ledger and new bounded-entry GET pass, zero new financial
-effects. New replacement endpoint returns WAIT without fresh cash/eight-slot evidence. Supported
-Start reopened RuneLite; login/gameplay remain manual. Availability is private in
-local-data/continuation-batch-20261019/delivery-state.json. See [contract](docs/architecture/trade-continuations.md) and
-[consolidated receipt](docs/history/trade-continuation-batch-2026-10-19.md). Controlled manual
-acceptance, sustained timing, complete real foreground/editor/transport policy and qualified
-benchmarks/learning remain open. Continue related fixes in batches; full verification and one
-paired restart follow a completed candidate, with a concise consolidated receipt.
-
-Included #114/61bf57e was installed with exact-head CI, verified pair/backup/task/source/financial
-preservation and no new financial effects. Its exact collection receipt and prior-listing guards
-are retained by #116's shared state. Historical delivery is in the
-[receipt](docs/history/durable-sale-relist-2026-10-19.md); controlled relist acceptance stays open.
-
-Included completed-offer latency #111/b74f93b is MERGED after both exact-head CI checks for 442b70a.
-Windows clean 91s: 1,736 Java passed/six skips, Java 11; 108 tooling passed. Synthetic median
-terminal acceptance is 173ms -> 18ms with identical financial/prediction results. It reuses the
-validated canonical prefix; the 30,000-event rescan, external/tail and rollback guards are covered.
-INSTALLED at 2026-10-19T18:55:13Z via the supported unattended updater after owner-authorized normal
-agent window closure. VERIFIED backup 20261019-105509-9ebbbcba; installed hashes/task XML/SDDL,
-all 62,073 source rows/1,470 effects/original anchor, status, 1.13.2 compatibility and scoped GETs pass.
-Zero update-created financial effects. Supported Start reopened RuneLite; its installed plugin loads.
-Fresh login/trading and sustained timing remain pending. Owner availability is recorded privately in
-local-data/completion-latency-20261019/delivery-state.json; do not request unavailable login or automate game input.
-Source delivery/measurement:
-[contract](docs/architecture/completed-offer-latency.md) and
-[receipt](docs/history/completed-offer-latency-2026-10-19.md). Controlled fills/ACK/instruction and
-sustained latency stay open; historical #108 freshness does not establish current buy readiness.
-
-Included offline replay v6 qualifies original acquisition context through canonical sources/restart,
-uses final companion sale authority and separates displayed advice from a later revalidated manual
-action. Completed orders and incremental disposal counts differ. This evaluator-only increment
-needs no separate live-pair replacement; it is included in installed #111. V7 adds shared
-replacement/persisted-relist coverage; v8's offline changes are above. Real client acceptance and qualified benchmark gates
-stay open. See
-[replay contract](docs/architecture/replay-canonical-sale.md) and
-[verification](docs/history/replay-canonical-sale-2026-10-19.md).
-
-Included #108/fe8a33b was installed at 2026-10-19T16:13:02Z after both exact-head checks passed for
-2e30f76 (run 39279920742). Windows clean 66s: 1,726 Java passed/six existing skips, Java 11;
-108 tooling passed. VERIFIED backup 20261019-081258-a59c264b; installed pair/task XML/SDDL,
-all 61,527 retained event-log rows/1,469 financial effects/original loss anchor, status,
-1.13.2 compatibility and scoped GETs pass. Supported Start reopened RuneLite;
-during that earlier manual login, fresh authenticated eight-slot source proof/zero pending outbox/
-scoped Performance passed. Fresh READY and final PLACE_BUY GET passed (156ms/250ms). Client delivered BUY/COLLECT/
-WAIT; full buy/partial/collect/sell/cancel/relist/restart and price-quality acceptance remain open.
-One subsequent legitimate financial append preserves the original prefix and anchor.
-[Contract](docs/architecture/acquisition-exit-context.md) and
-[receipt](docs/history/acquisition-exit-delivery-2026-10-19.md) retain source, tests and delivery.
-
-Original target/stop/sell duration now follow the exact prospective canonical buy through partial
-fills, ACK/restart and partial sales without the item cache's six-hour TTL. Final sale authority
-uses that same context (companion-sale-3), not a later client snapshot. Mixed/unproven originals
-remain unknown; no legacy plan or old financial row is backfilled. Replay v6 covers this provenance
-boundary; complete production replay and every promotion gate remain open.
-
-Included #105/e21a049 patient pricing was previously installed with VERIFIED backup
-20261019-015028-11a456ab. Its source/policy checks and delivery remain in
-[patient sale delivery](docs/history/patient-sale-delivery-2026-10-19.md); #108 includes the rules.
-Fresh controlled pricing-quality acceptance remains pending.
-
-The shared sell policy lists promptly at an available original healthy target, honors configured
-horizons, full sell patience, recent observed fills and completed-market support before routine
-reductions. Expiry alone no longer models a discount below the current ask. Refused routine
-maintenance leaves the order listed and continues through independent entry checks; stops,
-wind-down, exact floors, unknown money and current source/quantity guards remain. No financial
-rewrite, optimal-pricing or return claim. Replay v6 adds canonical/final authority to the structural
-cadence/share cases; complete production-policy/real benchmark gates remain open.
-
-Included #103/dd49269 panel/speed: fresh account/eight-slot bindings and scoped Performance pass.
-Twelve delivered BUY cards: median 1,039ms, max 5,186ms on the first durable publication; 62 WAIT cards:
-median 607ms/max 1,436ms. Not exact game-event/frame latency or controlled trading acceptance.
-That session's sell-only setting correctly disabled buys; panel/reset/sustained acceptance remains.
-Contract: docs/architecture/panel-performance-and-latency.md; source/timing/delivery/player steps:
-docs/history/panel-speed-delivery-2026-10-19.md. Root design-qa.md is the current visual gate.
-
-The new sidebar exposes scoped session/period/reset, profit/uncertainty, completed sell-order count,
-ROI, elapsed clock/known realized hourly profit, conservative managed-stock marks and paged sales,
-as well as estimated trade profit/time. Measurement reset is separate from risk/financial history.
-Cross-account aggregation remains deferred. History/candidate analysis caches and immediate plan
-completion remove repeated full analysis and fixed five-second spacing while retaining current
-source/cash/limit/risk checks. Frozen timing and synthetic loopback are not installed UI acceptance.
-
-Included #101 approved quiet-stock policy: direct bids within 120s; fallback trades
-within 15m only with qualified completed public price/volume, a 10% haircut/tax and quantity limits.
-Quiet marks cannot credit gains; missing/unsupported stock stays fully reserved. Original accounting,
-anchors, confirmed-loss and final guards remain. Verified pair/backup/task/financial-prefix/status/
-compatibility/scoped reads, fresh authenticated eight-slot proof and qualified marks pass. READY
-plans preceded eight-occupied NO_FREE_SLOT. Final eligible entry/sustained/player/native acceptance
-remains open. Receipt: docs/history/qualified-stock-valuation-2026-10-18.md.
-
-Included accepted behavior: #88 current-account history policy permits unrelated buys from verified
-current cash while incomplete history stays separate/affected stock paused. #86 Missed flips stays
-populated while filtering (owner confirmed). #94 initial sell guidance is accepted: owner says
-"Looks good" after quiet-price/source fixes; recorded sale/listing/source checks pass. Complete
-partial/cancel/collect/relist/restart remains open. Receipts: current-account-delivery-2026-10-18.md,
-history-display-delivery-2026-10-18.md and quiet-market-sale-delivery-2026-10-18.md under docs/history.
-
-Included pending acceptance: #98 native maximized Records/Missed flips; #96 native public price/
-volume graph, investigation and experimental historical-return scenarios. Graph MAE was worse than
-persistence at all four tested horizons; keep display-only. #83 market-drop watch list/webhook,
-investigation and evaluation paths are installed foundations, not completed actionable dump or
-validated-learning parity. Contracts/receipts: docs/architecture/market-graphs.md,
-docs/architecture/parity-account-evaluation.md and linked history.
-
-## Remaining authority and evidence
-
-Keep issue #70 open. Prevention/current-slot recovery does not resolve old gaps. A nine-unit offer
-has 11 acquired units in affected rows; raw counter maxima/aggregate positions are not safe remaining
-holdings, costs or permission to lower reserves. Preserve financial IDs, unknown money, risk anchors,
-account isolation and manual gameplay. No DB edits, financial replay/adoption/outbox clearing/risk
-reset to force advice. Offline audit contract: docs/architecture/trade-evidence-audit.md.
-
-Independent own-account Copilot export already retained has insufficient overlap to close affected
-stock evidence. Do not repeat it without new evidence. The 17 October research/source/protocol/wire
-inventory is in docs/research/flipping-copilot-2026-10-17.md and linked ignored evidence. Its private
-backend/model/training data were not recovered; no private API production dependency.
-
-Replay v7 has shared capital/eight slots/limits/partial fills/tax/manual visits/restart/conservative
-terminal marks, qualified original plans, final sale authority, delayed revalidated actions and
-shared persisted replacement/relist state in twelve synthetic 100M cadence/share scenarios.
-Remaining real foreground/editor/transport/action-order parity and qualified market benchmarks
-stay open. Benchmark 100M members at
-5m/30m/2h/8h separately; slot rates and price touches cannot establish account returns.
-
-Runtime learning stays PUBLIC_PRICE_BASELINE / HOLD_FOR_VALIDATION. A later 25-forecast cohort
-(13 known/12 uncertain) still permits deterioration. Counts alone cannot promote; compatible runtime
-loader, explicit promotion/rollback/drift and return/loss validation remain open. Evidence:
-docs/history/prospective-evaluation-2026-10-18.md. Preserve unknown/censored outcomes and immutable
-original prediction bindings/deduplication. TASKS retains every unchecked gate.
-
-## Routine delivery
-
-Both exact-head Windows/Linux checks must pass before merge; fast-forward the clean primary/default
-CoPilot's-Rebuild-from-Main checkout. Use tools/apply-update.ps1 -Unattended for a verified existing
-pair, -SkipBuild only for verified artifacts. The lifecycle=1 normal-user process leaves protected
-task XML/SDDL unchanged. Owner authorizes the agent to close RuneLite normally through its window
-controls; never force-kill it or send game input. Agent reads logs, status, compatibility and scoped
-pipeline directly; login/GE actions require the player.
-See docs/development-workflow.md and docs/architecture/user-process-updates.md.
-
-Detailed prior handoff is preserved in docs/history/handoff-through-2026-10-18-qualified-stock.md;
-older receipts remain linked there. Tooling/docs-only updates require no JAR reinstall.
+Detailed earlier checkpoints are in [the PR #131 handoff archive](docs/history/handoff-through-2026-10-20-pr131.md).
+They are history, not current installation or owner availability. The concise
+[next-conversation prompt](docs/next-conversation-prompt.md) carries current priorities.

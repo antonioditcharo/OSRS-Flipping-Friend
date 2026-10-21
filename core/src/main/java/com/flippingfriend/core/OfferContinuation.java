@@ -84,12 +84,6 @@ public final class OfferContinuation {
             if(offer==null) continue;
             if(matches(offer)) original=offer;
             else if(offer.buying==buying && offer.item==item && !alreadyPresent(offer)) return close();
-            // After collection the player may start exiting the partial acquisition manually.
-            // A provably later sale supersedes the old rebuy; an older personal listing does not.
-            else if(buying && collectionVerified && !offer.buying && offer.item==item
-                && offer.firstSeen>createdAt && offer.firstSeen>firstSeen && offer.firstSeen<=now && offer.episode!=null
-                && offer.total>0 && offer.filled>=0 && offer.filled<=offer.total
-                && (active(offer) || completed(offer)))return close();
         }
         if(original!=null) {
             if(!validCounter(original) || completed(original)) return close();
@@ -105,8 +99,21 @@ public final class OfferContinuation {
                 collectionVerified=true;collectedRemaining=remainder;collectedFilled=settled.filled;revision++;
             }
         }
+        // Check again after accepting collection in this same pass. Collected sale receipts and
+        // cancelled relists are still exit decisions; they cannot restore an old rebuy promise.
+        if(collectionVerified && board!=null)for(var offer:board)
+            if(buying && createdAt>0 && offer!=null && !offer.buying && offer.item==item
+                && offer.firstSeen>createdAt && offer.firstSeen>firstSeen && offer.firstSeen<=now
+                && offer.episode!=null && !offer.episode.isBlank() && !Objects.equals(episode,offer.episode)
+                && offer.price>0 && offer.total>0 && offer.filled>=0 && offer.filled<=offer.total
+                && (active(offer) || completed(offer) || cancelled(offer)))return close();
         return collectionVerified && collectedRemaining>0 && collectedRemaining<=quantity
             ?Status.COLLECTED:Status.WAITING;
+    }
+    public boolean supersededBy(ContinuationDisposition sale) {
+        return buying && collectionVerified && createdAt>0 && sale!=null && sale.isValid()
+            && sale.getItemId()==item && !Objects.equals(episode,sale.getOfferIdentity())
+            && sale.getFirstSeenAt()>createdAt && sale.getFirstSeenAt()>firstSeen;
     }
     private boolean validCounter(Observation offer) {
         return offer.total>0 && offer.filled>=Math.max(Math.max(filled,maximumFilled),collectedFilled)
