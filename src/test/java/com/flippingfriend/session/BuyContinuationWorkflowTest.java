@@ -26,7 +26,8 @@ public class BuyContinuationWorkflowTest {
             tracker=new OfferTracker(storage,positions,limits,mock(TradeJournal.class),new TaxCalculator(),new TradePlans(storage));
             var original=new TrackedOffer(0,561,true,1000,100,now-3600);original.startEpisodeIdentity();original.setState("BUYING");
             storage.writeJson(storage.accountDir().resolve("offers.json"),List.of(original),new com.google.gson.reflect.TypeToken<List<TrackedOffer>>(){}.getType());
-            tracker.load();when(config.riskProfile()).thenReturn(RiskProfile.MODERATE);when(config.checkInterval()).thenReturn(CheckInterval.FIVE_MINUTES);
+            tracker.load();progress(GrandExchangeOfferState.BUYING,0);
+            when(config.riskProfile()).thenReturn(RiskProfile.MODERATE);when(config.checkInterval()).thenReturn(CheckInterval.FIVE_MINUTES);
             when(account.getState()).thenReturn(new AccountState(true,true,false,100000000,0,0,8,8,0,false,Map.of(),Map.of(),Map.of()));
             when(market.getSeries(anyInt(),anyString())).thenReturn(List.of());quote(now,now);
             restart();
@@ -216,23 +217,30 @@ public class BuyContinuationWorkflowTest {
     }
     @Test public void laterObservedPartialSaleClosesOldRebuyWithoutChangingAcquisitionOrAdoptingOtherUnits()throws Exception {
         for(boolean later:new boolean[]{false,true}) {
-            var f=new Fixture();f.present();f.cancelCollect();
-            var sale=new TrackedOffer(1,561,false,1500,6,now+(later?1:-3601));sale.startEpisodeIdentity();sale.setState("SELLING");
+            var f=new Fixture();assertTrue(f.intent.advise(f.tracker.getOffer(0),f.storage.accountId(),f.tracker,now-100));f.cancelCollect();
+            var sale=new TrackedOffer(1,561,false,1500,6,now+(later?-1:-3601));sale.startEpisodeIdentity();sale.setState("SELLING");
             var type=new com.google.gson.reflect.TypeToken<List<TrackedOffer>>(){}.getType();
             f.storage.writeJson(f.storage.accountDir().resolve("offers.json"),List.of(sale),type);
             var restored=new OfferTracker(f.storage,f.positions,f.limits,mock(TradeJournal.class),new TaxCalculator(),new TradePlans(f.storage));restored.load();
+            assertTrue("A cached sale alone cannot retire a retained promise",f.intent.isPending(561,restored,f.storage.accountId(),now+2));
+            var observed=mock(GrandExchangeOffer.class);when(observed.getState()).thenReturn(GrandExchangeOfferState.SELLING);
+            when(observed.getItemId()).thenReturn(561);when(observed.getPrice()).thenReturn(1500L);when(observed.getTotalQuantity()).thenReturn(6);
+            restored.onOfferChanged(1,observed);
             assertEquals(!later,f.intent.isPending(561,restored,f.storage.accountId(),now+2));
             assertEquals(!later,new BuyRepriceIntent(f.storage).isPending(561,restored,f.storage.accountId(),now+2));
             assertEquals(6,f.positions.get(561).getQuantity());assertEquals(6000,f.positions.get(561).getTotalCost());
         }
     }
-    @Test public void collectedCancelledSaleReceiptClosesOldRebuyAfterTrackerReload()throws Exception {
-        var f=new Fixture();f.present();f.cancelCollect();
-        var sale=new TrackedOffer(1,561,false,1500,6,now+1);sale.startEpisodeIdentity();sale.setState("CANCELLED_SELL");
+    @Test public void cachedCollectedSaleNeedsRecordedDispositionToCloseOldRebuyAfterTrackerReload()throws Exception {
+        var f=new Fixture();assertTrue(f.intent.advise(f.tracker.getOffer(0),f.storage.accountId(),f.tracker,now-100));f.cancelCollect();
+        var sale=new TrackedOffer(1,561,false,1500,6,now-1);sale.startEpisodeIdentity();sale.setState("CANCELLED_SELL");
         sale.setQuantityFilled(2);sale.setCollected(true);
         f.storage.writeJson(f.storage.accountDir().resolve("offers.json"),List.of(sale),new com.google.gson.reflect.TypeToken<List<TrackedOffer>>(){}.getType());
         var restored=new OfferTracker(f.storage,f.positions,f.limits,mock(TradeJournal.class),new TaxCalculator(),new TradePlans(f.storage));restored.load();
-        assertTrue(restored.getOffers().isEmpty());assertFalse(f.intent.isPending(561,restored,f.storage.accountId(),now+2));
+        assertTrue(restored.getOffers().isEmpty());assertTrue(f.intent.isPending(561,restored,f.storage.accountId(),now+2));
+        var ledger=new com.flippingfriend.core.AccountLedgerSnapshot(f.storage.accountId(),now,0,0,0,0,0,0,0,0,List.of())
+            .withContinuationDispositions(List.of(new com.flippingfriend.core.ContinuationDisposition(561,"recorded-partial-sale",sale.getEpisodeIdentity(),now-1,now)));
+        assertTrue(f.intent.observeRecordedSales(ledger,f.storage.accountId(),now+2));
         assertFalse(new BuyRepriceIntent(f.storage).isPending(561,restored,f.storage.accountId(),now+2));
         assertEquals(6,f.positions.get(561).getQuantity());assertEquals(6000,f.positions.get(561).getTotalCost());
     }
@@ -316,6 +324,65 @@ public class BuyContinuationWorkflowTest {
         assertEquals(0,f.intent.pendingItemId(f.tracker,f.storage.accountId(),now));
         f=new Fixture();f.present();f.engine.setSellOnly(true);f.cancelCollect();f.restart();
         assertEquals(0,f.intent.pendingItemId(f.tracker,f.storage.accountId(),now));
+    }
+    @Test public void unshownExhaustedOverdueAndUnprofitableCancellationsCannotRetireAnAcceptedReplacement()throws Exception {
+        for(String reason:List.of("limit","overdue","unprofitable")) {
+        var f=new Fixture();
+        if(reason.equals("overdue")) {
+            assertTrue(f.intent.advise(f.tracker.getOffer(0),f.storage.accountId(),f.tracker,now));
+            var field=SuggestionEngine.class.getDeclaredField("companion");field.setAccessible(true);
+            when(((CompanionClient)field.get(f.engine)).originalBuyExpectedMinutes(any())).thenReturn(1.0);
+        } else f.present();
+        var path=f.storage.accountDir().resolve("buy-reprice-intent.json");
+        byte[] before=java.nio.file.Files.readAllBytes(path);
+        if(reason.equals("limit"))f.limits.recordPurchase(561,1000,Instant.ofEpochSecond(now));
+        if(reason.equals("unprofitable"))when(f.market.getSnapshot()).thenReturn(new MarketSnapshot(
+            Map.of(561,new ItemMetadata(561,"Nature rune",false,1000,0)),Map.of(561,new LatestPrice(1100,now,1100,now)),
+            Map.of(561,new Candle((now/300-1)*300,1100,1100,1000,1000)),Map.of(),Instant.ofEpochSecond(now)));
+        var cancel=f.engine.refresh(false);assertEquals(SuggestionType.CANCEL,cancel.getType());
+        assertArrayEquals("A worker proposal is not accepted cancellation",before,java.nio.file.Files.readAllBytes(path));
+        assertTrue(f.intent.isPending(561,f.tracker,f.storage.accountId(),now));
+        assertEquals(f.tracker.getOffer(0).getContinuationIdentity(),cancel.getMaintenanceOfferIdentity());
+        assertTrue(f.engine.recordPresentedMaintenance(cancel,f.storage.accountId(),now));
+        assertFalse(new BuyRepriceIntent(f.storage).isPending(561,f.tracker,f.storage.accountId(),now));
+        }
+    }
+    private Suggestion cancellation(TrackedOffer offer) {
+        return Suggestion.builder(SuggestionType.CANCEL).item(offer.getItemId(),offer.getItemName())
+            .slot(offer.getSlot()).price(offer.getPrice()).quantity(offer.getRemaining())
+            .maintenanceSource(offer.getContinuationIdentity()).build();
+    }
+    @Test public void anOldCancellationCannotRetireANewerSameItemEpisode()throws Exception {
+        var f=new Fixture();f.present();var old=cancellation(f.tracker.getOffer(0));
+        f.cancelCollect();f.progress(GrandExchangeOfferState.BUYING,0);
+        assertTrue(f.intent.advise(f.tracker.getOffer(0),f.storage.accountId(),f.tracker,now));
+        var path=f.storage.accountDir().resolve("buy-reprice-intent.json");byte[] before=java.nio.file.Files.readAllBytes(path);
+        assertFalse("Item and slot cannot substitute for the accepted episode",f.engine.recordPresentedMaintenance(old,f.storage.accountId(),now));
+        assertArrayEquals(before,java.nio.file.Files.readAllBytes(path));
+        assertTrue(new BuyRepriceIntent(f.storage).isPending(561,f.tracker,f.storage.accountId(),now));
+    }
+    @Test public void acceptedCancellationMustCommitBeforeRetiringTheOriginalPromiseAndCanRetry()throws Exception {
+        var f=new Fixture();f.present();var cancel=cancellation(f.tracker.getOffer(0));
+        var path=f.storage.accountDir().resolve("buy-reprice-intent.json");byte[] before=java.nio.file.Files.readAllBytes(path);
+        var blocked=path.resolveSibling(path.getFileName()+".tmp");java.nio.file.Files.createDirectory(blocked);
+        assertFalse(f.engine.recordPresentedMaintenance(cancel,f.storage.accountId(),now));
+        assertArrayEquals(before,java.nio.file.Files.readAllBytes(path));
+        assertTrue(new BuyRepriceIntent(f.storage).isPending(561,f.tracker,f.storage.accountId(),now));
+        java.nio.file.Files.delete(blocked);assertTrue(f.engine.recordPresentedMaintenance(cancel,f.storage.accountId(),now));
+        assertFalse(new BuyRepriceIntent(f.storage).isPending(561,f.tracker,f.storage.accountId(),now));
+    }
+    @Test public void changedCancellationCountersPriceStateAndMissingIdentityCannotRetireAWorkflow()throws Exception {
+        for(String change:List.of("quantity","price","state","identity")) {
+            var f=new Fixture();f.present();var offer=f.tracker.getOffer(0);var cancel=cancellation(offer);
+            if(change.equals("quantity"))f.progress(GrandExchangeOfferState.BUYING,4);
+            if(change.equals("price"))cancel=Suggestion.builder(SuggestionType.CANCEL).item(561,"Nature rune").slot(0)
+                .price(1001).quantity(100).maintenanceSource(offer.getContinuationIdentity()).build();
+            if(change.equals("state"))f.progress(GrandExchangeOfferState.CANCELLED_BUY,0);
+            if(change.equals("identity"))cancel=Suggestion.builder(SuggestionType.CANCEL).item(561,"Nature rune").slot(0).price(1000).quantity(100).build();
+            var path=f.storage.accountDir().resolve("buy-reprice-intent.json");byte[] before=java.nio.file.Files.readAllBytes(path);
+            assertFalse(change,f.engine.recordPresentedMaintenance(cancel,f.storage.accountId(),now));
+            assertArrayEquals(change,before,java.nio.file.Files.readAllBytes(path));
+        }
     }
     @Test public void anUnshownOrOldEpisodeMaintenanceProposalCannotCreateAPromise()throws Exception {
         var f=new Fixture();var proposed=f.engine.refresh(false);assertEquals(SuggestionType.MODIFY_BUY,proposed.getType());

@@ -244,7 +244,11 @@ public class SuggestionEngine
             return clearBuyPromise(accepted.getItemId(),Instant.ofEpochSecond(now));
         if(accepted.getType()==SuggestionType.CANCEL) {
             var cancelled=offers.getOffer(accepted.getSlot());
-            if(cancelled!=null && cancelled.isBuying() && cancelled.getItemId()==accepted.getItemId())
+            if(cancelled!=null && cancelled.isBuying() && "BUYING".equals(cancelled.getState())
+                && cancelled.getItemId()==accepted.getItemId() && cancelled.getPrice()==accepted.getPrice()
+                && cancelled.getRemaining()==accepted.getQuantity() && cancelled.getRemaining()>0
+                && accepted.getMaintenanceOfferIdentity()!=null
+                && accepted.getMaintenanceOfferIdentity().equals(cancelled.getContinuationIdentity()))
                 return clearBuyPromise(accepted.getItemId(),Instant.ofEpochSecond(now));
             return false;
         }
@@ -728,8 +732,8 @@ public class SuggestionEngine
 				int limit = metadata != null ? metadata.getBuyLimit() : 0;
 				if (limit > 0 && buyLimits.remaining(offer.getItemId(), limit, now) <= 0)
 				{
-                    clearBuyPromise(offer.getItemId(),now);
 					return Suggestion.builder(SuggestionType.CANCEL)
+						.maintenanceSource(offer.getContinuationIdentity())
 						.item(offer.getItemId(), market.getItemName(offer.getItemId()))
 						.slot(offer.getSlot())
 						.price(offer.getPrice())
@@ -756,7 +760,6 @@ public class SuggestionEngine
                     horizon.legHorizonHours()*60,now.getEpochSecond(),observedAccount);
                 if(com.flippingfriend.session.BuyRepricePricing.overdue(offer.getFirstSeen(),offer.getLastFillObservedAt(),
                     deadline,price,horizon,now.getEpochSecond())) {
-                    clearBuyPromise(offer.getItemId(),now);
                     return Suggestion.builder(SuggestionType.CANCEL).maintenanceSource(offer.getContinuationIdentity())
                         .item(offer.getItemId(),name).slot(offer.getSlot()).price(offer.getPrice()).quantity(remaining)
                         .headline("Review the stalled "+name+" buy")
@@ -791,8 +794,8 @@ public class SuggestionEngine
 					// the honest answer is the slot, not a better price for a bad trade.
 					if (!buyQuote.replace)
 					{
-                        clearBuyPromise(offer.getItemId(),now);
 						return Suggestion.builder(SuggestionType.CANCEL)
+							.maintenanceSource(offer.getContinuationIdentity())
 							.item(offer.getItemId(), name)
 							.slot(offer.getSlot())
 							.price(offer.getPrice())
@@ -1211,6 +1214,7 @@ public class SuggestionEngine
 				+ "bought stays yours, and will be offered for sale once it is collected."
 			: "";
 		return Suggestion.builder(SuggestionType.CANCEL)
+			.maintenanceSource(biggest.getContinuationIdentity())
 			.item(biggest.getItemId(), name)
 			.slot(biggest.getSlot())
 			.price(biggest.getPrice())
@@ -1413,6 +1417,7 @@ public class SuggestionEngine
 
 		long coins = (long) give.getPrice() * give.getRemaining();
 		return Suggestion.builder(SuggestionType.CANCEL)
+			.maintenanceSource(give.getContinuationIdentity())
 			.item(give.getItemId(), giveName)
 			.slot(give.getSlot())
 			.price(give.getPrice())
@@ -1463,6 +1468,7 @@ public class SuggestionEngine
 		String name = market.getItemName(itemId);
 		long coins = (long) buy.getPrice() * buy.getRemaining();
 		return Suggestion.builder(SuggestionType.CANCEL)
+			.maintenanceSource(buy.getContinuationIdentity())
 			.item(itemId, name)
 			.slot(buy.getSlot())
 			.price(buy.getPrice())

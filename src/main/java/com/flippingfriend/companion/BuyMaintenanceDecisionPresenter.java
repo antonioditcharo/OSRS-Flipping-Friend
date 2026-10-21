@@ -19,7 +19,12 @@ final class BuyMaintenanceDecisionPresenter
         if (decision.getAction() == OfferLifecycleAction.CANCEL_BUY)
         {
             int remaining = offer.getTotalQuantity() - offer.getFilledQuantity();
+            String legacyWireIdentity=offer.getSlot()+"@"+offer.getFirstSeenAt()+":"+offer.getItemId();
+            String continuationIdentity=com.flippingfriend.core.OfferContinuation.identity(offer.getSlot(),offer.getItemId(),
+                true,offer.getPrice(),offer.getTotalQuantity(),offer.getFirstSeenAt(),
+                legacyWireIdentity.equals(offer.getOfferIdentity())?null:offer.getOfferIdentity());
             suggestion = Suggestion.builder(SuggestionType.CANCEL)
+                .maintenanceSource(continuationIdentity)
                 .item(offer.getItemId(), offer.getItemName())
                 .slot(offer.getSlot()).price(offer.getPrice()).quantity(remaining)
                 .headline("Cancel your " + offer.getItemName() + " buy offer")

@@ -1,10 +1,16 @@
 # Tasks
 
 Updated 21 October 2026. Read [HANDOFF.md](HANDOFF.md) and the actual delivery receipt at
-`local-data/sale-continuation-evidence-20261021/delivery-state.json` first. Implemented/tested, merged,
+`local-data/continuation-restoration-20261021/delivery-state.json` first. Implemented/tested, merged,
 installed and player accepted are separate states. Owner is home; older login deferrals are superseded.
 
 ## Current batch
+
+- [x] Isolate current-login continuation evidence from cached recovery offers; preserve collected
+      remainders across snapshot save lag and account changes. Retire rebuy promises only after exact
+      cancellation acceptance and durable commit. [Contract](docs/architecture/continuation-restoration-boundaries.md).
+- [ ] Accept crash/reconnect restoration, late fills, collection and exact replacement/relist through
+      player operation. Source regressions and installed hashes do not establish trading acceptance.
 
 - [x] Implement independent later sale-source acceptance clocks and accepted-board parallel-sale
       proof. Failed commits preserve hints; changed/new/cleared orders cannot borrow permission.
@@ -58,6 +64,10 @@ installed and player accepted are separate states. Owner is home; older login de
       [receipt](docs/history/continuation-sale-disposition-delivery-2026-10-20.md).
 
 ## Outstanding acceptance and release requirements
+
+- [ ] Preserve and temporarily refuse well-formed future-clock continuation documents when the local
+      clock is behind creation/acceptance, instead of treating them as terminal and removing them.
+      Malformed evidence and genuine fresh counter regressions must retain their existing refusal.
 
 All 36 previously unchecked requirements are retained below, with obsolete delivery receipts moved to
 [the full prior task archive](docs/history/tasks-through-2026-10-20-pr131.md). Current installed state
