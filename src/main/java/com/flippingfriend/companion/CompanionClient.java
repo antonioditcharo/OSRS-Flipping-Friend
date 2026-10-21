@@ -463,6 +463,24 @@ public class CompanionClient
         public void publishObservedOffer(TrackedOffer offer,String expectedAccountId,long observedAt)
         { publishOffer(offer,expectedAccountId,true,observedAt,true); }
 
+    /** Commit a copied client capture locally before dispatch. Never performs HTTP. */
+    public void captureObservedOffer(TrackedOffer offer,String expectedAccountId,long observedAt) {
+        if(offer!=null && publishOffer(offer.copyObservation(),expectedAccountId,true,observedAt,false)!=null)
+            wakeCapturedOfferReplay();
+    }
+    public void captureObservedOfferCleared(int slot,String expectedAccountId,long observedAt) {
+        if(publishOfferCleared(slot,expectedAccountId,true,observedAt,false)!=null)wakeCapturedOfferReplay();
+    }
+    private void wakeCapturedOfferReplay() {
+        long generation=replayGeneration.get();
+        synchronized(replayScheduling) {
+            if(!replayLifecycleIsCurrent(generation))return;
+            // Wake a drained queue, retaining any active transport-failure backoff.
+            if(nextRetryAtMillis==Long.MAX_VALUE)nextRetryAtMillis=retryClock.getAsLong();
+            if(replayRunning.get())replayRescheduleGeneration=generation;
+        }
+    }
+
         private OfferEvent publishOffer(TrackedOffer offer, String expectedAccountId, boolean authenticated)
         {
                 return publishOffer(offer,expectedAccountId,authenticated,Instant.now().getEpochSecond(),true);

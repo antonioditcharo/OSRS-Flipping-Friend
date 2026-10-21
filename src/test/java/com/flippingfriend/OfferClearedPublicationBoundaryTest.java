@@ -25,7 +25,7 @@ public class OfferClearedPublicationBoundaryTest
                 Assert.assertTrue(plugin.contains(
                         "publishOfferClearedToCompanion(event.getSlot())"));
                 Assert.assertTrue(plugin.contains(
-                        "companion.publishObservedOfferCleared(slot, account, observedAt)"));
+                        "companion.captureObservedOfferCleared(slot,account,observedAt)"));
                 Assert.assertTrue(plugin.contains(
                         "publishOfferToCompanion(offerTracker.getOffer(event.getSlot()))"));
 
