@@ -25,6 +25,9 @@ $global:ffUpdateTestStarted = $false
 $global:ffUpdateTestFixture = $fixture
 $global:ffUpdateTestTask = $null
 $global:ffUpdateTestClock = 0
+$global:ffHealthProbes = 0
+$global:ffHealthTimeouts = [System.Collections.Generic.List[int]]::new()
+$global:ffHealthClockOrigin = [DateTime]::UtcNow
 $global:ffProcessStopped = $false
 $global:ffSchedulerRaceInjected = $false
 $env:USERNAME = 'fixture-user'
@@ -70,7 +73,9 @@ function Invoke-CimMethod {
 }
 function Get-NetTCPConnection {
     [CmdletBinding()] param($LocalPort, $State)
-    if ($scenario.opaquePort) { [pscustomobject]@{ OwningProcess = 999 } }
+    if ($scenario.listenerChangesAfterProbe -and $global:ffHealthProbes -ge $scenario.listenerChangesAfterProbe) { [pscustomobject]@{ OwningProcess = 303 } }
+    elseif ($scenario.listenerDisappearsAfterProbe -and $global:ffHealthProbes -ge $scenario.listenerDisappearsAfterProbe) { return }
+    elseif ($scenario.opaquePort) { [pscustomobject]@{ OwningProcess = 999 } }
     elseif ($global:ffUpdateTestStarted -or $scenario.alreadyRunning) { [pscustomobject]@{ OwningProcess = 202 } }
 }
 function Stop-Process {
@@ -111,8 +116,12 @@ function Start-Process {
     $global:ffUpdateTestEvents.Add('start-process')
     $global:ffUpdateTestStarted = $true
 }
-function Start-Sleep { param($Seconds, $Milliseconds) }
+function Start-Sleep {
+    param($Seconds, $Milliseconds)
+    if ($scenario.healthFastClock) { $global:ffUpdateTestClock += $Seconds + $Milliseconds / 1000.0 }
+}
 function Get-Date {
+    if ($scenario.healthFastClock) { return $global:ffHealthClockOrigin.AddSeconds($global:ffUpdateTestClock) }
     if ($scenario.fastTime) { $global:ffUpdateTestClock++; return [DateTime]::UtcNow.AddSeconds(10 * $global:ffUpdateTestClock) }
     return [DateTime]::UtcNow
 }
@@ -176,8 +185,21 @@ function Invoke-WebRequest {
         if ($scenario.releaseMalformed) { return [pscustomobject]@{ Content='{"version":"invalid","artifacts":[]}' } }
         return [pscustomobject]@{ Content=(@{version=$version;artifacts=@(@{name="client-$version.jar"})} | ConvertTo-Json -Compress -Depth 4) }
     }
+    $global:ffHealthProbes++
+    $global:ffHealthTimeouts.Add([int]$TimeoutSec)
+    if ($scenario.healthProbeDelaySeconds) {
+        $global:ffUpdateTestClock += $(if($scenario.ignoreHealthTimeout){$scenario.healthProbeDelaySeconds}else{[Math]::Min($TimeoutSec,$scenario.healthProbeDelaySeconds)})
+    }
+    if ($scenario.healthNeverResponds -or $global:ffHealthProbes -le $scenario.healthTransientFailures) { throw 'Synthetic health connection timeout.' }
+    if ($scenario.healthHttpStatus) {
+        $failure = [Exception]::new('Synthetic health HTTP failure.')
+        $failure | Add-Member NoteProperty Response ([pscustomobject]@{StatusCode=$scenario.healthHttpStatus})
+        throw $failure
+    }
+    if ($scenario.healthMalformed) { return [pscustomobject]@{Headers=@{'X-Flipping-Friend-Protocol'='accounts-v1'};Content='{'} }
     $protocol = if ($scenario.badHealth) { 'legacy-v0' } else { 'accounts-v1' }
-    [pscustomobject]@{ Headers=@{ 'X-Flipping-Friend-Protocol'=$protocol }; Content='{"status":"READY"}' }
+    $healthStatus = if ($scenario.healthStatus) { $scenario.healthStatus } else { 'READY' }
+    [pscustomobject]@{ Headers=@{ 'X-Flipping-Friend-Protocol'=$protocol }; Content=(@{status=$healthStatus} | ConvertTo-Json -Compress) }
 }
 function New-Object {
     param($ComObject)
@@ -258,6 +280,7 @@ try {
 catch { $failure = $_.Exception.Message }
 Write-Output ('HARNESS_RESULT=' + (@{
     error = $failure; events = @($global:ffUpdateTestEvents)
+    healthProbes = $global:ffHealthProbes; healthTimeouts = @($global:ffHealthTimeouts); elapsed = $global:ffUpdateTestClock
 } | ConvertTo-Json -Compress))
 """
 
@@ -955,6 +978,84 @@ function Stop-NativeVerifiedCompanion($Process) {
         self.scenario.update(startOnly=True, alreadyRunning=True, releaseFails=True)
         result = self.run_update()
         self.assertIsNone(result["error"], self.output)
+        self.assertEqual([], result["events"], self.output)
+
+    def test_start_waits_for_existing_listener_after_temporary_health_failures(self):
+        self.scenario.update(startOnly=True, alreadyRunning=True, releaseFails=True,
+                             healthTransientFailures=2, healthFastClock=True)
+        result = self.run_update()
+        self.assertIsNone(result["error"], self.output)
+        self.assertEqual(3, result["healthProbes"], self.output)
+        self.assertEqual([], result["events"], self.output)
+        self.assertIn("without starting another copy", self.output)
+
+    def test_existing_listener_timeout_is_bounded_without_starting_or_stopping(self):
+        self.scenario.update(startOnly=True, alreadyRunning=True, healthNeverResponds=True,
+                             healthFastClock=True, healthProbeDelaySeconds=8)
+        result = self.run_update()
+        self.assertIn("within 60s", result["error"], self.output)
+        self.assertEqual(60, result["elapsed"], self.output)
+        self.assertEqual(6, result["healthTimeouts"][-1], self.output)
+        self.assertEqual([], result["events"], self.output)
+
+    def test_existing_listener_bad_protocol_or_body_is_rejected_without_retry(self):
+        for failure in ["badHealth", "healthMalformed"]:
+            with self.subTest(failure=failure):
+                self.scenario.update(startOnly=True, alreadyRunning=True, healthFastClock=True,
+                                     badHealth=False, healthMalformed=False)
+                self.scenario[failure] = True
+                result = self.run_update()
+                self.assertIn("scoped health check", result["error"], self.output)
+                self.assertEqual(1, result["healthProbes"], self.output)
+                self.assertEqual([], result["events"], self.output)
+
+    def test_existing_listener_authentication_failure_is_not_retried(self):
+        self.scenario.update(startOnly=True, alreadyRunning=True, healthFastClock=True, healthHttpStatus=401)
+        result = self.run_update()
+        self.assertIn("HTTP 401", result["error"], self.output)
+        self.assertEqual(1, result["healthProbes"], self.output)
+        self.assertEqual([], result["events"], self.output)
+
+    def test_existing_listener_missing_credential_is_rejected_without_a_request(self):
+        self.scenario.update(startOnly=True, alreadyRunning=True, healthFastClock=True)
+        self.properties.unlink()
+        result = self.run_update()
+        self.assertIn("Missing companion credential", result["error"], self.output)
+        self.assertEqual(0, result["healthProbes"], self.output)
+        self.assertEqual([], result["events"], self.output)
+
+    def test_existing_listener_degraded_market_still_allows_start_without_guard_bypass(self):
+        self.scenario.update(startOnly=True, alreadyRunning=True, healthStatus="DEGRADED")
+        result = self.run_update()
+        self.assertIsNone(result["error"], self.output)
+        self.assertEqual(1, result["healthProbes"], self.output)
+        self.assertEqual([], result["events"], self.output)
+
+    def test_existing_listener_server_failure_retries_but_never_starts_a_second_copy(self):
+        self.scenario.update(startOnly=True, alreadyRunning=True, healthFastClock=True,
+                             healthHttpStatus=503, healthProbeDelaySeconds=8)
+        result = self.run_update()
+        self.assertIn("within 60s", result["error"], self.output)
+        self.assertIn("HTTP 503", result["error"], self.output)
+        self.assertGreater(result["healthProbes"], 1, self.output)
+        self.assertEqual([], result["events"], self.output)
+
+    def test_changed_or_disappeared_listener_aborts_even_if_health_succeeded(self):
+        for failure in ["listenerChangesAfterProbe", "listenerDisappearsAfterProbe"]:
+            with self.subTest(failure=failure):
+                self.scenario.update(startOnly=True, alreadyRunning=True, healthFastClock=True,
+                                     listenerChangesAfterProbe=0, listenerDisappearsAfterProbe=0)
+                self.scenario[failure] = 1
+                result = self.run_update()
+                self.assertIn("listener changed", result["error"], self.output)
+                self.assertEqual([], result["events"], self.output)
+
+    def test_health_returning_after_deadline_cannot_claim_readiness(self):
+        self.scenario.update(startOnly=True, alreadyRunning=True, healthFastClock=True,
+                             healthProbeDelaySeconds=65, ignoreHealthTimeout=True)
+        result = self.run_update()
+        self.assertIn("within 60s", result["error"], self.output)
+        self.assertNotIn("Companion already ready", self.output)
         self.assertEqual([], result["events"], self.output)
 
     def test_status_is_read_only_when_healthy(self):

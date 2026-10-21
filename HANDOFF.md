@@ -5,6 +5,11 @@ Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
 ## Current delivery
 
+Starter tooling: `local-data/starter-health-retry-20261021/delivery-state.json` records the existing-
+listener health retry fix and verification. Start waits at most 60s for transient failures on the
+same port-owning PID, rejects credentials/protocol/body failures and never starts a second copy.
+The live starter works again. This is scripts-only; installed Java remains #136 and needs no reinstall.
+
 Newest workflow slice: read `local-data/ordinary-sale-queue-20261021/delivery-state.json` for source,
 CI, merge and installed state. Ordinary sale reductions now retain every later eligible sale through
 final authority; only the presented instruction commits its durable continuation. Pricing, buy/stop

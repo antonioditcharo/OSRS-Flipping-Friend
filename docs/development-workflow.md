@@ -12,6 +12,11 @@ into a separate documentation/build/install cycle. Repeat checks for new changes
 
 ## Routine agent delivery
 
+Start reuses a healthy existing companion. Transient health connection/server failures wait up to
+60 seconds on the same port-owning PID; credentials, protocol/body failures or a changed/disappeared
+listener fail closed. It never starts a duplicate or stops a listener to recover health. Status stays
+read-only and reports its current probe without waiting. Script-only fixes require no JAR reinstall.
+
 1. Diagnose from logs, authenticated GETs and read-only evidence. Reproduce real bugs with tests.
 2. Batch source fixes on a codex/ branch. Run appropriate tests and the standard verification once
    per candidate; repeat only for a new change, failure or unresolved concern. Capture concise results.

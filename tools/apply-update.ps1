@@ -264,24 +264,61 @@ function Wait-PortFree {
     throw 'Port 37777 is still occupied; no JARs were replaced.'
 }
 function Test-Health {
+    param([int] $TimeoutSeconds = 8)
+    $script:companionHealthRetryable = $false
+    $script:companionHealthFailure = 'Missing companion credential.'
     $properties = Join-Path $logDir 'companion.properties'
     if (-not (Test-Path -LiteralPath $properties -PathType Leaf)) { return $false }
     $line = Get-Content -LiteralPath $properties | Where-Object { $_ -match '^token=' } | Select-Object -First 1
     if (-not $line) { return $false }
     try {
         $reply = Invoke-WebRequest -UseBasicParsing -Uri 'http://127.0.0.1:37777/v1/health' `
-            -Headers @{ 'X-Flipping-Friend-Token' = $line.Substring(6) } -TimeoutSec 8
-        $health = $reply.Content | ConvertFrom-Json
-        return ($reply.Headers['X-Flipping-Friend-Protocol'] -eq 'accounts-v1' -and
-            $health.status -in @('READY', 'DEGRADED'))
-    } catch { return $false }
+            -Headers @{ 'X-Flipping-Friend-Token' = $line.Substring(6) } -TimeoutSec $TimeoutSeconds
+        try { $health = $reply.Content | ConvertFrom-Json -ErrorAction Stop }
+        catch { $script:companionHealthFailure = 'Malformed companion health response.'; return $false }
+        if ($reply.Headers['X-Flipping-Friend-Protocol'] -ne 'accounts-v1') {
+            $script:companionHealthFailure = 'Unexpected companion protocol.'; return $false
+        }
+        if ($health.status -notin @('READY', 'DEGRADED')) {
+            $script:companionHealthFailure = 'Unsupported companion health response.'; return $false
+        }
+        return $true
+    } catch {
+        $status = if ($_.Exception.Response) { [int]$_.Exception.Response.StatusCode } else { 0 }
+        # Never weaken authentication/protocol validation to recover a delayed listener.
+        $script:companionHealthRetryable = ($status -eq 0 -or ($status -ge 500 -and $status -lt 600))
+        $script:companionHealthFailure = if ($status) { "Health request returned HTTP $status." } else { 'Health request failed or timed out.' }
+        return $false
+    }
+}
+function Wait-ExistingCompanion([int] $ListenerPid) {
+    $deadline = (Get-Date).AddSeconds(60)
+    $announced = $false
+    do {
+        if ((Get-CompanionPid) -ne $ListenerPid) { throw 'The companion listener changed while checking health. No second copy was started; run 3 - Status.' }
+        $remaining = [int][Math]::Ceiling(($deadline - (Get-Date)).TotalSeconds)
+        if ($remaining -le 0) { break }
+        if (Test-Health -TimeoutSeconds ([Math]::Min(8, $remaining))) {
+            if ((Get-Date) -ge $deadline) { $script:companionHealthFailure = 'Health response arrived after the startup deadline.'; break }
+            if ((Get-CompanionPid) -ne $ListenerPid) { throw 'The companion listener changed while checking health. No second copy was started; run 3 - Status.' }
+            Write-Host 'Companion already ready.'; return
+        }
+        if (-not $script:companionHealthRetryable) {
+            throw "The existing listener did not pass the scoped health check. $script:companionHealthFailure Run 3 - Status; no second copy was started."
+        }
+        if (-not $announced) { Write-Host 'Existing companion is not responding yet; waiting up to 60s without starting another copy.'; $announced = $true }
+        if ((Get-Date) -ge $deadline) { break }
+        Start-Sleep -Seconds 1
+    } while ((Get-Date) -lt $deadline)
+    throw "The existing listener did not pass the scoped health check within 60s. $script:companionHealthFailure Run 3 - Status; no second copy was started."
 }
 function Start-Companion($candidate, [string] $java, [switch] $Direct) {
     Assert-InstalledPair
     Assert-Task $candidate
-    if ((Get-CompanionPid) -ne 0) {
-        if (Test-Health) { Write-Host 'Companion already ready.'; return }
-        throw 'The existing listener did not pass the scoped health check. Run 3 - Status; do not start a second copy.'
+    $listenerPid = Get-CompanionPid
+    if ($listenerPid -ne 0) {
+        Wait-ExistingCompanion $listenerPid
+        return
     }
     New-Item -ItemType Directory -Force -Path $logDir | Out-Null
     if ($candidate -and -not $Direct) { Start-ScheduledTask -TaskName $taskName -TaskPath '\' }
