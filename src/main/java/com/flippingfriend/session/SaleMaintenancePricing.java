@@ -10,6 +10,22 @@ import java.util.List;
 /** Pure sale-maintenance authority shared by the client, companion and chronological replay. */
 public final class SaleMaintenancePricing {
     public static final String VERSION="supported-sale-maintenance-3";
+    public enum Status {
+        ELIGIBLE, INVALID_QUANTITY, MISSING_PRICES, STALE_PRICES, IMMATERIAL_CHANGE,
+        UNPROVEN_QUANTITY, UNKNOWN_CLOCKS, PLACEMENT_PATIENCE, RECENT_PROGRESS,
+        MARKET_SUPPORT, COST_FLOOR
+    }
+    /** The same decision supplies both pricing and read-only investigation. No trading permission. */
+    public static final class Evaluation {
+        public final Status status;
+        public final Quote quote;
+        /** Earliest clock-only reassessment, not a promise of market support or authority. */
+        public final long reassessAt;
+        private Evaluation(Status status,Quote quote,long reassessAt) {
+            this.status=status;this.quote=quote;this.reassessAt=reassessAt;
+        }
+        static Evaluation waitFor(Status status){return new Evaluation(status,null,0);}
+    }
     public static final class Quote {
         public final int price, floor;
         public final long allocatedCost;
@@ -22,10 +38,19 @@ public final class SaleMaintenancePricing {
     public Quote quote(int item,int offerPrice,int remaining,Position position,LatestPrice latest,
         List<Candle> series,TradingHorizon horizon,Instant now,boolean sellOnly,
         SellTimingEngine exits,TaxCalculator tax,long firstObservedAt,long lastProgressAt) {
-        if(remaining<=0 || latest==null || !latest.isComplete() || latest.secondsSinceHigh(now)<0
+        return evaluate(item,offerPrice,remaining,position,latest,series,horizon,now,sellOnly,exits,tax,
+            firstObservedAt,lastProgressAt).quote;
+    }
+    public Evaluation evaluate(int item,int offerPrice,int remaining,Position position,LatestPrice latest,
+        List<Candle> series,TradingHorizon horizon,Instant now,boolean sellOnly,
+        SellTimingEngine exits,TaxCalculator tax,long firstObservedAt,long lastProgressAt) {
+        if(remaining<=0)return Evaluation.waitFor(Status.INVALID_QUANTITY);
+        if(latest==null || !latest.isComplete())return Evaluation.waitFor(Status.MISSING_PRICES);
+        if(latest.secondsSinceHigh(now)<0
             || latest.secondsSinceLow(now)<0 || latest.stalestSideSeconds(now)>300
-            || offerPrice-latest.getHigh()<horizon.outbidDeadband(offerPrice)
-            || position!=null && remaining>position.getQuantity()) return null;
+            )return Evaluation.waitFor(Status.STALE_PRICES);
+        if(offerPrice-latest.getHigh()<horizon.outbidDeadband(offerPrice))return Evaluation.waitFor(Status.IMMATERIAL_CHANGE);
+        if(position!=null && remaining>position.getQuantity())return Evaluation.waitFor(Status.UNPROVEN_QUANTITY);
         boolean known=position!=null && position.isCostKnown();
         long cost=known?SaleAccounting.allocateCost(position.getTotalCost(),position.getQuantity(),remaining):0;
         int floor=known?tax.breakEvenSellPriceForCost(item,cost,remaining):1;
@@ -40,26 +65,30 @@ public final class SaleMaintenancePricing {
             else if(known) {
                 // Preserve the existing maintenance loss guard. Explicit wind-down bypasses
                 // patience/target protection, not this exact remaining-cost floor.
-                if(floor<=0)return null;price=Math.max(price,floor);
+                if(floor<=0)return Evaluation.waitFor(Status.COST_FLOOR);price=Math.max(price,floor);
             }
             reason=cut?"Fresh market evidence has crossed the recorded stop loss."
                 :"Finish session (sell only) is enabled; seeking a faster exit as requested.";
         } else {
             long at=now.getEpochSecond();
             int supported=supportedLowerAsk(series,offerPrice,horizon,at);
-            if(firstObservedAt<=0 || firstObservedAt>at || lastProgressAt<firstObservedAt || lastProgressAt>at
-                || at-firstObservedAt<horizon.staleOfferMinutes()*60
-                || at-lastProgressAt<horizon.staleOfferMinutes()*60
-                || supported<=0)return null;
+            if(firstObservedAt<=0 || firstObservedAt>at || lastProgressAt<firstObservedAt || lastProgressAt>at)
+                return Evaluation.waitFor(Status.UNKNOWN_CLOCKS);
+            long patience=horizon.staleOfferMinutes()*60L;
+            long reassess=Math.max(firstObservedAt,lastProgressAt)+patience;
+            if(at-firstObservedAt<patience)return new Evaluation(Status.PLACEMENT_PATIENCE,null,reassess);
+            if(at-lastProgressAt<patience)return new Evaluation(Status.RECENT_PROGRESS,null,reassess);
+            if(supported<=0)return Evaluation.waitFor(Status.MARKET_SUPPORT);
             if(known) {
-                if(floor<=0)return null;
+                if(floor<=0)return Evaluation.waitFor(Status.COST_FLOOR);
             }
             price=Math.max(floor,Math.max(latest.getHigh()-1,supported));
             reason=!known ? "The offer has no recent fills, and two completed market buckets support a lower ask. Acquisition cost and profit remain unknown."
                 :"The offer has no recent fills, and two completed market buckets support a profitable reduction. The exact after-tax acquisition cost remains protected; the original target is a reference, not a fill guarantee.";
         }
-        if(offerPrice-(long)price<horizon.outbidDeadband(offerPrice))return null;
-        return new Quote(price,floor,cost,known,cut,reason);
+        if(offerPrice-(long)price<horizon.outbidDeadband(offerPrice))
+            return Evaluation.waitFor(known && !cut && price==floor?Status.COST_FLOOR:Status.IMMATERIAL_CHANGE);
+        return new Evaluation(Status.ELIGIBLE,new Quote(price,floor,cost,known,cut,reason),0);
     }
     /** Two distinct, completed recent 5m buckets with actual buy-side trades; never one spot print. */
     private static int supportedLowerAsk(List<Candle> series,int ask,TradingHorizon horizon,long now) {

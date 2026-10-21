@@ -33,6 +33,7 @@ final class PanelDetails {
     private final SuggestionEngine engine;
     private final FlippingFriendConfig config;
     private final JTextArea recommendation = CompactSuggestionPanel.text(UiUtils.TEXT);
+    private final JTextArea saleMaintenance = CompactSuggestionPanel.text(UiUtils.TEXT);
     private final MarketGraphView graph;
     private final MarketDropsPanel marketDrops;
     private final RecordedSalesPanel recordedSales;
@@ -52,7 +53,10 @@ final class PanelDetails {
         marketDrops=new MarketDropsPanel(market);
         recordedSales=new RecordedSalesPanel(item->{graph.showItem(item);select("Price graph");});
         JPanel guide = new JPanel(new BorderLayout(8, 8)); guide.setBackground(UiUtils.CARD);
-        guide.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12)); guide.add(recommendation, BorderLayout.CENTER);
+        guide.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
+        JPanel explanations=new JPanel();explanations.setOpaque(false);explanations.setLayout(new BoxLayout(explanations,BoxLayout.Y_AXIS));
+        explanations.add(recommendation);explanations.add(UiUtils.gap(16));explanations.add(saleMaintenance);
+        guide.add(explanations, BorderLayout.CENTER);
         JPanel copies = new JPanel(new FlowLayout(FlowLayout.LEFT)); copies.setOpaque(false);
         copies.add(copyQuantity); copies.add(copyPrice); guide.add(copies, BorderLayout.SOUTH);
         copyQuantity.addActionListener(e -> copy(Integer.toString(shown.getQuantity())));
@@ -102,6 +106,10 @@ final class PanelDetails {
 
     void update(Suggestion advice, AccountLedgerSnapshot ledger) {
         update(advice,ledger,ledger,false);
+    }
+    void updateSaleMaintenance(boolean loggedIn) {
+        saleMaintenance.setText(SaleMaintenanceText.render(loggedIn?engine.saleMaintenanceDiagnostics():java.util.Collections.emptyList(),
+            java.time.Instant.now().getEpochSecond(),loggedIn));
     }
     void update(Suggestion advice,AccountLedgerSnapshot ledger,AccountLedgerSnapshot history,boolean historyUpdating) {
         shown = advice == null ? Suggestion.idle() : advice;

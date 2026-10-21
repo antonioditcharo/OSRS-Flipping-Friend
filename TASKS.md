@@ -1,10 +1,16 @@
 # Tasks
 
-Updated 20 October 2026. Read [HANDOFF.md](HANDOFF.md) and the actual delivery receipt at
-`local-data/trade-plan-maintenance-20261020/delivery-state.json` first. Implemented/tested, merged,
+Updated 21 October 2026. Read [HANDOFF.md](HANDOFF.md) and the actual delivery receipt at
+`local-data/sale-maintenance-diagnostics-20261021/delivery-state.json` first. Implemented/tested, merged,
 installed and player accepted are separate states. Owner is home; older login deferrals are superseded.
 
 ## Current batch
+
+- [ ] Accept active managed-sale wait explanations in Records → Recommendation: shared evaluator,
+      exact episode/progress and evidence expiry, separate original actual-order estimates and
+      clock-only reassessment. Eligibility never bypasses final authority or changes pricing/risk.
+      [Contract](docs/architecture/sale-maintenance-diagnostics.md) /
+      [receipt](docs/history/sale-maintenance-diagnostics-delivery-2026-10-21.md).
 
 - [ ] Deliver/accept same-second acquisition-plan binding, mixed-origin remaining ranges, no invented
       stops, selected managed subset authority, earlier supported non-loss cancel/collect/relist,

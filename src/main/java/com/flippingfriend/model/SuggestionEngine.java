@@ -156,6 +156,65 @@ public class SuggestionEngine
     @Inject private com.flippingfriend.session.SellRelistIntent sellRelist;
     @Inject private com.flippingfriend.session.BuyRepriceIntent buyReprice;
     private volatile String observedAccount;
+    private volatile SaleDiagnostics saleDiagnostics;
+    private static final class SaleDiagnostics {
+        final String account,settings;
+        final com.flippingfriend.core.AccountLedgerSnapshot ledger;
+        final MarketSnapshot market;
+        final Map<Integer,com.flippingfriend.session.SaleMaintenanceDiagnostic> rows;
+        SaleDiagnostics(String account,String settings,com.flippingfriend.core.AccountLedgerSnapshot ledger,
+                MarketSnapshot market,Map<Integer,com.flippingfriend.session.SaleMaintenanceDiagnostic> rows) {
+            this.account=account;this.settings=settings;this.ledger=ledger;this.market=market;
+            this.rows=Collections.unmodifiableMap(rows);
+        }
+    }
+    private String saleDiagnosticSettings() {
+        return config.riskProfile()+":"+config.checkInterval()+":"+config.targetHoldMinutes()+":"+sellOnly;
+    }
+    /** Worker only. This never persists a workflow, stabilizes a price, or requests final authority. */
+    private void evaluateSaleDiagnostics(MarketSnapshot market,Instant now) {
+        String account=observedAccount,settings=saleDiagnosticSettings();
+        var ledger=companion==null?null:companion.tradingLedger();
+        Map<Integer,com.flippingfriend.session.SaleMaintenanceDiagnostic> rows=new HashMap<>();
+        var horizon=TradingHorizon.of(config.riskProfile(),config.checkInterval(),config.targetHoldMinutes());
+        for(var live:offers.getOffers()) {
+            var offer=live.copyObservation();
+            if(offer.isBuying() || !"SELLING".equals(offer.getState()) || offer.getRemaining()<=0)continue;
+            var currentLedger=companion==null?null:saleLedger(offer.getItemId(),now);
+            Position position=currentLedger==null?null:salePosition(currentLedger,offer.getItemId());
+            var price=market.latest(offer.getItemId());
+            String unavailable=currentLedger==null?"Managed scope unavailable: waiting for acknowledged, fresh canonical acquisition evidence.":null;
+            var evaluation=unavailable!=null?null:new com.flippingfriend.session.SaleMaintenancePricing().evaluate(
+                offer.getItemId(),offer.getPrice(),offer.getRemaining(),position,price,
+                marketData.getSeries(offer.getItemId(),TIMESTEP),horizon,now,sellOnly,sellTiming,taxCalculator,
+                offer.getFirstSeen(),offer.getLastFillObservedAt());
+            rows.put(offer.getSlot(),new com.flippingfriend.session.SaleMaintenanceDiagnostic(offer,evaluation,unavailable,
+                price,now.getEpochSecond(),currentLedger==null?now.getEpochSecond()+30:currentLedger.getObservedAt()+151,
+                companion==null?Double.NaN:companion.originalSellExpectedMinutes(offer),currentLedger!=null && position==null));
+        }
+        if(java.util.Objects.equals(account,observedAccount) && settings.equals(saleDiagnosticSettings()))
+            saleDiagnostics=new SaleDiagnostics(account,settings,ledger,market,rows);
+    }
+    /** UI reads only immutable results; changed evidence withdraws them until the worker evaluates it. */
+    public List<com.flippingfriend.session.SaleMaintenanceDiagnostic> saleMaintenanceDiagnostics() {
+        if(!accountMonitor.getState().isLoggedIn())return Collections.emptyList();
+        var snapshot=saleDiagnostics;long now=Instant.now().getEpochSecond();
+        boolean valid=snapshot!=null && java.util.Objects.equals(snapshot.account,observedAccount)
+            && snapshot.settings.equals(saleDiagnosticSettings()) && snapshot.market==marketData.getSnapshot()
+            // Publication clears this reference before replay; a new ledger also invalidates the
+            // result. UI must not reread the durable outbox or perform model work.
+            && (companion==null || snapshot.ledger==companion.lastLedger());
+        List<com.flippingfriend.session.SaleMaintenanceDiagnostic> rows=new ArrayList<>();
+        for(var live:offers.getOffers()) {
+            var offer=live.copyObservation();
+            if(offer.isBuying() || !"SELLING".equals(offer.getState()) || offer.getRemaining()<=0)continue;
+            var row=valid?snapshot.rows.get(offer.getSlot()):null;
+            if(row==null || !row.matches(offer,now))row=com.flippingfriend.session.SaleMaintenanceDiagnostic.unavailable(offer,now);
+            if(!row.personal)rows.add(row);
+        }
+        rows.sort(Comparator.comparingInt(row->row.offer().getSlot()));
+        return Collections.unmodifiableList(rows);
+    }
     private volatile Suggestion continuationWait;
     private volatile List<Suggestion> replacementCandidates=Collections.emptyList();
     private volatile List<Suggestion> saleCandidates=Collections.emptyList();
@@ -168,6 +227,7 @@ public class SuggestionEngine
     public boolean isContinuationWait(Suggestion suggestion) { return suggestion!=null && suggestion==continuationWait; }
     public void setObservedAccount(String account) {
         if(!java.util.Objects.equals(observedAccount,account)) {
+            saleDiagnostics=null;
             advisedPrices.clear();reprice=null;maintenanceRetryAfter.clear();replacementCandidates=Collections.emptyList();locallyDeclinedReplacements.clear();
             saleCandidates=Collections.emptyList();stockSaleCandidates=Collections.emptyList();listedStopCandidates=Collections.emptyList();
         }
@@ -386,10 +446,12 @@ public class SuggestionEngine
 
 		if (!account.isLoggedIn())
 		{
+			saleDiagnostics=null;
 			return Suggestion.waiting("Log in to start",
 				"Once you are logged in, the plugin will look at what you have and suggest a trade.");
 		}
 
+        evaluateSaleDiagnostics(market,now);
 		if (account.isIronman())
 		{
 			return Suggestion.waiting("Ironman accounts cannot flip",

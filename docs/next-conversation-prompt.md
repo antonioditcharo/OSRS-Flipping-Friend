@@ -4,9 +4,16 @@ Continue in `C:\Users\Antonio\OSRS Flipping Friend Rebuild`.
 Implement, verify and deliver reliable trade/inventory workflow batches; do not stop at a roadmap.
 Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
-Read `local-data/trade-plan-maintenance-20261020/delivery-state.json` FIRST, then current
+Read `local-data/sale-maintenance-diagnostics-20261021/delivery-state.json` FIRST, then current
 AGENTS.md, HANDOFF.md and TASKS.md. The receipt distinguishes source/tests/CI/merge/install/player
 acceptance. Older PR checkpoints and availability notes are historical, not installation proof.
+
+The newest small batch explains active managed-sale waits in Records → Recommendation through the
+existing shared evaluator. Pricing and authority remain unchanged; original actual sell estimates
+are unvalidated and separate from acquisition estimates. See
+[contract](architecture/sale-maintenance-diagnostics.md). Prior installed workflow evidence is in
+`local-data/trade-plan-maintenance-20261020/delivery-state.json`; controlled full-loop acceptance,
+sustained latency and validated forecasts remain open.
 
 The current batch retains same-second accepted advice with independent ordering proof and preserves
 mixed original acquisition plans with possible remaining quantity ranges. No missing plan may invent

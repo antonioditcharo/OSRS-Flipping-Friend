@@ -1,11 +1,18 @@
 # Agent handoff
 
-Updated 20 October 2026 (America/Anchorage). Read AGENTS.md and TASKS.md.
+Updated 21 October 2026 (America/Anchorage). Read AGENTS.md and TASKS.md.
 Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
 ## Current delivery
 
-Read `local-data/trade-plan-maintenance-20261020/delivery-state.json` FIRST for actual source/tests,
+Newest diagnostic batch: read `local-data/sale-maintenance-diagnostics-20261021/delivery-state.json`
+for verification, CI, merge and actual installation. Records → Recommendation adds active managed
+sale wait explanations from the shared evaluator, with observed clocks and unvalidated original
+order estimates. Pricing/authority and accounting are unchanged. Native acceptance remains separate.
+[Contract](docs/architecture/sale-maintenance-diagnostics.md) /
+[receipt](docs/history/sale-maintenance-diagnostics-delivery-2026-10-21.md).
+
+Previous workflow batch: `local-data/trade-plan-maintenance-20261020/delivery-state.json` records source/tests,
 CI, merge, installation and manual acceptance. [Current contract](docs/architecture/trade-plan-maintenance.md) /
 [delivery receipt](docs/history/trade-plan-maintenance-delivery-2026-10-20.md).
 
