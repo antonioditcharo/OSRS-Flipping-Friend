@@ -517,6 +517,7 @@ public class CompanionClient
         String state=offer.getState()==null?"OBSERVED":offer.getState();
         SuggestionLedger.Advice advice=ledger.attribute(offer.getItemId(),offer.isBuying(),now);
         var successor=ledger.attributeSuccessor(offer.getItemId(),offer.isBuying(),now);
+        var buyPlan=ledger.attributeBuyPlan(offer.getItemId(),offer.isBuying(),now);
         return (eventId,sessionId,sequence)->{
             long start=offer.getFirstSeen()>0?offer.getFirstSeen():now;
             var builder=OfferEvent.builder(UUID.randomUUID().toString(),now,state).accountId(expectedAccountId)
@@ -524,6 +525,7 @@ public class CompanionClient
                     offer.getEpisodeIdentity()==null?offer.getSlot()+"@"+start+":"+offer.getItemId():offer.getEpisodeIdentity())
                 .slot(offer.getSlot()).item(offer.getItemId(),offer.getItemName()).buying(offer.isBuying()).price(offer.getPrice())
                 .quantities(offer.getTotalQuantity(),offer.getQuantityFilled()).spent(offer.getSpent()).sequence(sequence).firstSeenAt(offer.getFirstSeen());
+            if(offer.isBuying())builder.acceptedBuyPlanEvidenceVersion("1");
             if(advice!=null) {
                 builder.recommendation(advice.getRecommendationId(),advice.getPrice(),advice.getQuantity(),advice.getQuoteAgeSeconds(),
                     advice.getPredictedMinutes(),advice.getPredictedCompletion());
@@ -534,6 +536,13 @@ public class CompanionClient
                     builder.acceptedAdviceProof(new com.flippingfriend.core.AcceptedAdviceProof(advice.getAcceptedOrder(),order));
             }
             if(successor!=null)builder.continuationSuccessorProof(successor.captured(offer.getFirstCaptureOrder()));
+            if(buyPlan!=null) {
+                var forecast=buyPlan.getForecast();
+                if(forecast!=null && !forecast.matches(offer.getItemId(),true,buyPlan.getPrice(),buyPlan.getQuantity()))forecast=null;
+                builder.acceptedBuyPlanProof(com.flippingfriend.core.AcceptedBuyPlanProof.accepted(expectedAccountId,
+                    buyPlan.getAcceptedAdviceId(),offer.getItemId(),buyPlan.getPrice(),buyPlan.getQuantity(),buyPlan.getRecordedAt(),
+                    buyPlan.getAcceptedOrder(),buyPlan.getExitContext(),forecast).captured(offer.getFirstCaptureOrder()));
+            }
             return builder.build();
         };
     }
@@ -791,7 +800,7 @@ public class CompanionClient
     }
     /** A hidden, refused or unsupported display cannot remain prospective successor evidence. */
     public synchronized void withdrawPresentedSuccessor() {
-        ledger.withdrawSuccessor();lastPresented=null;lastPresentedSuccessorId=null;
+        ledger.withdrawAcceptedDisplay();lastPresented=null;lastPresentedSuccessorId=null;
     }
     /** Compatibility entry point for an already accepted sale; producers must not call this. */
     public void recordSellAdvice(Suggestion suggestion) {
@@ -1060,7 +1069,7 @@ public class CompanionClient
         return null;
     }
     static boolean validSaleDecision(PolicyDecision decision,String identity,String source,int slot,long now) {
-        return decision!=null && "1".equals(decision.getSchemaVersion()) && "companion-sale-7".equals(decision.getPolicyVersion())
+        return decision!=null && "1".equals(decision.getSchemaVersion()) && "companion-sale-8".equals(decision.getPolicyVersion())
             && identity.equals(decision.getCandidateId()) && source.equals(decision.getRecommendationId())
             && decision.getDecisionType()==(slot<0?PolicyDecisionType.EXIT:PolicyDecisionType.SELL_MAINTENANCE)
             && decision.getAction()==(slot<0?OfferLifecycleAction.PLACE_SELL:OfferLifecycleAction.CANCEL_SELL)

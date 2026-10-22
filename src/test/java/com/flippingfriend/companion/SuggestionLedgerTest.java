@@ -7,6 +7,7 @@ import org.junit.Test;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
@@ -177,6 +178,29 @@ public class SuggestionLedgerTest
         ledger.recorded("plan",561,true,150,80,0,0,0,null,null,gson.fromJson(restored,com.flippingfriend.core.ContinuationSuccessorProof.class));
         assertNull(ledger.attributeSuccessor(561,true,at));
         assertNotNull("Independent ordinary attribution remains unchanged",ledger.attribute(561,true,at));
+    }
+    @Test public void acceptedBuyPlanUsesOnlyCurrentDisplayAndItsOwnProspectiveWindow() {
+        long at=now();
+        var context=new com.flippingfriend.core.AcquisitionExitContext(140,90,480);
+        ledger.recorded("plan",561,true,100,10,0,12,.7,null,context);
+        var first=ledger.attributeBuyPlan(561,true,at);
+        assertNotNull(first);
+        assertNull(ledger.attributeBuyPlan(561,true,at-1));assertNull(ledger.attributeBuyPlan(561,true,at+601));
+        assertNotNull(ledger.attributeBuyPlan(561,true,at+600));
+        assertNull(ledger.attributeBuyPlan(561,false,at));assertNull(ledger.attributeBuyPlan(562,true,at));
+        ledger.recorded("refreshed",561,true,100,10,0,12,.7,null,context);
+        var fresh=ledger.attributeBuyPlan(561,true,at);
+        assertNotEquals(first.getAcceptedAdviceId(),fresh.getAcceptedAdviceId());
+        assertTrue(first.getAcceptedOrder().precedes(fresh.getAcceptedOrder()));
+        ledger.withdrawAcceptedDisplay();assertNull(ledger.attributeBuyPlan(561,true,at));
+        assertNotNull("Display withdrawal cannot reset observational attribution",ledger.attribute(561,true,at));
+        ledger.recorded("plan",561,true,100,10,0,12,.7,null,context);
+        ledger.recorded("personal-sale",562,false,100,1,0,0,0);
+        assertNull(ledger.attributeBuyPlan(561,true,at));
+        ledger.recorded("without-context",561,true,100,10,0,12,.7);
+        assertNull(ledger.attributeBuyPlan(561,true,at));
+        ledger.recorded("plan",561,true,100,10,0,12,.7,null,context);ledger.clear();
+        assertNull(ledger.attributeBuyPlan(561,true,at));
     }
     @Test public void reusedWorkflowAcceptanceCannotBackdateARefreshedForecastDisplay() {
         long at=now();var proof=com.flippingfriend.core.ContinuationSuccessorProof.accepted(

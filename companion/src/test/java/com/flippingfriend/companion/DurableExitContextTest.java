@@ -139,4 +139,77 @@ public class DurableExitContextTest {
         assertEquals(1,scope.positions.get(21948).getExitContexts().size());
         assertEquals(child,scope.positions.get(21948).getExitContext());
     }
+    OfferEvent independentOpen(String episode,String adviceId,long first,long captured,int slot) {
+        var raw=OfferEvent.builder("fixture",captured,"BUYING").accountId(account).authenticatedObservation(true)
+            .eventIdentity("event-"+(++sequence),"session",episode).sequence(sequence).slot(slot).item(561,"Nature rune")
+            .buying(true).price(101).quantities(10,0).firstSeenAt(first).build();
+        var accepted=AcceptedBuyPlanProof.accepted(account,adviceId,561,101,10,first,CaptureOrder.next(),
+            new AcquisitionExitContext(140,90,480),null);
+        return raw.withAcceptedBuyPlanProof(accepted.captured(CaptureOrder.next()).bindTo(raw));
+    }
+    OfferEvent independentFill(OfferEvent origin,long when,int filled,long spent) {
+        return event(filled==10?"BOUGHT":"BUYING",origin.getOfferIdentity(),origin.getFirstSeenAt(),when,10,filled,spent,null)
+            .withAcceptedBuyPlanProof(origin.getAcceptedBuyPlanProof());
+    }
+    @Test public void independentlyAcceptedPlanSurvivesPartialFillsRestartAndSaleWithoutLearningOrFinancialRewrite()throws Exception {
+        Path db=folder.newFolder().toPath().resolve("independent.db");OfferEvent origin;
+        try(var store=new SqliteStore(db)) {
+            clear(store,AT-1);origin=independentOpen("buy","fresh-independent",AT,AT+1,0);accept(store,origin);
+            assertFalse(origin.wasRecommended());assertFalse(ExecutionObservationLedger.qualifiesOriginal(origin));
+            var partial=independentFill(origin,AT+60,3,302);accept(store,partial);accept(store,partial);
+            assertEquals(302,position(store,AT+60).getTotalCost());
+            assertEquals(origin.getExitContext(),position(store,AT+60).getExitContext());assertEquals(1,store.positionEventCount());
+        }
+        try(var store=new SqliteStore(db)) {
+            accept(store,independentFill(origin,AT+3600,10,1007));clear(store,AT+3601);
+            accept(store,event("SELLING","sale",AT+3602,AT+3602,10,0,0,null));
+            accept(store,event("SELLING","sale",AT+3602,AT+3603,10,4,600,null));
+            var p=position(store,AT+3603);assertEquals(6,p.getQuantity());assertEquals(605,p.getTotalCost());
+            assertEquals(origin.getExitContext(),p.getExitContext());assertEquals(3,store.positionEventCount());
+            assertEquals(186,store.ledgerSnapshot(account,AT+3603).getProfitLower());
+        }
+    }
+    @Test public void independentPlanCannotRepairMissingOriginalOrBorrowAnotherEpisodesAcceptance()throws Exception {
+        Path db=folder.newFolder().toPath().resolve("missing-independent.db");
+        try(var store=new SqliteStore(db)) {
+            clear(store,AT-1);var original=independentOpen("buy","independent",AT,AT+1,0);accept(store,original);
+            accept(store,independentFill(original,AT+2,10,1010));assertNotNull(position(store,AT+2).getExitContext());
+            int effects=store.positionEventCount();
+            try(var other=DriverManager.getConnection("jdbc:sqlite:"+db);var sql=other.prepareStatement("DELETE FROM event_log WHERE event_id=?")) {
+                sql.setString(1,original.getEventId());assertEquals(1,sql.executeUpdate());
+            }
+            assertNull(position(store,AT+3).getExitContext());assertEquals(effects,store.positionEventCount());
+            assertEquals(1010,position(store,AT+3).getTotalCost());
+        }
+        var first=independentOpen("one","same-uuid",AT,AT+1,0);
+        var second=independentOpen("two","same-uuid",AT+2,AT+3,1);
+        assertTrue(AcquisitionExitEvidence.read(List.of(first,second)).isEmpty());
+        var unbound=first.withAcceptedBuyPlanProof(null);
+        var wire=json.toJsonTree(unbound).getAsJsonObject();wire.remove("exitContext");
+        var unknown=json.fromJson(wire,OfferEvent.class);
+        var late=independentFill(first,AT+5,10,1010);
+        assertTrue("Later valid-looking plan cannot replace an unqualified first source",
+            AcquisitionExitEvidence.read(List.of(unknown,late)).isEmpty());
+    }
+    @Test public void versionedUnknownOrMalformedPlanCannotFallbackToLegacyContextOrLearning()throws Exception {
+        var legacy=open("legacy",AT,new AcquisitionExitContext(140,90,480));
+        assertNotNull(AcquisitionExitEvidence.read(List.of(legacy)).get(legacy.getEventId()));
+        for(String version:new String[]{"1","2"}) {
+            var versioned=legacy.withAcceptedBuyPlanEvidenceVersion(version);
+            assertTrue(AcquisitionExitEvidence.read(List.of(versioned)).isEmpty());
+            if("1".equals(version))assertEquals("Strict original prediction retains timing only",10,
+                BuyMaintenanceTiming.originalExpectedMinutes(versioned),0);
+            else assertTrue(Double.isNaN(BuyMaintenanceTiming.originalExpectedMinutes(versioned)));
+        }
+        var independent=independentOpen("new","new-proof",AT,AT+1,0);
+        var wire=json.toJsonTree(independent).getAsJsonObject();
+        wire.getAsJsonObject("acceptedBuyPlanProof").addProperty("formatVersion",2);
+        var invalid=json.fromJson(wire,OfferEvent.class);
+        assertFalse(invalid.getAcceptedBuyPlanProof().isWellFormed());
+        assertTrue(AcquisitionExitEvidence.read(List.of(invalid)).isEmpty());
+        var withdrawn=legacy.withoutAcceptedExitContext();
+        assertNull(withdrawn.getExitContext());assertNull(withdrawn.getAcceptedAdviceProof());
+        assertEquals(legacy.getEventId(),withdrawn.getEventId());assertEquals(legacy.getRecommendationId(),withdrawn.getRecommendationId());
+        assertEquals(legacy.isPredictionComparable(),withdrawn.isPredictionComparable());
+    }
 }

@@ -48,6 +48,8 @@ public class SuggestionLedger
 	private long sequence;
     /** The currently accepted display only; independent of historical learning attribution. */
     private Advice displayedSuccessorAdvice;
+    private Advice displayedBuyPlanAdvice;
+    private int displayedBuyPlanItem;
 	private final Clock clock;
 	public SuggestionLedger() { this(Clock.systemUTC()); }
 	SuggestionLedger(Clock clock) { this.clock=java.util.Objects.requireNonNull(clock); }
@@ -112,6 +114,9 @@ public class SuggestionLedger
             quoteAgeSeconds, predictedMinutes, predictedCompletion, since, now,forecast,exitContext,successorProof);
         outstanding.put(key,current);
         displayedSuccessorAdvice=successorProof==null?null:current;
+        displayedBuyPlanAdvice=buying && exitContext!=null && exitContext.isValid() && !exitContext.isBound()
+            && price>0 && quantity>0?current:null;
+        displayedBuyPlanItem=displayedBuyPlanAdvice==null?0:itemId;
 	}
 
 	/** The advice this offer most plausibly acts on, or null when the player acted unprompted. */
@@ -145,6 +150,15 @@ public class SuggestionLedger
 
     /** Withdraw only workflow display association; historical prediction attribution is retained. */
     public synchronized void withdrawSuccessor() { displayedSuccessorAdvice=null; }
+    /** Exact current BUY display, separate from the older observational learning association. */
+    public synchronized Advice attributeBuyPlan(int itemId,boolean buying,long observedAt) {
+        Advice current=displayedBuyPlanAdvice;
+        return buying && itemId==displayedBuyPlanItem && current!=null && observedAt>=current.recordedAt
+            && observedAt-current.recordedAt<=ATTRIBUTION_WINDOW_SECONDS?current:null;
+    }
+    public synchronized void withdrawAcceptedDisplay() {
+        displayedSuccessorAdvice=null;displayedBuyPlanAdvice=null;displayedBuyPlanItem=0;
+    }
 
 	/** Monotonic ordering for outgoing events, since local IPC does not guarantee arrival order. */
 	public synchronized long nextSequence()
@@ -156,6 +170,7 @@ public class SuggestionLedger
 	{
 		outstanding.clear();
         displayedSuccessorAdvice=null;
+        displayedBuyPlanAdvice=null;displayedBuyPlanItem=0;
 	}
 
 	private static long key(int itemId, boolean buying)
@@ -178,6 +193,7 @@ public class SuggestionLedger
         private final com.flippingfriend.core.AcquisitionExitContext exitContext;
         private final com.flippingfriend.core.CaptureOrder acceptedOrder;
         private final com.flippingfriend.core.ContinuationSuccessorProof continuationSuccessorProof;
+        private final String acceptedAdviceId;
 		Advice(String recommendationId, int price, int quantity, long quoteAgeSeconds,
 			double predictedMinutes, double predictedCompletion, long suggestedAt)
 		{
@@ -200,6 +216,7 @@ public class SuggestionLedger
             this.exitContext=exitContext;
             this.continuationSuccessorProof=successorProof;
             this.acceptedOrder=com.flippingfriend.core.CaptureOrder.next();
+            this.acceptedAdviceId=java.util.UUID.randomUUID().toString();
 		}
 
 		/** Whether this is the same recommendation repeated, rather than a genuinely new one. */
@@ -220,6 +237,7 @@ public class SuggestionLedger
         public com.flippingfriend.core.ExecutionForecast getForecast(){return forecast;}
         public com.flippingfriend.core.AcquisitionExitContext getExitContext(){return exitContext;}
         public com.flippingfriend.core.CaptureOrder getAcceptedOrder(){return acceptedOrder;}
+        public String getAcceptedAdviceId(){return acceptedAdviceId;}
         public com.flippingfriend.core.ContinuationSuccessorProof getContinuationSuccessorProof(){return continuationSuccessorProof;}
 	}
 }

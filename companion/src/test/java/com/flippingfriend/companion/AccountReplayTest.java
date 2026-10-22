@@ -92,8 +92,8 @@ public class AccountReplayTest {
         var result=run(input,5,10);
         assertTrue(result.actions.toString(),result.actions.stream().anyMatch(s->s.contains("SELL ")));
         assertEquals(1,result.completedSales);assertEquals(180,result.realizedProfit);
-        assertEquals("account-replay-16",result.policyVersion);
-        assertEquals("companion-sale-7",result.salePolicyVersion);assertEquals(1,result.authorizedSales);
+        assertEquals("account-replay-17",result.policyVersion);
+        assertEquals("companion-sale-8",result.salePolicyVersion);assertEquals(1,result.authorizedSales);
     }
     AccountReplayInput interruptedRelist(boolean recovered) {
         var input=input(1,26);var gson=new Gson();
@@ -176,6 +176,8 @@ public class AccountReplayTest {
                 try(var rows=sql.executeQuery()) {
                     assertTrue(rows.next());var origin=new Gson().fromJson(rows.getString(1),OfferEvent.class);
                     assertTrue(ExecutionObservationLedger.qualifiesOriginal(origin));
+                    assertNotNull(origin.getAcceptedBuyPlanProof());
+                    assertTrue(origin.getAcceptedBuyPlanProof().qualifiesOriginal(origin));
                     assertEquals(start,origin.getAdviceObservedAt());
                     assertEquals(start+input.actionSeconds,origin.getFirstSeenAt());
                 }
@@ -267,5 +269,37 @@ public class AccountReplayTest {
         assertTrue(result.actions.toString(),result.actions.stream().anyMatch(s->s.contains("SELL 1 10 @ 103")));
         assertFalse(result.actions.toString(),result.actions.stream().anyMatch(s->s.contains("SELL 1 10 @ 120")));
         assertEquals(10,result.realizedProfit);assertEquals(1,result.authorizedSales);
+    }
+    @Test public void independentAcceptedBuyPlanRestoresOriginalReplayDeadlineWithoutLearning() {
+        var horizon=com.flippingfriend.TradingHorizon.of(com.flippingfriend.RiskProfile.MODERATE,AccountReplay.interval(5));
+        var raw=OfferEvent.builder("independent",start+1,"BUYING")
+            .accountId(AccountIdentity.fromProfileKey("synthetic-account-replay-only")).authenticatedObservation(true)
+            .eventIdentity("origin","synthetic-session","episode").sequence(1).slot(0).item(1,"Test item 1").buying(true)
+            .price(100).quantities(10,0).firstSeenAt(start).build();
+        var forecast=new ExecutionForecast(ExecutionForecast.MODEL_VERSION,.35,0,1,true,1,true,100,10,3,1,
+            3600,12,12,120,new com.flippingfriend.model.FillEstimate(.75,.2,100,.1),1,.2);
+        var accepted=AcceptedBuyPlanProof.accepted(raw.getAccountId(),"separate-plan",1,100,10,start,CaptureOrder.next(),
+            new AcquisitionExitContext(140,90,480),forecast);
+        var origin=raw.withAcceptedBuyPlanProof(accepted.captured(CaptureOrder.next()).bindTo(raw));
+        assertFalse(ExecutionObservationLedger.qualifiesOriginal(origin));assertTrue(AccountReplay.qualifiedOriginalBinding(origin));
+        var offer=new AccountReplay.Offer(0,1,100,10,true,start,"episode");offer.origin=origin;
+        var gson=new Gson();var restored=gson.fromJson(gson.toJson(offer),AccountReplay.Offer.class);
+        assertEquals(start+720,AccountReplay.freezeBuyMaintenanceDeadline(restored,horizon,start+600));
+    }
+    @Test public void versionedUnknownPlanRetainsStrictOriginalPredictionTimingThroughReplayRestart() {
+        var raw=OfferEvent.builder("strict-original",start+1,"BUYING")
+            .accountId(AccountIdentity.fromProfileKey("synthetic-account-replay-only")).authenticatedObservation(true)
+            .eventIdentity("origin","synthetic-session","episode").sequence(1).slot(0).item(1,"Test item 1").buying(true)
+            .price(100).quantities(10,0).firstSeenAt(start+1).recommendation("prediction-only",100,10,0,12,.75)
+            .predictionEvidence(null,start,true).build();
+        var origin=raw.withBoundPrediction(raw,true).withAcceptedBuyPlanEvidenceVersion("1");
+        assertNull(origin.getAcceptedBuyPlanProof());assertTrue(ExecutionObservationLedger.qualifiesOriginal(origin));
+        assertTrue(AccountReplay.qualifiedOriginalBinding(origin));
+        var offer=new AccountReplay.Offer(0,1,100,10,true,start+1,"episode");offer.origin=origin;
+        var gson=new Gson();var restored=gson.fromJson(gson.toJson(offer),AccountReplay.Offer.class);
+        var horizon=com.flippingfriend.TradingHorizon.of(com.flippingfriend.RiskProfile.MODERATE,AccountReplay.interval(5));
+        assertTrue(AccountReplay.qualifiedOriginalBinding(restored.origin));
+        assertEquals(start+1+720,AccountReplay.freezeBuyMaintenanceDeadline(restored,horizon,start+600));
+        assertFalse(AccountReplay.qualifiedOriginalBinding(origin.withAcceptedBuyPlanEvidenceVersion("2")));
     }
 }

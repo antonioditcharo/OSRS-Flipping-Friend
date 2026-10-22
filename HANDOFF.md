@@ -5,28 +5,27 @@ Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
 ## Current delivery
 
-Read `local-data/distinct-continuations-20261022/delivery-state.json` first for actual source,
-verification, CI, merge and installation. This batch preserves distinct same-item continuation origins
-through prospective accepted advice, callback/outbox capture, exact direct-child budgets, editor
-selection, companion authority and replay. Smaller successors retain residual quantities; child
-cancellation cannot replenish the parent. Missing sources preserve a durable pending barrier; failed
-acceptance withdraws guidance. Forecast acceptance ordering remains independent.
-Paired sale policy 7 / replay 16 / maintenance evaluator 4.
-[Contract](docs/architecture/distinct-continuation-successors.md).
+Read `local-data/accepted-buy-plans-20261022/delivery-state.json` first for actual source,
+verification, CI, merge and installation. This batch gives the current exact accepted BUY plan its
+own immutable identity and callback ordering evidence, independent of expired learning attribution.
+It freezes original target/stop/durations through outbox retry/ACK/restart, canonical partial fills,
+maintenance and replay. Unknown/versioned refusals cannot borrow legacy context or later advice;
+known legacy episodes retain their original evidence. No learning promotion or financial rewrite.
+Paired sale policy 8 / replay 17 / maintenance evaluator 4.
+[Contract](docs/architecture/independent-accepted-buy-plans.md).
 
-Installed at this batch's start: #143 at `ed356e75908696400947ef8cb7e45c9c4430ecb7`;
-`local-data/relist-market-evidence-20261021/delivery-state.json` records its actual delivery. Accepted
-sale reductions cannot restore abandoned targets when market buckets disappear; exact floors and
-engine/editor/companion/replay guards remain. #142 stages prospective hints/source upgrades before
-publishing them; earlier clock/restoration/source/plan/cost/maintenance guards remain in effect.
+Installed at this batch's start: #144 at `21ace91001fc804315aa765fec27fe17adc1fe9d`;
+`local-data/distinct-continuations-20261022/delivery-state.json` records its actual delivery. Distinct
+same-item continuation origins, exact child/residual budgets, durable first-source barriers,
+source-outage fact retention and editor-origin guards remain. Earlier abandoned-target, exact-cost,
+original-plan, clock, source and maintenance guards remain active.
 [Previous delivery checkpoints](docs/history/handoff-through-2026-10-21-pr141.md).
 
-Fresh authenticated pre-update reads found two free slots and recent owner activity. Ten queued
-observations drained normally to zero. A new financial preservation prefix was frozen (106,558 source
-rows, 1,816 effects, original risk anchor); intervening genuine activity is not an update mutation.
-Read the new receipt for post-update evidence. Controlled trading and sustained latency remain open.
-Owner login and every game action remain manual. Normal closure, verified backup/update/launch and
-direct scoped diagnostics are authorized; do not repeatedly request logs or confirmations.
+New authenticated pre-update reads found an empty outbox and matching saved eight-slot identities,
+but the account capture was stale. Recheck after delivery; that evidence cannot establish current
+entry readiness or controlled acceptance. A new complete financial/source preservation prefix and
+original risk anchor are frozen. Normal closure, verified backup/update/launch and direct scoped
+reads are authorized. Login and every game action remain manual.
 
 The old three-bludgeon original plan stays unknown; those units subsequently sold, and the newer
 two-unit purchase is separate. Bolts retain separately proven contexts. Dual macuahuitl's older rebuy

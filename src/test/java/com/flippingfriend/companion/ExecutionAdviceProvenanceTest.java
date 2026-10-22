@@ -130,7 +130,7 @@ public class ExecutionAdviceProvenanceTest {
             new com.flippingfriend.core.AcquisitionExitContext(140,90,480));
         var open=f.publish(offer(now-1,100,10,"BUYING",0),now-1);
         assertFalse("Second-resolution prediction ordering remains ambiguous",open.isPredictionComparable());
-        assertNotNull(open.getExitContext());assertTrue(open.hasAcceptedExitProof());
+        assertNotNull(open.getExitContext());assertTrue(open.getAcceptedBuyPlanProof().qualifiesOriginal(open));
         assertEquals(0,open.getPredictedMinutes(),0);
         for(var e:f.outbox.pending())assertTrue(f.outbox.acknowledge(e.getEventId(),e.getSessionId(),e.getSequence()));
         Fixture restart=new Fixture(f.storage.root());
@@ -138,7 +138,7 @@ public class ExecutionAdviceProvenanceTest {
             new com.flippingfriend.core.AcquisitionExitContext(160,80,60));
         var filled=restart.publish(offer(now-1,100,10,"BOUGHT",10),now+601);
         assertEquals(open.getExitContext(),filled.getExitContext());
-        assertEquals(open.getAcceptedAdviceProof(),filled.getAcceptedAdviceProof());
+        assertEquals(open.getAcceptedBuyPlanProof(),filled.getAcceptedBuyPlanProof());
         assertFalse(filled.isPredictionComparable());
     }
     @Test public void laterAdviceInSameSecondCannotQualifyTheAlreadyCopiedOffer()throws Exception {
@@ -155,7 +155,7 @@ public class ExecutionAdviceProvenanceTest {
         f.ledger.recorded("original",561,true,100,10,0,0,0,null,
             new com.flippingfriend.core.AcquisitionExitContext(140,90,480));
         var open=f.publish(offer(now,100,10,"BUYING",0),now);
-        assertNotNull(open.getExitContext());assertTrue(open.hasAcceptedExitProof());assertFalse(open.isPredictionComparable());
+        assertNotNull(open.getExitContext());assertTrue(open.getAcceptedBuyPlanProof().qualifiesOriginal(open));assertFalse(open.isPredictionComparable());
     }
     @Test public void maintenanceDurationComesOnlyFromTheSameExactOriginalOpenBuy()throws Exception {
         Fixture f=new Fixture(folder.newFolder().toPath());f.advice("original",100,10,12);
