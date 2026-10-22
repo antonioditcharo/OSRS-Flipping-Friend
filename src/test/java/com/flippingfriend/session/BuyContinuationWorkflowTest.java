@@ -331,7 +331,12 @@ public class BuyContinuationWorkflowTest {
         if(reason.equals("overdue")) {
             assertTrue(f.intent.advise(f.tracker.getOffer(0),f.storage.accountId(),f.tracker,now));
             var field=SuggestionEngine.class.getDeclaredField("companion");field.setAccessible(true);
-            when(((CompanionClient)field.get(f.engine)).originalBuyExpectedMinutes(any())).thenReturn(1.0);
+            // This cancellation-commit fixture supplies an already verified original timeout.
+            // Actual source availability and fallback refusal are covered by the client/outbox workflow tests.
+            when(((CompanionClient)field.get(f.engine)).freezeBuyMaintenanceDeadline(any(),any(),anyDouble(),anyLong()))
+                .thenAnswer(call->{TrackedOffer expected=call.getArgument(0);OfferTracker tracker=call.getArgument(1);
+                    return tracker.freezeBuyMaintenanceDeadline(expected.getSlot(),expected.getContinuationIdentity(),1,
+                        call.getArgument(2),call.getArgument(3),f.storage.accountId());});
         } else f.present();
         var path=f.storage.accountDir().resolve("buy-reprice-intent.json");
         byte[] before=java.nio.file.Files.readAllBytes(path);

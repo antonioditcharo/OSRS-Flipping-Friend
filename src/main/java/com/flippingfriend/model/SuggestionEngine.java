@@ -762,9 +762,9 @@ public class SuggestionEngine
 			String name = market.getItemName(offer.getItemId());
 			int remaining = offer.getRemaining();
             if(offer.isBuying()) {
-                double original=companion==null?0:companion.originalBuyExpectedMinutes(offer);
-                long deadline=offers.freezeBuyMaintenanceDeadline(offer.getSlot(),offer.getContinuationIdentity(),original,
-                    horizon.legHorizonHours()*60,now.getEpochSecond(),observedAccount);
+                long deadline=companion==null?offers.freezeBuyMaintenanceDeadline(offer.getSlot(),offer.getContinuationIdentity(),0,
+                    horizon.legHorizonHours()*60,now.getEpochSecond(),observedAccount)
+                    :companion.freezeBuyMaintenanceDeadline(offer,offers,horizon.legHorizonHours()*60,now.getEpochSecond());
                 if(com.flippingfriend.session.BuyRepricePricing.overdue(offer.getFirstSeen(),offer.getLastFillObservedAt(),
                     deadline,price,horizon,now.getEpochSecond())) {
                     return Suggestion.builder(SuggestionType.CANCEL).maintenanceSource(offer.getContinuationIdentity())

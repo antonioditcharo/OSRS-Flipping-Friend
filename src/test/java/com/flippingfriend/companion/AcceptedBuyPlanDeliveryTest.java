@@ -162,4 +162,79 @@ public class AcceptedBuyPlanDeliveryTest {
             assertArrayEquals("Refused append cannot rewrite preserved source evidence",retained,java.nio.file.Files.readAllBytes(file));
         }
     }
+    static ExecutionForecast twelveMinuteForecast() {
+        return new ExecutionForecast(ExecutionForecast.MODEL_VERSION,.35,0,1,true,561,true,100,10,3,1,
+            3600,12,12,120,new com.flippingfriend.model.FillEstimate(.75,.2,100,.1),1,.2);
+    }
+    static void independentlyAcceptedTwelveMinuteAdvice(Fixture fixture) {
+        fixture.seconds.set(AT-601);
+        fixture.ledger.recorded("old-learning",561,true,100,10,0,12,.75,twelveMinuteForecast(),new AcquisitionExitContext(150,80,45));
+        fixture.seconds.set(AT);
+        fixture.ledger.recorded("fresh-display",561,true,100,10,0,12,.75,twelveMinuteForecast(),new AcquisitionExitContext(170,90,90));
+    }
+    @Test public void independentOriginalDurationReachesActualClientWithoutLearningAttribution()throws Exception {
+        var f=new Fixture(folder.newFolder().toPath());independentlyAcceptedTwelveMinuteAdvice(f);
+        var tracked=f.offer(0,AT,100,0,"BUYING");var original=f.publish(tracked,AT+1);
+        assertNotNull(original.getAcceptedBuyPlanProof());assertTrue(original.getAcceptedBuyPlanProof().qualifiesOriginal(original));
+        assertNull(original.getRecommendationId());assertFalse(original.isPredictionComparable());
+        assertEquals(12,BuyMaintenanceTiming.originalExpectedMinutes(original),1e-9);
+        assertEquals("The live client must retain the independent original duration",12,
+            f.client.originalBuyExpectedMinutes(tracked),1e-9);
+        assertEquals(12,f.client.originalBuyExpectedMinutes(0),1e-9);
+        assertNull("Tracking timing must not broaden the legacy recommended-only policy adapter",f.client.currentCanonicalOpenBuy());
+    }
+    @Test public void independentDurationRemainsImmutableAcrossAckPartialRestartAndLaterAdvice()throws Exception {
+        var path=folder.newFolder().toPath();var before=new Fixture(path);independentlyAcceptedTwelveMinuteAdvice(before);
+        var original=before.publish(before.offer(0,AT,100,0,"BUYING"),AT+1);before.ackAll();
+        var after=new Fixture(path);after.seconds.set(AT+1000);
+        after.ledger.recorded("later",561,true,100,10,0,99,.99,null,new AcquisitionExitContext(999,90,1));
+        var partial=after.offer(0,AT,100,3,"BUYING");var source=after.publish(partial,AT+1000);
+        assertEquals(original.getAcceptedBuyPlanProof(),source.getAcceptedBuyPlanProof());
+        assertEquals(12,after.client.originalBuyExpectedMinutes(partial),1e-9);
+        assertNull(source.getRecommendationId());assertFalse(source.isPredictionComparable());assertEquals(0,source.getPredictedMinutes(),0);
+        assertNull(after.client.currentCanonicalOpenBuy());assertEquals(300,source.getSpent());
+        after.ackAll();var again=new Fixture(path);
+        var progress=again.offer(0,AT,100,4,"BUYING");again.publish(progress,AT+2000);
+        assertEquals(12,again.client.originalBuyExpectedMinutes(progress),1e-9);
+    }
+    @Test public void changedInputsAndSlotReuseCannotBorrowTheCachedIndependentDuration()throws Exception {
+        var f=new Fixture(folder.newFolder().toPath());independentlyAcceptedTwelveMinuteAdvice(f);
+        var original=f.offer(0,AT,100,0,"BUYING");f.publish(original,AT+1);
+        assertEquals(12,f.client.originalBuyExpectedMinutes(original),1e-9);
+        assertTrue(Double.isNaN(f.client.originalBuyExpectedMinutes(f.offer(0,AT,101,0,"BUYING"))));
+        var changedQuantity=new TrackedOffer(0,561,true,100,9,AT);changedQuantity.setState("BUYING");
+        assertTrue(Double.isNaN(f.client.originalBuyExpectedMinutes(changedQuantity)));
+        assertTrue(Double.isNaN(f.client.originalBuyExpectedMinutes(f.offer(0,AT+1,100,0,"BUYING"))));
+        f.publish(f.offer(0,AT,101,0,"BUYING"),AT+2);
+        assertTrue(Double.isNaN(f.client.originalBuyExpectedMinutes(original)));
+        f.publish(f.offer(0,AT,100,0,"BUYING"),AT+3);
+        assertTrue("A changed-back order cannot resurrect the abandoned original binding",
+            Double.isNaN(f.client.originalBuyExpectedMinutes(original)));
+        f.client.captureObservedOfferCleared(0,f.storage.accountId(),AT+4);assertTrue(Double.isNaN(f.client.originalBuyExpectedMinutes(0)));
+        var reused=f.offer(0,AT+5,100,0,"BUYING");var newSource=f.publish(reused,AT+5);
+        assertNull(newSource.getAcceptedBuyPlanProof());assertTrue(Double.isNaN(f.client.originalBuyExpectedMinutes(reused)));
+        assertNull(newSource.getRecommendationId());assertFalse(newSource.isPredictionComparable());
+    }
+    @Test public void accountSwitchClearsCachedTimingAndReturnRequiresFreshScopedObservation()throws Exception {
+        var path=folder.newFolder().toPath();var one=TestStorage.rootedAt(path,"accepted-buy");
+        var two=TestStorage.rootedAt(path,"other-account");var current=new java.util.concurrent.atomic.AtomicReference<>(one.accountId());
+        var storage=org.mockito.Mockito.mock(PluginStorage.class);
+        org.mockito.Mockito.when(storage.hasAccount()).thenReturn(true);org.mockito.Mockito.when(storage.gson()).thenReturn(one.gson());
+        org.mockito.Mockito.when(storage.accountId()).thenAnswer(call->current.get());
+        org.mockito.Mockito.when(storage.accountDir()).thenAnswer(call->current.get().equals(one.accountId())?one.accountDir():two.accountDir());
+        org.mockito.Mockito.when(storage.accountDir(org.mockito.Mockito.anyString())).thenAnswer(call->{
+            String account=call.getArgument(0);if(!current.get().equals(account))throw new IllegalStateException("changed account");
+            return account.equals(one.accountId())?one.accountDir():two.accountDir();});
+        var f=new Fixture(storage,new AtomicLong(AT),null);independentlyAcceptedTwelveMinuteAdvice(f);
+        var original=f.offer(0,AT,100,0,"BUYING");f.publish(original,AT+1);f.ackAll();
+        assertEquals(12,f.client.originalBuyExpectedMinutes(original),1e-9);
+        current.set(two.accountId());assertTrue(Double.isNaN(f.client.originalBuyExpectedMinutes(original)));
+        var other=f.publish(f.offer(0,AT+2,100,0,"BUYING"),AT+2);
+        assertEquals(two.accountId(),other.getAccountId());assertNull(other.getAcceptedBuyPlanProof());
+        assertTrue(Double.isNaN(f.client.originalBuyExpectedMinutes(0)));
+        current.set(one.accountId());assertTrue(Double.isNaN(f.client.originalBuyExpectedMinutes(original)));
+        var fresh=f.offer(0,AT,100,2,"BUYING");var restored=f.publish(fresh,AT+3);
+        assertEquals(one.accountId(),restored.getAccountId());assertEquals(12,f.client.originalBuyExpectedMinutes(fresh),1e-9);
+        assertNull(restored.getRecommendationId());assertFalse(restored.isPredictionComparable());
+    }
 }
