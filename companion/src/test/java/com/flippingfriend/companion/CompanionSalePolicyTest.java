@@ -104,6 +104,58 @@ public class CompanionSalePolicyTest {
             assertEquals(201,remaining.getTotalCost());assertEquals(2,remaining.getQuantity());
         }
     }
+    @Test public void collectedReductionWaitsWhenHistoryDisappearsButRecoveredMarketAndFreshStopsRemainAvailable()throws Exception {
+        var path=folder.newFolder().toPath().resolve("relist-evidence.db");long now=at+3600;
+        AccountSnapshot account;OfferEvent sale;
+        try(var store=new SqliteStore(path)) {
+            account=setup(store,new AcquisitionExitContext(140,90,120));
+            var settings=json.toJsonTree(account).getAsJsonObject();settings.addProperty("targetHoldMinutes",360);
+            account=json.fromJson(settings,AccountSnapshot.class);
+            sale=event(0,"SELLING","lost-buckets",3,0,0,150,now);accept(store,sale);
+            assertEquals(OfferLifecycleAction.CANCEL_SELL,decide(store,account,sale.getEventId(),3,119,0,now).getAction());
+            accept(store,event(0,"CANCELLED_SELL","lost-buckets",3,1,150,150,now+1));
+            accept(store,event(0,"EMPTY",null,0,0,0,0,now+2));
+        }
+        try(var store=new SqliteStore(path)) {
+            var read=store.saleProjections(id,now+3);var remaining=read.ledger.getTradingPositions().get(0);
+            assertEquals(2,remaining.getQuantity());assertEquals(201,remaining.getTotalCost());
+            var policy=new CompanionSalePolicy();var fresh=setupAccountAt(account,now+3).withObservedInventory(Map.of(561,2));
+            int effects=store.positionEventCount();
+            for(int price:new int[]{119,140})assertEquals("SALE_RELIST_PRICE_UNSUPPORTED",policy.decide(read.planning,read.ledger,fresh,
+                market(now+3,120),(i,s)->List.of(),561,price,2,remaining.getSourceEventId(),false,-1,now+3,sale.getEventId()).getReasonCode());
+            assertEquals("Fresh actual recovery can support a new current limit",OfferLifecycleAction.PLACE_SELL,
+                policy.decide(read.planning,read.ledger,fresh,market(now+3,150),(i,s)->List.of(),561,150,2,
+                    remaining.getSourceEventId(),false,-1,now+3,sale.getEventId()).getAction());
+            assertEquals(OfferLifecycleAction.PLACE_SELL,policy.decide(read.planning,read.ledger,fresh,market(now+3,80),(i,s)->List.of(),
+                561,80,2,remaining.getSourceEventId(),true,-1,now+3,sale.getEventId()).getAction());
+            assertEquals(OfferLifecycleAction.WAIT,policy.decide(read.planning,read.ledger,fresh,market(now+3,150),(i,s)->List.of(),
+                561,100,2,remaining.getSourceEventId(),false,-1,now+3,sale.getEventId()).getAction());
+            assertEquals(effects,store.positionEventCount());
+        }
+    }
+    @Test public void windDownRelistCannotUsePriceToleranceToSlipBelowTheExactSubsetFloor()throws Exception {
+        long now=at+3600;
+        try(var store=new SqliteStore(folder.newFolder().toPath().resolve("wind-down-relist-floor.db"))) {
+            for(int slot=0;slot<8;slot++)accept(store,event(slot,"EMPTY",null,0,0,0,0,at));
+            accept(store,event(0,"BUYING","large-cost",3,0,0,100001,at));
+            accept(store,event(0,"BOUGHT","large-cost",3,3,300001,100001,at+1));
+            accept(store,event(0,"EMPTY",null,0,0,0,0,at+2));
+            var original=event(0,"SELLING","large-sale",3,0,0,150000,now);accept(store,original);
+            accept(store,event(0,"CANCELLED_SELL","large-sale",3,1,150000,150000,now+1));
+            accept(store,event(0,"EMPTY",null,0,0,0,0,now+2));
+            var read=store.saleProjections(id,now+3);var remaining=read.ledger.getTradingPositions().get(0);
+            assertEquals(2,remaining.getQuantity());assertEquals(200001,remaining.getTotalCost());
+            var account=new AccountSnapshot("wind-down",now+3,100000000,0,8,8,true,false,0,"MODERATE",Map.of(),0,Map.of(),true,
+                5,Set.of(),Set.of(),Set.of(),true,30).withAccountId(id).withAutomaticTradeScope()
+                .withObservedHoldings(Map.of(561,2)).withObservedInventory(Map.of(561,2));
+            var policy=new CompanionSalePolicy();var market=market(now+3,80000);
+            int floor=new com.flippingfriend.model.TaxCalculator().breakEvenSellPriceForCost(561,remaining.getTotalCost(),2);
+            assertEquals(OfferLifecycleAction.PLACE_SELL,policy.decide(read.planning,read.ledger,account,market,(i,s)->List.of(),561,
+                floor,2,remaining.getSourceEventId(),false,-1,now+3,original.getEventId()).getAction());
+            assertEquals("SALE_EXACT_COST_FLOOR",policy.decide(read.planning,read.ledger,account,market,(i,s)->List.of(),561,
+                floor-1,2,remaining.getSourceEventId(),false,-1,now+3,original.getEventId()).getReasonCode());
+        }
+    }
     @Test public void saleMaintenanceBindsCurrentEpisodeSourceAndRemainingQuantity()throws Exception {
         try(var store=new SqliteStore(folder.newFolder().toPath().resolve("fixture.db"))) {
             var account=setup(store);long now=at+3600;

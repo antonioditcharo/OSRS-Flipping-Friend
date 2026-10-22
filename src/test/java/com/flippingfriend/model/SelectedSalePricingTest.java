@@ -9,9 +9,13 @@ import com.flippingfriend.session.SellTimingEngine;
 import java.time.Instant;
 import java.util.*;
 import org.junit.Test;
+import org.junit.Rule;
+import org.junit.rules.TemporaryFolder;
 import static org.junit.Assert.*;
+import static org.mockito.Mockito.*;
 
 public class SelectedSalePricingTest {
+    @Rule public TemporaryFolder folder=new TemporaryFolder();
     private final Instant now=Instant.now();
     private final String account=AccountIdentity.fromProfileKey("selected-sale");
     private final TaxCalculator tax=new TaxCalculator();
@@ -59,5 +63,25 @@ public class SelectedSalePricingTest {
         var result=quote(1,3,ledger(List.of(unknown),now.getEpochSecond()),Map.of(),Set.of());
         assertEquals(SuggestionType.SELL,result.getType());assertFalse(result.isLossCut());
         assertTrue(result.getExpectedProfit()>=0);
+    }
+    @Test public void selectedCollectedSubsetCannotRestoreTheOldTargetWhenBucketsDisappear()throws Exception {
+        var storage=TestStorage.rootedAt(folder.newFolder().toPath(),"selected-sale");
+        var tracker=mock(com.flippingfriend.session.OfferTracker.class);
+        var original=new com.flippingfriend.session.TrackedOffer(0,13263,false,1500,3,now.getEpochSecond()-1200);original.setState("SELLING");
+        when(tracker.getOffers()).thenReturn(List.of(original));when(tracker.getOffer(0)).thenReturn(original);
+        var book=new com.flippingfriend.session.SellRelistIntent(storage);
+        assertTrue(book.advise(original,account,true,tracker,"accepted-sale-source"));
+        original.setState("CANCELLED_SELL");original.setQuantityFilled(1);original.setCollected(true);
+        when(tracker.getOffers()).thenReturn(List.of());when(tracker.getOffer(0)).thenReturn(null);when(tracker.getSettledOffer(0)).thenReturn(original);
+        var reprice=book.collectedRequest(tracker,account);assertEquals(2,reprice.getQuantity());
+        var market=new MarketSnapshot(Map.of(13263,new ItemMetadata(13263,"Abyssal bludgeon",true,8,0)),
+            Map.of(13263,new LatestPrice(1200,now.getEpochSecond(),1150,now.getEpochSecond())),Map.of(),Map.of(),now);
+        var ledger=ledger(List.of(holding()),now.getEpochSecond());long end=now.getEpochSecond()/300*300;
+        var bars=List.of(new Candle(end-600,1200,1150,100,100),new Candle(end-300,1200,1150,100,100));
+        var reduced=pricing.quote(13263,1,3,account,ledger,Map.of(),Set.of(),market,bars,horizon,now,false,reprice);
+        assertEquals(SuggestionType.SELL,reduced.getType());assertEquals(1199,reduced.getPrice());
+        var missing=pricing.quote(13263,1,3,account,ledger,Map.of(),Set.of(),market,List.of(),horizon,now,false,reprice);
+        assertEquals("Missing relist support cannot restore 1400 for a selected subset",SuggestionType.WAIT,missing.getType());
+        assertEquals(3203,ledger.getTradingPositions().get(0).getTotalCost());
     }
 }

@@ -10,7 +10,7 @@ import java.util.*;
 
 /** Final read-only authority for managed exits and observed sale maintenance. No cost comes from the request. */
 final class CompanionSalePolicy {
-    static final String VERSION="companion-sale-5";
+    static final String VERSION="companion-sale-6";
     static String identity(int item,int price,int quantity,String source,boolean cut,int slot) {
         return identity(item,price,quantity,source,cut,slot,null);
     }
@@ -93,10 +93,9 @@ final class CompanionSalePolicy {
                         (proof.original.getObservedAt()-proof.original.getFirstSeenAt()<horizon.staleOfferMinutes()*60
                         || proof.original.getObservedAt()-proof.lastProgressAt<horizon.staleOfferMinutes()*60))
                         return refusal(type,identity,source,now,"SALE_REPRICE_CHAIN_UNAVAILABLE");
-                    relist=new SaleMaintenancePricing().quote(item,proof.original.getPrice(),quantity,position,quote,series,horizon,at,
-                        account.isSellOnly(),exits,tax,proof.original.getFirstSeenAt(),proof.lastProgressAt);
-                    // The market may recover during collection. Do not require a fresh reduction then:
-                    // ordinary target-preserving placement remains independently available below.
+                    relist=new SaleMaintenancePricing().evaluateRelist(item,proof.original.getPrice(),quantity,position,quote,series,horizon,at,
+                        account.isSellOnly(),exits,tax,proof.original.getFirstSeenAt(),proof.lastProgressAt).quote;
+                    if(relist==null)return refusal(type,identity,source,now,"SALE_RELIST_PRICE_UNSUPPORTED");
                 }
                 var decision=relist==null?exits.evaluateManagedExit(position,quote,null,series,horizon,at,account.getMinProfitPerFlip(),true,account.isSellOnly(),false)
                     :new SellDecision(relist.lossCut?SellDecision.Action.CUT:SellDecision.Action.SELL,relist.price,relist.reason,Double.NaN,
@@ -105,7 +104,7 @@ final class CompanionSalePolicy {
                     || Math.abs((long)decision.getPrice()-price)>=horizon.outbidDeadband(decision.getPrice()))
                     return refusal(type,identity,source,now,"SALE_EXIT_CHANGED");
                 long cost=SaleAccounting.allocateCost(position.getTotalCost(),position.getQuantity(),quantity);
-                if(!cut && (!account.isSellOnly() || quote.stalestSideSeconds(at)>300)) {
+                if(!cut && (relist!=null || !account.isSellOnly() || quote.stalestSideSeconds(at)>300)) {
                     int floor=tax.breakEvenSellPriceForCost(item,cost,quantity);
                     if(floor<=0 || price<(relist==null?SellTimingEngine.protectedPrice(position,horizon,at,floor):floor))
                         return refusal(type,identity,source,now,"SALE_EXACT_COST_FLOOR");

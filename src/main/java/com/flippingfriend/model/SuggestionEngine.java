@@ -1559,9 +1559,12 @@ public class SuggestionEngine
         var series = marketData.getSeries(item,TIMESTEP);
         var decision = sellTiming.evaluateManagedExit(position,price,featureEngine.compute(item,series,BUCKET_SECONDS),
             series,horizon,now,config.minProfitPerFlip(),true,sellOnly,false);
-        var relist=remaining.getSaleRepriceSource()==null?null:new com.flippingfriend.session.SaleMaintenancePricing().quote(
+        var relist=remaining.getSaleRepriceSource()==null?null:new com.flippingfriend.session.SaleMaintenancePricing().evaluateRelist(
             item,remaining.getOriginalPrice(),quantity,position,price,series,horizon,now,sellOnly,sellTiming,taxCalculator,
-            remaining.getFirstSeenAt(),remaining.getProgressAt());
+            remaining.getFirstSeenAt(),remaining.getProgressAt()).quote;
+        if(remaining.getSaleRepriceSource()!=null && relist==null)
+            return Suggestion.waiting("Rechecking the cancelled sale",
+                "Current prices and market evidence do not support this relist. Its exact remainder and accepted reduction are retained; the old target is not restored.");
         if(relist!=null)decision=new com.flippingfriend.session.SellDecision(relist.lossCut?com.flippingfriend.session.SellDecision.Action.CUT
             :com.flippingfriend.session.SellDecision.Action.SELL,relist.price,relist.reason,Double.NaN,
             taxCalculator.netProceeds(item,relist.price,quantity)-relist.allocatedCost);
@@ -1569,7 +1572,7 @@ public class SuggestionEngine
         boolean cut = decision.getAction()==SellDecision.Action.CUT;
         long cost = com.flippingfriend.core.SaleAccounting.allocateCost(position.getTotalCost(),position.getQuantity(),quantity);
         int quoted = advisedPrice(item,false,decision.getPrice(),now.getEpochSecond());
-        if (!cut && (!sellOnly || !freshSaleQuote(price,now))) {
+        if (!cut && (relist!=null || !sellOnly || !freshSaleQuote(price,now))) {
             int floor = taxCalculator.breakEvenSellPriceForCost(item,cost,quantity);
             if (floor<=0) return Suggestion.waiting("No non-loss sell price is available", "No legal price covers the recorded cost after tax.");
             quoted = Math.max(quoted,relist==null?SellTimingEngine.protectedPrice(position,horizon,now,floor):floor);

@@ -66,8 +66,11 @@ public final class SelectedSalePricing {
         int price=decision.getPrice();
         int floor=tax.breakEvenSellPriceForCost(item,cost,selected);
         var reduced=reprice==null || reprice.getSaleRepriceSource()==null?null
-            :new com.flippingfriend.session.SaleMaintenancePricing().quote(item,reprice.getOriginalPrice(),selected,position,
-                market.latest(item),series,horizon,now,sellOnly,exits,tax,reprice.getFirstSeenAt(),reprice.getProgressAt());
+            :new com.flippingfriend.session.SaleMaintenancePricing().evaluateRelist(item,reprice.getOriginalPrice(),selected,position,
+                market.latest(item),series,horizon,now,sellOnly,exits,tax,reprice.getFirstSeenAt(),reprice.getProgressAt()).quote;
+        if(reprice!=null && reprice.getSaleRepriceSource()!=null && reduced==null)
+            return waiting("Rechecking the returned sale",
+                "Current prices and market evidence do not support this selected relist. Its saved remainder and accepted reduction are retained; the old target is not restored.");
         if(reduced!=null) {price=reduced.price;floor=reduced.floor;cut=reduced.lossCut;}
         else if(!cut && !sellOnly) {
             if(floor<=0)return waiting("No non-loss sell price is available","No legal price covers the exact recorded subset cost after tax.");

@@ -12,7 +12,7 @@ import java.util.*;
 
 /** One simulated account, one bankroll and eight physical slots; never opens a live database. */
 final class AccountReplay implements AutoCloseable {
-    static final String VERSION="account-replay-14";
+    static final String VERSION="account-replay-15";
     private static final String ACCOUNT=AccountIdentity.fromProfileKey("synthetic-account-replay-only");
     interface Entries {
         PortfolioPlan plan(MarketIngestionService.MarketState market,AccountSnapshot account,
@@ -232,8 +232,9 @@ final class AccountReplay implements AutoCloseable {
         var sale=store.saleProjections(ACCOUNT,now);
         Map<Integer,PositionProjection> canonical=new TreeMap<>();
         for(var p:sale.ledger.getTradingPositions())canonical.put(p.getItemId(),p);
-        Guidance relist=null;
+        Guidance relist=null;Set<Integer> relistItems=new HashSet<>();
         for(var continuation:collectedSells)if(freeSlot()>=0) {
+            relistItems.add(continuation.getItemId());
             var holding=canonical.get(continuation.getItemId());
             var candidate=sellGuidance(holding,continuation.getCollectedRemaining(),sale,account,market,
                 "RELIST_SELL",continuation.getOriginalIdentity());
@@ -244,6 +245,7 @@ final class AccountReplay implements AutoCloseable {
         // Live also keeps refused continuations while giving unrelated ready exits their turn.
         ExitProposal best=null;
         for(var holding:canonical.values()) {
+            if(relistItems.contains(holding.getItemId()))continue;
             if(holding.getQuantity()<=listed(holding.getItemId()))continue;
             Offer buying=openBuy(holding.getItemId());
             if(buying==null && inventory.getOrDefault(holding.getItemId(),0)<=0)continue;
@@ -356,10 +358,11 @@ final class AccountReplay implements AutoCloseable {
         if("RELIST_SELL".equals(kind))for(var intent:collectedSells)
             if(Objects.equals(original,intent.getOriginalIdentity()) && intent.getSaleRepriceSource()!=null) {
                 int quantity=Math.min(cap,Math.min(inventory.getOrDefault(holding.getItemId(),0),holding.getQuantity()-listed(holding.getItemId())));
-                var quote=maintenance.quote(holding.getItemId(),intent.getOriginalPrice(),quantity,position(holding),latest(holding.getItemId()),
+                var quote=maintenance.evaluateRelist(holding.getItemId(),intent.getOriginalPrice(),quantity,position(holding),latest(holding.getItemId()),
                     frame.shortHistory.getOrDefault(holding.getItemId(),List.of()),horizon,Instant.ofEpochSecond(now),false,exits,tax,
-                    intent.getFirstSeenAt(),intent.getSaleRepriceProgressAt());
-                if(quote!=null)decision=new SellDecision(quote.lossCut?SellDecision.Action.CUT:SellDecision.Action.SELL,quote.price,quote.reason,Double.NaN,
+                    intent.getFirstSeenAt(),intent.getSaleRepriceProgressAt()).quote;
+                if(quote==null)return null;
+                decision=new SellDecision(quote.lossCut?SellDecision.Action.CUT:SellDecision.Action.SELL,quote.price,quote.reason,Double.NaN,
                     tax.netProceeds(holding.getItemId(),quote.price,quantity)-quote.allocatedCost);
                 repriceSource=intent.getSaleRepriceSource();break;
             }

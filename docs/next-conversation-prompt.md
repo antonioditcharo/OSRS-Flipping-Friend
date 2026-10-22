@@ -4,28 +4,30 @@ Continue in `C:\Users\Antonio\OSRS Flipping Friend Rebuild`.
 Implement, verify and deliver reliable trade/inventory workflow batches; do not stop at a roadmap.
 Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
-Read `local-data/continuation-acceptance-20261021/delivery-state.json` FIRST, then current AGENTS.md,
-HANDOFF.md and TASKS.md. The receipt distinguishes source/tests/CI/merge/install/player acceptance.
-[Current contract](architecture/continuation-acceptance-transactions.md): prospective new continuation
-promises/source upgrades only publish after successful durable acceptance. Failed initial writes
-cannot self-promote on unrelated callbacks; accepted dirty progress/removals still retry. Live and
-replay share immutable original BUY duration, including callback-ordered same-second placement
-without learning qualification. Replay 14 / sale policy 5.
+Read `local-data/relist-market-evidence-20261021/delivery-state.json` FIRST, then current AGENTS.md,
+HANDOFF.md and TASKS.md. Receipt distinguishes source/tests/CI/merge/install/player acceptance.
+[Current contract](architecture/relist-market-evidence.md): an accepted sale reduction cannot silently
+restore its old target when bucket support is missing. Engine/editor/companion/replay share relist
+market evidence; fresh supported current-market exits, proven stops and explicit wind-down retain
+separate rules. Pending collected relists cannot bypass that rule through generic replay exits.
+Exact subset floors survive stabilization/final authority. Sale policy 6 / replay 15 / evaluator 4.
 
-Previous installed #141 preserves future-clock hints without authorizing advice and narrows corrected
-post-collection remainders. #140 isolates current-login evidence from cached recovery; #139 preserves
-later first-source acceptance and existing parallel-sale proof. Earlier plan provenance, exact costs,
-profit floors, exit/maintenance queues and CURRENT_ACCOUNT_V3 guards remain. Detailed checkpoints
-are in [history](history/handoff-through-2026-10-21-pr141.md); do not reread all receipts to find state.
+Next reproduced largest-impact issue: placing one successor closes both of two same-item collected
+continuations, losing the other's saved cap/source. It needs explicit successor-to-origin evidence
+across client persistence, companion proof and replay. Do not guess the association or weaken unknown
+order guards. Private synthetic reproduction: `local-data/parallel-continuation-audit-20261021/`.
+This batch does not claim to resolve that separate target-loss path.
 
-Fresh authenticated eight-slot and empty-outbox reads passed at the start of this batch with every
-slot occupied. Recheck after delivery; these are not controlled full-loop or sustained timing proof.
-The old three-bludgeon plan stays unknown; bolts retain separately proven contexts. Dual macuahuitl's
-old rebuy hint was retired with an exact sale receipt. No historical financial replay or inferred repair.
+Prior installed #142 stages prospective acceptance changes before publishing hints and shares original
+BUY timing without learning promotion. Earlier clock/restoration/plan/cost/maintenance guards remain.
+Detailed checkpoints: [history](history/handoff-through-2026-10-21-pr141.md). Old three-bludgeon plan
+stays unknown; bolts retain separate proven contexts; Dual macuahuitl's hint has an exact retirement
+receipt. Never manufacture historical plan/disposal repairs.
 
-Owner is home and trading. Normal client closure, verified paired update and launch are authorized;
-login and every game action remain manual. Inspect scoped reads/logs directly. Never force-kill,
-send game input, edit live databases or clear an outbox to make advice available.
+The saved account capture was stale and outbox empty at this batch's start. Recheck after delivery;
+source/transport tests are not fresh post-login or controlled full-loop proof. Normal client closure,
+verified paired update and launch are authorized; login and every game action remain manual. Inspect
+scoped reads/logs directly. Never force-kill, send game input, edit live databases or clear an outbox.
 
 ## Work in impact order
 
