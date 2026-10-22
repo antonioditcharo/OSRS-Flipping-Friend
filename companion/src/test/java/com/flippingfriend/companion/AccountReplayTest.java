@@ -92,7 +92,7 @@ public class AccountReplayTest {
         var result=run(input,5,10);
         assertTrue(result.actions.toString(),result.actions.stream().anyMatch(s->s.contains("SELL ")));
         assertEquals(1,result.completedSales);assertEquals(180,result.realizedProfit);
-        assertEquals("account-replay-13",result.policyVersion);
+        assertEquals("account-replay-14",result.policyVersion);
         assertEquals("companion-sale-5",result.salePolicyVersion);assertEquals(1,result.authorizedSales);
     }
     @Test public void restartDuringPartialPurchasePreservesCanonicalCostLimitsAndRiskWindow()throws Exception {
@@ -145,6 +145,42 @@ public class AccountReplayTest {
                 }
             }
         }
+    }
+    OfferEvent sameSecondBuyOrigin() {
+        var advice=CaptureOrder.next();var capture=CaptureOrder.next();
+        var forecast=new ExecutionForecast(ExecutionForecast.MODEL_VERSION,.35,0,1,true,1,true,100,10,3,1,
+            3600,12,12,120,new com.flippingfriend.model.FillEstimate(.75,.2,100,.1),1,.2);
+        var raw=OfferEvent.builder("original",start,"BUYING")
+            .accountId(AccountIdentity.fromProfileKey("synthetic-account-replay-only")).authenticatedObservation(true)
+            .eventIdentity("origin","synthetic-session","episode").sequence(1).slot(0).item(1,"Test item 1").buying(true)
+            .price(100).quantities(10,0).firstSeenAt(start).recommendation("accepted",100,10,0,12,.75)
+            .predictionEvidence(null,start,false).executionForecast(forecast)
+            .acceptedAdviceProof(new AcceptedAdviceProof(advice,capture)).build();
+        return raw.withBoundPrediction(raw,false);
+    }
+    @Test public void acceptedSameSecondForecastUsesItsOriginalDeadlineInsteadOfFallbackThroughReplayRestart() {
+        var horizon=com.flippingfriend.TradingHorizon.of(com.flippingfriend.RiskProfile.MODERATE,AccountReplay.interval(5));
+        var offer=new AccountReplay.Offer(0,1,100,10,true,start,"episode");offer.origin=sameSecondBuyOrigin();
+        assertFalse("Workflow timing does not qualify learning",ExecutionObservationLedger.qualifiesOriginal(offer.origin));
+        assertTrue(AccountReplay.qualifiedOriginalBinding(offer.origin));
+        long deadline=AccountReplay.freezeBuyMaintenanceDeadline(offer,horizon,start+600);
+        assertEquals(start+720,deadline);
+        offer.filled=2;offer.spent=200;offer.lastProgressAt=start+60;
+        var gson=new Gson();var restarted=gson.fromJson(gson.toJson(offer),AccountReplay.Offer.class);
+        assertTrue("The retained exact source remains eligible for replay restoration",AccountReplay.qualifiedOriginalBinding(restarted.origin));
+        assertEquals(deadline,AccountReplay.freezeBuyMaintenanceDeadline(restarted,horizon,start+900));
+        var quote=new com.flippingfriend.data.LatestPrice(120,start+900,100,start+900);
+        assertTrue("A stalled partial order is overdue at its original 12 minute estimate",
+            com.flippingfriend.session.BuyRepricePricing.overdue(restarted.placedAt,restarted.lastProgressAt,
+                restarted.buyMaintenanceDeadlineAt,quote,horizon,start+900));
+        var unknown=new AccountReplay.Offer(0,1,100,10,true,start,"unknown");
+        long fallback=AccountReplay.freezeBuyMaintenanceDeadline(unknown,horizon,start+600);
+        assertEquals(start+600+(long)Math.ceil(horizon.legHorizonHours()*3600),fallback);
+        assertFalse(com.flippingfriend.session.BuyRepricePricing.overdue(unknown.placedAt,unknown.lastProgressAt,
+            fallback,quote,horizon,start+900));
+        var changed=gson.toJsonTree(offer.origin).getAsJsonObject();changed.addProperty("suggestedPrice",101);
+        assertFalse("A changed recommendation cannot supply restart attribution",
+            AccountReplay.qualifiedOriginalBinding(gson.fromJson(changed,OfferEvent.class)));
     }
     @Test public void changedAdviceConsumesAnotherManualActionDelayBeforePlacement()throws Exception {
         var input=input(1,2);

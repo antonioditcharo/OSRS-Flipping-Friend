@@ -12,7 +12,7 @@ import java.util.*;
 
 /** One simulated account, one bankroll and eight physical slots; never opens a live database. */
 final class AccountReplay implements AutoCloseable {
-    static final String VERSION="account-replay-13";
+    static final String VERSION="account-replay-14";
     private static final String ACCOUNT=AccountIdentity.fromProfileKey("synthetic-account-replay-only");
     interface Entries {
         PortfolioPlan plan(MarketIngestionService.MarketState market,AccountSnapshot account,
@@ -285,12 +285,7 @@ final class AccountReplay implements AutoCloseable {
                     return offerGuidance("CANCEL_BUY",offer,0,null,false);
                 var quote=latest(offer.item);
                 if(quote==null || quote.getLow()==null || quote.getLow()>=Integer.MAX_VALUE)continue;
-                if(offer.buyMaintenanceDeadlineAt<=0) {
-                    double expected=offer.origin!=null && ExecutionObservationLedger.qualifiesOriginal(offer.origin)
-                        ?offer.origin.getPredictedMinutes():0;
-                    boolean original=Double.isFinite(expected) && expected>0;
-                    offer.buyMaintenanceDeadlineAt=(original?offer.placedAt:now)+(long)Math.ceil((original?expected:horizon.legHorizonHours()*60)*60);
-                }
+                freezeBuyMaintenanceDeadline(offer,horizon,now);
                 if(BuyRepricePricing.overdue(offer.placedAt,offer.lastProgressAt,offer.buyMaintenanceDeadlineAt,quote,horizon,now))
                     return offerGuidance("CANCEL_BUY",offer,0,null,false);
                 int price=advisedPrices.buyReprice(offer.item,offer.price,quote.getLow()+1,now);
@@ -572,7 +567,7 @@ final class AccountReplay implements AutoCloseable {
                     try(var rows=sql.executeQuery()) {
                         if(!rows.next())throw new IllegalStateException("Restart lost original synthetic advice source");
                         var origin=json.fromJson(rows.getString(1),OfferEvent.class);
-                        if(!ACCOUNT.equals(origin.getAccountId()) || !ExecutionObservationLedger.qualifiesOriginal(origin))
+                        if(!ACCOUNT.equals(origin.getAccountId()) || !qualifiedOriginalBinding(origin))
                             throw new IllegalStateException("Restart lost qualified synthetic advice");
                         offer.origin=origin;
                     }
@@ -581,6 +576,26 @@ final class AccountReplay implements AutoCloseable {
         }
     }
     private Collection<OfferEvent> events(){List<OfferEvent> values=new ArrayList<>();for(Offer o:offers)if(o!=null)values.add(o.lastObservation);return values;}
+    static long freezeBuyMaintenanceDeadline(Offer offer,TradingHorizon horizon,long at) {
+        if(offer.buyMaintenanceDeadlineAt<=0) {
+            double expected=BuyMaintenanceTiming.originalExpectedMinutes(offer.origin);
+            boolean original=Double.isFinite(expected) && expected>0;
+            offer.buyMaintenanceDeadlineAt=(original?offer.placedAt:at)+(long)Math.ceil((original?expected:horizon.legHorizonHours()*60)*60);
+        }
+        return offer.buyMaintenanceDeadlineAt;
+    }
+    static boolean qualifiedOriginalBinding(OfferEvent origin) {
+        return ExecutionObservationLedger.qualifiesOriginal(origin)
+            || TradeGapEvidence.valid(origin) && origin.hasAcceptedExitProof()
+                && origin.getFilledQuantity()==0 && origin.getFirstSeenAt()>0
+                && origin.getFirstSeenAt()==origin.getObservedAt()
+                && origin.getAdviceObservedAt()>0 && origin.getAdviceObservedAt()<=origin.getFirstSeenAt()
+                && origin.getFirstSeenAt()-origin.getAdviceObservedAt()<=600
+                && origin.wasRecommended() && origin.getSuggestedPrice()==origin.getPrice()
+                && origin.getSuggestedQuantity()==origin.getTotalQuantity()
+                && Objects.equals(origin.getEventId(),origin.getPredictionSourceEventId())
+                && Double.isFinite(BuyMaintenanceTiming.originalExpectedMinutes(origin));
+    }
     private static OfferContinuation.Observation observation(Offer o,boolean collected) {
         return new OfferContinuation.Observation(o.slot,o.item,o.buy,o.price,o.quantity,o.filled,o.placedAt,o.identity,
             o.terminal?(o.cancelled?(o.buy?"CANCELLED_BUY":"CANCELLED_SELL"):(o.buy?"BOUGHT":"SOLD")):(o.buy?"BUYING":"SELLING"),collected);

@@ -316,7 +316,7 @@ public class BuyContinuationWorkflowTest {
         assertFalse(f.engine.recordPresentedMaintenance(advice,f.storage.accountId(),now));
         assertTrue(f.engine.deferUnsavedMaintenance(advice,now));
         assertNull("Null hands the next unrelated entry to the authoritative companion",f.engine.refresh(false));
-        assertTrue(f.intent.isPending(561,f.tracker,f.storage.accountId(),now));
+        assertFalse("The withdrawn initial instruction cannot create a pending promise",f.intent.isPending(561,f.tracker,f.storage.accountId(),now));
         java.nio.file.Files.delete(blocked);assertTrue(f.engine.recordPresentedMaintenance(advice,f.storage.accountId(),now));
     }
     @Test public void fullCompletionAndSellOnlyDoNotLeaveAnOldBuyPromiseForTheNextLogin()throws Exception {

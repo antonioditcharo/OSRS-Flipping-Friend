@@ -106,6 +106,23 @@ abstract class OfferContinuationStore {
             return expected.equals(account());
         }catch(Exception unavailable){return false;}
     }
+    /** Presentation changes are prospective promises, not callback facts eligible for background retry. */
+    private boolean commitAdvice(String expected,List<OfferContinuation> proposed) {
+        if(expected==null || !expected.equals(account()) || state!=accounts.get(expected))return false;
+        try {
+            Path path=storage.accountDir(expected).resolve(file);
+            if(!Arrays.equals(contents(path),state.committed) || !validEvidence(proposed,state.retirements))return false;
+            State candidate=new State(proposed,state.committed);candidate.retirements.addAll(state.retirements);
+            byte[] image=gson.toJson(new Document(expected,candidate)).getBytes(StandardCharsets.UTF_8);
+            if(!storage.writeDurably(path,image))return false;
+            // Publish only the successfully committed candidate. A failed initial hint/source upgrade
+            // must never ride along with a later collection or an unrelated account's observation.
+            state.intents.clear();state.intents.addAll(proposed);
+            state.committed=image;state.dirty=false;state.committedIdentities.clear();
+            for(var intent:proposed)state.committedIdentities.add(intent.getOriginalIdentity());
+            return expected.equals(account());
+        }catch(Exception unavailable){return false;}
+    }
     protected synchronized boolean adviseOffer(TrackedOffer original,String expected,boolean managed,OfferTracker tracker,
             long now,long expiresAt) {
         return adviseOffer(original,expected,managed,tracker,now,expiresAt,null);
@@ -125,19 +142,26 @@ abstract class OfferContinuationStore {
                 || current.item!=observation.item || current.buying!=buying || current.price!=observation.price
                 || current.total!=observation.total || !(buying?"BUYING":"SELLING").equals(current.state))return false;
         }
-        for(var intent:state.intents)if(intent.matches(observation)) {
+        for(int index=0;index<state.intents.size();index++)if(state.intents.get(index).matches(observation)) {
+            var originalIntent=state.intents.get(index);
+            // Clone only the acceptance candidate. Existing dirty progress/removals remain in state
+            // and keep their normal retry behavior if this prospective write is refused.
+            var intent=gson.fromJson(gson.toJson(originalIntent),OfferContinuation.class);
             if(intent.hasFutureEvidence(now))return false;
-            state.dirty|=intent.retainForFreshRevalidation();
+            intent.retainForFreshRevalidation();
             if(!intent.valid(now))return false;
-            long revision=intent.getRevision();if(managed)intent.requireManagedCost();
+            if(managed)intent.requireManagedCost();
             if(saleRepriceSource!=null && intent.getSaleRepriceSource()==null)
                 intent.bindSaleRepriceSource(saleRepriceSource,original.getLastFillObservedAt(),now);
-            state.dirty|=intent.getRevision()!=revision;return commit(expected);
+            if(intent.getRevision()==0)return commit(expected);
+            var proposed=new ArrayList<>(state.intents);proposed.set(index,intent);
+            return commitAdvice(expected,proposed);
         }
         var created=OfferContinuation.advise(observation,board(tracker,evidence),managed,now,expiresAt);
         if(created==null)return false;
         if(saleRepriceSource!=null)created.bindSaleRepriceSource(saleRepriceSource,original.getLastFillObservedAt(),now);
-        state.intents.add(created);state.dirty=true;return commit(expected);
+        var proposed=new ArrayList<>(state.intents);proposed.add(created);
+        return commitAdvice(expected,proposed);
     }
     protected synchronized List<OfferContinuation> collectedAll(OfferTracker tracker,String expected,long now) {
         if(!load(expected))return Collections.emptyList();
