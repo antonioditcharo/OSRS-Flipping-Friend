@@ -25,8 +25,9 @@ public class EntryDecisionPresentationNonActivationBoundaryTest
         Assert.assertTrue(client.contains("EntryDecisionPresenter.present(decision, plan, explainer, requestedAccount)"));
         Assert.assertFalse(plugin.contains("companion.nextBuySuggestion("));
         Assert.assertFalse(plugin.contains("engine.buyFallback()"));
-        // Reviewed additive exact sale-reprice source; entry authority remains in CompanionClient.
-        Assert.assertEquals("71B0476E48C452497D1EE4A4A43152EDA1C1B484B35E6C136173CC98CE2AF974",
+        // Reviewed additive continuation origin/proof and exact-input validation; entry authority
+        // remains in CompanionClient and the association grants no placement permission.
+        Assert.assertEquals("CA3908DFC9161A0E55B9480BC7E310088904736C7D9BD21C9FCAA029918439B9",
             sha256(suggestion));
     }
     private static String read(Path root, String path) throws Exception

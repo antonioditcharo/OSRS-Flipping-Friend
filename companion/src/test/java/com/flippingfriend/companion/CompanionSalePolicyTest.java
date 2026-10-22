@@ -156,6 +156,50 @@ public class CompanionSalePolicyTest {
                 floor-1,2,remaining.getSourceEventId(),false,-1,now+3,original.getEventId()).getReasonCode());
         }
     }
+    @Test public void explicitSuccessorForOneCollectedSalePreservesTheOtherCapAndExactPoolAcrossCanonicalRestart()throws Exception {
+        var path=folder.newFolder().toPath().resolve("distinct-sale-successors.db");long now=at+3600;
+        AccountSnapshot account;OfferEvent a,b;
+        try(var store=new SqliteStore(path)) {
+            account=setup(store,new AcquisitionExitContext(140,90,120));
+            var settings=json.toJsonTree(account).getAsJsonObject();settings.addProperty("targetHoldMinutes",360);
+            account=json.fromJson(settings,AccountSnapshot.class);
+            // Both offers must already be on the board when either maintenance source is accepted.
+            // First sightings alone cannot exempt a later unrelated same-item offer.
+            accept(store,event(0,"SELLING","sale-a",2,0,0,150,now-600));
+            accept(store,event(1,"SELLING","sale-b",1,0,0,160,now-599));
+            a=event(0,"SELLING","sale-a",2,0,0,150,now);accept(store,a);
+            b=event(1,"SELLING","sale-b",1,0,0,160,now+1);accept(store,b);
+            accept(store,event(0,"CANCELLED_SELL","sale-a",2,0,0,150,now+2));
+            accept(store,event(1,"CANCELLED_SELL","sale-b",1,0,0,160,now+3));
+            accept(store,event(0,"EMPTY",null,0,0,0,0,now+4));
+            accept(store,event(1,"EMPTY",null,0,0,0,0,now+5));
+            var raw=json.toJsonTree(event(0,"SELLING","successor-a",1,0,0,119,now+6)).getAsJsonObject();
+            raw.addProperty("firstSeenAt",now+6);var child=json.fromJson(raw,OfferEvent.class);
+            var proof=ContinuationSuccessorProof.accepted(id,"sale-a",a.getEventId(),"accepted-successor-a",561,false,119,1,
+                now+5,CaptureOrder.next()).captured(CaptureOrder.next()).bindTo(child);
+            assertNotNull(proof);accept(store,child.withContinuationSuccessorProof(proof));
+            raw=json.toJsonTree(event(0,"SOLD","successor-a",1,1,119,119,now+7)).getAsJsonObject();
+            raw.addProperty("firstSeenAt",now+6);accept(store,json.fromJson(raw,OfferEvent.class).withContinuationSuccessorProof(proof));
+        }
+        try(var store=new SqliteStore(path)) {
+            var read=store.saleProjections(id,now+8);var remaining=read.ledger.getTradingPositions().get(0);
+            assertEquals(2,remaining.getQuantity());assertEquals(201,remaining.getTotalCost());
+            var fresh=setupAccountAt(account,now+8).withObservedHoldings(Map.of(561,2)).withObservedInventory(Map.of(561,2));
+            var policy=new CompanionSalePolicy();int effects=store.positionEventCount();
+            for(var origin:List.of(a,b)) {
+                var decision=policy.decide(read.planning,read.ledger,fresh,market(now+8,120),(i,s)->bars(now+8,120),561,119,1,
+                    remaining.getSourceEventId(),false,-1,now+8,origin.getEventId());
+                assertEquals("Each original keeps its own cap: "+origin.getOfferIdentity()+" / "+decision.getReasonCode(),
+                    OfferLifecycleAction.PLACE_SELL,decision.getAction());
+            }
+            assertEquals("Canonical stock alone cannot enlarge B's one-unit continuation",OfferLifecycleAction.WAIT,
+                policy.decide(read.planning,read.ledger,fresh,market(now+8,120),(i,s)->bars(now+8,120),561,119,2,
+                    remaining.getSourceEventId(),false,-1,now+8,b.getEventId()).getAction());
+            assertEquals(OfferLifecycleAction.WAIT,policy.decide(read.planning,read.ledger,fresh,market(now+8,120),(i,s)->bars(now+8,120),
+                561,100,1,remaining.getSourceEventId(),false,-1,now+8,b.getEventId()).getAction());
+            assertEquals(effects,store.positionEventCount());
+        }
+    }
     @Test public void saleMaintenanceBindsCurrentEpisodeSourceAndRemainingQuantity()throws Exception {
         try(var store=new SqliteStore(folder.newFolder().toPath().resolve("fixture.db"))) {
             var account=setup(store);long now=at+3600;

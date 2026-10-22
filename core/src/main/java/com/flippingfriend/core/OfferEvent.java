@@ -68,6 +68,7 @@ public final class OfferEvent
     private final ExecutionForecast executionForecast;
     private final AcquisitionExitContext exitContext;
     private final AcceptedAdviceProof acceptedAdviceProof;
+    private final ContinuationSuccessorProof continuationSuccessorProof;
 
 	private OfferEvent(Builder builder)
 	{
@@ -103,6 +104,7 @@ public final class OfferEvent
         this.executionForecast=builder.executionForecast;
         this.exitContext=builder.exitContext;
         this.acceptedAdviceProof=builder.acceptedAdviceProof;
+        this.continuationSuccessorProof=builder.continuationSuccessorProof;
 	}
 
 	public static Builder builder(String correlationId, long observedAt, String eventType)
@@ -157,6 +159,10 @@ public final class OfferEvent
     public ExecutionForecast getExecutionForecast(){return executionForecast;}
     public AcquisitionExitContext getExitContext(){return exitContext;}
     public AcceptedAdviceProof getAcceptedAdviceProof(){return acceptedAdviceProof;}
+    public ContinuationSuccessorProof getContinuationSuccessorProof(){return continuationSuccessorProof;}
+    public OfferEvent withContinuationSuccessorProof(ContinuationSuccessorProof proof){
+        Builder copy=copyBuilder();copy.continuationSuccessorProof=proof;return copy.build();
+    }
     /** Prospective accepted order evidence independent of prediction scoring eligibility. */
     public boolean hasAcceptedExitProof(){return acceptedAdviceProof!=null && acceptedAdviceProof.isValid();}
 
@@ -171,6 +177,7 @@ public final class OfferEvent
         copy.executionForecast=executionForecast;
         copy.exitContext=exitContext;
         copy.acceptedAdviceProof=acceptedAdviceProof;
+        copy.continuationSuccessorProof=continuationSuccessorProof;
         return copy;
     }
     /** Freezes observational attribution, not proof of player intent. Economic/delivery fields stay intact. */
@@ -270,6 +277,7 @@ public final class OfferEvent
         private ExecutionForecast executionForecast;
         private AcquisitionExitContext exitContext;
         private AcceptedAdviceProof acceptedAdviceProof;
+        private ContinuationSuccessorProof continuationSuccessorProof;
 
 		private Builder(String correlationId, long observedAt, String eventType)
 		{
@@ -310,6 +318,7 @@ public final class OfferEvent
         public Builder executionForecast(ExecutionForecast forecast){executionForecast=forecast;return this;}
         public Builder exitContext(AcquisitionExitContext value){exitContext=value;return this;}
         public Builder acceptedAdviceProof(AcceptedAdviceProof value){acceptedAdviceProof=value;return this;}
+        public Builder continuationSuccessorProof(ContinuationSuccessorProof value){continuationSuccessorProof=value;return this;}
 
 		/** Links this offer to the advice that prompted it. */
 		public Builder recommendation(String id, int price, int quantity, long quoteAge,

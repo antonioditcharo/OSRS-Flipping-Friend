@@ -1,34 +1,30 @@
 # Agent handoff
 
-Updated 21 October 2026 (America/Anchorage). Read AGENTS.md and TASKS.md.
+Updated 22 October 2026 (America/Anchorage). Read AGENTS.md and TASKS.md.
 Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
 ## Current delivery
 
-Read `local-data/relist-market-evidence-20261021/delivery-state.json` first for actual source,
-verification, CI, merge and installation. Collected sale reductions share market-evidence evaluation
-across engine/editor/companion/replay. Missing bucket support cannot silently restore the old target;
-a fresh supported current-market exit, proven stop or explicit wind-down follows its separate rules.
-Pending relists cannot fall through to generic replay exits. Exact subset floors survive stabilization
-and final authority. Paired sale policy 6 / replay 15 / maintenance evaluator 4.
-[Contract](docs/architecture/relist-market-evidence.md).
+Read `local-data/distinct-continuations-20261022/delivery-state.json` first for actual source,
+verification, CI, merge and installation. This batch preserves distinct same-item continuation origins
+through prospective accepted advice, callback/outbox capture, exact direct-child budgets, editor
+selection, companion authority and replay. Smaller successors retain residual quantities; child
+cancellation cannot replenish the parent. Missing sources preserve a durable pending barrier; failed
+acceptance withdraws guidance. Forecast acceptance ordering remains independent.
+Paired sale policy 7 / replay 16 / maintenance evaluator 4.
+[Contract](docs/architecture/distinct-continuation-successors.md).
 
-Installed before this batch: #142 at `33ae39f8c0b22f5f5b4a6b8935fccb8501fd3b8d`;
-`local-data/continuation-acceptance-20261021/delivery-state.json` records verification/installation.
-It stages new hints/source upgrades until durable acceptance, retaining accepted progress/removal
-retries, and shares original BUY duration between live/replay without learning promotion. Earlier
-clock, restoration, source, plan/cost and maintenance guards remain in effect.
+Installed at this batch's start: #143 at `ed356e75908696400947ef8cb7e45c9c4430ecb7`;
+`local-data/relist-market-evidence-20261021/delivery-state.json` records its actual delivery. Accepted
+sale reductions cannot restore abandoned targets when market buckets disappear; exact floors and
+engine/editor/companion/replay guards remain. #142 stages prospective hints/source upgrades before
+publishing them; earlier clock/restoration/source/plan/cost/maintenance guards remain in effect.
 [Previous delivery checkpoints](docs/history/handoff-through-2026-10-21-pr141.md).
 
-Next reproduced high-impact boundary: two accepted same-item continuations can survive collection,
-but placing one successor closes both and loses the other's saved cap/source. A safe fix needs an
-explicit successor-to-origin association in client persistence, companion evidence and replay. Never
-weaken unknown-order supersession or guess an association. Private synthetic reproduction is in
-`local-data/parallel-continuation-audit-20261021/`; this batch does not resolve that separate path.
-
-At this batch's start the saved eight-slot capture was stale and the outbox empty; current account
-guidance awaited fresh client observations. Earlier fresh captures and source tests do not establish
-controlled full-loop or sustained latency acceptance. Recheck actual evidence after delivery.
+Fresh authenticated pre-update reads found two free slots and recent owner activity. Ten queued
+observations drained normally to zero. A new financial preservation prefix was frozen (106,558 source
+rows, 1,816 effects, original risk anchor); intervening genuine activity is not an update mutation.
+Read the new receipt for post-update evidence. Controlled trading and sustained latency remain open.
 Owner login and every game action remain manual. Normal closure, verified backup/update/launch and
 direct scoped diagnostics are authorized; do not repeatedly request logs or confirmations.
 

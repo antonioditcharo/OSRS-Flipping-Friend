@@ -205,6 +205,9 @@ public class FlippingFriendPlugin extends Plugin
 	private volatile Suggestion lastNotified = Suggestion.idle();
     private String editorSaleKey;
     private Suggestion editorSaleQuote;
+    /** Workflow selection survives the temporary WAIT overlay and quantity edits in this editor. */
+    private String editorSaleOriginIdentity,editorSaleOriginAccount;
+    private int editorSaleOriginItem;
     private long editorSaleValidatedAt;
     private final AtomicBoolean editorSaleInFlight=new AtomicBoolean();
     private final java.util.concurrent.atomic.AtomicLong editorSaleRequest=new java.util.concurrent.atomic.AtomicLong();
@@ -222,6 +225,7 @@ public class FlippingFriendPlugin extends Plugin
 	{
         offerTracker.resetContinuationObservations();
         editorSaleRequest.incrementAndGet();editorSaleContext++;editorSaleKey=null;editorSaleQuote=null;editorSaleInFlight.set(false);
+        editorSaleOriginIdentity=null;editorSaleOriginAccount=null;editorSaleOriginItem=0;
         engineRefreshEpoch.incrementAndGet();engineRefreshInFlight.set(false);engineRefreshRequested.set(false);
         geInputAssist.start();
 		worker = Executors.newSingleThreadExecutor(r ->
@@ -255,6 +259,7 @@ public class FlippingFriendPlugin extends Plugin
 		marketData.setCompanion(companion);
 		marketData.setUpdateListener(this::onMarketUpdated);
 		offerTracker.setChangeListener(this::onOffersChanged);
+        offerTracker.setContinuationSourceReader(companion::continuationSourceEpisodes);
 		offerTracker.setAbandonedBuyListener(this::onBuyAbandoned);
 		offerTracker.setRiskProfileName(config.riskProfile().name());
 		marketData.start();
@@ -438,7 +443,8 @@ public class FlippingFriendPlugin extends Plugin
 
     private void refreshSellSetupQuote() {
         int[] setup = client.getGameState() == GameState.LOGGED_IN && accountDataLoaded.get() && hasProfile() ? widgetResolver.sellSetup() : null;
-        if(setup==null) {if(editorSaleKey!=null)editorSaleContext++;editorSaleKey=null;editorSaleQuote=null;applyEditorSaleQuote(null);return;}
+        if(setup==null) {if(editorSaleKey!=null)editorSaleContext++;editorSaleKey=null;editorSaleQuote=null;
+            editorSaleOriginIdentity=null;editorSaleOriginAccount=null;editorSaleOriginItem=0;applyEditorSaleQuote(null);return;}
         if(!offerTracker.hasCompleteOfferEvidence()) {
             if(editorSaleKey!=null)editorSaleContext++;editorSaleKey=null;editorSaleQuote=null;
             applyEditorSaleQuote(Suggestion.waiting("Checking the selected sale","Waiting for complete current offer observations."));return;
@@ -447,10 +453,16 @@ public class FlippingFriendPlugin extends Plugin
         String account=com.flippingfriend.core.AccountIdentity.fromProfileKey(profile);
         long generation=offerObservationGeneration.get(),revision=adviceObservationRevision.get();
         int item=setup[0],quantity=setup[1];
+        if(!account.equals(editorSaleOriginAccount) || item!=editorSaleOriginItem)editorSaleOriginIdentity=null;
+        var foreground=stepGuide.getSuggestion();
+        if(foreground!=null && foreground.getType()==SuggestionType.SELL && foreground.getItemId()==item
+            && foreground.getContinuationOriginIdentity()!=null)editorSaleOriginIdentity=foreground.getContinuationOriginIdentity();
+        editorSaleOriginAccount=account;editorSaleOriginItem=item;
+        String preferredOrigin=editorSaleOriginIdentity;
         var state=accountMonitor.getState();
         int inventory=state.getInventoryHoldings().getOrDefault(item,0);
         boolean sellOnly=engine.isSellOnly();
-        String key=account+":"+generation+":"+revision+":"+item+":"+quantity+":"+inventory+":"+sellOnly;
+        String key=account+":"+generation+":"+revision+":"+item+":"+quantity+":"+inventory+":"+sellOnly+":"+preferredOrigin;
         if(!key.equals(editorSaleKey)) {editorSaleContext++;editorSaleKey=key;editorSaleQuote=null;}
         long age=adviceClock.getAsLong()-editorSaleValidatedAt;
         if(editorSaleQuote!=null && age>=0 && age<EDITOR_SALE_CACHE_NANOS) {
@@ -467,8 +479,11 @@ public class FlippingFriendPlugin extends Plugin
         try {executor.execute(()->{
             Suggestion result;
             try {
-                result=selectedSalePricing.quote(item,quantity,inventory,account,companion.tradingLedger(),listed,buying,
-                    marketData.getSnapshot(),marketData.getSeries(item,"5m"),horizon,Instant.now(),sellOnly,engine.selectedSaleReprice(item,quantity));
+                var relist=engine.selectedSaleReprice(item,quantity,preferredOrigin);
+                result=relist==null && engine.hasPendingSaleContinuation(item)
+                    ?Suggestion.waiting("Checking the saved sale","The selected quantity does not identify one current saved relist. Its original plans and exact remainders are retained.")
+                    :selectedSalePricing.quote(item,quantity,inventory,account,companion.tradingLedger(),listed,buying,
+                        marketData.getSnapshot(),marketData.getSeries(item,"5m"),horizon,Instant.now(),sellOnly,relist);
                 if(result!=null && result.getType()==SuggestionType.SELL && result.isProfitKnown())
                     result=companion.authorizeSale(result);
                 if(result==null)result=Suggestion.waiting("Refreshing the selected sale","A current supported sale price is unavailable.");
@@ -500,16 +515,20 @@ public class FlippingFriendPlugin extends Plugin
     }
     private void recordVisibleAdvice() {
         if (client.getGameState() != GameState.LOGGED_IN || !accountDataLoaded.get()
-            || !hasProfile() || !offerTracker.hasCompleteOfferEvidence() || stepGuide.isPaused()) return;
+            || !hasProfile() || !offerTracker.hasCompleteOfferEvidence() || stepGuide.isPaused()) {
+            companion.withdrawPresentedSuccessor();return;
+        }
         Suggestion accepted=stepGuide.getSuggestion();
         int stop=accepted==null?0:(int)Math.round(accepted.getPrice()*(1-config.riskProfile().getLossCutPct()));
         String account=com.flippingfriend.core.AccountIdentity.fromProfileKey(configManager.getRSProfileKey());
         boolean saved=engine.recordPresentedMaintenance(accepted,account,java.time.Instant.now().getEpochSecond());
         if(accepted!=null && (accepted.getType()==SuggestionType.MODIFY_BUY || accepted.getType()==SuggestionType.MODIFY_SELL
                 || accepted.getType()==SuggestionType.CANCEL
+                || accepted.getContinuationOriginIdentity()!=null
                 || accepted.getType()==SuggestionType.SELL && accepted.isProfitKnown()) && !saved) {
             stepGuide.withdrawAdvice(Suggestion.waiting("Saving this trade workflow",
                 "The revised trade workflow could not be saved. Existing records and plans are retained; guidance will retry."));
+            companion.withdrawPresentedSuccessor();
             if(engine.deferUnsavedMaintenance(accepted,java.time.Instant.now().getEpochSecond()))requestEngineRefresh();
             return;
         }
@@ -1176,7 +1195,10 @@ public class FlippingFriendPlugin extends Plugin
                 com.flippingfriend.model.SuggestionEngine.parseBlocked(config.blockedItems()),
                 engine.skippedItems(),offerTracker.itemsWithOpenOffers());
             if(authorized!=null && authorized.getType()==SuggestionType.BUY && authorized.getItemId()==candidate.getItemId()
-                && authorized.getPrice()>0 && authorized.getQuantity()>0 && authorized.getQuantity()<=candidate.getQuantity())return authorized;
+                && authorized.getPrice()>0 && authorized.getQuantity()>0 && authorized.getQuantity()<=candidate.getQuantity()) {
+                if(candidate.getContinuationOriginIdentity()!=null)authorized.bindContinuationOrigin(candidate.getContinuationOriginIdentity());
+                return authorized;
+            }
             declined.add(candidate.getItemId());
             waiting=authorized!=null && authorized.getType()==SuggestionType.WAIT?authorized
                 :Suggestion.waiting("Replacement waiting: "+candidate.getItemName(),"No current eligible entry fits the retained remainder; the original quantity is saved.");
@@ -1207,6 +1229,7 @@ public class FlippingFriendPlugin extends Plugin
 		String account = com.flippingfriend.core.AccountIdentity.fromProfileKey(profile);
         long observedAt=java.time.Instant.now().getEpochSecond();
         companion.captureObservedOffer(observation,account,observedAt);
+        if(offerTracker!=null)offerTracker.reconcileContinuationSources();
         if(executor!=null && !executor.isShutdown())companion.requestPendingOfferReplay(executor);
 	}
 
@@ -1218,6 +1241,7 @@ public class FlippingFriendPlugin extends Plugin
 		String account = com.flippingfriend.core.AccountIdentity.fromProfileKey(profile);
         long observedAt=java.time.Instant.now().getEpochSecond();
         companion.captureObservedOfferCleared(slot,account,observedAt);
+        if(offerTracker!=null)offerTracker.reconcileContinuationSources();
         if(executor!=null && !executor.isShutdown())companion.requestPendingOfferReplay(executor);
 	}
 

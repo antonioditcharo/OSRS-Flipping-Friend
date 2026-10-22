@@ -10,7 +10,7 @@ import java.util.*;
 
 /** Final read-only authority for managed exits and observed sale maintenance. No cost comes from the request. */
 final class CompanionSalePolicy {
-    static final String VERSION="companion-sale-6";
+    static final String VERSION="companion-sale-7";
     static String identity(int item,int price,int quantity,String source,boolean cut,int slot) {
         return identity(item,price,quantity,source,cut,slot,null);
     }
@@ -88,7 +88,7 @@ final class CompanionSalePolicy {
                 if(quantity>position.getQuantity()-listed)return refusal(type,identity,source,now,"SALE_QUANTITY_ALREADY_LISTED");
                 SaleMaintenancePricing.Quote relist=null;
                 if(repriceSource!=null) {
-                    var proof=SaleRepriceEvidence.prove(read.history,repriceSource,account.getAccountId(),item,quantity,now);
+                    var proof=SaleRepriceEvidence.prove(read.history,repriceSource,account.getAccountId(),item,quantity,now,horizon.staleOfferMinutes()*60);
                     if(proof==null || !cut && !account.isSellOnly() &&
                         (proof.original.getObservedAt()-proof.original.getFirstSeenAt()<horizon.staleOfferMinutes()*60
                         || proof.original.getObservedAt()-proof.lastProgressAt<horizon.staleOfferMinutes()*60))

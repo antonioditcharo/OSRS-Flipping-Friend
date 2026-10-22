@@ -4,30 +4,24 @@ Continue in `C:\Users\Antonio\OSRS Flipping Friend Rebuild`.
 Implement, verify and deliver reliable trade/inventory workflow batches; do not stop at a roadmap.
 Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
-Read `local-data/relist-market-evidence-20261021/delivery-state.json` FIRST, then current AGENTS.md,
+Read `local-data/distinct-continuations-20261022/delivery-state.json` FIRST, then current AGENTS.md,
 HANDOFF.md and TASKS.md. Receipt distinguishes source/tests/CI/merge/install/player acceptance.
-[Current contract](architecture/relist-market-evidence.md): an accepted sale reduction cannot silently
-restore its old target when bucket support is missing. Engine/editor/companion/replay share relist
-market evidence; fresh supported current-market exits, proven stops and explicit wind-down retain
-separate rules. Pending collected relists cannot bypass that rule through generic replay exits.
-Exact subset floors survive stabilization/final authority. Sale policy 6 / replay 15 / evaluator 4.
+[Current contract](architecture/distinct-continuation-successors.md): explicit prospective successor
+origin, durable first-source binding, callback ordering barrier, exact residual/child budgets,
+selected-editor identity and independent canonical authority. Sale policy 7 / replay 16 / evaluator 4.
 
-Next reproduced largest-impact issue: placing one successor closes both of two same-item collected
-continuations, losing the other's saved cap/source. It needs explicit successor-to-origin evidence
-across client persistence, companion proof and replay. Do not guess the association or weaken unknown
-order guards. Private synthetic reproduction: `local-data/parallel-continuation-audit-20261021/`.
-This batch does not claim to resolve that separate target-loss path.
+Installed at this batch's start was #143 (`ed356e75908696400947ef8cb7e45c9c4430ecb7`), whose receipt
+is `local-data/relist-market-evidence-20261021/delivery-state.json`. Its abandoned-target prevention,
+exact cost, original plan, source, clock and maintenance guards remain. New receipt governs actual
+installation. Old three-bludgeon original plan stays unknown; bolts retain separate proven contexts;
+Dual macuahuitl has an exact retirement receipt. Never manufacture historical plan/disposal repairs.
 
-Prior installed #142 stages prospective acceptance changes before publishing hints and shares original
-BUY timing without learning promotion. Earlier clock/restoration/plan/cost/maintenance guards remain.
-Detailed checkpoints: [history](history/handoff-through-2026-10-21-pr141.md). Old three-bludgeon plan
-stays unknown; bolts retain separate proven contexts; Dual macuahuitl's hint has an exact retirement
-receipt. Never manufacture historical plan/disposal repairs.
-
-The saved account capture was stale and outbox empty at this batch's start. Recheck after delivery;
-source/transport tests are not fresh post-login or controlled full-loop proof. Normal client closure,
-verified paired update and launch are authorized; login and every game action remain manual. Inspect
-scoped reads/logs directly. Never force-kill, send game input, edit live databases or clear an outbox.
+Fresh pre-update capture showed two free slots and recent activity; ten pending observations drained
+normally. Recheck after delivery. Source/transport tests are not controlled full-loop proof. Normal
+client closure, backup/update/launch are authorized; login and all game actions remain manual.
+Inspect scoped reads/logs directly. Never force-kill, send game input, patch live databases or clear
+an outbox. Keep pending manual acceptance, cadence-setting evidence and safe proof-retention gates
+visible in TASKS. Prior details: [history](history/handoff-through-2026-10-21-pr141.md).
 
 ## Work in impact order
 

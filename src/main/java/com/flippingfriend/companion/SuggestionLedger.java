@@ -46,6 +46,8 @@ public class SuggestionLedger
 		};
 
 	private long sequence;
+    /** The currently accepted display only; independent of historical learning attribution. */
+    private Advice displayedSuccessorAdvice;
 	private final Clock clock;
 	public SuggestionLedger() { this(Clock.systemUTC()); }
 	SuggestionLedger(Clock clock) { this.clock=java.util.Objects.requireNonNull(clock); }
@@ -74,10 +76,19 @@ public class SuggestionLedger
             long quoteAgeSeconds,double predictedMinutes,double predictedCompletion,com.flippingfriend.core.ExecutionForecast forecast,
             com.flippingfriend.core.AcquisitionExitContext exitContext)
 	{
+        recorded(recommendationId,itemId,buying,price,quantity,quoteAgeSeconds,predictedMinutes,predictedCompletion,forecast,exitContext,null);
+    }
+    public synchronized void recorded(String recommendationId,int itemId,boolean buying,int price,int quantity,
+            long quoteAgeSeconds,double predictedMinutes,double predictedCompletion,com.flippingfriend.core.ExecutionForecast forecast,
+            com.flippingfriend.core.AcquisitionExitContext exitContext,com.flippingfriend.core.ContinuationSuccessorProof successorProof)
+	{
 		if (recommendationId == null || recommendationId.isEmpty() || itemId <= 0)
 		{
 			return;
 		}
+        if(successorProof!=null && (!successorProof.isWellFormed() || successorProof.isBound()
+            || successorProof.getItemId()!=itemId || successorProof.isBuying()!=buying || successorProof.getPrice()!=price
+            || successorProof.getQuantity()!=quantity))throw new IllegalArgumentException("successor acceptance differs from displayed order");
 		long key = key(itemId, buying);
 		Advice previous = outstanding.get(key);
 		long now = clock.instant().getEpochSecond();
@@ -97,8 +108,10 @@ public class SuggestionLedger
 		long since = previous != null && previous.isSameTradeAs(price, quantity)
 			? previous.suggestedAt
 			: now;
-		outstanding.put(key, new Advice(recommendationId, price, quantity,
-			quoteAgeSeconds, predictedMinutes, predictedCompletion, since, now,forecast,exitContext));
+        Advice current=new Advice(recommendationId, price, quantity,
+            quoteAgeSeconds, predictedMinutes, predictedCompletion, since, now,forecast,exitContext,successorProof);
+        outstanding.put(key,current);
+        displayedSuccessorAdvice=successorProof==null?null:current;
 	}
 
 	/** The advice this offer most plausibly acts on, or null when the player acted unprompted. */
@@ -118,6 +131,21 @@ public class SuggestionLedger
 		return advice;
 	}
 
+    /** A fresh exact continuation display, never a substitute for prediction/learning evidence. */
+    public synchronized com.flippingfriend.core.ContinuationSuccessorProof attributeSuccessor(int itemId,boolean buying,long observedAt)
+    {
+        Advice current=displayedSuccessorAdvice;
+        var proof=current==null?null:current.continuationSuccessorProof;
+        if(proof==null || !proof.isWellFormed() || proof.isBound() || proof.getItemId()!=itemId || proof.isBuying()!=buying
+            || observedAt<current.recordedAt || observedAt<proof.getAcceptedAt()
+            || observedAt-proof.getAcceptedAt()>ATTRIBUTION_WINDOW_SECONDS
+            || !proof.getAcceptedOrder().precedes(com.flippingfriend.core.CaptureOrder.next()))return null;
+        return proof;
+    }
+
+    /** Withdraw only workflow display association; historical prediction attribution is retained. */
+    public synchronized void withdrawSuccessor() { displayedSuccessorAdvice=null; }
+
 	/** Monotonic ordering for outgoing events, since local IPC does not guarantee arrival order. */
 	public synchronized long nextSequence()
 	{
@@ -127,6 +155,7 @@ public class SuggestionLedger
 	public synchronized void clear()
 	{
 		outstanding.clear();
+        displayedSuccessorAdvice=null;
 	}
 
 	private static long key(int itemId, boolean buying)
@@ -147,15 +176,17 @@ public class SuggestionLedger
 		private final long recordedAt;
         private final com.flippingfriend.core.ExecutionForecast forecast;
         private final com.flippingfriend.core.AcquisitionExitContext exitContext;
-        private final com.flippingfriend.core.CaptureOrder acceptedOrder=com.flippingfriend.core.CaptureOrder.next();
+        private final com.flippingfriend.core.CaptureOrder acceptedOrder;
+        private final com.flippingfriend.core.ContinuationSuccessorProof continuationSuccessorProof;
 		Advice(String recommendationId, int price, int quantity, long quoteAgeSeconds,
 			double predictedMinutes, double predictedCompletion, long suggestedAt)
 		{
-			this(recommendationId,price,quantity,quoteAgeSeconds,predictedMinutes,predictedCompletion,suggestedAt,suggestedAt,null,null);
+			this(recommendationId,price,quantity,quoteAgeSeconds,predictedMinutes,predictedCompletion,suggestedAt,suggestedAt,null,null,null);
 		}
 		private Advice(String recommendationId, int price, int quantity, long quoteAgeSeconds,
 			double predictedMinutes, double predictedCompletion, long suggestedAt, long recordedAt,
-            com.flippingfriend.core.ExecutionForecast forecast,com.flippingfriend.core.AcquisitionExitContext exitContext)
+            com.flippingfriend.core.ExecutionForecast forecast,com.flippingfriend.core.AcquisitionExitContext exitContext,
+            com.flippingfriend.core.ContinuationSuccessorProof successorProof)
 		{
 			this.recommendationId = recommendationId;
 			this.price = price;
@@ -167,6 +198,8 @@ public class SuggestionLedger
 			this.recordedAt = recordedAt;
             this.forecast=forecast;
             this.exitContext=exitContext;
+            this.continuationSuccessorProof=successorProof;
+            this.acceptedOrder=com.flippingfriend.core.CaptureOrder.next();
 		}
 
 		/** Whether this is the same recommendation repeated, rather than a genuinely new one. */
@@ -187,5 +220,6 @@ public class SuggestionLedger
         public com.flippingfriend.core.ExecutionForecast getForecast(){return forecast;}
         public com.flippingfriend.core.AcquisitionExitContext getExitContext(){return exitContext;}
         public com.flippingfriend.core.CaptureOrder getAcceptedOrder(){return acceptedOrder;}
+        public com.flippingfriend.core.ContinuationSuccessorProof getContinuationSuccessorProof(){return continuationSuccessorProof;}
 	}
 }

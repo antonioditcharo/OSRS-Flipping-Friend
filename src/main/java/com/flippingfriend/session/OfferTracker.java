@@ -81,19 +81,29 @@ public class OfferTracker
     private final Map<Integer,TrackedOffer> continuationSettled=new java.util.HashMap<>();
     private final Object continuationObservationLock=new Object();
     private String continuationAccount;
+    private volatile java.util.function.Supplier<List<com.flippingfriend.core.OfferEvent>> continuationSources;
+    /** Durable classification is supplied by the existing outbox, never by an item/quantity guess. */
+    public void setContinuationSourceReader(java.util.function.Supplier<List<com.flippingfriend.core.OfferEvent>> reader){continuationSources=reader;}
+    public void reconcileContinuationSources(){checkpointRelist();}
     public static final class ContinuationEvidence {
         private final Collection<TrackedOffer> offers;
         private final Map<Integer,TrackedOffer> settled;
         private final boolean available;
         private final String accountId;
-        private ContinuationEvidence(Collection<TrackedOffer> offers,Map<Integer,TrackedOffer> settled,boolean available,String accountId) {
+        private final List<com.flippingfriend.core.OfferEvent> firstSources;
+        private final boolean sourcesRequired;
+        private ContinuationEvidence(Collection<TrackedOffer> offers,Map<Integer,TrackedOffer> settled,boolean available,String accountId,
+                List<com.flippingfriend.core.OfferEvent> sources,boolean required) {
             this.offers=java.util.Collections.unmodifiableCollection(offers);
             this.settled=java.util.Collections.unmodifiableMap(settled);this.available=available;this.accountId=accountId;
+            firstSources=sources==null?List.of():List.copyOf(sources);sourcesRequired=required;
         }
         public Collection<TrackedOffer> getOffers(){return offers;}
         public TrackedOffer getSettledOffer(int slot){return settled.get(slot);}
         public TrackedOffer getOffer(int slot){for(var offer:offers)if(offer.getSlot()==slot)return offer;return null;}
         public boolean isAvailable(){return available;}
+        public List<com.flippingfriend.core.OfferEvent> getFirstSources(){return firstSources;}
+        public boolean requiresSources(){return sourcesRequired;}
         public boolean isForAccount(String expected){return accountId==null?offers.isEmpty() && settled.isEmpty():accountId.equals(expected);}
     }
     /** Reset independently of load(), including a reconnect to the same already-loaded account. */
@@ -101,9 +111,11 @@ public class OfferTracker
         synchronized(continuationObservationLock){continuationOffers.clear();continuationSettled.clear();continuationAccount=null;}
     }
     public ContinuationEvidence getContinuationEvidence() {
+        var reader=continuationSources;List<com.flippingfriend.core.OfferEvent> sources=null;
+        try{if(reader!=null)sources=reader.get();}catch(Exception unavailable){/* Withhold while durable classification retries. */}
         synchronized(continuationObservationLock) {
             return new ContinuationEvidence(new ArrayList<>(continuationOffers.values()),
-                new java.util.HashMap<>(continuationSettled),!unresolvedPriceObservation,continuationAccount);
+                new java.util.HashMap<>(continuationSettled),!unresolvedPriceObservation && (reader==null || sources!=null),continuationAccount,sources,reader!=null);
         }
     }
     private static TrackedOffer continuationCopy(TrackedOffer offer) {
