@@ -48,15 +48,20 @@ public final class SelectedSalePricing {
         }
         if(paused)return waiting("Checking purchase evidence",
             "The selected item's trade evidence is unresolved. Its recorded stock and cost are retained.");
+        if(reprice!=null && (reprice.getItemId()!=item || reprice.getQuantity()<selected))
+            return waiting("Checking the returned sale quantity","The selection exceeds this cancellation's proven collected remainder.");
         var acquired=ledger.getTradingPositions().stream().filter(p->p.getItemId()==item).findFirst().orElse(null);
-        if(acquired==null)return ManualSalePrice.quote(item,selected,inventory,market,now);
+        if(acquired==null) {
+            var personal=ManualSalePrice.quote(item,selected,inventory,market,now);
+            if(personal!=null && reprice!=null && reprice.getItemId()==item && selected<=reprice.getQuantity())
+                personal.bindContinuationOrigin(reprice.getOriginIdentity());
+            return personal;
+        }
         int available=Math.max(0,acquired.getQuantity()-listed.getOrDefault(item,0));
         if(selected>available)return waiting("Select only the remaining managed stock",
             "There are "+available+" recorded, unlisted units. The larger selection may include personal items; it cannot borrow the trade's cost or plan.");
         if(buying.contains(item))return waiting("Purchase still in progress",
             "Finish or cancel and collect the remaining purchase before listing its acquired units.");
-        if(reprice!=null && (reprice.getItemId()!=item || reprice.getQuantity()<selected))
-            return waiting("Checking the returned sale quantity","The selection exceeds this cancellation's proven collected remainder.");
         Position position=new Position(item,acquired.getItemName(),acquired.getQuantity(),acquired.getTotalCost(),acquired.getOpenedAt(),true);
         position.applyExitContexts(acquired.getExitContexts());
         var decision=exits.evaluateManagedExit(position,market.latest(item),null,series,horizon,now,0,true,sellOnly,false);
@@ -84,6 +89,7 @@ public final class SelectedSalePricing {
             .expectedMinutes(minutes).fillMinutes(0,minutes).executionForecast(forecast)
             .legCompletionProbability(forecast==null?null:forecast.getCompletionProbability())
             .saleRepriceSource(reprice==null?null:reprice.getSaleRepriceSource())
+            .continuationOrigin(reprice==null?null:reprice.getOriginIdentity())
             .adviceContext(account,null,0,now.getEpochSecond()+5)
             .headline((cut?"Cut your losses on ":"Sell your ")+position.getItemName())
             .detail((reduced==null?decision.getReason():reduced.reason)+" This quote covers only the selected recorded units; its timing estimate is unvalidated.").build();

@@ -131,6 +131,7 @@ public class CompanionClient
 	 */
 	private volatile Suggestion lastBuy;
     private Suggestion lastPresented;
+    private String lastPresentedSuccessorId;
 	private volatile String lastError = "Companion has not been contacted.";
 	private volatile PortfolioPlan lastPlan;
 	private volatile CompanionHealth lastHealth;
@@ -472,6 +473,12 @@ public class CompanionClient
     public void captureObservedOfferCleared(int slot,String expectedAccountId,long observedAt) {
         if(publishOfferCleared(slot,expectedAccountId,true,observedAt,false)!=null)wakeCapturedOfferReplay();
     }
+    /** Local forced sources only. Failure leaves new-episode continuation reconciliation suspended. */
+    public java.util.List<OfferEvent> continuationSourceEpisodes() {
+        String expected=accountContext();if(expected==null)return null;
+        try{var first=outbox.observedSuccessorEpisodes();return expected.equals(accountContext())?first:null;}
+        catch(Exception unavailable){return null;}
+    }
     private void wakeCapturedOfferReplay() {
         long generation=replayGeneration.get();
         synchronized(replayScheduling) {
@@ -509,6 +516,7 @@ public class CompanionClient
     private OfferEventOutbox.EventFactory offerFactory(TrackedOffer offer,String expectedAccountId,boolean authenticated,long now) {
         String state=offer.getState()==null?"OBSERVED":offer.getState();
         SuggestionLedger.Advice advice=ledger.attribute(offer.getItemId(),offer.isBuying(),now);
+        var successor=ledger.attributeSuccessor(offer.getItemId(),offer.isBuying(),now);
         return (eventId,sessionId,sequence)->{
             long start=offer.getFirstSeen()>0?offer.getFirstSeen():now;
             var builder=OfferEvent.builder(UUID.randomUUID().toString(),now,state).accountId(expectedAccountId)
@@ -525,6 +533,7 @@ public class CompanionClient
                 if(advice.getAcceptedOrder().precedes(order))
                     builder.acceptedAdviceProof(new com.flippingfriend.core.AcceptedAdviceProof(advice.getAcceptedOrder(),order));
             }
+            if(successor!=null)builder.continuationSuccessorProof(successor.captured(offer.getFirstCaptureOrder()));
             return builder.build();
         };
     }
@@ -748,11 +757,16 @@ public class CompanionClient
     public synchronized void recordPresentedAdvice(Suggestion suggestion, String expectedAccount,int stopPrice)
     {
         String account = accountContext();
-        if (account == null || !account.equals(expectedAccount) || suggestion == null || suggestion == lastPresented
+        if(account==null || !account.equals(expectedAccount))return;
+        if (suggestion == null
             || (suggestion.getAdviceAccountId() != null && !account.equals(suggestion.getAdviceAccountId()))
             || (suggestion.getAdviceExpiresAt() > 0 && suggestion.getAdviceExpiresAt() <= Instant.now().getEpochSecond())
             || (suggestion.getType() != SuggestionType.BUY && suggestion.getType() != SuggestionType.SELL)
-            || suggestion.getItemId() <= 0 || suggestion.getPrice() <= 0 || suggestion.getQuantity() <= 0) return;
+            || suggestion.getItemId() <= 0 || suggestion.getPrice() <= 0 || suggestion.getQuantity() <= 0) {
+            withdrawPresentedSuccessor();return;
+        }
+        if(suggestion==lastPresented && java.util.Objects.equals(lastPresentedSuccessorId,
+                suggestion.getContinuationSuccessorProof()==null?null:suggestion.getContinuationSuccessorProof().getAcceptedAdviceId()))return;
         boolean buying = suggestion.getType() == SuggestionType.BUY;
         double minutes = buying ? suggestion.getBuyFillMinutes() : suggestion.getSellFillMinutes();
         Double probability = suggestion.getLegCompletionProbability();
@@ -771,8 +785,13 @@ public class CompanionClient
             && Double.isFinite(suggestion.getSellFillMinutes()) && suggestion.getSellFillMinutes()>0)
             exit=new com.flippingfriend.core.AcquisitionExitContext(suggestion.getTargetSellPrice(),stopPrice,suggestion.getSellFillMinutes());
         ledger.recorded(recommendation,suggestion.getItemId(),buying,suggestion.getPrice(),suggestion.getQuantity(),
-            suggestion.getQuoteAgeSeconds(),scalarValid ? minutes : 0,scalarValid ? probability : 0,forecast,exit);
+            suggestion.getQuoteAgeSeconds(),scalarValid ? minutes : 0,scalarValid ? probability : 0,forecast,exit,suggestion.getContinuationSuccessorProof());
         lastPresented = suggestion;
+        lastPresentedSuccessorId=suggestion.getContinuationSuccessorProof()==null?null:suggestion.getContinuationSuccessorProof().getAcceptedAdviceId();
+    }
+    /** A hidden, refused or unsupported display cannot remain prospective successor evidence. */
+    public synchronized void withdrawPresentedSuccessor() {
+        ledger.withdrawSuccessor();lastPresented=null;lastPresentedSuccessorId=null;
     }
     /** Compatibility entry point for an already accepted sale; producers must not call this. */
     public void recordSellAdvice(Suggestion suggestion) {
@@ -1041,7 +1060,7 @@ public class CompanionClient
         return null;
     }
     static boolean validSaleDecision(PolicyDecision decision,String identity,String source,int slot,long now) {
-        return decision!=null && "1".equals(decision.getSchemaVersion()) && "companion-sale-6".equals(decision.getPolicyVersion())
+        return decision!=null && "1".equals(decision.getSchemaVersion()) && "companion-sale-7".equals(decision.getPolicyVersion())
             && identity.equals(decision.getCandidateId()) && source.equals(decision.getRecommendationId())
             && decision.getDecisionType()==(slot<0?PolicyDecisionType.EXIT:PolicyDecisionType.SELL_MAINTENANCE)
             && decision.getAction()==(slot<0?OfferLifecycleAction.PLACE_SELL:OfferLifecycleAction.CANCEL_SELL)

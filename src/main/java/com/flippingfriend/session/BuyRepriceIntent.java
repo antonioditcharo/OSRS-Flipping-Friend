@@ -9,7 +9,8 @@ import javax.inject.Singleton;
 public final class BuyRepriceIntent extends OfferContinuationStore {
     public static final class Request {
         public final int itemId,quantity;
-        private Request(int itemId,int quantity){this.itemId=itemId;this.quantity=quantity;}
+        public final String originIdentity;
+        private Request(int itemId,int quantity,String origin){this.itemId=itemId;this.quantity=quantity;originIdentity=origin;}
     }
     @Inject public BuyRepriceIntent(PluginStorage storage){super(storage,"buy-reprice-intent.json",true);}
     public synchronized boolean advise(TrackedOffer offer,String expected,OfferTracker tracker,long now) {
@@ -24,11 +25,11 @@ public final class BuyRepriceIntent extends OfferContinuationStore {
     }
     public synchronized Request collectedRequest(OfferTracker tracker,String expected,long now) {
         var intent=advance(tracker,expected,now);
-        return intent==null?null:new Request(intent.getItemId(),intent.getCollectedRemaining());
+        return intent==null?null:new Request(intent.getItemId(),intent.getCollectedRemaining(),intent.getOriginalIdentity());
     }
     public synchronized java.util.List<Request> collectedRequests(OfferTracker tracker,String expected,long now) {
         var requests=new java.util.ArrayList<Request>();
-        for(var intent:collectedAll(tracker,expected,now))requests.add(new Request(intent.getItemId(),intent.getCollectedRemaining()));
+        for(var intent:collectedAll(tracker,expected,now))requests.add(new Request(intent.getItemId(),intent.getCollectedRemaining(),intent.getOriginalIdentity()));
         return java.util.Collections.unmodifiableList(requests);
     }
     public synchronized boolean isPending(int item,OfferTracker tracker,String expected,long now){return pending(item,tracker,expected,now);}

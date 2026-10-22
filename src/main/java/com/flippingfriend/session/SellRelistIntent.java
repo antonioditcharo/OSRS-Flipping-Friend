@@ -10,10 +10,12 @@ public final class SellRelistIntent extends OfferContinuationStore {
     public static final class CollectedRemainder {
         private final int item,quantity;private final boolean managed;private final String repriceSource;
         private final int originalPrice;private final long firstSeen,progressAt;
+        private final String originIdentity;
         private CollectedRemainder(com.flippingfriend.core.OfferContinuation intent){
             item=intent.getItemId();quantity=intent.getCollectedRemaining();managed=intent.isManaged();
             repriceSource=intent.getSaleRepriceSource();originalPrice=intent.getOriginalPrice();
             firstSeen=intent.getFirstSeenAt();progressAt=intent.getSaleRepriceProgressAt();
+            originIdentity=intent.getOriginalIdentity();
         }
         public int getItemId(){return item;}
         public int getQuantity(){return quantity;}
@@ -22,6 +24,7 @@ public final class SellRelistIntent extends OfferContinuationStore {
         public int getOriginalPrice(){return originalPrice;}
         public long getFirstSeenAt(){return firstSeen;}
         public long getProgressAt(){return progressAt;}
+        public String getOriginIdentity(){return originIdentity;}
     }
     @Inject public SellRelistIntent(PluginStorage storage){super(storage,"sell-relist-intent.json",false);}
     public synchronized void advise(TrackedOffer offer){advise(offer,account());}
@@ -34,6 +37,9 @@ public final class SellRelistIntent extends OfferContinuationStore {
         return adviseOffer(offer,expected,managed,tracker,java.time.Instant.now().getEpochSecond(),0,source);
     }
     public synchronized void observe(OfferTracker tracker,String expected){advance(tracker,expected,java.time.Instant.now().getEpochSecond());}
+    public synchronized boolean isPending(int item,OfferTracker tracker,String expected) {
+        return pending(item,tracker,expected,java.time.Instant.now().getEpochSecond());
+    }
     public synchronized boolean requiresManagedCost(String expected){return managed(expected);}
     public synchronized CollectedRemainder collectedRequest(OfferTracker tracker,String expected) {
         var intent=advance(tracker,expected,java.time.Instant.now().getEpochSecond());

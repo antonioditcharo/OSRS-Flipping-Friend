@@ -1,19 +1,27 @@
 # Tasks
 
-Updated 21 October 2026. Read [HANDOFF.md](HANDOFF.md) and the actual delivery receipt at
-`local-data/relist-market-evidence-20261021/delivery-state.json` first. Implemented/tested, merged,
+Updated 22 October 2026. Read [HANDOFF.md](HANDOFF.md) and the actual delivery receipt at
+`local-data/distinct-continuations-20261022/delivery-state.json` first. Implemented/tested, merged,
 installed and player accepted are separate states. Owner is home; older login deferrals are superseded.
 
 ## Current batch
+
+- [x] Implement/test explicit distinct-origin successors across client acceptance/outbox, callback
+      reconciliation, residual/child budgets, selected editor, canonical sale authority and replay.
+      [Contract](docs/architecture/distinct-continuation-successors.md); actual state in new receipt.
+- [ ] Accept parallel same-item origins, smaller replacements, child cancel/collect, late original
+      fills, failed writes and restart through player operation. Source tests are separate.
+- [ ] Add prospective exact policy-setting evidence before relaxing saved-sale eligibility across
+      checking-cadence changes; current settings cannot establish historical acceptance eligibility.
+- [ ] Bound relationship retention through proven origin reachability; never discard live proof by TTL.
 
 - [x] Prevent accepted sale reductions from falling back to an abandoned target on missing market
       support; share relist evidence across engine/editor/authority/replay and preserve exact floors.
       [Contract](docs/architecture/relist-market-evidence.md); actual delivery in receipt.
 - [ ] Accept evidence-loss/recovery, partial collection, exact relists, stops/wind-down and restart
       through player trading; source verification and synthetic replay remain separate.
-- [ ] Preserve multiple same-item continuations when one exact successor is placed. Add explicit
-      successor-to-origin evidence across durable client state, companion proof and replay; never
-      infer association or weaken unknown-new-order supersession. Synthetic reproduction retained.
+- [ ] Deliver/accept multiple same-item continuation preservation through explicit successor-to-origin
+      evidence; no inferred association or weaker unknown-order supersession. See current batch.
 
 - [x] Stage new continuation acceptance/source upgrades separately from accepted observation retries;
       unify live/replay original BUY timing without learning promotion. Replay 14 / sale policy 5.

@@ -76,4 +76,18 @@ public class SelectedSaleEditorBoundaryTest {
         var f=new Fixture();f.inventory(30);f.setup.set(new int[]{13263,4});f.selected();f.compute();f.deliver();
         assertEquals(SuggestionType.WAIT,f.real.getSuggestion().getType());verify(f.companion,never()).authorizeSale(any());
     }
+    @Test public void savedForegroundOriginSurvivesCheckingOverlayAndSelectedQuantityChanges()throws Exception {
+        var f=new Fixture();var engine=(SuggestionEngine)f.field("engine");
+        f.real.setSuggestion(Suggestion.builder(SuggestionType.SELL).item(13263,"Stock").quantity(2).price(1400).continuationOrigin("saved-B").build());
+        f.selected();f.compute();f.deliver();
+        verify(engine).selectedSaleReprice(13263,1,"saved-B");
+        f.setup.set(new int[]{13263,2});f.selected();f.compute();f.deliver();
+        verify(engine).selectedSaleReprice(13263,2,"saved-B");
+    }
+    @Test public void ambiguousSavedSaleCannotFallThroughToGenericSelectedPricing()throws Exception {
+        var f=new Fixture();var engine=(SuggestionEngine)f.field("engine");
+        when(engine.hasPendingSaleContinuation(13263)).thenReturn(true);
+        f.selected();f.compute();f.deliver();assertEquals(SuggestionType.WAIT,f.real.getSuggestion().getType());
+        verify(f.companion,never()).authorizeSale(any());
+    }
 }

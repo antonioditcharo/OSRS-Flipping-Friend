@@ -12,7 +12,7 @@ import java.util.*;
 
 /** One simulated account, one bankroll and eight physical slots; never opens a live database. */
 final class AccountReplay implements AutoCloseable {
-    static final String VERSION="account-replay-15";
+    static final String VERSION="account-replay-16";
     private static final String ACCOUNT=AccountIdentity.fromProfileKey("synthetic-account-replay-only");
     interface Entries {
         PortfolioPlan plan(MarketIngestionService.MarketState market,AccountSnapshot account,
@@ -35,6 +35,7 @@ final class AccountReplay implements AutoCloseable {
         final boolean cut;
         final PortfolioCandidate entry;
         final AcquisitionExitContext context;
+        ContinuationSuccessorProof successorAcceptance;
         Guidance(String kind,int slot,int item,int price,int quantity,String offerIdentity,String acquisitionSource,
             long cost,long spent,boolean cut,long at,PortfolioCandidate entry,String plan,AcquisitionExitContext context,long validUntil) {
             this.kind=kind;this.slot=slot;this.item=item;this.price=price;this.quantity=quantity;
@@ -89,6 +90,8 @@ final class AccountReplay implements AutoCloseable {
     private final Path continuationFile;
     private static final class Continuations {
         List<OfferContinuation> buy=new ArrayList<>(),sell=new ArrayList<>();
+        List<OfferContinuation> consumed=new ArrayList<>();
+        List<ContinuationSuccessorProof> successors=new ArrayList<>();
     }
     private Continuations continuations=new Continuations();
     private final List<OfferContinuation> collectedBuys=new ArrayList<>(),collectedSells=new ArrayList<>();
@@ -251,7 +254,7 @@ final class AccountReplay implements AutoCloseable {
             if(buying==null && inventory.getOrDefault(holding.getItemId(),0)<=0)continue;
             var decision=exitDecision(holding);
             if(decision.getAction()!=SellDecision.Action.CUT
-                && continuations.buy.stream().anyMatch(intent->intent.getItemId()==holding.getItemId()))continue;
+                && continuations.buy.stream().anyMatch(intent->intent.getItemId()==holding.getItemId() && !intent.isFullyClaimed()))continue;
             if(buying!=null) {
                 if(decision.getAction()==SellDecision.Action.CUT)
                     return offerGuidance("CANCEL_BUY",buying,0,null,true);
@@ -441,10 +444,25 @@ final class AccountReplay implements AutoCloseable {
     }
     private Guidance display(Guidance advice)throws Exception {
         if(advice!=null) {
+            if(("REPLACE_BUY".equals(advice.kind) || "RELIST_SELL".equals(advice.kind)) && advice.offerIdentity!=null) {
+                String source=null;
+                if("RELIST_SELL".equals(advice.kind))for(var intent:continuations.sell)
+                    if(advice.offerIdentity.equals(intent.getOriginalIdentity())){source=intent.getSaleRepriceSource();break;}
+                advice.successorAcceptance=ContinuationSuccessorProof.accepted(ACCOUNT,advice.offerIdentity,source,
+                    "sim-successor-advice-"+(++sequence),advice.item,"REPLACE_BUY".equals(advice.kind),advice.price,advice.quantity,
+                    now,CaptureOrder.next());
+            }
             if("REPRICE_BUY".equals(advice.kind))rememberContinuation(offers[advice.slot],true);
             if("CANCEL_SELL".equals(advice.kind))rememberContinuation(offers[advice.slot],false);
-            if(("CANCEL_BUY".equals(advice.kind) || advice.cut && ("SELL".equals(advice.kind) || "RELIST_SELL".equals(advice.kind)))
-                && continuations.buy.removeIf(intent->intent.getItemId()==advice.item))saveContinuations();
+            if("CANCEL_BUY".equals(advice.kind) || advice.cut && ("SELL".equals(advice.kind) || "RELIST_SELL".equals(advice.kind))) {
+                boolean changed=false;
+                for(var iterator=continuations.buy.iterator();iterator.hasNext();) {
+                    var intent=iterator.next();if(intent.getItemId()!=advice.item)continue;
+                    if(intent.getClaimedQuantity()>0)continuations.consumed.add(intent);
+                    iterator.remove();changed=true;
+                }
+                if(changed)saveContinuations();
+            }
         }
         return advice;
     }
@@ -456,7 +474,7 @@ final class AccountReplay implements AutoCloseable {
         else inventory.merge(item,-quantity,Integer::sum);
         if(cash<0 || inventory.getOrDefault(item,0)<0)throw new IllegalStateException("Shared capital or inventory overspent");
         Offer offer=new Offer(slot,item,price,quantity,buy,now,"sim-offer-"+(++sequence));offers[slot]=offer;
-        if(buy) {
+        if(buy || advice.successorAcceptance!=null) {
             // Prospective synthetic advice was actually displayed earlier. This is not real execution learning.
             offer.origin=event(offer,advice);
         }
@@ -534,6 +552,10 @@ final class AccountReplay implements AutoCloseable {
     private OfferEvent publish(Offer o) throws Exception {
         var e=o.lastObservation==null && o.origin!=null?o.origin:event(o,null);
         accept(e);o.lastObservation=e;limits.restore(store.buyLimitProjections(),Instant.ofEpochSecond(now));
+        var proof=e.getContinuationSuccessorProof();
+        if(proof!=null && proof.qualifiesOriginal(e) && !continuations.successors.contains(proof)) {
+            continuations.successors.add(proof);saveContinuations();
+        }
         observeContinuations(null);return e;
     }
     private OfferEvent event(Offer o,Guidance advice) {
@@ -541,10 +563,16 @@ final class AccountReplay implements AutoCloseable {
         var builder=OfferEvent.builder("synthetic-replay",now,type).accountId(ACCOUNT).slot(o.slot).item(o.item,name(o.item)).buying(o.buy)
             .price(o.price).quantities(o.quantity,o.filled).spent(o.spent).firstSeenAt(o.placedAt)
             .eventIdentity("sim-event-"+(++sequence),"synthetic-session",o.identity).sequence(sequence).authenticatedObservation(true);
-        if(advice!=null)builder.recommendation(advice.plan,o.price,o.quantity,0,advice.entry.getBuyHours()*60,
+        if(advice!=null && advice.entry!=null)builder.recommendation(advice.plan,o.price,o.quantity,0,advice.entry.getBuyHours()*60,
             advice.entry.getDisplayBuyFillProbability()).predictionEvidence(null,advice.advisedAt,false)
             .executionForecast(advice.entry.getBuyForecast()).exitContext(advice.context);
         var raw=builder.build();
+        if(advice!=null && advice.successorAcceptance!=null) {
+            var proof=advice.successorAcceptance.captured(CaptureOrder.next()).bindTo(raw);
+            if(proof==null)throw new IllegalStateException("Synthetic successor lost prospective acceptance");
+            raw=raw.withContinuationSuccessorProof(proof);
+        } else if(o.origin!=null && o.origin.getContinuationSuccessorProof()!=null)
+            raw=raw.withContinuationSuccessorProof(o.origin.getContinuationSuccessorProof());
         return advice!=null?raw.withBoundPrediction(raw,true):o.origin==null?raw:raw.withBoundPrediction(o.origin,true);
     }
     private void accept(OfferEvent e) throws Exception {
@@ -565,12 +593,15 @@ final class AccountReplay implements AutoCloseable {
                         || restored.getFilledQuantity()!=offer.filled || restored.getSpent()!=offer.spent)
                         throw new IllegalStateException("Restart changed current synthetic offer evidence");
                     offer.lastObservation=restored;
-                    if(restored.getPredictionSourceEventId()==null)continue;
-                    sql.setString(1,restored.getPredictionSourceEventId());
+                    String source=restored.getPredictionSourceEventId();
+                    if(source==null && restored.getContinuationSuccessorProof()!=null)source=restored.getContinuationSuccessorProof().getSourceEventId();
+                    if(source==null)continue;
+                    sql.setString(1,source);
                     try(var rows=sql.executeQuery()) {
                         if(!rows.next())throw new IllegalStateException("Restart lost original synthetic advice source");
                         var origin=json.fromJson(rows.getString(1),OfferEvent.class);
-                        if(!ACCOUNT.equals(origin.getAccountId()) || !qualifiedOriginalBinding(origin))
+                        if(!ACCOUNT.equals(origin.getAccountId()) || !(qualifiedOriginalBinding(origin)
+                            || origin.getContinuationSuccessorProof()!=null && origin.getContinuationSuccessorProof().qualifiesOriginal(origin)))
                             throw new IllegalStateException("Restart lost qualified synthetic advice");
                         offer.origin=origin;
                     }
@@ -619,16 +650,29 @@ final class AccountReplay implements AutoCloseable {
     }
     private OfferContinuation.Status observeContinuations(OfferContinuation.Observation settled)throws Exception {
         var board=observedBoard();boolean changed=false;
+        var blockedItems=new HashSet<Integer>();
         collectedBuys.clear();collectedSells.clear();
+        for(var intent:continuations.consumed) {
+            long revision=intent.getRevision();
+            var status=intent.observeConsumedBudget(board,settled,continuations.successors);
+            changed|=revision!=intent.getRevision();
+            if(status==OfferContinuation.Status.UNKNOWN || intent.hasFutureEvidence(now))blockedItems.add(intent.getItemId());
+        }
         for(boolean buy:new boolean[]{true,false}) {
             var iterator=(buy?continuations.buy:continuations.sell).iterator();
             while(iterator.hasNext()) {
                 var intent=iterator.next();if(intent==null || intent.isBuying()!=buy)throw new IllegalStateException("Wrong continuation side");
-                long revision=intent.getRevision();var status=intent.observe(board,settled,now);changed|=intent.getRevision()!=revision;
-                if(status==OfferContinuation.Status.CLOSED){iterator.remove();changed=true;}
+                long revision=intent.getRevision();var status=intent.observe(board,settled,now,continuations.successors,List.of());changed|=intent.getRevision()!=revision;
+                if(status==OfferContinuation.Status.UNKNOWN || intent.getClaimedQuantity()>0 && intent.hasFutureEvidence(now))blockedItems.add(intent.getItemId());
+                if(status==OfferContinuation.Status.CLOSED){
+                    if(intent.getClaimedQuantity()>0)continuations.consumed.add(intent);
+                    iterator.remove();changed=true;
+                }
                 else if(status==OfferContinuation.Status.COLLECTED)(buy?collectedBuys:collectedSells).add(intent);
             }
         }
+        collectedBuys.removeIf(intent->blockedItems.contains(intent.getItemId()));
+        collectedSells.removeIf(intent->blockedItems.contains(intent.getItemId()));
         if(changed)saveContinuations();
         return !collectedBuys.isEmpty()?OfferContinuation.Status.COLLECTED:continuations.buy.isEmpty()?OfferContinuation.Status.CLOSED:OfferContinuation.Status.WAITING;
     }

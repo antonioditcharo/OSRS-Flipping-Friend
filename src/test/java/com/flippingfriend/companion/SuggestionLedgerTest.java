@@ -5,6 +5,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
@@ -152,4 +153,44 @@ public class SuggestionLedgerTest
 
 		assertNull(ledger.attribute(4151, true, now()));
 	}
+
+    @Test public void successorRequiresCurrentExactDisplayAndItsOwnProspectiveWindow() {
+        long at=now();String account=com.flippingfriend.core.AccountIdentity.fromProfileKey("successor");
+        var proof=com.flippingfriend.core.ContinuationSuccessorProof.accepted(account,"origin","advice",561,true,
+            150,80,at,com.flippingfriend.core.CaptureOrder.next());
+        ledger.recorded("plan",561,true,150,80,0,0,0,null,null,proof);
+        assertEquals(proof,ledger.attributeSuccessor(561,true,at));
+        assertEquals(proof,ledger.attributeSuccessor(561,true,at+600));
+        assertNull(ledger.attributeSuccessor(561,true,at-1));assertNull(ledger.attributeSuccessor(561,true,at+601));
+        assertNull(ledger.attributeSuccessor(561,false,at));assertNull(ledger.attributeSuccessor(562,true,at));
+        ledger.recorded("other-item",562,true,150,80,0,0,0);
+        assertNull("A later displayed card cannot leave an old continuation active",ledger.attributeSuccessor(561,true,at));
+        ledger.recorded("plan",561,true,150,80,0,0,0,null,null,proof);ledger.clear();
+        assertNull(ledger.attributeSuccessor(561,true,at));
+    }
+    @Test public void successorFromAnotherProcessCannotBecomeCurrentDisplayEvidence() {
+        long at=now();var proof=com.flippingfriend.core.ContinuationSuccessorProof.accepted(
+            com.flippingfriend.core.AccountIdentity.fromProfileKey("successor"),"origin","advice",561,true,150,80,
+            at,com.flippingfriend.core.CaptureOrder.next());
+        var gson=new com.google.gson.Gson();var restored=gson.toJsonTree(proof).getAsJsonObject();
+        restored.getAsJsonObject("acceptedOrder").addProperty("process","previous-process");
+        ledger.recorded("plan",561,true,150,80,0,0,0,null,null,gson.fromJson(restored,com.flippingfriend.core.ContinuationSuccessorProof.class));
+        assertNull(ledger.attributeSuccessor(561,true,at));
+        assertNotNull("Independent ordinary attribution remains unchanged",ledger.attribute(561,true,at));
+    }
+    @Test public void reusedWorkflowAcceptanceCannotBackdateARefreshedForecastDisplay() {
+        long at=now();var proof=com.flippingfriend.core.ContinuationSuccessorProof.accepted(
+            com.flippingfriend.core.AccountIdentity.fromProfileKey("successor"),"origin","advice",561,true,150,80,
+            at,com.flippingfriend.core.CaptureOrder.next());
+        ledger.recorded("first-forecast",561,true,150,80,0,12,.7,null,null,proof);
+        var original=ledger.attribute(561,true,at);
+        var offerCapture=com.flippingfriend.core.CaptureOrder.next();
+        ledger.recorded("refreshed-forecast",561,true,150,80,0,24,.8,null,null,proof);
+        var refreshed=ledger.attribute(561,true,at);
+        assertTrue(original.getAcceptedOrder().precedes(offerCapture));
+        assertTrue(offerCapture.precedes(refreshed.getAcceptedOrder()));
+        assertFalse("Later refreshed context cannot qualify a previously captured offer",refreshed.getAcceptedOrder().precedes(offerCapture));
+        assertEquals(proof,ledger.attributeSuccessor(561,true,at));
+        assertEquals(original.getSuggestedAt(),refreshed.getSuggestedAt());
+    }
 }

@@ -74,6 +74,7 @@ public final class OfferEventOutbox
             event=event.withAccountId(state.accountId);updated.nextSequence=Math.addExact(sequence,1);
             if(bindPrediction && !observedSlots.add(event.getSlot()))throw new IllegalArgumentException("Duplicate observation slot");
             if(bindPrediction)event=bindPrediction(event,updated);
+            if(bindPrediction)event=bindContinuationSuccessor(event,updated);
             updated.pending.add(event);created.add(event);
         }
 		write(updated,true);
@@ -101,6 +102,39 @@ public final class OfferEventOutbox
         PredictionBinding binding=new PredictionBinding(previous.origin,previous.invalidated||changed);
         updated.predictions.put(event.getSlot(),binding);
         return event.withBoundPrediction(binding.origin,!binding.invalidated);
+    }
+    /** Freeze only the first durable episode source; later advice cannot reclassify that source. */
+    private OfferEvent bindContinuationSuccessor(OfferEvent event,State state) {
+        if(!event.isAuthenticatedObservation() || "EMPTY".equals(event.getEventType()) || blank(event.getOfferIdentity()))
+            return event.withContinuationSuccessorProof(null);
+        String key=episodeKey(event);
+        OfferEvent first=state.successorEpisodes.get(key);
+        if(first==null) {
+            var supplied=event.getContinuationSuccessorProof();
+            var proof=supplied==null?null:supplied.bindTo(event);
+            // One accepted advice receipt cannot prospectively label two different episodes.
+            if(proof!=null)for(var prior:state.successorEpisodes.values()) {
+                var used=prior.getContinuationSuccessorProof();
+                if(used!=null && used.isBound() && used.getAcceptedAdviceId().equals(proof.getAcceptedAdviceId())) {proof=null;break;}
+            }
+            first=event.withContinuationSuccessorProof(proof);state.successorEpisodes.put(key,first);
+        }
+        var proof=first.getContinuationSuccessorProof();
+        return event.withContinuationSuccessorProof(proof!=null && proof.qualifiesOriginal(first) && proof.matchesEpisode(event)?proof:null);
+    }
+    private static String episodeKey(OfferEvent event) {
+        return event.getSessionId()+"|"+event.getSlot()+"|"+event.getOfferIdentity()+"|"+event.getFirstSeenAt();
+    }
+    /** Durable first sources include explicit UNBOUND episodes; reads never manufacture an association. */
+    public synchronized List<OfferEvent> observedSuccessorEpisodes()throws Exception {
+        State state=loadRequired();var result=new ArrayList<OfferEvent>(state.successorEpisodes.values());
+        result.sort(Comparator.comparingLong(OfferEvent::getSequence));return Collections.unmodifiableList(result);
+    }
+    public synchronized List<OfferEvent> successorBindings()throws Exception {
+        var result=new ArrayList<OfferEvent>();
+        for(var first:observedSuccessorEpisodes())if(first.getContinuationSuccessorProof()!=null
+            && first.getContinuationSuccessorProof().qualifiesOriginal(first))result.add(first);
+        return Collections.unmodifiableList(result);
     }
     private static boolean sameOffer(OfferEvent a,OfferEvent b) {
         return same(a.getAccountId(),b.getAccountId()) && same(a.getSessionId(),b.getSessionId())
@@ -225,6 +259,21 @@ public final class OfferEventOutbox
                     || !origin.getEventId().equals(origin.getPredictionSourceEventId()))))
                 throw new IllegalStateException("invalid prediction binding schema or source");
         }
+        if(state.successorEpisodes==null)state.successorEpisodes=new java.util.HashMap<>();
+        var adviceIds=new java.util.HashSet<String>();var firstIds=new java.util.HashSet<String>();
+        var firstSequences=new java.util.HashSet<Long>();
+        for(var entry:state.successorEpisodes.entrySet()) {
+            var first=entry.getValue();
+            if(first==null || !first.isAuthenticatedObservation() || !"1".equals(first.getSchemaVersion())
+                || !accountId.equals(first.getAccountId()) || !state.sessionId.equals(first.getSessionId())
+                || blank(first.getEventId()) || blank(first.getOfferIdentity()) || first.getSlot()<0 || first.getSlot()>=8
+                || first.getSequence()<1 || first.getSequence()>=state.nextSequence || !firstIds.add(first.getEventId())
+                || !firstSequences.add(first.getSequence())
+                || !entry.getKey().equals(episodeKey(first)))throw new IllegalStateException("invalid continuation relationship source");
+            var proof=first.getContinuationSuccessorProof();
+            if(proof!=null && (!proof.qualifiesOriginal(first) || !adviceIds.add(proof.getAcceptedAdviceId())))
+                throw new IllegalStateException("invalid continuation relationship proof");
+        }
 		if (upgraded && !appending) write(state);
 		return state;
 	}
@@ -308,9 +357,10 @@ public final class OfferEventOutbox
 		private long nextSequence = 1;
 		private List<OfferEvent> pending = new ArrayList<>();
         private java.util.Map<Integer,PredictionBinding> predictions;
+        private java.util.Map<String,OfferEvent> successorEpisodes;
 		private State() { }
 		private State(String sessionId, String accountId, Path file)
-		{ this.sessionId = sessionId; this.accountId = accountId; this.file = file; this.predictions=new java.util.HashMap<>(); }
+		{ this.sessionId = sessionId; this.accountId = accountId; this.file = file; this.predictions=new java.util.HashMap<>();this.successorEpisodes=new java.util.HashMap<>(); }
 		private State copy()
 		{
 			State copy = new State(sessionId, accountId, file);
@@ -318,6 +368,7 @@ public final class OfferEventOutbox
 			copy.nextSequence = nextSequence;
 			copy.pending = new ArrayList<>(pending);
             copy.predictions=new java.util.HashMap<>(predictions);
+            copy.successorEpisodes=new java.util.HashMap<>(successorEpisodes);
 			return copy;
 		}
 	}

@@ -21,6 +21,19 @@ import static org.mockito.Mockito.*;
 
 /** Real refresh orchestration with paused worker/client queues; no game or HTTP input. */
 public class AdviceDeliveryBoundaryTest {
+    @Test public void failedSuccessorCommitWithdrawsBothBuyAndUnpricedPersonalSell()throws Exception {
+        for(var type:List.of(SuggestionType.BUY,SuggestionType.SELL)) {
+            var f=new Fixture();var client=(Client)getField(f.plugin,"client");when(client.isClientThread()).thenReturn(true);
+            var guide=new StepGuide(client,mock(GeWidgetResolver.class));
+            var shown=Suggestion.builder(type).item(561,"Rune").price(100).quantity(50).profitKnown(false).continuationOrigin("saved-origin").build();
+            guide.setSuggestion(shown);f.set("stepGuide",guide);
+            clearInvocations(f.companion);
+            var method=FlippingFriendPlugin.class.getDeclaredMethod("recordVisibleAdvice");method.setAccessible(true);method.invoke(f.plugin);
+            assertEquals(SuggestionType.WAIT,guide.getSuggestion().getType());
+            verify(f.companion).withdrawPresentedSuccessor();
+            verify(f.companion,never()).recordPresentedAdvice(eq(shown),anyString(),anyInt());
+        }
+    }
     static final class Worker extends AbstractExecutorService {
         final Queue<Runnable> tasks=new ArrayDeque<>();
         boolean reject;

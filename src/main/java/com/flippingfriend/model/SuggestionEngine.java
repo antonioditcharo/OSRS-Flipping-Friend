@@ -240,6 +240,13 @@ public class SuggestionEngine
     /** Client-thread acceptance only: a worker proposal is not a promise shown to the player. */
     public boolean recordPresentedMaintenance(Suggestion accepted,String expectedAccount,long now) {
         if(accepted==null || expectedAccount==null || !expectedAccount.equals(observedAccount))return false;
+        if(accepted.getContinuationOriginIdentity()!=null && (accepted.getType()==SuggestionType.BUY || accepted.getType()==SuggestionType.SELL)) {
+            var proof=accepted.getType()==SuggestionType.BUY
+                ?buyReprice==null?null:buyReprice.acceptSuccessor(accepted.getContinuationOriginIdentity(),accepted.getItemId(),accepted.getPrice(),accepted.getQuantity(),offers,expectedAccount,now)
+                :sellRelist==null?null:sellRelist.acceptSuccessor(accepted.getContinuationOriginIdentity(),accepted.getItemId(),accepted.getPrice(),accepted.getQuantity(),offers,expectedAccount,now);
+            if(proof==null)return false;
+            accepted.bindContinuationSuccessorProof(proof);
+        }
         if(accepted.getType()==SuggestionType.SELL && accepted.isProfitKnown())
             return clearBuyPromise(accepted.getItemId(),Instant.ofEpochSecond(now));
         if(accepted.getType()==SuggestionType.CANCEL) {
@@ -1067,6 +1074,7 @@ public class SuggestionEngine
             }
             // Only a bounded request: fresh companion authority still owns the displayed order.
             candidates.add(Suggestion.builder(SuggestionType.BUY).item(item,market.getItemName(item)).price(quoted).quantity(quantity)
+                .continuationOrigin(pending.originIdentity)
                 .headline("Recheck your "+market.getItemName(item)+" replacement").build());
             locallyDeclinedReplacements.remove(item);
         }
@@ -1550,7 +1558,9 @@ public class SuggestionEngine
                 return Suggestion.waiting("Waiting to verify remaining stock", "The managed sale's acquisition evidence is unavailable.");
             if (!freshSaleQuote(price,now))
                 return Suggestion.waiting("Waiting for a current sale price", "The cancelled sale will be repriced when a fresh quote is available.");
-            return ManualSalePrice.quote(item,quantity,quantity,market,now);
+            var personal=ManualSalePrice.quote(item,quantity,quantity,market,now);
+            if(personal!=null && personal.getType()==SuggestionType.SELL)personal.bindContinuationOrigin(remaining.getOriginIdentity());
+            return personal;
         }
         if (offers.itemsBeingBought().contains(item))
             return Suggestion.waiting("Purchase still in progress", "Finish the purchase before relisting the managed stock.");
@@ -1582,6 +1592,7 @@ public class SuggestionEngine
         return Suggestion.builder(SuggestionType.SELL).item(item,position.getItemName()).quantity(quantity)
             .price(quoted).lossCut(cut).profitKnown(true).expectedProfit(taxCalculator.netProceeds(item,quoted,quantity)-cost)
             .saleRepriceSource(remaining.getSaleRepriceSource())
+            .continuationOrigin(remaining.getOriginIdentity())
             .expectedMinutes(minutes).fillMinutes(0,minutes).executionForecast(forecast)
             .legCompletionProbability(forecast==null?null:forecast.getCompletionProbability())
             .headline((cut?"Cut your losses on ":"Relist your ")+position.getItemName()).detail(decision.getReason()).build();
@@ -1589,12 +1600,22 @@ public class SuggestionEngine
 
     /** Exact collected workflow context for a player-selected sale; final authority still rechecks it. */
     public com.flippingfriend.session.SellRelistIntent.CollectedRemainder selectedSaleReprice(int item,int quantity) {
+        return selectedSaleReprice(item,quantity,null);
+    }
+    public boolean hasPendingSaleContinuation(int item) {
+        return sellRelist!=null && observedAccount!=null && sellRelist.isPending(item,offers,observedAccount);
+    }
+    public com.flippingfriend.session.SellRelistIntent.CollectedRemainder selectedSaleReprice(int item,int quantity,String preferredOrigin) {
         if(quantity<=0 || sellRelist==null || observedAccount==null)return null;
         int inventory=accountMonitor.getState().getInventoryHoldings().getOrDefault(item,0);
         if(quantity>inventory)return null;
+        var candidates=new ArrayList<com.flippingfriend.session.SellRelistIntent.CollectedRemainder>();
         for(var request:sellRelist.collectedRequests(offers,observedAccount))
-            if(request.getItemId()==item && request.getSaleRepriceSource()!=null && quantity<=request.getQuantity())return request;
-        return null;
+            if(request.getItemId()==item && quantity<=request.getQuantity()) {
+                if(preferredOrigin!=null && preferredOrigin.equals(request.getOriginIdentity()))return request;
+                candidates.add(request);
+            }
+        return preferredOrigin==null && candidates.size()==1?candidates.get(0):null;
     }
 
 	private Suggestion sellSuggestion(MarketSnapshot market, TradingHorizon horizon, AccountState account,

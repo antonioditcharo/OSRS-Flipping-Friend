@@ -2,12 +2,14 @@ package com.flippingfriend.core;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 
 /** Local cancel/collect workflow evidence only. Never financial or order-placement authority. */
 public final class OfferContinuation {
-    public enum Status { WAITING, COLLECTED, CLOSED }
+    public enum Status { WAITING, COLLECTED, CLOSED, UNKNOWN }
     public static final class Observation {
         public final int slot,item,price,total,filled;
         public final long firstSeen;
@@ -31,6 +33,9 @@ public final class OfferContinuation {
     private boolean buying,managed,collectionVerified;
     private int collectedRemaining,collectedFilled,maximumFilled;
     private List<Key> existingSales;
+    /** Direct successor placements consume this workflow's cap once, independently of fills. */
+    private List<ContinuationSuccessorProof> successorClaims;
+    private boolean successorBudgetUncertain;
     private transient long revision;
     private transient boolean closed;
 
@@ -57,14 +62,22 @@ public final class OfferContinuation {
             && offer.firstSeen==firstSeen && Objects.equals(episode,offer.episode)
             && (price==0 || price==offer.price) && (total==0 || total==offer.total);
     }
+    /** Recognized original/parallel episodes from the accepted board; no successor inference. */
+    public boolean recognizes(Observation offer){return matches(offer) || alreadyPresent(offer);}
     public boolean valid(long now) {
-        return !closed && isWellFormed()
-            && firstSeen<=now && createdAt<=now && saleRepriceAcceptedAt<=now && (expiresAt==0 || now<=expiresAt);
+        return !closed && !successorBudgetUncertain && isWellFormed()
+            && firstSeen<=now && createdAt<=now && saleRepriceAcceptedAt<=now && !futureSuccessor(now)
+            && (expiresAt==0 || now<=expiresAt);
     }
     /** Retained ordered evidence is temporarily unavailable when the local clock moves backwards. */
     public boolean hasFutureEvidence(long now) {
         return !closed && isWellFormed()
-            && (firstSeen>now || createdAt>now || saleRepriceAcceptedAt>now);
+            && (firstSeen>now || createdAt>now || saleRepriceAcceptedAt>now || futureSuccessor(now));
+    }
+    private boolean futureSuccessor(long now){
+        if(successorClaims!=null)for(var proof:successorClaims)
+            if(proof!=null && (proof.getAcceptedAt()>now || proof.getFirstSeenAt()>now || proof.getCapturedAt()>now))return true;
+        return false;
     }
     /** Exact observed cancellation of this promise; it neither proves collection nor creates fills. */
     public boolean acknowledgesCancellation(Observation offer,long now) {
@@ -83,7 +96,8 @@ public final class OfferContinuation {
                 : !buying && !saleRepriceSource.isBlank() && saleRepriceProgressAt>=firstSeen
                 && (saleRepriceAcceptedAt==0 ? saleRepriceProgressAt<=createdAt
                     : saleRepriceAcceptedAt>=createdAt && saleRepriceProgressAt<=saleRepriceAcceptedAt))
-            && (!collectionVerified || collectedRemaining>0 && collectedRemaining<=quantity
+            && validSuccessorClaims()
+            && (!collectionVerified || collectedRemaining>=0 && (collectedRemaining>0 || getClaimedQuantity()>0) && collectedRemaining<=quantity
                 && (total==0 || collectedRemaining<=total-Math.max(filled,Math.max(maximumFilled,collectedFilled))));
     }
     /** Workflow evidence survives time; every resulting order still needs fresh final authority. */
@@ -93,26 +107,43 @@ public final class OfferContinuation {
     }
     /** Call before temporary settled evidence is pruned, and again before using a retained hint. */
     public Status observe(Collection<Observation> board,Observation settled,long now) {
+        return observe(board,settled,now,Collections.emptyList(),Collections.emptySet());
+    }
+    /** Relationships must already be qualified against the owning account and accepted origin. */
+    public Status observe(Collection<Observation> board,Observation settled,long now,
+            Collection<ContinuationSuccessorProof> successors,Collection<String> unresolvedEpisodes) {
+        if(successorBudgetUncertain)return Status.UNKNOWN;
         boolean future=hasFutureEvidence(now);
         // Clock qualification gates guidance, not retention of current observed fill/closure facts.
         if(!future && !valid(now)) return close();
+        boolean unknown=!claimSuccessors(successors);
         Observation original=null;
         if(board!=null) for(var offer:board) {
             if(offer==null) continue;
             if(matches(offer)) original=offer;
-            else if(offer.buying==buying && offer.item==item && !alreadyPresent(offer)) return close();
+            else if(offer.buying==buying && offer.item==item && !alreadyPresent(offer)) {
+                var relation=successorFor(offer,successors);
+                if(relation!=null)continue;
+                String identity=identity(offer.slot,offer.item,offer.buying,offer.price,offer.total,offer.firstSeen,offer.episode);
+                if(unresolvedEpisodes!=null && unresolvedEpisodes.contains(identity))unknown=true;
+                else return close();
+            }
         }
         if(original!=null) {
-            if(!validCounter(original) || completed(original) || original.filled>=original.total) return close();
+            if(!validCounter(original))return counterRefusal();
             progress(original);
-            return Status.WAITING; // Even a cancelled offer still in its slot is not collected.
+            if(claimsExceedCap())return Status.UNKNOWN;
+            if(completed(original) || original.filled>=original.total)return close();
+            return unknown?Status.UNKNOWN:Status.WAITING; // A cancelled offer still in its slot is not collected.
         }
         if(matches(settled)) {
-            if(completed(settled) || !settled.collected || !cancelled(settled) || !validCounter(settled)) return close();
+            if(!validCounter(settled))return counterRefusal();
+            progress(settled);
+            if(claimsExceedCap())return Status.UNKNOWN;
+            if(completed(settled) || !settled.collected || !cancelled(settled))return close();
             int remainder=Math.min(quantity,settled.total-settled.filled);
             if(collectionVerified)remainder=Math.min(remainder,collectedRemaining);
             if(remainder<=0) return close();
-            progress(settled);
             if(!collectionVerified || collectedRemaining!=remainder || collectedFilled!=settled.filled) {
                 collectionVerified=true;collectedRemaining=remainder;collectedFilled=settled.filled;revision++;
             }
@@ -124,9 +155,76 @@ public final class OfferContinuation {
                 && offer.firstSeen>createdAt && offer.firstSeen>firstSeen && offer.firstSeen<=now
                 && offer.episode!=null && !offer.episode.isBlank() && !Objects.equals(episode,offer.episode)
                 && offer.price>0 && offer.total>0 && offer.filled>=0 && offer.filled<=offer.total
-                && (active(offer) || completed(offer) || cancelled(offer)))return close();
-        return !future && collectionVerified && collectedRemaining>0 && collectedRemaining<=quantity
+                && (active(offer) || completed(offer) || cancelled(offer))) {
+                String identity=identity(offer.slot,offer.item,offer.buying,offer.price,offer.total,offer.firstSeen,offer.episode);
+                if(unresolvedEpisodes!=null && unresolvedEpisodes.contains(identity))unknown=true;else return close();
+            }
+        if(unknown || claimsExceedCap())return Status.UNKNOWN;
+        // The store retains consumed origins separately, so later original fills can still expose
+        // a contradiction. Budget consumption itself is not an irreversible lifecycle closure.
+        if(isFullyClaimed())return Status.CLOSED;
+        return !future && !hasFutureEvidence(now) && collectionVerified && getCollectedRemaining()>0 && collectedRemaining<=quantity
             ?Status.COLLECTED:Status.WAITING;
+    }
+    private boolean validSuccessorClaims() {
+        if(successorClaims==null)return true;
+        var identities=new HashSet<String>();
+        for(var proof:successorClaims)if(!ownClaim(proof) || !identities.add(proof.getSuccessorIdentity()))return false;
+        return true;
+    }
+    private boolean ownClaim(ContinuationSuccessorProof proof) {
+        return proof!=null && proof.isBound() && proof.getItemId()==item && proof.isBuying()==buying
+            && Objects.equals(getOriginalIdentity(),proof.getOriginIdentity())
+            && !Objects.equals(getOriginalIdentity(),proof.getSuccessorIdentity()) && proof.getAcceptedAt()>=createdAt;
+    }
+    private boolean claimSuccessors(Collection<ContinuationSuccessorProof> proofs) {
+        if(proofs==null)return true;
+        boolean valid=true;
+        for(var proof:proofs)if(proof!=null && Objects.equals(getOriginalIdentity(),proof.getOriginIdentity())) {
+            if(!ownClaim(proof) || !collectionVerified){valid=false;continue;}
+            ContinuationSuccessorProof existing=null;
+            if(successorClaims!=null)for(var old:successorClaims)
+                if(Objects.equals(old.getSuccessorIdentity(),proof.getSuccessorIdentity())){existing=old;break;}
+            if(existing!=null){if(!existing.equals(proof))valid=false;continue;}
+            if(successorClaims==null)successorClaims=new ArrayList<>();
+            successorClaims.add(proof);revision++;
+        }
+        return valid;
+    }
+    private ContinuationSuccessorProof successorFor(Observation offer,Collection<ContinuationSuccessorProof> proofs) {
+        ContinuationSuccessorProof found=null;
+        var all=new ArrayList<ContinuationSuccessorProof>();
+        if(successorClaims!=null)all.addAll(successorClaims);if(proofs!=null)all.addAll(proofs);
+        for(var proof:all) {
+            if(proof==null || !proof.isBound() || proof.getItemId()!=offer.item || proof.isBuying()!=offer.buying
+                || proof.getSlot()!=offer.slot || proof.getPrice()!=offer.price || proof.getQuantity()!=offer.total
+                || proof.getFirstSeenAt()!=offer.firstSeen || !proof.matches(offer))continue;
+            if(found!=null && !found.equals(proof))return null;
+            found=proof;
+        }
+        return found;
+    }
+    private boolean claimsExceedCap(){return getClaimedQuantity()>0 && (!collectionVerified || getClaimedQuantity()>collectedRemaining);}
+    private Status counterRefusal(){
+        if(getClaimedQuantity()==0)return close();
+        successorBudgetUncertain=true;revision++;return Status.UNKNOWN;
+    }
+    /** Consumed/retired allocation evidence still monitors its own original counters. Other new
+     * episodes cannot terminate this read-only budget monitor or erase a later contradiction. */
+    public Status observeConsumedBudget(Collection<Observation> board,Observation settled,
+            Collection<ContinuationSuccessorProof> successors) {
+        if(!isWellFormed() || getClaimedQuantity()<=0 || successorBudgetUncertain)return Status.UNKNOWN;
+        boolean qualified=claimSuccessors(successors);
+        Observation original=null;
+        if(board!=null)for(var offer:board)if(matches(offer))original=offer;
+        if(original==null && matches(settled))original=settled;
+        if(original!=null) {
+            if(!validCounter(original)) {
+                successorBudgetUncertain=true;revision++;return Status.UNKNOWN;
+            }
+            progress(original);
+        }
+        return !qualified || claimsExceedCap()?Status.UNKNOWN:Status.WAITING;
     }
     public boolean supersededBy(ContinuationDisposition sale) {
         return buying && collectionVerified && createdAt>0 && sale!=null && sale.isValid()
@@ -161,7 +259,17 @@ public final class OfferContinuation {
         return episode!=null?episode:slot+":"+item+":"+buying+":"+price+":"+total+":"+firstSeen;
     }
     public String getOriginalIdentity(){return identity(slot,item,buying,price,total,firstSeen,episode);}
-    public int getCollectedRemaining(){return collectedRemaining;}
+    public int getCollectedRemaining(){return (int)Math.max(0,(long)collectedRemaining-getClaimedQuantity());}
+    public int getCollectedCap(){return collectedRemaining;}
+    public long getClaimedQuantity(){
+        long claimed=0;if(successorClaims!=null)for(var proof:successorClaims) {
+            if(proof==null || !proof.isBound())return Long.MAX_VALUE;
+            try{claimed=Math.addExact(claimed,proof.getQuantity());}catch(ArithmeticException overflow){return Long.MAX_VALUE;}
+        }
+        return claimed;
+    }
+    public List<ContinuationSuccessorProof> getSuccessorClaims(){return successorClaims==null?Collections.emptyList():Collections.unmodifiableList(successorClaims);}
+    public boolean isFullyClaimed(){return !closed && !successorBudgetUncertain && collectionVerified && getClaimedQuantity()>0 && getClaimedQuantity()==collectedRemaining;}
     public boolean isManaged(){return managed;}
     public boolean isBuying(){return buying;}
     public String getSaleRepriceSource(){return saleRepriceSource;}

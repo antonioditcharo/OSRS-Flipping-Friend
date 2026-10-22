@@ -47,6 +47,8 @@ public class Suggestion
     private String recommendationId,adviceAccountId;
     private String maintenanceOfferIdentity;
     private String saleRepriceSource;
+    private String continuationOriginIdentity;
+    private com.flippingfriend.core.ContinuationSuccessorProof continuationSuccessorProof;
     private long quoteAgeSeconds,adviceExpiresAt;
     private com.flippingfriend.core.ExecutionForecast executionForecast;
     private Double legCompletionProbability;
@@ -90,6 +92,23 @@ public class Suggestion
 	}
 
     public String getSaleRepriceSource() { return saleRepriceSource; }
+    public String getContinuationOriginIdentity(){return continuationOriginIdentity;}
+    public com.flippingfriend.core.ContinuationSuccessorProof getContinuationSuccessorProof(){return continuationSuccessorProof;}
+    /** Preserve the originating workflow through independent final entry/sale authority. */
+    public void bindContinuationOrigin(String origin) {
+        if(origin==null || origin.isBlank() || type!=SuggestionType.BUY && type!=SuggestionType.SELL)
+            throw new IllegalArgumentException("Successor origin required");
+        if(continuationOriginIdentity!=null && !continuationOriginIdentity.equals(origin))throw new IllegalStateException("Successor origin changed");
+        continuationOriginIdentity=origin;
+    }
+    public void bindContinuationSuccessorProof(com.flippingfriend.core.ContinuationSuccessorProof proof) {
+        if(proof==null || !proof.isWellFormed() || proof.isBound()
+            || !java.util.Objects.equals(continuationOriginIdentity,proof.getOriginIdentity())
+            || proof.getItemId()!=itemId || proof.isBuying()!=(type==SuggestionType.BUY)
+            || proof.getPrice()!=price || proof.getQuantity()!=quantity)
+            throw new IllegalArgumentException("Matching accepted origin required");
+        continuationSuccessorProof=proof;
+    }
     /** Bound only after final authority accepted this exact working-sale source. */
     public void bindSaleRepriceSource(String source) {
         if(type!=SuggestionType.MODIFY_SELL || source==null || source.isBlank())
@@ -223,7 +242,8 @@ public class Suggestion
 			&& other.quantity == quantity
 			&& other.slot == slot && other.profitKnown == profitKnown
             && java.util.Objects.equals(maintenanceOfferIdentity,other.maintenanceOfferIdentity)
-            && java.util.Objects.equals(saleRepriceSource,other.saleRepriceSource);
+            && java.util.Objects.equals(saleRepriceSource,other.saleRepriceSource)
+            && java.util.Objects.equals(continuationOriginIdentity,other.continuationOriginIdentity);
 	}
 
 	/**
@@ -237,7 +257,8 @@ public class Suggestion
 	public boolean isSameTradeAs(Suggestion other)
 	{
 		return other != null && other.type == type && other.itemId == itemId
-			&& other.slot == slot && java.util.Objects.equals(maintenanceOfferIdentity,other.maintenanceOfferIdentity);
+            && other.slot == slot && java.util.Objects.equals(maintenanceOfferIdentity,other.maintenanceOfferIdentity)
+            && java.util.Objects.equals(continuationOriginIdentity,other.continuationOriginIdentity);
 	}
 
 	public static final class Builder
@@ -261,6 +282,7 @@ public class Suggestion
         private String recommendationId,adviceAccountId;
         private String maintenanceOfferIdentity;
         private String saleRepriceSource;
+        private String continuationOriginIdentity;
         private long quoteAgeSeconds,adviceExpiresAt;
         private com.flippingfriend.core.ExecutionForecast executionForecast;
         private Double legCompletionProbability;
@@ -300,6 +322,7 @@ public class Suggestion
         public Builder profitKnown(boolean known) { profitKnown = known; return this; }
         public Builder maintenanceSource(String identity){maintenanceOfferIdentity=identity;return this;}
         public Builder saleRepriceSource(String source){saleRepriceSource=source;return this;}
+        public Builder continuationOrigin(String origin){continuationOriginIdentity=origin;return this;}
 
 		public Builder lossCut(boolean lossCut)
 		{
@@ -374,6 +397,7 @@ public class Suggestion
             suggestion.recommendationId=recommendationId;suggestion.adviceAccountId=adviceAccountId;
             suggestion.maintenanceOfferIdentity=maintenanceOfferIdentity;
             suggestion.saleRepriceSource=saleRepriceSource;
+            suggestion.continuationOriginIdentity=continuationOriginIdentity;
             suggestion.quoteAgeSeconds=quoteAgeSeconds;suggestion.adviceExpiresAt=adviceExpiresAt;
             suggestion.executionForecast=executionForecast;suggestion.legCompletionProbability=legCompletionProbability;
 			return suggestion;
