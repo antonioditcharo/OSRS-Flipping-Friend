@@ -88,6 +88,47 @@ public class ManagedSellRelistWorkflowTest {
         f.context(1200,0,120,now.getEpochSecond()-60);
         assertEquals(1200,f.next().getPrice());assertEquals(SuggestionType.MODIFY_SELL,f.maintenance(6).getType());
     }
+    private void bindReducedRelist(Fixture f)throws Exception {
+        var collected=f.offers.getSettledOffer(0);
+        var working=collected.copyObservation();working.setState("SELLING");working.setQuantityFilled(2);working.setCollected(false);
+        when(f.offers.getOffers()).thenReturn(List.of(working));when(f.offers.getOffer(0)).thenReturn(working);
+        var book=new SellRelistIntent(f.storage);
+        assertTrue(book.advise(working,account,true,f.offers,"accepted-working-sale"));
+        when(f.offers.getOffers()).thenReturn(List.of());when(f.offers.getOffer(0)).thenReturn(null);
+        assertEquals(6,book.collectedRequest(f.offers,account).getQuantity());
+        when(f.offers.getSettledOffer(0)).thenReturn(null);
+        inject(f.engine,"sellRelist",new SellRelistIntent(f.storage));
+    }
+    @Test public void missingRelistMarketSupportCannotResurrectTheAbandonedTargetAfterRestart()throws Exception {
+        var f=new Fixture(6,5001,6,1000,true);f.context(1200,0,120,now.getEpochSecond()-60);bindReducedRelist(f);
+        var supported=f.next();assertEquals(SuggestionType.SELL,supported.getType());assertEquals(999,supported.getPrice());
+        when(f.market.getSeries(anyInt(),anyString())).thenReturn(List.of());
+        inject(f.engine,"sellRelist",new SellRelistIntent(f.storage));
+        assertEquals("Lost volume evidence must withhold the relist, not restore 1200",SuggestionType.WAIT,f.next().getType());
+        var retained=new SellRelistIntent(f.storage).collectedRequest(f.offers,account);
+        assertNotNull(retained);assertEquals(6,retained.getQuantity());assertEquals("accepted-working-sale",retained.getSaleRepriceSource());
+        assertEquals(5001,f.companion.tradingLedger().getTradingPositions().get(0).getTotalCost());
+    }
+    @Test public void relistWaitDoesNotHideUnrelatedReadyStockAndRecoversWhenSupportReturns()throws Exception {
+        var f=new Fixture(6,5001,6,1000,true);f.context(1200,0,120,now.getEpochSecond()-60);bindReducedRelist(f);
+        var supported=f.market.getSeries(561,"5m");when(f.market.getSeries(eq(561),anyString())).thenReturn(List.of());
+        addStock(f,562,3,251,1000,0);
+        var next=f.next();assertEquals(SuggestionType.SELL,next.getType());assertEquals(562,next.getItemId());
+        assertTrue(f.engine.saleCandidates().stream().noneMatch(s->s.getItemId()==561));
+        when(f.market.getSeries(eq(561),anyString())).thenReturn(supported);
+        next=f.next();assertEquals(561,next.getItemId());assertEquals(999,next.getPrice());assertEquals(6,next.getQuantity());
+    }
+    @Test public void windDownRelistRechecksItsExactFloorAfterPriceStabilization()throws Exception {
+        var f=new Fixture(6,5881,6,1000,true);f.context(1200,0,120,now.getEpochSecond()-60);bindReducedRelist(f);
+        f.engine.setSellOnly(true);
+        var field=SuggestionEngine.class.getDeclaredField("advisedPrices");field.setAccessible(true);
+        var stabilized=(AdvisedPriceTracker)field.get(f.engine);
+        int floor=tax.breakEvenSellPriceForCost(561,5881,6);
+        stabilized.price(561,false,floor-1,now.getEpochSecond());
+        var next=f.next();assertEquals(SuggestionType.SELL,next.getType());assertFalse(next.isLossCut());
+        assertEquals("A sticky old price cannot cross the accepted maintenance floor",floor,next.getPrice());
+        assertTrue(tax.netProceeds(561,next.getPrice(),6)>=5881);
+    }
     @Test public void anOrdinaryRelistCannotHideAnotherHoldingsFreshStop()throws Exception {
         var f=new Fixture(6,5881,6,1000,true);var original=f.companion.tradingLedger().getTradingPositions().get(0);
         var stopped=PositionProjection.ready(562,"Chaos rune",6,6000,now.getEpochSecond()-600,now.getEpochSecond(),"buy-2","episode-2")

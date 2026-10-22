@@ -92,8 +92,44 @@ public class AccountReplayTest {
         var result=run(input,5,10);
         assertTrue(result.actions.toString(),result.actions.stream().anyMatch(s->s.contains("SELL ")));
         assertEquals(1,result.completedSales);assertEquals(180,result.realizedProfit);
-        assertEquals("account-replay-14",result.policyVersion);
-        assertEquals("companion-sale-5",result.salePolicyVersion);assertEquals(1,result.authorizedSales);
+        assertEquals("account-replay-15",result.policyVersion);
+        assertEquals("companion-sale-6",result.salePolicyVersion);assertEquals(1,result.authorizedSales);
+    }
+    AccountReplayInput interruptedRelist(boolean recovered) {
+        var input=input(1,26);var gson=new Gson();
+        for(var frame:input.frames) {
+            int high=frame.availableAt>=start+600?110:120;
+            frame.latest.getAsJsonObject("1").addProperty("high",high);
+            for(var flow:frame.flows)flow.highVolume=0;
+            long end=frame.availableAt/300*300;int support=frame.availableAt>=start+1200?110:120;
+            frame.shortHistory.put(1,List.of(new com.flippingfriend.data.Candle(end-600,support,100,100,100),
+                new com.flippingfriend.data.Candle(end-300,support,100,100,100)));
+            if(frame.availableAt>=start+1260)frame.shortHistory.clear();
+        }
+        var missing=gson.fromJson(gson.toJson(input.frames.get(20)),AccountReplayInput.Frame.class);
+        missing.availableAt=missing.observedAt=start+1220;missing.flows.clear();missing.shortHistory.clear();
+        missing.latest.getAsJsonObject("1").addProperty("highTime",missing.availableAt);
+        missing.latest.getAsJsonObject("1").addProperty("lowTime",missing.availableAt);
+        input.frames.add(21,missing);
+        if(recovered)for(var frame:input.frames)if(frame.availableAt>=start+1500)frame.latest.getAsJsonObject("1").addProperty("high",150);
+        return input;
+    }
+    @Test public void vanishedHistoryAfterCancellationCannotBypassTheRelistThroughAnOrdinaryTargetExit()throws Exception {
+        var input=interruptedRelist(false);var result=run(input,5,10);
+        assertTrue("The supported working sale should first be cancelled: "+result.actions,
+            result.actions.stream().anyMatch(s->s.startsWith((start+1215)+" CANCEL ")));
+        assertTrue("Bucket evidence disappears between cancellation and collection: "+result.actions,
+            result.actions.stream().anyMatch(s->s.startsWith((start+1230)+" COLLECT ")));
+        assertEquals(result.actions.toString(),1,result.actions.stream().filter(s->s.contains(" SELL ")).count());
+        assertEquals(0,result.relistedSales);assertEquals(1000,result.inventoryCost);assertEquals(0,result.realizedProfit);
+        input.restartAt=List.of(start+1235);
+        var restarted=run(input,5,10);
+        assertEquals(result.actions,restarted.actions);assertEquals(result.inventoryCost,restarted.inventoryCost);
+        assertEquals(0,restarted.relistedSales);assertEquals(0,restarted.realizedProfit);
+        var recovered=run(interruptedRelist(true),5,10);
+        assertEquals(recovered.actions.toString(),1,recovered.relistedSales);
+        assertTrue(recovered.actions.toString(),recovered.actions.stream().anyMatch(s->s.contains(" SELL 1 10 @ 150")));
+        assertEquals(1000,recovered.inventoryCost);assertEquals(0,recovered.realizedProfit);
     }
     @Test public void restartDuringPartialPurchasePreservesCanonicalCostLimitsAndRiskWindow()throws Exception {
         var input=input(1,21);for(var f:input.frames)for(var flow:f.flows)flow.lowVolume=600;

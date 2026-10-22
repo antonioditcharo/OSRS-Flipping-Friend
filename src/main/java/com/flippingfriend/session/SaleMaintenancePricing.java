@@ -9,7 +9,7 @@ import java.util.List;
 
 /** Pure sale-maintenance authority shared by the client, companion and chronological replay. */
 public final class SaleMaintenancePricing {
-    public static final String VERSION="supported-sale-maintenance-3";
+    public static final String VERSION="supported-sale-maintenance-4";
     public enum Status {
         ELIGIBLE, INVALID_QUANTITY, MISSING_PRICES, STALE_PRICES, IMMATERIAL_CHANGE,
         UNPROVEN_QUANTITY, UNKNOWN_CLOCKS, PLACEMENT_PATIENCE, RECENT_PROGRESS,
@@ -40,6 +40,31 @@ public final class SaleMaintenancePricing {
         SellTimingEngine exits,TaxCalculator tax,long firstObservedAt,long lastProgressAt) {
         return evaluate(item,offerPrice,remaining,position,latest,series,horizon,now,sellOnly,exits,tax,
             firstObservedAt,lastProgressAt).quote;
+    }
+    /** A collected reduction may recover with the market, but missing support cannot restore its target. */
+    public Evaluation evaluateRelist(int item,int offerPrice,int remaining,Position position,LatestPrice latest,
+        List<Candle> series,TradingHorizon horizon,Instant now,boolean sellOnly,
+        SellTimingEngine exits,TaxCalculator tax,long firstObservedAt,long lastProgressAt) {
+        var reduction=evaluate(item,offerPrice,remaining,position,latest,series,horizon,now,sellOnly,exits,tax,
+            firstObservedAt,lastProgressAt);
+        if(reduction.quote!=null || reduction.status!=Status.MARKET_SUPPORT && reduction.status!=Status.IMMATERIAL_CHANGE)
+            return reduction;
+        if(position==null || !position.isCostKnown() || remaining>position.getQuantity())return reduction;
+        if(firstObservedAt<=0 || firstObservedAt>now.getEpochSecond() || lastProgressAt<firstObservedAt
+            || lastProgressAt>now.getEpochSecond())return Evaluation.waitFor(Status.UNKNOWN_CLOCKS);
+        var decision=exits.evaluateManagedExit(position,latest,null,series,horizon,now,0,true,sellOnly,false);
+        if(!decision.isSell())return reduction;
+        boolean cut=decision.getAction()==SellDecision.Action.CUT;
+        long cost=SaleAccounting.allocateCost(position.getTotalCost(),position.getQuantity(),remaining);
+        int floor=cut?1:tax.breakEvenSellPriceForCost(item,cost,remaining);
+        if(floor<=0)return Evaluation.waitFor(Status.COST_FLOOR);
+        int price=Math.max(floor,decision.getPrice());
+        // Fresh trades must support the actual recovered limit. A protected old target above
+        // that market is not a recovery, even if a history refresh failed during collection.
+        if(!cut && !sellOnly && price>latest.getHigh())return reduction;
+        String reason=cut?decision.getReason():sellOnly?decision.getReason()
+            :"Fresh market trades now support this non-loss relist price. The original target is not being restored above the current sell-side trade.";
+        return new Evaluation(Status.ELIGIBLE,new Quote(price,floor,cost,true,cut,reason),0);
     }
     public Evaluation evaluate(int item,int offerPrice,int remaining,Position position,LatestPrice latest,
         List<Candle> series,TradingHorizon horizon,Instant now,boolean sellOnly,

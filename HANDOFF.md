@@ -5,31 +5,37 @@ Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
 ## Current delivery
 
-Read `local-data/continuation-acceptance-20261021/delivery-state.json` first for actual source,
-verification, CI, merge and installation. This batch stages new continuation promises and sale-source
-upgrades until their durable acceptance write succeeds. Failed presentations cannot become rebuy or
-relist promises on later callbacks; previously accepted progress/removal retries remain intact.
-Live/replay BUY timing shares immutable original-duration qualification, including same-second
-callback ordering without learning promotion. Replay 14 / sale policy 5.
-[Contract](docs/architecture/continuation-acceptance-transactions.md).
+Read `local-data/relist-market-evidence-20261021/delivery-state.json` first for actual source,
+verification, CI, merge and installation. Collected sale reductions share market-evidence evaluation
+across engine/editor/companion/replay. Missing bucket support cannot silently restore the old target;
+a fresh supported current-market exit, proven stop or explicit wind-down follows its separate rules.
+Pending relists cannot fall through to generic replay exits. Exact subset floors survive stabilization
+and final authority. Paired sale policy 6 / replay 15 / maintenance evaluator 4.
+[Contract](docs/architecture/relist-market-evidence.md).
 
-Installed before this batch: #141 at `3523d81cfe5189ed02f228f6ec82d0577eebc597`;
-`local-data/continuation-clock-preservation-20261021/delivery-state.json` records its verified paired
-installation. Its clock rollback/late-counter fixes, #140 current-login restoration, #139 later sale
-acceptance/parallel-sale proof and earlier plan/cost/maintenance protections remain in effect.
+Installed before this batch: #142 at `33ae39f8c0b22f5f5b4a6b8935fccb8501fd3b8d`;
+`local-data/continuation-acceptance-20261021/delivery-state.json` records verification/installation.
+It stages new hints/source upgrades until durable acceptance, retaining accepted progress/removal
+retries, and shares original BUY duration between live/replay without learning promotion. Earlier
+clock, restoration, source, plan/cost and maintenance guards remain in effect.
 [Previous delivery checkpoints](docs/history/handoff-through-2026-10-21-pr141.md).
 
-Fresh scoped reads at this batch's start prove authenticated eight-slot evidence and an empty outbox;
-all slots were occupied. They supersede the previous logged-out/stale-capture observation, but do not
-establish controlled full-loop or sustained latency acceptance. Inspect fresh evidence after updating.
-Owner is home and actively trading; earlier login deferrals are superseded. Login and every game
-action remain manual. Routine normal closure, backup verification, paired update and launch are
-authorized; inspect logs/scoped GETs directly without repeated confirmations.
+Next reproduced high-impact boundary: two accepted same-item continuations can survive collection,
+but placing one successor closes both and loses the other's saved cap/source. A safe fix needs an
+explicit successor-to-origin association in client persistence, companion evidence and replay. Never
+weaken unknown-order supersession or guess an association. Private synthetic reproduction is in
+`local-data/parallel-continuation-audit-20261021/`; this batch does not resolve that separate path.
 
-The old three-bludgeon original plan remains unknown; those units subsequently sold, and the newer
-two-unit purchase is separate. Bolts retain separately proven contexts through read-only projection.
-Dual macuahuitl's older rebuy hint was retired with its exact recorded sale receipt in #132. Never
-replay financial history, borrow later plans, infer disposal or delete unknown historical hints.
+At this batch's start the saved eight-slot capture was stale and the outbox empty; current account
+guidance awaited fresh client observations. Earlier fresh captures and source tests do not establish
+controlled full-loop or sustained latency acceptance. Recheck actual evidence after delivery.
+Owner login and every game action remain manual. Normal closure, verified backup/update/launch and
+direct scoped diagnostics are authorized; do not repeatedly request logs or confirmations.
+
+The old three-bludgeon original plan stays unknown; those units subsequently sold, and the newer
+two-unit purchase is separate. Bolts retain separately proven contexts. Dual macuahuitl's older rebuy
+hint was retired with its exact sale receipt in #132. Never replay financial history, borrow later
+plans, infer disposal or delete unknown historical hints.
 
 ## Runtime contracts and source locations
 
