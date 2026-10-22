@@ -1089,16 +1089,7 @@ public class CompanionClient
         return event!=null && java.util.Objects.equals(account,event.getAccountId())?originalBuyDuration(event):Double.NaN;
     }
     private static double originalBuyDuration(OfferEvent event) {
-        if(!event.isAuthenticatedObservation() || !event.isBuying() || !"BUYING".equals(event.getEventType())
-            || event.getPredictionSourceEventId()==null)return Double.NaN;
-        var forecast=event.getExecutionForecast();
-        // Accepted callback ordering can preserve a model claim for workflow timing while the
-        // older second-resolution learning qualification deliberately remains false.
-        if(event.hasAcceptedExitProof() && forecast!=null
-            && forecast.matches(event.getItemId(),true,event.getPrice(),event.getTotalQuantity()))
-            return forecast.getExpectedTotalSeconds()/60;
-        return event.isPredictionComparable() && Double.isFinite(event.getPredictedMinutes()) && event.getPredictedMinutes()>0
-            ?event.getPredictedMinutes():Double.NaN;
+        return com.flippingfriend.core.BuyMaintenanceTiming.originalExpectedMinutes(event);
     }
     /** Diagnostic only: the original actual sale order forecast, never an acquisition estimate. */
     public double originalSellExpectedMinutes(TrackedOffer expected) {

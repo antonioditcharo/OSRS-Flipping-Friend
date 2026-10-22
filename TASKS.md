@@ -1,10 +1,16 @@
 # Tasks
 
 Updated 21 October 2026. Read [HANDOFF.md](HANDOFF.md) and the actual delivery receipt at
-`local-data/continuation-clock-preservation-20261021/delivery-state.json` first. Implemented/tested, merged,
+`local-data/continuation-acceptance-20261021/delivery-state.json` first. Implemented/tested, merged,
 installed and player accepted are separate states. Owner is home; older login deferrals are superseded.
 
 ## Current batch
+
+- [x] Stage new continuation acceptance/source upgrades separately from accepted observation retries;
+      unify live/replay original BUY timing without learning promotion. Replay 14 / sale policy 5.
+      [Contract](docs/architecture/continuation-acceptance-transactions.md); actual delivery in receipt.
+- [ ] Accept failed-write withdrawal/revalidation and original BUY deadlines through player-operated
+      cancel/late fills/collect/exact replacement or relist/restart. Offline regressions remain separate.
 
 - [x] Preserve future-clock continuations without granting guidance; retain current corrected fills,
       collection and closure through retries/restart. Narrow saved post-collection remainders instead

@@ -4,78 +4,28 @@ Continue in `C:\Users\Antonio\OSRS Flipping Friend Rebuild`.
 Implement, verify and deliver reliable trade/inventory workflow batches; do not stop at a roadmap.
 Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
-Read `local-data/continuation-clock-preservation-20261021/delivery-state.json` FIRST, then current
-AGENTS.md, HANDOFF.md and TASKS.md. The receipt distinguishes source/tests/CI/merge/install/player
-acceptance. Older PR checkpoints and availability notes are historical, not installation proof.
+Read `local-data/continuation-acceptance-20261021/delivery-state.json` FIRST, then current AGENTS.md,
+HANDOFF.md and TASKS.md. The receipt distinguishes source/tests/CI/merge/install/player acceptance.
+[Current contract](architecture/continuation-acceptance-transactions.md): prospective new continuation
+promises/source upgrades only publish after successful durable acceptance. Failed initial writes
+cannot self-promote on unrelated callbacks; accepted dirty progress/removals still retry. Live and
+replay share immutable original BUY duration, including callback-ordered same-second placement
+without learning qualification. Replay 14 / sale policy 5.
 
-The current batch preserves future-clock workflows while withholding guidance and still persisting
-fresh exact-episode observations. Corrected post-collection fills narrow the saved remainder; full
-counters and replacement facts cannot resurrect a rebuy after restart. Replay 13 / sale policy 5.
-Read the [contract](architecture/continuation-clock-preservation.md) and receipt for installation.
-Previous #140 is installed with stale-snapshot/account restoration and exact cancellation acceptance;
-its manual full-loop acceptance remains pending.
+Previous installed #141 preserves future-clock hints without authorizing advice and narrows corrected
+post-collection remainders. #140 isolates current-login evidence from cached recovery; #139 preserves
+later first-source acceptance and existing parallel-sale proof. Earlier plan provenance, exact costs,
+profit floors, exit/maintenance queues and CURRENT_ACCOUNT_V3 guards remain. Detailed checkpoints
+are in [history](history/handoff-through-2026-10-21-pr141.md); do not reread all receipts to find state.
 
-The current batch separates current-login continuation observations from cached offer recovery,
-preserves durable collected quantities across snapshot save lag and profile changes, and prevents
-unshown or stale cancellation cards from retiring accepted rebuy promises. Read the
-[contract](architecture/continuation-restoration-boundaries.md) and receipt for actual installation.
-Previous #139 is installed: independent later sale-source acceptance and accepted-board parallel
-sale evidence are retained. Its fresh post-login/manual loop acceptance remains pending.
+Fresh authenticated eight-slot and empty-outbox reads passed at the start of this batch with every
+slot occupied. Recheck after delivery; these are not controlled full-loop or sustained timing proof.
+The old three-bludgeon plan stays unknown; bolts retain separately proven contexts. Dual macuahuitl's
+old rebuy hint was retired with an exact sale receipt. No historical financial replay or inferred repair.
 
-The newest batch preserves later first-source acceptance for old sell hints without changing their
-creation/episode/progress, and proves already-present parallel sales separately from new replacement
-orders. Paired sale policy 5 / replay 12. Read the [contract](architecture/sale-continuation-evidence.md)
-and actual receipt before assuming installation. Invalid historical hints are preserved, not repaired.
-The previous installed #138 health isolation has fresh post-login eight-slot and empty-outbox proof;
-all 228 earlier queued observations drained normally. Controlled full-loop acceptance remains open.
-
-Starter script delivery is recorded separately in
-`local-data/starter-health-retry-20261021/delivery-state.json`: bounded same-PID transient health
-retry, fail-closed credentials/protocol/body/port-owner checks and no duplicate listener. Java stays
-at #136 until the paired runtime follow-up receipt says otherwise. #137 is merged. Its retry also
-reproduced a later timeout: both HTTP workers were occupied by account initialization/reads.
-The follow-up isolates global health, bounds account work and removes routine diagnostic scans;
-see [contract](architecture/health-request-isolation.md). Global health is not trading readiness.
-
-The newest workflow slice queues all later eligible ordinary sale reductions after a first final
-authority refusal. Only the presented authorized episode commits its durable continuation; exact
-costs/remaining caps and original buy/stop priority remain. Read the
-[contract](architecture/ordinary-sale-maintenance-queue.md). Installed #135 diagnostics and post-login
-eight-slot/outbox proof remain in `local-data/sale-maintenance-diagnostics-20261021/delivery-state.json`.
-
-The newest small batch explains active managed-sale waits in Records → Recommendation through the
-existing shared evaluator. Pricing and authority remain unchanged; original actual sell estimates
-are unvalidated and separate from acquisition estimates. See
-[contract](architecture/sale-maintenance-diagnostics.md). Prior installed workflow evidence is in
-`local-data/trade-plan-maintenance-20261020/delivery-state.json`; controlled full-loop acceptance,
-sustained latency and validated forecasts remain open.
-
-The current batch retains same-second accepted advice with independent ordering proof and preserves
-mixed original acquisition plans with possible remaining quantity ranges. No missing plan may invent
-a stop. Selected managed sell subsets require canonical exact costs and final authority. Earlier
-supported profitable repricing must survive cancel/late fills/collect/capped relist/restart without
-restoring the old target. Buy progress/deadline/stabilization and shared default horizons are fixed;
-frozen timing diagnostics remain unvalidated. See [contract](architecture/trade-plan-maintenance.md)
-and [receipt](history/trade-plan-maintenance-delivery-2026-10-20.md).
-
-#133 is merged as 6f1634f394befdd68556c1fb892c2249f7f00f1f; installation is batched with this delivery.
-It preserves all eligible exact exits through final authority and inventory-only sale bounds.
-The reported historical three bludgeons have no recoverable original plan and were subsequently sold;
-the newer two-unit purchase is separate. Bolts retain two provable source plans. Never replay money,
-borrow a later item plan, or re-enroll disposed stock to manufacture a repair.
-
-Previous #132 is merged/installed, and fresh manual login/eight-slot/ACK proof confirms that Dual
-macuahuitl's old two-unit rebuy hint was retired with the exact recorded sale source. Other hints,
-original source/financial rows and the risk anchor survive. Its actual receipt is
-`local-data/continuation-disposition-20261020/delivery-state.json`. Controlled full-loop/restart
-acceptance remains open. Do not delete hints or replay money to repair a workflow.
-Included #131 separates expected listing/target profit from instant-sale P/L, tries every eligible
-buy remainder through final authority and supports verified partial exits after refusal. Preserve
-those paths and all genuine source/physical/risk/funding/slot/limit guards.
-
-Owner is home and reported active trading; earlier login deferrals are superseded. Login and every
-GE/game action remain manual. Routine normal closure, backup verification, paired update and launch
-are authorized. Read logs/scoped authenticated GETs directly; do not repeatedly request confirmations.
+Owner is home and trading. Normal client closure, verified paired update and launch are authorized;
+login and every game action remain manual. Inspect scoped reads/logs directly. Never force-kill,
+send game input, edit live databases or clear an outbox to make advice available.
 
 ## Work in impact order
 
