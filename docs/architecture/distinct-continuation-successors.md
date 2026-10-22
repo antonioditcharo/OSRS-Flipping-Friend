@@ -23,6 +23,8 @@ classification therefore preserve an UNKNOWN barrier and withhold affected guida
 destroy a sibling plan before capture. The post-capture checkpoint resolves exact association or
 retains conservative unknown-order supersession. A missing source remains pending even after the
 offer disappears. A restarted/cached board never supplies missing collection or counter facts.
+During source-read outages, current client counter/collection facts still commit before their
+temporary observations expire; guidance stays withdrawn until durable source evidence returns.
 
 ## Quantity and authority
 

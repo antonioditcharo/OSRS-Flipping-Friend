@@ -238,7 +238,10 @@ abstract class OfferContinuationStore {
     protected synchronized List<OfferContinuation> collectedAll(OfferTracker tracker,String expected,long now) {
         if(!load(expected))return Collections.emptyList();
         var evidence=tracker==null?null:tracker.getContinuationEvidence();
-        if(evidence!=null && (!evidence.isAvailable() || !evidence.isForAccount(expected)))return Collections.emptyList();
+        if(evidence!=null && (!evidence.hasObservationEvidence() || !evidence.isForAccount(expected)))return Collections.emptyList();
+        // A failed relationship-source read withdraws guidance, not already processed client
+        // counter/collection facts. Preserve those facts before settled observations can expire.
+        boolean sourcesAvailable=evidence==null || evidence.hasSourceEvidence();
         var board=board(tracker,evidence);var collected=new ArrayList<OfferContinuation>();boolean changed=false;
         var proofs=qualifiedSuccessors(evidence,expected);
         var unresolved=new HashSet<String>();
@@ -291,7 +294,7 @@ abstract class OfferContinuationStore {
         state.dirty|=changed;
         collected.removeIf(hint->state.blockedItems.contains(hint.getItemId()));
         // Retry without a new revision: temporary settled evidence may already be pruned.
-        return commit(expected)?Collections.unmodifiableList(collected):Collections.emptyList();
+        return commit(expected) && sourcesAvailable?Collections.unmodifiableList(collected):Collections.emptyList();
     }
     private static String identity(OfferContinuation.Observation offer){return OfferContinuation.identity(offer.slot,offer.item,
         offer.buying,offer.price,offer.total,offer.firstSeen,offer.episode);}

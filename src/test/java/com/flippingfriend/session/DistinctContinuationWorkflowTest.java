@@ -157,6 +157,27 @@ public class DistinctContinuationWorkflowTest {
         assertFalse(a.sameAs(b));assertFalse(a.isSameTradeAs(b));
         try{a.bindContinuationOrigin("B");fail();}catch(IllegalStateException expected){}
     }
+    @Test public void sourceReadOutagePreservesObservedLateFillsAndCollectionBeforeLoginEvidenceResets()throws Exception {
+        for(boolean buying:new boolean[]{true,false}) {
+            var storage=TestStorage.rootedAt(folder.newFolder().toPath(),"source-outage");
+            var buys=new BuyRepriceIntent(storage);var sells=new SellRelistIntent(storage);
+            var tracker=new OfferTracker(storage,new PositionBook(storage),mock(BuyLimitTracker.class),mock(TradeJournal.class),new TaxCalculator(),new TradePlans(storage));
+            inject(tracker,"buyReprice",buys);inject(tracker,"sellRelist",sells);
+            var unavailable=new java.util.concurrent.atomic.AtomicBoolean();
+            tracker.setContinuationSourceReader(()->unavailable.get()?null:List.of());
+            var raw=mock(GrandExchangeOffer.class);when(raw.getState()).thenReturn(buying?GrandExchangeOfferState.BUYING:GrandExchangeOfferState.SELLING);
+            when(raw.getItemId()).thenReturn(561);when(raw.getPrice()).thenReturn(100L);when(raw.getTotalQuantity()).thenReturn(100);
+            when(raw.getQuantitySold()).thenReturn(20);when(raw.getSpent()).thenReturn(2000L);tracker.onOfferChanged(0,raw);
+            assertTrue(buying?buys.advise(tracker.getOffer(0),storage.accountId(),tracker,now()):sells.advise(tracker.getOffer(0),storage.accountId(),false,tracker));
+            unavailable.set(true);when(raw.getState()).thenReturn(buying?GrandExchangeOfferState.CANCELLED_BUY:GrandExchangeOfferState.CANCELLED_SELL);
+            when(raw.getQuantitySold()).thenReturn(40);when(raw.getSpent()).thenReturn(4000L);tracker.onOfferChanged(0,raw);
+            when(raw.getState()).thenReturn(GrandExchangeOfferState.EMPTY);tracker.onOfferChanged(0,raw);
+            assertNull(buying?buys.collectedRequest(tracker,storage.accountId(),now()):sells.collectedRequest(tracker,storage.accountId()));
+            tracker.resetContinuationObservations();unavailable.set(false);
+            if(buying)assertEquals(60,new BuyRepriceIntent(storage).collectedRequest(tracker,storage.accountId(),now()).quantity);
+            else assertEquals(60,new SellRelistIntent(storage).collectedRequest(tracker,storage.accountId()).getQuantity());
+        }
+    }
     private static long now(){return Instant.now().getEpochSecond();}
     private static void inject(Object target,String name,Object value)throws Exception{var f=target.getClass().getDeclaredField(name);f.setAccessible(true);f.set(target,value);}
 }
