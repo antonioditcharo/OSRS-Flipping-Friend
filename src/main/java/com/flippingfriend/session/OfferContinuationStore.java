@@ -79,7 +79,6 @@ abstract class OfferContinuationStore {
             if(!expected.equals(account()))return false;
             state=new State(restored,image);accounts.put(expected,state);
             state.retirements.addAll(retirements);
-            for(var intent:restored)state.dirty|=intent.retainForFreshRevalidation();
             return true;
         }catch(Exception unreadable){return false;}
     }
@@ -127,6 +126,8 @@ abstract class OfferContinuationStore {
                 || current.total!=observation.total || !(buying?"BUYING":"SELLING").equals(current.state))return false;
         }
         for(var intent:state.intents)if(intent.matches(observation)) {
+            if(intent.hasFutureEvidence(now))return false;
+            state.dirty|=intent.retainForFreshRevalidation();
             if(!intent.valid(now))return false;
             long revision=intent.getRevision();if(managed)intent.requireManagedCost();
             if(saleRepriceSource!=null && intent.getSaleRepriceSource()==null)
@@ -146,6 +147,9 @@ abstract class OfferContinuationStore {
         var iterator=state.intents.iterator();
         while(iterator.hasNext()) {
             var intent=iterator.next();long revision=intent.getRevision();
+            // A clock rollback is not an expiry or a disposal. Preserve even legacy expiry
+            // metadata until the original evidence can be evaluated at its recorded time.
+            if(!intent.hasFutureEvidence(now))intent.retainForFreshRevalidation();
             var status=intent.observe(board,tracker==null?null:observation(evidence==null?
                 tracker.getSettledOffer(intent.getSlot()):evidence.getSettledOffer(intent.getSlot())),now);
             changed|=intent.getRevision()!=revision;
@@ -162,7 +166,8 @@ abstract class OfferContinuationStore {
     protected synchronized boolean pending(int item,OfferTracker tracker,String expected,long now) {
         collectedAll(tracker,expected,now);
         State retained=expected!=null && expected.equals(account())?accounts.get(expected):null;
-        return retained!=null && retained.intents.stream().anyMatch(intent->intent.getItemId()==item && intent.valid(now));
+        return retained!=null && retained.intents.stream().anyMatch(intent->intent.getItemId()==item
+            && (intent.valid(now) || intent.hasFutureEvidence(now)));
     }
     protected synchronized boolean acknowledgedCancellation(TrackedOffer offer,String expected,long now) {
         if(!load(expected))return false;
@@ -174,7 +179,8 @@ abstract class OfferContinuationStore {
         var collected=collectedAll(tracker,expected,now);
         if(!collected.isEmpty())return collected.get(0).getItemId();
         State retained=expected!=null && expected.equals(account())?accounts.get(expected):null;
-        return retained==null?0:retained.intents.stream().filter(intent->intent.valid(now)).mapToInt(OfferContinuation::getItemId).findFirst().orElse(0);
+        return retained==null?0:retained.intents.stream().filter(intent->intent.valid(now) || intent.hasFutureEvidence(now))
+            .mapToInt(OfferContinuation::getItemId).findFirst().orElse(0);
     }
     protected synchronized boolean managed(String expected) {
         return !load(expected) || state.intents.stream().anyMatch(OfferContinuation::isManaged);
@@ -194,6 +200,7 @@ abstract class OfferContinuationStore {
         var iterator=state.intents.iterator();
         while(iterator.hasNext()) {
             var intent=iterator.next();
+            if(intent.hasFutureEvidence(now))continue;
             for(var sale:ledger.getContinuationDispositions())if(intent.supersededBy(sale)) {
                 state.retirements.add(new Retirement(intent,sale));iterator.remove();state.dirty=true;break;
             }

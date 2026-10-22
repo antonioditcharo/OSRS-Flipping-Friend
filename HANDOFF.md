@@ -5,6 +5,12 @@ Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
 ## Current delivery
 
+Clock/remainder batch: read `local-data/continuation-clock-preservation-20261021/delivery-state.json`
+first for actual verification, CI, merge and installation. Future evidence times preserve pending
+workflows without authorizing guidance; fresh observations still persist corrected remainders and
+closure facts. Late callbacks after saved collection narrow caps without invalidating the document.
+Replay 13 / sale policy 5. [Contract](docs/architecture/continuation-clock-preservation.md).
+
 Restoration/acceptance batch: read `local-data/continuation-restoration-20261021/delivery-state.json`
 first for source, CI, merge and actual installation. Current-login observation copies preserve durable
 remainders across stale offer snapshots; cached EMPTY predecessors cannot invent collection. Exact

@@ -1,10 +1,16 @@
 # Tasks
 
 Updated 21 October 2026. Read [HANDOFF.md](HANDOFF.md) and the actual delivery receipt at
-`local-data/continuation-restoration-20261021/delivery-state.json` first. Implemented/tested, merged,
+`local-data/continuation-clock-preservation-20261021/delivery-state.json` first. Implemented/tested, merged,
 installed and player accepted are separate states. Owner is home; older login deferrals are superseded.
 
 ## Current batch
+
+- [x] Preserve future-clock continuations without granting guidance; retain current corrected fills,
+      collection and closure through retries/restart. Narrow saved post-collection remainders instead
+      of poisoning their document. [Contract](docs/architecture/continuation-clock-preservation.md).
+- [ ] Accept clock-recovery and corrected late-callback workflows through player-operated cancellation,
+      collection, exact replacement/relist and restart. Offline timestamp simulations are separate.
 
 - [x] Isolate current-login continuation evidence from cached recovery offers; preserve collected
       remainders across snapshot save lag and account changes. Retire rebuy promises only after exact
@@ -65,7 +71,7 @@ installed and player accepted are separate states. Owner is home; older login de
 
 ## Outstanding acceptance and release requirements
 
-- [ ] Preserve and temporarily refuse well-formed future-clock continuation documents when the local
+- [x] Preserve and temporarily refuse well-formed future-clock continuation documents when the local
       clock is behind creation/acceptance, instead of treating them as terminal and removing them.
       Malformed evidence and genuine fresh counter regressions must retain their existing refusal.
 

@@ -59,7 +59,12 @@ public final class OfferContinuation {
     }
     public boolean valid(long now) {
         return !closed && isWellFormed()
-            && (createdAt==0 || now>=createdAt) && saleRepriceAcceptedAt<=now && (expiresAt==0 || now<=expiresAt);
+            && firstSeen<=now && createdAt<=now && saleRepriceAcceptedAt<=now && (expiresAt==0 || now<=expiresAt);
+    }
+    /** Retained ordered evidence is temporarily unavailable when the local clock moves backwards. */
+    public boolean hasFutureEvidence(long now) {
+        return !closed && isWellFormed()
+            && (firstSeen>now || createdAt>now || saleRepriceAcceptedAt>now);
     }
     /** Exact observed cancellation of this promise; it neither proves collection nor creates fills. */
     public boolean acknowledgesCancellation(Observation offer,long now) {
@@ -88,7 +93,9 @@ public final class OfferContinuation {
     }
     /** Call before temporary settled evidence is pruned, and again before using a retained hint. */
     public Status observe(Collection<Observation> board,Observation settled,long now) {
-        if(!valid(now)) return close();
+        boolean future=hasFutureEvidence(now);
+        // Clock qualification gates guidance, not retention of current observed fill/closure facts.
+        if(!future && !valid(now)) return close();
         Observation original=null;
         if(board!=null) for(var offer:board) {
             if(offer==null) continue;
@@ -96,15 +103,16 @@ public final class OfferContinuation {
             else if(offer.buying==buying && offer.item==item && !alreadyPresent(offer)) return close();
         }
         if(original!=null) {
-            if(!validCounter(original) || completed(original)) return close();
-            progress(original.filled);
+            if(!validCounter(original) || completed(original) || original.filled>=original.total) return close();
+            progress(original);
             return Status.WAITING; // Even a cancelled offer still in its slot is not collected.
         }
         if(matches(settled)) {
             if(completed(settled) || !settled.collected || !cancelled(settled) || !validCounter(settled)) return close();
             int remainder=Math.min(quantity,settled.total-settled.filled);
+            if(collectionVerified)remainder=Math.min(remainder,collectedRemaining);
             if(remainder<=0) return close();
-            progress(settled.filled);
+            progress(settled);
             if(!collectionVerified || collectedRemaining!=remainder || collectedFilled!=settled.filled) {
                 collectionVerified=true;collectedRemaining=remainder;collectedFilled=settled.filled;revision++;
             }
@@ -117,7 +125,7 @@ public final class OfferContinuation {
                 && offer.episode!=null && !offer.episode.isBlank() && !Objects.equals(episode,offer.episode)
                 && offer.price>0 && offer.total>0 && offer.filled>=0 && offer.filled<=offer.total
                 && (active(offer) || completed(offer) || cancelled(offer)))return close();
-        return collectionVerified && collectedRemaining>0 && collectedRemaining<=quantity
+        return !future && collectionVerified && collectedRemaining>0 && collectedRemaining<=quantity
             ?Status.COLLECTED:Status.WAITING;
     }
     public boolean supersededBy(ContinuationDisposition sale) {
@@ -129,7 +137,16 @@ public final class OfferContinuation {
         return offer.total>0 && offer.filled>=Math.max(Math.max(filled,maximumFilled),collectedFilled)
             && offer.filled<=offer.total;
     }
-    private void progress(int value) { if(value>maximumFilled) { maximumFilled=value;revision++; } }
+    private void progress(Observation offer) {
+        boolean changed=offer.filled>maximumFilled;
+        maximumFilled=Math.max(maximumFilled,offer.filled);
+        // Use the verified current total even when legacy metadata lacks it. Do not rewrite the
+        // original identity fields or enlarge a previously more conservative collection receipt.
+        if(collectionVerified && offer.total-offer.filled<collectedRemaining) {
+            collectedRemaining=offer.total-offer.filled;changed=true;
+        }
+        if(changed)revision++;
+    }
     private Status close() { if(!closed) {closed=true;revision++;}return Status.CLOSED; }
     private boolean alreadyPresent(Observation offer) {
         if(existingSales!=null) for(var key:existingSales) if(key!=null && key.matches(offer)) return true;
