@@ -1,10 +1,16 @@
 # Tasks
 
 Updated 22 October 2026. Read [HANDOFF.md](HANDOFF.md) and the actual delivery receipt at
-`local-data/distinct-continuations-20261022/delivery-state.json` first. Implemented/tested, merged,
+`local-data/accepted-buy-plans-20261022/delivery-state.json` first. Implemented/tested, merged,
 installed and player accepted are separate states. Owner is home; older login deferrals are superseded.
 
 ## Current batch
+
+- [x] Separate freshly accepted exact BUY plans from expired learning attribution; freeze independent
+      source/ordering evidence through outbox, canonical acquisition and maintenance/replay timing.
+      [Contract](docs/architecture/independent-accepted-buy-plans.md); verification/install in receipt.
+- [ ] Accept independent plan capture, partial fills, retry/ACK/restart and exact managed exits through
+      player operation. Legacy unknown plans remain unknown; learning remains unvalidated.
 
 - [x] Implement/test explicit distinct-origin successors across client acceptance/outbox, callback
       reconciliation, residual/child budgets, selected editor, canonical sale authority and replay.

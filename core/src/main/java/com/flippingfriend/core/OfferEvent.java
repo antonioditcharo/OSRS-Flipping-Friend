@@ -68,6 +68,8 @@ public final class OfferEvent
     private final ExecutionForecast executionForecast;
     private final AcquisitionExitContext exitContext;
     private final AcceptedAdviceProof acceptedAdviceProof;
+    private final AcceptedBuyPlanProof acceptedBuyPlanProof;
+    private final String acceptedBuyPlanEvidenceVersion;
     private final ContinuationSuccessorProof continuationSuccessorProof;
 
 	private OfferEvent(Builder builder)
@@ -104,6 +106,8 @@ public final class OfferEvent
         this.executionForecast=builder.executionForecast;
         this.exitContext=builder.exitContext;
         this.acceptedAdviceProof=builder.acceptedAdviceProof;
+        this.acceptedBuyPlanProof=builder.acceptedBuyPlanProof;
+        this.acceptedBuyPlanEvidenceVersion=builder.acceptedBuyPlanEvidenceVersion;
         this.continuationSuccessorProof=builder.continuationSuccessorProof;
 	}
 
@@ -159,6 +163,21 @@ public final class OfferEvent
     public ExecutionForecast getExecutionForecast(){return executionForecast;}
     public AcquisitionExitContext getExitContext(){return exitContext;}
     public AcceptedAdviceProof getAcceptedAdviceProof(){return acceptedAdviceProof;}
+    public AcceptedBuyPlanProof getAcceptedBuyPlanProof(){return acceptedBuyPlanProof;}
+    public String getAcceptedBuyPlanEvidenceVersion(){return acceptedBuyPlanEvidenceVersion;}
+    public OfferEvent withAcceptedBuyPlanEvidenceVersion(String version){
+        Builder copy=copyBuilder();copy.acceptedBuyPlanEvidenceVersion=version;return copy.build();
+    }
+    /** Withdraw workflow context only; execution association and economic/source evidence stay intact. */
+    public OfferEvent withoutAcceptedExitContext(){
+        Builder copy=copyBuilder();copy.exitContext=null;copy.acceptedAdviceProof=null;return copy.build();
+    }
+    public OfferEvent withAcceptedBuyPlanProof(AcceptedBuyPlanProof proof){
+        Builder copy=copyBuilder();copy.acceptedBuyPlanProof=proof;
+        if(proof!=null)copy.acceptedBuyPlanEvidenceVersion="1";
+        if(proof!=null && proof.matchesEpisode(this))copy.exitContext=proof.getExitContext();
+        return copy.build();
+    }
     public ContinuationSuccessorProof getContinuationSuccessorProof(){return continuationSuccessorProof;}
     public OfferEvent withContinuationSuccessorProof(ContinuationSuccessorProof proof){
         Builder copy=copyBuilder();copy.continuationSuccessorProof=proof;return copy.build();
@@ -177,6 +196,8 @@ public final class OfferEvent
         copy.executionForecast=executionForecast;
         copy.exitContext=exitContext;
         copy.acceptedAdviceProof=acceptedAdviceProof;
+        copy.acceptedBuyPlanProof=acceptedBuyPlanProof;
+        copy.acceptedBuyPlanEvidenceVersion=acceptedBuyPlanEvidenceVersion;
         copy.continuationSuccessorProof=continuationSuccessorProof;
         return copy;
     }
@@ -277,6 +298,8 @@ public final class OfferEvent
         private ExecutionForecast executionForecast;
         private AcquisitionExitContext exitContext;
         private AcceptedAdviceProof acceptedAdviceProof;
+        private AcceptedBuyPlanProof acceptedBuyPlanProof;
+        private String acceptedBuyPlanEvidenceVersion;
         private ContinuationSuccessorProof continuationSuccessorProof;
 
 		private Builder(String correlationId, long observedAt, String eventType)
@@ -318,6 +341,8 @@ public final class OfferEvent
         public Builder executionForecast(ExecutionForecast forecast){executionForecast=forecast;return this;}
         public Builder exitContext(AcquisitionExitContext value){exitContext=value;return this;}
         public Builder acceptedAdviceProof(AcceptedAdviceProof value){acceptedAdviceProof=value;return this;}
+        public Builder acceptedBuyPlanProof(AcceptedBuyPlanProof value){acceptedBuyPlanProof=value;return this;}
+        public Builder acceptedBuyPlanEvidenceVersion(String value){acceptedBuyPlanEvidenceVersion=value;return this;}
         public Builder continuationSuccessorProof(ContinuationSuccessorProof value){continuationSuccessorProof=value;return this;}
 
 		/** Links this offer to the advice that prompted it. */

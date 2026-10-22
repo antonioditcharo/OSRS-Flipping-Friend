@@ -73,7 +73,9 @@ public final class OfferEventOutbox
                 throw new IllegalArgumentException("factory changed account identity");
             event=event.withAccountId(state.accountId);updated.nextSequence=Math.addExact(sequence,1);
             if(bindPrediction && !observedSlots.add(event.getSlot()))throw new IllegalArgumentException("Duplicate observation slot");
+            PredictionBinding previous=updated.predictions.get(event.getSlot());
             if(bindPrediction)event=bindPrediction(event,updated);
+            if(bindPrediction)event=bindAcceptedBuyPlan(event,updated,previous);
             if(bindPrediction)event=bindContinuationSuccessor(event,updated);
             updated.pending.add(event);created.add(event);
         }
@@ -102,6 +104,31 @@ public final class OfferEventOutbox
         PredictionBinding binding=new PredictionBinding(previous.origin,previous.invalidated||changed);
         updated.predictions.put(event.getSlot(),binding);
         return event.withBoundPrediction(binding.origin,!binding.invalidated);
+    }
+    /** Freeze only the first durable episode source; later advice cannot reclassify that source. */
+    private OfferEvent bindAcceptedBuyPlan(OfferEvent event,State state,PredictionBinding previous) {
+        if(!event.isAuthenticatedObservation() || "EMPTY".equals(event.getEventType()) || blank(event.getOfferIdentity()))
+            return event.withAcceptedBuyPlanProof(null).withoutAcceptedExitContext();
+        String key=episodeKey(event);OfferEvent first=state.successorEpisodes.get(key);
+        // An upgrade must retain a known legacy episode, never relabel it with current advice.
+        OfferEvent known=first!=null?first:previous!=null && sameOffer(previous.origin,event)?previous.origin:null;
+        if(known!=null && known.getAcceptedBuyPlanEvidenceVersion()==null && known.getAcceptedBuyPlanProof()==null)
+            return event.withAcceptedBuyPlanProof(null).withAcceptedBuyPlanEvidenceVersion(null);
+        if(first==null) {
+            if(event.getAcceptedBuyPlanEvidenceVersion()==null && event.getAcceptedBuyPlanProof()==null)return event;
+            var supplied=event.getAcceptedBuyPlanProof();var proof=supplied==null?null:supplied.bindTo(event);
+            if(!"1".equals(event.getAcceptedBuyPlanEvidenceVersion()))proof=null;
+            if(proof!=null)for(var original:state.successorEpisodes.values()) {
+                var used=original.getAcceptedBuyPlanProof();
+                if(used!=null && used.getAcceptedAdviceId().equals(proof.getAcceptedAdviceId())){proof=null;break;}
+            }
+            return event.withoutAcceptedExitContext().withAcceptedBuyPlanProof(proof);
+        }
+        var proof=first.getAcceptedBuyPlanProof();
+        if(proof!=null && !proof.matchesEpisode(event))state.invalidBuyPlans.add(key);
+        return event.withoutAcceptedExitContext().withAcceptedBuyPlanEvidenceVersion(first.getAcceptedBuyPlanEvidenceVersion())
+            .withAcceptedBuyPlanProof(proof!=null && !state.invalidBuyPlans.contains(key)
+            && proof.qualifiesOriginal(first) && proof.matchesEpisode(event)?proof:null);
     }
     /** Freeze only the first durable episode source; later advice cannot reclassify that source. */
     private OfferEvent bindContinuationSuccessor(OfferEvent event,State state) {
@@ -260,7 +287,9 @@ public final class OfferEventOutbox
                 throw new IllegalStateException("invalid prediction binding schema or source");
         }
         if(state.successorEpisodes==null)state.successorEpisodes=new java.util.HashMap<>();
+        if(state.invalidBuyPlans==null)state.invalidBuyPlans=new java.util.HashSet<>();
         var adviceIds=new java.util.HashSet<String>();var firstIds=new java.util.HashSet<String>();
+        var buyAdviceIds=new java.util.HashSet<String>();
         var firstSequences=new java.util.HashSet<Long>();
         for(var entry:state.successorEpisodes.entrySet()) {
             var first=entry.getValue();
@@ -273,7 +302,15 @@ public final class OfferEventOutbox
             var proof=first.getContinuationSuccessorProof();
             if(proof!=null && (!proof.qualifiesOriginal(first) || !adviceIds.add(proof.getAcceptedAdviceId())))
                 throw new IllegalStateException("invalid continuation relationship proof");
+            var plan=first.getAcceptedBuyPlanProof();
+            if(plan!=null && (!"1".equals(first.getAcceptedBuyPlanEvidenceVersion())
+                || !java.util.Objects.equals(first.getExitContext(),plan.getExitContext())
+                || !plan.qualifiesOriginal(first) || !buyAdviceIds.add(plan.getAcceptedAdviceId())))
+                throw new IllegalStateException("invalid accepted buy plan source");
         }
+        for(var key:state.invalidBuyPlans)if(key==null || !state.successorEpisodes.containsKey(key)
+            || state.successorEpisodes.get(key).getAcceptedBuyPlanProof()==null)
+            throw new IllegalStateException("invalid accepted buy plan refusal");
 		if (upgraded && !appending) write(state);
 		return state;
 	}
@@ -358,9 +395,10 @@ public final class OfferEventOutbox
 		private List<OfferEvent> pending = new ArrayList<>();
         private java.util.Map<Integer,PredictionBinding> predictions;
         private java.util.Map<String,OfferEvent> successorEpisodes;
+        private java.util.Set<String> invalidBuyPlans;
 		private State() { }
 		private State(String sessionId, String accountId, Path file)
-		{ this.sessionId = sessionId; this.accountId = accountId; this.file = file; this.predictions=new java.util.HashMap<>();this.successorEpisodes=new java.util.HashMap<>(); }
+		{ this.sessionId = sessionId; this.accountId = accountId; this.file = file; this.predictions=new java.util.HashMap<>();this.successorEpisodes=new java.util.HashMap<>();this.invalidBuyPlans=new java.util.HashSet<>(); }
 		private State copy()
 		{
 			State copy = new State(sessionId, accountId, file);
@@ -369,6 +407,7 @@ public final class OfferEventOutbox
 			copy.pending = new ArrayList<>(pending);
             copy.predictions=new java.util.HashMap<>(predictions);
             copy.successorEpisodes=new java.util.HashMap<>(successorEpisodes);
+            copy.invalidBuyPlans=new java.util.HashSet<>(invalidBuyPlans);
 			return copy;
 		}
 	}

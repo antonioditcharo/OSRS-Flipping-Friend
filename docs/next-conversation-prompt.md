@@ -4,24 +4,25 @@ Continue in `C:\Users\Antonio\OSRS Flipping Friend Rebuild`.
 Implement, verify and deliver reliable trade/inventory workflow batches; do not stop at a roadmap.
 Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
-Read `local-data/distinct-continuations-20261022/delivery-state.json` FIRST, then current AGENTS.md,
+Read `local-data/accepted-buy-plans-20261022/delivery-state.json` FIRST, then current AGENTS.md,
 HANDOFF.md and TASKS.md. Receipt distinguishes source/tests/CI/merge/install/player acceptance.
-[Current contract](architecture/distinct-continuation-successors.md): explicit prospective successor
-origin, durable first-source binding, callback ordering barrier, exact residual/child budgets,
-selected-editor identity and independent canonical authority. Sale policy 7 / replay 16 / evaluator 4.
+[Current contract](architecture/independent-accepted-buy-plans.md): prospective exact accepted BUY
+plans independent of learning expiry, immutable callback/source binding, explicit unknown/versioned
+fallback fence, legacy preservation, retry/ACK/restart and original maintenance/replay timing.
+Sale policy 8 / replay 17 / evaluator 4. Learning remains PUBLIC_PRICE_BASELINE / HOLD_FOR_VALIDATION.
 
-Installed at this batch's start was #143 (`ed356e75908696400947ef8cb7e45c9c4430ecb7`), whose receipt
-is `local-data/relist-market-evidence-20261021/delivery-state.json`. Its abandoned-target prevention,
-exact cost, original plan, source, clock and maintenance guards remain. New receipt governs actual
-installation. Old three-bludgeon original plan stays unknown; bolts retain separate proven contexts;
-Dual macuahuitl has an exact retirement receipt. Never manufacture historical plan/disposal repairs.
+Installed at this batch's start was #144 (`21ace91001fc804315aa765fec27fe17adc1fe9d`), whose receipt
+is `local-data/distinct-continuations-20261022/delivery-state.json`. Distinct continuation origins,
+exact child/residual budgets, first-source barriers, editor/source/clock/plan/cost/maintenance guards
+remain. New receipt governs actual installation. Old three-bludgeon original plan stays unknown;
+bolts retain separate proven contexts; Dual macuahuitl has an exact retirement receipt. No historical
+financial replay or fabricated plan/disposal repair.
 
-Fresh pre-update capture showed two free slots and recent activity; ten pending observations drained
-normally. Recheck after delivery. Source/transport tests are not controlled full-loop proof. Normal
-client closure, backup/update/launch are authorized; login and all game actions remain manual.
-Inspect scoped reads/logs directly. Never force-kill, send game input, patch live databases or clear
-an outbox. Keep pending manual acceptance, cadence-setting evidence and safe proof-retention gates
-visible in TASKS. Prior details: [history](history/handoff-through-2026-10-21-pr141.md).
+Pre-update outbox drained to zero; saved eight-slot identities matched, but the account capture was
+stale. Recheck fresh evidence after delivery. Source tests are not controlled full-loop proof. Normal
+closure, backup/update/launch are authorized; login and game actions stay manual. Inspect scoped
+reads/logs directly. Never force-kill, send game input, patch live databases or clear an outbox.
+All prior unchecked gates remain in TASKS; [history](history/handoff-through-2026-10-21-pr141.md).
 
 ## Work in impact order
 

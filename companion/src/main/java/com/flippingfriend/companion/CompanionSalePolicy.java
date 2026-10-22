@@ -10,7 +10,7 @@ import java.util.*;
 
 /** Final read-only authority for managed exits and observed sale maintenance. No cost comes from the request. */
 final class CompanionSalePolicy {
-    static final String VERSION="companion-sale-7";
+    static final String VERSION="companion-sale-8";
     static String identity(int item,int price,int quantity,String source,boolean cut,int slot) {
         return identity(item,price,quantity,source,cut,slot,null);
     }

@@ -12,7 +12,7 @@ import java.util.*;
 
 /** One simulated account, one bankroll and eight physical slots; never opens a live database. */
 final class AccountReplay implements AutoCloseable {
-    static final String VERSION="account-replay-16";
+    static final String VERSION="account-replay-17";
     private static final String ACCOUNT=AccountIdentity.fromProfileKey("synthetic-account-replay-only");
     interface Entries {
         PortfolioPlan plan(MarketIngestionService.MarketState market,AccountSnapshot account,
@@ -36,12 +36,15 @@ final class AccountReplay implements AutoCloseable {
         final PortfolioCandidate entry;
         final AcquisitionExitContext context;
         ContinuationSuccessorProof successorAcceptance;
+        final AcceptedBuyPlanProof buyPlanAcceptance;
         Guidance(String kind,int slot,int item,int price,int quantity,String offerIdentity,String acquisitionSource,
             long cost,long spent,boolean cut,long at,PortfolioCandidate entry,String plan,AcquisitionExitContext context,long validUntil) {
             this.kind=kind;this.slot=slot;this.item=item;this.price=price;this.quantity=quantity;
             this.offerIdentity=offerIdentity;this.acquisitionSource=acquisitionSource;this.cost=cost;this.spent=spent;
             this.cut=cut;advisedAt=at;this.entry=entry;this.plan=plan;this.context=context;
             this.validUntil=validUntil;
+            buyPlanAcceptance=entry!=null && context!=null?AcceptedBuyPlanProof.accepted(ACCOUNT,UUID.randomUUID().toString(),
+                item,price,quantity,at,CaptureOrder.next(),context,entry.getBuyForecast()):null;
         }
         boolean sameOrder(Guidance next) {
             return next!=null && kind.equals(next.kind) && slot==next.slot && item==next.item && price==next.price
@@ -563,6 +566,7 @@ final class AccountReplay implements AutoCloseable {
         var builder=OfferEvent.builder("synthetic-replay",now,type).accountId(ACCOUNT).slot(o.slot).item(o.item,name(o.item)).buying(o.buy)
             .price(o.price).quantities(o.quantity,o.filled).spent(o.spent).firstSeenAt(o.placedAt)
             .eventIdentity("sim-event-"+(++sequence),"synthetic-session",o.identity).sequence(sequence).authenticatedObservation(true);
+        if(o.buy)builder.acceptedBuyPlanEvidenceVersion(o.origin==null?"1":o.origin.getAcceptedBuyPlanEvidenceVersion());
         if(advice!=null && advice.entry!=null)builder.recommendation(advice.plan,o.price,o.quantity,0,advice.entry.getBuyHours()*60,
             advice.entry.getDisplayBuyFillProbability()).predictionEvidence(null,advice.advisedAt,false)
             .executionForecast(advice.entry.getBuyForecast()).exitContext(advice.context);
@@ -573,7 +577,15 @@ final class AccountReplay implements AutoCloseable {
             raw=raw.withContinuationSuccessorProof(proof);
         } else if(o.origin!=null && o.origin.getContinuationSuccessorProof()!=null)
             raw=raw.withContinuationSuccessorProof(o.origin.getContinuationSuccessorProof());
-        return advice!=null?raw.withBoundPrediction(raw,true):o.origin==null?raw:raw.withBoundPrediction(o.origin,true);
+        var bound=advice!=null?raw.withBoundPrediction(raw,true):o.origin==null?raw:raw.withBoundPrediction(o.origin,true);
+        if(advice!=null && advice.buyPlanAcceptance!=null) {
+            var proof=advice.buyPlanAcceptance.captured(CaptureOrder.next()).bindTo(bound);
+            if(proof==null)throw new IllegalStateException("Synthetic BUY lost prospective plan acceptance");
+            bound=bound.withAcceptedBuyPlanProof(proof);
+        } else if(o.origin!=null && o.origin.getAcceptedBuyPlanProof()!=null)
+            bound=bound.withAcceptedBuyPlanProof(o.origin.getAcceptedBuyPlanProof());
+        else if(o.buy && bound.getAcceptedBuyPlanEvidenceVersion()!=null)bound=bound.withoutAcceptedExitContext();
+        return bound;
     }
     private void accept(OfferEvent e) throws Exception {
         var result=store.recordAndProjectOffer(e,json.toJson(e),true);
@@ -594,6 +606,7 @@ final class AccountReplay implements AutoCloseable {
                         throw new IllegalStateException("Restart changed current synthetic offer evidence");
                     offer.lastObservation=restored;
                     String source=restored.getPredictionSourceEventId();
+                    if(source==null && restored.getAcceptedBuyPlanProof()!=null)source=restored.getAcceptedBuyPlanProof().getSourceEventId();
                     if(source==null && restored.getContinuationSuccessorProof()!=null)source=restored.getContinuationSuccessorProof().getSourceEventId();
                     if(source==null)continue;
                     sql.setString(1,source);
@@ -619,6 +632,10 @@ final class AccountReplay implements AutoCloseable {
         return offer.buyMaintenanceDeadlineAt;
     }
     static boolean qualifiedOriginalBinding(OfferEvent origin) {
+        if(origin!=null && (origin.getAcceptedBuyPlanProof()!=null || origin.getAcceptedBuyPlanEvidenceVersion()!=null))
+            return "1".equals(origin.getAcceptedBuyPlanEvidenceVersion())
+                && (origin.getAcceptedBuyPlanProof()!=null?origin.getAcceptedBuyPlanProof().qualifiesOriginal(origin)
+                    :ExecutionObservationLedger.qualifiesOriginal(origin));
         return ExecutionObservationLedger.qualifiesOriginal(origin)
             || TradeGapEvidence.valid(origin) && origin.hasAcceptedExitProof()
                 && origin.getFilledQuantity()==0 && origin.getFirstSeenAt()>0
