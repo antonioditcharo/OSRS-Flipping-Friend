@@ -92,7 +92,7 @@ public class AccountReplayTest {
         var result=run(input,5,10);
         assertTrue(result.actions.toString(),result.actions.stream().anyMatch(s->s.contains("SELL ")));
         assertEquals(1,result.completedSales);assertEquals(180,result.realizedProfit);
-        assertEquals("account-replay-12",result.policyVersion);
+        assertEquals("account-replay-13",result.policyVersion);
         assertEquals("companion-sale-5",result.salePolicyVersion);assertEquals(1,result.authorizedSales);
     }
     @Test public void restartDuringPartialPurchasePreservesCanonicalCostLimitsAndRiskWindow()throws Exception {

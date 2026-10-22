@@ -4,9 +4,16 @@ Continue in `C:\Users\Antonio\OSRS Flipping Friend Rebuild`.
 Implement, verify and deliver reliable trade/inventory workflow batches; do not stop at a roadmap.
 Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
-Read `local-data/continuation-restoration-20261021/delivery-state.json` FIRST, then current
+Read `local-data/continuation-clock-preservation-20261021/delivery-state.json` FIRST, then current
 AGENTS.md, HANDOFF.md and TASKS.md. The receipt distinguishes source/tests/CI/merge/install/player
 acceptance. Older PR checkpoints and availability notes are historical, not installation proof.
+
+The current batch preserves future-clock workflows while withholding guidance and still persisting
+fresh exact-episode observations. Corrected post-collection fills narrow the saved remainder; full
+counters and replacement facts cannot resurrect a rebuy after restart. Replay 13 / sale policy 5.
+Read the [contract](architecture/continuation-clock-preservation.md) and receipt for installation.
+Previous #140 is installed with stale-snapshot/account restoration and exact cancellation acceptance;
+its manual full-loop acceptance remains pending.
 
 The current batch separates current-login continuation observations from cached offer recovery,
 preserves durable collected quantities across snapshot save lag and profile changes, and prevents
