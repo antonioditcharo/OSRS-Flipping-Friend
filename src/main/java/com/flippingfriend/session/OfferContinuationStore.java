@@ -269,7 +269,7 @@ abstract class OfferContinuationStore {
             }
         }else for(var pending:state.unresolved){unresolved.add(identity(pending));board.add(pending);}
         state.blockedItems.clear();for(var pending:state.unresolved)state.blockedItems.add(pending.item);
-        for(var proof:proofs)if(proof.getAcceptedAt()>now || proof.getFirstSeenAt()>now)state.blockedItems.add(proof.getItemId());
+        for(var proof:proofs)if(proof.getAcceptedAt()>now || proof.getFirstSeenAt()>now || proof.getCapturedAt()>now)state.blockedItems.add(proof.getItemId());
         for(var consumed:state.consumed) {
             long revision=consumed.getRevision();
             var status=consumed.observeConsumedBudget(withoutCachedOriginal(board,consumed,evidence),settled(tracker,evidence,consumed),proofs);

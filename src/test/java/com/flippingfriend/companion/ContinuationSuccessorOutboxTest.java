@@ -61,6 +61,19 @@ public class ContinuationSuccessorOutboxTest {
         }
         assertEquals(2,box.observedSuccessorEpisodes().size());assertTrue(box.successorBindings().isEmpty());
     }
+    @Test public void firstCallbackPublicationAcrossASecondBoundaryKeepsItsProspectiveOrderWithoutBackfilling()throws Exception {
+        for(boolean buying:new boolean[]{true,false}) {
+            int slot=buying?0:1;String episode="delayed-"+slot;
+            var accepted=advice("origin-A","display-"+slot,80,buying);
+            var first=box.enqueueObservedOffer(frame(episode,slot,AT,AT+1,80,0,buying,accepted.captured(CaptureOrder.next())));
+            var proof=first.getContinuationSuccessorProof();assertNotNull(proof);assertTrue(proof.qualifiesOriginal(first));
+            assertEquals(AT,proof.getFirstSeenAt());assertEquals(AT+1,proof.getCapturedAt());
+            assertFalse(proof.qualifiesOriginal(frame(episode,slot,AT,AT,80,0,buying,null)
+                .build(first.getEventId(),first.getSessionId(),first.getSequence()).withAccountId(storage.accountId())));
+        }
+        var stale=advice("origin-A","stale",80,false).captured(CaptureOrder.next());
+        assertNull(box.enqueueObservedOffer(frame("expired-publication",2,AT,AT+601,80,0,false,stale)).getContinuationSuccessorProof());
+    }
     @Test public void changedExactOrderAndCrossAccountProofAreUnboundEvenWithMatchingItem()throws Exception {
         var supplied=advice("origin-A","accepted",80,false).captured(CaptureOrder.next());
         assertNull(box.enqueueObservedOffer(frame("wrong-quantity",0,AT,AT,79,0,false,supplied)).getContinuationSuccessorProof());

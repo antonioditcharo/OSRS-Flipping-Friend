@@ -15,6 +15,9 @@ of ordinary learning history. Forecasts keep their own display-acceptance clock.
 The first authenticated exact zero-fill offer capture freezes version-1 successor evidence in the
 forced account outbox. Same-second order must be prospective within the same process. Later advice,
 changed inputs, already-filled first observations and reused acceptances cannot backfill a binding.
+Placement and first-source publication seconds are distinct; crossing a second boundary cannot erase
+the copied callback's proven order. Publication retains the same bounded acceptance window and its
+own immutable source timestamp, including future-clock refusal.
 The outbox retains both qualified and unbound first-source receipts through ACK, EMPTY and restart.
 Existing source IDs, sequence/session keys, prediction identities and financial rows are unchanged.
 

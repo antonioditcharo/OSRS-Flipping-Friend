@@ -76,7 +76,7 @@ public final class OfferContinuation {
     }
     private boolean futureSuccessor(long now){
         if(successorClaims!=null)for(var proof:successorClaims)
-            if(proof!=null && (proof.getAcceptedAt()>now || proof.getFirstSeenAt()>now))return true;
+            if(proof!=null && (proof.getAcceptedAt()>now || proof.getFirstSeenAt()>now || proof.getCapturedAt()>now))return true;
         return false;
     }
     /** Exact observed cancellation of this promise; it neither proves collection nor creates fills. */
