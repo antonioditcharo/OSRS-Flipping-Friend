@@ -1119,6 +1119,28 @@ public class CompanionClient
     private static double originalBuyDuration(OfferEvent event) {
         return com.flippingfriend.core.BuyMaintenanceTiming.originalExpectedMinutes(event);
     }
+    /** Freeze patience only after durable timing evidence is readable; pending ACK is not an outage. */
+    public long freezeBuyMaintenanceDeadline(TrackedOffer expected,com.flippingfriend.session.OfferTracker tracker,
+            double fallbackMinutes,long now) {
+        if(expected==null || tracker==null || !expected.isBuying() || !"BUYING".equals(expected.getState()))return 0;
+        String account=accountContext();if(account==null)return 0;
+        var event=canonicalOffers.get(expected.getSlot());
+        String identity=expected.getEpisodeIdentity()==null?expected.getSlot()+"@"+expected.getFirstSeen()+":"+expected.getItemId():expected.getEpisodeIdentity();
+        if(!validObservedOpenBuy(event) || event.getObservedAt()<=0 || event.getObservedAt()>now
+            || !account.equals(event.getAccountId()) || event.getItemId()!=expected.getItemId()
+            || event.getPrice()!=expected.getPrice() || event.getTotalQuantity()!=expected.getTotalQuantity()
+            || event.getFirstSeenAt()!=expected.getFirstSeen() || !identity.equals(event.getOfferIdentity())
+            || event.getFilledQuantity()!=expected.getQuantityFilled() || event.getSpent()!=expected.getSpent())return 0;
+        if(event.getAcceptedBuyPlanEvidenceVersion()!=null && !"1".equals(event.getAcceptedBuyPlanEvidenceVersion())
+            || event.getAcceptedBuyPlanProof()!=null && !event.getAcceptedBuyPlanProof().matchesEpisode(event))return 0;
+        try {
+            outbox.pending(); // Unsaved append or malformed retained evidence must not become a permanent fallback.
+            if(!account.equals(accountContext()) || !event.getSessionId().equals(outbox.sessionId()))return 0;
+            return tracker.freezeBuyMaintenanceDeadline(expected.getSlot(),expected.getContinuationIdentity(),
+                originalBuyDuration(event),fallbackMinutes,now,account);
+        }catch(Exception unavailable){return 0;}
+    }
+
     /** Diagnostic only: the original actual sale order forecast, never an acquisition estimate. */
     public double originalSellExpectedMinutes(TrackedOffer expected) {
         if(expected==null || expected.isBuying())return Double.NaN;
@@ -1151,7 +1173,7 @@ public class CompanionClient
 			&& "SELLING".equals(event.getEventType()) && event.getItemId()>0 && event.getPrice()>0
 			&& event.getTotalQuantity()>event.getFilledQuantity() && event.getFilledQuantity()>=0
 			&& !blank(event.getEventId()) && !blank(event.getOfferIdentity());
-		if (validOpenBuyForMaintenance(event) || observedSale) canonicalOffers.put(event.getSlot(), event);
+		if (validObservedOpenBuy(event) || observedSale) canonicalOffers.put(event.getSlot(), event);
 		else canonicalOffers.remove(event.getSlot());
 	}
 
@@ -1210,6 +1232,15 @@ public class CompanionClient
 	{
 		PolicyDecision fetch(String offerIdentity, String recommendationId);
 	}
+
+    /** Retain copied current BUY evidence for workflow clocks without creating attribution. */
+    private static boolean validObservedOpenBuy(OfferEvent offer) {
+        return offer!=null && offer.isAuthenticatedObservation() && offer.isBuying() && "BUYING".equals(offer.getEventType())
+            && offer.getSlot()>=0 && offer.getSlot()<8 && offer.getItemId()>0 && offer.getPrice()>0
+            && offer.getTotalQuantity()>offer.getFilledQuantity() && offer.getFilledQuantity()>=0 && offer.getSpent()>=0
+            && offer.getFirstSeenAt()>0 && offer.getObservedAt()>=offer.getFirstSeenAt() && offer.getSequence()>0
+            && !blank(offer.getAccountId()) && !blank(offer.getEventId()) && !blank(offer.getSessionId()) && !blank(offer.getOfferIdentity());
+    }
 
 	private static boolean validOpenBuyForMaintenance(OfferEvent offer)
 	{

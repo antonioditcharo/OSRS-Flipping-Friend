@@ -5,27 +5,28 @@ Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
 ## Current delivery
 
-Read `local-data/accepted-buy-plans-20261022/delivery-state.json` first for actual source,
-verification, CI, merge and installation. This batch gives the current exact accepted BUY plan its
-own immutable identity and callback ordering evidence, independent of expired learning attribution.
-It freezes original target/stop/durations through outbox retry/ACK/restart, canonical partial fills,
-maintenance and replay. Unknown/versioned refusals cannot borrow legacy context or later advice;
-known legacy episodes retain their original evidence. No learning promotion or financial rewrite.
-Paired sale policy 8 / replay 17 / maintenance evaluator 4.
-[Contract](docs/architecture/independent-accepted-buy-plans.md).
+Read `local-data/independent-buy-deadlines-20261022/delivery-state.json` first for actual source,
+verification, CI, merge and installation. This batch fixes live original BUY timing after independent
+plan acceptance: authenticated current BUY tracking no longer requires a learning recommendation ID.
+The engine defers new deadline metadata while its exact durable timing source is unavailable, rather
+than freezing a permanent long fallback during storage/restart outages. Proven unknown forecasts
+still use the frozen fallback. Original deadlines and real-progress patience stay separate.
+[Contract](docs/architecture/independent-buy-deadlines.md).
+Sale policy 8 / replay 17 / maintenance evaluator 4 are unchanged; no learning promotion.
 
-Installed at this batch's start: #144 at `21ace91001fc804315aa765fec27fe17adc1fe9d`;
-`local-data/distinct-continuations-20261022/delivery-state.json` records its actual delivery. Distinct
-same-item continuation origins, exact child/residual budgets, durable first-source barriers,
-source-outage fact retention and editor-origin guards remain. Earlier abandoned-target, exact-cost,
-original-plan, clock, source and maintenance guards remain active.
+Installed at this batch's start: #145 at `cdbb9508389fbdf0b196d37246fbebc68cc09d9c`;
+`local-data/accepted-buy-plans-20261022/delivery-state.json` records its actual delivery. Independent
+accepted acquisition plans, unknown/versioned refusal fences and legacy preservation remain. Earlier
+distinct continuation origins, exact child/residual budgets, source barriers, editor, cost, original
+plan, clock and sale-maintenance guards remain active. Existing frozen deadlines are not repaired.
 [Previous delivery checkpoints](docs/history/handoff-through-2026-10-21-pr141.md).
 
-New authenticated pre-update reads found an empty outbox and matching saved eight-slot identities,
-but the account capture was stale. Recheck after delivery; that evidence cannot establish current
-entry readiness or controlled acceptance. A new complete financial/source preservation prefix and
-original risk anchor are frozen. Normal closure, verified backup/update/launch and direct scoped
-reads are authorized. Login and every game action remain manual.
+Fresh scoped pre-update reads respond and the outbox is empty. Saved eight-slot identities match but
+the account capture is stale while logged out; this is not current trading readiness or acceptance.
+A new complete financial/source prefix and original risk anchor are frozen. Normal closure,
+backup/update/launch and scoped reads are authorized. Login and all game actions remain manual.
+Saved-sale cadence changes still need prospective exact policy-setting evidence before historical
+eligibility can be relaxed; that separate protocol gap remains visible in TASKS.
 
 The old three-bludgeon original plan stays unknown; those units subsequently sold, and the newer
 two-unit purchase is separate. Bolts retain separately proven contexts. Dual macuahuitl's older rebuy

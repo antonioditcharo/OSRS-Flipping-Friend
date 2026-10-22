@@ -1,10 +1,16 @@
 # Tasks
 
 Updated 22 October 2026. Read [HANDOFF.md](HANDOFF.md) and the actual delivery receipt at
-`local-data/accepted-buy-plans-20261022/delivery-state.json` first. Implemented/tested, merged,
+`local-data/independent-buy-deadlines-20261022/delivery-state.json` first. Implemented/tested, merged,
 installed and player accepted are separate states. Owner is home; older login deferrals are superseded.
 
 ## Current batch
+
+- [x] Retain independent original BUY forecasts in live tracking and defer new deadline freezing
+      while its exact durable source is unavailable; proven unknown forecasts retain frozen fallback.
+      [Contract](docs/architecture/independent-buy-deadlines.md); actual delivery in receipt.
+- [ ] Accept live original deadlines, source-write outage/recovery and overdue cancellation with
+      recent partial fills through player operation; prior frozen metadata remains unchanged.
 
 - [x] Separate freshly accepted exact BUY plans from expired learning attribution; freeze independent
       source/ordering evidence through outbox, canonical acquisition and maintenance/replay timing.
