@@ -21,6 +21,31 @@ import static org.mockito.Mockito.*;
 
 /** Real refresh orchestration with paused worker/client queues; no game or HTTP input. */
 public class AdviceDeliveryBoundaryTest {
+    @Test public void refusedUrgentSaleCannotHideSeparatelyAuthorizedWorkingMaintenance()throws Exception {
+        var f=new Fixture();when(f.companion.nextAction()).thenReturn(null);
+        var engine=(SuggestionEngine)getField(f.plugin,"engine");
+        var urgent=Suggestion.builder(SuggestionType.MODIFY_SELL).item(561,"Urgent").price(90).quantity(2).slot(0)
+            .lossCut(true).maintenanceSource("urgent-episode").build();
+        var routine=Suggestion.builder(SuggestionType.MODIFY_SELL).item(562,"Other sale").price(120).quantity(3).slot(1)
+            .maintenanceSource("routine-episode").build();
+        when(engine.refresh(false)).thenReturn(urgent);
+        when(f.companion.authorizeSale(urgent)).thenReturn(Suggestion.waiting("Sale refused","Fresh evidence refused the exact urgent quote."));
+        when(engine.maintenanceAfterSaleRefusal(anySet())).thenAnswer(c->{
+            Set<String> excluded=c.getArgument(0);assertTrue(excluded.contains("urgent-episode"));return routine;
+        });
+        f.queueAdvice();f.clientQueue.remove().run();verify(f.guide).setSuggestion(routine);
+        verify(f.companion).authorizeSale(routine);verify(f.companion,never()).nextEntrySuggestion(any(),anySet(),anySet(),anySet());
+    }
+    @Test public void repeatedRefusedUrgentEpisodeTerminatesWithoutEntryOrAuthorityBypass()throws Exception {
+        var f=new Fixture();when(f.companion.nextAction()).thenReturn(null);var engine=(SuggestionEngine)getField(f.plugin,"engine");
+        var urgent=Suggestion.builder(SuggestionType.MODIFY_SELL).item(561,"Urgent").price(90).quantity(2).slot(0)
+            .lossCut(true).maintenanceSource("urgent-episode").build();
+        var wait=Suggestion.waiting("Sale refused","Exact quote still refused.");
+        when(engine.refresh(false)).thenReturn(urgent);when(f.companion.authorizeSale(urgent)).thenReturn(wait);
+        when(engine.maintenanceAfterSaleRefusal(anySet())).thenReturn(urgent);
+        f.queueAdvice();f.clientQueue.remove().run();verify(f.guide).setSuggestion(wait);
+        verify(f.companion,times(1)).authorizeSale(urgent);verify(f.companion,never()).nextEntrySuggestion(any(),anySet(),anySet(),anySet());
+    }
     @Test public void failedSuccessorCommitWithdrawsBothBuyAndUnpricedPersonalSell()throws Exception {
         for(var type:List.of(SuggestionType.BUY,SuggestionType.SELL)) {
             var f=new Fixture();var client=(Client)getField(f.plugin,"client");when(client.isClientThread()).thenReturn(true);

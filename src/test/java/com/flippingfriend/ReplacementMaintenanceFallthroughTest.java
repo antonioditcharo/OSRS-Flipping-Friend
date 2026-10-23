@@ -123,6 +123,16 @@ public class ReplacementMaintenanceFallthroughTest {
         assertTrue(shown.getValue().getPrice()>100);verify(f.refresh.companion).selectBuyMaintenanceCancellation(shown.getValue());
         verify(f.refresh.companion,never()).nextEntrySuggestion(any(),anySet(),anySet(),anySet());f.retained();
     }
+    @Test public void staleLocalSpotCannotHideAnIndependentlyAuthorizedReplacement()throws Exception {
+        var f=new Fixture();var snapshot=f.market.getSnapshot();var prices=new HashMap<>(snapshot.getLatest());
+        prices.put(561,new LatestPrice(200,now,100,now-333));
+        when(f.market.getSnapshot()).thenReturn(new MarketSnapshot(snapshot.getMetadata(),prices,snapshot.getFiveMinute(),Map.of(),Instant.ofEpochSecond(now)));
+        var accepted=Suggestion.builder(SuggestionType.BUY).item(561,"Nature rune").quantity(4).price(95).build();
+        when(f.refresh.companion.replacementSuggestion(eq(561),eq(10),any(),anySet(),anySet(),anySet())).thenReturn(accepted);
+        f.run();verify(f.refresh.guide).setSuggestion(accepted);
+        assertNotNull(accepted.getContinuationOriginIdentity());assertEquals(95,accepted.getPrice());
+        assertEquals(4,accepted.getQuantity());f.retained();
+    }
     private static void inject(Object target,String name,Object value)throws Exception{var field=target.getClass().getDeclaredField(name);field.setAccessible(true);field.set(target,value);}
     private static Object read(Object target,String name)throws Exception{var field=target.getClass().getDeclaredField(name);field.setAccessible(true);return field.get(target);}
 }

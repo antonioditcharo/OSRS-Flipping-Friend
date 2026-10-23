@@ -5,6 +5,21 @@ import org.junit.Test;
 import static org.junit.Assert.*;
 
 public class SaleDecisionAuthorityTest {
+    @Test public void priceRevisionIsOnlyAScopedFreshRefusalNeverSaleAuthority() {
+        var d=PolicyDecision.abstain("1","companion-sale-9","reprice",PolicyDecisionType.SELL_MAINTENANCE,
+            PolicyAbstentionReason.ACCOUNT_STATE_INCONSISTENT,"SALE_PRICE_NOT_AUTHORIZED",100,99,"order","source")
+            .withSalePriceRevision(120,10,true);
+        assertTrue(CompanionClient.validSaleRevision(d,"order","source",0,100,101));
+        assertFalse(CompanionClient.validSaleDecision(d,"order","source",0,100));
+        assertFalse(CompanionClient.validSaleRevision(d,"other","source",0,100,101));
+        assertFalse(CompanionClient.validSaleRevision(d,"order","other",0,100,101));
+        assertFalse(CompanionClient.validSaleRevision(d,"order","source",-1,100,101));
+        assertFalse(CompanionClient.validSaleRevision(d,"order","source",0,101,102));
+        assertFalse(CompanionClient.validSaleRevision(d,"order","source",0,100,106));
+        var json=new com.google.gson.Gson();var wire=json.toJsonTree(d).getAsJsonObject();
+        wire.getAsJsonObject("salePriceRevision").addProperty("version","future");
+        assertFalse(CompanionClient.validSaleRevision(json.fromJson(wire,PolicyDecision.class),"order","source",0,100,101));
+    }
     PolicyDecision decision(String identity,int slot,long now) {
         return PolicyDecision.action("1","companion-sale-9","decision",slot<0?PolicyDecisionType.EXIT:PolicyDecisionType.SELL_MAINTENANCE,
             slot<0?OfferLifecycleAction.PLACE_SELL:OfferLifecycleAction.CANCEL_SELL,"SALE_AUTHORIZED",now,now-1,identity,"source");

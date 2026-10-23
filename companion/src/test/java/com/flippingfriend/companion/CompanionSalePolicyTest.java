@@ -9,6 +9,25 @@ import org.junit.rules.TemporaryFolder;
 import static org.junit.Assert.*;
 
 public class CompanionSalePolicyTest {
+    @Test public void mismatchedSalePriceOffersOnlyACanonicalQuoteAndStillRequiresExactReauthorization()throws Exception {
+        try(var store=new SqliteStore(folder.newFolder().toPath().resolve("quote-retry.db"))) {
+            var account=setup(store,new AcquisitionExitContext(140,90,120));long now=at+3600;
+            accept(store,event(0,"SELLING","quoted-sale",3,0,0,150,at+3));
+            var sale=event(0,"SELLING","quoted-sale",3,0,0,150,now);accept(store,sale);
+            var read=store.saleProjections(id,now);var policy=new CompanionSalePolicy();int effects=store.positionEventCount();
+            var refused=policy.decide(read.planning,read.ledger,account,market(now,120),(i,s)->bars(now,120),
+                561,100,3,sale.getEventId(),false,0,now);
+            assertEquals(OfferLifecycleAction.WAIT,refused.getAction());assertNotNull(refused.getSalePriceRevision());
+            assertEquals(119,refused.getSalePriceRevision().getPrice());assertNull(refused.getSalePolicyReceipt());
+            var accepted=policy.decide(read.planning,read.ledger,account,market(now,120),(i,s)->bars(now,120),
+                561,119,3,sale.getEventId(),false,0,now);
+            assertEquals(OfferLifecycleAction.CANCEL_SELL,accepted.getAction());
+            var unknownStop=policy.decide(read.planning,read.ledger,account,market(now,120),(i,s)->bars(now,120),
+                561,1,3,sale.getEventId(),true,0,now);
+            assertEquals(OfferLifecycleAction.WAIT,unknownStop.getAction());assertNull(unknownStop.getSalePriceRevision());
+            assertEquals(effects,store.positionEventCount());
+        }
+    }
     @Rule public TemporaryFolder folder=new TemporaryFolder();
     final Gson json=new Gson();final String id=AccountIdentity.fromProfileKey("sale-policy-fixture");
     final long at=Instant.now().getEpochSecond()-3600;long seq;

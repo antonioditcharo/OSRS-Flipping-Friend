@@ -1052,6 +1052,9 @@ public class CompanionClient
 
     /** Final sale authority is bound to the canonical source and exact displayed order. */
     public Suggestion authorizeSale(Suggestion proposed) {
+        return authorizeSale(proposed,true);
+    }
+    private Suggestion authorizeSale(Suggestion proposed,boolean mayRevise) {
         if(proposed==null || proposed.getType()!=SuggestionType.MODIFY_SELL
             && !(proposed.getType()==SuggestionType.SELL && proposed.isProfitKnown()))return proposed;
         String requestedAccount=accountContext();long now=Instant.now().getEpochSecond();
@@ -1075,6 +1078,31 @@ public class CompanionClient
                 decision=gson.fromJson(request("policy/sale-maintenance","POST",gson.toJson(body),ACCOUNT_READ_TIMEOUT_MILLIS,requestedAccount),PolicyDecision.class);
             } else decision=gson.fromJson(request(path,"GET",null,ACCOUNT_READ_TIMEOUT_MILLIS,requestedAccount),PolicyDecision.class);
             long receivedAt=Instant.now().getEpochSecond();
+            // Independent public-feed/history polls can disagree about the best exact price.
+            // A scoped refusal may supply a quote, but only a second complete final decision
+            // (and new durable maintenance receipt) may authorize that exact revised order.
+            if(mayRevise && validSaleRevision(decision,key,source,slot,now,receivedAt)
+                && requestedAccount.equals(accountContext()) && !offerEvidencePending()
+                && source.equals(currentSaleSource(proposed,slot))) {
+                var quote=decision.getSalePriceRevision();
+                if(quote.getPrice()!=proposed.getPrice() && quote.isCostKnown()==proposed.isProfitKnown()) {
+                    var revised=Suggestion.builder(proposed.getType()).item(proposed.getItemId(),proposed.getItemName())
+                        .slot(slot).quantity(proposed.getQuantity()).price(quote.getPrice()).profitKnown(quote.isCostKnown())
+                        .expectedProfit(quote.getExpectedProfit()).lossCut(proposed.isLossCut())
+                        .maintenanceSource(proposed.getMaintenanceOfferIdentity()).saleRepriceSource(proposed.getSaleRepriceSource())
+                        .targetSellPrice(proposed.getTargetSellPrice())
+                        .adviceContext(requestedAccount,proposed.getRecommendationId(),receivedAt-decision.getInputObservedAt(),
+                            proposed.getAdviceExpiresAt()>0?Math.min(proposed.getAdviceExpiresAt(),receivedAt+60):receivedAt+60)
+                        .headline(proposed.isLossCut()?"Cut your losses on "+proposed.getItemName():"Update your "+proposed.getItemName()+" sale")
+                        .detail((slot>=0?"Cancel this sale, collect its remaining items, and relist ":"List ")
+                            +proposed.getQuantity()+" at "+quote.getPrice()+" gp each. The original purchase records and exit context are retained.").build();
+                    if(proposed.getContinuationOriginIdentity()!=null)revised.bindContinuationOrigin(proposed.getContinuationOriginIdentity());
+                    var accepted=authorizeSale(revised,false);
+                    if(!requestedAccount.equals(accountContext()) || !source.equals(currentSaleSource(proposed,slot)))
+                        return proposed.isLossCut()?saleWaiting("SALE_SOURCE_CHANGED"):null;
+                    return accepted;
+                }
+            }
             if(validSaleDecision(decision,key,source,slot,now) && decision.getDecidedAt()<=receivedAt
                 && receivedAt-decision.getDecidedAt()<=5 && receivedAt-decision.getInputObservedAt()<=150
                 && java.util.Objects.equals(requestedAccount,accountContext()) && !offerEvidencePending()
@@ -1139,6 +1167,17 @@ public class CompanionClient
             && decision.getAbstentionReason()==PolicyAbstentionReason.NONE && "SALE_AUTHORIZED".equals(decision.getReasonCode())
             && decision.getDecidedAt()>=now && decision.getDecidedAt()<=now+5 && decision.getInputObservedAt()<=decision.getDecidedAt()
             && now-decision.getInputObservedAt()<=150;
+    }
+    static boolean validSaleRevision(PolicyDecision d,String identity,String source,int slot,long sent,long received) {
+        return d!=null && d.getSalePriceRevision()!=null && d.getSalePriceRevision().isValid()
+            && "1".equals(d.getSchemaVersion()) && "companion-sale-9".equals(d.getPolicyVersion())
+            && identity.equals(d.getCandidateId()) && source.equals(d.getRecommendationId())
+            && d.getDecisionType()==(slot<0?PolicyDecisionType.EXIT:PolicyDecisionType.SELL_MAINTENANCE)
+            && d.getAction()==OfferLifecycleAction.WAIT && d.getAbstentionReason()!=null
+            && d.getAbstentionReason()!=PolicyAbstentionReason.NONE
+            && ("SALE_PRICE_NOT_AUTHORIZED".equals(d.getReasonCode()) || "SALE_EXIT_CHANGED".equals(d.getReasonCode()))
+            && d.getDecidedAt()>=sent && d.getDecidedAt()<=received && received-d.getDecidedAt()<=5
+            && d.getInputObservedAt()>=0 && d.getInputObservedAt()<=d.getDecidedAt() && received-d.getInputObservedAt()<=150;
     }
 
 	PolicyDecision consumeEntryDecision(String response)

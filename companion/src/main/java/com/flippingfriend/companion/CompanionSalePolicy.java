@@ -71,7 +71,10 @@ final class CompanionSalePolicy {
                 if(proposed==null || proposed.lossCut!=cut || Math.abs((long)proposed.price-price)>=horizon.outbidDeadband(proposed.price)
                     || offer.getPrice()-(long)price<horizon.outbidDeadband(offer.getPrice())
                     || !cut && proposed.costKnown && (proposed.floor<=0 || price<proposed.floor))
-                    return refusal(type,identity,source,now,"SALE_PRICE_NOT_AUTHORIZED");
+                    return proposed!=null && proposed.lossCut==cut
+                        ?refusal(type,identity,source,now,"SALE_PRICE_NOT_AUTHORIZED").withSalePriceRevision(proposed.price,
+                            proposed.costKnown?tax.netProceeds(item,proposed.price,quantity)-proposed.allocatedCost:0,proposed.costKnown)
+                        :refusal(type,identity,source,now,"SALE_PRICE_NOT_AUTHORIZED");
             } else {
                 if(position==null || quantity>position.getQuantity())return refusal(type,identity,source,now,"SALE_ACQUISITION_UNAVAILABLE");
                 if(account.getObservedHoldings()==null || account.getObservedHoldings().getOrDefault(item,0)<quantity)
@@ -104,7 +107,10 @@ final class CompanionSalePolicy {
                         tax.netProceeds(item,relist.price,quantity)-relist.allocatedCost);
                 if(!decision.isSell() || (decision.getAction()==SellDecision.Action.CUT)!=cut
                     || Math.abs((long)decision.getPrice()-price)>=horizon.outbidDeadband(decision.getPrice()))
-                    return refusal(type,identity,source,now,"SALE_EXIT_CHANGED");
+                    return decision.isSell() && (decision.getAction()==SellDecision.Action.CUT)==cut
+                        ?refusal(type,identity,source,now,"SALE_EXIT_CHANGED").withSalePriceRevision(decision.getPrice(),
+                            tax.netProceeds(item,decision.getPrice(),quantity)-SaleAccounting.allocateCost(position.getTotalCost(),position.getQuantity(),quantity),true)
+                        :refusal(type,identity,source,now,"SALE_EXIT_CHANGED");
                 long cost=SaleAccounting.allocateCost(position.getTotalCost(),position.getQuantity(),quantity);
                 if(!cut && (relist!=null || !account.isSellOnly() || quote.stalestSideSeconds(at)>300)) {
                     int floor=tax.breakEvenSellPriceForCost(item,cost,quantity);

@@ -15,6 +15,29 @@ public final class PolicyDecision
     private final String candidateId;
     private final String recommendationId;
     private final SalePolicyReceipt salePolicyReceipt;
+    /** A refused quote may suggest one replacement price; it is never order authority. */
+    private SalePriceRevision salePriceRevision;
+    public static final class SalePriceRevision {
+        private final String version;
+        private final int price;
+        private final long expectedProfit;
+        private final boolean costKnown;
+        private SalePriceRevision(int price,long profit,boolean known){version="1";this.price=price;expectedProfit=profit;costKnown=known;}
+        public boolean isValid(){return "1".equals(version) && price>0;}
+        public int getPrice(){return price;}
+        public long getExpectedProfit(){return expectedProfit;}
+        public boolean isCostKnown(){return costKnown;}
+    }
+    public SalePriceRevision getSalePriceRevision(){return salePriceRevision;}
+    public PolicyDecision withSalePriceRevision(int price,long profit,boolean known) {
+        if(price<=0 || action!=OfferLifecycleAction.WAIT || abstentionReason==PolicyAbstentionReason.NONE
+            || !("SALE_PRICE_NOT_AUTHORIZED".equals(reasonCode) || "SALE_EXIT_CHANGED".equals(reasonCode))
+            || decisionType!=PolicyDecisionType.EXIT && decisionType!=PolicyDecisionType.SELL_MAINTENANCE)
+            throw new IllegalArgumentException("A sale price refusal is required");
+        var copy=new PolicyDecision(schemaVersion,policyVersion,decisionId,decisionType,action,abstentionReason,
+            reasonCode,decidedAt,inputObservedAt,candidateId,recommendationId);
+        copy.salePriceRevision=new SalePriceRevision(price,profit,known);return copy;
+    }
 
     private PolicyDecision(String schemaVersion, String policyVersion, String decisionId,
         PolicyDecisionType decisionType, OfferLifecycleAction action,

@@ -716,6 +716,7 @@ public class SuggestionEngine
         if(stopsOnly)listedStopCandidates=Collections.emptyList();
 		for (TrackedOffer offer : mostStrandedFirst(offers.getOffers(), market))
 		{
+            if(excluded.contains(offer.getContinuationIdentity()))continue;
             if(buysOnly && (!offer.isBuying() || excluded.contains(offer.getContinuationIdentity())))continue;
             if(stopsOnly && offer.isBuying())continue;
             // Preserve the original first buy-vs-sale selection. Once a sale wins, collect
@@ -1069,6 +1070,15 @@ public class SuggestionEngine
                 && risk.getValidUntil()>=now.getEpochSecond() && risk.getValuationPausedItems().contains(item)) {
                 waiting=Suggestion.waiting("Replacement retained","This item's valuation is uncertain. Its exact cancelled remainder is retained while unrelated trades are checked.");continue;
             }
+            if(companion!=null && account.spendableCoins(config.includeBankValue(),config.bankrollCap())>0) {
+                // This is a request, never an order. The canonical planner owns its price,
+                // funding and limit checks. A stale local spot or low+1 cash estimate must
+                // not suppress a different eligible canonical order for the saved remainder.
+                candidates.add(Suggestion.builder(SuggestionType.BUY).item(item,market.getItemName(item))
+                    .quantity(pending.quantity).continuationOrigin(pending.originIdentity)
+                    .headline("Recheck your "+market.getItemName(item)+" replacement").build());
+                locallyDeclinedReplacements.remove(item);continue;
+            }
             LatestPrice price=market.latest(item);
             if(!freshSaleQuote(price,now) || price.getLow()>=Integer.MAX_VALUE) {
                 waiting=Suggestion.waiting("Checking the replacement price","A current two-sided quote is required before replacing the retained remainder.");continue;
@@ -1107,6 +1117,14 @@ public class SuggestionEngine
         if(account==null || !account.isLoggedIn() || account.isIronman() || !market.isUsable())return null;
         return adjustSuggestion(market,TradingHorizon.of(config.riskProfile(),config.checkInterval(),config.targetHoldMinutes()),
             Instant.now(),false,true,new HashSet<>(excluded));
+    }
+
+    /** A refused urgent exit cannot starve separately authorized working offers. No new entry. */
+    public Suggestion maintenanceAfterSaleRefusal(Set<String> excluded) {
+        var account=accountMonitor.getState();var market=marketData.getSnapshot();
+        if(account==null || !account.isLoggedIn() || account.isIronman() || !market.isUsable())return null;
+        return adjustSuggestion(market,TradingHorizon.of(config.riskProfile(),config.checkInterval(),config.targetHoldMinutes()),
+            Instant.now(),false,false,new HashSet<>(excluded));
     }
 
     /** After fresh entry authority refuses every proposed remainder, finish its acquired stock. */

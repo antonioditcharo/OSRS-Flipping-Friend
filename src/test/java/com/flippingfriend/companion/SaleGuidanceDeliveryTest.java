@@ -29,6 +29,9 @@ public class SaleGuidanceDeliveryTest {
     Runnable duringRequest=()->{};
     String replySource;
     String refusal;
+    Integer revisionPrice;
+    boolean refuseRevision;
+    final java.util.concurrent.atomic.AtomicInteger priceRequests=new java.util.concurrent.atomic.AtomicInteger();
     boolean missingReceipt,mismatchedReceipt;
     final Map<String,OfferEvent> sources=new java.util.concurrent.ConcurrentHashMap<>();
 
@@ -51,6 +54,7 @@ public class SaleGuidanceDeliveryTest {
                     String[] pair=part.split("=",2);q.put(pair[0],URLDecoder.decode(pair[1],StandardCharsets.UTF_8));
                 }
                 requested.set(q);duringRequest.run();
+                priceRequests.incrementAndGet();
                 Thread.sleep(delay);
                 long now=Instant.now().getEpochSecond();
                 boolean entry=exchange.getRequestURI().getPath().endsWith("policy/entry");
@@ -65,7 +69,12 @@ public class SaleGuidanceDeliveryTest {
                 if(refusal!=null)decision=PolicyDecision.abstain("1","companion-sale-9","refused",
                     slot<0?PolicyDecisionType.EXIT:PolicyDecisionType.SELL_MAINTENANCE,
                     PolicyAbstentionReason.ACCOUNT_STATE_INCONSISTENT,refusal,now,now-1,key,source);
-                if(maintenancePost && !missingReceipt && refusal==null && sources.containsKey(source)) {
+                boolean correcting=revisionPrice!=null && (refuseRevision || !q.get("price").equals(revisionPrice.toString()));
+                if(correcting)decision=PolicyDecision.abstain("1","companion-sale-9","reprice",
+                    slot<0?PolicyDecisionType.EXIT:PolicyDecisionType.SELL_MAINTENANCE,
+                    PolicyAbstentionReason.ACCOUNT_STATE_INCONSISTENT,"SALE_PRICE_NOT_AUTHORIZED",now,now-1,key,source)
+                    .withSalePriceRevision(revisionPrice,57,true);
+                if(maintenancePost && !missingReceipt && refusal==null && !correcting && sources.containsKey(source)) {
                     var offer=sources.get(source);
                     decision=decision.withSalePolicyReceipt(SalePolicyAcceptanceDeliveryTest.receipt(storage.accountId(),q.get("requestId"),
                         offer,Integer.parseInt(q.get("price"))+(mismatchedReceipt?1:0),now));
@@ -83,6 +92,21 @@ public class SaleGuidanceDeliveryTest {
         client.resumeOfferReplay();
     }
     @After public void stop(){if(server!=null)server.stop(0);}
+    @Test public void correctedCanonicalPriceRequiresASecondExactAuthorityAndReceipt()throws Exception {
+        publishSale(0);acknowledge();ledger(true);revisionPrice=121;
+        var result=client.authorizeSale(sale(true));assertNotNull(result);
+        assertEquals(121,result.getPrice());assertEquals(57,result.getExpectedProfit());
+        assertNotNull(result.getSalePolicyReceipt());assertEquals(2,priceRequests.get());
+        assertTrue(result.getSalePolicyReceipt().matchesOrder(561,121,3));
+    }
+    @Test public void aCorrectionNeverAuthorizesItselfOrLoopsOnRepeatedRefusal()throws Exception {
+        publishSale(0);acknowledge();ledger(true);revisionPrice=121;refuseRevision=true;
+        assertNull(client.authorizeSale(sale(true)));assertEquals(2,priceRequests.get());
+    }
+    @Test public void correctedPriceWithoutAnExactReceiptStillRefuses()throws Exception {
+        publishSale(0);acknowledge();ledger(true);revisionPrice=121;missingReceipt=true;
+        assertNull(client.authorizeSale(sale(true)));assertEquals(2,priceRequests.get());
+    }
     void ledger(boolean acquired) {
         long now=Instant.now().getEpochSecond();
         var p=PositionProjection.ready(561,"Nature rune",3,301,now-60,"acquisition","buy-episode");
