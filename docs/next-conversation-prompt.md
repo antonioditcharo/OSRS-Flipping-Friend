@@ -4,15 +4,18 @@ Continue in `C:\Users\Antonio\OSRS Flipping Friend Rebuild`.
 Implement, verify and deliver reliable trade/inventory workflow batches; do not stop at a roadmap.
 Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
-Read `local-data/monotonic-maintenance-20261023/delivery-state.json` FIRST, then AGENTS.md,
+Read `local-data/trading-flow-blockers-20261023/delivery-state.json` FIRST, then AGENTS.md,
 HANDOFF.md and TASKS.md. Source/tests/CI/merge/install/player acceptance are separate.
 [Current contract](architecture/monotonic-maintenance-scheduling.md): monotonic trading heartbeat
 and event retries must keep progressing through UTC corrections. Preserve first refreshes, negative
 local timer origins, bounded backoff and lifecycle fences. Recorded source/UTC clocks, original
 order deadlines, exact costs and risk/freshness guards remain unchanged.
-PR #149 (`97e726c54d51a4f06cab5fba461a447ad15dcab7`) remains installed. PRs #150 and #151 are
-verified and merged but installation is owner-deferred until normal RuneLite closure. Include
-this pass in that one paired update, then collect fresh authenticated logged-in acceptance.
+PR #152 (`c8378eaae0ff289f0accbe193d69dcb50cc77225`, including #150/#151) is installed and
+backup/hash/task/source/financial/risk preservation passed. Fresh eight-slot and ACK checks passed,
+but repeated sale/replacement WAITs failed panel guidance acceptance. The current source addresses
+canonical capped replacement requests, one fully reauthorized sale-price correction and separately
+authorized working maintenance after urgent refusals. Read
+[the contract](architecture/trading-flow-authority-recovery.md); use the new receipt for actual delivery.
 Prior 8-slot/ACK/SELL/MODIFY_SELL/final BUY recovery passed; recheck current evidence. Controlled
 trading and sustained latency remain open. New prospective sale proof format 2 and legacy format 1
 retain their separate commit requirements; receipt-free cancellations cannot be retrofitted.

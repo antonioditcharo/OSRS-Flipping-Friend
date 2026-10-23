@@ -5,19 +5,24 @@ Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
 ## Current delivery
 
-Read `local-data/monotonic-maintenance-20261023/delivery-state.json` first for actual source,
-verification, CI, merge and installation. PR #149 remains installed at
-`97e726c54d51a4f06cab5fba461a447ad15dcab7`. PRs #150 and #151 are verified and merged, with
-installation owner-deferred until normal RuneLite closure. Batch them with this pass into one
-verified paired update before fresh logged-in acceptance. Prior live recovery is recorded in
-`local-data/indexed-sale-evidence-20261022/delivery-state.json`; recheck current freshness.
+Read `local-data/trading-flow-blockers-20261023/delivery-state.json` first for current source,
+verification, CI and delivery. PR #152 (`c8378eaae0ff289f0accbe193d69dcb50cc77225`, including
+#150/#151) is installed. Backup, installed hashes, unchanged task settings, all 114,169 frozen
+source rows, 1,861 accounting effects and the loss anchor passed preservation. Fresh eight-slot
+and empty-outbox checks passed, but the panel repeatedly showed sale/replacement WAITs despite
+independently available entry authority. Guidance acceptance remains open.
 
-This pass moves trading heartbeat/account-refresh/persistence scheduling and offer-retry backoff
+The current source routes capped saved replacements directly to canonical pricing, permits one
+strictly reauthorized sale-price correction, and checks independently authorized working maintenance
+after urgent exits refuse. [Contract](docs/architecture/trading-flow-authority-recovery.md).
+These changes are not installed until the receipt says so. No original stop, exact cost, source,
+loss authority or acquisition context may be invented to make a refused action pass.
+
+Installed PR #152 moves trading heartbeat/account-refresh/persistence scheduling and offer-retry backoff
 to local monotonic time. UTC corrections cannot extend these scheduling waits. Initial/negative
 origins, retry backoff and lifecycle fences remain supported; recorded trade timestamps, original
 order deadlines and current-source freshness guards remain unchanged.
-[Contract](docs/architecture/monotonic-maintenance-scheduling.md). Source is queued until the receipt
-records installation. Exact costs, event identities, original plans, proof formats 1/2, sale policy
+[Contract](docs/architecture/monotonic-maintenance-scheduling.md). Exact costs, event identities, original plans, proof formats 1/2, sale policy
 9 / replay 18 / evaluator 5 and CURRENT_ACCOUNT_V3 persist. Controlled trading and sustained latency
 remain open; already published receipt-free cancellations are not repaired.
 

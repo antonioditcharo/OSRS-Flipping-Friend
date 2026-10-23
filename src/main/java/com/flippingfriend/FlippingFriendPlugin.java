@@ -1175,7 +1175,9 @@ public class FlippingFriendPlugin extends Plugin
             var authorized=companion.authorizeSale(candidate);
             if(generation!=offerObservationGeneration.get() || revision!=adviceObservationRevision.get())
                 return Suggestion.waiting("Refreshing sale evidence","The account observation changed while checking exits.");
-            if(authorized==candidate)return candidate;
+            if(authorized!=null && authorized.getType()==candidate.getType()
+                && authorized.getItemId()==candidate.getItemId() && authorized.getQuantity()==candidate.getQuantity()
+                && authorized.getSlot()==candidate.getSlot() && authorized.isLossCut()==candidate.isLossCut())return authorized;
             declined.add(candidate);
             unlistedOrUrgent|=candidate.getType()==SuggestionType.SELL || candidate.isLossCut();
             if(waiting==null && authorized!=null && authorized.getType()==SuggestionType.WAIT)waiting=authorized;
@@ -1195,6 +1197,24 @@ public class FlippingFriendPlugin extends Plugin
                 if(authorized!=null && (authorized.getType()==SuggestionType.MODIFY_BUY || authorized.getType()==SuggestionType.CANCEL))
                     return authorized;
                 declined.add(buy);
+            }
+        }
+        if(unlistedOrUrgent) {
+            java.util.Set<String> excluded=new java.util.HashSet<>();
+            for(var rejected:declined)if(rejected.getMaintenanceOfferIdentity()!=null)excluded.add(rejected.getMaintenanceOfferIdentity());
+            for(int attempts=0;attempts<8;attempts++) {
+                if(generation!=offerObservationGeneration.get() || revision!=adviceObservationRevision.get())
+                    return Suggestion.waiting("Refreshing offer evidence","The account observation changed while checking maintenance.");
+                var maintenance=engine.maintenanceAfterSaleRefusal(excluded);
+                if(maintenance==null || maintenance.getMaintenanceOfferIdentity()==null
+                    || !excluded.add(maintenance.getMaintenanceOfferIdentity()))break;
+                var authorized=maintenance.getType()==SuggestionType.MODIFY_SELL
+                    ?companion.authorizeSale(maintenance):companion.selectBuyMaintenanceCancellation(maintenance);
+                if(generation!=offerObservationGeneration.get() || revision!=adviceObservationRevision.get())
+                    return Suggestion.waiting("Refreshing offer evidence","The account observation changed while checking maintenance.");
+                if(authorized!=null && (authorized.getType()==SuggestionType.MODIFY_SELL
+                    || authorized.getType()==SuggestionType.MODIFY_BUY || authorized.getType()==SuggestionType.CANCEL))return authorized;
+                declined.add(maintenance);
             }
         }
         if(waiting!=null)return waiting;

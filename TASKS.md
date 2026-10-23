@@ -1,10 +1,15 @@
 # Tasks
 
 Updated 23 October 2026. Read [HANDOFF.md](HANDOFF.md) and the actual delivery receipt at
-`local-data/monotonic-maintenance-20261023/delivery-state.json` first. Implemented/tested, merged,
+`local-data/trading-flow-blockers-20261023/delivery-state.json` first. Implemented/tested, merged,
 installed and player accepted are separate states. Owner is home; older login deferrals are superseded.
 
 ## Current batch
+
+- [ ] Verify/deliver canonical capped replacement requests, bounded fully reauthorized sale-price
+      correction and distinct working maintenance after urgent refusals. PR #152 is installed;
+      fresh eight-slot/ACK passed, repeated panel WAITs remain unresolved live acceptance.
+      [Contract](docs/architecture/trading-flow-authority-recovery.md).
 
 - [x] Implement/test monotonic trading-heartbeat and offer-retry scheduling, preserving initial
       refreshes, negative timer origins, bounded backoff and pause/resume generation fences.
