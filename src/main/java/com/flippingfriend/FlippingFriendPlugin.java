@@ -1177,6 +1177,23 @@ public class FlippingFriendPlugin extends Plugin
             unlistedOrUrgent|=candidate.getType()==SuggestionType.SELL || candidate.isLossCut();
             if(waiting==null && authorized!=null && authorized.getType()==SuggestionType.WAIT)waiting=authorized;
         }
+        if(!unlistedOrUrgent) {
+            java.util.Set<String> excluded=new java.util.HashSet<>();
+            for(int attempt=0;attempt<8;attempt++) {
+                if(generation!=offerObservationGeneration.get() || revision!=adviceObservationRevision.get())
+                    return Suggestion.waiting("Refreshing offer evidence","The account observation changed while checking maintenance.");
+                var buy=engine.buyMaintenanceAfterSaleRefusal(excluded);
+                if(buy==null)break;
+                if((buy.getType()!=SuggestionType.MODIFY_BUY && buy.getType()!=SuggestionType.CANCEL)
+                    || buy.getMaintenanceOfferIdentity()==null || !excluded.add(buy.getMaintenanceOfferIdentity()))break;
+                var authorized=companion.selectBuyMaintenanceCancellation(buy);
+                if(generation!=offerObservationGeneration.get() || revision!=adviceObservationRevision.get())
+                    return Suggestion.waiting("Refreshing offer evidence","The account observation changed while checking maintenance.");
+                if(authorized!=null && (authorized.getType()==SuggestionType.MODIFY_BUY || authorized.getType()==SuggestionType.CANCEL))
+                    return authorized;
+                declined.add(buy);
+            }
+        }
         if(waiting!=null)return waiting;
         return unlistedOrUrgent?Suggestion.waiting("Refreshing sale evidence",
             "No retained exit passed current validation. Purchase records and cancelled-sale remainders are retained."):null;

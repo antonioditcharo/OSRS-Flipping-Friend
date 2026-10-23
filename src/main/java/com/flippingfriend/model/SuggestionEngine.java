@@ -706,12 +706,17 @@ public class SuggestionEngine
 	{
         return adjustSuggestion(market,horizon,now,false);
     }
-    private Suggestion adjustSuggestion(MarketSnapshot market,TradingHorizon horizon,Instant now,boolean stopsOnly)
+    private Suggestion adjustSuggestion(MarketSnapshot market,TradingHorizon horizon,Instant now,boolean stopsOnly) {
+        return adjustSuggestion(market,horizon,now,stopsOnly,false,Collections.emptySet());
+    }
+    private Suggestion adjustSuggestion(MarketSnapshot market,TradingHorizon horizon,Instant now,boolean stopsOnly,
+            boolean buysOnly,Set<String> excluded)
 	{
         List<Suggestion> stops=new ArrayList<>(),routineSales=new ArrayList<>();
         if(stopsOnly)listedStopCandidates=Collections.emptyList();
 		for (TrackedOffer offer : mostStrandedFirst(offers.getOffers(), market))
 		{
+            if(buysOnly && (!offer.isBuying() || excluded.contains(offer.getContinuationIdentity())))continue;
             if(stopsOnly && offer.isBuying())continue;
             // Preserve the original first buy-vs-sale selection. Once a sale wins, collect
             // other eligible sales without creating an unseen buy cancellation promise.
@@ -833,7 +838,7 @@ public class SuggestionEngine
 					// was whatever the planner happened to rank top, at whatever size it liked.
 					// Telling someone to abandon a working offer and then not replacing it is worse
 					// than never having said anything.
-                    if (buyReprice == null) reprice = new Reprice(offer.getItemId(), remaining, now.getEpochSecond());
+                    if (buyReprice == null && !buysOnly) reprice = new Reprice(offer.getItemId(), remaining, now.getEpochSecond());
 
 					return Suggestion.builder(SuggestionType.MODIFY_BUY)
 						.maintenanceSource(offer.getContinuationIdentity())
@@ -1094,6 +1099,14 @@ public class SuggestionEngine
         if(stop!=null){saleCandidates=listedStopCandidates;return stop;}
         // This pass evaluates existing offers only. It cannot recreate/re-authorize a declined buy.
         return adjustSuggestion(market,horizon,now);
+    }
+
+    /** Only working BUY episodes; rejected sale proposals cannot hide independent maintenance. */
+    public Suggestion buyMaintenanceAfterSaleRefusal(Set<String> excluded) {
+        var account=accountMonitor.getState();var market=marketData.getSnapshot();
+        if(account==null || !account.isLoggedIn() || account.isIronman() || !market.isUsable())return null;
+        return adjustSuggestion(market,TradingHorizon.of(config.riskProfile(),config.checkInterval(),config.targetHoldMinutes()),
+            Instant.now(),false,true,new HashSet<>(excluded));
     }
 
     /** After fresh entry authority refuses every proposed remainder, finish its acquired stock. */

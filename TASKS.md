@@ -1,10 +1,14 @@
 # Tasks
 
 Updated 23 October 2026. Read [HANDOFF.md](HANDOFF.md) and the actual delivery receipt at
-`local-data/indexed-sale-evidence-20261022/delivery-state.json` first. Implemented/tested, merged,
+`local-data/buy-maintenance-fallthrough-20261023/delivery-state.json` first. Implemented/tested, merged,
 installed and player accepted are separate states. Owner is home; older login deferrals are superseded.
 
 ## Current batch
+
+- [x] Implement/test bounded distinct working-BUY maintenance after every routine sale refuses;
+      preserve urgent/unlisted exits, source/revision fences and durable selected acceptance.
+      [Contract](docs/architecture/buy-maintenance-fallthrough.md); actual delivery in receipt.
 
 - [x] Implement/test indexed sale-policy source/account lookups and deduplicated immutable
       first bindings; expose copied market-side prices/ages and material-change threshold in Active
@@ -20,7 +24,8 @@ installed and player accepted are separate states. Owner is home; older login de
 - [ ] Preserve first-cancellation acceptance through a genuinely unreadable acceptance document
       using prospective evidence handling; never retrofit a published receipt-free cancellation.
 - [ ] Reassess independently eligible BUY maintenance after all routine sale candidates are refused,
-      with bounded excluded-episode traversal and no invisible continuation promises.
+      with bounded excluded-episode traversal and no invisible continuation promises. Source
+      regressions now pass; controlled player acceptance remains open.
 
 - [x] Implement prospective exact sale-policy receipts and separately ordered client acceptance,
       preserving each origin's policy through cadence changes, late fills, collection and restart.
