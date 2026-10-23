@@ -76,6 +76,7 @@ public final class OfferEventOutbox
             PredictionBinding previous=updated.predictions.get(event.getSlot());
             if(bindPrediction)event=bindPrediction(event,updated);
             if(bindPrediction)event=bindAcceptedBuyPlan(event,updated,previous);
+            if(bindPrediction)event=bindAcceptedSalePolicy(event,updated);
             if(bindPrediction)event=bindContinuationSuccessor(event,updated);
             updated.pending.add(event);created.add(event);
         }
@@ -129,6 +130,37 @@ public final class OfferEventOutbox
         return event.withoutAcceptedExitContext().withAcceptedBuyPlanEvidenceVersion(first.getAcceptedBuyPlanEvidenceVersion())
             .withAcceptedBuyPlanProof(proof!=null && !state.invalidBuyPlans.contains(key)
             && proof.qualifiesOriginal(first) && proof.matchesEpisode(event)?proof:null);
+    }
+    /** Maintenance acceptance follows placement; bind its first later copied observation separately. */
+    private OfferEvent bindAcceptedSalePolicy(OfferEvent event,State state) {
+        if(!event.isAuthenticatedObservation() || "EMPTY".equals(event.getEventType()))
+            return event.withAcceptedSalePolicyProof(null);
+        String episode=episodeKey(event);
+        for(var entry:state.salePolicyEpisodes.entrySet()) {
+            var first=entry.getValue();var proof=first.getAcceptedSalePolicyProof();
+            var receipt=proof.getReceipt();
+            if(receipt.getSlot()==event.getSlot() && receipt.getSessionId().equals(event.getSessionId())
+                && receipt.getOfferIdentity().equals(event.getOfferIdentity())) {
+                if(!"1".equals(event.getSalePolicyEvidenceVersion()) || !proof.matchesEpisode(event))state.invalidSalePolicies.add(entry.getKey());
+                return event.withAcceptedSalePolicyProof(!state.invalidSalePolicies.contains(entry.getKey())
+                    && "1".equals(event.getSalePolicyEvidenceVersion()) && proof.qualifiesFirst(first) && proof.matchesEpisode(event)?proof:null);
+            }
+        }
+        if(event.isBuying() || !"1".equals(event.getSalePolicyEvidenceVersion())
+            || state.refusedSaleCancellations.containsKey(episode))return event.withAcceptedSalePolicyProof(null);
+        var supplied=event.getAcceptedSalePolicyProof();var bound=supplied==null?null:supplied.bindTo(event);
+        if(bound==null) {
+            var unbound=event.withAcceptedSalePolicyProof(null);
+            if("CANCELLED_SELL".equals(event.getEventType()) && event.getSlot()>=0 && event.getSlot()<8
+                && event.getItemId()>0 && event.getPrice()>0 && event.getTotalQuantity()>event.getFilledQuantity()
+                && event.getFilledQuantity()>=0 && event.getSpent()>=0 && event.getFirstSeenAt()>0
+                && event.getObservedAt()>=event.getFirstSeenAt() && !blank(event.getOfferIdentity()))
+                state.refusedSaleCancellations.putIfAbsent(episode,unbound);
+            return unbound;
+        }
+        String receipt=bound.getReceipt().getReceiptId();
+        if(state.salePolicyEpisodes.containsKey(receipt))return event.withAcceptedSalePolicyProof(null);
+        var first=event.withAcceptedSalePolicyProof(bound);state.salePolicyEpisodes.put(receipt,first);return first;
     }
     /** Freeze only the first durable episode source; later advice cannot reclassify that source. */
     private OfferEvent bindContinuationSuccessor(OfferEvent event,State state) {
@@ -286,6 +318,31 @@ public final class OfferEventOutbox
                     || !origin.getEventId().equals(origin.getPredictionSourceEventId()))))
                 throw new IllegalStateException("invalid prediction binding schema or source");
         }
+        if(state.salePolicyEpisodes==null)state.salePolicyEpisodes=new java.util.HashMap<>();
+        if(state.invalidSalePolicies==null)state.invalidSalePolicies=new java.util.HashSet<>();
+        if(state.refusedSaleCancellations==null)state.refusedSaleCancellations=new java.util.HashMap<>();
+        for(var entry:state.refusedSaleCancellations.entrySet()) {
+            var first=entry.getValue();
+            if(first==null || !first.isAuthenticatedObservation() || first.isBuying() || !"CANCELLED_SELL".equals(first.getEventType())
+                || !"1".equals(first.getSalePolicyEvidenceVersion()) || first.getAcceptedSalePolicyProof()!=null
+                || !accountId.equals(first.getAccountId()) || !state.sessionId.equals(first.getSessionId())
+                || !"1".equals(first.getSchemaVersion()) || first.getSlot()<0 || first.getSlot()>=8 || first.getItemId()<=0
+                || first.getPrice()<=0 || first.getTotalQuantity()<=0 || first.getFilledQuantity()<0
+                || first.getFilledQuantity()>=first.getTotalQuantity() || first.getSpent()<0 || first.getFirstSeenAt()<=0
+                || first.getObservedAt()<first.getFirstSeenAt() || blank(first.getOfferIdentity())
+                || !entry.getKey().equals(episodeKey(first)) || blank(first.getEventId())
+                || first.getSequence()<=0 || first.getSequence()>=state.nextSequence)
+                throw new IllegalStateException("invalid refused sale cancellation source");
+        }
+        for(var entry:state.salePolicyEpisodes.entrySet()) {
+            var first=entry.getValue();var proof=first==null?null:first.getAcceptedSalePolicyProof();
+            if(proof==null || !"1".equals(first.getSalePolicyEvidenceVersion()) || !proof.isWellFormed() || !proof.qualifiesFirst(first)
+                || !entry.getKey().equals(proof.getReceipt().getReceiptId()) || !accountId.equals(first.getAccountId())
+                || !state.sessionId.equals(first.getSessionId()) || first.getSequence()<=0 || first.getSequence()>=state.nextSequence)
+                throw new IllegalStateException("invalid accepted sale policy binding");
+        }
+        for(var key:state.invalidSalePolicies)if(key==null || !state.salePolicyEpisodes.containsKey(key))
+            throw new IllegalStateException("invalid sale policy refusal");
         if(state.successorEpisodes==null)state.successorEpisodes=new java.util.HashMap<>();
         if(state.invalidBuyPlans==null)state.invalidBuyPlans=new java.util.HashSet<>();
         var adviceIds=new java.util.HashSet<String>();var firstIds=new java.util.HashSet<String>();
@@ -396,9 +453,12 @@ public final class OfferEventOutbox
         private java.util.Map<Integer,PredictionBinding> predictions;
         private java.util.Map<String,OfferEvent> successorEpisodes;
         private java.util.Set<String> invalidBuyPlans;
+        private java.util.Map<String,OfferEvent> salePolicyEpisodes;
+        private java.util.Set<String> invalidSalePolicies;
+        private java.util.Map<String,OfferEvent> refusedSaleCancellations;
 		private State() { }
 		private State(String sessionId, String accountId, Path file)
-		{ this.sessionId = sessionId; this.accountId = accountId; this.file = file; this.predictions=new java.util.HashMap<>();this.successorEpisodes=new java.util.HashMap<>();this.invalidBuyPlans=new java.util.HashSet<>(); }
+		{ this.sessionId = sessionId; this.accountId = accountId; this.file = file; this.predictions=new java.util.HashMap<>();this.successorEpisodes=new java.util.HashMap<>();this.invalidBuyPlans=new java.util.HashSet<>();this.salePolicyEpisodes=new java.util.HashMap<>();this.invalidSalePolicies=new java.util.HashSet<>();this.refusedSaleCancellations=new java.util.HashMap<>(); }
 		private State copy()
 		{
 			State copy = new State(sessionId, accountId, file);
@@ -408,6 +468,9 @@ public final class OfferEventOutbox
             copy.predictions=new java.util.HashMap<>(predictions);
             copy.successorEpisodes=new java.util.HashMap<>(successorEpisodes);
             copy.invalidBuyPlans=new java.util.HashSet<>(invalidBuyPlans);
+            copy.salePolicyEpisodes=new java.util.HashMap<>(salePolicyEpisodes);
+            copy.invalidSalePolicies=new java.util.HashSet<>(invalidSalePolicies);
+            copy.refusedSaleCancellations=new java.util.HashMap<>(refusedSaleCancellations);
 			return copy;
 		}
 	}

@@ -138,6 +138,7 @@ final class SqliteStore implements AutoCloseable
 			statement.execute("PRAGMA journal_mode=WAL");
 			statement.execute("PRAGMA foreign_keys=ON");
 			statement.execute("CREATE TABLE IF NOT EXISTS event_log (id INTEGER PRIMARY KEY, observed_at INTEGER NOT NULL, correlation_id TEXT NOT NULL, event_id TEXT, event_type TEXT NOT NULL, payload TEXT NOT NULL)");
+            SalePolicyReceiptStore.initialize(statement);
 			// market_observation is not created any more, and is dropped below if an older database
 			// still has it. Nothing ever read a row from it: every SELECT in all three modules is
 			// nine queries and none name the table.
@@ -438,6 +439,7 @@ final class SqliteStore implements AutoCloseable
         Map<Integer,Long> saleProgressAt=java.util.Collections.emptyMap();
         List<OfferEvent> history;
         RiskLedgerEvidence riskEvidence;
+        SalePolicyReceiptStore.Evidence salePolicyEvidence=new SalePolicyReceiptStore.Evidence();
 		PlanningProjections(List<PositionProjection> positions,
 			List<OfferLifecycleProjection> offers)
 		{
@@ -464,6 +466,7 @@ final class SqliteStore implements AutoCloseable
             planning.saleProgressAt=saleProgressEvidence(accountId,planning.currentEvents);
             // Exact cancel/collect relists are checked against this same durable source prefix.
             planning.history=offerHistory(accountId);
+            planning.salePolicyEvidence=SalePolicyReceiptStore.read(connection,accountId,planning.history);
 			checkpoint.reached("SALE_PLANNING_READ");
 			AccountLedgerSnapshot ledger=readLedgerSnapshot(accountId,evaluatedAt,planning.tradeScope);
 			connection.commit();
@@ -472,6 +475,11 @@ final class SqliteStore implements AutoCloseable
 		catch(Exception failure) { connection.rollback(); discardCanonicalHistory(); throw failure; }
 		finally { connection.setAutoCommit(true); }
 	}
+    /** POST-only issuance after final policy authorization; metadata cannot book a financial effect. */
+    synchronized com.flippingfriend.core.SalePolicyReceipt issueSalePolicyReceipt(String request,AccountSnapshot settings,
+            OfferEvent source,long progress,int price,int quantity,boolean cut,long now,long patience)throws Exception {
+        return SalePolicyReceiptStore.issue(connection,request,settings,source,progress,price,quantity,cut,now,patience,checkpoint);
+    }
     /** Last observed disposal of this exact live episode. Read-only; never reconstruct an execution. */
     private Map<Integer,Long> saleProgressEvidence(String account,Map<Integer,OfferEvent> current) throws Exception {
         var result=new HashMap<Integer,Long>();var parser=new com.google.gson.Gson();
@@ -1603,6 +1611,7 @@ final class SqliteStore implements AutoCloseable
 		try (PreparedStatement statement = connection.prepareStatement(
 			"DELETE FROM event_log WHERE observed_at < ? AND event_type='ACCOUNT_STATE' "
 				+ "AND (event_id IS NULL OR event_id='') "
+                + "AND id NOT IN (SELECT account_row_id FROM sale_policy_receipt) "
                 + "AND id NOT IN (SELECT MIN(a.id) FROM event_log a WHERE a.event_type='ACCOUNT_STATE' "
                 + "AND CASE WHEN json_valid(a.payload) THEN json_extract(a.payload,'$.automaticTradeScope') END=1 "
                 + "AND NOT EXISTS (SELECT 1 FROM event_log m WHERE m.event_type='AUTOMATIC_ACCOUNTING_V1' "

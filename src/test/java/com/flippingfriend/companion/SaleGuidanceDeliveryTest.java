@@ -29,6 +29,8 @@ public class SaleGuidanceDeliveryTest {
     Runnable duringRequest=()->{};
     String replySource;
     String refusal;
+    boolean missingReceipt,mismatchedReceipt;
+    final Map<String,OfferEvent> sources=new java.util.concurrent.ConcurrentHashMap<>();
 
     @Before public void setup()throws Exception {
         storage=TestStorage.rootedAt(folder.newFolder().toPath(),"sale-delivery");
@@ -38,10 +40,14 @@ public class SaleGuidanceDeliveryTest {
         server=HttpServer.create(new InetSocketAddress("127.0.0.1",0),0);
         server.createContext("/v1/accounts/",exchange->{
             try {
-                assertEquals("GET",exchange.getRequestMethod());
+                boolean maintenancePost=exchange.getRequestURI().getPath().endsWith("policy/sale-maintenance");
+                assertEquals(maintenancePost?"POST":"GET",exchange.getRequestMethod());
                 assertEquals(storage.accountId(),exchange.getRequestHeaders().getFirst(AccountIdentity.HEADER));
                 Map<String,String> q=new HashMap<>();
-                for(String part:exchange.getRequestURI().getRawQuery().split("&")) {
+                if(maintenancePost) {
+                    var body=json.fromJson(new String(exchange.getRequestBody().readAllBytes(),StandardCharsets.UTF_8),com.google.gson.JsonObject.class);
+                    for(var entry:body.entrySet())q.put(entry.getKey(),entry.getValue().getAsString());
+                } else for(String part:exchange.getRequestURI().getRawQuery().split("&")) {
                     String[] pair=part.split("=",2);q.put(pair[0],URLDecoder.decode(pair[1],StandardCharsets.UTF_8));
                 }
                 requested.set(q);duringRequest.run();
@@ -54,11 +60,16 @@ public class SaleGuidanceDeliveryTest {
                     +":"+(slot<0?q.getOrDefault("repriceSource",""):"");
                 var decision=entry?PolicyDecision.action("1","companion-entry-1","entry",PolicyDecisionType.ENTRY,OfferLifecycleAction.PLACE_BUY,
                     "ENTRY_CANDIDATE_SELECTED",now,now-1,"561:100:120:3",q.get("planId"))
-                    :PolicyDecision.action("1","companion-sale-8","decision",slot<0?PolicyDecisionType.EXIT:PolicyDecisionType.SELL_MAINTENANCE,
+                    :PolicyDecision.action("1","companion-sale-9","decision",slot<0?PolicyDecisionType.EXIT:PolicyDecisionType.SELL_MAINTENANCE,
                     slot<0?OfferLifecycleAction.PLACE_SELL:OfferLifecycleAction.CANCEL_SELL,"SALE_AUTHORIZED",now,now-1,key,source);
-                if(refusal!=null)decision=PolicyDecision.abstain("1","companion-sale-8","refused",
+                if(refusal!=null)decision=PolicyDecision.abstain("1","companion-sale-9","refused",
                     slot<0?PolicyDecisionType.EXIT:PolicyDecisionType.SELL_MAINTENANCE,
                     PolicyAbstentionReason.ACCOUNT_STATE_INCONSISTENT,refusal,now,now-1,key,source);
+                if(maintenancePost && !missingReceipt && refusal==null && sources.containsKey(source)) {
+                    var offer=sources.get(source);
+                    decision=decision.withSalePolicyReceipt(SalePolicyAcceptanceDeliveryTest.receipt(storage.accountId(),q.get("requestId"),
+                        offer,Integer.parseInt(q.get("price"))+(mismatchedReceipt?1:0),now));
+                }
                 byte[] body=json.toJson(decision).getBytes(StandardCharsets.UTF_8);
                 exchange.getResponseHeaders().set(AccountIdentity.HEADER,storage.accountId());
                 exchange.getResponseHeaders().set(AccountIdentity.PROTOCOL_HEADER,AccountIdentity.PROTOCOL);
@@ -85,10 +96,10 @@ public class SaleGuidanceDeliveryTest {
     }
     OfferEvent publishSale(int filled)throws Exception {
         long now=Instant.now().getEpochSecond();
-        var offer=new TrackedOffer(2,561,false,150,3,now-60);offer.setState("SELLING");offer.setQuantityFilled(filled);
+        var offer=new TrackedOffer(2,561,false,150,3,now-3600);offer.setState("SELLING");offer.setQuantityFilled(filled);
         var method=CompanionClient.class.getDeclaredMethod("publishOffer",TrackedOffer.class,String.class,boolean.class,long.class,boolean.class);
         method.setAccessible(true);
-        return (OfferEvent)method.invoke(client,offer,storage.accountId(),true,now,false);
+        var event=(OfferEvent)method.invoke(client,offer,storage.accountId(),true,now,false);sources.put(event.getEventId(),event);return event;
     }
     void acknowledge()throws Exception {
         for(var event:outbox.pending())assertTrue(outbox.acknowledge(event.getEventId(),event.getSessionId(),event.getSequence()));
@@ -110,6 +121,8 @@ public class SaleGuidanceDeliveryTest {
         var offer=publishSale(0);acknowledge();ledger(true);
         var modify=sale(true);assertSame(modify,client.authorizeSale(modify));
         assertEquals(offer.getEventId(),modify.getSaleRepriceSource());
+        assertNotNull(modify.getSalePolicyReceipt());assertEquals(offer.getEventId(),modify.getSalePolicyReceipt().getSourceEventId());
+        assertNotNull(requested.get().get("requestId"));
         client.publishOfferCleared(2);acknowledge();ledger(true);
         var relist=Suggestion.builder(SuggestionType.SELL).item(561,"Nature rune").quantity(3).price(120)
             .profitKnown(true).saleRepriceSource(modify.getSaleRepriceSource()).build();
@@ -156,5 +169,13 @@ public class SaleGuidanceDeliveryTest {
         var cut=Suggestion.builder(SuggestionType.MODIFY_SELL).item(561,"Nature rune").quantity(3).price(120).slot(2).lossCut(true).build();
         assertEquals(SuggestionType.WAIT,client.authorizeSale(cut).getType());
         ledger(true);assertEquals(SuggestionType.WAIT,client.authorizeSale(sale(false)).getType());
+    }
+    @Test public void missingOrMismatchedMaintenanceReceiptCannotAuthorizeOrBlockLaterRoutineCandidates()throws Exception {
+        publishSale(0);acknowledge();ledger(false);
+        for(boolean missing:new boolean[]{true,false}) {
+            missingReceipt=missing;mismatchedReceipt=!missing;var proposed=sale(true);
+            assertNull("A refused routine receipt leaves later candidates eligible",client.authorizeSale(proposed));
+            assertNull(proposed.getSaleRepriceSource());assertNull(proposed.getSalePolicyReceipt());
+        }
     }
 }

@@ -267,9 +267,12 @@ public class SuggestionEngine
             || !accepted.getMaintenanceOfferIdentity().equals(offer.getContinuationIdentity())
             || !(buy?"BUYING":"SELLING").equals(offer.getState()))return false;
         return buy ? buyReprice!=null && buyReprice.advise(offer,expectedAccount,offers,now)
-            : sellRelist!=null && sellRelist.advise(offer,expectedAccount,accepted.isProfitKnown(),offers,accepted.getSaleRepriceSource());
+            : sellRelist!=null && sellRelist.advise(offer,expectedAccount,accepted.isProfitKnown(),offers,accepted.getSaleRepriceSource(),accepted.getSalePolicyReceipt(),now);
     }
 
+    public java.util.List<com.flippingfriend.core.AcceptedSalePolicyProof> acceptedSalePolicies(String account) {
+        return sellRelist==null?null:sellRelist.acceptedPolicies(account);
+    }
     public boolean hasTradeEvidence() {
         var ledger = companion == null ? null : companion.tradingLedger();
         return ledger != null && ledger.getTradingPositions() != null && !ledger.hasUnboundedReconciliation()
@@ -1571,7 +1574,7 @@ public class SuggestionEngine
             series,horizon,now,config.minProfitPerFlip(),true,sellOnly,false);
         var relist=remaining.getSaleRepriceSource()==null?null:new com.flippingfriend.session.SaleMaintenancePricing().evaluateRelist(
             item,remaining.getOriginalPrice(),quantity,position,price,series,horizon,now,sellOnly,sellTiming,taxCalculator,
-            remaining.getFirstSeenAt(),remaining.getProgressAt()).quote;
+            remaining.getFirstSeenAt(),remaining.getProgressAt(),remaining.getAcceptedSalePolicyProof()==null?null:remaining.getAcceptedSalePolicyProof().getReceipt()).quote;
         if(remaining.getSaleRepriceSource()!=null && relist==null)
             return Suggestion.waiting("Rechecking the cancelled sale",
                 "Current prices and market evidence do not support this relist. Its exact remainder and accepted reduction are retained; the old target is not restored.");

@@ -47,6 +47,7 @@ public class Suggestion
     private String recommendationId,adviceAccountId;
     private String maintenanceOfferIdentity;
     private String saleRepriceSource;
+    private com.flippingfriend.core.SalePolicyReceipt salePolicyReceipt;
     private String continuationOriginIdentity;
     private com.flippingfriend.core.ContinuationSuccessorProof continuationSuccessorProof;
     private long quoteAgeSeconds,adviceExpiresAt;
@@ -92,6 +93,15 @@ public class Suggestion
 	}
 
     public String getSaleRepriceSource() { return saleRepriceSource; }
+    public com.flippingfriend.core.SalePolicyReceipt getSalePolicyReceipt(){return salePolicyReceipt;}
+    public void bindSalePolicyReceipt(com.flippingfriend.core.SalePolicyReceipt receipt) {
+        if(type!=SuggestionType.MODIFY_SELL || receipt==null || !receipt.isWellFormed()
+            || receipt.getSlot()!=slot || !receipt.matchesOrder(itemId,price,quantity)
+            || !java.util.Objects.equals(saleRepriceSource,receipt.getSourceEventId()) || receipt.isLossCut()!=lossCut)
+            throw new IllegalArgumentException("Exact accepted sale policy receipt required");
+        salePolicyReceipt=receipt;
+    }
+
     public String getContinuationOriginIdentity(){return continuationOriginIdentity;}
     public com.flippingfriend.core.ContinuationSuccessorProof getContinuationSuccessorProof(){return continuationSuccessorProof;}
     /** Preserve the originating workflow through independent final entry/sale authority. */

@@ -190,7 +190,8 @@ public class ContinuationSuccessorOutboxTest {
     }
     @Test public void visibleWaitAndFailedSaveWithdrawOnlySuccessorAndSameObjectCanBeAcceptedAgain()throws Exception {
         long now=java.time.Instant.now().getEpochSecond();
-        var ledger=new SuggestionLedger();var client=new CompanionClient(storage,storage.gson(),ledger,box);
+        var ledger=new SuggestionLedger(java.time.Clock.fixed(java.time.Instant.ofEpochSecond(now),java.time.ZoneOffset.UTC));
+        var client=new CompanionClient(storage,storage.gson(),ledger,box);
         var proof=ContinuationSuccessorProof.accepted(storage.accountId(),"origin-A","display",561,false,150,80,now,CaptureOrder.next());
         var suggestion=com.flippingfriend.model.Suggestion.builder(com.flippingfriend.model.SuggestionType.SELL)
             .item(561,"Nature rune").price(150).quantity(80).continuationOrigin("origin-A").build();
@@ -206,5 +207,22 @@ public class ContinuationSuccessorOutboxTest {
         client.withdrawPresentedSuccessor();
         assertNull(ledger.attributeSuccessor(561,false,now));assertNotNull(ledger.attribute(561,false,now));
         client.recordPresentedAdvice(suggestion,storage.accountId());assertEquals(proof,ledger.attributeSuccessor(561,false,now));
+    }
+    @Test public void reacceptedDisplayAcrossSecondBoundaryCannotClaimAnEarlierCapturedObservation()throws Exception {
+        var seconds=new java.util.concurrent.atomic.AtomicLong(AT);
+        var ledger=new SuggestionLedger(new java.time.Clock(){
+            public java.time.ZoneId getZone(){return java.time.ZoneOffset.UTC;}
+            public java.time.Clock withZone(java.time.ZoneId zone){return this;}
+            public java.time.Instant instant(){return java.time.Instant.ofEpochSecond(seconds.get());}
+        });
+        var client=new CompanionClient(storage,storage.gson(),ledger,box);
+        var proof=ContinuationSuccessorProof.accepted(storage.accountId(),"origin-A","ordered-display",561,false,150,80,AT,CaptureOrder.next());
+        var suggestion=com.flippingfriend.model.Suggestion.builder(com.flippingfriend.model.SuggestionType.SELL)
+            .item(561,"Nature rune").price(150).quantity(80).continuationOrigin("origin-A").build();
+        suggestion.bindContinuationSuccessorProof(proof);client.recordPresentedAdvice(suggestion,storage.accountId());
+        assertEquals(proof,ledger.attributeSuccessor(561,false,AT));
+        client.withdrawPresentedSuccessor();seconds.set(AT+1);client.recordPresentedAdvice(suggestion,storage.accountId());
+        assertNull("An old capture cannot use a later accepted display",ledger.attributeSuccessor(561,false,AT));
+        assertEquals("The newly accepted display is available at its actual time",proof,ledger.attributeSuccessor(561,false,AT+1));
     }
 }

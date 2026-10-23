@@ -92,8 +92,8 @@ public class AccountReplayTest {
         var result=run(input,5,10);
         assertTrue(result.actions.toString(),result.actions.stream().anyMatch(s->s.contains("SELL ")));
         assertEquals(1,result.completedSales);assertEquals(180,result.realizedProfit);
-        assertEquals("account-replay-17",result.policyVersion);
-        assertEquals("companion-sale-8",result.salePolicyVersion);assertEquals(1,result.authorizedSales);
+        assertEquals("account-replay-18",result.policyVersion);
+        assertEquals("companion-sale-9",result.salePolicyVersion);assertEquals(1,result.authorizedSales);
     }
     AccountReplayInput interruptedRelist(boolean recovered) {
         var input=input(1,26);var gson=new Gson();

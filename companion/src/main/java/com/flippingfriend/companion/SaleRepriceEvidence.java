@@ -16,7 +16,11 @@ final class SaleRepriceEvidence {
         return prove(history,source,account,item,quantity,now,0);
     }
     static SaleRepriceEvidence prove(List<OfferEvent> history,String source,String account,int item,int quantity,long now,long parentPatience) {
-        var qualified=qualifiedSuccessors(history,account,item,now,parentPatience);
+        return prove(history,source,account,item,quantity,now,parentPatience,null);
+    }
+    static SaleRepriceEvidence prove(List<OfferEvent> history,String source,String account,int item,int quantity,long now,long parentPatience,
+            SalePolicyReceiptStore.Evidence issued) {
+        var qualified=qualifiedSuccessors(history,account,item,now,parentPatience,issued);
         return qualified==null?null:proveChain(history,source,account,item,quantity,now,qualified);
     }
     /** Qualify first sources in durable order; a child cannot bootstrap a later or cyclic origin. */
@@ -24,6 +28,10 @@ final class SaleRepriceEvidence {
         return qualifiedSuccessors(history,account,item,now,0);
     }
     static List<ContinuationSuccessorProof> qualifiedSuccessors(List<OfferEvent> history,String account,int item,long now,long parentPatience) {
+        return qualifiedSuccessors(history,account,item,now,parentPatience,null);
+    }
+    static List<ContinuationSuccessorProof> qualifiedSuccessors(List<OfferEvent> history,String account,int item,long now,long parentPatience,
+            SalePolicyReceiptStore.Evidence issued) {
         if(history==null || account==null || parentPatience<0)return null;
         var qualified=new ArrayList<ContinuationSuccessorProof>();
         var sources=new HashMap<String,OfferEvent>();var first=new HashMap<String,OfferEvent>();
@@ -49,7 +57,8 @@ final class SaleRepriceEvidence {
             if(origin==null || proof.getAcceptedAt()<origin.collectedAt)continue;
             // A later successor acceptance cannot mature an originally too-young cancellation
             // source. Historical urgent exceptions need their own proven policy receipt.
-            if(origin.original.getObservedAt()-origin.original.getFirstSeenAt()<parentPatience
+            var acceptance=SalePolicyEvidence.resolve(prefix,proof.getOriginRepriceSource(),issued);
+            if(acceptance.claimed?!acceptance.valid():origin.original.getObservedAt()-origin.original.getFirstSeenAt()<parentPatience
                 || origin.original.getObservedAt()-origin.lastProgressAt<parentPatience)continue;
             String order=proof.getAcceptedOrder().getProcess()+":"+proof.getAcceptedOrder().getOrder();
             if(!acceptanceOrders.add(order) || !adviceIds.add(proof.getAcceptedAdviceId()))return null;

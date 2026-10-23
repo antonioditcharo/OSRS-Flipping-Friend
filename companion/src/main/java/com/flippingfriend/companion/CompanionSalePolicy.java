@@ -10,7 +10,7 @@ import java.util.*;
 
 /** Final read-only authority for managed exits and observed sale maintenance. No cost comes from the request. */
 final class CompanionSalePolicy {
-    static final String VERSION="companion-sale-8";
+    static final String VERSION="companion-sale-9";
     static String identity(int item,int price,int quantity,String source,boolean cut,int slot) {
         return identity(item,price,quantity,source,cut,slot,null);
     }
@@ -88,13 +88,15 @@ final class CompanionSalePolicy {
                 if(quantity>position.getQuantity()-listed)return refusal(type,identity,source,now,"SALE_QUANTITY_ALREADY_LISTED");
                 SaleMaintenancePricing.Quote relist=null;
                 if(repriceSource!=null) {
-                    var proof=SaleRepriceEvidence.prove(read.history,repriceSource,account.getAccountId(),item,quantity,now,horizon.staleOfferMinutes()*60);
-                    if(proof==null || !cut && !account.isSellOnly() &&
+                    var acceptance=SalePolicyEvidence.resolve(read.history,repriceSource,read.salePolicyEvidence);
+                    var proof=SaleRepriceEvidence.prove(read.history,repriceSource,account.getAccountId(),item,quantity,now,horizon.staleOfferMinutes()*60,read.salePolicyEvidence);
+                    if(proof==null || acceptance.claimed && !acceptance.valid() || !acceptance.valid() && !cut && !account.isSellOnly() &&
                         (proof.original.getObservedAt()-proof.original.getFirstSeenAt()<horizon.staleOfferMinutes()*60
                         || proof.original.getObservedAt()-proof.lastProgressAt<horizon.staleOfferMinutes()*60))
                         return refusal(type,identity,source,now,"SALE_REPRICE_CHAIN_UNAVAILABLE");
                     relist=new SaleMaintenancePricing().evaluateRelist(item,proof.original.getPrice(),quantity,position,quote,series,horizon,at,
-                        account.isSellOnly(),exits,tax,proof.original.getFirstSeenAt(),proof.lastProgressAt).quote;
+                        account.isSellOnly(),exits,tax,proof.original.getFirstSeenAt(),proof.lastProgressAt,
+                        acceptance.valid()?acceptance.proof.getReceipt():null).quote;
                     if(relist==null)return refusal(type,identity,source,now,"SALE_RELIST_PRICE_UNSUPPORTED");
                 }
                 var decision=relist==null?exits.evaluateManagedExit(position,quote,null,series,horizon,at,account.getMinProfitPerFlip(),true,account.isSellOnly(),false)

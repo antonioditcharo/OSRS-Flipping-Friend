@@ -122,6 +122,12 @@ abstract class OfferContinuationStore {
             || !acceptedIds.add(proof.getAcceptedAdviceId()))return false;
         for(var hint:origins(current))for(var proof:hint.getSuccessorClaims())
             if(!expected.equals(proof.getAccountId()))return false;
+        var policyIds=new HashSet<String>();
+        for(var hint:origins(current)) {
+            var proof=hint.getAcceptedSalePolicyProof();
+            if(proof!=null && (proof.isBound() || !proof.isWellFormed() || !expected.equals(proof.getReceipt().getAccountId())
+                || !policyIds.add(proof.getReceipt().getReceiptId())))return false;
+        }
         var pendingIds=new HashSet<String>();
         for(var observation:current.unresolved)if(observation==null || observation.item<=0 || observation.slot<0 || observation.slot>7
             || observation.price<=0 || observation.total<=0 || observation.firstSeen<=0
@@ -201,11 +207,27 @@ abstract class OfferContinuationStore {
     }
     protected synchronized boolean adviseOffer(TrackedOffer original,String expected,boolean managed,OfferTracker tracker,
             long now,long expiresAt,String saleRepriceSource) {
+        return adviseOffer(original,expected,managed,tracker,now,expiresAt,saleRepriceSource,null);
+    }
+    protected synchronized boolean adviseOffer(TrackedOffer original,String expected,boolean managed,OfferTracker tracker,
+            long now,long expiresAt,String saleRepriceSource,com.flippingfriend.core.SalePolicyReceipt receipt) {
         if(!load(expected) || original==null || original.isBuying()!=buying)return false;
         var evidence=tracker==null?null:tracker.getContinuationEvidence();
         if(evidence!=null && (!evidence.isAvailable() || !evidence.isForAccount(expected)))return false;
         if(saleRepriceSource!=null && (buying || saleRepriceSource.isBlank()
             || original.getLastFillObservedAt()<original.getFirstSeen() || original.getLastFillObservedAt()>now))return false;
+        com.flippingfriend.core.AcceptedSalePolicyProof acceptedPolicy=null;
+        if(receipt!=null) {
+            String episode=original.getEpisodeIdentity()==null?original.getSlot()+"@"+original.getFirstSeen()+":"+original.getItemId():original.getEpisodeIdentity();
+            if(buying || !receipt.isWellFormed() || !expected.equals(receipt.getAccountId())
+                || !Objects.equals(saleRepriceSource,receipt.getSourceEventId()) || !episode.equals(receipt.getOfferIdentity())
+                || receipt.getSlot()!=original.getSlot() || receipt.getItemId()!=original.getItemId()
+                || receipt.getStandingPrice()!=original.getPrice() || receipt.getTotalQuantity()!=original.getTotalQuantity()
+                || receipt.getFilledQuantity()!=original.getQuantityFilled() || receipt.getSpent()!=original.getSpent()
+                || receipt.getFirstSeenAt()!=original.getFirstSeen() || receipt.getQuantity()!=original.getRemaining()
+                || receipt.getDecidedAt()>now || now-receipt.getDecidedAt()>5)return false;
+            acceptedPolicy=com.flippingfriend.core.AcceptedSalePolicyProof.accepted(receipt,now,CaptureOrder.next());
+        }
         var observation=observation(original);
         for(var retired:state.retirements)if(retired.continuation.matches(observation))return false;
         if(tracker!=null) {
@@ -224,16 +246,27 @@ abstract class OfferContinuationStore {
             if(!intent.valid(now))return false;
             if(managed)intent.requireManagedCost();
             if(saleRepriceSource!=null && intent.getSaleRepriceSource()==null)
-                intent.bindSaleRepriceSource(saleRepriceSource,original.getLastFillObservedAt(),now);
+                intent.bindSaleRepriceSource(saleRepriceSource,receipt==null?original.getLastFillObservedAt():receipt.getProgressAt(),now,acceptedPolicy);
             if(intent.getRevision()==0)return commit(expected);
             var proposed=new ArrayList<>(state.intents);proposed.set(index,intent);
             return commitAdvice(expected,proposed);
         }
         var created=OfferContinuation.advise(observation,board(tracker,evidence),managed,now,expiresAt);
         if(created==null)return false;
-        if(saleRepriceSource!=null)created.bindSaleRepriceSource(saleRepriceSource,original.getLastFillObservedAt(),now);
+        if(saleRepriceSource!=null)created.bindSaleRepriceSource(saleRepriceSource,
+            receipt==null?original.getLastFillObservedAt():receipt.getProgressAt(),now,acceptedPolicy);
         var proposed=new ArrayList<>(state.intents);proposed.add(created);
         return commitAdvice(expected,proposed);
+    }
+    /** Only committed acceptance metadata; never advance/reconcile callbacks from this read. */
+    protected synchronized List<com.flippingfriend.core.AcceptedSalePolicyProof> acceptedPoliciesFor(String expected) {
+        if(!load(expected) || state.dirty)return null;
+        var result=new ArrayList<com.flippingfriend.core.AcceptedSalePolicyProof>();
+        for(var hint:origins(state)) {
+            var proof=hint.getAcceptedSalePolicyProof();
+            if(proof!=null && proof.isWellFormed() && expected.equals(proof.getReceipt().getAccountId()))result.add(proof);
+        }
+        return Collections.unmodifiableList(result);
     }
     protected synchronized List<OfferContinuation> collectedAll(OfferTracker tracker,String expected,long now) {
         if(!load(expected))return Collections.emptyList();

@@ -260,6 +260,7 @@ public class FlippingFriendPlugin extends Plugin
 		marketData.setUpdateListener(this::onMarketUpdated);
 		offerTracker.setChangeListener(this::onOffersChanged);
         offerTracker.setContinuationSourceReader(companion::continuationSourceEpisodes);
+        companion.setSalePolicyAcceptanceReader(engine::acceptedSalePolicies);
 		offerTracker.setAbandonedBuyListener(this::onBuyAbandoned);
 		offerTracker.setRiskProfileName(config.riskProfile().name());
 		marketData.start();
@@ -932,7 +933,7 @@ public class FlippingFriendPlugin extends Plugin
 			// Editor deferral belongs to StepGuide. It must not bypass live engine validation or
 			// turn a repeatedly returned old maintenance card into a freshly validated receipt.
 			java.util.List<TrackedOffer> observedOffers = new java.util.ArrayList<>();
-			for (TrackedOffer offer : offerTracker.getOffers()) observedOffers.add(offer.copyObservation());
+			for (TrackedOffer offer : offerTracker.getOffers()) observedOffers.add(offer.copyCurrentObservation());
 			String observedProfile = configManager.getRSProfileKey();
 			String observedAccount = observedProfile == null || observedProfile.isBlank() ? null
 				: com.flippingfriend.core.AccountIdentity.fromProfileKey(observedProfile);
