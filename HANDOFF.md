@@ -5,20 +5,21 @@ Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
 ## Current delivery
 
-Read `local-data/buy-maintenance-fallthrough-20261023/delivery-state.json` first for actual source,
-verification, CI, merge and installation. Installed at batch start: PR #149 at
+Read `local-data/prospective-sale-acceptance-20261023/delivery-state.json` first for actual source,
+verification, CI, merge and installation. PR #149 remains installed at
 `97e726c54d51a4f06cab5fba461a447ad15dcab7`; its receipt is
-`local-data/indexed-sale-evidence-20261022/delivery-state.json`. Fresh logged-in eight-slot/ACK
-checks passed, all 282 snapshotted payloads drained unchanged, SELL/MODIFY_SELL appeared and three
-adjacent final BUY authority checks passed. Full guidance still takes several seconds; sustained
-latency and controlled trade-loop acceptance remain open.
+`local-data/indexed-sale-evidence-20261022/delivery-state.json`. PR #150 is verified and merged,
+but installation is owner-deferred until normal RuneLite closure. This batch and #150 should use
+one verified paired update. Prior fresh 8-slot/ACK/SELL/MODIFY_SELL/final BUY checks passed;
+sustained latency and controlled trade-loop acceptance remain open.
 
-The current batch fixes working BUY maintenance skipped after every routine sale is refused.
-It checks at most eight distinct BUY episodes, preserves urgent/unlisted exit priority and final
-source/revision/acceptance gates, and creates no undisplayed rebuy promise.
-[Contract](docs/architecture/buy-maintenance-fallthrough.md). Source is queued until the receipt
-records installation. Sale policy 9 / replay 18 / evaluator 5, original contexts, exact pooled costs,
-source identities and CURRENT_ACCOUNT_V3 remain unchanged.
+The current batch independently commits prospective sale acceptance in the existing forced outbox
+before delivering maintenance guidance. Later continuation-file read failures cannot erase that
+proof from the first cancellation. New proof format 2 requires this commit; legacy format 1 and
+old payloads remain intact. Failed commits withhold guidance and cannot self-promote on capture.
+[Contract](docs/architecture/prospective-sale-capture.md). Source is queued until installation is
+recorded. Sale policy 9 / replay 18 / evaluator 5, original plans, exact pooled costs, event IDs and
+CURRENT_ACCOUNT_V3 remain unchanged. Already published receipt-free cancellations stay unresolved.
 
 [Prior checkpoints](docs/history/handoff-through-2026-10-21-pr141.md).
 

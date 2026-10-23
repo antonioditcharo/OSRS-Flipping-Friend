@@ -518,6 +518,30 @@ public class CompanionClient
                 }
         }
 
+    /** Pin the exact verified acceptance before its maintenance instruction reaches the player. */
+    public synchronized boolean retainPresentedSalePolicy(Suggestion advice,
+            java.util.List<com.flippingfriend.core.AcceptedSalePolicyProof> proofs,String expected) {
+        if(expected==null || !expected.equals(accountContext()) || advice==null || advice.getSalePolicyReceipt()==null || proofs==null)return false;
+        var receipt=advice.getSalePolicyReceipt();
+        if(advice.getType()!=SuggestionType.MODIFY_SELL || !receipt.matchesOrder(advice.getItemId(),advice.getPrice(),advice.getQuantity())
+            || receipt.isLossCut()!=advice.isLossCut())return false;
+        com.flippingfriend.core.AcceptedSalePolicyProof selected=null;
+        for(var proof:proofs)if(proof!=null && proof.isWellFormed() && !proof.isBound()) {
+            var original=proof.getReceipt();
+            // A renewed final price must retain the workflow's immutable first acceptance.
+            if(!expected.equals(original.getAccountId()) || !receipt.getSourceEventId().equals(original.getSourceEventId())
+                || !receipt.getSessionId().equals(original.getSessionId()) || !receipt.getOfferIdentity().equals(original.getOfferIdentity())
+                || receipt.getSlot()!=original.getSlot() || receipt.getItemId()!=original.getItemId()
+                || receipt.getStandingPrice()!=original.getStandingPrice() || receipt.getTotalQuantity()!=original.getTotalQuantity()
+                || receipt.getFilledQuantity()!=original.getFilledQuantity() || receipt.getSpent()!=original.getSpent()
+                || receipt.getFirstSeenAt()!=original.getFirstSeenAt() || receipt.getSourceSequence()!=original.getSourceSequence())continue;
+            if(selected!=null)return false;selected=proof;
+        }
+        if(selected==null)return false;
+        try{outbox.retainSalePolicy(selected);return expected.equals(accountContext());}
+        catch(Exception failure){lastError="Could not preserve accepted sale instruction: "+failure.getMessage();return false;}
+    }
+
     private OfferEventOutbox.EventFactory offerFactory(TrackedOffer offer,String expectedAccountId,boolean authenticated,long now) {
         String state=offer.getState()==null?"OBSERVED":offer.getState();
         SuggestionLedger.Advice advice=ledger.attribute(offer.getItemId(),offer.isBuying(),now);
@@ -529,7 +553,7 @@ public class CompanionClient
             var read=saleReader.apply(expectedAccountId);if(read!=null)acceptedSales=java.util.List.copyOf(read);
         }catch(RuntimeException unavailable){/* Preserve economic observations; earlier bound receipts remain in the outbox. */}
         final var saleProofs=acceptedSales;
-        return (eventId,sessionId,sequence)->{
+        OfferEventOutbox.EventFactory base=(eventId,sessionId,sequence)->{
             long start=offer.getFirstSeen()>0?offer.getFirstSeen():now;
             var builder=OfferEvent.builder(UUID.randomUUID().toString(),now,state).accountId(expectedAccountId)
                 .authenticatedObservation(authenticated).eventIdentity(eventId,sessionId,
@@ -560,6 +584,10 @@ public class CompanionClient
                 event=event.withAcceptedSalePolicyProof(proof.captured(offer.getObservationCaptureOrder()));break;
             }
             return event;
+        };
+        return new OfferEventOutbox.EventFactory() {
+            public OfferEvent build(String id,String session,long sequence){return base.build(id,session,sequence);}
+            public com.flippingfriend.core.CaptureOrder observationOrder(){return offer.getObservationCaptureOrder();}
         };
     }
 

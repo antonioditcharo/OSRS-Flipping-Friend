@@ -39,8 +39,11 @@ public class SalePolicyAcceptanceDeliveryTest {
             var events=outbox.pending();assertFalse(events.isEmpty());return events.get(events.size()-1);
         }
         void ack()throws Exception{for(var e:outbox.pending())assertTrue(outbox.acknowledge(e.getEventId(),e.getSessionId(),e.getSequence()));}
-        boolean accept(OfferEvent source,String id)throws Exception {
-            return intents.advise(working,storage.accountId(),true,tracker,source.getEventId(),receipt(storage.accountId(),id,source,150,at),at);
+        boolean accept(OfferEvent source,String id)throws Exception {return accept(source,id,true);}
+        boolean accept(OfferEvent source,String id,boolean stage)throws Exception {
+            boolean saved=intents.advise(working,storage.accountId(),true,tracker,source.getEventId(),receipt(storage.accountId(),id,source,150,at),at);
+            if(saved && stage)for(var proof:intents.acceptedPolicies(storage.accountId()))outbox.retainSalePolicy(proof);
+            return saved;
         }
     }
     @Test public void acceptedReceiptFollowsLaterCallbackLateFillsAckRestartAndExactCollection()throws Exception {
@@ -128,7 +131,7 @@ public class SalePolicyAcceptanceDeliveryTest {
     }
     @Test public void receiptReadOutagePreservesFirstCancellationAndCannotBindAfterRestart()throws Exception {
         var path=folder.newFolder().toPath();var f=new Fixture(path);var source=f.publish(f.working,at);
-        assertEquals("1",source.getSalePolicyEvidenceVersion());assertTrue(f.accept(source,"before-read-outage"));
+        assertEquals("1",source.getSalePolicyEvidenceVersion());assertTrue(f.accept(source,"before-read-outage",false));
         f.client.setSalePolicyAcceptanceReader(account->{throw new IllegalStateException("fixture receipt read outage");});
         f.working.setState("CANCELLED_SELL");f.working.setQuantityFilled(2);f.working.setSpent(400);
         var cancelled=f.publish(f.working.copyCurrentObservation(),at+1);

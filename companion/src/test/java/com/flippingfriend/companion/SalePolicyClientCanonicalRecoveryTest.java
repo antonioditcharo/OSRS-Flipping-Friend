@@ -94,6 +94,7 @@ public class SalePolicyClientCanonicalRecoveryTest {
             var receipt=store.issueSalePolicyReceipt(UUID.randomUUID().toString(),snapshot,source,source.getFirstSeenAt(),119,3,false,now,480);
             assertTrue(client.intents.advise(working,account,true,client.tracker,source.getEventId(),receipt,now));
             var accepted=client.intents.acceptedPolicies(account);assertEquals(1,accepted.size());assertFalse(accepted.get(0).isBound());
+            client.outbox.retainSalePolicy(accepted.get(0));
             var file=client.storage.accountDir().resolve("sell-relist-intent.json");var originalBytes=Files.readAllBytes(file);
             var blocked=file.resolveSibling(file.getFileName()+".tmp");Files.createDirectory(blocked);
             working.setQuantityFilled(1);working.setSpent(150);working.setState("CANCELLED_SELL");

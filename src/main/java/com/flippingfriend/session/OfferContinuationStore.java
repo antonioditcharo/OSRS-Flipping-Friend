@@ -226,7 +226,7 @@ abstract class OfferContinuationStore {
                 || receipt.getFilledQuantity()!=original.getQuantityFilled() || receipt.getSpent()!=original.getSpent()
                 || receipt.getFirstSeenAt()!=original.getFirstSeen() || receipt.getQuantity()!=original.getRemaining()
                 || receipt.getDecidedAt()>now || now-receipt.getDecidedAt()>5)return false;
-            acceptedPolicy=com.flippingfriend.core.AcceptedSalePolicyProof.accepted(receipt,now,CaptureOrder.next());
+            acceptedPolicy=com.flippingfriend.core.AcceptedSalePolicyProof.accepted(receipt,now,CaptureOrder.next()).requiringProspectiveCapture();
         }
         var observation=observation(original);
         for(var retired:state.retirements)if(retired.continuation.matches(observation))return false;

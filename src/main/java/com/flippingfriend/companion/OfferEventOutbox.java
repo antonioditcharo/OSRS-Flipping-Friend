@@ -40,6 +40,29 @@ public final class OfferEventOutbox
 	}
     @FunctionalInterface interface ReplaceCheckpoint {void beforeReplace(Path file,Path temp)throws Exception;}
 
+    /** A verified prospective acceptance, independently durable before its instruction is shown. */
+    public synchronized void retainSalePolicy(com.flippingfriend.core.AcceptedSalePolicyProof proof)throws Exception {
+        State state=loadRequired(true);
+        if(proof==null || !proof.isWellFormed() || proof.isBound()
+            || !state.accountId.equals(proof.getAccountId()) || !state.sessionId.equals(proof.getReceipt().getSessionId())
+            || proof.getReceipt().getSourceSequence()>=state.nextSequence)
+            throw new IllegalArgumentException("invalid prospective sale acceptance");
+        var r=proof.getReceipt();String key=r.getSessionId()+"|"+r.getSlot()+"|"+r.getOfferIdentity()+"|"+r.getFirstSeenAt();
+        if(state.refusedSaleCancellations.containsKey(key))throw new IllegalStateException("Cancellation was already recorded without acceptance");
+        for(var entry:state.salePolicyEpisodes.entrySet())if(key.equals(episodeKey(entry.getValue()))) {
+            if(state.invalidSalePolicies.contains(entry.getKey()) || !entry.getValue().getAcceptedSalePolicyProof().hasSameAcceptance(proof))
+                throw new IllegalStateException("Bound sale acceptance cannot change");
+            return;
+        }
+        var old=state.prospectiveSalePolicies.get(key);
+        if(proof.equals(old))return;
+        if(old!=null && (!(old.getAcceptedOrder().getProcess().equals(proof.getAcceptedOrder().getProcess())
+                ?old.getAcceptedOrder().precedes(proof.getAcceptedOrder()):old.getAcceptedAt()<proof.getAcceptedAt())
+            || r.getSourceSequence()<old.getReceipt().getSourceSequence()))
+            throw new IllegalStateException("sale acceptance ordering changed");
+        State updated=state.copy();updated.prospectiveSalePolicies.put(key,proof);write(updated);
+    }
+
 	public synchronized OfferEvent enqueue(EventFactory factory) throws Exception
 	{
         return enqueue(factory,false);
@@ -76,7 +99,7 @@ public final class OfferEventOutbox
             PredictionBinding previous=updated.predictions.get(event.getSlot());
             if(bindPrediction)event=bindPrediction(event,updated);
             if(bindPrediction)event=bindAcceptedBuyPlan(event,updated,previous);
-            if(bindPrediction)event=bindAcceptedSalePolicy(event,updated);
+            if(bindPrediction)event=bindAcceptedSalePolicy(event,updated,factory.observationOrder());
             if(bindPrediction)event=bindContinuationSuccessor(event,updated);
             updated.pending.add(event);created.add(event);
         }
@@ -132,7 +155,7 @@ public final class OfferEventOutbox
             && proof.qualifiesOriginal(first) && proof.matchesEpisode(event)?proof:null);
     }
     /** Maintenance acceptance follows placement; bind its first later copied observation separately. */
-    private OfferEvent bindAcceptedSalePolicy(OfferEvent event,State state) {
+    private OfferEvent bindAcceptedSalePolicy(OfferEvent event,State state,com.flippingfriend.core.CaptureOrder captureOrder) {
         if(!event.isAuthenticatedObservation() || "EMPTY".equals(event.getEventType()))
             return event.withAcceptedSalePolicyProof(null);
         String episode=episodeKey(event);
@@ -148,7 +171,12 @@ public final class OfferEventOutbox
         }
         if(event.isBuying() || !"1".equals(event.getSalePolicyEvidenceVersion())
             || state.refusedSaleCancellations.containsKey(episode))return event.withAcceptedSalePolicyProof(null);
-        var supplied=event.getAcceptedSalePolicyProof();var bound=supplied==null?null:supplied.bindTo(event);
+        var supplied=event.getAcceptedSalePolicyProof();
+        var retained=state.prospectiveSalePolicies.get(episode);
+        if(retained!=null && captureOrder!=null)supplied=retained.captured(captureOrder);
+        if(supplied!=null && supplied.isProspectiveCaptureRequired()
+            && (retained==null || !retained.hasSameAcceptance(supplied)))supplied=null;
+        var bound=supplied==null?null:supplied.bindTo(event);
         if(bound==null) {
             var unbound=event.withAcceptedSalePolicyProof(null);
             if("CANCELLED_SELL".equals(event.getEventType()) && event.getSlot()>=0 && event.getSlot()<8
@@ -160,7 +188,7 @@ public final class OfferEventOutbox
         }
         String receipt=bound.getReceipt().getReceiptId();
         if(state.salePolicyEpisodes.containsKey(receipt))return event.withAcceptedSalePolicyProof(null);
-        var first=event.withAcceptedSalePolicyProof(bound);state.salePolicyEpisodes.put(receipt,first);return first;
+        var first=event.withAcceptedSalePolicyProof(bound);state.salePolicyEpisodes.put(receipt,first);state.prospectiveSalePolicies.remove(episode);return first;
     }
     /** Freeze only the first durable episode source; later advice cannot reclassify that source. */
     private OfferEvent bindContinuationSuccessor(OfferEvent event,State state) {
@@ -321,6 +349,14 @@ public final class OfferEventOutbox
         if(state.salePolicyEpisodes==null)state.salePolicyEpisodes=new java.util.HashMap<>();
         if(state.invalidSalePolicies==null)state.invalidSalePolicies=new java.util.HashSet<>();
         if(state.refusedSaleCancellations==null)state.refusedSaleCancellations=new java.util.HashMap<>();
+        if(state.prospectiveSalePolicies==null)state.prospectiveSalePolicies=new java.util.HashMap<>();
+        for(var entry:state.prospectiveSalePolicies.entrySet()) {
+            var proof=entry.getValue();var r=proof==null?null:proof.getReceipt();
+            if(proof==null || !proof.isWellFormed() || proof.isBound() || !accountId.equals(proof.getAccountId())
+                || !state.sessionId.equals(r.getSessionId()) || r.getSourceSequence()>=state.nextSequence
+                || !entry.getKey().equals(r.getSessionId()+"|"+r.getSlot()+"|"+r.getOfferIdentity()+"|"+r.getFirstSeenAt()))
+                throw new IllegalStateException("invalid prospective sale acceptance scope");
+        }
         for(var entry:state.refusedSaleCancellations.entrySet()) {
             var first=entry.getValue();
             if(first==null || !first.isAuthenticatedObservation() || first.isBuying() || !"CANCELLED_SELL".equals(first.getEventType())
@@ -439,6 +475,7 @@ public final class OfferEventOutbox
 	public interface EventFactory
 	{
 		OfferEvent build(String eventId, String sessionId, long sequence);
+        default com.flippingfriend.core.CaptureOrder observationOrder(){return null;}
 	}
 
 	private static final class State
@@ -456,9 +493,10 @@ public final class OfferEventOutbox
         private java.util.Map<String,OfferEvent> salePolicyEpisodes;
         private java.util.Set<String> invalidSalePolicies;
         private java.util.Map<String,OfferEvent> refusedSaleCancellations;
+        private java.util.Map<String,com.flippingfriend.core.AcceptedSalePolicyProof> prospectiveSalePolicies;
 		private State() { }
 		private State(String sessionId, String accountId, Path file)
-		{ this.sessionId = sessionId; this.accountId = accountId; this.file = file; this.predictions=new java.util.HashMap<>();this.successorEpisodes=new java.util.HashMap<>();this.invalidBuyPlans=new java.util.HashSet<>();this.salePolicyEpisodes=new java.util.HashMap<>();this.invalidSalePolicies=new java.util.HashSet<>();this.refusedSaleCancellations=new java.util.HashMap<>(); }
+		{ this.sessionId = sessionId; this.accountId = accountId; this.file = file; this.predictions=new java.util.HashMap<>();this.successorEpisodes=new java.util.HashMap<>();this.invalidBuyPlans=new java.util.HashSet<>();this.salePolicyEpisodes=new java.util.HashMap<>();this.invalidSalePolicies=new java.util.HashSet<>();this.refusedSaleCancellations=new java.util.HashMap<>();this.prospectiveSalePolicies=new java.util.HashMap<>(); }
 		private State copy()
 		{
 			State copy = new State(sessionId, accountId, file);
@@ -471,6 +509,7 @@ public final class OfferEventOutbox
             copy.salePolicyEpisodes=new java.util.HashMap<>(salePolicyEpisodes);
             copy.invalidSalePolicies=new java.util.HashSet<>(invalidSalePolicies);
             copy.refusedSaleCancellations=new java.util.HashMap<>(refusedSaleCancellations);
+            copy.prospectiveSalePolicies=new java.util.HashMap<>(prospectiveSalePolicies);
 			return copy;
 		}
 	}

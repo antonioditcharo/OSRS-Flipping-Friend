@@ -46,7 +46,7 @@ public class CommittedSalePolicyCaptureTest {
         AcceptedSalePolicyProof accept(OfferEvent source)throws Exception {
             var receipt=SalePolicyAcceptanceDeliveryTest.receipt(storage.accountId(),"committed-before-progress",source,150,now());
             assertTrue(intents.advise(tracker.getOffer(0),storage.accountId(),true,tracker,source.getEventId(),receipt,now()));
-            return intents.acceptedPolicies(storage.accountId()).get(0);
+            var proof=intents.acceptedPolicies(storage.accountId()).get(0);outbox.retainSalePolicy(proof);return proof;
         }
     }
     @Test public void committedAcceptanceSurvivesFirstCancellationCounterSaveFailureThenRetryAckRestartAndCollection()throws Exception {

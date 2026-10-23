@@ -1,10 +1,15 @@
 # Tasks
 
 Updated 23 October 2026. Read [HANDOFF.md](HANDOFF.md) and the actual delivery receipt at
-`local-data/buy-maintenance-fallthrough-20261023/delivery-state.json` first. Implemented/tested, merged,
+`local-data/prospective-sale-acceptance-20261023/delivery-state.json` first. Implemented/tested, merged,
 installed and player accepted are separate states. Owner is home; older login deferrals are superseded.
 
 ## Current batch
+
+- [x] Implement/test independently durable prospective sale-acceptance capture in the outbox before
+      presentation, with strict proof format 2 and unchanged legacy format 1. Read outages preserve
+      first-cancellation evidence; failed staging cannot self-promote or repair a published source.
+      [Contract](docs/architecture/prospective-sale-capture.md); actual delivery in receipt.
 
 - [x] Implement/test bounded distinct working-BUY maintenance after every routine sale refuses;
       preserve urgent/unlisted exits, source/revision fences and durable selected acceptance.
@@ -23,6 +28,7 @@ installed and player accepted are separate states. Owner is home; older login de
       player trading and sustained latency remain separate from source/concurrency regressions.
 - [ ] Preserve first-cancellation acceptance through a genuinely unreadable acceptance document
       using prospective evidence handling; never retrofit a published receipt-free cancellation.
+      Source regressions now pass; controlled read-outage/restart/player acceptance stays open.
 - [ ] Reassess independently eligible BUY maintenance after all routine sale candidates are refused,
       with bounded excluded-episode traversal and no invisible continuation promises. Source
       regressions now pass; controlled player acceptance remains open.

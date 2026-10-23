@@ -523,6 +523,8 @@ public class FlippingFriendPlugin extends Plugin
         int stop=accepted==null?0:(int)Math.round(accepted.getPrice()*(1-config.riskProfile().getLossCutPct()));
         String account=com.flippingfriend.core.AccountIdentity.fromProfileKey(configManager.getRSProfileKey());
         boolean saved=engine.recordPresentedMaintenance(accepted,account,java.time.Instant.now().getEpochSecond());
+        if(saved && accepted!=null && accepted.getType()==SuggestionType.MODIFY_SELL && accepted.getSalePolicyReceipt()!=null)
+            saved=companion.retainPresentedSalePolicy(accepted,engine.acceptedSalePolicies(account),account);
         if(accepted!=null && (accepted.getType()==SuggestionType.MODIFY_BUY || accepted.getType()==SuggestionType.MODIFY_SELL
                 || accepted.getType()==SuggestionType.CANCEL
                 || accepted.getContinuationOriginIdentity()!=null
