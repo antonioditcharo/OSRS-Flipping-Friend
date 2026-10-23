@@ -260,13 +260,35 @@ abstract class OfferContinuationStore {
     }
     /** Only committed acceptance metadata; never advance/reconcile callbacks from this read. */
     protected synchronized List<com.flippingfriend.core.AcceptedSalePolicyProof> acceptedPoliciesFor(String expected) {
-        if(!load(expected) || state.dirty)return null;
-        var result=new ArrayList<com.flippingfriend.core.AcceptedSalePolicyProof>();
-        for(var hint:origins(state)) {
-            var proof=hint.getAcceptedSalePolicyProof();
-            if(proof!=null && proof.isWellFormed() && expected.equals(proof.getReceipt().getAccountId()))result.add(proof);
-        }
-        return Collections.unmodifiableList(result);
+        if(!load(expected))return null;
+        try {
+            // Later callback facts may be dirty while the accepted policy is already durable.
+            // Read only the exact verified committed image, never a failed prospective candidate
+            // or uncommitted counter/collection changes from the live reducer state.
+            if(state.committed==null)return Collections.emptyList();
+            var tree=gson.fromJson(new String(state.committed,StandardCharsets.UTF_8),JsonElement.class);
+            if(tree==null)return null;
+            if(tree.isJsonNull())return Collections.emptyList();
+            if(!tree.isJsonObject())return null;
+            var object=tree.getAsJsonObject();
+            if(!object.has("formatVersion"))return Collections.emptyList(); // Legacy hints contain no policy acceptance.
+            var version=object.get("formatVersion");
+            if(!version.isJsonPrimitive() || !version.getAsJsonPrimitive().isNumber() || version.getAsBigDecimal().intValueExact()!=2)return null;
+            var committed=gson.fromJson(object,Document.class);
+            if(committed.formatVersion!=2 || !expected.equals(committed.accountId) || committed.continuations==null)return null;
+            var hints=new ArrayList<>(committed.continuations);
+            if(committed.consumedContinuations!=null)hints.addAll(committed.consumedContinuations);
+            var result=new ArrayList<com.flippingfriend.core.AcceptedSalePolicyProof>();var ids=new HashSet<String>();
+            for(var hint:hints) {
+                if(hint==null || !hint.isWellFormed() || hint.isBuying()!=buying)return null;
+                var proof=hint.getAcceptedSalePolicyProof();
+                if(proof==null)continue;
+                if(!proof.isWellFormed() || proof.isBound() || !expected.equals(proof.getReceipt().getAccountId())
+                    || !ids.add(proof.getReceipt().getReceiptId()))return null;
+                result.add(proof);
+            }
+            return expected.equals(account()) && state==accounts.get(expected)?Collections.unmodifiableList(result):null;
+        }catch(Exception unavailable){return null;}
     }
     protected synchronized List<OfferContinuation> collectedAll(OfferTracker tracker,String expected,long now) {
         if(!load(expected))return Collections.emptyList();

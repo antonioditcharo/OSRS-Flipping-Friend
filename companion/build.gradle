@@ -5,7 +5,10 @@ plugins {
 group = 'com.flippingfriend'
 version = rootProject.version
 
-repositories { mavenCentral() }
+repositories {
+    maven { url = 'https://repo.runelite.net' }
+    mavenCentral()
+}
 
 dependencies {
     implementation project(':')
@@ -18,6 +21,10 @@ dependencies {
     // slf4j-simple writes to stderr, which the daemon already redirects to companion.log.err.
     implementation 'org.slf4j:slf4j-simple:1.7.36'
     testImplementation 'junit:junit:4.13.2'
+    // Real callback/outbox -> canonical ledger regressions need the client types at test runtime.
+    // These test-only dependencies are excluded from the standalone companion package.
+    testImplementation group: 'net.runelite', name: 'client', version: rootProject.runeLiteVersion
+    testImplementation 'org.mockito:mockito-core:4.11.0'
 }
 
 java {

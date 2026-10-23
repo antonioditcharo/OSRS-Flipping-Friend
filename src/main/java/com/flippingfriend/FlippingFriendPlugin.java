@@ -1206,6 +1206,8 @@ public class FlippingFriendPlugin extends Plugin
         }
         var exit=engine.exitAfterReplacementRefusal(declined);
         if(exit!=null)return exit;
+        var maintenance=engine.maintenanceAfterReplacementRefusal();
+        if(maintenance!=null)return maintenance;
         return waiting==null?Suggestion.waiting("Replacement needs a current companion plan","The original remainder is retained."):waiting;
     }
 	/** A short, readable description of a failure, for a card rather than a log. */

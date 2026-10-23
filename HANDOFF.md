@@ -5,27 +5,27 @@ Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
 ## Current delivery
 
-Read `local-data/sale-policy-receipts-20261022/delivery-state.json` first for actual source,
-verification, CI, merge and installation. This batch preserves prospective sale-maintenance
-acceptance through cadence changes, late fills, collection, restart and distinct successor origins.
-Authenticated POST issues exact canonical settings/source receipts only after final cancellation
-policy passes; separate client acceptance binds to a later copied observation. Current prices,
-quantity budgets, exact taxed costs and original stop guards are independently rechecked.
-[Contract](docs/architecture/prospective-sale-policy-receipts.md). Source uses sale policy 9,
-replay 18 and maintenance evaluator 5; learning remains held. New runtime is queued until the receipt
-records successful installation; source tests do not establish player acceptance.
+Read `local-data/committed-maintenance-acceptance-20261022/delivery-state.json` first for actual
+source, verification, CI, merge and installation. The urgent live investigation reproduced queued
+unacknowledged offers/stale account evidence, Performance work holding service/writer monitors,
+and final replacement refusal skipping listed maintenance. This batch repairs replacement-to-working-
+maintenance fallthrough, isolates bounded read-only reporting, releases trading locks before report
+aggregation, and incrementally indexes completion evidence. A separate late-fill fact-save failure
+no longer hides already committed sale-policy acceptance from the first cancellation source.
+[Contract](docs/architecture/maintenance-blockade-recovery.md). Sale policy 9 / replay 18 / evaluator
+5 and all financial/risk semantics remain. New source is queued until the receipt records installation.
 
-Installed at this batch's start: #146 at `6a876d5b05b412feeb5c1d0ee9cb028f37917226`;
-`local-data/independent-buy-deadlines-20261022/delivery-state.json` records its delivery. Independent
-BUY plans/deadlines, distinct continuations, exact budgets/costs, source and clock guards remain.
-Existing historical plans/deadlines are not repaired. [Prior checkpoints](docs/history/handoff-through-2026-10-21-pr141.md).
+Installed at this batch's start: #147 at `e7f787f4ed98fb8ede93ec22ca7483f0253b54fe`;
+`local-data/sale-policy-receipts-20261022/delivery-state.json` records its delivery. Prospective
+sale-policy receipts, independent BUY plans/deadlines, exact budgets/costs, original contexts and
+clock/source guards remain. Existing historical plans/deadlines are not repaired.
+[Prior checkpoints](docs/history/handoff-through-2026-10-21-pr141.md).
 
-Fresh scoped pre-update reads respond and the outbox is empty. Saved eight-slot identities match but
-the account capture is stale while logged out; this is not trading readiness or controlled acceptance.
-The complete source/financial prefix and original risk anchor are frozen. Normal closure,
-backup/update/launch and scoped reads are authorized. Login and game actions remain manual.
-Safe reachable-proof retention remains open, including never-displayed issuance/account-source pins;
-no blind TTL may discard live proof.
+The current user reports prolonged maintenance waits while logged in. Inspect the new private
+urgent account/slot/outbox evidence and JVM dump, not the earlier logged-out snapshot. Preserve all
+pending event identities and financial/source/risk prefixes. Normal closure, verified backup/update/
+launch and scoped reads are authorized; login and game actions remain manual. Disk space now reads
+more than 12 GB; the earlier disk-full receipt describes its actual prior attempt, not a quota.
 
 The old three-bludgeon original plan stays unknown; those units subsequently sold, and the newer
 two-unit purchase is separate. Bolts retain separately proven contexts. Dual macuahuitl's older rebuy

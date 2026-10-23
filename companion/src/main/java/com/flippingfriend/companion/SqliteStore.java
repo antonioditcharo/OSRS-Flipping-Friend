@@ -81,9 +81,12 @@ final class SqliteStore implements AutoCloseable
 	private List<OfferEvent> canonicalHistory;
 	private String canonicalHistoryAccount;
 	private long canonicalHistoryCursor, canonicalHistoryDataVersion = -1;
+    private long canonicalHistoryGeneration;
+    private final PerformanceCompletionIndex performanceCompletionIndex=new PerformanceCompletionIndex();
 	private AutomaticTradeScope scopedEffects;
 	private long scopedEffectsCursor=-1;
 	private void discardCanonicalHistory() {
+        canonicalHistoryGeneration++;
 		canonicalHistory=null; canonicalHistoryAccount=null; canonicalHistoryCursor=0;
 		scopedEffects=null;scopedEffectsCursor=-1;
         automaticModes.clear();
@@ -1251,41 +1254,51 @@ final class SqliteStore implements AutoCloseable
         }catch(Exception failure){connection.rollback();discardCanonicalHistory();throw failure;}
         finally{connection.setAutoCommit(true);}
     }
-	synchronized com.flippingfriend.core.PerformanceSnapshot performance(String account,String scope,long now) throws Exception {
-		com.flippingfriend.core.AccountIdentity.require(account);
-		if(!connection.getAutoCommit())throw new IllegalStateException("Performance requires its own read");
-		connection.setAutoCommit(false);
-		try {
-			java.util.Set<String> completed=new java.util.HashSet<>();
-			java.util.Set<String> disposalSources=new java.util.HashSet<>();
-			java.util.Set<String> gappedOffers=new java.util.HashSet<>();
-			try(var s=connection.createStatement();var r=s.executeQuery("SELECT source_event_id FROM position_event WHERE effect_type='DISPOSE'")) {
-				while(r.next())disposalSources.add(r.getString(1));
-			}
-			try(var s=connection.createStatement();var r=s.executeQuery("SELECT source_offer_identity FROM position_event WHERE effect_type='RECONCILE'")) {
-				while(r.next())gappedOffers.add(r.getString(1));
-			}
-			var history=offerHistory(account);
-			// A sell order counts once, after observed full completion and with bounded realized
-			// profit. Partial updates still contribute their actual money but never inflate flips.
-            java.util.Set<String> disposedOffers=new java.util.HashSet<>();
-            if(history!=null)for(var e:history) {
-                if(e.getObservedAt()>now)continue;
-                String key=e.getOfferIdentity()+":"+e.getItemId();
-                if(disposalSources.contains(e.getEventId()) && !e.isBuying())disposedOffers.add(key);
-                // Full SELLING counters can book the final delta before the terminal SOLD frame.
-                // That terminal must be accepted, in the same recorded episode, and follow a sale.
-                if(disposedOffers.contains(key) && !gappedOffers.contains(e.getOfferIdentity()) && !e.isBuying()
-                    && "SOLD".equals(e.getEventType()) && e.getFilledQuantity()==e.getTotalQuantity()
-                    && e.getTotalQuantity()>0)completed.add(e.getOfferIdentity());
+    /** Immutable reporting inputs from one durable read; aggregation never owns the writer monitor. */
+    static final class PerformanceInput {
+        final String account,scope;final long now,generation,positionCursor;
+        final List<OfferEvent> history;final java.util.Set<String> disposals,gaps,archived;
+        final PerformanceRead.Session session;final List<com.flippingfriend.core.RecordedSale> sales;
+        PerformanceInput(String account,String scope,long now,long generation,long cursor,List<OfferEvent> history,
+                java.util.Set<String> disposals,java.util.Set<String> gaps,java.util.Set<String> archived,
+                PerformanceRead.Session session,List<com.flippingfriend.core.RecordedSale> sales) {
+            this.account=account;this.scope=scope;this.now=now;this.generation=generation;positionCursor=cursor;
+            this.history=history;this.disposals=java.util.Set.copyOf(disposals);this.gaps=java.util.Set.copyOf(gaps);
+            this.archived=java.util.Set.copyOf(archived);this.session=session;this.sales=java.util.List.copyOf(sales);
+        }
+    }
+    synchronized PerformanceInput performanceInput(String account,String scope,long now)throws Exception {
+        com.flippingfriend.core.AccountIdentity.require(account);
+        if(!connection.getAutoCommit())throw new IllegalStateException("Performance requires its own read");
+        connection.setAutoCommit(false);
+        try {
+            var disposals=new java.util.HashSet<String>();var gaps=new java.util.HashSet<String>();long cursor;
+            try(var sql=connection.createStatement();var rows=sql.executeQuery("SELECT source_event_id FROM position_event WHERE effect_type='DISPOSE'")) {
+                while(rows.next()) {var source=rows.getString(1);if(source!=null)disposals.add(source);}
             }
-            java.util.Set<String> archived;
+            try(var sql=connection.createStatement();var rows=sql.executeQuery("SELECT source_offer_identity FROM position_event WHERE effect_type='RECONCILE'")) {
+                while(rows.next()) {var offer=rows.getString(1);if(offer!=null)gaps.add(offer);}
+            }
+            try(var sql=connection.createStatement();var rows=sql.executeQuery("SELECT COALESCE(MAX(id),0) FROM position_event")) {
+                rows.next();cursor=rows.getLong(1);
+            }
+            var history=offerHistory(account);java.util.Set<String> archived;
             try{archived=tradeReview(account,now).effectiveArchived();}catch(Exception unavailable){archived=java.util.Set.of();}
-			var result=PerformanceRead.aggregate(account,scope,performanceSession(),now,recordedSales(""),completed,archived);
-			connection.commit();return result;
-		}catch(Exception e){connection.rollback();discardCanonicalHistory();throw e;}
-		finally{connection.setAutoCommit(true);}
-	}
+            var input=new PerformanceInput(account,scope,now,canonicalHistoryGeneration,cursor,history,disposals,gaps,
+                archived,performanceSession(),recordedSales(""));
+            connection.commit();return input;
+        }catch(Exception failure){connection.rollback();discardCanonicalHistory();throw failure;}
+        finally{connection.setAutoCommit(true);}
+    }
+    com.flippingfriend.core.PerformanceSnapshot performance(PerformanceInput input)throws Exception {
+        checkpoint.reached("PERFORMANCE_INPUT_CAPTURED");
+        var completed=performanceCompletionIndex.completed(input.account,input.generation,input.positionCursor,
+            input.history,input.disposals,input.gaps,input.now);
+        return PerformanceRead.aggregate(input.account,input.scope,input.session,input.now,input.sales,completed,input.archived);
+    }
+    com.flippingfriend.core.PerformanceSnapshot performance(String account,String scope,long now)throws Exception {
+        return performance(performanceInput(account,scope,now));
+    }
 
 	synchronized SnapshotReconciliationResult recordAndReconcileAccount(AccountSnapshot snapshot,
 		PositionStateView view, String payload) throws Exception
