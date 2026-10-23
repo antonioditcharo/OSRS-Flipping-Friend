@@ -30,6 +30,7 @@ public final class OfferContinuation {
     private long saleRepriceProgressAt;
     /** A later first source binding does not change when the original workflow was created. */
     private long saleRepriceAcceptedAt;
+    private AcceptedSalePolicyProof acceptedSalePolicyProof;
     private boolean buying,managed,collectionVerified;
     private int collectedRemaining,collectedFilled,maximumFilled;
     private List<Key> existingSales;
@@ -96,7 +97,7 @@ public final class OfferContinuation {
                 : !buying && !saleRepriceSource.isBlank() && saleRepriceProgressAt>=firstSeen
                 && (saleRepriceAcceptedAt==0 ? saleRepriceProgressAt<=createdAt
                     : saleRepriceAcceptedAt>=createdAt && saleRepriceProgressAt<=saleRepriceAcceptedAt))
-            && validSuccessorClaims()
+            && validSalePolicyProof() && validSuccessorClaims()
             && (!collectionVerified || collectedRemaining>=0 && (collectedRemaining>0 || getClaimedQuantity()>0) && collectedRemaining<=quantity
                 && (total==0 || collectedRemaining<=total-Math.max(filled,Math.max(maximumFilled,collectedFilled))));
     }
@@ -277,6 +278,7 @@ public final class OfferContinuation {
     public long getFirstSeenAt(){return firstSeen;}
     public long getSaleRepriceProgressAt(){return saleRepriceProgressAt;}
     public long getSaleRepriceAcceptedAt(){return saleRepriceAcceptedAt==0?saleRepriceSource==null?0:createdAt:saleRepriceAcceptedAt;}
+    public AcceptedSalePolicyProof getAcceptedSalePolicyProof(){return acceptedSalePolicyProof;}
     public void bindSaleRepriceSource(String source) {
         bindSaleRepriceSource(source,firstSeen);
     }
@@ -284,12 +286,31 @@ public final class OfferContinuation {
         bindSaleRepriceSource(source,progressAt,createdAt);
     }
     public void bindSaleRepriceSource(String source,long progressAt,long acceptedAt) {
+        bindSaleRepriceSource(source,progressAt,acceptedAt,null);
+    }
+    public void bindSaleRepriceSource(String source,long progressAt,long acceptedAt,AcceptedSalePolicyProof proof) {
         if(buying || source==null || source.isBlank())throw new IllegalArgumentException("Sale source required");
         if(progressAt<firstSeen || acceptedAt<createdAt || acceptedAt<progressAt)
             throw new IllegalArgumentException("Ordered sale progress and acceptance required");
         if(saleRepriceSource!=null && !saleRepriceSource.equals(source))
             throw new IllegalStateException("Accepted sale source changed");
-        if(saleRepriceSource==null){saleRepriceSource=source;saleRepriceProgressAt=progressAt;saleRepriceAcceptedAt=acceptedAt;revision++;}
+        if(saleRepriceSource!=null)return; // Existing proof or legacy absence is immutable.
+        if(proof!=null && !matchesSalePolicyProof(proof,source,progressAt,acceptedAt))
+            throw new IllegalArgumentException("Sale acceptance belongs to another workflow");
+        saleRepriceSource=source;saleRepriceProgressAt=progressAt;saleRepriceAcceptedAt=acceptedAt;
+        acceptedSalePolicyProof=proof;revision++;
+    }
+    private boolean validSalePolicyProof(){return acceptedSalePolicyProof==null || matchesSalePolicyProof(
+        acceptedSalePolicyProof,saleRepriceSource,saleRepriceProgressAt,saleRepriceAcceptedAt);}
+    private boolean matchesSalePolicyProof(AcceptedSalePolicyProof proof,String source,long progress,long accepted) {
+        if(proof==null || !proof.isWellFormed() || buying || proof.getAcceptedAt()!=accepted)return false;
+        var receipt=proof.getReceipt();String wire=slot+"@"+firstSeen+":"+item;
+        String receiptEpisode=wire.equals(receipt.getOfferIdentity())?null:receipt.getOfferIdentity();
+        return Objects.equals(source,receipt.getSourceEventId()) && receipt.getProgressAt()==progress
+            && slot==receipt.getSlot() && item==receipt.getItemId() && price==receipt.getStandingPrice()
+            && total==receipt.getTotalQuantity() && firstSeen==receipt.getFirstSeenAt()
+            && Objects.equals(episode,receiptEpisode) && receipt.getFilledQuantity()>=filled
+            && receipt.getQuantity()<=quantity;
     }
     public long getRevision(){return revision;}
     public boolean isClosed(){return closed;}

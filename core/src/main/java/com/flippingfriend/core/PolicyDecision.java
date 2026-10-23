@@ -14,11 +14,20 @@ public final class PolicyDecision
     private final long inputObservedAt;
     private final String candidateId;
     private final String recommendationId;
+    private final SalePolicyReceipt salePolicyReceipt;
 
     private PolicyDecision(String schemaVersion, String policyVersion, String decisionId,
         PolicyDecisionType decisionType, OfferLifecycleAction action,
         PolicyAbstentionReason abstentionReason, String reasonCode, long decidedAt,
         long inputObservedAt, String candidateId, String recommendationId)
+    {
+        this(schemaVersion,policyVersion,decisionId,decisionType,action,abstentionReason,reasonCode,
+            decidedAt,inputObservedAt,candidateId,recommendationId,null);
+    }
+    private PolicyDecision(String schemaVersion,String policyVersion,String decisionId,
+        PolicyDecisionType decisionType,OfferLifecycleAction action,PolicyAbstentionReason abstentionReason,
+        String reasonCode,long decidedAt,long inputObservedAt,String candidateId,String recommendationId,
+        SalePolicyReceipt receipt)
     {
         this.schemaVersion = required(schemaVersion, "schemaVersion");
         this.policyVersion = required(policyVersion, "policyVersion");
@@ -41,6 +50,7 @@ public final class PolicyDecision
         this.inputObservedAt = inputObservedAt;
         this.candidateId = candidateId;
         this.recommendationId = recommendationId;
+        this.salePolicyReceipt=receipt;
     }
 
     public static PolicyDecision action(String schemaVersion, String policyVersion, String decisionId,
@@ -81,4 +91,14 @@ public final class PolicyDecision
     public long getInputObservedAt() { return inputObservedAt; }
     public String getCandidateId() { return candidateId; }
     public String getRecommendationId() { return recommendationId; }
+    public SalePolicyReceipt getSalePolicyReceipt(){return salePolicyReceipt;}
+    public PolicyDecision withSalePolicyReceipt(SalePolicyReceipt receipt) {
+        if(receipt==null || !receipt.isWellFormed() || !policyVersion.equals(receipt.getPolicyVersion())
+            || decisionType!=PolicyDecisionType.SELL_MAINTENANCE || action!=OfferLifecycleAction.CANCEL_SELL
+            || abstentionReason!=PolicyAbstentionReason.NONE || decidedAt!=receipt.getDecidedAt()
+            || !java.util.Objects.equals(recommendationId,receipt.getSourceEventId()))
+            throw new IllegalArgumentException("Receipt must match the authorized sale decision");
+        return new PolicyDecision(schemaVersion,policyVersion,decisionId,decisionType,action,abstentionReason,
+            reasonCode,decidedAt,inputObservedAt,candidateId,recommendationId,receipt);
+    }
 }

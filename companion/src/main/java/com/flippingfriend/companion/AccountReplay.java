@@ -12,7 +12,7 @@ import java.util.*;
 
 /** One simulated account, one bankroll and eight physical slots; never opens a live database. */
 final class AccountReplay implements AutoCloseable {
-    static final String VERSION="account-replay-17";
+    static final String VERSION="account-replay-18";
     private static final String ACCOUNT=AccountIdentity.fromProfileKey("synthetic-account-replay-only");
     interface Entries {
         PortfolioPlan plan(MarketIngestionService.MarketState market,AccountSnapshot account,
@@ -36,6 +36,7 @@ final class AccountReplay implements AutoCloseable {
         final PortfolioCandidate entry;
         final AcquisitionExitContext context;
         ContinuationSuccessorProof successorAcceptance;
+        SalePolicyReceipt salePolicyReceipt;
         final AcceptedBuyPlanProof buyPlanAcceptance;
         Guidance(String kind,int slot,int item,int price,int quantity,String offerIdentity,String acquisitionSource,
             long cost,long spent,boolean cut,long at,PortfolioCandidate entry,String plan,AcquisitionExitContext context,long validUntil) {
@@ -339,7 +340,12 @@ final class AccountReplay implements AutoCloseable {
         }
         if(offer.price-(long)price<horizon.outbidDeadband(offer.price))return null;
         if(!authorizeSale(sale,account,market,offer.item,price,offer.remaining(),offer.lastObservation.getEventId(),proposal.lossCut,offer.slot))return null;
-        return offerGuidance("CANCEL_SELL",offer,price,holding,proposal.lossCut);
+        try {
+            var guidance=offerGuidance("CANCEL_SELL",offer,price,holding,proposal.lossCut);
+            guidance.salePolicyReceipt=store.issueSalePolicyReceipt(UUID.randomUUID().toString(),account,offer.lastObservation,
+                offer.lastProgressAt,price,offer.remaining(),proposal.lossCut,now,horizon.staleOfferMinutes()*60L);
+            return guidance;
+        }catch(Exception unavailable){abstain("SALE_POLICY_RECEIPT_UNAVAILABLE");return null;}
     }
     private AccountSnapshot currentEntryAccount(AccountSnapshot account,MarketIngestionService.MarketState market)throws Exception {
         var read=store.planningProjections(ACCOUNT);
@@ -366,7 +372,8 @@ final class AccountReplay implements AutoCloseable {
                 int quantity=Math.min(cap,Math.min(inventory.getOrDefault(holding.getItemId(),0),holding.getQuantity()-listed(holding.getItemId())));
                 var quote=maintenance.evaluateRelist(holding.getItemId(),intent.getOriginalPrice(),quantity,position(holding),latest(holding.getItemId()),
                     frame.shortHistory.getOrDefault(holding.getItemId(),List.of()),horizon,Instant.ofEpochSecond(now),false,exits,tax,
-                    intent.getFirstSeenAt(),intent.getSaleRepriceProgressAt()).quote;
+                    intent.getFirstSeenAt(),intent.getSaleRepriceProgressAt(),
+                    intent.getAcceptedSalePolicyProof()==null?null:intent.getAcceptedSalePolicyProof().getReceipt()).quote;
                 if(quote==null)return null;
                 decision=new SellDecision(quote.lossCut?SellDecision.Action.CUT:SellDecision.Action.SELL,quote.price,quote.reason,Double.NaN,
                     tax.netProceeds(holding.getItemId(),quote.price,quantity)-quote.allocatedCost);
@@ -456,7 +463,7 @@ final class AccountReplay implements AutoCloseable {
                     now,CaptureOrder.next());
             }
             if("REPRICE_BUY".equals(advice.kind))rememberContinuation(offers[advice.slot],true);
-            if("CANCEL_SELL".equals(advice.kind))rememberContinuation(offers[advice.slot],false);
+            if("CANCEL_SELL".equals(advice.kind))rememberContinuation(offers[advice.slot],false,advice.salePolicyReceipt);
             if("CANCEL_BUY".equals(advice.kind) || advice.cut && ("SELL".equals(advice.kind) || "RELIST_SELL".equals(advice.kind))) {
                 boolean changed=false;
                 for(var iterator=continuations.buy.iterator();iterator.hasNext();) {
@@ -567,6 +574,7 @@ final class AccountReplay implements AutoCloseable {
             .price(o.price).quantities(o.quantity,o.filled).spent(o.spent).firstSeenAt(o.placedAt)
             .eventIdentity("sim-event-"+(++sequence),"synthetic-session",o.identity).sequence(sequence).authenticatedObservation(true);
         if(o.buy)builder.acceptedBuyPlanEvidenceVersion(o.origin==null?"1":o.origin.getAcceptedBuyPlanEvidenceVersion());
+        else builder.salePolicyEvidenceVersion("1");
         if(advice!=null && advice.entry!=null)builder.recommendation(advice.plan,o.price,o.quantity,0,advice.entry.getBuyHours()*60,
             advice.entry.getDisplayBuyFillProbability()).predictionEvidence(null,advice.advisedAt,false)
             .executionForecast(advice.entry.getBuyForecast()).exitContext(advice.context);
@@ -585,6 +593,15 @@ final class AccountReplay implements AutoCloseable {
         } else if(o.origin!=null && o.origin.getAcceptedBuyPlanProof()!=null)
             bound=bound.withAcceptedBuyPlanProof(o.origin.getAcceptedBuyPlanProof());
         else if(o.buy && bound.getAcceptedBuyPlanEvidenceVersion()!=null)bound=bound.withoutAcceptedExitContext();
+        if(!o.buy) {
+            var policy=o.lastObservation==null?null:o.lastObservation.getAcceptedSalePolicyProof();
+            if(policy!=null && policy.matchesEpisode(bound))bound=bound.withAcceptedSalePolicyProof(policy);
+            else for(var intent:continuations.sell)if(intent.matches(observation(o,false)) && intent.getAcceptedSalePolicyProof()!=null) {
+                var captured=intent.getAcceptedSalePolicyProof().captured(CaptureOrder.next()).bindTo(bound);
+                if(captured==null)throw new IllegalStateException("Synthetic sale lost prospective acceptance ordering");
+                bound=bound.withAcceptedSalePolicyProof(captured);break;
+            }
+        }
         return bound;
     }
     private void accept(OfferEvent e) throws Exception {
@@ -657,11 +674,18 @@ final class AccountReplay implements AutoCloseable {
         return board;
     }
     private void rememberContinuation(Offer offer,boolean buying)throws Exception {
+        rememberContinuation(offer,buying,null);
+    }
+    private void rememberContinuation(Offer offer,boolean buying,SalePolicyReceipt policy)throws Exception {
         var current=buying?continuations.buy:continuations.sell;
         for(var intent:current)if(intent.valid(now) && intent.matches(observation(offer,false)))return;
         var created=OfferContinuation.advise(observation(offer,false),observedBoard(),!buying,now,0);
         if(created!=null){
-            if(!buying)created.bindSaleRepriceSource(offer.lastObservation.getEventId(),offer.lastProgressAt);
+            if(!buying) {
+                if(policy==null)throw new IllegalStateException("Synthetic cancellation lacks its canonical policy receipt");
+                created.bindSaleRepriceSource(policy.getSourceEventId(),policy.getProgressAt(),now,
+                    AcceptedSalePolicyProof.accepted(policy,now,CaptureOrder.next()));
+            }
             current.add(created);saveContinuations();
         }
     }

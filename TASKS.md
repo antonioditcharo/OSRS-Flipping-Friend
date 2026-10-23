@@ -1,10 +1,16 @@
 # Tasks
 
 Updated 22 October 2026. Read [HANDOFF.md](HANDOFF.md) and the actual delivery receipt at
-`local-data/independent-buy-deadlines-20261022/delivery-state.json` first. Implemented/tested, merged,
+`local-data/sale-policy-receipts-20261022/delivery-state.json` first. Implemented/tested, merged,
 installed and player accepted are separate states. Owner is home; older login deferrals are superseded.
 
 ## Current batch
+
+- [x] Implement prospective exact sale-policy receipts and separately ordered client acceptance,
+      preserving each origin's policy through cadence changes, late fills, collection and restart.
+      [Contract](docs/architecture/prospective-sale-policy-receipts.md); actual verification/install in receipt.
+- [ ] Accept prospective sale receipts, cadence changes, receipt outages and distinct-origin relists
+      through player operation; source/HTTP regressions are separate from controlled acceptance.
 
 - [x] Retain independent original BUY forecasts in live tracking and defer new deadline freezing
       while its exact durable source is unavailable; proven unknown forecasts retain frozen fallback.
@@ -23,7 +29,7 @@ installed and player accepted are separate states. Owner is home; older login de
       [Contract](docs/architecture/distinct-continuation-successors.md); actual state in new receipt.
 - [ ] Accept parallel same-item origins, smaller replacements, child cancel/collect, late original
       fills, failed writes and restart through player operation. Source tests are separate.
-- [ ] Add prospective exact policy-setting evidence before relaxing saved-sale eligibility across
+- [x] Add prospective exact policy-setting evidence before relaxing saved-sale eligibility across
       checking-cadence changes; current settings cannot establish historical acceptance eligibility.
 - [ ] Bound relationship retention through proven origin reachability; never discard live proof by TTL.
 

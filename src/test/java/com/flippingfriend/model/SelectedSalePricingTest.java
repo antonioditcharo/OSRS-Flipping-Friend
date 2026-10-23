@@ -84,4 +84,42 @@ public class SelectedSalePricingTest {
         assertEquals("Missing relist support cannot restore 1400 for a selected subset",SuggestionType.WAIT,missing.getType());
         assertEquals(3203,ledger.getTradingPositions().get(0).getTotalCost());
     }
+    @Test public void acceptedFiveMinuteReductionKeepsExactSelectedCostAfterLateFillAndEightHourCadenceChange()throws Exception {
+        var storage=TestStorage.rootedAt(folder.newFolder().toPath(),"selected-sale");
+        var tracker=mock(com.flippingfriend.session.OfferTracker.class);
+        long at=now.getEpochSecond();
+        var original=new com.flippingfriend.session.TrackedOffer(0,13263,false,1500,3,at-1200);original.setState("SELLING");
+        when(tracker.getOffers()).thenReturn(List.of(original));when(tracker.getOffer(0)).thenReturn(original);
+        var source=OfferEvent.builder("selected",at,"SELLING").accountId(account).authenticatedObservation(true)
+            .eventIdentity("accepted-sale-source","session","0@"+(at-1200)+":13263").sequence(1).slot(0).item(13263,"Abyssal bludgeon")
+            .price(1500).quantities(3,0).firstSeenAt(at-1200).salePolicyEvidenceVersion("1").build();
+        var receipt=com.flippingfriend.companion.SalePolicyAcceptanceDeliveryTest.receipt(account,"selected-receipt",source,1199,at);
+        var book=new com.flippingfriend.session.SellRelistIntent(storage);
+        assertTrue(book.advise(original,account,true,tracker,source.getEventId(),receipt,at));
+        original.setQuantityFilled(1);original.setSpent(1500);original.setState("CANCELLED_SELL");original.setCollected(true);
+        when(tracker.getOffers()).thenReturn(List.of());when(tracker.getOffer(0)).thenReturn(null);when(tracker.getSettledOffer(0)).thenReturn(original);
+        var reprice=book.collectedRequest(tracker,account);assertNotNull(reprice);assertEquals(2,reprice.getQuantity());
+        assertEquals(480,reprice.getAcceptedPatienceSeconds());assertEquals(receipt,reprice.getAcceptedSalePolicyProof().getReceipt());
+        long remainingCost=3203-SaleAccounting.allocateCost(3203,3,1);
+        var remaining=PositionProjection.ready(13263,"Abyssal bludgeon",2,remainingCost,at-1200,at,"buy","episode")
+            .withExitContext(new AcquisitionExitContext(1400,0,30).bind("original-without-stop"));
+        var ledger=ledger(List.of(remaining),at);long end=at/300*300;
+        var market=new MarketSnapshot(Map.of(13263,new ItemMetadata(13263,"Abyssal bludgeon",true,8,0)),
+            Map.of(13263,new LatestPrice(1200,at,1150,at)),Map.of(),Map.of(),now);
+        var bars=List.of(new Candle(end-600,1200,1150,100,100),new Candle(end-300,1200,1150,100,100));
+        var eightHours=TradingHorizon.of(RiskProfile.MODERATE,CheckInterval.EIGHT_HOURS);
+        var selected=pricing.quote(13263,1,2,account,ledger,Map.of(),Set.of(),market,bars,eightHours,now,false,reprice);
+        assertEquals(SuggestionType.SELL,selected.getType());assertEquals(1199,selected.getPrice());assertEquals(1400,selected.getTargetSellPrice());
+        assertFalse(selected.isLossCut());assertTrue(selected.isProfitKnown());
+        assertEquals(tax.netProceeds(13263,1199,1)-SaleAccounting.allocateCost(remainingCost,2,1),selected.getExpectedProfit());
+        assertEquals(tax.breakEvenSellPriceForCost(13263,SaleAccounting.allocateCost(remainingCost,2,1),1),selected.getBreakEvenPrice());
+        assertEquals(SuggestionType.WAIT,pricing.quote(13263,1,2,account,ledger,Map.of(),Set.of(),market,List.of(),eightHours,now,false,reprice).getType());
+        assertEquals(SuggestionType.WAIT,pricing.quote(13263,3,100,account,ledger,Map.of(),Set.of(),market,bars,eightHours,now,false,reprice).getType());
+        var depressed=new MarketSnapshot(market.getMetadata(),Map.of(13263,new LatestPrice(800,at,750,at)),Map.of(),Map.of(),now);
+        var lowBars=List.of(new Candle(end-600,800,750,100,100),new Candle(end-300,800,750,100,100));
+        var protectedQuote=pricing.quote(13263,1,2,account,ledger,Map.of(),Set.of(),depressed,lowBars,eightHours,now,false,reprice);
+        assertFalse("A past profitable reduction cannot create an unknown original stop",protectedQuote.isLossCut());
+        if(protectedQuote.getType()==SuggestionType.SELL)assertTrue(protectedQuote.getExpectedProfit()>=0);
+        assertEquals(remainingCost,ledger.getTradingPositions().get(0).getTotalCost());assertEquals(2,ledger.getTradingPositions().get(0).getQuantity());
+    }
 }

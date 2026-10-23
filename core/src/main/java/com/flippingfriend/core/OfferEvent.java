@@ -71,6 +71,8 @@ public final class OfferEvent
     private final AcceptedBuyPlanProof acceptedBuyPlanProof;
     private final String acceptedBuyPlanEvidenceVersion;
     private final ContinuationSuccessorProof continuationSuccessorProof;
+    private final AcceptedSalePolicyProof acceptedSalePolicyProof;
+    private final String salePolicyEvidenceVersion;
 
 	private OfferEvent(Builder builder)
 	{
@@ -109,6 +111,8 @@ public final class OfferEvent
         this.acceptedBuyPlanProof=builder.acceptedBuyPlanProof;
         this.acceptedBuyPlanEvidenceVersion=builder.acceptedBuyPlanEvidenceVersion;
         this.continuationSuccessorProof=builder.continuationSuccessorProof;
+        this.acceptedSalePolicyProof=builder.acceptedSalePolicyProof;
+        this.salePolicyEvidenceVersion=builder.salePolicyEvidenceVersion;
 	}
 
 	public static Builder builder(String correlationId, long observedAt, String eventType)
@@ -182,6 +186,16 @@ public final class OfferEvent
     public OfferEvent withContinuationSuccessorProof(ContinuationSuccessorProof proof){
         Builder copy=copyBuilder();copy.continuationSuccessorProof=proof;return copy.build();
     }
+    public AcceptedSalePolicyProof getAcceptedSalePolicyProof(){return acceptedSalePolicyProof;}
+    public String getSalePolicyEvidenceVersion(){return salePolicyEvidenceVersion;}
+    public OfferEvent withSalePolicyEvidenceVersion(String version){
+        Builder copy=copyBuilder();copy.salePolicyEvidenceVersion=version;return copy.build();
+    }
+    public OfferEvent withAcceptedSalePolicyProof(AcceptedSalePolicyProof proof){
+        Builder copy=copyBuilder();copy.acceptedSalePolicyProof=proof;
+        if(proof!=null)copy.salePolicyEvidenceVersion="1";
+        return copy.build();
+    }
     /** Prospective accepted order evidence independent of prediction scoring eligibility. */
     public boolean hasAcceptedExitProof(){return acceptedAdviceProof!=null && acceptedAdviceProof.isValid();}
 
@@ -199,6 +213,8 @@ public final class OfferEvent
         copy.acceptedBuyPlanProof=acceptedBuyPlanProof;
         copy.acceptedBuyPlanEvidenceVersion=acceptedBuyPlanEvidenceVersion;
         copy.continuationSuccessorProof=continuationSuccessorProof;
+        copy.acceptedSalePolicyProof=acceptedSalePolicyProof;
+        copy.salePolicyEvidenceVersion=salePolicyEvidenceVersion;
         return copy;
     }
     /** Freezes observational attribution, not proof of player intent. Economic/delivery fields stay intact. */
@@ -301,6 +317,8 @@ public final class OfferEvent
         private AcceptedBuyPlanProof acceptedBuyPlanProof;
         private String acceptedBuyPlanEvidenceVersion;
         private ContinuationSuccessorProof continuationSuccessorProof;
+        private AcceptedSalePolicyProof acceptedSalePolicyProof;
+        private String salePolicyEvidenceVersion;
 
 		private Builder(String correlationId, long observedAt, String eventType)
 		{
@@ -344,6 +362,8 @@ public final class OfferEvent
         public Builder acceptedBuyPlanProof(AcceptedBuyPlanProof value){acceptedBuyPlanProof=value;return this;}
         public Builder acceptedBuyPlanEvidenceVersion(String value){acceptedBuyPlanEvidenceVersion=value;return this;}
         public Builder continuationSuccessorProof(ContinuationSuccessorProof value){continuationSuccessorProof=value;return this;}
+        public Builder acceptedSalePolicyProof(AcceptedSalePolicyProof value){acceptedSalePolicyProof=value;if(value!=null)salePolicyEvidenceVersion="1";return this;}
+        public Builder salePolicyEvidenceVersion(String value){salePolicyEvidenceVersion=value;return this;}
 
 		/** Links this offer to the advice that prompted it. */
 		public Builder recommendation(String id, int price, int quantity, long quoteAge,

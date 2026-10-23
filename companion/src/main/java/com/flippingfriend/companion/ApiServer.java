@@ -111,6 +111,7 @@ final class ApiServer implements AutoCloseable
             case "policy/replacement": replacementEntry(exchange);break;
 			case "policy/buy-maintenance": buyMaintenanceDecision(exchange); break;
 			case "policy/sale": saleDecision(exchange); break;
+            case "policy/sale-maintenance": saleMaintenanceDecision(exchange);break;
 			case "events/account-state": account(exchange); break;
 			case "events/ge-offer": offer(exchange); break;
 			default: respond(exchange, 404, "{\"error\":\"unknown account endpoint\"}");
@@ -214,6 +215,28 @@ final class ApiServer implements AutoCloseable
 		respond(exchange, 200, gson.toJson(service.buyMaintenanceDecision(
 			java.time.Instant.now().getEpochSecond())));
 	}
+    private void saleMaintenanceDecision(HttpExchange exchange)throws IOException {
+        if(!authorized(exchange))return;
+        if(!"POST".equals(exchange.getRequestMethod())){respond(exchange,405,"{\"error\":\"POST required\"}");return;}
+        var scoped=accountService(exchange);if(scoped==null)return;
+        try {
+            byte[] bytes=exchange.getRequestBody().readNBytes(16385);
+            if(bytes.length>16384)throw new IllegalArgumentException("Sale request is too large");
+            var body=gson.fromJson(new String(bytes,StandardCharsets.UTF_8),com.google.gson.JsonObject.class);
+            if(body==null || !body.keySet().equals(java.util.Set.of("requestId","item","price","quantity","source","cut","slot")))
+                throw new IllegalArgumentException("Invalid sale request");
+            for(String key:new String[]{"item","price","quantity","slot"}) {
+                var value=body.getAsJsonPrimitive(key);
+                if(value==null || !value.isNumber() || !value.getAsString().matches("0|[1-9][0-9]*")
+                    || new java.math.BigInteger(value.getAsString()).compareTo(java.math.BigInteger.valueOf(Integer.MAX_VALUE))>0)throw new IllegalArgumentException("Invalid sale quantity");
+            }
+            if(!body.getAsJsonPrimitive("requestId").isString() || !body.getAsJsonPrimitive("source").isString()
+                || !body.getAsJsonPrimitive("cut").isBoolean())throw new IllegalArgumentException("Invalid sale identity");
+            respond(exchange,200,gson.toJson(scoped.saleMaintenanceDecision(body.get("requestId").getAsString(),body.get("item").getAsInt(),
+                body.get("price").getAsInt(),body.get("quantity").getAsInt(),body.get("source").getAsString(),body.get("cut").getAsBoolean(),
+                body.get("slot").getAsInt(),java.time.Instant.now().getEpochSecond())));
+        }catch(RuntimeException malformed){respond(exchange,400,"{\"error\":\"invalid sale maintenance request\"}");}
+    }
 	private void saleDecision(HttpExchange exchange) throws IOException {
 		if(!authorized(exchange))return;
 		if(!"GET".equals(exchange.getRequestMethod())){respond(exchange,405,"{\"error\":\"GET required\"}");return;}

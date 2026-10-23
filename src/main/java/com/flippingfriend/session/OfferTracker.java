@@ -448,6 +448,7 @@ public class OfferTracker
 		int delta = filled - tracked.getRecordedQuantity();
 		String previousState = tracked.getState();
 
+        tracked.observeCurrentCallback();
         if(filled>tracked.getQuantityFilled())tracked.observeFillAt(now.getEpochSecond());
 		tracked.setQuantityFilled(filled);
 		tracked.setSpent(offer.getSpent());

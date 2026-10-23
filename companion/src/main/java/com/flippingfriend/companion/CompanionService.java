@@ -635,6 +635,28 @@ final class CompanionService implements AutoCloseable
 				market.state(),series,item,price,quantity,source,cut,slot,at,repriceSource);
 		}catch(Exception unavailable){return null;}
 	}
+    /** Prospective POST authorization; receipt metadata commits only after the exact final policy passes. */
+    synchronized PolicyDecision saleMaintenanceDecision(String request,int item,int price,int quantity,String source,boolean cut,int slot,long at) {
+        if(slot<0 || slot>7)throw new IllegalArgumentException("Working sale slot is required");
+        java.util.UUID.fromString(request);
+        try {
+            var read=store.saleProjections(accountId,at);
+            var decision=new CompanionSalePolicy().decide(read.planning,read.ledger,account,market.state(),series,
+                item,price,quantity,source,cut,slot,at);
+            if(decision.getAction()!=com.flippingfriend.core.OfferLifecycleAction.CANCEL_SELL)return decision;
+            var offer=read.planning.currentEvents.get(slot);
+            var horizon=com.flippingfriend.TradingHorizon.of(com.flippingfriend.RiskProfile.valueOf(account.getRiskAppetite()),
+                AccountReplay.interval(account.getCheckIntervalMinutes()),account.getTargetHoldMinutes());
+            var receipt=store.issueSalePolicyReceipt(request,account,offer,read.planning.saleProgressAt.getOrDefault(slot,offer.getFirstSeenAt()),
+                price,quantity,cut,at,horizon.staleOfferMinutes()*60L);
+            return decision.withSalePolicyReceipt(receipt);
+        }catch(Exception unavailable) {
+            String identity=CompanionSalePolicy.identity(item,price,quantity,source,cut,slot);
+            return PolicyDecision.abstain("1",CompanionSalePolicy.VERSION,identity+":"+at,
+                com.flippingfriend.core.PolicyDecisionType.SELL_MAINTENANCE,
+                com.flippingfriend.core.PolicyAbstentionReason.ACCOUNT_STATE_INCONSISTENT,"SALE_POLICY_RECEIPT_UNAVAILABLE",at,at,identity,source);
+        }
+    }
 
 	CompanionHealth health()
 	{

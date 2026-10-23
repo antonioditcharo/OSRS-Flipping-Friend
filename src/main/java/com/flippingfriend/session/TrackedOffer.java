@@ -32,6 +32,7 @@ public class TrackedOffer
 	/** Additive identity for new episodes. Missing legacy identities keep the shipped key. */
 	private String episodeIdentity;
     private transient com.flippingfriend.core.CaptureOrder firstCaptureOrder;
+    private transient com.flippingfriend.core.CaptureOrder observationCaptureOrder;
 
 	/**
 	 * The journal entry this offer is accruing, held here until the offer finishes.
@@ -75,6 +76,7 @@ public class TrackedOffer
 		this.firstSeen = firstSeen;
 		this.lastChanged = firstSeen;
         this.firstCaptureOrder=com.flippingfriend.core.CaptureOrder.next();
+        this.observationCaptureOrder=firstCaptureOrder;
 	}
 
     /** Local workflow identity; financial/source event keys remain unchanged. */
@@ -91,9 +93,14 @@ public class TrackedOffer
         copy.buyMaintenanceDeadlineAt=buyMaintenanceDeadlineAt;
 		copy.episodeIdentity = episodeIdentity;
         copy.firstCaptureOrder=firstCaptureOrder;
+        copy.observationCaptureOrder=observationCaptureOrder;
 		return copy;
 	}
     public com.flippingfriend.core.CaptureOrder getFirstCaptureOrder(){return firstCaptureOrder;}
+    public com.flippingfriend.core.CaptureOrder getObservationCaptureOrder(){return observationCaptureOrder;}
+    void observeCurrentCallback(){observationCaptureOrder=com.flippingfriend.core.CaptureOrder.next();}
+    /** A freshly verified current frame, separate from ordinary copies of retained observations. */
+    public TrackedOffer copyCurrentObservation(){var copy=copyObservation();copy.observeCurrentCallback();return copy;}
 
 	void startEpisodeIdentity()
 	{

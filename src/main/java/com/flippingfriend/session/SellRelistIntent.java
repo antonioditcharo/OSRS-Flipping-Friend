@@ -11,11 +11,12 @@ public final class SellRelistIntent extends OfferContinuationStore {
         private final int item,quantity;private final boolean managed;private final String repriceSource;
         private final int originalPrice;private final long firstSeen,progressAt;
         private final String originIdentity;
+        private final com.flippingfriend.core.AcceptedSalePolicyProof acceptedPolicy;
         private CollectedRemainder(com.flippingfriend.core.OfferContinuation intent){
             item=intent.getItemId();quantity=intent.getCollectedRemaining();managed=intent.isManaged();
             repriceSource=intent.getSaleRepriceSource();originalPrice=intent.getOriginalPrice();
             firstSeen=intent.getFirstSeenAt();progressAt=intent.getSaleRepriceProgressAt();
-            originIdentity=intent.getOriginalIdentity();
+            originIdentity=intent.getOriginalIdentity();acceptedPolicy=intent.getAcceptedSalePolicyProof();
         }
         public int getItemId(){return item;}
         public int getQuantity(){return quantity;}
@@ -25,6 +26,8 @@ public final class SellRelistIntent extends OfferContinuationStore {
         public long getFirstSeenAt(){return firstSeen;}
         public long getProgressAt(){return progressAt;}
         public String getOriginIdentity(){return originIdentity;}
+        public com.flippingfriend.core.AcceptedSalePolicyProof getAcceptedSalePolicyProof(){return acceptedPolicy;}
+        public long getAcceptedPatienceSeconds(){return acceptedPolicy==null?0:acceptedPolicy.getReceipt().getPatienceSeconds();}
     }
     @Inject public SellRelistIntent(PluginStorage storage){super(storage,"sell-relist-intent.json",false);}
     public synchronized void advise(TrackedOffer offer){advise(offer,account());}
@@ -35,6 +38,13 @@ public final class SellRelistIntent extends OfferContinuationStore {
     }
     public synchronized boolean advise(TrackedOffer offer,String expected,boolean managed,OfferTracker tracker,String source) {
         return adviseOffer(offer,expected,managed,tracker,java.time.Instant.now().getEpochSecond(),0,source);
+    }
+    public synchronized boolean advise(TrackedOffer offer,String expected,boolean managed,OfferTracker tracker,String source,
+            com.flippingfriend.core.SalePolicyReceipt receipt,long now) {
+        return adviseOffer(offer,expected,managed,tracker,now,0,source,receipt);
+    }
+    public synchronized java.util.List<com.flippingfriend.core.AcceptedSalePolicyProof> acceptedPolicies(String expected) {
+        return acceptedPoliciesFor(expected);
     }
     public synchronized void observe(OfferTracker tracker,String expected){advance(tracker,expected,java.time.Instant.now().getEpochSecond());}
     public synchronized boolean isPending(int item,OfferTracker tracker,String expected) {

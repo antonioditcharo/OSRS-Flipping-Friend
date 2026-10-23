@@ -9,7 +9,7 @@ import java.util.List;
 
 /** Pure sale-maintenance authority shared by the client, companion and chronological replay. */
 public final class SaleMaintenancePricing {
-    public static final String VERSION="supported-sale-maintenance-4";
+    public static final String VERSION="supported-sale-maintenance-5";
     public enum Status {
         ELIGIBLE, INVALID_QUANTITY, MISSING_PRICES, STALE_PRICES, IMMATERIAL_CHANGE,
         UNPROVEN_QUANTITY, UNKNOWN_CLOCKS, PLACEMENT_PATIENCE, RECENT_PROGRESS,
@@ -45,8 +45,22 @@ public final class SaleMaintenancePricing {
     public Evaluation evaluateRelist(int item,int offerPrice,int remaining,Position position,LatestPrice latest,
         List<Candle> series,TradingHorizon horizon,Instant now,boolean sellOnly,
         SellTimingEngine exits,TaxCalculator tax,long firstObservedAt,long lastProgressAt) {
+        return evaluateRelist(item,offerPrice,remaining,position,latest,series,horizon,now,sellOnly,exits,tax,firstObservedAt,lastProgressAt,null);
+    }
+    public Evaluation evaluateRelist(int item,int offerPrice,int remaining,Position position,LatestPrice latest,
+        List<Candle> series,TradingHorizon horizon,Instant now,boolean sellOnly,
+        SellTimingEngine exits,TaxCalculator tax,long firstObservedAt,long lastProgressAt,
+        com.flippingfriend.core.SalePolicyReceipt accepted) {
+        long patience=-1;
+        if(accepted!=null) {
+            if(!accepted.isWellFormed() || accepted.getItemId()!=item || accepted.getStandingPrice()!=offerPrice
+                || remaining>accepted.getQuantity() || accepted.getFirstSeenAt()!=firstObservedAt
+                || accepted.getProgressAt()!=lastProgressAt || accepted.getDecidedAt()>now.getEpochSecond())
+                return Evaluation.waitFor(Status.UNKNOWN_CLOCKS);
+            patience=accepted.getMode()==com.flippingfriend.core.SalePolicyReceipt.Mode.ROUTINE?accepted.getPatienceSeconds():0;
+        }
         var reduction=evaluate(item,offerPrice,remaining,position,latest,series,horizon,now,sellOnly,exits,tax,
-            firstObservedAt,lastProgressAt);
+            firstObservedAt,lastProgressAt,patience);
         if(reduction.quote!=null || reduction.status!=Status.MARKET_SUPPORT && reduction.status!=Status.IMMATERIAL_CHANGE)
             return reduction;
         if(position==null || !position.isCostKnown() || remaining>position.getQuantity())return reduction;
@@ -69,6 +83,11 @@ public final class SaleMaintenancePricing {
     public Evaluation evaluate(int item,int offerPrice,int remaining,Position position,LatestPrice latest,
         List<Candle> series,TradingHorizon horizon,Instant now,boolean sellOnly,
         SellTimingEngine exits,TaxCalculator tax,long firstObservedAt,long lastProgressAt) {
+        return evaluate(item,offerPrice,remaining,position,latest,series,horizon,now,sellOnly,exits,tax,firstObservedAt,lastProgressAt,-1);
+    }
+    private Evaluation evaluate(int item,int offerPrice,int remaining,Position position,LatestPrice latest,
+        List<Candle> series,TradingHorizon horizon,Instant now,boolean sellOnly,
+        SellTimingEngine exits,TaxCalculator tax,long firstObservedAt,long lastProgressAt,long acceptedPatience) {
         if(remaining<=0)return Evaluation.waitFor(Status.INVALID_QUANTITY);
         if(latest==null || !latest.isComplete())return Evaluation.waitFor(Status.MISSING_PRICES);
         if(latest.secondsSinceHigh(now)<0
@@ -99,7 +118,7 @@ public final class SaleMaintenancePricing {
             int supported=supportedLowerAsk(series,offerPrice,horizon,at);
             if(firstObservedAt<=0 || firstObservedAt>at || lastProgressAt<firstObservedAt || lastProgressAt>at)
                 return Evaluation.waitFor(Status.UNKNOWN_CLOCKS);
-            long patience=horizon.staleOfferMinutes()*60L;
+            long patience=acceptedPatience>=0?acceptedPatience:horizon.staleOfferMinutes()*60L;
             long reassess=Math.max(firstObservedAt,lastProgressAt)+patience;
             if(at-firstObservedAt<patience)return new Evaluation(Status.PLACEMENT_PATIENCE,null,reassess);
             if(at-lastProgressAt<patience)return new Evaluation(Status.RECENT_PROGRESS,null,reassess);

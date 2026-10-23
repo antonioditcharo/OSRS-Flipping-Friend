@@ -61,6 +61,11 @@ public class CompanionClient
 	private final Gson gson;
 	private final SuggestionLedger ledger;
         private final OfferEventOutbox outbox;
+    private volatile java.util.function.Function<String,java.util.List<com.flippingfriend.core.AcceptedSalePolicyProof>> salePolicyAcceptanceReader;
+    public void setSalePolicyAcceptanceReader(java.util.function.Function<String,java.util.List<com.flippingfriend.core.AcceptedSalePolicyProof>> reader) {
+        salePolicyAcceptanceReader=reader;
+    }
+
         private final LongSupplier retryClock;
         private final AtomicBoolean replayRunning = new AtomicBoolean();
         private final Object replayScheduling=new Object();
@@ -518,6 +523,12 @@ public class CompanionClient
         SuggestionLedger.Advice advice=ledger.attribute(offer.getItemId(),offer.isBuying(),now);
         var successor=ledger.attributeSuccessor(offer.getItemId(),offer.isBuying(),now);
         var buyPlan=ledger.attributeBuyPlan(offer.getItemId(),offer.isBuying(),now);
+        java.util.List<com.flippingfriend.core.AcceptedSalePolicyProof> acceptedSales=java.util.List.of();
+        var saleReader=salePolicyAcceptanceReader;
+        if(!offer.isBuying() && saleReader!=null)try {
+            var read=saleReader.apply(expectedAccountId);if(read!=null)acceptedSales=java.util.List.copyOf(read);
+        }catch(RuntimeException unavailable){/* Preserve economic observations; earlier bound receipts remain in the outbox. */}
+        final var saleProofs=acceptedSales;
         return (eventId,sessionId,sequence)->{
             long start=offer.getFirstSeen()>0?offer.getFirstSeen():now;
             var builder=OfferEvent.builder(UUID.randomUUID().toString(),now,state).accountId(expectedAccountId)
@@ -526,6 +537,7 @@ public class CompanionClient
                 .slot(offer.getSlot()).item(offer.getItemId(),offer.getItemName()).buying(offer.isBuying()).price(offer.getPrice())
                 .quantities(offer.getTotalQuantity(),offer.getQuantityFilled()).spent(offer.getSpent()).sequence(sequence).firstSeenAt(offer.getFirstSeen());
             if(offer.isBuying())builder.acceptedBuyPlanEvidenceVersion("1");
+            if(!offer.isBuying())builder.salePolicyEvidenceVersion("1");
             if(advice!=null) {
                 builder.recommendation(advice.getRecommendationId(),advice.getPrice(),advice.getQuantity(),advice.getQuoteAgeSeconds(),
                     advice.getPredictedMinutes(),advice.getPredictedCompletion());
@@ -543,7 +555,11 @@ public class CompanionClient
                     buyPlan.getAcceptedAdviceId(),offer.getItemId(),buyPlan.getPrice(),buyPlan.getQuantity(),buyPlan.getRecordedAt(),
                     buyPlan.getAcceptedOrder(),buyPlan.getExitContext(),forecast).captured(offer.getFirstCaptureOrder()));
             }
-            return builder.build();
+            var event=builder.build();
+            for(var proof:saleProofs)if(proof!=null && proof.isWellFormed() && proof.getReceipt().matchesEpisode(event)) {
+                event=event.withAcceptedSalePolicyProof(proof.captured(offer.getObservationCaptureOrder()));break;
+            }
+            return event;
         };
     }
 
@@ -1021,13 +1037,32 @@ public class CompanionClient
             String path="policy/sale?item="+proposed.getItemId()+"&price="+proposed.getPrice()+"&quantity="+proposed.getQuantity()
                 +"&source="+URLEncoder.encode(source,StandardCharsets.UTF_8.name())+"&cut="+proposed.isLossCut()+"&slot="+slot;
             if(repriceSource!=null && !repriceSource.isBlank())path+="&repriceSource="+URLEncoder.encode(repriceSource,StandardCharsets.UTF_8.name());
-            PolicyDecision decision=gson.fromJson(request(path,"GET",null,ACCOUNT_READ_TIMEOUT_MILLIS,requestedAccount),PolicyDecision.class);
+            String receiptRequest=null;
+            PolicyDecision decision;
+            if(slot>=0) {
+                receiptRequest=UUID.randomUUID().toString();var body=new com.google.gson.JsonObject();
+                body.addProperty("requestId",receiptRequest);body.addProperty("item",proposed.getItemId());
+                body.addProperty("price",proposed.getPrice());body.addProperty("quantity",proposed.getQuantity());
+                body.addProperty("source",source);body.addProperty("cut",proposed.isLossCut());body.addProperty("slot",slot);
+                decision=gson.fromJson(request("policy/sale-maintenance","POST",gson.toJson(body),ACCOUNT_READ_TIMEOUT_MILLIS,requestedAccount),PolicyDecision.class);
+            } else decision=gson.fromJson(request(path,"GET",null,ACCOUNT_READ_TIMEOUT_MILLIS,requestedAccount),PolicyDecision.class);
             long receivedAt=Instant.now().getEpochSecond();
             if(validSaleDecision(decision,key,source,slot,now) && decision.getDecidedAt()<=receivedAt
                 && receivedAt-decision.getDecidedAt()<=5 && receivedAt-decision.getInputObservedAt()<=150
                 && java.util.Objects.equals(requestedAccount,accountContext()) && !offerEvidencePending()
                 && source.equals(currentSaleSource(proposed,slot))) {
-                    if(slot>=0)proposed.bindSaleRepriceSource(source);
+                    if(slot>=0) {
+                        var receipt=decision.getSalePolicyReceipt();var current=canonicalOffers.get(slot);
+                        if(receipt==null || !receipt.isWellFormed() || !receiptRequest.equals(receipt.getReceiptId())
+                            || !requestedAccount.equals(receipt.getAccountId()) || !source.equals(receipt.getSourceEventId())
+                            || receipt.getDecidedAt()!=decision.getDecidedAt() || receipt.getSlot()!=slot
+                            || receipt.isLossCut()!=proposed.isLossCut() || !receipt.matchesOrder(proposed.getItemId(),proposed.getPrice(),proposed.getQuantity())
+                            || !receipt.matchesSource(current)) {
+                            lastError="Sale verification: SALE_POLICY_RECEIPT_UNAVAILABLE";
+                            return proposed.isLossCut()?saleWaiting("SALE_POLICY_RECEIPT_UNAVAILABLE"):null;
+                        }
+                        proposed.bindSaleRepriceSource(source);proposed.bindSalePolicyReceipt(receipt);
+                    }
                     lastError="";return proposed;
                 }
             reason=decision==null?"SALE_AUTHORITY_UNAVAILABLE":decision.getAction()==OfferLifecycleAction.WAIT
@@ -1069,7 +1104,7 @@ public class CompanionClient
         return null;
     }
     static boolean validSaleDecision(PolicyDecision decision,String identity,String source,int slot,long now) {
-        return decision!=null && "1".equals(decision.getSchemaVersion()) && "companion-sale-8".equals(decision.getPolicyVersion())
+        return decision!=null && "1".equals(decision.getSchemaVersion()) && "companion-sale-9".equals(decision.getPolicyVersion())
             && identity.equals(decision.getCandidateId()) && source.equals(decision.getRecommendationId())
             && decision.getDecisionType()==(slot<0?PolicyDecisionType.EXIT:PolicyDecisionType.SELL_MAINTENANCE)
             && decision.getAction()==(slot<0?OfferLifecycleAction.PLACE_SELL:OfferLifecycleAction.CANCEL_SELL)
