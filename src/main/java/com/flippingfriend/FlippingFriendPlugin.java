@@ -196,11 +196,12 @@ public class FlippingFriendPlugin extends Plugin
 	private long pendingRestoreGeneration;
 	private String pendingRestoreProfile;
 	private final boolean[] nonemptyOfferSeen = new boolean[8];
-	private volatile long lastAccountRefresh;
-	private volatile long lastEngineRefresh;
+	private java.util.function.LongSupplier heartbeatClock=()->System.nanoTime()/1_000_000;
+	private volatile long lastAccountRefresh=Long.MIN_VALUE;
+	private volatile long lastEngineRefresh=Long.MIN_VALUE;
 	private final AtomicBoolean engineRefreshInFlight=new AtomicBoolean(), engineRefreshRequested=new AtomicBoolean();
 	private final java.util.concurrent.atomic.AtomicLong engineRefreshEpoch=new java.util.concurrent.atomic.AtomicLong();
-	private volatile long lastPersist;
+	private volatile long lastPersist=Long.MIN_VALUE;
 	private volatile boolean exemptionsResolved;
 	private volatile Suggestion lastNotified = Suggestion.idle();
     private String editorSaleKey;
@@ -618,19 +619,19 @@ public class FlippingFriendPlugin extends Plugin
 		requestPendingOfferReplay();
 		resolveTaxExemptionsIfNeeded();
 
-		long now = System.currentTimeMillis();
-		if (now - lastAccountRefresh > ACCOUNT_REFRESH_MILLIS)
+		long now = heartbeatClock.getAsLong();
+		if (lastAccountRefresh==Long.MIN_VALUE || now - lastAccountRefresh > ACCOUNT_REFRESH_MILLIS)
 		{
 			lastAccountRefresh = now;
 			refreshAccountState();
 		}
 
-		if (now - lastEngineRefresh > config.refreshSeconds() * 1000L)
+		if (lastEngineRefresh==Long.MIN_VALUE || now - lastEngineRefresh > config.refreshSeconds() * 1000L)
 		{
 			requestEngineRefresh();
 		}
 
-		if (now - lastPersist > PERSIST_INTERVAL_MILLIS)
+		if (lastPersist==Long.MIN_VALUE || now - lastPersist > PERSIST_INTERVAL_MILLIS)
 		{
 			lastPersist = now;
 			persist();
@@ -920,7 +921,7 @@ public class FlippingFriendPlugin extends Plugin
 			return;
 		}
 
-		lastEngineRefresh = System.currentTimeMillis();
+		lastEngineRefresh = heartbeatClock.getAsLong();
 
 		clientThread.invokeLater(() ->
 		{

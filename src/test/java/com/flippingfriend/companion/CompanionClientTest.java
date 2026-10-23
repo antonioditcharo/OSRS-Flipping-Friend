@@ -508,7 +508,7 @@ public class CompanionClientTest
                         return replayAcknowledgement(event, false);
                 }));
                 assertEquals(1, outbox.pending().size());
-                assertEquals(0, publishing.nextRetryAtMillis());
+                assertEquals(5_000, publishing.nextRetryAtMillis());
                 assertEquals(2_000, publishing.retryDelayMillis());
                 java.util.List<Runnable> fresh = new java.util.ArrayList<>();
                 assertTrue(publishing.requestPendingOfferReplay(fresh::add));

@@ -309,7 +309,7 @@ public class CompanionClient
         public CompanionClient(PluginStorage storage, Gson gson, SuggestionLedger ledger,
                 OfferEventOutbox outbox)
         {
-                this(storage, gson, ledger, outbox, System::currentTimeMillis);
+                this(storage, gson, ledger, outbox, ()->System.nanoTime()/1_000_000);
         }
 
         CompanionClient(PluginStorage storage, Gson gson, SuggestionLedger ledger,
@@ -1598,7 +1598,7 @@ public class CompanionClient
                 tradeReview=null;tradeReviewError="";
                 replayEnabled = true;
                 retryDelayMillis = INITIAL_RETRY_DELAY_MILLIS;
-                nextRetryAtMillis = 0;
+                nextRetryAtMillis = retryClock.getAsLong();
         }
 
         public synchronized void pauseOfferReplay()

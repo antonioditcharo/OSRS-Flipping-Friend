@@ -1,10 +1,16 @@
 # Tasks
 
 Updated 23 October 2026. Read [HANDOFF.md](HANDOFF.md) and the actual delivery receipt at
-`local-data/prospective-sale-acceptance-20261023/delivery-state.json` first. Implemented/tested, merged,
+`local-data/monotonic-maintenance-20261023/delivery-state.json` first. Implemented/tested, merged,
 installed and player accepted are separate states. Owner is home; older login deferrals are superseded.
 
 ## Current batch
+
+- [x] Implement/test monotonic trading-heartbeat and offer-retry scheduling, preserving initial
+      refreshes, negative timer origins, bounded backoff and pause/resume generation fences.
+      [Contract](docs/architecture/monotonic-maintenance-scheduling.md); actual delivery in receipt.
+- [ ] Verify combined queued update and fresh logged-in cadence/retry recovery. Recorded UTC trade
+      clocks and order deadlines remain unchanged; controlled trading and sustained latency stay open.
 
 - [x] Implement/test independently durable prospective sale-acceptance capture in the outbox before
       presentation, with strict proof format 2 and unchanged legacy format 1. Read outages preserve
