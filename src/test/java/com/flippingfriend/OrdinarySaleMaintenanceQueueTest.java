@@ -129,6 +129,23 @@ public class OrdinarySaleMaintenanceQueueTest {
         verify(f.offers,never()).freezeBuyMaintenanceDeadline(eq(2),anyString(),anyDouble(),anyDouble(),anyLong(),anyString());
         var field=SuggestionEngine.class.getDeclaredField("reprice");field.setAccessible(true);assertNull(field.get(f.engine));
     }
+    @Test public void afterSalesRefuseOnlyUnexcludedWorkingBuysAreReassessedWithoutAnUnseenPromise()throws Exception {
+        var f=new Sales(mock(CompanionClient.class));f.buy(115);assertEquals(SuggestionType.MODIFY_SELL,f.next().getType());
+        var next=f.engine.buyMaintenanceAfterSaleRefusal(Set.of());assertNotNull(next);
+        assertEquals(SuggestionType.MODIFY_BUY,next.getType());assertEquals(563,next.getItemId());assertTrue(next.getPrice()>100);
+        assertEquals(2,next.getQuantity());assertNotNull(next.getMaintenanceOfferIdentity());
+        var field=SuggestionEngine.class.getDeclaredField("reprice");field.setAccessible(true);assertNull(field.get(f.engine));
+        assertNull(f.engine.buyMaintenanceAfterSaleRefusal(Set.of(next.getMaintenanceOfferIdentity())));
+        assertEquals(2,f.engine.saleCandidates().size());
+    }
+    @Test public void fallbackBuyMaintenanceStillRejectsRecentFillsAndStaleQuotes()throws Exception {
+        for(boolean recent:List.of(true,false)) {
+            var f=new Sales(mock(CompanionClient.class));f.buy(115);assertEquals(SuggestionType.MODIFY_SELL,f.next().getType());
+            if(recent)f.active.get(2).observeFillAt(now.getEpochSecond()-1);
+            else f.prices.put(563,new LatestPrice(160,now.getEpochSecond()-301,115,now.getEpochSecond()));
+            assertNull(f.engine.buyMaintenanceAfterSaleRefusal(Set.of()));
+        }
+    }
     @Test public void anEarlierEligibleBuyRetainsItsOriginalSelectionPriority()throws Exception {
         var f=new Sales(mock(CompanionClient.class));f.buy(130);var next=f.next();
         assertEquals(SuggestionType.MODIFY_BUY,next.getType());assertEquals(563,next.getItemId());assertTrue(f.engine.saleCandidates().isEmpty());

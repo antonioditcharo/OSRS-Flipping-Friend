@@ -85,6 +85,50 @@ public class AdviceDeliveryBoundaryTest {
             assertEquals("the completed recommendation awaits client-thread delivery",1,clientQueue.size());
         }
     }
+    @Test public void refusedRoutineSalesTryLaterIndependentBuyEpisodesBeforeNewEntries()throws Exception {
+        Fixture f=new Fixture();when(f.companion.nextAction()).thenReturn(null);
+        var engine=(SuggestionEngine)getField(f.plugin,"engine");
+        var sale=Suggestion.builder(SuggestionType.MODIFY_SELL).item(561,"Sale").slot(0).price(110).quantity(2).build();
+        var first=Suggestion.builder(SuggestionType.MODIFY_BUY).item(562,"First buy").slot(1).price(120).quantity(3).maintenanceSource("buy-one").build();
+        var later=Suggestion.builder(SuggestionType.CANCEL).item(563,"Later buy").slot(2).price(100).quantity(4).maintenanceSource("buy-two").build();
+        var refused=Suggestion.waiting("Sale refused","Current sale authority refused this reduction.");
+        when(engine.refresh(false)).thenReturn(sale);when(f.companion.authorizeSale(sale)).thenReturn(refused);
+        when(engine.buyMaintenanceAfterSaleRefusal(anySet())).thenAnswer(c->{Set<String> excluded=c.getArgument(0);return excluded.contains("buy-one")?later:first;});
+        when(f.companion.selectBuyMaintenanceCancellation(first)).thenReturn(null);
+        when(f.companion.selectBuyMaintenanceCancellation(later)).thenReturn(later);
+        f.queueAdvice();f.clientQueue.remove().run();verify(f.guide).setSuggestion(later);
+        verify(f.companion).selectBuyMaintenanceCancellation(first);verify(f.companion).selectBuyMaintenanceCancellation(later);
+        verify(f.companion,never()).nextEntrySuggestion(any(),anySet(),anySet(),anySet());
+    }
+    @Test public void refusedUrgentOrUnlistedExitDoesNotEnterTheRoutineBuyFallback()throws Exception {
+        for(boolean urgent:List.of(true,false)) {
+            Fixture f=new Fixture();when(f.companion.nextAction()).thenReturn(null);var engine=(SuggestionEngine)getField(f.plugin,"engine");
+            var sale=Suggestion.builder(urgent?SuggestionType.MODIFY_SELL:SuggestionType.SELL).item(561,"Exit").price(100).quantity(2).lossCut(urgent).build();
+            when(engine.refresh(false)).thenReturn(sale);when(f.companion.authorizeSale(sale)).thenReturn(null);
+            f.queueAdvice();f.clientQueue.remove().run();verify(engine,never()).buyMaintenanceAfterSaleRefusal(anySet());
+            verify(f.companion,never()).nextEntrySuggestion(any(),anySet(),anySet(),anySet());
+        }
+    }
+    @Test public void repeatedRefusedBuyEpisodeCannotLoopOrOverrideTheOriginalSaleWait()throws Exception {
+        Fixture f=new Fixture();when(f.companion.nextAction()).thenReturn(null);var engine=(SuggestionEngine)getField(f.plugin,"engine");
+        var sale=Suggestion.builder(SuggestionType.MODIFY_SELL).item(561,"Sale").price(100).quantity(2).build();
+        var buy=Suggestion.builder(SuggestionType.MODIFY_BUY).item(562,"Buy").slot(1).price(120).quantity(2).maintenanceSource("same-buy").build();
+        var waiting=Suggestion.waiting("Sale refused","Retained waiting reason");
+        when(engine.refresh(false)).thenReturn(sale);when(f.companion.authorizeSale(sale)).thenReturn(waiting);
+        when(engine.buyMaintenanceAfterSaleRefusal(anySet())).thenReturn(buy);
+        f.queueAdvice();f.clientQueue.remove().run();verify(f.guide).setSuggestion(waiting);
+        verify(engine,times(2)).buyMaintenanceAfterSaleRefusal(anySet());verify(f.companion,times(1)).selectBuyMaintenanceCancellation(buy);
+    }
+    @Test public void changedAccountRevisionDuringBuyFallbackWithdrawsTheCandidate()throws Exception {
+        Fixture f=new Fixture();when(f.companion.nextAction()).thenReturn(null);var engine=(SuggestionEngine)getField(f.plugin,"engine");
+        var sale=Suggestion.builder(SuggestionType.MODIFY_SELL).item(561,"Sale").price(100).quantity(2).build();
+        var buy=Suggestion.builder(SuggestionType.MODIFY_BUY).item(562,"Buy").slot(1).price(120).quantity(2).maintenanceSource("buy").build();
+        when(engine.refresh(false)).thenReturn(sale);when(f.companion.authorizeSale(sale)).thenReturn(null);
+        when(engine.buyMaintenanceAfterSaleRefusal(anySet())).thenReturn(buy);
+        when(f.companion.selectBuyMaintenanceCancellation(buy)).thenAnswer(c->{((java.util.concurrent.atomic.AtomicLong)getField(f.plugin,"adviceObservationRevision")).incrementAndGet();return buy;});
+        f.queueAdvice();f.clientQueue.remove().run();verify(f.guide,never()).setSuggestion(buy);
+        verify(f.companion,never()).recordPresentedAdvice(eq(buy),anyString(),anyInt());
+    }
     @Test public void refusedRoutineMaintenanceContinuesOnlyThroughTheFreshEntryDecision()throws Exception {
         Fixture f=new Fixture();when(f.companion.nextAction()).thenReturn(null);
         var engine=(SuggestionEngine)getField(f.plugin,"engine");

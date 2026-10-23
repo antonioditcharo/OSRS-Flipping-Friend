@@ -5,22 +5,25 @@ Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
 ## Current delivery
 
-Read `local-data/indexed-sale-evidence-20261022/delivery-state.json` first for actual source,
-verification, CI, merge and installation. PR #148 is installed at
-`0c41e9c4bd6b0b33160a904d743848eed4a64bd2`; its receipt is
-`local-data/committed-maintenance-acceptance-20261022/delivery-state.json`.
-Fresh logged-in evidence showed all 266 snapshotted pending payloads accepted unchanged, an empty
-outbox and BUY guidance. Intermittent slow maintenance persisted: receipt verification repeatedly
-scanned event_log while holding trading monitors. The current batch adds index-compatible receipt
-lookups, deduplicates immutable first-binding checks and explains market-side prices/ages and the
-material-change threshold in Active sales. [Contract](docs/architecture/indexed-sale-policy-evidence.md).
-Source is queued until the receipt records installation. Canonical receipt authority, exact costs,
-original plans, sale policy 9 / replay 18 / evaluator 5 and CURRENT_ACCOUNT_V3 remain unchanged.
+Read `local-data/buy-maintenance-fallthrough-20261023/delivery-state.json` first for actual source,
+verification, CI, merge and installation. Installed at batch start: PR #149 at
+`97e726c54d51a4f06cab5fba461a447ad15dcab7`; its receipt is
+`local-data/indexed-sale-evidence-20261022/delivery-state.json`. Fresh logged-in eight-slot/ACK
+checks passed, all 282 snapshotted payloads drained unchanged, SELL/MODIFY_SELL appeared and three
+adjacent final BUY authority checks passed. Full guidance still takes several seconds; sustained
+latency and controlled trade-loop acceptance remain open.
+
+The current batch fixes working BUY maintenance skipped after every routine sale is refused.
+It checks at most eight distinct BUY episodes, preserves urgent/unlisted exit priority and final
+source/revision/acceptance gates, and creates no undisplayed rebuy promise.
+[Contract](docs/architecture/buy-maintenance-fallthrough.md). Source is queued until the receipt
+records installation. Sale policy 9 / replay 18 / evaluator 5, original contexts, exact pooled costs,
+source identities and CURRENT_ACCOUNT_V3 remain unchanged.
 
 [Prior checkpoints](docs/history/handoff-through-2026-10-21-pr141.md).
 
-The current user reports prolonged maintenance waits while logged in. Inspect the new private
-urgent account/slot/outbox evidence and JVM dump, not the earlier logged-out snapshot. Preserve all
+The prior live blockade has fresh recovery evidence in the PR #149 receipt. Recheck current
+account/slot/outbox and guidance evidence instead of assuming it remains fresh. Preserve all
 pending event identities and financial/source/risk prefixes. Normal closure, verified backup/update/
 launch and scoped reads are authorized; login and game actions remain manual. Disk space now reads
 more than 12 GB; the earlier disk-full receipt describes its actual prior attempt, not a quota.
