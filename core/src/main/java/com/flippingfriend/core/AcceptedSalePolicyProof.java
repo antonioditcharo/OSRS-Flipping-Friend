@@ -14,9 +14,15 @@ public final class AcceptedSalePolicyProof {
     private final long sequence,capturedAt;
     private final int filledQuantity;
     private final long spent;
+    private final Boolean prospectiveCaptureRequired;
     private AcceptedSalePolicyProof(SalePolicyReceipt receipt,String id,long at,CaptureOrder accepted,
             CaptureOrder capture,String source,long sequence,long observed,int filled,long spent) {
-        formatVersion=1;this.receipt=receipt;acceptanceId=id;acceptedAt=at;acceptedOrder=accepted;
+        this(receipt,id,at,accepted,capture,source,sequence,observed,filled,spent,false);
+    }
+    private AcceptedSalePolicyProof(SalePolicyReceipt receipt,String id,long at,CaptureOrder accepted,
+            CaptureOrder capture,String source,long sequence,long observed,int filled,long spent,boolean prospective) {
+        prospectiveCaptureRequired=prospective?Boolean.TRUE:null;
+        formatVersion=prospective?2:1;this.receipt=receipt;acceptanceId=id;acceptedAt=at;acceptedOrder=accepted;
         captureOrder=capture;sourceEventId=source;this.sequence=sequence;capturedAt=observed;
         filledQuantity=filled;this.spent=spent;
     }
@@ -29,10 +35,16 @@ public final class AcceptedSalePolicyProof {
     }
     public AcceptedSalePolicyProof captured(CaptureOrder order) {
         if(!isWellFormed() || isBound())return this;
-        return new AcceptedSalePolicyProof(receipt,acceptanceId,acceptedAt,acceptedOrder,order,null,0,0,0,0);
+        return new AcceptedSalePolicyProof(receipt,acceptanceId,acceptedAt,acceptedOrder,order,null,0,0,0,0,isProspectiveCaptureRequired());
     }
+    /** New runtime acceptance must be independently committed before capture can bind it. */
+    public AcceptedSalePolicyProof requiringProspectiveCapture() {
+        if(!isWellFormed() || isBound())throw new IllegalStateException("Only prospective acceptance can be staged");
+        return new AcceptedSalePolicyProof(receipt,acceptanceId,acceptedAt,acceptedOrder,captureOrder,null,0,0,0,0,true);
+    }
+    public boolean isProspectiveCaptureRequired(){return Boolean.TRUE.equals(prospectiveCaptureRequired);}
     public boolean isWellFormed() {
-        if(formatVersion!=1 || receipt==null || !receipt.isWellFormed() || acceptanceId==null || acceptanceId.isBlank()
+        if((formatVersion!=1 && formatVersion!=2) || isProspectiveCaptureRequired()!=(formatVersion==2) || receipt==null || !receipt.isWellFormed() || acceptanceId==null || acceptanceId.isBlank()
             || acceptedAt<receipt.getDecidedAt() || acceptedAt-receipt.getDecidedAt()>10 || !validOrder(acceptedOrder)
             || captureOrder!=null && !validOrder(captureOrder))return false;
         if(sourceEventId==null)return sequence==0 && capturedAt==0 && filledQuantity==0 && spent==0;
@@ -50,7 +62,7 @@ public final class AcceptedSalePolicyProof {
             || event.getSequence()<=receipt.getSourceSequence() || Objects.equals(receipt.getSourceEventId(),event.getEventId())
             || event.getEventId()==null || event.getEventId().isBlank())return null;
         return new AcceptedSalePolicyProof(receipt,acceptanceId,acceptedAt,acceptedOrder,captureOrder,
-            event.getEventId(),event.getSequence(),event.getObservedAt(),event.getFilledQuantity(),event.getSpent());
+            event.getEventId(),event.getSequence(),event.getObservedAt(),event.getFilledQuantity(),event.getSpent(),isProspectiveCaptureRequired());
     }
     public boolean matchesEpisode(OfferEvent event) {
         return isBound() && receipt.matchesEpisode(event) && event.getSequence()>=sequence && event.getObservedAt()>=capturedAt
@@ -77,16 +89,17 @@ public final class AcceptedSalePolicyProof {
     public boolean hasSameAcceptance(AcceptedSalePolicyProof other) {
         return other!=null && isWellFormed() && other.isWellFormed() && formatVersion==other.formatVersion
             && Objects.equals(receipt,other.receipt) && Objects.equals(acceptanceId,other.acceptanceId)
+            && isProspectiveCaptureRequired()==other.isProspectiveCaptureRequired()
             && acceptedAt==other.acceptedAt && sameOrder(acceptedOrder,other.acceptedOrder);
     }
     private static boolean validOrder(CaptureOrder order){return order!=null && order.getProcess()!=null && !order.getProcess().isBlank() && order.getOrder()>0;}
     private static boolean sameOrder(CaptureOrder a,CaptureOrder b){return a==b || a!=null && b!=null && a.getOrder()==b.getOrder() && Objects.equals(a.getProcess(),b.getProcess());}
     @Override public boolean equals(Object value) {
         if(!(value instanceof AcceptedSalePolicyProof))return false;var p=(AcceptedSalePolicyProof)value;
-        return formatVersion==p.formatVersion && Objects.equals(receipt,p.receipt) && Objects.equals(acceptanceId,p.acceptanceId)
+        return formatVersion==p.formatVersion && isProspectiveCaptureRequired()==p.isProspectiveCaptureRequired() && Objects.equals(receipt,p.receipt) && Objects.equals(acceptanceId,p.acceptanceId)
             && acceptedAt==p.acceptedAt && sameOrder(acceptedOrder,p.acceptedOrder) && sameOrder(captureOrder,p.captureOrder)
             && Objects.equals(sourceEventId,p.sourceEventId) && sequence==p.sequence && capturedAt==p.capturedAt
             && filledQuantity==p.filledQuantity && spent==p.spent;
     }
-    @Override public int hashCode(){return Objects.hash(receipt,acceptanceId,acceptedAt,sourceEventId,sequence,capturedAt);}
+    @Override public int hashCode(){return Objects.hash(receipt,acceptanceId,acceptedAt,sourceEventId,sequence,capturedAt,isProspectiveCaptureRequired());}
 }
