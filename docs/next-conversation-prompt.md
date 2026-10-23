@@ -4,18 +4,20 @@ Continue in `C:\Users\Antonio\OSRS Flipping Friend Rebuild`.
 Implement, verify and deliver reliable trade/inventory workflow batches; do not stop at a roadmap.
 Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
-Read `local-data/prospective-sale-acceptance-20261023/delivery-state.json` FIRST, then AGENTS.md,
+Read `local-data/monotonic-maintenance-20261023/delivery-state.json` FIRST, then AGENTS.md,
 HANDOFF.md and TASKS.md. Source/tests/CI/merge/install/player acceptance are separate.
-[Current contract](architecture/prospective-sale-capture.md): commit exact prospective sale
-acceptance in the forced account outbox before presentation. Preserve it through continuation-file
-read failures; failed staging must withhold guidance and never self-promote on capture. New proof
-format 2 requires that commit; legacy format 1 and all original payloads remain unchanged.
-PR #149 (`97e726c54d51a4f06cab5fba461a447ad15dcab7`) remains installed. PR #150's bounded working
-BUY maintenance fix is verified and merged but installation is owner-deferred until normal RuneLite
-closure. Batch this work into that one paired update. Prior 8-slot/ACK/SELL/MODIFY_SELL and final BUY
-checks passed; recheck freshness. Controlled trading and sustained latency remain open.
-Sale9/replay18/evaluator5 unchanged; learning remains held. Original contexts, exact costs/budgets,
-independent BUY plans/deadlines, source/version fences and prospective sale receipts remain.
+[Current contract](architecture/monotonic-maintenance-scheduling.md): monotonic trading heartbeat
+and event retries must keep progressing through UTC corrections. Preserve first refreshes, negative
+local timer origins, bounded backoff and lifecycle fences. Recorded source/UTC clocks, original
+order deadlines, exact costs and risk/freshness guards remain unchanged.
+PR #149 (`97e726c54d51a4f06cab5fba461a447ad15dcab7`) remains installed. PRs #150 and #151 are
+verified and merged but installation is owner-deferred until normal RuneLite closure. Include
+this pass in that one paired update, then collect fresh authenticated logged-in acceptance.
+Prior 8-slot/ACK/SELL/MODIFY_SELL/final BUY recovery passed; recheck current evidence. Controlled
+trading and sustained latency remain open. New prospective sale proof format 2 and legacy format 1
+retain their separate commit requirements; receipt-free cancellations cannot be retrofitted.
+Sale9/replay18/evaluator5 unchanged; learning remains held. All original source and financial rows,
+contexts, exact budgets and CURRENT_ACCOUNT_V3 remain intact.
 The user reported hours of waits while logged in: new urgent slot/outbox/JVM evidence takes priority
 above earlier logged-out observations. Preserve queued identities; never clear outboxes to force advice.
 Old three-bludgeon plan stays unknown; bolts retain proven contexts; Dual macuahuitl has an exact
