@@ -10,6 +10,7 @@ public final class SaleMaintenanceDiagnostic {
     public final String unavailable;
     public final long evaluatedAt, validUntil, highAge, lowAge;
     public final double originalExpectedMinutes;
+    public final Integer highTradePrice,lowTradePrice;
     public final boolean personal;
 
     public SaleMaintenanceDiagnostic(TrackedOffer offer,SaleMaintenancePricing.Evaluation evaluation,
@@ -17,6 +18,7 @@ public final class SaleMaintenanceDiagnostic {
             boolean personal) {
         this.offer=offer.copyObservation();this.evaluation=evaluation;this.unavailable=unavailable;
         this.evaluatedAt=now;this.originalExpectedMinutes=originalExpectedMinutes;this.personal=personal;
+        highTradePrice=price==null?null:price.getHigh();lowTradePrice=price==null?null:price.getLow();
         highAge=price==null || price.getHighTime()==null?-1:price.secondsSinceHigh(Instant.ofEpochSecond(now));
         lowAge=price==null || price.getLowTime()==null?-1:price.secondsSinceLow(Instant.ofEpochSecond(now));
         long expiry=Math.min(Math.min(now+30,ledgerExpiresAt),(now/300+1)*300);

@@ -10,9 +10,16 @@ import java.util.*;
 /** Prospective authorization metadata only. Issuance never writes executions or accounting. */
 final class SalePolicyReceiptStore {
     static final String TABLE="sale_policy_receipt";
+    // Include the exact predicate of the durable partial identity index. Equality alone cannot use it.
+    static final String SOURCE_LOOKUP_SQL="SELECT id,payload,event_id,event_type,observed_at,correlation_id FROM event_log "
+        +"WHERE event_id=? AND event_id IS NOT NULL AND event_id<>''";
+    static final String BINDING_ROW_SQL="SELECT id FROM event_log WHERE event_id=? AND event_id IS NOT NULL AND event_id<>''";
+    static final String ACCOUNT_SOURCE_SQL="SELECT id,payload,observed_at FROM event_log WHERE event_type='ACCOUNT_STATE' AND correlation_id=? ORDER BY id";
+    static final String ACCOUNT_CORRELATION_SQL="SELECT COUNT(*) FROM event_log WHERE event_type='ACCOUNT_STATE' AND correlation_id=?";
     private static final Gson JSON=new Gson();
     static void initialize(Statement sql)throws Exception {
         sql.execute("CREATE TABLE IF NOT EXISTS "+TABLE+" (receipt_id TEXT PRIMARY KEY,account_id TEXT NOT NULL,account_row_id INTEGER NOT NULL,source_event_id TEXT NOT NULL,issued_after_row INTEGER NOT NULL,payload TEXT NOT NULL)");
+        sql.execute("CREATE INDEX IF NOT EXISTS event_log_account_correlation ON event_log(correlation_id) WHERE event_type='ACCOUNT_STATE'");
     }
     static final class Evidence {
         final Map<String,SalePolicyReceipt> receipts=new HashMap<>();
@@ -48,7 +55,7 @@ final class SalePolicyReceiptStore {
                 }
             }
             long rowId=0;String payload=null;
-            try(var query=db.prepareStatement("SELECT id,payload,observed_at FROM event_log WHERE event_type='ACCOUNT_STATE' AND correlation_id=? ORDER BY id")) {
+            try(var query=db.prepareStatement(ACCOUNT_SOURCE_SQL)) {
                 query.setString(1,settings.getCorrelationId());try(var rows=query.executeQuery()) {
                     if(rows.next()){rowId=rows.getLong(1);payload=rows.getString(2);if(rows.getLong(3)!=settings.getObservedAt())throw new IllegalStateException("Account source clock changed");}
                     if(rows.next())throw new IllegalStateException("Ambiguous sale policy account source");
@@ -73,15 +80,20 @@ final class SalePolicyReceiptStore {
         }catch(Exception failure){db.rollback();throw failure;}finally{db.setAutoCommit(true);}
     }
     static Evidence read(Connection db,String account,List<OfferEvent> history)throws Exception {
-        var evidence=new Evidence();var needed=new HashSet<String>();var sources=new HashMap<String,OfferEvent>();
+        var evidence=new Evidence();var needed=new HashSet<String>();var origins=new HashSet<String>();var bindings=new HashSet<String>();
         for(var event:history) {
-            sources.put(event.getEventId(),event);
             var proof=event.getAcceptedSalePolicyProof();
-            if(proof!=null && proof.getReceipt()!=null)needed.add(proof.getReceipt().getReceiptId());
+            if(proof!=null && proof.getReceipt()!=null) {
+                needed.add(proof.getReceipt().getReceiptId());origins.add(proof.getReceipt().getSourceEventId());
+                // Propagated frames retain the same first binding; only that immutable source row qualifies.
+                if(proof.qualifiesObservation(event))bindings.add(event.getEventId());
+            }
         }
         if(needed.isEmpty())return evidence;
+        var sources=new HashMap<String,OfferEvent>();
+        for(var event:history)if(origins.contains(event.getEventId()))sources.put(event.getEventId(),event);
         try(var find=db.prepareStatement("SELECT account_id,account_row_id,source_event_id,issued_after_row,payload FROM "+TABLE+" WHERE receipt_id=?");
-            var sourceOrder=db.prepareStatement("SELECT id FROM event_log WHERE event_id=?")) {
+            var sourceOrder=db.prepareStatement(BINDING_ROW_SQL)) {
             for(var id:needed) {
                 if(id==null)continue;find.setString(1,id);
                 try {
@@ -94,9 +106,9 @@ final class SalePolicyReceiptStore {
                 }
                 }catch(RuntimeException malformed){ /* Unusable policy metadata grants no exemption. */ }
             }
-            for(var event:history)if(event.getAcceptedSalePolicyProof()!=null) {
-                sourceOrder.setString(1,event.getEventId());try(var rows=sourceOrder.executeQuery()) {
-                    if(rows.next()){long value=rows.getLong(1);if(!rows.next())evidence.eventRows.put(event.getEventId(),value);}
+            for(var binding:bindings) {
+                sourceOrder.setString(1,binding);try(var rows=sourceOrder.executeQuery()) {
+                    if(rows.next()){long value=rows.getLong(1);if(!rows.next())evidence.eventRows.put(binding,value);}
                 }
             }
         }
@@ -122,7 +134,7 @@ final class SalePolicyReceiptStore {
         long sourcePosition=sourceRow(db,source);
         if(sourcePosition<=0 || sourcePosition>issuedAfter)return false;
         // Correlation ambiguity must never be resolved by choosing whichever row comes first.
-        try(var duplicates=db.prepareStatement("SELECT COUNT(*) FROM event_log WHERE event_type='ACCOUNT_STATE' AND correlation_id=?")) {
+        try(var duplicates=db.prepareStatement(ACCOUNT_CORRELATION_SQL)) {
             duplicates.setString(1,receipt.getAccountCorrelationId());
             try(var count=duplicates.executeQuery()){return count.next() && count.getInt(1)==1;}
         }
@@ -135,7 +147,7 @@ final class SalePolicyReceiptStore {
     }
     private static long sourceRow(Connection db,OfferEvent expected)throws Exception {
         if(expected==null)return 0;
-        try(var query=db.prepareStatement("SELECT id,payload,event_id,event_type,observed_at,correlation_id FROM event_log WHERE event_id=?")) {
+        try(var query=db.prepareStatement(SOURCE_LOOKUP_SQL)) {
             query.setString(1,expected.getEventId());try(var rows=query.executeQuery()) {
                 if(!rows.next())return 0;long row=rows.getLong(1);var actual=JSON.fromJson(rows.getString(2),OfferEvent.class);
                 if(actual==null || !sourceMetadata(rows,actual) || !JSON.toJson(actual).equals(JSON.toJson(expected)) || rows.next())return 0;return row;
@@ -145,7 +157,7 @@ final class SalePolicyReceiptStore {
     private static boolean validReadSet(Connection db,AccountSnapshot settings,OfferEvent source,long accountRow)throws Exception {
         if(settings==null || source==null || settings.getOfferReadSet()==null || settings.getOfferReadSet().size()!=8)return false;
         var ids=new HashSet<String>();String session=null;
-        try(var query=db.prepareStatement("SELECT id,payload,event_id,event_type,observed_at,correlation_id FROM event_log WHERE event_id=?")) {
+        try(var query=db.prepareStatement(SOURCE_LOOKUP_SQL)) {
             for(int slot=0;slot<8;slot++) {
                 var id=settings.getOfferReadSet().get(slot);if(id==null || !ids.add(id))return false;
                 query.setString(1,id);try(var rows=query.executeQuery()) {

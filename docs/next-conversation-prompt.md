@@ -4,17 +4,16 @@ Continue in `C:\Users\Antonio\OSRS Flipping Friend Rebuild`.
 Implement, verify and deliver reliable trade/inventory workflow batches; do not stop at a roadmap.
 Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
-Read `local-data/committed-maintenance-acceptance-20261022/delivery-state.json` FIRST, then current
-AGENTS.md, HANDOFF.md and TASKS.md. Source/tests/CI/merge/install/player acceptance are separate.
-[Current contract](architecture/maintenance-blockade-recovery.md): final replacement-refusal must
-continue into eligible working maintenance; bounded report transport and immutable Performance
-aggregation outside trading locks must keep ordered event/ACK/entry work responsive. Completion
-indexing preserves exact old results, clocks and source invalidation. Earlier committed sale-policy
-acceptance survives failed later fact saves without promoting unsaved prospective promises.
-Sale9/replay18/evaluator5 unchanged; learning remains held.
-
-Installed at batch start: #147 (`e7f787f4ed98fb8ede93ec22ca7483f0253b54fe`), recorded in
-`local-data/sale-policy-receipts-20261022/delivery-state.json`. Original contexts, exact costs/budgets,
+Read `local-data/indexed-sale-evidence-20261022/delivery-state.json` FIRST, then current AGENTS.md,
+HANDOFF.md and TASKS.md. Source/tests/CI/merge/install/player acceptance are separate.
+[Current contract](architecture/indexed-sale-policy-evidence.md): indexed receipt evidence and
+immutable first-binding deduplication must preserve all canonical authority; investigation prices,
+independent ages and thresholds explain blockers without changing policy.
+Installed PR #148 (`0c41e9c4bd6b0b33160a904d743848eed4a64bd2`) repairs replacement-refusal
+fallthrough and reporting contention. Logged-in pending snapshots drained unchanged and BUY guidance
+appeared; intermittent receipt-verification scans still caused latency. Actual PR #148 delivery is
+in `local-data/committed-maintenance-acceptance-20261022/delivery-state.json`.
+Sale9/replay18/evaluator5 unchanged; learning remains held. Original contexts, exact costs/budgets,
 independent BUY plans/deadlines, source/version fences and prospective sale receipts remain.
 The user reported hours of waits while logged in: new urgent slot/outbox/JVM evidence takes priority
 above earlier logged-out observations. Preserve queued identities; never clear outboxes to force advice.

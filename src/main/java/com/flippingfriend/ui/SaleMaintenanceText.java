@@ -18,10 +18,17 @@ final class SaleMaintenanceText {
                 .append(" · Since observed progress: ").append(age(now,offer.getLastFillObservedAt()));
             if(!row.matches(offer,now)) {text.append("\nCurrent evaluation expired; waiting for refreshed evidence.");continue;}
             if(row.unavailable!=null) {text.append("\n").append(row.unavailable);continue;}
-            if(row.highAge>=0 && row.lowAge>=0)text.append("\nBuyer/seller trade ages: ")
-                .append(duration(row.highAge+now-row.evaluatedAt)).append(" / ").append(duration(row.lowAge+now-row.evaluatedAt));
-            else text.append("\nTwo-sided trade ages: unavailable.");
+            text.append("\nLatest buyer-paid trade: ").append(trade(row.highTradePrice,row.highAge,now-row.evaluatedAt))
+                .append("\nLatest seller-received trade: ").append(trade(row.lowTradePrice,row.lowAge,now-row.evaluatedAt));
             text.append("\n").append(description(row.evaluation.status));
+            if(row.evaluation.status==SaleMaintenancePricing.Status.IMMATERIAL_CHANGE) {
+                int deadband=com.flippingfriend.TradingHorizon.outbidDeadbandForPrice(offer.getPrice());
+                text.append(" Minimum material reduction: ").append(deadband).append(" gp per item.");
+                if(row.highTradePrice!=null && row.highTradePrice>0)
+                    text.append(" Standing ask minus latest buyer-paid trade: ")
+                        .append((long)offer.getPrice()-row.highTradePrice).append(" gp per item.");
+                text.append(" A crossed original stop still requires a material supported change.");
+            }
             if(row.evaluation.reassessAt>now)text.append(" Clock-only reassessment in ")
                 .append(duration(row.evaluation.reassessAt-now)).append("; current market evidence will still be required.");
             if(Double.isFinite(row.originalExpectedMinutes) && row.originalExpectedMinutes>0) {
@@ -33,6 +40,11 @@ final class SaleMaintenanceText {
                 text.append("\nExact allocated remaining cost: ").append(row.evaluation.quote.allocatedCost).append(" gp.");
         }
         return text.toString();
+    }
+    private static String trade(Integer price,long age,long elapsed) {
+        if(price==null || price<=0 || age<0)return "unavailable";
+        long currentAge=age+elapsed;
+        return price+" gp, "+duration(currentAge)+" old"+(currentAge>300?" (stale for maintenance)":"");
     }
     private static String age(long now,long at){return at<=0 || at>now?"unavailable":duration(now-at);}
     private static String duration(long seconds){return seconds<60?seconds+"s":seconds/60+"m "+seconds%60+"s";}

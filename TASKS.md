@@ -1,10 +1,15 @@
 # Tasks
 
-Updated 22 October 2026. Read [HANDOFF.md](HANDOFF.md) and the actual delivery receipt at
-`local-data/committed-maintenance-acceptance-20261022/delivery-state.json` first. Implemented/tested, merged,
+Updated 23 October 2026. Read [HANDOFF.md](HANDOFF.md) and the actual delivery receipt at
+`local-data/indexed-sale-evidence-20261022/delivery-state.json` first. Implemented/tested, merged,
 installed and player accepted are separate states. Owner is home; older login deferrals are superseded.
 
 ## Current batch
+
+- [x] Implement/test indexed sale-policy source/account lookups and deduplicated immutable
+      first bindings; expose copied market-side prices/ages and material-change threshold in Active
+      sales. [Contract](docs/architecture/indexed-sale-policy-evidence.md); installed PR #148 drained
+      snapshotted events and delivered BUY guidance, but intermittent maintenance latency remains.
 
 - [x] Repair final replacement-refusal starvation of working maintenance; isolate bounded report
       transport and aggregate immutable Performance inputs outside trading locks with incremental
