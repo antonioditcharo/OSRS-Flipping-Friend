@@ -1,24 +1,22 @@
 # Agent handoff
 
-Updated 22 October 2026 (America/Anchorage). Read AGENTS.md and TASKS.md.
+Updated 23 October 2026 (America/Anchorage). Read AGENTS.md and TASKS.md.
 Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
 ## Current delivery
 
-Read `local-data/committed-maintenance-acceptance-20261022/delivery-state.json` first for actual
-source, verification, CI, merge and installation. The urgent live investigation reproduced queued
-unacknowledged offers/stale account evidence, Performance work holding service/writer monitors,
-and final replacement refusal skipping listed maintenance. This batch repairs replacement-to-working-
-maintenance fallthrough, isolates bounded read-only reporting, releases trading locks before report
-aggregation, and incrementally indexes completion evidence. A separate late-fill fact-save failure
-no longer hides already committed sale-policy acceptance from the first cancellation source.
-[Contract](docs/architecture/maintenance-blockade-recovery.md). Sale policy 9 / replay 18 / evaluator
-5 and all financial/risk semantics remain. New source is queued until the receipt records installation.
+Read `local-data/indexed-sale-evidence-20261022/delivery-state.json` first for actual source,
+verification, CI, merge and installation. PR #148 is installed at
+`0c41e9c4bd6b0b33160a904d743848eed4a64bd2`; its receipt is
+`local-data/committed-maintenance-acceptance-20261022/delivery-state.json`.
+Fresh logged-in evidence showed all 266 snapshotted pending payloads accepted unchanged, an empty
+outbox and BUY guidance. Intermittent slow maintenance persisted: receipt verification repeatedly
+scanned event_log while holding trading monitors. The current batch adds index-compatible receipt
+lookups, deduplicates immutable first-binding checks and explains market-side prices/ages and the
+material-change threshold in Active sales. [Contract](docs/architecture/indexed-sale-policy-evidence.md).
+Source is queued until the receipt records installation. Canonical receipt authority, exact costs,
+original plans, sale policy 9 / replay 18 / evaluator 5 and CURRENT_ACCOUNT_V3 remain unchanged.
 
-Installed at this batch's start: #147 at `e7f787f4ed98fb8ede93ec22ca7483f0253b54fe`;
-`local-data/sale-policy-receipts-20261022/delivery-state.json` records its delivery. Prospective
-sale-policy receipts, independent BUY plans/deadlines, exact budgets/costs, original contexts and
-clock/source guards remain. Existing historical plans/deadlines are not repaired.
 [Prior checkpoints](docs/history/handoff-through-2026-10-21-pr141.md).
 
 The current user reports prolonged maintenance waits while logged in. Inspect the new private
