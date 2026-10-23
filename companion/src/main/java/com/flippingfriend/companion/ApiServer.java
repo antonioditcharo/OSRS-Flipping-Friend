@@ -26,6 +26,9 @@ final class ApiServer implements AutoCloseable
 	// Keep account work at its existing concurrency, and reject overload without acknowledging events.
 	private final ThreadPoolExecutor accountExecutor = new ThreadPoolExecutor(2, 2, 0, TimeUnit.SECONDS,
 		new ArrayBlockingQueue<>(64));
+	// Historical reports and their potentially slow response bodies cannot occupy event/authority workers.
+	private final ThreadPoolExecutor reportExecutor = new ThreadPoolExecutor(1, 1, 0, TimeUnit.SECONDS,
+		new ArrayBlockingQueue<>(2));
 	private final String token;
 	private final Gson gson;
 	private final CompanionService service;
@@ -75,18 +78,28 @@ final class ApiServer implements AutoCloseable
 	private void dispatch(HttpExchange exchange, HttpHandler handler) throws IOException
 	{
 		if (!authorized(exchange)) return;
+		boolean report = reportRequest(exchange);
 		try
 		{
-			accountExecutor.execute(() -> {
+			(report ? reportExecutor : accountExecutor).execute(() -> {
 				try { handler.handle(exchange); }
 				catch (IOException | RuntimeException error) { exchange.close(); }
 			});
 		}
 		catch (RejectedExecutionException busy)
 		{
-			respond(exchange, 503, "{\"error\":\"Companion account requests are busy; retry without changing event identity.\"}");
+			respond(exchange, 503, report
+                ? "{\"error\":\"Companion reports are busy; retry the read later.\"}"
+                : "{\"error\":\"Companion account requests are busy; retry without changing event identity.\"}");
 		}
 	}
+    private static boolean reportRequest(HttpExchange exchange) {
+        if(!"GET".equals(exchange.getRequestMethod()))return false;
+        String prefix="/v1/accounts/",path=exchange.getRequestURI().getPath();
+        if(!path.startsWith(prefix))return false;
+        String[] scoped=path.substring(prefix.length()).split("/",2);
+        return scoped.length==2 && java.util.Set.of("performance/current","trade-review/current","learning/current").contains(scoped[1]);
+    }
 
 	private void accountRoute(HttpExchange exchange) throws IOException
 	{
@@ -403,5 +416,5 @@ final class ApiServer implements AutoCloseable
 		exchange.getResponseBody().write(bytes);
 		exchange.close();
 	}
-	@Override public void close() { server.stop(0); executor.shutdownNow(); accountExecutor.shutdownNow(); }
+	@Override public void close() { server.stop(0); executor.shutdownNow(); accountExecutor.shutdownNow(); reportExecutor.shutdownNow(); }
 }

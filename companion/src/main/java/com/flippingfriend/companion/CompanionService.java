@@ -399,16 +399,23 @@ final class CompanionService implements AutoCloseable
 	{
 		return store.ledgerSnapshot(accountId);
 	}
-	synchronized com.flippingfriend.core.PerformanceSnapshot performance(String scope) throws Exception {
-		long now=Instant.now().getEpochSecond();
-		var result=store.performance(accountId,scope,now);
-		if(account!=null && currentPlanningProof(now)) {
-			var read=store.planningProjections(accountId);
-			StockPerformance.apply(result,read,account,market.state(),now);
-		}
-		if(!result.isValid())throw new IllegalStateException("Invalid performance valuation");
-		return result;
-	}
+    com.flippingfriend.core.PerformanceSnapshot performance(String scope) throws Exception {
+        SqliteStore.PerformanceInput input;SqliteStore.PlanningProjections positions=null;
+        AccountSnapshot snapshot=null;MarketIngestionService.MarketState prices=null;
+        synchronized(this) {
+            long now=Instant.now().getEpochSecond();
+            input=store.performanceInput(accountId,scope,now);
+            if(account!=null && currentPlanningProof(now)) {
+                positions=store.planningProjections(accountId);snapshot=account;prices=market.state();
+            }
+        }
+        // The report keeps its captured prefix while new executions/ACKs remain free to commit.
+        var result=store.performance(input);
+        if(positions!=null)StockPerformance.apply(result,positions,snapshot,prices,input.now);
+        if(!result.isValid())throw new IllegalStateException("Invalid performance valuation");
+        return result;
+    }
+
 	synchronized void resetPerformanceSession(String request) throws Exception {
 		long now=Instant.now().getEpochSecond();
 		if(account==null || !currentPlanningProof(now))throw new IllegalStateException("Waiting for current account evidence");

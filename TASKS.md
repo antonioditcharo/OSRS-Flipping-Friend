@@ -1,10 +1,21 @@
 # Tasks
 
 Updated 22 October 2026. Read [HANDOFF.md](HANDOFF.md) and the actual delivery receipt at
-`local-data/sale-policy-receipts-20261022/delivery-state.json` first. Implemented/tested, merged,
+`local-data/committed-maintenance-acceptance-20261022/delivery-state.json` first. Implemented/tested, merged,
 installed and player accepted are separate states. Owner is home; older login deferrals are superseded.
 
 ## Current batch
+
+- [x] Repair final replacement-refusal starvation of working maintenance; isolate bounded report
+      transport and aggregate immutable Performance inputs outside trading locks with incremental
+      completion evidence. Export committed sale-policy acceptance despite dirty later facts.
+      [Contract](docs/architecture/maintenance-blockade-recovery.md); actual verification/install in receipt.
+- [ ] Verify fresh post-update ordered ACK/account/maintenance/entry recovery from the live blockade;
+      player trading and sustained latency remain separate from source/concurrency regressions.
+- [ ] Preserve first-cancellation acceptance through a genuinely unreadable acceptance document
+      using prospective evidence handling; never retrofit a published receipt-free cancellation.
+- [ ] Reassess independently eligible BUY maintenance after all routine sale candidates are refused,
+      with bounded excluded-episode traversal and no invisible continuation promises.
 
 - [x] Implement prospective exact sale-policy receipts and separately ordered client acceptance,
       preserving each origin's policy through cadence changes, late fills, collection and restart.

@@ -1085,6 +1085,17 @@ public class SuggestionEngine
         return candidates.isEmpty()?waiting:candidates.get(0);
     }
 
+    /** A declined entry continuation must not hide independent maintenance on the working board. */
+    public Suggestion maintenanceAfterReplacementRefusal() {
+        var account=accountMonitor.getState();var market=marketData.getSnapshot();
+        if(account==null || !account.isLoggedIn() || account.isIronman() || !market.isUsable())return null;
+        var now=Instant.now();var horizon=TradingHorizon.of(config.riskProfile(),config.checkInterval(),config.targetHoldMinutes());
+        var stop=adjustSuggestion(market,horizon,now,true);
+        if(stop!=null){saleCandidates=listedStopCandidates;return stop;}
+        // This pass evaluates existing offers only. It cannot recreate/re-authorize a declined buy.
+        return adjustSuggestion(market,horizon,now);
+    }
+
     /** After fresh entry authority refuses every proposed remainder, finish its acquired stock. */
     public Suggestion exitAfterReplacementRefusal(Set<Integer> declined) {
         var account=accountMonitor.getState();var market=marketData.getSnapshot();

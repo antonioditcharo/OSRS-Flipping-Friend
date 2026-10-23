@@ -4,24 +4,28 @@ Continue in `C:\Users\Antonio\OSRS Flipping Friend Rebuild`.
 Implement, verify and deliver reliable trade/inventory workflow batches; do not stop at a roadmap.
 Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
-Read `local-data/sale-policy-receipts-20261022/delivery-state.json` FIRST, then current AGENTS.md,
-HANDOFF.md and TASKS.md. Receipt distinguishes source/tests/CI/merge/install/player acceptance.
-[Current contract](architecture/prospective-sale-policy-receipts.md): prospective canonical sale
-policy receipts plus separately committed client acceptance survive cadence changes, late fills,
-collection, restart and independent successor origins. Current prices, exact subset costs, source
-and stop guards remain. Source sale9/replay18/evaluator5; learning remains held.
+Read `local-data/committed-maintenance-acceptance-20261022/delivery-state.json` FIRST, then current
+AGENTS.md, HANDOFF.md and TASKS.md. Source/tests/CI/merge/install/player acceptance are separate.
+[Current contract](architecture/maintenance-blockade-recovery.md): final replacement-refusal must
+continue into eligible working maintenance; bounded report transport and immutable Performance
+aggregation outside trading locks must keep ordered event/ACK/entry work responsive. Completion
+indexing preserves exact old results, clocks and source invalidation. Earlier committed sale-policy
+acceptance survives failed later fact saves without promoting unsaved prospective promises.
+Sale9/replay18/evaluator5 unchanged; learning remains held.
 
-Installed at this batch's start was #146 (`6a876d5b05b412feeb5c1d0ee9cb028f37917226`), recorded in
-`local-data/independent-buy-deadlines-20261022/delivery-state.json`. Independent accepted BUY plans
-and immutable deadlines, original context, distinct continuations, exact cost and clock guards remain.
+Installed at batch start: #147 (`e7f787f4ed98fb8ede93ec22ca7483f0253b54fe`), recorded in
+`local-data/sale-policy-receipts-20261022/delivery-state.json`. Original contexts, exact costs/budgets,
+independent BUY plans/deadlines, source/version fences and prospective sale receipts remain.
+The user reported hours of waits while logged in: new urgent slot/outbox/JVM evidence takes priority
+above earlier logged-out observations. Preserve queued identities; never clear outboxes to force advice.
 Old three-bludgeon plan stays unknown; bolts retain proven contexts; Dual macuahuitl has an exact
 retirement receipt. No financial replay or historical deadline/plan/disposal repair.
 
-Pre-update outbox is empty; saved eight-slot identities match but are stale while logged out. Recheck
-fresh evidence after delivery. Normal closure/backup/update/launch are authorized; login/game actions
-manual. Inspect scoped reads/logs directly. Never force-kill, send game input, patch live databases or
-clear outboxes. Preserve unchecked gates. Safe reachability/issuance-pin retention is unfinished;
-never discard live proof with TTL. [History](history/handoff-through-2026-10-21-pr141.md).
+Normal closure/backup/update/launch are authorized; login/game actions manual. Inspect scoped
+reads/logs directly. Never force-kill, send game input or patch live databases. Preserve every prior
+unchecked gate. Genuine acceptance-document read-outage capture, BUY maintenance after all sale
+refusals and safe reachability/issuance retention remain separate work; no blind TTL may delete proof.
+[History](history/handoff-through-2026-10-21-pr141.md).
 
 ## Work in impact order
 
