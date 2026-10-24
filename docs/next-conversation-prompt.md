@@ -4,18 +4,21 @@ Continue in `C:\Users\Antonio\OSRS Flipping Friend Rebuild`.
 Implement, verify and deliver reliable trade/inventory workflow batches; do not stop at a roadmap.
 Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
-Read `local-data/trading-flow-blockers-20261023/delivery-state.json` FIRST, then AGENTS.md,
+Read `local-data/sale-acceptance-renewal-20261023/delivery-state.json` FIRST, then AGENTS.md,
 HANDOFF.md and TASKS.md. Source/tests/CI/merge/install/player acceptance are separate.
-[Current contract](architecture/monotonic-maintenance-scheduling.md): monotonic trading heartbeat
+PR #153 is installed. Fresh eight-slot/ACK/final-entry checks passed, but maintenance receipts
+are withheld at "Saving this trade workflow": the renewal adapter compares an old immutable
+acceptance source with a fresh source ID from the same offer. The current source fixes that
+relationship while preserving fresh exact receipt authority, original acceptance and ordered counters.
+Read [the contract](architecture/sale-acceptance-renewal.md) and receipt for actual delivery.
+[Clock contract](architecture/monotonic-maintenance-scheduling.md): monotonic trading heartbeat
 and event retries must keep progressing through UTC corrections. Preserve first refreshes, negative
 local timer origins, bounded backoff and lifecycle fences. Recorded source/UTC clocks, original
 order deadlines, exact costs and risk/freshness guards remain unchanged.
-PR #152 (`c8378eaae0ff289f0accbe193d69dcb50cc77225`, including #150/#151) is installed and
-backup/hash/task/source/financial/risk preservation passed. Fresh eight-slot and ACK checks passed,
-but repeated sale/replacement WAITs failed panel guidance acceptance. The current source addresses
-canonical capped replacement requests, one fully reauthorized sale-price correction and separately
-authorized working maintenance after urgent refusals. Read
-[the contract](architecture/trading-flow-authority-recovery.md); use the new receipt for actual delivery.
+Installed PR #153 includes #150–#152, canonical capped replacement requests, one fully reauthorized
+sale-price correction and separately authorized working maintenance after urgent refusals.
+Backup/hash/task/source/financial/risk preservation passed. Read
+[the prior contract](architecture/trading-flow-authority-recovery.md); use the newest receipt for delivery.
 Prior 8-slot/ACK/SELL/MODIFY_SELL/final BUY recovery passed; recheck current evidence. Controlled
 trading and sustained latency remain open. New prospective sale proof format 2 and legacy format 1
 retain their separate commit requirements; receipt-free cancellations cannot be retrofitted.

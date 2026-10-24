@@ -512,7 +512,10 @@ public class FlippingFriendPlugin extends Plugin
     private void applyEditorSaleQuote(Suggestion quote) {
         Suggestion previous = stepGuide.getSuggestion();
         stepGuide.setEditorQuote(quote);
-        recordVisibleAdvice();
+        // Ordinary server ticks clear an already absent editor quote. An unchanged visible
+        // instruction was committed when presented; it must not be reaccepted against its
+        // now-old five-second receipt or have its original presentation lifetime renewed.
+        if(stepGuide.getSuggestion()!=previous)recordVisibleAdvice();
         if (panel != null && !stepGuide.getSuggestion().sameAs(previous)) panel.refresh();
     }
     private void recordVisibleAdvice() {
@@ -571,8 +574,9 @@ public class FlippingFriendPlugin extends Plugin
 	{
 		if (event.getGroupId() == WidgetUtil.componentToInterface(InterfaceID.GeOffers.UNIVERSE))
 		{
+			Suggestion previous=stepGuide.getSuggestion();
 			stepGuide.onSetupClosed();
-            recordVisibleAdvice();
+            if(stepGuide.getSuggestion()!=previous)recordVisibleAdvice();
             if (panel != null) panel.refresh();
             tradeConfirmGuard.reset();
             geInputAssist.reset();
