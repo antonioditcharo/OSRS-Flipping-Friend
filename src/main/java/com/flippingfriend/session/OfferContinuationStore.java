@@ -361,7 +361,7 @@ abstract class OfferContinuationStore {
         return false;
     }
     private OfferContinuation.Observation settled(OfferTracker tracker,OfferTracker.ContinuationEvidence evidence,OfferContinuation hint){
-        return tracker==null?null:observation(evidence==null?tracker.getSettledOffer(hint.getSlot()):evidence.getSettledOffer(hint.getSlot()));
+        return tracker==null?null:observation(evidence==null?tracker.getSettledOffer(hint.getSlot()):evidence.getCollectedOffer(hint.getOriginalIdentity()));
     }
     private List<OfferContinuation.Observation> withoutCachedOriginal(List<OfferContinuation.Observation> board,
             OfferContinuation hint,OfferTracker.ContinuationEvidence evidence) {

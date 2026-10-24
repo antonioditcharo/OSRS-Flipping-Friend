@@ -6,10 +6,16 @@ Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
 Read `local-data/sale-acceptance-renewal-20261023/delivery-state.json` FIRST, then AGENTS.md,
 HANDOFF.md and TASKS.md. Source/tests/CI/merge/install/player acceptance are separate.
-PR #153 is installed. Fresh eight-slot/ACK/final-entry checks passed, but maintenance receipts
-are withheld at "Saving this trade workflow": the renewal adapter compares an old immutable
-acceptance source with a fresh source ID from the same offer. The current source fixes that
-relationship while preserving fresh exact receipt authority, original acceptance and ordered counters.
+New collection-retry source retains exact current-login episode receipts through workflow read
+failures, repeated EMPTY and unrelated slot reuse; read
+[the contract](architecture/collection-observation-retry.md) and HANDOFF for its own delivery state.
+PR #154 is merged and installed at e9bb9d89ff63510408df1dd2cd4004a71e545712. Read also
+`local-data/sale-acceptance-renewal-20261023/postlogin-acceptance.json`: fresh eight-slot/ACK checks,
+six actionable MODIFY_SELL deliveries and two native observations passed without the earlier Saving
+blocker. Renewal preserves fresh exact authority, immutable original acceptance and ordered counters;
+ordinary editor cleanup retains unchanged visible advice. Direct PLACE_BUY passed, but actual BUY
+presentation was not observed with sale maintenance foreground. This short historical recovery is
+not controlled trading or sustained latency acceptance; recheck current evidence.
 Read [the contract](architecture/sale-acceptance-renewal.md) and receipt for actual delivery.
 [Clock contract](architecture/monotonic-maintenance-scheduling.md): monotonic trading heartbeat
 and event retries must keep progressing through UTC corrections. Preserve first refreshes, negative

@@ -71,6 +71,48 @@ public class ContinuationRestorationEvidenceTest {
             restored.onOfferChanged(0,raw(buying,0,GrandExchangeOfferState.EMPTY));assertEquals(50,f.remainder(restored));
         }
     }
+    @Test public void unreadableWorkflowAtCollectionRecoversAfterRepeatedEmptyAndUnrelatedSlotReuse()throws Exception {
+        for(boolean buying:new boolean[]{true,false})for(boolean reuse:new boolean[]{false,true}) {
+            var f=new Fixture(buying);
+            var outbox=new com.flippingfriend.companion.OfferEventOutbox(f.storage);
+            var companion=new com.flippingfriend.companion.CompanionClient(f.storage,new com.google.gson.Gson(),
+                new com.flippingfriend.companion.SuggestionLedger(),outbox);
+            f.tracker.setContinuationSourceReader(companion::continuationSourceEpisodes);
+            companion.captureObservedOffer(f.tracker.getOffer(0).copyObservation(),f.storage.accountId(),now());
+            var path=f.storage.accountDir().resolve(buying?"buy-reprice-intent.json":"sell-relist-intent.json");
+            byte[] original=Files.readAllBytes(path);
+            // A directory makes the document genuinely unreadable, including to a cached store.
+            Files.delete(path);Files.createDirectory(path);
+            f.cancel();companion.captureObservedOffer(f.tracker.getOffer(0).copyObservation(),f.storage.accountId(),now());
+            f.collect();companion.captureObservedOfferCleared(0,f.storage.accountId(),now());
+            f.collect();companion.captureObservedOfferCleared(0,f.storage.accountId(),now());
+            assertEquals(0,f.remainder(f.tracker));
+            if(reuse) {
+                f.tracker.onOfferChanged(0,rawItem(554,true,0,GrandExchangeOfferState.BUYING));
+                companion.captureObservedOffer(f.tracker.getOffer(0).copyObservation(),f.storage.accountId(),now());
+            }
+            for(var event:outbox.pending())assertTrue(outbox.acknowledge(event.getEventId(),event.getSessionId(),event.getSequence()));
+            Files.delete(path);Files.write(path,original);
+            f.tracker.reconcileContinuationSources();
+            assertEquals("Current-login collection must survive retries and slot reuse",60,f.remainder(f.tracker));
+            // Recovery commits exact late-fill counters before the process/login evidence disappears.
+            f.tracker.resetContinuationObservations();assertEquals(60,f.remainder(f.restart()));
+            assertTrue(new com.flippingfriend.companion.OfferEventOutbox(f.storage).pending().isEmpty());
+        }
+    }
+    @Test public void uncommittedCollectionCannotCrossLoginResetOrBorrowSameItemSlotReuse()throws Exception {
+        for(boolean buying:new boolean[]{true,false})for(boolean reset:new boolean[]{true,false}) {
+            var f=new Fixture(buying);
+            var path=f.storage.accountDir().resolve(buying?"buy-reprice-intent.json":"sell-relist-intent.json");
+            byte[] original=Files.readAllBytes(path);Files.delete(path);Files.createDirectory(path);
+            f.cancel();f.collect();f.collect();
+            if(reset)f.tracker.resetContinuationObservations();
+            else f.tracker.onOfferChanged(0,raw(buying,0,buying?GrandExchangeOfferState.BUYING:GrandExchangeOfferState.SELLING));
+            Files.delete(path);Files.write(path,original);
+            assertEquals("Login reset withdraws unsaved evidence; a new same-item order supersedes it",0,f.remainder(f.tracker));
+            f.collect();assertEquals(0,f.remainder(f.tracker));
+        }
+    }
     @Test public void aSameAccountLoginResetWithdrawsPreviouslyObservedCachedPredecessors()throws Exception {
         for(boolean buying:new boolean[]{true,false}) {
             var f=new Fixture(buying);f.cancel();f.tracker.save();

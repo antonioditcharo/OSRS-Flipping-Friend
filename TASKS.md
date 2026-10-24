@@ -6,20 +6,26 @@ installed and player accepted are separate states. Owner is home; older login de
 
 ## Current batch
 
-- [ ] Verify/deliver original sale-acceptance renewal across fresh source IDs, heartbeat, partial
-      progress and restart. PR #153 is installed; authorized receipts currently fail the staging
-      adapter's obsolete exact-source comparison. Preserve original acceptance and source identity.
+- [ ] Verify/deliver exact-episode collection retry across unreadable workflow documents, repeated
+      EMPTY and unrelated slot reuse. Keep login/account reset, cached-predecessor and new same-item
+      supersession guards. [Contract](docs/architecture/collection-observation-retry.md).
+
+- [ ] Complete controlled acceptance of original sale-acceptance renewal across fresh source IDs,
+      partial progress and restart. PR #154 is installed; six actionable sale deliveries and two
+      native observations passed without the Saving blocker. Preserve original acceptance/source
+      identity; controlled cancellation/collection/relist and sustained latency remain open.
       [Contract](docs/architecture/sale-acceptance-renewal.md).
 
 - [ ] Verify/deliver canonical capped replacement requests, bounded fully reauthorized sale-price
-      correction and distinct working maintenance after urgent refusals. PR #152 is installed;
-      fresh eight-slot/ACK passed, repeated panel WAITs remain unresolved live acceptance.
+      correction and distinct working maintenance after urgent refusals. PR #153/#154 are installed;
+      fresh eight-slot/ACK/actionable sale recovery passed. Direct PLACE_BUY is authority evidence,
+      not observed BUY presentation; controlled trading and sustained latency remain open.
       [Contract](docs/architecture/trading-flow-authority-recovery.md).
 
 - [x] Implement/test monotonic trading-heartbeat and offer-retry scheduling, preserving initial
       refreshes, negative timer origins, bounded backoff and pause/resume generation fences.
       [Contract](docs/architecture/monotonic-maintenance-scheduling.md); actual delivery in receipt.
-- [ ] Verify combined queued update and fresh logged-in cadence/retry recovery. Recorded UTC trade
+- [ ] Complete controlled logged-in cadence/retry recovery after installed PR #154. Recorded UTC trade
       clocks and order deadlines remain unchanged; controlled trading and sustained latency stay open.
 
 - [x] Implement/test independently durable prospective sale-acceptance capture in the outbox before

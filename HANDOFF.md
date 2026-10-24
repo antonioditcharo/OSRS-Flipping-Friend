@@ -5,16 +5,26 @@ Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
 ## Current delivery
 
+New source preserves current-login collection receipts by exact episode across unreadable workflow
+documents, repeated EMPTY and unrelated slot reuse. Read
+`local-data/collection-observation-retry-20261023/delivery-state.json` for this batch's verification
+and installation; queued until that receipt records installation.
+[Contract](docs/architecture/collection-observation-retry.md).
+
 Read `local-data/sale-acceptance-renewal-20261023/delivery-state.json` first for current source,
-verification, CI and delivery. PR #153 (`e67a517d1ccc642ca65e16328b884a809eb1a73e`) is installed.
-Backup, hashes, task settings, all 114,716 frozen source rows, 1,861 accounting effects and the
-loss anchor passed preservation. Fresh eight-slot/empty-outbox/final-entry checks passed, but
-the panel now withholds authorized maintenance at "Saving this trade workflow".
+verification, CI and delivery. PR #154 (`e9bb9d89ff63510408df1dd2cd4004a71e545712`) is installed.
+Backup, hashes, task settings, all 115,071 frozen source rows, 1,861 accounting effects, both original
+sale acceptances and the loss anchor passed preservation. The post-login receipt records fresh
+eight-slot/empty-outbox evidence and six actionable MODIFY_SELL deliveries over about 2½ minutes;
+the earlier "Saving this trade workflow" blocker did not recur. Direct final entry returned
+PLACE_BUY, but BUY presentation was not observed while sale maintenance was foreground. These are
+historical short observations; controlled trading and sustained latency remain open.
 
 The current source fixes renewal matching: a fresh exact source/receipt may retain the immutable
 original acceptance for the same economic offer episode as observations and partial counters advance.
 [Contract](docs/architecture/sale-acceptance-renewal.md). No source/financial history is repaired.
-Guidance acceptance remains open; this fix is queued until its receipt records installation.
+PR #154 also retains unchanged visible advice through ordinary editor cleanup/widget closure.
+Short guidance recovery passed; full cancellation/collection/relist/restart acceptance remains open.
 
 Installed PR #153 routes capped saved replacements directly to canonical pricing, permits one
 strictly reauthorized sale-price correction, and checks independently authorized working maintenance
