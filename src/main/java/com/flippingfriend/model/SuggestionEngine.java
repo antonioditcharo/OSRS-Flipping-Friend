@@ -174,7 +174,7 @@ public class SuggestionEngine
     /** Worker only. This never persists a workflow, stabilizes a price, or requests final authority. */
     private void evaluateSaleDiagnostics(MarketSnapshot market,Instant now) {
         String account=observedAccount,settings=saleDiagnosticSettings();
-        var ledger=companion==null?null:companion.tradingLedger();
+        var ledger=ledgerForGuidance();
         Map<Integer,com.flippingfriend.session.SaleMaintenanceDiagnostic> rows=new HashMap<>();
         var horizon=TradingHorizon.of(config.riskProfile(),config.checkInterval(),config.targetHoldMinutes());
         for(var live:offers.getOffers()) {
@@ -216,6 +216,18 @@ public class SuggestionEngine
         return Collections.unmodifiableList(rows);
     }
     private volatile Suggestion continuationWait;
+    private volatile Suggestion entryPriorityWait;
+    private static final class GuidanceLedger {
+        final com.flippingfriend.core.AccountLedgerSnapshot ledger;
+        GuidanceLedger(com.flippingfriend.core.AccountLedgerSnapshot ledger){this.ledger=ledger;}
+    }
+    private final ThreadLocal<GuidanceLedger> guidanceLedger=new ThreadLocal<>();
+    private com.flippingfriend.core.AccountLedgerSnapshot ledgerForGuidance() {
+        var read=guidanceLedger.get();
+        return read!=null?read.ledger:companion==null?null:companion.tradingLedger();
+    }
+    /** The reservation from this exact engine pass also applies after maintenance refusals. */
+    public Suggestion entryPriorityWait(){return entryPriorityWait;}
     private volatile List<Suggestion> replacementCandidates=Collections.emptyList();
     private volatile List<Suggestion> saleCandidates=Collections.emptyList();
     private List<Suggestion> stockSaleCandidates=Collections.emptyList(),listedStopCandidates=Collections.emptyList();
@@ -274,7 +286,7 @@ public class SuggestionEngine
         return sellRelist==null?null:sellRelist.acceptedPolicies(account);
     }
     public boolean hasTradeEvidence() {
-        var ledger = companion == null ? null : companion.tradingLedger();
+        var ledger = ledgerForGuidance();
         return ledger != null && ledger.getTradingPositions() != null && !ledger.hasUnboundedReconciliation()
             && (!ledger.getTradingPositions().isEmpty() || ledger.getMissedFlips() == null
                 || ledger.getMissedFlips().stream().noneMatch(e -> "RECONCILE".equals(e.getType())));
@@ -287,7 +299,7 @@ public class SuggestionEngine
             fixtures.removeIf(p -> !p.isCostKnown());
             return fixtures;
         }
-        var ledger = companion.tradingLedger();
+        var ledger = ledgerForGuidance();
         if (ledger == null || ledger.getTradingPositions() == null || ledger.hasUnboundedReconciliation())
             return Collections.emptyList();
         List<Position> held = new ArrayList<>();
@@ -409,12 +421,15 @@ public class SuggestionEngine
 	 */
 	public Suggestion refresh(boolean computeBuy)
 	{
+		guidanceLedger.set(new GuidanceLedger(companion==null?null:companion.tradingLedger()));
+        try {
 		Suggestion suggestion = compute(computeBuy);
 		if (suggestion != null)
 		{
 			current.set(suggestion);
 		}
 		return suggestion;
+        } finally { guidanceLedger.remove(); }
 	}
 
 	/**
@@ -450,6 +465,7 @@ public class SuggestionEngine
 	private Suggestion compute(boolean computeBuy)
 	{
 		continuationWait=null;
+        entryPriorityWait=null;
         replacementCandidates=Collections.emptyList();
         saleCandidates=Collections.emptyList();stockSaleCandidates=Collections.emptyList();listedStopCandidates=Collections.emptyList();
         locallyDeclinedReplacements.clear();
@@ -474,7 +490,7 @@ public class SuggestionEngine
 		}
 
 		if(buyReprice!=null && companion!=null)
-            buyReprice.observeRecordedSales(companion.tradingLedger(),observedAccount,now.getEpochSecond());
+            buyReprice.observeRecordedSales(ledgerForGuidance(),observedAccount,now.getEpochSecond());
 
 		// Collection and an explicit wind-down need current offers, not a market price.
 		// StepGuide alone protects mid-entry presentation; every engine pass revalidates live work.
@@ -500,6 +516,16 @@ public class SuggestionEngine
 
 		TradingHorizon horizon = TradingHorizon.of(config.riskProfile(), config.checkInterval(),
 			config.targetHoldMinutes());
+        if(account.getFreeSlots()<=1) {
+            Position awaiting=awaitingExit();
+            if(awaiting!=null)entryPriorityWait=Suggestion.waiting("Keeping this slot free to sell",
+                "Your remaining "+awaiting.getItemName()+" needs this slot. Existing offers stay working while its sale is verified.");
+            if(entryPriorityWait==null && sellRelist!=null)for(var remainder:sellRelist.collectedRequests(offers,observedAccount))
+                if(account.getInventoryHoldings().getOrDefault(remainder.getItemId(),0)>0) {
+                    entryPriorityWait=Suggestion.waiting("Keeping this slot free to relist",
+                        "The collected sale remainder is retained. Its purchase records and price must be verified before relisting; a new buy cannot take its slot.");break;
+                }
+        }
 
 		// Finishing what the player has already started comes before starting anything new.
 		//
@@ -586,6 +612,7 @@ public class SuggestionEngine
 				"Every slot has an offer in it. The plugin will suggest the next trade as soon as "
 					+ "one of them finishes.");
 		}
+        if(entryPriorityWait!=null)return entryPriorityWait;
 
 		// Do not spend the last slot on a buy while something is still waiting to be sold.
 		//
@@ -1561,7 +1588,7 @@ public class SuggestionEngine
 	}
 
     private com.flippingfriend.core.AccountLedgerSnapshot saleLedger(int item, Instant now) {
-        var ledger = companion == null ? null : companion.tradingLedger();
+        var ledger = ledgerForGuidance();
         if (ledger == null || !ledger.isValid() || ledger.getTradingPositions() == null
             || !java.util.Objects.equals(observedAccount, ledger.getAccountId())
             || ledger.getObservedAt() > now.getEpochSecond() || now.getEpochSecond()-ledger.getObservedAt()>150
@@ -1886,6 +1913,17 @@ public class SuggestionEngine
 			// Collect runs before this in the chain, so every slot here holds a working offer; the one
 			// to give up is the buy with the most still reserved, which is furthest from finishing and
 			// frees the most coins.
+            // A full board cannot justify abandoning a working buy for a sale that final
+            // authority will refuse after collection. Verify the exact intended exit first.
+            if(companion!=null) {
+                var intended=stockSaleSuggestion(best,market,horizon,now);
+                if(intended.getType()!=SuggestionType.SELL)return intended;
+                var verified=companion.authorizeSale(intended);
+                if(verified==null || verified.getType()!=SuggestionType.SELL
+                    || verified.getItemId()!=intended.getItemId() || verified.getQuantity()!=intended.getQuantity())
+                    return verified!=null && verified.getType()==SuggestionType.WAIT?verified
+                        :Suggestion.waiting("Checking the sale before freeing a slot","The working buy stays in place until its intended sale passes current validation.");
+            }
 			TrackedOffer give = largestOpenBuy(offers.getOffers());
 			return makeRoomToSell(give, give == null ? "" : market.getItemName(give.getItemId()),
 				best.position.getItemName(), explainer);

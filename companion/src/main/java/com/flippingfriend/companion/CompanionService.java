@@ -573,6 +573,9 @@ final class CompanionService implements AutoCloseable
             if(risk.getRemainingLossBudget()<=0)
                 return CompanionEntryPolicy.abstain(recommendationId,decidedAt,observedAt,
                     com.flippingfriend.core.PolicyAbstentionReason.DRAWDOWN_LIMIT_REACHED,"DRAWDOWN_LIMIT_REACHED");
+            if(ExitSlotReservation.awaiting(read,snapshot,0)!=null)
+                return CompanionEntryPolicy.abstain(recommendationId,decidedAt,observedAt,
+                    com.flippingfriend.core.PolicyAbstentionReason.SLOT_RESERVED_FOR_EXIT,"EXIT_SLOT_RESERVED");
             java.util.Set<Integer> occupied=new java.util.HashSet<>();
             for(var p:read.offers)if(p.getState()!=com.flippingfriend.core.OfferLifecycleState.EMPTY)occupied.add(p.getItemId());
             var planning=snapshot.withPlanningRestrictions(exposure.committedByItem,exposure.unavailableEntryItems)
@@ -607,6 +610,13 @@ final class CompanionService implements AutoCloseable
             var currentMarket=market.state();
             var risk=DurableRisk.evaluate(read,snapshot,exposure,currentMarket,at);
             if(!risk.isAvailable()) throw new IllegalStateException("Current risk unavailable");
+            var waitingExit=ExitSlotReservation.awaiting(read,snapshot,item);
+            if(waitingExit!=null) {
+                var waiting=PortfolioPlan.unavailable("replacement-exit-slot",PortfolioPlanOutcome.NO_FREE_SLOT,
+                    ExitSlotReservation.reason(waitingExit),at).withCanonicalRisk(risk);
+                return new com.flippingfriend.core.ReplacementEntry(accountId,item,cap,snapshot.getObservedAt(),waiting,
+                    entryPolicy.decide(new EntryPolicyContext(waiting,null,at)));
+            }
             var occupied=new java.util.HashSet<Integer>();
             for(var offer:read.offers) if(offer.getState()!=com.flippingfriend.core.OfferLifecycleState.EMPTY) occupied.add(offer.getItemId());
             var planning=snapshot.withPlanningRestrictions(exposure.committedByItem,exposure.unavailableEntryItems)
@@ -841,6 +851,15 @@ final class CompanionService implements AutoCloseable
                     if(revision!=planningInputRevision.get() || account!=sourceSnapshot)return;
                     plan=PortfolioPlan.unavailable(snapshot.getCorrelationId(),PortfolioPlanOutcome.COMPANION_STATE_UNAVAILABLE,
                         risk.getReason(),risk.getEvaluatedAt()).withCanonicalRisk(risk);
+                }
+                return;
+            }
+            var waitingExit=ExitSlotReservation.awaiting(read,snapshot,0);
+            if(waitingExit!=null) {
+                synchronized(this) {
+                    if(revision!=planningInputRevision.get() || account!=sourceSnapshot)return;
+                    plan=PortfolioPlan.unavailable(snapshot.getCorrelationId(),PortfolioPlanOutcome.NO_FREE_SLOT,
+                        ExitSlotReservation.reason(waitingExit),risk.getEvaluatedAt()).withCanonicalRisk(risk);
                 }
                 return;
             }
