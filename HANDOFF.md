@@ -5,6 +5,13 @@ Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
 ## Current delivery
 
+Read `local-data/stop-entry-pause-20261024/delivery-state.json` first for the current follow-on batch.
+Installed PR #157 could still propose an exact BUY replacement, or authorize a cached READY entry,
+while its held acquisition's stop was crossed but loss confirmation was unavailable. New source
+pauses only that item's additions using current original acquisition evidence, retains the exact
+remainder, releases on fresh recovery, and preserves unrelated entries and separate loss authority.
+[Contract](docs/architecture/stop-entry-pause.md); actual delivery/acceptance is in the receipt.
+
 Read `local-data/dragon-dart-loss-20261023/delivery-state.json` first for the Dragon dart loss batch.
 The owner reported a 1,000 GP listing cancelled after 216 seconds for an 806 GP STOP relist; the
 original stop was 909 GP and the ledger records a 1.04–1.05M GP realized loss. New source requires

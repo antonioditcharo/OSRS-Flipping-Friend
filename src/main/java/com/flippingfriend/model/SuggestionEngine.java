@@ -861,6 +861,7 @@ public class SuggestionEngine
 							.build();
 					}
 
+                    if(additionalBuyPaused(offer.getItemId(),market,now))continue;
 					// Remembered, so the re-placing actually happens.
 					//
 					// The Grand Exchange has no way to change the price of a running offer: this is
@@ -1030,6 +1031,8 @@ public class SuggestionEngine
 		}
 
 		LatestPrice price = market.latest(pending.itemId);
+        if(additionalBuyPaused(pending.itemId,market,now))return Suggestion.waiting("Replacement retained while the stop is rechecked",
+            "A fresh trade crossed an original acquisition stop. New purchases wait for a fresh recovery; no loss sale is authorized by this pause.");
 		if (price == null || !price.isComplete())
 		{
 			return null;
@@ -1088,6 +1091,11 @@ public class SuggestionEngine
         if(reprice!=null && reprice.itemId==item)reprice=null;
         return saved;
     }
+    private boolean additionalBuyPaused(int item,MarketSnapshot market,Instant now) {
+        var ledger=companion==null?null:saleLedger(item,now);
+        var stock=companion==null?tradingPosition(item):ledger==null?null:salePosition(ledger,item);
+        return com.flippingfriend.session.StopLossEvidence.blocksAdditionalBuy(stock,market.latest(item),now);
+    }
     private Suggestion replaceDurableBuy(MarketSnapshot market,AccountState account,Instant now) {
         if(account.getFreeSlots()<=0)return null;
         List<Suggestion> candidates=new ArrayList<>();
@@ -1097,6 +1105,11 @@ public class SuggestionEngine
             if(replacementRejected(item,market)){buyReprice.clearItem(observedAccount,item);continue;}
             if(offers.itemsWithOpenOffers().contains(item))continue;
             locallyDeclinedReplacements.add(item);
+            if(additionalBuyPaused(item,market,now)) {
+                waiting=Suggestion.waiting("Replacement retained while the stop is rechecked",
+                    "A fresh trade crossed this acquisition's original stop. No additional units are bought, and a loss sale still needs separate confirmation. Unrelated trades remain eligible.");
+                continue;
+            }
             if(risk!=null && risk.isAvailable() && observedAccount.equals(risk.getAccountId())
                 && risk.getValidUntil()>=now.getEpochSecond() && risk.getValuationPausedItems().contains(item)) {
                 waiting=Suggestion.waiting("Replacement retained","This item's valuation is uncertain. Its exact cancelled remainder is retained while unrelated trades are checked.");continue;

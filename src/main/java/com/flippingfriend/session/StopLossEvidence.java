@@ -7,8 +7,18 @@ import java.util.List;
 import java.util.TreeMap;
 
 /** Public last trades are observations, not a live order book or standalone loss authority. */
-final class StopLossEvidence {
+public final class StopLossEvidence {
     private StopLossEvidence() {}
+    /** A fresh downside signal can pause additional risk without authorizing any disposal. */
+    public static boolean blocksAdditionalBuy(Position position,LatestPrice latest,Instant now) {
+        if(position==null || !position.isCostKnown() || latest==null || latest.getHigh()==null || latest.getHigh()<=0
+            || latest.getHighTime()==null || latest.getHighTime()<=0 || now==null
+            || latest.secondsSinceHigh(now)<0 || latest.secondsSinceHigh(now)>120)return false;
+        int stop=position.getExitContexts().isEmpty()?position.getStopPrice():0;
+        for(var slice:position.getExitContexts())if(slice.getMaximumRemaining()>0 && slice.getContext()!=null)
+            stop=Math.max(stop,slice.getContext().getStopPrice());
+        return stop>0 && latest.getHigh()<=stop;
+    }
     static boolean confirmed(Position position,LatestPrice latest,List<Candle> history,Instant now) {
         if(position==null || !position.isCostKnown() || position.getStopPrice()<=0 || latest==null
             || !latest.isComplete() || latest.getHighTime()==null || latest.getLowTime()==null

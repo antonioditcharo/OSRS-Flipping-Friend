@@ -588,12 +588,15 @@ final class CompanionService implements AutoCloseable
             if(risk.getRemainingLossBudget()<=0)
                 return CompanionEntryPolicy.abstain(recommendationId,decidedAt,observedAt,
                     com.flippingfriend.core.PolicyAbstentionReason.DRAWDOWN_LIMIT_REACHED,"DRAWDOWN_LIMIT_REACHED");
+            if(EntryStopPause.items(read,market.state(),decidedAt).contains(candidate.getItemId()))
+                return CompanionEntryPolicy.abstain(recommendationId,decidedAt,observedAt,
+                    com.flippingfriend.core.PolicyAbstentionReason.RISK_CONSTRAINT,"ENTRY_STOP_RECHECK");
             if(ExitSlotReservation.awaiting(read,snapshot,0)!=null)
                 return CompanionEntryPolicy.abstain(recommendationId,decidedAt,observedAt,
                     com.flippingfriend.core.PolicyAbstentionReason.SLOT_RESERVED_FOR_EXIT,"EXIT_SLOT_RESERVED");
             java.util.Set<Integer> occupied=new java.util.HashSet<>();
             for(var p:read.offers)if(p.getState()!=com.flippingfriend.core.OfferLifecycleState.EMPTY)occupied.add(p.getItemId());
-            var planning=snapshot.withPlanningRestrictions(exposure.committedByItem,exposure.unavailableEntryItems)
+            var planning=snapshot.withPlanningRestrictions(exposure.committedByItem,EntryStopPause.restrictions(exposure,read,market.state(),decidedAt))
                 .withPlanningOffers(occupied).withCanonicalRisk(risk);
             var metadata=market.state().mapping.get(candidate.getItemId());
             if(planning.isSellOnly() || PortfolioPlanner.lossBudgetFor(planning)<=0
@@ -625,6 +628,11 @@ final class CompanionService implements AutoCloseable
             var currentMarket=market.state();
             var risk=DurableRisk.evaluate(read,snapshot,exposure,currentMarket,at);
             if(!risk.isAvailable()) throw new IllegalStateException("Current risk unavailable");
+            if(EntryStopPause.items(read,currentMarket,at).contains(item)) {
+                var waiting=PortfolioPlan.unavailable("replacement-stop-recheck",PortfolioPlanOutcome.NO_ELIGIBLE_CANDIDATE,EntryStopPause.REASON,at).withCanonicalRisk(risk);
+                return new com.flippingfriend.core.ReplacementEntry(accountId,item,cap,snapshot.getObservedAt(),waiting,
+                    CompanionEntryPolicy.abstain(waiting.getCorrelationId(),at,at,com.flippingfriend.core.PolicyAbstentionReason.RISK_CONSTRAINT,"ENTRY_STOP_RECHECK"));
+            }
             var waitingExit=ExitSlotReservation.awaiting(read,snapshot,item);
             if(waitingExit!=null) {
                 var waiting=PortfolioPlan.unavailable("replacement-exit-slot",PortfolioPlanOutcome.NO_FREE_SLOT,
@@ -634,7 +642,7 @@ final class CompanionService implements AutoCloseable
             }
             var occupied=new java.util.HashSet<Integer>();
             for(var offer:read.offers) if(offer.getState()!=com.flippingfriend.core.OfferLifecycleState.EMPTY) occupied.add(offer.getItemId());
-            var planning=snapshot.withPlanningRestrictions(exposure.committedByItem,exposure.unavailableEntryItems)
+            var planning=snapshot.withPlanningRestrictions(exposure.committedByItem,EntryStopPause.restrictions(exposure,read,currentMarket,at))
                 .withPlanningOffers(occupied).withCanonicalRisk(risk);
             var result=replacementPlanner.plan(item,cap,currentMarket,planning,remainingBuyLimits(planning,at),read.currentEvents.values(),at);
             if(revision!=planningInputRevision.get() || !currentPlanningProof(Math.max(at,Instant.now().getEpochSecond())))
@@ -878,7 +886,7 @@ final class CompanionService implements AutoCloseable
                 }
                 return;
             }
-			snapshot = snapshot.withPlanningRestrictions(exposure.committedByItem,exposure.unavailableEntryItems);
+			snapshot = snapshot.withPlanningRestrictions(exposure.committedByItem,EntryStopPause.restrictions(exposure,read,planningMarket,Instant.now().getEpochSecond()));
 			for (int item : exposure.unavailableEntryItems)
 				bounds.put(item, exposure.committedByItem.getOrDefault(item, 0L));
             java.util.Set<Integer> occupied=new java.util.HashSet<>();

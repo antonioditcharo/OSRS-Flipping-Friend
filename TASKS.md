@@ -1,10 +1,15 @@
 # Tasks
 
 Updated 24 October 2026. Read [HANDOFF.md](HANDOFF.md) and the actual delivery receipt at
-`local-data/dragon-dart-loss-20261023/delivery-state.json` first. Implemented/tested, merged,
+`local-data/stop-entry-pause-20261024/delivery-state.json` first. Implemented/tested, merged,
 installed and player accepted are separate states. Owner is home; older login deferrals are superseded.
 
 ## Current batch
+
+- [ ] Deliver/accept item-local stop rechecks across additional ordinary buys, cached READY plans,
+      exact cancelled-buy replacements, partials and restart. Preserve exact remainders, fresh
+      recovery, unrelated entries, non-loss exits, confirmed stops and original finance/risk evidence.
+      [Contract](docs/architecture/stop-entry-pause.md).
 
 - [ ] Deliver/accept confirmed automatic stop losses across initial exits, working sales, exact
       collected relists and restart. Preserve profitable limits without completed-market support,

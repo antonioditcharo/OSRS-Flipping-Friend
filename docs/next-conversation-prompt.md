@@ -1,5 +1,10 @@
 # Continuation prompt
 
+Read `local-data/stop-entry-pause-20261024/delivery-state.json` first for the latest delivery.
+[Stop-entry contract](architecture/stop-entry-pause.md): an original acquisition stop can pause
+additional purchases without granting loss authority. Retain exact remainders, fresh recovery,
+unrelated entries, unknown plans and original financial/source/risk identities.
+
 Read `local-data/dragon-dart-loss-20261023/delivery-state.json` first for the latest loss investigation
 and delivery. [Confirmed-stop contract](architecture/confirmed-stop-loss.md): original stops need
 fresh coherent two-sided and completed-volume support; automatic loss limits protect the reported

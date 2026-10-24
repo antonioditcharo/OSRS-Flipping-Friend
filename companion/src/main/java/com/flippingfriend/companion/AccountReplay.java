@@ -12,7 +12,7 @@ import java.util.*;
 
 /** One simulated account, one bankroll and eight physical slots; never opens a live database. */
 final class AccountReplay implements AutoCloseable {
-    static final String VERSION="account-replay-19";
+    static final String VERSION="account-replay-20";
     private static final String ACCOUNT=AccountIdentity.fromProfileKey("synthetic-account-replay-only");
     interface Entries {
         PortfolioPlan plan(MarketIngestionService.MarketState market,AccountSnapshot account,
@@ -300,6 +300,7 @@ final class AccountReplay implements AutoCloseable {
                 int price=advisedPrices.buyReprice(offer.item,offer.price,quote.getLow()+1,now);
                 var proposal=BuyRepricePricing.quote(offer.item,offer.price,offer.remaining(),offer.placedAt,offer.lastProgressAt,quote,
                     aggregate(offer.item,market),horizon,tax,now,price,input.minimumProfit);
+                if(proposal!=null && proposal.replace && StopLossEvidence.blocksAdditionalBuy(position(canonical.get(offer.item)),quote,Instant.ofEpochSecond(now)))continue;
                 if(proposal!=null)return offerGuidance(proposal.replace?"REPRICE_BUY":"CANCEL_BUY",offer,price,null,false);
                 continue;
             }
@@ -353,7 +354,7 @@ final class AccountReplay implements AutoCloseable {
         if(exposure==null){abstain("CURRENT_EVIDENCE_UNAVAILABLE");return null;}
         var risk=DurableRisk.evaluate(read,account,exposure,market,now);
         if(!risk.isAvailable()){abstain("DURABLE_RISK_UNAVAILABLE: "+risk.getReason());return null;}
-        return account.withPlanningRestrictions(exposure.committedByItem,exposure.unavailableEntryItems).withCanonicalRisk(risk);
+        return account.withPlanningRestrictions(exposure.committedByItem,EntryStopPause.restrictions(exposure,read,market,now)).withCanonicalRisk(risk);
     }
     private Guidance entryGuidance(PortfolioPlan plan,PortfolioCandidate c,int slot,String kind,String original) {
         int stop=(int)Math.round(c.getBuyPrice()*(1-horizon.getProfile().getLossCutPct()));

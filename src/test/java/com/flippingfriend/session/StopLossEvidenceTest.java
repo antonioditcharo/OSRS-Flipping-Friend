@@ -10,6 +10,27 @@ import static org.junit.Assert.*;
 
 /** A last public trade is not by itself permission to liquidate a whole acquisition. */
 public class StopLossEvidenceTest {
+    @Test public void aFreshDownsideSignalPausesOnlyAdditionalPurchasesWithoutInventingLossAuthority() {
+        var p=position();var inverted=latest(806,1000);
+        assertTrue(StopLossEvidence.blocksAdditionalBuy(p,inverted,now));
+        assertFalse(StopLossEvidence.confirmed(p,inverted,List.of(),now));
+        assertTrue(StopLossEvidence.blocksAdditionalBuy(p,new LatestPrice(806,now.getEpochSecond(),null,null),now));
+        assertFalse(StopLossEvidence.blocksAdditionalBuy(p,latest(1000,990),now));
+        assertFalse(StopLossEvidence.blocksAdditionalBuy(p,new LatestPrice(806,now.getEpochSecond()-121,800,now.getEpochSecond()),now));
+        assertFalse(StopLossEvidence.blocksAdditionalBuy(p,new LatestPrice(806,now.getEpochSecond()+1,800,now.getEpochSecond()),now));
+        p.setStopPrice(0);assertFalse(StopLossEvidence.blocksAdditionalBuy(p,latest(806,800),now));
+    }
+    @Test public void anyPossiblyRemainingProvenOriginCanPauseAnAdditionButCannotLiquidateOtherOrigins() {
+        var p=position();
+        var known=new com.flippingfriend.core.AcquisitionExitContext(1200,1100,120).bind("known");
+        p.applyExitContexts(List.of(new com.flippingfriend.core.AcquisitionExitSlice("known",known,0,1),
+            new com.flippingfriend.core.AcquisitionExitSlice("unknown",null,1,11000)));
+        assertEquals(0,p.getStopPrice());assertTrue(StopLossEvidence.blocksAdditionalBuy(p,latest(1000,990),now));
+        assertFalse(StopLossEvidence.confirmed(p,latest(1000,990),bars(1000,990),now));
+        p.applyExitContexts(List.of(new com.flippingfriend.core.AcquisitionExitSlice("known",known,0,0),
+            new com.flippingfriend.core.AcquisitionExitSlice("unknown",null,1,11000)));
+        assertFalse("Disposed origins cannot pause later unrelated stock",StopLossEvidence.blocksAdditionalBuy(p,latest(1000,990),now));
+    }
     final Instant now=Instant.ofEpochSecond(1800000600);
     final TaxCalculator tax=new TaxCalculator();
     final SellTimingEngine exits=new SellTimingEngine(new FillModel(),tax);
