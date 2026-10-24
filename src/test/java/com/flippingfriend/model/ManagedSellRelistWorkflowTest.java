@@ -88,6 +88,18 @@ public class ManagedSellRelistWorkflowTest {
         f.context(1200,0,120,now.getEpochSecond()-60);
         assertEquals(1200,f.next().getPrice());assertEquals(SuggestionType.MODIFY_SELL,f.maintenance(6).getType());
     }
+    @Test public void oneRefreshUsesOneLedgerEvenWhenALaterHeartbeatInvalidatesTheSharedCache()throws Exception {
+        var f=new Fixture(6,5881,6,1200,true);
+        var accepted=f.companion.tradingLedger();
+        when(f.companion.tradingLedger()).thenReturn(accepted,null);
+        clearInvocations(f.companion);
+        assertEquals(SuggestionType.SELL,f.next().getType());
+        verify(f.companion,times(1)).tradingLedger();
+        assertEquals(SuggestionType.WAIT,f.next().getType());
+        when(f.companion.tradingLedger()).thenReturn(accepted);
+        assertEquals("A later successful refresh must resume the exact saved sale",6,f.next().getQuantity());
+        assertEquals(SuggestionType.SELL,f.next().getType());
+    }
     private void bindReducedRelist(Fixture f)throws Exception {
         var collected=f.offers.getSettledOffer(0);
         var working=collected.copyObservation();working.setState("SELLING");working.setQuantityFilled(2);working.setCollected(false);

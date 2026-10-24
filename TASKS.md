@@ -1,10 +1,16 @@
 # Tasks
 
 Updated 23 October 2026. Read [HANDOFF.md](HANDOFF.md) and the actual delivery receipt at
-`local-data/sale-acceptance-renewal-20261023/delivery-state.json` first. Implemented/tested, merged,
+`local-data/full-board-churn-20261023/delivery-state.json` first. Implemented/tested, merged,
 installed and player accepted are separate states. Owner is home; older login deferrals are superseded.
 
 ## Current batch
+
+- [ ] Verify/deliver full-board churn recovery: one engine-pass ledger, consistent last-slot exit
+      priority after sale/continuation refusals, canonical entry/replacement reservation and sale
+      preflight before freeing a slot. Accept the retained Fury relist and newest-offer stability;
+      preserve legitimate stops, exact replacements, partials, spare-slot entries and risk guards.
+      [Contract](docs/architecture/full-board-exit-reservation.md).
 
 - [ ] Verify/deliver exact-episode collection retry across unreadable workflow documents, repeated
       EMPTY and unrelated slot reuse. Keep login/account reset, cached-predecessor and new same-item

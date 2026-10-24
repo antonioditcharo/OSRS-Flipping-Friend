@@ -1035,6 +1035,7 @@ public class FlippingFriendPlugin extends Plugin
                     Suggestion proposed=suggestion;
                     suggestion=authorizeSaleCandidates(proposed,rejectedPriceAdvice,observedGeneration,observedRevision);
                 }
+                if(suggestion==null)suggestion=engine.entryPriorityWait();
 				if (suggestion == null)
 				{
 					// The two rejection controls the player actually has. These were honoured only by

@@ -5,20 +5,21 @@ Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
 ## Current delivery
 
-New source preserves current-login collection receipts by exact episode across unreadable workflow
-documents, repeated EMPTY and unrelated slot reuse. Read
-`local-data/collection-observation-retry-20261023/delivery-state.json` for this batch's verification
-and installation; queued until that receipt records installation.
-[Contract](docs/architecture/collection-observation-retry.md).
+Read `local-data/full-board-churn-20261023/delivery-state.json` first for the current batch's source,
+tests, CI and installation; queued until that receipt records installation. The owner reproduced
+full-board CANCEL/collect/rebuy churn and alternating reserved-slot/BUY advice with a cancelled
+Amulet of fury sale still in inventory. New source uses one ledger per engine pass, preserves exit
+priority through fallbacks, reserves the last slot at canonical planning/final entry/replacement,
+and verifies an intended sale before cancelling a working buy for room.
+[Contract](docs/architecture/full-board-exit-reservation.md).
 
-Read `local-data/sale-acceptance-renewal-20261023/delivery-state.json` first for current source,
-verification, CI and delivery. PR #154 (`e9bb9d89ff63510408df1dd2cd4004a71e545712`) is installed.
-Backup, hashes, task settings, all 115,071 frozen source rows, 1,861 accounting effects, both original
-sale acceptances and the loss anchor passed preservation. The post-login receipt records fresh
-eight-slot/empty-outbox evidence and six actionable MODIFY_SELL deliveries over about 2½ minutes;
-the earlier "Saving this trade workflow" blocker did not recur. Direct final entry returned
-PLACE_BUY, but BUY presentation was not observed while sale maintenance was foreground. These are
-historical short observations; controlled trading and sustained latency remain open.
+PR #155 (`ba02e36f6faa849a16fd8127f19b9024ecefdd82`) is installed; its
+`local-data/collection-observation-retry-20261023/delivery-state.json` records backup/hash/task,
+source/financial/risk and original acceptance preservation, and short post-launch Client BUY delivery.
+Its [collection retry fix](docs/architecture/collection-observation-retry.md) is not full-loop acceptance.
+PR #154 is installed too; the sale-acceptance-renewal receipt records six actionable MODIFY_SELL
+deliveries without the earlier Saving blocker. These are short historical observations;
+controlled trading and sustained latency remain open.
 
 The current source fixes renewal matching: a fresh exact source/receipt may retain the immutable
 original acceptance for the same economic offer episode as observations and partial counters advance.

@@ -4,11 +4,14 @@ Continue in `C:\Users\Antonio\OSRS Flipping Friend Rebuild`.
 Implement, verify and deliver reliable trade/inventory workflow batches; do not stop at a roadmap.
 Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
-Read `local-data/sale-acceptance-renewal-20261023/delivery-state.json` FIRST, then AGENTS.md,
+Read `local-data/full-board-churn-20261023/delivery-state.json` FIRST, then AGENTS.md,
 HANDOFF.md and TASKS.md. Source/tests/CI/merge/install/player acceptance are separate.
-New collection-retry source retains exact current-login episode receipts through workflow read
-failures, repeated EMPTY and unrelated slot reuse; read
-[the contract](architecture/collection-observation-retry.md) and HANDOFF for its own delivery state.
+PR #155 is installed (receipt: `local-data/collection-observation-retry-20261023/delivery-state.json`).
+The owner then reproduced full-board cancellation/rebuy churn and alternating reserved-slot/BUY
+guidance while a cancelled Fury sale remained in inventory. Current source fixes ledger consistency,
+fallback priority, canonical last-slot reservation and sale preflight before cancelling a working buy;
+read [the contract](architecture/full-board-exit-reservation.md) and current receipt for delivery.
+The [collection-retry contract](architecture/collection-observation-retry.md) remains in force.
 PR #154 is merged and installed at e9bb9d89ff63510408df1dd2cd4004a71e545712. Read also
 `local-data/sale-acceptance-renewal-20261023/postlogin-acceptance.json`: fresh eight-slot/ACK checks,
 six actionable MODIFY_SELL deliveries and two native observations passed without the earlier Saving
