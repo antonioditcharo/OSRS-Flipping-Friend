@@ -34,6 +34,7 @@ final class PanelDetails {
     private final FlippingFriendConfig config;
     private final JTextArea recommendation = CompactSuggestionPanel.text(UiUtils.TEXT);
     private final JTextArea saleMaintenance = CompactSuggestionPanel.text(UiUtils.TEXT);
+    private final JTextArea tradeRecovery = CompactSuggestionPanel.text(UiUtils.TEXT);
     private final MarketGraphView graph;
     private final MarketDropsPanel marketDrops;
     private final RecordedSalesPanel recordedSales;
@@ -62,6 +63,7 @@ final class PanelDetails {
         copyQuantity.addActionListener(e -> copy(Integer.toString(shown.getQuantity())));
         copyPrice.addActionListener(e -> copy(Integer.toString(shown.getPrice())));
         add("Recommendation", guide);
+        add("Trade recovery",tradeRecovery);
         add("Price graph",graph);
         add("Plan", plan); add("Holdings", holdings); add("Performance", performance);
         add("Local history", history); add("Bank estimate", bank);
@@ -108,6 +110,7 @@ final class PanelDetails {
         update(advice,ledger,ledger,false);
     }
     void updateSaleMaintenance(boolean loggedIn) {
+        tradeRecovery.setText(TradeRecoveryText.render(loggedIn?engine.tradeRecovery():null,java.time.Instant.now().getEpochSecond()));
         saleMaintenance.setText(SaleMaintenanceText.render(loggedIn?engine.saleMaintenanceDiagnostics():java.util.Collections.emptyList(),
             java.time.Instant.now().getEpochSecond(),loggedIn));
     }

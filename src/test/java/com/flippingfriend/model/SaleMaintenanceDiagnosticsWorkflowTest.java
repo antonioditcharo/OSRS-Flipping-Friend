@@ -49,6 +49,21 @@ public class SaleMaintenanceDiagnosticsWorkflowTest {
         verify(market,never()).getSeries(anyInt(),anyString());
         verify(companion).lastLedger();verify(companion).tradingLedger();verifyNoMoreInteractions(companion);
     }
+    @Test public void recoveryCoverageSurvivesEarlyForegroundAndInvalidatesOnSourceCounterSettingsAndLogout() {
+        engine.refreshRecoveryCoverage();var snapshot=engine.tradeRecovery();assertNotNull(snapshot);assertTrue(snapshot.evidenceCurrent);
+        assertTrue(snapshot.items.stream().anyMatch(r->r.identity.equals(offer.getContinuationIdentity())));
+        var refused=Suggestion.builder(SuggestionType.MODIFY_SELL).item(561,"Rune").slot(0).quantity(3).price(119)
+            .maintenanceSource(offer.getContinuationIdentity()).build();
+        engine.noteRecoveryRefusal(refused,Suggestion.waiting("Source acknowledgement pending","Wait for ordered source acceptance."));
+        assertTrue(engine.tradeRecovery().items.stream().anyMatch(r->r.reason.contains("Source acknowledgement pending")));
+        var current=companion.lastLedger();doReturn(current).when(companion).lastLedger();
+        clearInvocations(market,companion);engine.tradeRecovery();
+        verify(market,never()).getSeries(anyInt(),anyString());verify(companion,never()).tradingLedger();
+        offer.setQuantityFilled(1);assertFalse(engine.tradeRecovery().evidenceCurrent);
+        engine.refreshRecoveryCoverage();when(config.checkInterval()).thenReturn(CheckInterval.TWO_HOURS);assertFalse(engine.tradeRecovery().evidenceCurrent);
+        engine.setObservedAccount(AccountIdentity.fromProfileKey("other"));assertNull(engine.tradeRecovery());
+        engine.setObservedAccount(account);engine.refreshRecoveryCoverage();when(state.isLoggedIn()).thenReturn(false);assertNull(engine.tradeRecovery());
+    }
     @Test public void changedCountersAccountSettingsAndLogoutWithdrawImmediately() {
         engine.refresh(false);offer.setQuantityFilled(1);
         assertNotNull(engine.saleMaintenanceDiagnostics().get(0).unavailable);

@@ -140,7 +140,14 @@ final class SeriesCache implements SeriesSource
 	{
         return warm(itemIds,timestep,budget,false);
     }
-    int warmMaintenance(List<Integer> itemIds,int budget) {return warm(itemIds,"5m",budget,true);}
+    int warmMaintenance(List<Integer> itemIds,int budget) {
+        // Oldest fetch attempt first, including failures. A fixed first page cannot monopolize a small budget.
+        var ordered=new ArrayList<Integer>(new java.util.LinkedHashSet<>(itemIds));
+        ordered.sort(java.util.Comparator.comparingLong((Integer item)->{
+            var cached=cache.get(key(item,"5m"));return cached==null?Long.MIN_VALUE:cached.fetchedAt.getEpochSecond();
+        }).thenComparingInt(Integer::intValue));
+        return warm(ordered,"5m",budget,true);
+    }
     private int warm(List<Integer> itemIds,String timestep,int budget,boolean maintenance) {
 		int spent = 0;
 		for (Integer itemId : itemIds)

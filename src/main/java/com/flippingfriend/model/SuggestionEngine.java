@@ -110,12 +110,13 @@ public class SuggestionEngine
 
 	private final AtomicReference<Suggestion> current = new AtomicReference<>(Suggestion.idle());
     private final java.util.concurrent.ConcurrentMap<String,Long> maintenanceRetryAfter=new java.util.concurrent.ConcurrentHashMap<>();
+    private java.util.function.LongSupplier maintenanceRetryClock=System::nanoTime;
     /** Back off one unsavable ordinary workflow so other exits/entries can still run. */
     public boolean deferUnsavedMaintenance(Suggestion declined,long now) {
         if(declined==null || declined.isLossCut() || sellOnly)return false;
         var offer=offers.getOffer(declined.getSlot());
         if(offer==null || offer.getItemId()!=declined.getItemId())return false;
-        maintenanceRetryAfter.put(offer.getContinuationIdentity(),now+30);
+        maintenanceRetryAfter.put(offer.getContinuationIdentity(),maintenanceRetryClock.getAsLong()+java.util.concurrent.TimeUnit.SECONDS.toNanos(30));
         return true;
     }
 	/**
@@ -159,7 +160,93 @@ public class SuggestionEngine
     @Inject private com.flippingfriend.companion.CompanionClient companion;
     @Inject private com.flippingfriend.session.SellRelistIntent sellRelist;
     @Inject private com.flippingfriend.session.BuyRepriceIntent buyReprice;
+    @Inject private com.flippingfriend.session.BuyRecoveryJournal buyRecovery;
+    private volatile Set<Integer> recoveryEntryPauses=Collections.emptySet();
+    private volatile boolean recoveryEntriesReadable=true;
+    /** Worker-only refresh, before publishing restrictions to canonical entry authority. */
+    public void refreshEntryRecovery(String expected,long now) {
+        if(buyRecovery==null)return;
+        var paused=buyRecovery.pausedItems(expected,marketData.getSnapshot(),item->{marketData.refreshMaintenanceSeries(item,TIMESTEP);return marketData.getSeries(item,TIMESTEP);},
+            TradingHorizon.of(config.riskProfile(),config.checkInterval(),config.targetHoldMinutes()),taxCalculator,config.minProfitPerFlip(),now);
+        if(!java.util.Objects.equals(expected,observedAccount))return;
+        recoveryEntriesReadable=paused!=null;recoveryEntryPauses=paused==null?Collections.emptySet():paused;
+    }
+    public boolean recoveryEntryAllowed(int item){return buyRecovery==null || recoveryEntriesReadable && !recoveryEntryPauses.contains(item);}
+    public boolean isRecoveryEntryPaused(int item){return !recoveryEntryAllowed(item);}
+    /** A companion collection can win without evaluating or mutating replacement proposals. */
+    public void refreshRecoveryCoverage() {
+        guidanceLedger.set(new GuidanceLedger(companion==null?null:companion.tradingLedger()));
+        try {evaluateSaleDiagnostics(marketData.getSnapshot(),Instant.now());positionStatuses.set(Collections.emptyMap());publishRecovery(null);}
+        catch(RuntimeException unavailable){withdrawRecoveryEvaluation();}
+        finally {guidanceLedger.remove();}
+    }
+    private void withdrawRecoveryEvaluation() {
+        var old=recovery;
+        if(old!=null && java.util.Objects.equals(old.accountId,observedAccount))
+            recovery=new com.flippingfriend.core.TradeRecoverySnapshot(old.accountId,old.evaluatedAt,old.ledgerObservedAt,false,old.items);
+        else recovery=new com.flippingfriend.core.TradeRecoverySnapshot(observedAccount,Instant.now().getEpochSecond(),0,false,
+            List.of(new com.flippingfriend.core.TradeRecoveryItem("coverage-unavailable",com.flippingfriend.core.TradeRecoveryItem.Kind.EVIDENCE,
+                com.flippingfriend.core.TradeRecoveryItem.State.AWAITING_EVIDENCE,0,"Recovery coverage",-1,0,0,false,0,Instant.now().getEpochSecond()+30,
+                "Recovery evaluation is unavailable; no completion is inferred.","Wait for current account observations and the next worker pass.")));
+    }
     private volatile String observedAccount;
+    private volatile com.flippingfriend.core.TradeRecoverySnapshot recovery;
+    private volatile RecoveryPublication recoveryPublication;
+    private static final class RecoveryPublication {
+        final Object ledger,market,physical;final String settings,offers;
+        RecoveryPublication(Object ledger,Object market,Object physical,String settings,String offers){
+            this.ledger=ledger;this.market=market;this.physical=physical;this.settings=settings;this.offers=offers;
+        }
+    }
+    private String recoveryOfferFingerprint() {
+        var rows=new ArrayList<String>();
+        for(var o:offers.getOffers())rows.add(o.getContinuationIdentity()+":"+o.getState()+":"+o.getQuantityFilled()+":"+o.getSpent()+":"+o.isCollected()+":"+o.getLastFillObservedAt());
+        Collections.sort(rows);return rows.toString();
+    }
+    /** No HTTP, disk reads or policy work on the Swing thread. Stale coverage never looks actionable. */
+    public com.flippingfriend.core.TradeRecoverySnapshot tradeRecovery() {
+        var saved=recovery;var stamp=recoveryPublication;long now=Instant.now().getEpochSecond();
+        if(!accountMonitor.getState().isLoggedIn() || saved==null || !java.util.Objects.equals(saved.accountId,observedAccount))return null;
+        boolean current=stamp!=null && saved.isFresh(observedAccount,now) && stamp.market==marketData.getSnapshot()
+            && stamp.physical==accountMonitor.getState() && stamp.settings.equals(saleDiagnosticSettings())
+            && stamp.offers.equals(recoveryOfferFingerprint()) && (companion==null || stamp.ledger==companion.lastLedger());
+        return current?saved:new com.flippingfriend.core.TradeRecoverySnapshot(saved.accountId,saved.evaluatedAt,saved.ledgerObservedAt,false,saved.items);
+    }
+    /** Final refusals withdraw earlier pricing eligibility without erasing the obligation. */
+    public synchronized void noteRecoveryRefusal(Suggestion proposed,Suggestion refusal) {
+        var snapshot=recovery;if(snapshot==null || proposed==null || !java.util.Objects.equals(snapshot.accountId,observedAccount))return;
+        var rows=new ArrayList<com.flippingfriend.core.TradeRecoveryItem>();
+        for(var item:snapshot.items) {
+            boolean matches=proposed.getMaintenanceOfferIdentity()!=null?proposed.getMaintenanceOfferIdentity().equals(item.identity)
+                :proposed.getContinuationOriginIdentity()!=null?proposed.getContinuationOriginIdentity().equals(item.identity)
+                :item.kind==com.flippingfriend.core.TradeRecoveryItem.Kind.STOCK && proposed.getItemId()==item.itemId;
+            rows.add(!matches?item:new com.flippingfriend.core.TradeRecoveryItem(item.identity,item.kind,
+                com.flippingfriend.core.TradeRecoveryItem.State.AWAITING_EVIDENCE,item.itemId,item.name,item.slot,item.quantity,item.price,item.buying,item.openedAt,
+                Math.min(item.reassessAt,Instant.now().getEpochSecond()+30),
+                "Final action refused: "+(refusal==null?"current authorization unavailable":refusal.getHeadline()),
+                refusal==null?"Wait for current source and policy evidence; independent trades remain eligible.":refusal.getDetail()));
+        }
+        recovery=new com.flippingfriend.core.TradeRecoverySnapshot(snapshot.accountId,snapshot.evaluatedAt,snapshot.ledgerObservedAt,snapshot.evidenceCurrent,rows);
+    }
+    private void publishRecovery(Suggestion selected) {
+        var account=accountMonitor.getState();
+        if(account==null || !account.isLoggedIn()){recovery=null;recoveryPublication=null;return;}
+        String expected=observedAccount;long now=Instant.now().getEpochSecond();var ledger=ledgerForGuidance();var market=marketData.getSnapshot();
+        var workflows=new ArrayList<com.flippingfriend.core.TradeRecoveryItem>();
+        if(buyReprice!=null)workflows.addAll(buyReprice.recoveryItems(expected,now));
+        if(sellRelist!=null)workflows.addAll(sellRelist.recoveryItems(expected,now));
+        if(buyRecovery!=null)workflows.addAll(buyRecovery.recoveryItems(expected,now));
+        var copied=new ArrayList<TrackedOffer>();for(var offer:offers.getOffers()){
+            var copy=offer.copyObservation();copy.setCollected(offer.isCollected());copied.add(copy);
+        }
+        var diagnostics=saleDiagnostics;if(diagnostics!=null)market=diagnostics.market;
+        var snapshot=com.flippingfriend.session.TradeRecoveryScanner.scan(expected,now,ledger,account,copied,market,
+            diagnostics==null?Collections.emptyMap():diagnostics.rows,positionStatuses.get(),workflows,selected,
+            TradingHorizon.of(config.riskProfile(),config.checkInterval(),config.targetHoldMinutes()),taxCalculator,config.minProfitPerFlip());
+        if(java.util.Objects.equals(expected,observedAccount)) {
+            recoveryPublication=new RecoveryPublication(ledger,market,account,saleDiagnosticSettings(),recoveryOfferFingerprint());recovery=snapshot;
+        }
+    }
     private volatile SaleDiagnostics saleDiagnostics;
     private static final class SaleDiagnostics {
         final String account,settings;
@@ -243,6 +330,8 @@ public class SuggestionEngine
     public boolean isContinuationWait(Suggestion suggestion) { return suggestion!=null && suggestion==continuationWait; }
     public void setObservedAccount(String account) {
         if(!java.util.Objects.equals(observedAccount,account)) {
+            recovery=null;recoveryPublication=null;
+            recoveryEntryPauses=Collections.emptySet();recoveryEntriesReadable=buyRecovery==null;
             saleDiagnostics=null;
             advisedPrices.clear();reprice=null;maintenanceRetryAfter.clear();replacementCandidates=Collections.emptyList();locallyDeclinedReplacements.clear();
             saleCandidates=Collections.emptyList();stockSaleCandidates=Collections.emptyList();listedStopCandidates=Collections.emptyList();
@@ -251,12 +340,18 @@ public class SuggestionEngine
     }
     /** The saved account/episode commitment survives a changed card or reconnect before refresh. */
     public boolean isGuidedBuyCancellation(com.flippingfriend.session.TrackedOffer offer,String account,long now) {
-        return buyReprice!=null && buyReprice.isGuidedCancellation(offer,account,now);
+        return buyReprice!=null && buyReprice.isGuidedCancellation(offer,account,now)
+            || buyRecovery!=null && buyRecovery.isGuidedCancellation(account,offer,now);
     }
     /** Client-thread acceptance only: a worker proposal is not a promise shown to the player. */
     public boolean recordPresentedMaintenance(Suggestion accepted,String expectedAccount,long now) {
         if(accepted==null || expectedAccount==null || !expectedAccount.equals(observedAccount))return false;
+        if(accepted.getType()==SuggestionType.BUY && !recoveryEntryAllowed(accepted.getItemId()))return false;
         if(accepted.getContinuationOriginIdentity()!=null && (accepted.getType()==SuggestionType.BUY || accepted.getType()==SuggestionType.SELL)) {
+            if(accepted.getType()==SuggestionType.BUY && buyRecovery!=null) {
+                long deadline=offers.retainedBuyMaintenanceDeadline(accepted.getContinuationOriginIdentity(),expectedAccount,now);
+                if(deadline<=0 || deadline<=now)return false;
+            }
             var proof=accepted.getType()==SuggestionType.BUY
                 ?buyReprice==null?null:buyReprice.acceptSuccessor(accepted.getContinuationOriginIdentity(),accepted.getItemId(),accepted.getPrice(),accepted.getQuantity(),offers,expectedAccount,now)
                 :sellRelist==null?null:sellRelist.acceptSuccessor(accepted.getContinuationOriginIdentity(),accepted.getItemId(),accepted.getPrice(),accepted.getQuantity(),offers,expectedAccount,now);
@@ -271,8 +366,15 @@ public class SuggestionEngine
                 && cancelled.getItemId()==accepted.getItemId() && cancelled.getPrice()==accepted.getPrice()
                 && cancelled.getRemaining()==accepted.getQuantity() && cancelled.getRemaining()>0
                 && accepted.getMaintenanceOfferIdentity()!=null
-                && accepted.getMaintenanceOfferIdentity().equals(cancelled.getContinuationIdentity()))
+                && accepted.getMaintenanceOfferIdentity().equals(cancelled.getContinuationIdentity())) {
+                if(buyRecovery!=null && !sellOnly) {
+                    long patience=Math.max(480L,config.checkInterval().getMinutes()*60L);
+                    if(!buyRecovery.record(expectedAccount,cancelled,accepted.getHeadline(),now,patience))return false;
+                    var paused=new HashSet<>(recoveryEntryPauses);paused.add(cancelled.getItemId());recoveryEntryPauses=Collections.unmodifiableSet(paused);
+                    if(companion!=null)companion.invalidateEntryAdvice();
+                }
                 return clearBuyPromise(accepted.getItemId(),Instant.ofEpochSecond(now));
+            }
             return false;
         }
         boolean buy=accepted.getType()==SuggestionType.MODIFY_BUY;
@@ -368,7 +470,10 @@ public class SuggestionEngine
 	/** The items currently skipped, so the companion path can honour them too. */
 	public Set<Integer> skippedItems()
 	{
-		return skipped.skipped(Instant.now());
+		var result=new HashSet<>(skipped.skipped(Instant.now()));
+        result.addAll(recoveryEntryPauses);
+        if(!recoveryEntriesReadable)result.addAll(marketData.getSnapshot().getMetadata().keySet());
+        return result;
 	}
 
 	/** Temporarily ignores an item the user has skipped, until the plugin restarts. */
@@ -426,14 +531,15 @@ public class SuggestionEngine
 	public Suggestion refresh(boolean computeBuy)
 	{
 		guidanceLedger.set(new GuidanceLedger(companion==null?null:companion.tradingLedger()));
+        Suggestion selected=null;
         try {
-		Suggestion suggestion = compute(computeBuy);
+		Suggestion suggestion = compute(computeBuy);selected=suggestion;
 		if (suggestion != null)
 		{
 			current.set(suggestion);
 		}
 		return suggestion;
-        } finally { guidanceLedger.remove(); }
+        } finally { try { publishRecovery(selected); } catch(RuntimeException unavailable){withdrawRecoveryEvaluation();} finally { guidanceLedger.remove(); } }
 	}
 
 	/**
@@ -476,7 +582,8 @@ public class SuggestionEngine
 		AccountState account = accountMonitor.getState();
 		MarketSnapshot market = marketData.getSnapshot();
 		Instant now = Instant.now();
-        maintenanceRetryAfter.entrySet().removeIf(e->e.getValue()<=now.getEpochSecond());
+        positionStatuses.set(Collections.emptyMap());
+        long retryNow=maintenanceRetryClock.getAsLong();maintenanceRetryAfter.entrySet().removeIf(e->retryNow-e.getValue()>=0);
 
 		if (!account.isLoggedIn())
 		{
@@ -486,6 +593,12 @@ public class SuggestionEngine
 		}
 
         evaluateSaleDiagnostics(market,now);
+        refreshEntryRecovery(observedAccount,now.getEpochSecond());
+        var buyHorizon=TradingHorizon.of(config.riskProfile(),config.checkInterval(),config.targetHoldMinutes());
+        for(var offer:offers.getOffers())if(offer.isBuying() && "BUYING".equals(offer.getState())) {
+            if(companion!=null)companion.freezeBuyMaintenanceDeadline(offer,offers,buyHorizon.legHorizonHours()*60,now.getEpochSecond());
+            else offers.freezeBuyMaintenanceDeadline(offer.getSlot(),offer.getContinuationIdentity(),0,buyHorizon.legHorizonHours()*60,now.getEpochSecond(),observedAccount);
+        }
 		if (account.isIronman())
 		{
 			return Suggestion.waiting("Ironman accounts cannot flip",
@@ -753,7 +866,8 @@ public class SuggestionEngine
             // Preserve the original first buy-vs-sale selection. Once a sale wins, collect
             // other eligible sales without creating an unseen buy cancellation promise.
             if(!stopsOnly && !routineSales.isEmpty() && offer.isBuying())continue;
-            if(!stopsOnly && maintenanceRetryAfter.getOrDefault(offer.getContinuationIdentity(),0L)>now.getEpochSecond())continue;
+            Long retryAt=maintenanceRetryAfter.get(offer.getContinuationIdentity());
+            if(!stopsOnly && retryAt!=null && maintenanceRetryClock.getAsLong()-retryAt<0)continue;
 			String state = offer.getState();
 			boolean open = "BUYING".equals(state) || "SELLING".equals(state);
 			if (!open || offer.getQuantityFilled() >= offer.getTotalQuantity())
@@ -813,6 +927,7 @@ public class SuggestionEngine
                         .detail("The original buy waiting budget has elapsed without recent observed fills. Cancel this remainder and collect its coins and any acquired units. A fresh plan will reassess the returned capital; this is not a promise to replace the same order.")
                         .build();
                 }
+                if(buyRecovery!=null && deadline<=0)continue;
             }
 
 			if (horizon.isOutbid(offer.isBuying(), offer.getPrice(), price, trend))
@@ -861,7 +976,7 @@ public class SuggestionEngine
 							.build();
 					}
 
-                    if(additionalBuyPaused(offer.getItemId(),market,now))continue;
+                    if(additionalBuyPaused(offer.getItemId(),market,now) || !recoveryEntryAllowed(offer.getItemId()))continue;
 					// Remembered, so the re-placing actually happens.
 					//
 					// The Grand Exchange has no way to change the price of a running offer: this is
@@ -886,9 +1001,9 @@ public class SuggestionEngine
 							+ "are now selling at " + explainer.formatNumber(price.getLow()) + " gp, so your "
 							+ "offer is being skipped over.\n\nThe Grand Exchange cannot change the price "
 							+ "of an offer that is already running, so cancel this one and collect what it "
-							+ "bought along with the coins it gives back. You will be told to place the "
-							+ "replacement at " + explainer.formatNumber(newPrice) + " gp straight "
-							+ "afterwards.")
+								+ "bought along with the coins it gives back. The exact unbought remainder will be retained. "
+                                + "After collection, fresh checks will determine whether a replacement is still safe; its price and quantity may change. "
+                                + "If replacement is refused, acquired units remain tracked for a supported exit.")
 						.build();
 				}
 			}
@@ -1083,7 +1198,7 @@ public class SuggestionEngine
 	}
 
     private boolean replacementRejected(int item,MarketSnapshot market) {
-        return sellOnly || skippedItems().contains(item)
+        return sellOnly || skipped.skipped(Instant.now()).contains(item)
             || parseBlocked(config.blockedItems()).contains(market.getItemName(item).toLowerCase(java.util.Locale.ROOT));
     }
     private boolean clearBuyPromise(int item,Instant now) {
@@ -1105,6 +1220,20 @@ public class SuggestionEngine
             if(replacementRejected(item,market)){buyReprice.clearItem(observedAccount,item);continue;}
             if(offers.itemsWithOpenOffers().contains(item))continue;
             locallyDeclinedReplacements.add(item);
+            if(buyRecovery!=null) {
+                long deadline=offers.retainedBuyMaintenanceDeadline(pending.originIdentity,observedAccount,now.getEpochSecond());
+                if(deadline<=0){waiting=Suggestion.waiting("Replacement budget unavailable","The original waiting deadline could not be verified. The exact remainder and acquired units are retained.");continue;}
+                if(deadline<=now.getEpochSecond()) {
+                    if(buyRecovery.expire(observedAccount,pending,now.getEpochSecond(),Math.max(480L,config.checkInterval().getMinutes()*60L))) {
+                        buyReprice.clearOrigin(observedAccount,pending.originIdentity);
+                        var paused=new HashSet<>(recoveryEntryPauses);paused.add(item);recoveryEntryPauses=Collections.unmodifiableSet(paused);
+                    }
+                    waiting=Suggestion.waiting("Original buy budget elapsed","No replacement is promised. Acquired partial stock still needs a supported exit; unrelated work is checked.");continue;
+                }
+            }
+            if(!recoveryEntryAllowed(item)) {
+                waiting=Suggestion.waiting("Replacement retained for reassessment","This item is paused by a cancellation reassessment or unavailable workflow metadata. Its exact remainder is retained; unrelated trades are checked.");continue;
+            }
             if(additionalBuyPaused(item,market,now)) {
                 waiting=Suggestion.waiting("Replacement retained while the stop is rechecked",
                     "A fresh trade crossed this acquisition's original stop. No additional units are bought, and a loss sale still needs separate confirmation. Unrelated trades remain eligible.");
@@ -1381,7 +1510,8 @@ public class SuggestionEngine
 	{
 		List<TrackedOffer> ordered = new ArrayList<>(open);
 		ordered.sort(Comparator
-			.comparingDouble((TrackedOffer offer) -> strandedBy(offer, market)).reversed()
+			.comparingLong((TrackedOffer offer) -> Math.max(offer.getFirstSeen(),offer.getLastFillObservedAt()))
+            .thenComparing(Comparator.comparingDouble((TrackedOffer offer) -> strandedBy(offer, market)).reversed())
 			// A stable tie-break, so two equally-placed offers do not swap between refreshes.
 			.thenComparingInt(TrackedOffer::getSlot));
 		return ordered;

@@ -5,6 +5,14 @@ Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
 ## Current delivery
 
+The owner-approved [no-trade-left-behind PR #159](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/159)
+is queued on `codex/no-trade-left-behind`.
+It adds account-wide recovery coverage/native Records view, original replacement deadlines,
+durable guided reassessment, exact-origin expiry, maintenance fairness and final-refusal fallthrough.
+[Contract](docs/architecture/no-trade-left-behind.md). Current verification/delivery belongs in
+`local-data/no-trade-left-behind-20261024/delivery-state.json`; PR #158 remains the installed baseline
+until a verified paired update. Controlled trading, sustained latency and all earlier gates remain open.
+
 Read `local-data/stop-entry-pause-20261024/delivery-state.json` first for the current follow-on batch.
 Installed PR #157 could still propose an exact BUY replacement, or authorize a cached READY entry,
 while its held acquisition's stop was crossed but loss confirmation was unavailable. New source

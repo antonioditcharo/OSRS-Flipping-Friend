@@ -245,7 +245,11 @@ public class OfferTracker
 	}
 
     /** Persist a one-time timeout without changing execution counters or source clocks. */
+    public synchronized long retainedBuyMaintenanceDeadline(String identity,String account,long now){return maintenanceDeadlines.retained(account,identity,now);}
     public synchronized long freezeBuyMaintenanceDeadline(int slot,String identity,double originalMinutes,double fallbackMinutes,long now,String expectedAccount) {
+        return freezeBuyMaintenanceDeadline(slot,identity,originalMinutes,fallbackMinutes,now,expectedAccount,null);
+    }
+    public synchronized long freezeBuyMaintenanceDeadline(int slot,String identity,double originalMinutes,double fallbackMinutes,long now,String expectedAccount,String parentIdentity) {
         var offer=bySlot.get(slot);
         if(offer==null || !offer.isBuying() || !"BUYING".equals(offer.getState())
             || !java.util.Objects.equals(identity,offer.getContinuationIdentity()))return 0;
@@ -253,7 +257,7 @@ public class OfferTracker
         try {
             if(loadedFrom==null || !loadedFrom.equals(storage.accountDir(expectedAccount).resolve(FILE_NAME)))return 0;
         }catch(IllegalStateException changed){return 0;}
-        long deadline=maintenanceDeadlines.freeze(expectedAccount,offer.copyObservation(),originalMinutes,fallbackMinutes,now);
+        long deadline=maintenanceDeadlines.freeze(expectedAccount,offer.copyObservation(),originalMinutes,fallbackMinutes,now,parentIdentity);
         if(deadline>0)offer.setBuyMaintenanceDeadlineAt(deadline);
         return deadline;
     }

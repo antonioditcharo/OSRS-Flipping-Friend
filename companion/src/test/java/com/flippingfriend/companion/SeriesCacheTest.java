@@ -30,6 +30,22 @@ import static org.junit.Assert.assertTrue;
  */
 public class SeriesCacheTest
 {
+    @Test public void maintenanceBudgetVisitsUnfetchedThenOldestItemsInsteadOfRepeatingItsFirstPage()throws Exception {
+        var client=org.mockito.Mockito.mock(okhttp3.OkHttpClient.class);var call=org.mockito.Mockito.mock(okhttp3.Call.class);
+        var requested=new ArrayList<String>();
+        var request=new okhttp3.Request.Builder().url("https://example.invalid/history").build();
+        org.mockito.Mockito.when(client.newCall(org.mockito.ArgumentMatchers.any())).thenAnswer(c->{
+            okhttp3.Request next=c.getArgument(0);requested.add(next.url().queryParameter("id"));return call;
+        });
+        org.mockito.Mockito.when(call.execute()).thenAnswer(c->new okhttp3.Response.Builder().request(request)
+            .protocol(okhttp3.Protocol.HTTP_1_1).code(200).message("OK")
+            .body(okhttp3.ResponseBody.create("{\"data\":[]}",okhttp3.MediaType.get("application/json"))).build());
+        var cache=new SeriesCache(null,client);cache.remember(1,"5m",history(),Instant.now().minusSeconds(180));
+        cache.remember(2,"5m",history(),Instant.now().minusSeconds(900));
+        assertEquals(1,cache.warmMaintenance(List.of(1,2,3,3),1));
+        assertEquals(1,cache.warmMaintenance(List.of(1,2,3),1));
+        assertEquals(List.of("3","2"),requested);
+    }
     @Test public void heldStockRefreshesBeforeEntryCacheExpiryWithoutFetchingOnReadsOrRetryingFailures()throws Exception {
         var client=org.mockito.Mockito.mock(okhttp3.OkHttpClient.class);
         var call=org.mockito.Mockito.mock(okhttp3.Call.class);

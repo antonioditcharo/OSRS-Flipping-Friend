@@ -529,7 +529,7 @@ public class FlippingFriendPlugin extends Plugin
         boolean saved=engine.recordPresentedMaintenance(accepted,account,java.time.Instant.now().getEpochSecond());
         if(saved && accepted!=null && accepted.getType()==SuggestionType.MODIFY_SELL && accepted.getSalePolicyReceipt()!=null)
             saved=companion.retainPresentedSalePolicy(accepted,engine.acceptedSalePolicies(account),account);
-        if(accepted!=null && (accepted.getType()==SuggestionType.MODIFY_BUY || accepted.getType()==SuggestionType.MODIFY_SELL
+        if(accepted!=null && (accepted.getType()==SuggestionType.BUY && engine.isRecoveryEntryPaused(accepted.getItemId()) || accepted.getType()==SuggestionType.MODIFY_BUY || accepted.getType()==SuggestionType.MODIFY_SELL
                 || accepted.getType()==SuggestionType.CANCEL
                 || accepted.getContinuationOriginIdentity()!=null
                 || accepted.getType()==SuggestionType.SELL && accepted.isProfitKnown()) && !saved) {
@@ -978,6 +978,8 @@ public class FlippingFriendPlugin extends Plugin
 					// out rather than having them filtered off the card afterwards. They were only ever
 					// applied at selection, so the portfolio list went on showing a blocked item as the
 					// top-ranked trade and the headline rate was computed from trades never on offer.
+                    engine.setObservedAccount(observedAccount);
+                    engine.refreshEntryRecovery(observedAccount,java.time.Instant.now().getEpochSecond());
 					companion.publishAccount(observedState, config, 0,
 						committedByItem(), buyLimits.activeWindows(java.time.Instant.now()),
 						com.flippingfriend.model.SuggestionEngine.parseBlocked(config.blockedItems()),
@@ -1012,6 +1014,8 @@ public class FlippingFriendPlugin extends Plugin
                 Suggestion continuationRefusal=null;
                 java.util.List<Suggestion> rejectedPriceAdvice=new java.util.ArrayList<>();
                 Suggestion suggestion = companion.nextAction();
+				// Coverage still scans every obligation when collection takes foreground priority.
+                if(suggestion!=null)engine.refreshRecoveryCoverage();
 				if (suggestion == null)
 				{
 					suggestion = engine.refresh(false);
@@ -1026,8 +1030,11 @@ public class FlippingFriendPlugin extends Plugin
 					|| suggestion.getType() == SuggestionType.CANCEL))
 				{
                     Suggestion proposed=suggestion;
-					suggestion = companion.selectBuyMaintenanceCancellation(suggestion);
-                    if(suggestion==null || suggestion.getType()==SuggestionType.WAIT)rejectedPriceAdvice.add(proposed);
+                    suggestion = companion.selectBuyMaintenanceCancellation(suggestion);
+                    if(suggestion==null || suggestion.getType()==SuggestionType.WAIT) {
+                        if(suggestion!=null)continuationRefusal=suggestion;
+                        suggestion=authorizeBuyCandidates(proposed,suggestion,rejectedPriceAdvice);
+                    }
 				}
 				if(suggestion!=null && (suggestion.getType()==SuggestionType.MODIFY_SELL
                     || suggestion.getType()==SuggestionType.SELL && suggestion.isProfitKnown()))
@@ -1184,6 +1191,7 @@ public class FlippingFriendPlugin extends Plugin
                 && authorized.getItemId()==candidate.getItemId() && authorized.getQuantity()==candidate.getQuantity()
                 && authorized.getSlot()==candidate.getSlot() && authorized.isLossCut()==candidate.isLossCut())return authorized;
             declined.add(candidate);
+            engine.noteRecoveryRefusal(candidate,authorized);
             unlistedOrUrgent|=candidate.getType()==SuggestionType.SELL || candidate.isLossCut();
             if(waiting==null && authorized!=null && authorized.getType()==SuggestionType.WAIT)waiting=authorized;
         }
@@ -1228,6 +1236,18 @@ public class FlippingFriendPlugin extends Plugin
     }
 
     /** A replacement spends cash again; its old reservation is not current entry authority. */
+    private Suggestion authorizeBuyCandidates(Suggestion proposed,Suggestion firstResult,java.util.List<Suggestion> rejected) {
+        var excluded=new java.util.HashSet<String>();Suggestion candidate=proposed;
+        for(int attempt=0;attempt<8 && candidate!=null;attempt++) {
+            String identity=candidate.getMaintenanceOfferIdentity();
+            if(identity==null || !excluded.add(identity))break;
+            Suggestion authorized=attempt==0?firstResult:companion.selectBuyMaintenanceCancellation(candidate);
+            if(authorized!=null && (authorized.getType()==SuggestionType.MODIFY_BUY || authorized.getType()==SuggestionType.CANCEL))return authorized;
+            rejected.add(candidate);engine.noteRecoveryRefusal(candidate,authorized);
+            candidate=engine.buyMaintenanceAfterSaleRefusal(excluded);
+        }
+        return null;
+    }
     private Suggestion authorizeReplacement(Suggestion proposed)
     {
         if (proposed.getItemId() <= 0 || proposed.getQuantity() <= 0)
@@ -1246,6 +1266,7 @@ public class FlippingFriendPlugin extends Plugin
                 return authorized;
             }
             declined.add(candidate.getItemId());
+            engine.noteRecoveryRefusal(candidate,authorized);
             waiting=authorized!=null && authorized.getType()==SuggestionType.WAIT?authorized
                 :Suggestion.waiting("Replacement waiting: "+candidate.getItemName(),"No current eligible entry fits the retained remainder; the original quantity is saved.");
         }

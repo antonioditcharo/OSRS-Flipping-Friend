@@ -132,6 +132,20 @@ public class SalePolicyProofTest {
             OfferLifecycleAction.PLACE_SELL,"SALE_AUTHORIZED",at,at,"candidate","original");
         assertThrows(IllegalArgumentException.class,()->other.withSalePolicyReceipt(receipt()));
     }
+    @Test public void freshlyRevalidatedRetryRetainsTheOriginalReceiptClockAndCannotExtendItsFiveSecondLifetime() {
+        var original=receipt();
+        for(long delay:new long[]{0,1,5}) {
+            var current=PolicyDecision.action("1",SalePolicyReceipt.POLICY_VERSION,"retry",PolicyDecisionType.SELL_MAINTENANCE,
+                OfferLifecycleAction.CANCEL_SELL,"SALE_AUTHORIZED",at+delay,at,"candidate","original");
+            assertSame(original,current.withSalePolicyReceipt(original).getSalePolicyReceipt());
+            assertEquals(at,original.getDecidedAt());
+        }
+        for(long delay:new long[]{-1,6}) {
+            var current=PolicyDecision.action("1",SalePolicyReceipt.POLICY_VERSION,"retry",PolicyDecisionType.SELL_MAINTENANCE,
+                OfferLifecycleAction.CANCEL_SELL,"SALE_AUTHORIZED",at+delay,at+delay,"candidate","original");
+            assertThrows(IllegalArgumentException.class,()->current.withSalePolicyReceipt(original));
+        }
+    }
     @Test public void malformedVersionAndMissingReferenceNeverFallBackToLegacyAuthority() throws Exception {
         var receipt=receipt();var version=SalePolicyReceipt.class.getDeclaredField("formatVersion");version.setAccessible(true);
         version.setInt(receipt,2);assertFalse(receipt.isWellFormed());assertFalse(receipt.matchesSource(original()));

@@ -300,13 +300,13 @@ public class LossyRepriceTest
 	@Test
 	public void aFreshSaleIsGivenTimeBeforeItsPriceIsQuestioned() throws Exception
 	{
-		// The reported case, in its own units: fifteen minutes into a leg the plan expected to take
-		// two hours. Being unfilled after an eighth of the predicted time is not evidence that the
-		// price is wrong, and the only thing acting on it can buy is a worse one.
+		// Inside the owner-approved max(8m, cadence) placement patience, even supported
+        // profitable reductions must wait. The older fifteen-minute assertion accidentally
+        // depended on unaligned test buckets and contradicted the superseding maintenance policy.
 		holding(9_000, 119);
 		Position position = positions.get(ITEM);
 		position.setPredictedSellMinutes(120);
-		plantOffer(false, 130, 9_000, 15);
+		plantOffer(false, 130, 9_000, 7);
 		marketData.moveTo(112, 116);
 		offers.setMarket(marketData.getSnapshot());
 
@@ -314,7 +314,7 @@ public class LossyRepriceTest
 
 		if (suggestion != null)
 		{
-			assertTrue("fifteen minutes into a two-hour leg is impatience, not information: "
+			assertTrue("seven minutes into a two-hour leg is still inside placement patience: "
 					+ suggestion.getType() + " " + suggestion.getHeadline(),
 				suggestion.getType() != SuggestionType.MODIFY_SELL);
 		}

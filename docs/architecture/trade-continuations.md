@@ -17,7 +17,9 @@ and replay. The account file retains the original offer key, initial cap, highes
 existing same-item listings and a bounded cancelled/collected receipt. Collection must be observed
 for that episode; later fills reduce the cap, counter regression withdraws it, and full completion
 or a new replacement ends it. Callback checkpoints precede temporary slot-record pruning. A buy
-promise retains the existing 30-minute lifetime; a receipt is never a price or funding guarantee.
+promise retains its workflow evidence for fresh revalidation; a receipt is never a price or funding guarantee.
+Original buy waiting budgets and cancel-and-reassess restrictions now follow the
+[no-trade-left-behind contract](no-trade-left-behind.md). Evidence retention does not extend a buy budget.
 The sell file preserves its shipped field names and legacy default side without financial replay
 or invented collection. Managed cost travels immutably with the returned quantity.
 

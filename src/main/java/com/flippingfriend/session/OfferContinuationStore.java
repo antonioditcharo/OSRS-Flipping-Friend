@@ -55,6 +55,35 @@ abstract class OfferContinuationStore {
         this.storage=storage;this.file=file;this.buying=buying;
     }
     protected String account(){return storage.accountId();}
+    /** Worker diagnostic read only: do not advance counters, classify successors, or create promises. */
+    public synchronized java.util.List<com.flippingfriend.core.TradeRecoveryItem> recoveryItems(String expected,long now) {
+        boolean readable=load(expected);
+        State retained=expected!=null && expected.equals(account())?accounts.get(expected):null;
+        var rows=new ArrayList<com.flippingfriend.core.TradeRecoveryItem>();
+        if(retained!=null)for(var hint:retained.intents) {
+            int remaining=hint.getCollectedRemaining();
+            rows.add(new com.flippingfriend.core.TradeRecoveryItem(hint.getOriginalIdentity(),
+                com.flippingfriend.core.TradeRecoveryItem.Kind.CONTINUATION,
+                !readable || retained.blockedItems.contains(hint.getItemId()) || hint.hasFutureEvidence(now)
+                    ?com.flippingfriend.core.TradeRecoveryItem.State.AWAITING_EVIDENCE
+                    :remaining>0?com.flippingfriend.core.TradeRecoveryItem.State.ACTIONABLE:com.flippingfriend.core.TradeRecoveryItem.State.AWAITING_COLLECTION,
+                hint.getItemId(),"Item "+hint.getItemId(),hint.getSlot(),remaining,hint.getOriginalPrice(),buying,
+                hint.getFirstSeenAt(),now+30,
+                !readable?"Saved workflow is unreadable or externally changed; retained evidence is preserved."
+                    :remaining>0?"Collected remainder retained; fresh quantity, funding, price and source checks are required."
+                    :"Waiting for exact cancellation/collection or successor evidence; this is not a disposal.",
+                buying?"Revalidate the bounded replacement, or exit the acquired partial stock when replacement is refused."
+                    :"Relist the proven remainder after physical inventory and sale authority agree."));
+        }
+        if(!readable)rows.add(new com.flippingfriend.core.TradeRecoveryItem(buying?"buy-workflow-read":"sale-workflow-read",
+            com.flippingfriend.core.TradeRecoveryItem.Kind.EVIDENCE,com.flippingfriend.core.TradeRecoveryItem.State.AWAITING_EVIDENCE,
+            0,"Saved workflows",-1,0,0,buying,0,now+30,"Saved workflow document could not be verified.","Retry the original document; do not clear it or infer completion."));
+        if(retained!=null)for(var pending:retained.unresolved)rows.add(new com.flippingfriend.core.TradeRecoveryItem(identity(pending),
+            com.flippingfriend.core.TradeRecoveryItem.Kind.EVIDENCE,com.flippingfriend.core.TradeRecoveryItem.State.AWAITING_EVIDENCE,
+            pending.item,"Item "+pending.item,pending.slot,Math.max(0,pending.total-pending.filled),pending.price,pending.buying,
+            pending.firstSeen,now+30,"Successor relationship has not been durably classified.","Wait for the exact original source acknowledgement."));
+        return List.copyOf(rows);
+    }
     private byte[] contents(Path path)throws java.io.IOException {
         return Files.exists(path)?Files.readAllBytes(path):null;
     }
@@ -434,6 +463,11 @@ abstract class OfferContinuationStore {
         if(!load(expected))return false;
         for(var hint:state.intents)if(hint.getItemId()==item)retainConsumed(hint);
         state.dirty|=state.intents.removeIf(intent->intent.getItemId()==item);return commit(expected);
+    }
+    protected synchronized boolean abandonOrigin(String expected,String origin) {
+        if(!load(expected) || origin==null)return false;
+        for(var hint:state.intents)if(origin.equals(hint.getOriginalIdentity()))retainConsumed(hint);
+        state.dirty|=state.intents.removeIf(intent->origin.equals(intent.getOriginalIdentity()));return commit(expected);
     }
     private void retainConsumed(OfferContinuation hint){
         if(hint.getClaimedQuantity()<=0)return;

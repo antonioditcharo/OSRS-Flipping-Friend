@@ -8,9 +8,11 @@ import javax.inject.Singleton;
 @Singleton
 public final class BuyRepriceIntent extends OfferContinuationStore {
     public static final class Request {
-        public final int itemId,quantity;
+        public final int itemId,quantity,originalPrice;
+        public final long firstSeen;
         public final String originIdentity;
-        private Request(int itemId,int quantity,String origin){this.itemId=itemId;this.quantity=quantity;originIdentity=origin;}
+        private Request(com.flippingfriend.core.OfferContinuation intent){itemId=intent.getItemId();quantity=intent.getCollectedRemaining();
+            originalPrice=intent.getOriginalPrice();firstSeen=intent.getFirstSeenAt();originIdentity=intent.getOriginalIdentity();}
     }
     @Inject public BuyRepriceIntent(PluginStorage storage){super(storage,"buy-reprice-intent.json",true);}
     public synchronized boolean advise(TrackedOffer offer,String expected,OfferTracker tracker,long now) {
@@ -25,15 +27,16 @@ public final class BuyRepriceIntent extends OfferContinuationStore {
     }
     public synchronized Request collectedRequest(OfferTracker tracker,String expected,long now) {
         var intent=advance(tracker,expected,now);
-        return intent==null?null:new Request(intent.getItemId(),intent.getCollectedRemaining(),intent.getOriginalIdentity());
+        return intent==null?null:new Request(intent);
     }
     public synchronized java.util.List<Request> collectedRequests(OfferTracker tracker,String expected,long now) {
         var requests=new java.util.ArrayList<Request>();
-        for(var intent:collectedAll(tracker,expected,now))requests.add(new Request(intent.getItemId(),intent.getCollectedRemaining(),intent.getOriginalIdentity()));
+        for(var intent:collectedAll(tracker,expected,now))requests.add(new Request(intent));
         return java.util.Collections.unmodifiableList(requests);
     }
     public synchronized boolean isPending(int item,OfferTracker tracker,String expected,long now){return pending(item,tracker,expected,now);}
     public synchronized int pendingItemId(OfferTracker tracker,String expected,long now){return pendingItem(tracker,expected,now);}
     public synchronized boolean clear(String expected){return abandon(expected);}
     public synchronized boolean clearItem(String expected,int item){return abandonItem(expected,item);}
+    public synchronized boolean clearOrigin(String expected,String origin){return abandonOrigin(expected,origin);}
 }

@@ -21,6 +21,18 @@ import static org.mockito.Mockito.*;
 
 /** Real refresh orchestration with paused worker/client queues; no game or HTTP input. */
 public class AdviceDeliveryBoundaryTest {
+    @Test public void refusedFirstBuyTriesAnotherExactWorkingEpisodeBeforeNewEntries()throws Exception {
+        var f=new Fixture();when(f.companion.nextAction()).thenReturn(null);var engine=(SuggestionEngine)getField(f.plugin,"engine");
+        var first=Suggestion.builder(SuggestionType.MODIFY_BUY).item(561,"First").slot(0).quantity(3).price(120).maintenanceSource("first-episode").build();
+        var second=Suggestion.builder(SuggestionType.MODIFY_BUY).item(562,"Second").slot(1).quantity(4).price(130).maintenanceSource("second-episode").build();
+        when(engine.refresh(false)).thenReturn(first);
+        when(engine.buyMaintenanceAfterSaleRefusal(Set.of("first-episode"))).thenReturn(second);
+        when(f.companion.selectBuyMaintenanceCancellation(first)).thenReturn(Suggestion.waiting("Pending source","Exact source unavailable."));
+        when(f.companion.selectBuyMaintenanceCancellation(second)).thenReturn(second);
+        f.queueAdvice();f.clientQueue.remove().run();verify(f.guide).setSuggestion(second);
+        verify(f.companion,never()).nextEntrySuggestion(any(),anySet(),anySet(),anySet());
+        verify(engine).noteRecoveryRefusal(eq(first),any());
+    }
     @Test public void refusedUrgentSaleCannotHideSeparatelyAuthorizedWorkingMaintenance()throws Exception {
         var f=new Fixture();when(f.companion.nextAction()).thenReturn(null);
         var engine=(SuggestionEngine)getField(f.plugin,"engine");

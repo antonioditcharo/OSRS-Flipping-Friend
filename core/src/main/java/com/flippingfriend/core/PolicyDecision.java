@@ -118,7 +118,8 @@ public final class PolicyDecision
     public PolicyDecision withSalePolicyReceipt(SalePolicyReceipt receipt) {
         if(receipt==null || !receipt.isWellFormed() || !policyVersion.equals(receipt.getPolicyVersion())
             || decisionType!=PolicyDecisionType.SELL_MAINTENANCE || action!=OfferLifecycleAction.CANCEL_SELL
-            || abstentionReason!=PolicyAbstentionReason.NONE || decidedAt!=receipt.getDecidedAt()
+            || abstentionReason!=PolicyAbstentionReason.NONE || receipt.getDecidedAt()>decidedAt
+            || decidedAt-receipt.getDecidedAt()>5
             || !java.util.Objects.equals(recommendationId,receipt.getSourceEventId()))
             throw new IllegalArgumentException("Receipt must match the authorized sale decision");
         return new PolicyDecision(schemaVersion,policyVersion,decisionId,decisionType,action,abstentionReason,

@@ -59,6 +59,32 @@ public class BuyContinuationWorkflowTest {
     static void inject(Object target,String name,Object value)throws Exception {
         var field=target.getClass().getDeclaredField(name);field.setAccessible(true);field.set(target,value);
     }
+    @Test public void guidedAbandonmentSurvivesCallbacksRestartAndCannotImmediatelyRecreateItsOwnBuy()throws Exception {
+        var f=new Fixture();var journal=new BuyRecoveryJournal(f.storage);inject(f.engine,"buyRecovery",journal);
+        var original=f.tracker.getOffer(0);
+        var cancel=Suggestion.builder(SuggestionType.CANCEL).item(561,"Rune").slot(0).price(original.getPrice()).quantity(original.getRemaining())
+            .maintenanceSource(original.getContinuationIdentity()).headline("Original waiting budget elapsed").build();
+        assertTrue(f.engine.recordPresentedMaintenance(cancel,f.storage.accountId(),now));
+        f.progress(GrandExchangeOfferState.CANCELLED_BUY,6);
+        assertTrue(f.engine.isGuidedBuyCancellation(f.tracker.getOffer(0),f.storage.accountId(),now));
+        f.progress(GrandExchangeOfferState.EMPTY,0);f.restart();inject(f.engine,"buyRecovery",new BuyRecoveryJournal(f.storage));
+        var result=f.engine.refresh(false);assertTrue(result==null || result.getType()!=SuggestionType.BUY);
+        assertTrue(f.engine.skippedItems().contains(561));assertFalse(f.engine.skippedItems().contains(562));
+        assertFalse(f.engine.recordPresentedMaintenance(Suggestion.builder(SuggestionType.BUY).item(561,"Rune").quantity(10).price(1000).build(),f.storage.accountId(),now));
+        assertTrue(f.engine.recordPresentedMaintenance(Suggestion.builder(SuggestionType.BUY).item(562,"Other").quantity(1).price(100).build(),f.storage.accountId(),now));
+        assertTrue(f.engine.tradeRecovery().items.stream().anyMatch(row->row.kind==com.flippingfriend.core.TradeRecoveryItem.Kind.ENTRY_PAUSE && row.itemId==561));
+        assertTrue("Partial purchase records remain",f.positions.all().stream().anyMatch(p->p.getItemId()==561 && p.getQuantity()==6));
+    }
+    @Test public void collectedReplacementWhoseOriginalBudgetExpiredRetiresOnlyItsUnboughtRemainder()throws Exception {
+        var f=new Fixture();var original=f.tracker.getOffer(0);
+        assertTrue(f.tracker.freezeBuyMaintenanceDeadline(0,original.getContinuationIdentity(),30,180,now,f.storage.accountId())<now);
+        assertEquals(SuggestionType.MODIFY_BUY,f.present().getType());f.cancelCollect();
+        inject(f.engine,"buyRecovery",new BuyRecoveryJournal(f.storage));
+        var result=f.engine.refresh(false);assertTrue(result==null || result.getType()!=SuggestionType.BUY);
+        assertTrue(f.engine.skippedItems().contains(561));
+        assertTrue(f.intent.collectedRequests(f.tracker,f.storage.accountId(),now).isEmpty());
+        assertTrue(f.positions.all().stream().anyMatch(p->p.getItemId()==561 && p.getQuantity()==6));
+    }
     private SkipList cancellationListener(Fixture f,Suggestion visible)throws Exception {
         var plugin=new FlippingFriendPlugin();var skips=mock(SkipList.class);
         inject(plugin,"engine",f.engine);inject(plugin,"skipList",skips);inject(plugin,"config",f.config);
@@ -330,6 +356,14 @@ public class BuyContinuationWorkflowTest {
         assertNull("Null hands the next unrelated entry to the authoritative companion",f.engine.refresh(false));
         assertFalse("The withdrawn initial instruction cannot create a pending promise",f.intent.isPending(561,f.tracker,f.storage.accountId(),now));
         java.nio.file.Files.delete(blocked);assertTrue(f.engine.recordPresentedMaintenance(advice,f.storage.accountId(),now));
+    }
+    @Test public void workflowWriteBackoffUsesMonotonicTimeAndCannotBeExtendedByRecordedTradeClocks()throws Exception {
+        var f=new Fixture();var ticks=new java.util.concurrent.atomic.AtomicLong(-100);
+        inject(f.engine,"maintenanceRetryClock",(java.util.function.LongSupplier)ticks::get);
+        var advice=f.engine.refresh(false);assertEquals(SuggestionType.MODIFY_BUY,advice.getType());
+        assertTrue(f.engine.deferUnsavedMaintenance(advice,Long.MAX_VALUE/1000));assertNull(f.engine.refresh(false));
+        ticks.addAndGet(java.util.concurrent.TimeUnit.SECONDS.toNanos(30));
+        assertEquals(SuggestionType.MODIFY_BUY,f.engine.refresh(false).getType());
     }
     @Test public void fullCompletionAndSellOnlyDoNotLeaveAnOldBuyPromiseForTheNextLogin()throws Exception {
         var f=new Fixture();f.present();f.progress(GrandExchangeOfferState.BOUGHT,100);f.progress(GrandExchangeOfferState.EMPTY,0);f.restart();
