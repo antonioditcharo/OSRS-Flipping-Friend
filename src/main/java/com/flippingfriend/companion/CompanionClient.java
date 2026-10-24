@@ -1165,7 +1165,7 @@ public class CompanionClient
         return null;
     }
     static boolean validSaleDecision(PolicyDecision decision,String identity,String source,int slot,long now) {
-        return decision!=null && "1".equals(decision.getSchemaVersion()) && "companion-sale-9".equals(decision.getPolicyVersion())
+        return decision!=null && "1".equals(decision.getSchemaVersion()) && "companion-sale-10".equals(decision.getPolicyVersion())
             && identity.equals(decision.getCandidateId()) && source.equals(decision.getRecommendationId())
             && decision.getDecisionType()==(slot<0?PolicyDecisionType.EXIT:PolicyDecisionType.SELL_MAINTENANCE)
             && decision.getAction()==(slot<0?OfferLifecycleAction.PLACE_SELL:OfferLifecycleAction.CANCEL_SELL)
@@ -1175,7 +1175,7 @@ public class CompanionClient
     }
     static boolean validSaleRevision(PolicyDecision d,String identity,String source,int slot,long sent,long received) {
         return d!=null && d.getSalePriceRevision()!=null && d.getSalePriceRevision().isValid()
-            && "1".equals(d.getSchemaVersion()) && "companion-sale-9".equals(d.getPolicyVersion())
+            && "1".equals(d.getSchemaVersion()) && "companion-sale-10".equals(d.getPolicyVersion())
             && identity.equals(d.getCandidateId()) && source.equals(d.getRecommendationId())
             && d.getDecisionType()==(slot<0?PolicyDecisionType.EXIT:PolicyDecisionType.SELL_MAINTENANCE)
             && d.getAction()==OfferLifecycleAction.WAIT && d.getAbstentionReason()!=null

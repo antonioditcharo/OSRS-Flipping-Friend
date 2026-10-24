@@ -43,6 +43,8 @@ final class CompanionService implements AutoCloseable
 	private final String accountId;
 	private final boolean ownsMarket;
 	private volatile java.util.function.Supplier<java.util.List<Integer>> warmShortlist;
+    private volatile java.util.function.Supplier<java.util.List<Integer>> warmMaintenance=this::maintenanceIds;
+    private volatile java.util.List<Integer> maintainedPositions=java.util.List.of();
 	private final MarketIngestionService market;
 	private final SeriesCache series;
 	private final PortfolioPlanner planner;
@@ -185,6 +187,12 @@ final class CompanionService implements AutoCloseable
 	}
 
 	void useWarmShortlist(java.util.function.Supplier<java.util.List<Integer>> supplier) { warmShortlist = supplier; }
+    void useWarmMaintenance(java.util.function.Supplier<java.util.List<Integer>> supplier) {warmMaintenance=supplier;}
+    java.util.List<Integer> maintenanceIds() {
+        var ids=new java.util.LinkedHashSet<Integer>(maintainedPositions);
+        for(var offer:activeOffers.getActiveOffers())if(offer.getItemId()>0)ids.add(offer.getItemId());
+        return new java.util.ArrayList<>(ids);
+    }
 	java.util.List<Integer> shortlistIds() { return planner.shortlistIds(); }
 
 	void refreshAccountPlan()
@@ -217,6 +225,7 @@ final class CompanionService implements AutoCloseable
 			if (projection.getState() == com.flippingfriend.core.OfferLifecycleState.ERROR_RECONCILIATION)
 				fault("Offer projection slot " + projection.getSlot(), "durable offer requires reconciliation", null);
 		refreshPositionFaults();
+		if(accountId!=null)ledger();
 		long since = Instant.now().minus(BuyLimitLedger.WINDOW).getEpochSecond();
 		int replayed = 0;
 		for (String payload : store.recentOfferEvents(since))
@@ -306,10 +315,11 @@ final class CompanionService implements AutoCloseable
 			warming = true;
 			try
 			{
+                int maintenanceSpent=series.warmMaintenance(warmMaintenance.get(),Math.min(32,WARM_BUDGET));
 				java.util.List<Integer> wanted = warmShortlist.get();
 				if (!wanted.isEmpty())
 				{
-					int spent = series.warm(wanted, CandidateFactory.LIVE_SHORT_STEP, WARM_BUDGET);
+					int spent = maintenanceSpent+series.warm(wanted, CandidateFactory.LIVE_SHORT_STEP, WARM_BUDGET-maintenanceSpent);
 					spent += series.warm(wanted, CandidateFactory.LIVE_LONG_STEP, WARM_BUDGET);
 					if (spent > 0)
 					{
@@ -350,7 +360,8 @@ final class CompanionService implements AutoCloseable
 
 	private void refreshPositionFaults() throws Exception
 	{
-		for (com.flippingfriend.core.PositionProjection position : store.positionProjections())
+        var positions=store.positionProjections();
+		for (com.flippingfriend.core.PositionProjection position : positions)
 		{
 			String subsystem = "Position projection item " + position.getItemId();
 			if (position.getConsistencyState() == com.flippingfriend.core.PositionConsistencyState.RECONCILE)
@@ -397,7 +408,11 @@ final class CompanionService implements AutoCloseable
 	}
 	com.flippingfriend.core.AccountLedgerSnapshot ledger() throws Exception
 	{
-		return store.ledgerSnapshot(accountId);
+        var ledger=store.ledgerSnapshot(accountId);
+        if(ledger!=null && ledger.isValid() && java.util.Objects.equals(accountId,ledger.getAccountId()))
+            maintainedPositions=ledger.getTradingPositions().stream().filter(p->p.getQuantity()>0)
+                .map(p->p.getItemId()).collect(java.util.stream.Collectors.toList());
+		return ledger;
 	}
     com.flippingfriend.core.PerformanceSnapshot performance(String scope) throws Exception {
         SqliteStore.PerformanceInput input;SqliteStore.PlanningProjections positions=null;

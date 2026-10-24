@@ -9,7 +9,7 @@ import java.util.List;
 
 /** Pure sale-maintenance authority shared by the client, companion and chronological replay. */
 public final class SaleMaintenancePricing {
-    public static final String VERSION="supported-sale-maintenance-5";
+    public static final String VERSION="supported-sale-maintenance-6";
     public enum Status {
         ELIGIBLE, INVALID_QUANTITY, MISSING_PRICES, STALE_PRICES, IMMATERIAL_CHANGE,
         UNPROVEN_QUANTITY, UNKNOWN_CLOCKS, PLACEMENT_PATIENCE, RECENT_PROGRESS,
@@ -70,7 +70,7 @@ public final class SaleMaintenancePricing {
         if(!decision.isSell())return reduction;
         boolean cut=decision.getAction()==SellDecision.Action.CUT;
         long cost=SaleAccounting.allocateCost(position.getTotalCost(),position.getQuantity(),remaining);
-        int floor=cut?1:tax.breakEvenSellPriceForCost(item,cost,remaining);
+        int floor=cut?latest.getLow():tax.breakEvenSellPriceForCost(item,cost,remaining);
         if(floor<=0)return Evaluation.waitFor(Status.COST_FLOOR);
         int price=Math.max(floor,decision.getPrice());
         // Fresh trades must support the actual recovered limit. A protected old target above
@@ -98,20 +98,20 @@ public final class SaleMaintenancePricing {
         boolean known=position!=null && position.isCostKnown();
         long cost=known?SaleAccounting.allocateCost(position.getTotalCost(),position.getQuantity(),remaining):0;
         int floor=known?tax.breakEvenSellPriceForCost(item,cost,remaining):1;
-        boolean cut=known && SellTimingEngine.throughStop(position,latest.getHigh(),horizon.getProfile());
+        boolean cut=known && StopLossEvidence.confirmed(position,latest,series,now);
         int price;
         String reason;
         if(cut || sellOnly) {
             SellDecision exit=known?exits.evaluate(position,latest,null,series,horizon,now,0,false,sellOnly,false):null;
             // A fresh stop or explicit player wind-down is urgent, even just after placement/fill.
             price=exit==null?Math.max(1,latest.getHigh()-1):exit.getPrice();
-            if(cut)floor=1;
+            if(cut)floor=latest.getLow();
             else if(known) {
                 // Preserve the existing maintenance loss guard. Explicit wind-down bypasses
                 // patience/target protection, not this exact remaining-cost floor.
                 if(floor<=0)return Evaluation.waitFor(Status.COST_FLOOR);price=Math.max(price,floor);
             }
-            reason=cut?"Fresh market evidence has crossed the recorded stop loss."
+            reason=cut?"Fresh trades on both sides and a completed five-minute volume bucket confirm the recorded stop loss. This exit may realize a loss; no model discount below the latest reported instant-sell price is allowed."
                 :"Finish session (sell only) is enabled; seeking a faster exit as requested.";
         } else {
             long at=now.getEpochSecond();

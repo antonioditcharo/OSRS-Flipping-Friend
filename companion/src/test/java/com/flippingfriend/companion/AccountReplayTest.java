@@ -10,6 +10,9 @@ import static org.junit.Assert.*;
 public class AccountReplayTest {
     @Rule public TemporaryFolder folder=new TemporaryFolder();
     final long start=1800000000;
+    void confirmedStop(AccountReplayInput.Frame frame,int item,int high,int low) {
+        frame.shortHistory.put(item,List.of(new com.flippingfriend.data.Candle(frame.availableAt/300*300-300,high,low,1000,1000)));
+    }
     AccountReplayInput input(int items,int minutes) {
         var input=new AccountReplayInput();input.sourceDescription="Hand-calculated synthetic fixture; not market performance";
         input.startAt=start;input.endAt=start+minutes*60;input.minimumProfit=0;input.terminalHaircutBps=0;
@@ -92,8 +95,8 @@ public class AccountReplayTest {
         var result=run(input,5,10);
         assertTrue(result.actions.toString(),result.actions.stream().anyMatch(s->s.contains("SELL ")));
         assertEquals(1,result.completedSales);assertEquals(180,result.realizedProfit);
-        assertEquals("account-replay-18",result.policyVersion);
-        assertEquals("companion-sale-9",result.salePolicyVersion);assertEquals(1,result.authorizedSales);
+        assertEquals("account-replay-19",result.policyVersion);
+        assertEquals("companion-sale-10",result.salePolicyVersion);assertEquals(1,result.authorizedSales);
     }
     AccountReplayInput interruptedRelist(boolean recovered) {
         var input=input(1,26);var gson=new Gson();

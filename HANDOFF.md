@@ -1,12 +1,20 @@
 # Agent handoff
 
-Updated 23 October 2026 (America/Anchorage). Read AGENTS.md and TASKS.md.
+Updated 24 October 2026 (America/Anchorage). Read AGENTS.md and TASKS.md.
 Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
 ## Current delivery
 
-Read `local-data/full-board-churn-20261023/delivery-state.json` first for the current batch's source,
-tests, CI and installation; queued until that receipt records installation. The owner reproduced
+Read `local-data/dragon-dart-loss-20261023/delivery-state.json` first for the Dragon dart loss batch.
+The owner reported a 1,000 GP listing cancelled after 216 seconds for an 806 GP STOP relist; the
+original stop was 909 GP and the ledger records a 1.04–1.05M GP realized loss. New source requires
+fresh coherent two-sided and completed-volume confirmation, protects the reported instant-sell price
+against model discounts/stabilization/authority tolerance, and prioritizes trading-stock history
+outside the entry shortlist. Old receipts and original financial/source/risk evidence persist.
+[Contract](docs/architecture/confirmed-stop-loss.md); receipt records actual tests/install/acceptance.
+
+PR #156 is installed; `local-data/full-board-churn-20261023/delivery-state.json` records source,
+tests, CI, installation and short post-launch guidance recovery. The owner reproduced
 full-board CANCEL/collect/rebuy churn and alternating reserved-slot/BUY advice with a cancelled
 Amulet of fury sale still in inventory. New source uses one ledger per engine pass, preserves exit
 priority through fallbacks, reserves the last slot at canonical planning/final entry/replacement,

@@ -8,7 +8,7 @@ import java.util.Objects;
 
 /** Immutable prospective policy output. Authority additionally requires its canonical issuance row. */
 public final class SalePolicyReceipt {
-    public static final String POLICY_VERSION="companion-sale-9";
+    public static final String POLICY_VERSION="companion-sale-10";
     public enum Mode { ROUTINE, STOP, WIND_DOWN }
     private final int formatVersion;
     private final String receiptId,policyVersion,accountId,payloadHash,accountCorrelationId,riskAppetite;
@@ -47,7 +47,7 @@ public final class SalePolicyReceipt {
         return receipt;
     }
     public boolean isWellFormed() {
-        if(formatVersion!=1 || !POLICY_VERSION.equals(policyVersion) || blank(receiptId)
+        if(formatVersion!=1 || !(POLICY_VERSION.equals(policyVersion) || "companion-sale-9".equals(policyVersion)) || blank(receiptId)
             || accountRowId<=0 || payloadHash==null || !payloadHash.matches("[0-9a-f]{64}")
             || accountId==null || !accountId.matches("rs-[0-9a-f]{64}") || blank(accountCorrelationId)
             || accountObservedAt<=0 || accountObservedAt>decidedAt || decidedAt-accountObservedAt>150

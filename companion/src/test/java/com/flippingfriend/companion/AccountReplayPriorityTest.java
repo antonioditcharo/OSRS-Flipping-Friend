@@ -30,6 +30,7 @@ public class AccountReplayPriorityTest {
         var input=f.input(2,12);
         for(var frame:input.frames)if(frame.availableAt>=f.start+600) {
             var q=frame.latest.getAsJsonObject("2");q.addProperty("low",70);q.addProperty("high",80);
+            f.confirmedStop(frame,2,80,70);
         }
         var result=run(input,f.fixtureEntries(10));
         String first=result.actions.stream().filter(a->a.contains("SELL ")).findFirst().orElseThrow();
@@ -63,6 +64,7 @@ public class AccountReplayPriorityTest {
         for(var frame:input.frames) {
             if(frame.availableAt>=f.start+900) {
                 var sell=frame.latest.getAsJsonObject("1");sell.addProperty("low",70);sell.addProperty("high",80);
+                f.confirmedStop(frame,1,80,70);
                 var buy=frame.latest.getAsJsonObject("2");buy.addProperty("low",110);buy.addProperty("high",140);
             }
             for(var flow:frame.flows) {
@@ -84,6 +86,7 @@ public class AccountReplayPriorityTest {
             frame.flows.clear();
             if(frame.availableAt>=f.start+360) {
                 var q=frame.latest.getAsJsonObject("1");q.addProperty("low",70);q.addProperty("high",80);
+                f.confirmedStop(frame,1,80,70);
             }
         }
         var flow=new AccountReplayInput.Flow();flow.itemId=1;flow.bucketStart=f.start+60;flow.bucketEnd=f.start+360;

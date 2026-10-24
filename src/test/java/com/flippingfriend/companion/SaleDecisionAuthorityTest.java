@@ -6,7 +6,7 @@ import static org.junit.Assert.*;
 
 public class SaleDecisionAuthorityTest {
     @Test public void priceRevisionIsOnlyAScopedFreshRefusalNeverSaleAuthority() {
-        var d=PolicyDecision.abstain("1","companion-sale-9","reprice",PolicyDecisionType.SELL_MAINTENANCE,
+        var d=PolicyDecision.abstain("1","companion-sale-10","reprice",PolicyDecisionType.SELL_MAINTENANCE,
             PolicyAbstentionReason.ACCOUNT_STATE_INCONSISTENT,"SALE_PRICE_NOT_AUTHORIZED",100,99,"order","source")
             .withSalePriceRevision(120,10,true);
         assertTrue(CompanionClient.validSaleRevision(d,"order","source",0,100,101));
@@ -21,7 +21,7 @@ public class SaleDecisionAuthorityTest {
         assertFalse(CompanionClient.validSaleRevision(json.fromJson(wire,PolicyDecision.class),"order","source",0,100,101));
     }
     PolicyDecision decision(String identity,int slot,long now) {
-        return PolicyDecision.action("1","companion-sale-9","decision",slot<0?PolicyDecisionType.EXIT:PolicyDecisionType.SELL_MAINTENANCE,
+        return PolicyDecision.action("1","companion-sale-10","decision",slot<0?PolicyDecisionType.EXIT:PolicyDecisionType.SELL_MAINTENANCE,
             slot<0?OfferLifecycleAction.PLACE_SELL:OfferLifecycleAction.CANCEL_SELL,"SALE_AUTHORIZED",now,now-1,identity,"source");
     }
     @Test public void exactOrderSourceTypeAndFreshDecisionAreRequired() {

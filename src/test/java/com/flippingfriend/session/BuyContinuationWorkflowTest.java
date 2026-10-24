@@ -120,6 +120,7 @@ public class BuyContinuationWorkflowTest {
             collected?Map.of(561,quantity):Map.of(),collected?Map.of(561,quantity):Map.of(),Map.of()));
         when(f.market.getSnapshot()).thenReturn(new MarketSnapshot(Map.of(561,new ItemMetadata(561,"Nature rune",false,1000,0)),
             Map.of(561,new LatestPrice(850,quoteTime,800,quoteTime)),Map.of(),Map.of(),Instant.ofEpochSecond(now)));
+        when(f.market.getSeries(eq(561),eq("5m"))).thenReturn(List.of(new com.flippingfriend.data.Candle(now/300*300-300,850,800,100,100)));
     }
     private static Object read(Object target,String name)throws Exception {
         var field=target.getClass().getDeclaredField(name);field.setAccessible(true);return field.get(target);

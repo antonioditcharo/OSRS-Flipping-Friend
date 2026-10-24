@@ -72,6 +72,10 @@ public class SuggestionEngine
 	private volatile boolean sellOnly;
 	/** Five-minute buckets: roughly thirty hours of history, which is the useful window for flipping. */
 	private static final String TIMESTEP = "5m";
+    private List<Candle> maintenanceSeries(int item) {
+        marketData.refreshMaintenanceSeries(item,TIMESTEP);
+        return marketData.getSeries(item,TIMESTEP);
+    }
 	private static final int BUCKET_SECONDS = 300;
 	/** Roughly a fortnight, for the context a single day of data cannot supply. */
 	private static final String LONG_TIMESTEP = "1h";
@@ -186,7 +190,7 @@ public class SuggestionEngine
             String unavailable=currentLedger==null?"Managed scope unavailable: waiting for acknowledged, fresh canonical acquisition evidence.":null;
             var evaluation=unavailable!=null?null:new com.flippingfriend.session.SaleMaintenancePricing().evaluate(
                 offer.getItemId(),offer.getPrice(),offer.getRemaining(),position,price,
-                marketData.getSeries(offer.getItemId(),TIMESTEP),horizon,now,sellOnly,sellTiming,taxCalculator,
+                maintenanceSeries(offer.getItemId()),horizon,now,sellOnly,sellTiming,taxCalculator,
                 offer.getFirstSeen(),offer.getLastFillObservedAt());
             rows.put(offer.getSlot(),new com.flippingfriend.session.SaleMaintenanceDiagnostic(offer,evaluation,unavailable,
                 price,now.getEpochSecond(),currentLedger==null?now.getEpochSecond()+30:currentLedger.getObservedAt()+151,
@@ -921,7 +925,7 @@ public class SuggestionEngine
                     : salePosition(saleLedger, offer.getItemId());
                 var proposal = new com.flippingfriend.session.SaleMaintenancePricing().quote(
                     offer.getItemId(), offer.getPrice(), remaining, position, price,
-                    marketData.getSeries(offer.getItemId(), TIMESTEP), horizon, now, sellOnly,
+                    maintenanceSeries(offer.getItemId()), horizon, now, sellOnly,
                     sellTiming, taxCalculator,offer.getFirstSeen(),offer.getLastFillObservedAt());
                 if (proposal == null) continue;
                 int newPrice = proposal.price, breakEven = proposal.floor;
@@ -931,7 +935,7 @@ public class SuggestionEngine
 				// Settled through noise, and then floored again: stickiness must never be the thing
 				// that walks a price below what the position cost.
 				newPrice = advisedPrice(offer.getItemId(), false, newPrice, now.getEpochSecond());
-				if (!isCut && costKnown)
+				if (costKnown)
 				{
 					newPrice = Math.max(newPrice, breakEven);
 				}
@@ -1638,7 +1642,7 @@ public class SuggestionEngine
             return Suggestion.waiting("Purchase still in progress", "Finish the purchase before relisting the managed stock.");
         quantity = Math.min(quantity, Math.max(0,position.getQuantity()-offers.listedForSale().getOrDefault(item,0)));
         if (quantity<=0) return Suggestion.waiting("Stock already listed", "No verified unlisted quantity remains for this sale.");
-        var series = marketData.getSeries(item,TIMESTEP);
+        var series = maintenanceSeries(item);
         var decision = sellTiming.evaluateManagedExit(position,price,featureEngine.compute(item,series,BUCKET_SECONDS),
             series,horizon,now,config.minProfitPerFlip(),true,sellOnly,false);
         var relist=remaining.getSaleRepriceSource()==null?null:new com.flippingfriend.session.SaleMaintenancePricing().evaluateRelist(
@@ -1654,6 +1658,7 @@ public class SuggestionEngine
         boolean cut = decision.getAction()==SellDecision.Action.CUT;
         long cost = com.flippingfriend.core.SaleAccounting.allocateCost(position.getTotalCost(),position.getQuantity(),quantity);
         int quoted = advisedPrice(item,false,decision.getPrice(),now.getEpochSecond());
+        if(cut)quoted=Math.max(quoted,price.getLow());
         if (!cut && (relist!=null || !sellOnly || !freshSaleQuote(price,now))) {
             int floor = taxCalculator.breakEvenSellPriceForCost(item,cost,quantity);
             if (floor<=0) return Suggestion.waiting("No non-loss sell price is available", "No legal price covers the recorded cost after tax.");
@@ -1786,7 +1791,7 @@ public class SuggestionEngine
 			}
 
 			LatestPrice price = market.latest(itemId);
-			List<Candle> series = marketData.getSeries(itemId, TIMESTEP);
+			List<Candle> series = maintenanceSeries(itemId);
 			ItemFeatures features = featureEngine.compute(itemId, series, BUCKET_SECONDS);
 
 			boolean isSkipped = skippedItems().contains(itemId);
@@ -1966,6 +1971,7 @@ public class SuggestionEngine
 		// card whose number changes while the player is typing it reads as the plugin changing its
 		// mind about a trade it has not changed its mind about.
 		int sellPrice = advisedPrice(itemId, false, decision.getPrice(), now.getEpochSecond());
+        if(cut)sellPrice=Math.max(sellPrice,market.latest(itemId).getLow());
         long allocatedCost=position.isCostKnown()?com.flippingfriend.core.SaleAccounting.allocateCost(
             position.getTotalCost(),position.getQuantity(),candidate.quantity):0;
         if(position.isCostKnown() && !cut && (!sellOnly || !freshSaleQuote(market.latest(itemId),now))) {

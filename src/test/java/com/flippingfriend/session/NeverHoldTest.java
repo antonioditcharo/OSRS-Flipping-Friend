@@ -47,7 +47,7 @@ public class NeverHoldTest
 	private static List<Candle> around(int level, int count)
 	{
 		List<Candle> series = new ArrayList<>(count);
-		long now = Instant.now().getEpochSecond();
+		long now = Instant.now().getEpochSecond()/300*300;
 		for (int i = 0; i < count; i++)
 		{
 			int drift = (int) Math.round(level * 0.02 * Math.sin(i * 0.37));
@@ -60,7 +60,7 @@ public class NeverHoldTest
 	private static List<Candle> falling(int endLevel, int count)
 	{
 		List<Candle> series = new ArrayList<>(count);
-		long now = Instant.now().getEpochSecond();
+		long now = Instant.now().getEpochSecond()/300*300;
 		for (int i = 0; i < count; i++)
 		{
 			int price = endLevel + (count - 1 - i) * 4;

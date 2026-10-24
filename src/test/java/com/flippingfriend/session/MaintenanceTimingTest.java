@@ -54,7 +54,7 @@ public class MaintenanceTimingTest {
         assertEquals(SellDecision.Action.SELL,decision.getAction());
         assertTrue(tax.netProceeds(561,decision.getPrice(),10)>=position.getTotalCost());
         position.setStopPrice(850);
-        assertEquals(SellDecision.Action.CUT,exits.evaluateManagedExit(position,price(800,790),null,List.of(),horizon,
+        assertEquals(SellDecision.Action.CUT,exits.evaluateManagedExit(position,price(800,790),null,List.of(new Candle(at-300,800,790,100,100)),horizon,
             Instant.ofEpochSecond(at),0,true,false,false).getAction());
     }
     @Test public void supportedMaintenanceHonorsEachActualAttendanceInterval() {

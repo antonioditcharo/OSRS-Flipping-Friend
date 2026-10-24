@@ -28,7 +28,8 @@ public class QuietMarketExitTest {
     }
     @Test public void freshStopEvidenceStillCutsLosses() {
         var p=stock(3,5881);p.setStopPrice(1800);
-        var result=quote(p,new LatestPrice(1000,now.getEpochSecond(),900,now.getEpochSecond()),false);
+        var result=exits.evaluateManagedExit(p,new LatestPrice(1000,now.getEpochSecond(),900,now.getEpochSecond()),null,
+            List.of(new Candle(now.getEpochSecond()-300,1000,900,100,100)),horizon,now,0,true,false,false);
         assertEquals(SellDecision.Action.CUT,result.getAction());assertTrue(result.getExpectedProfit()<0);
     }
     @Test public void futureMissingUnknownOrImpossibleCostEvidenceCannotBecomeAQuietQuote() {
