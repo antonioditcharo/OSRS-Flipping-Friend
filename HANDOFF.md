@@ -6,12 +6,14 @@ Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 ## Current delivery
 
 The owner-approved [no-trade-left-behind PR #159](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/159)
-is queued on `codex/no-trade-left-behind`.
+is merged. The original 1.13.3 update was refused safely when official RuneLite moved to 1.13.4;
+the current source pin is 1.13.4. Read the cumulative receipt below for exact tested heads,
+platform CI, paired installation and launch state; a source merge alone is not runtime activation.
 It adds account-wide recovery coverage/native Records view, original replacement deadlines,
 durable guided reassessment, exact-origin expiry, maintenance fairness and final-refusal fallthrough.
 [Contract](docs/architecture/no-trade-left-behind.md). Current verification/delivery belongs in
-`local-data/no-trade-left-behind-20261024/delivery-state.json`; PR #158 remains the installed baseline
-until a verified paired update. Controlled trading, sustained latency and all earlier gates remain open.
+`local-data/no-trade-left-behind-20261024/delivery-state.json`; PR #158 was the installed baseline
+for this batch. Controlled trading, native recovery-view acceptance, sustained latency and all earlier gates remain open.
 
 Read `local-data/stop-entry-pause-20261024/delivery-state.json` first for the current follow-on batch.
 Installed PR #157 could still propose an exact BUY replacement, or authorize a cached READY entry,

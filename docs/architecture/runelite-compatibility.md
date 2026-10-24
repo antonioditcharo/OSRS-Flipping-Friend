@@ -1,5 +1,16 @@
 # Supported RuneLite release and paired update preflight
 
+24 October continuation: the official [bootstrap](https://static.runelite.net/bootstrap.json)
+advanced to **1.13.4** during no-trade-left-behind #159 delivery. The updater refused the 1.13.3
+candidate before backup, process stopping or installed-file replacement. The current source pin,
+plugin manifest and current-release launcher fixtures target 1.13.4; old cached clients and the
+1.13.3 plugin remain refused rather than silently mixed. The release guard is unchanged. Read
+`local-data/no-trade-left-behind-20261024/delivery-state.json` for actual compile/test/CI,
+preservation, paired installation and native-load evidence. Login and controlled trading remain
+manual acceptance gates. No financial/risk history is migrated for compatibility.
+
+Historical 1.13.3 receipt:
+
 20 October continuation: the official release changed to **1.13.3** during #123 delivery. The
 preflight rejected the 1.13.2 candidate before replacing files or stopping the companion. Source
 compile/test/manifest now target 1.13.3; launcher fixtures cover its classpath and refusal of the
