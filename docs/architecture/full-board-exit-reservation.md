@@ -28,6 +28,9 @@ not the financial holding, cost or exposure.
 
 With no free slot, a proposed managed sale must pass current exact sale authority before the engine
 asks the player to cancel a working buy to make room. Refusal leaves that buy working. A successful
+preflight uses the actual retained relist source and origin when one exists; a generic original-target
+sale cannot substitute for that continuation. Unavailable saved evidence keeps the buy working.
+This
 preflight is not later placement authority: collection and the subsequent sale require fresh checks.
 Ordinary supported repricing, proven stops, actual exhausted buy limits and sell-only remain separate.
 

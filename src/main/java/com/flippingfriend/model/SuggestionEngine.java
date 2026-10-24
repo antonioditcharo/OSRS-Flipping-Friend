@@ -1916,7 +1916,7 @@ public class SuggestionEngine
             // A full board cannot justify abandoning a working buy for a sale that final
             // authority will refuse after collection. Verify the exact intended exit first.
             if(companion!=null) {
-                var intended=stockSaleSuggestion(best,market,horizon,now);
+                var intended=saleForSlotRelease(best,market,horizon,account,now);
                 if(intended.getType()!=SuggestionType.SELL)return intended;
                 var verified=companion.authorizeSale(intended);
                 if(verified==null || verified.getType()!=SuggestionType.SELL
@@ -1939,6 +1939,22 @@ public class SuggestionEngine
         }
         stockSaleCandidates=Collections.unmodifiableList(ready);
         return ready.isEmpty()?waiting:ready.get(0);
+    }
+    private Suggestion saleForSlotRelease(SellCandidate candidate,MarketSnapshot market,TradingHorizon horizon,
+            AccountState account,Instant now) {
+        Suggestion waiting=null;
+        if(sellRelist!=null) {
+            for(var remainder:sellRelist.collectedRequests(offers,observedAccount))if(remainder.getItemId()==candidate.position.getItemId()) {
+                var proposed=relistSuggestion(remainder,market,horizon,account,now);
+                if(proposed!=null && proposed.getType()==SuggestionType.SELL)return proposed;
+                if(proposed!=null)waiting=proposed;
+            }
+            if(waiting!=null)return waiting;
+            if(sellRelist.isPending(candidate.position.getItemId(),offers,observedAccount))
+                return Suggestion.waiting("Checking the collected sale before freeing a slot",
+                    "Its saved cancellation and exact returned quantity must be available. The working buy stays in place.");
+        }
+        return stockSaleSuggestion(candidate,market,horizon,now);
     }
     private Suggestion stockSaleSuggestion(SellCandidate candidate,MarketSnapshot market,TradingHorizon horizon,Instant now) {
 		Position position = candidate.position;

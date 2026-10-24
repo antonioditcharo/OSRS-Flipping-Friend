@@ -36,7 +36,7 @@ public class FullBoardSaleReservationWorkflowTest {
             when(offers.getOffer(anyInt())).thenAnswer(c->{int slot=c.getArgument(0);return board.stream().filter(o->o.getSlot()==slot).findFirst().orElse(null);});
             if(collectedSale) {
                 var old=new TrackedOffer(0,561,false,200,7,now-7200);old.setState("SELLING");
-                assertTrue(relists.advise(old,storage.accountId(),true,null));
+                assertTrue(relists.advise(old,storage.accountId(),true,null,"cancel-policy-source"));
                 old.setState("CANCELLED_SELL");old.setCollected(true);when(offers.getSettledOffer(0)).thenReturn(old);
                 assertEquals(7,relists.collectedRequest(offers,storage.accountId()).getQuantity());
                 when(offers.getSettledOffer(0)).thenReturn(null);
@@ -120,6 +120,15 @@ public class FullBoardSaleReservationWorkflowTest {
         when(f.offers.listedForSale()).thenReturn(Map.of(561,100));
         assertEquals(SuggestionType.WAIT,f.run().getType());
         verify(f.delivery.companion,never()).nextEntrySuggestion(any(),anySet(),anySet(),anySet());
+        assertEquals(7,new SellRelistIntent(f.storage).collectedRequest(f.offers,f.storage.accountId()).getQuantity());
+    }
+    @Test public void freeingASlotMustVerifyTheActualRetainedRelistRatherThanAGenericOriginalTarget()throws Exception {
+        var f=new Fixture(0,true);
+        when(f.delivery.companion.authorizeSale(any())).thenAnswer(c->{Suggestion s=c.getArgument(0);
+            return s!=null && s.getSaleRepriceSource()!=null?Suggestion.waiting("Relist refused","Exact cancellation evidence must agree"):s;});
+        assertEquals(SuggestionType.WAIT,f.run().getType());
+        verify(f.delivery.companion).authorizeSale(argThat(s->s!=null && "cancel-policy-source".equals(s.getSaleRepriceSource())));
+        assertEquals("BUYING",f.board.get(7).getState());
         assertEquals(7,new SellRelistIntent(f.storage).collectedRequest(f.offers,f.storage.accountId()).getQuantity());
     }
     static void set(Object target,String name,Object value)throws Exception{var f=target.getClass().getDeclaredField(name);f.setAccessible(true);f.set(target,value);}
