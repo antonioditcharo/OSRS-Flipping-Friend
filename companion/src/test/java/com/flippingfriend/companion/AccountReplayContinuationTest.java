@@ -65,9 +65,11 @@ public class AccountReplayContinuationTest {
             var input=repricing();
             var stop=new AccountReplayInput.Frame();stop.availableAt=stop.observedAt=f.start+1210;stop.latest=input.frames.get(20).latest.deepCopy();
             var q=stop.latest.getAsJsonObject("1");q.addProperty("low",70);q.addProperty("high",80);q.addProperty("lowTime",stop.availableAt);q.addProperty("highTime",stop.availableAt);
+            f.confirmedStop(stop,1,80,70);
             input.frames.add(stop);input.frames.sort(Comparator.comparingLong(a->a.availableAt));
             for(var frame:input.frames)if(frame.availableAt>stop.availableAt) {
                 var quote=frame.latest.getAsJsonObject("1");quote.addProperty("low",70);quote.addProperty("high",80);
+                f.confirmedStop(frame,1,80,70);
                 for(var flow:frame.flows){flow.lowVolume=0;flow.low=70;flow.high=80;}
             }
             if(restart)input.restartAt=List.of(f.start+1220,f.start+1250);
@@ -81,6 +83,7 @@ public class AccountReplayContinuationTest {
         var input=repricing();input.visitSeconds=30;input.restartAt=List.of(f.start+1240);
         for(var frame:input.frames)if(frame.availableAt>=f.start+1240) {
             var q=frame.latest.getAsJsonObject("1");q.addProperty("low",70);q.addProperty("high",80);
+            f.confirmedStop(frame,1,80,70);
             for(var flow:frame.flows){flow.lowVolume=0;flow.low=70;flow.high=80;}
         }
         var result=run(input,boundedEntries());
@@ -94,15 +97,18 @@ public class AccountReplayContinuationTest {
             for(var flow:frame.flows)flow.highVolume=0;
             if(frame.availableAt>=f.start+1200 && frame.availableAt<f.start+1240) {
                 var q=frame.latest.getAsJsonObject("1");q.addProperty("low",70);q.addProperty("high",80);
+                f.confirmedStop(frame,1,80,70);
             }
             if(frame.availableAt>=f.start+1240) {
                 var q=frame.latest.getAsJsonObject("2");q.addProperty("low",70);q.addProperty("high",80);
+                f.confirmedStop(frame,2,80,70);
             }
         }
         var switchFrame=new AccountReplayInput.Frame();switchFrame.availableAt=switchFrame.observedAt=f.start+1240;
         switchFrame.latest=input.frames.get(21).latest.deepCopy();
         for(String item:new String[]{"1","2"}) {var q=switchFrame.latest.getAsJsonObject(item);q.addProperty("lowTime",switchFrame.availableAt);q.addProperty("highTime",switchFrame.availableAt);}
         input.frames.add(switchFrame);input.frames.sort(Comparator.comparingLong(a->a.availableAt));
+        f.confirmedStop(switchFrame,2,80,70);
         var result=run(input,f.fixtureEntries(10));
         var actions=result.actions;
         long firstRelist=actions.stream().filter(a->a.contains("SELL 1 ") && Long.parseLong(a.split(" ")[0])>f.start+1240).mapToLong(a->Long.parseLong(a.split(" ")[0])).findFirst().orElseThrow();
@@ -138,7 +144,7 @@ public class AccountReplayContinuationTest {
     @Test public void aPartialSellRetainsItsRelistReceiptExactCostAndStopAcrossRestart()throws Exception {
         var input=f.input(1,31);
         for(var frame:input.frames) {
-            if(frame.availableAt>=f.start+1200){var q=frame.latest.getAsJsonObject("1");q.addProperty("low",80);q.addProperty("high",90);}
+            if(frame.availableAt>=f.start+1200){var q=frame.latest.getAsJsonObject("1");q.addProperty("low",80);q.addProperty("high",90);f.confirmedStop(frame,1,90,80);}
             for(var flow:frame.flows)if(frame.availableAt==f.start+1200){flow.high=120;flow.highVolume=400;}
             else if(frame.availableAt>f.start+1200){flow.high=90;flow.low=80;}
         }

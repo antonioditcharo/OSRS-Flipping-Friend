@@ -151,6 +151,7 @@ public class ManagedSellRelistWorkflowTest {
         var snapshot=f.market.getSnapshot();var metadata=new HashMap<>(snapshot.getMetadata());metadata.put(562,new ItemMetadata(562,"Chaos rune",false,1000,0));
         when(f.market.getSnapshot()).thenReturn(new MarketSnapshot(metadata,Map.of(561,new LatestPrice(1000,now.getEpochSecond(),1000,now.getEpochSecond()),
             562,new LatestPrice(850,now.getEpochSecond(),800,now.getEpochSecond())),Map.of(),Map.of(),now));
+        when(f.market.getSeries(eq(562),eq("5m"))).thenReturn(List.of(new Candle(now.getEpochSecond()/300*300-300,850,800,100,100)));
         var next=f.next();assertEquals(562,next.getItemId());assertTrue(next.isLossCut());
         assertEquals("The unrelated relist promise remains intact",6,new SellRelistIntent(f.storage).collectedRequest(f.offers,account).getQuantity());
     }
@@ -164,6 +165,7 @@ public class ManagedSellRelistWorkflowTest {
         var snapshot=f.market.getSnapshot();var metadata=new HashMap<>(snapshot.getMetadata());metadata.put(562,new ItemMetadata(562,"Chaos rune",false,1000,0));
         when(f.market.getSnapshot()).thenReturn(new MarketSnapshot(metadata,Map.of(561,new LatestPrice(1000,now.getEpochSecond(),1000,now.getEpochSecond()),
             562,new LatestPrice(850,now.getEpochSecond(),800,now.getEpochSecond())),Map.of(),Map.of(),now));
+        when(f.market.getSeries(eq(562),eq("5m"))).thenReturn(List.of(new Candle(now.getEpochSecond()/300*300-300,850,800,100,100)));
         var ordinary=Suggestion.builder(SuggestionType.MODIFY_SELL).item(562,"Chaos rune").slot(1).quantity(6).price(1100).maintenanceSource(live.getContinuationIdentity()).build();
         assertTrue(f.engine.deferUnsavedMaintenance(ordinary,now.getEpochSecond()));
         var next=f.next();assertEquals(SuggestionType.MODIFY_SELL,next.getType());assertEquals(562,next.getItemId());assertTrue(next.isLossCut());
@@ -287,6 +289,7 @@ public class ManagedSellRelistWorkflowTest {
         metadata.put(item,new ItemMetadata(item,"Stock "+item,false,1000,0));
         var prices=new HashMap<>(original.getLatest());prices.put(item,new LatestPrice(price,now.getEpochSecond(),price,now.getEpochSecond()));
         when(f.market.getSnapshot()).thenReturn(new MarketSnapshot(metadata,prices,Map.of(),Map.of(),now));
+        when(f.market.getSeries(eq(item),eq("5m"))).thenReturn(List.of(new Candle(now.getEpochSecond()/300*300-300,price,price,100,100)));
     }
     @Test public void queueRetainsEveryRelistWithExactCapsAndNoGenericOversizedDuplicate()throws Exception {
         var f=new Fixture(6,5881,6,1000,true);addStock(f,562,10,251,1000,0);

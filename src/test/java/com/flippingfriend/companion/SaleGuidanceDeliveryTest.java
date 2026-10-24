@@ -64,13 +64,13 @@ public class SaleGuidanceDeliveryTest {
                     +":"+(slot<0?q.getOrDefault("repriceSource",""):"");
                 var decision=entry?PolicyDecision.action("1","companion-entry-1","entry",PolicyDecisionType.ENTRY,OfferLifecycleAction.PLACE_BUY,
                     "ENTRY_CANDIDATE_SELECTED",now,now-1,"561:100:120:3",q.get("planId"))
-                    :PolicyDecision.action("1","companion-sale-9","decision",slot<0?PolicyDecisionType.EXIT:PolicyDecisionType.SELL_MAINTENANCE,
+                    :PolicyDecision.action("1","companion-sale-10","decision",slot<0?PolicyDecisionType.EXIT:PolicyDecisionType.SELL_MAINTENANCE,
                     slot<0?OfferLifecycleAction.PLACE_SELL:OfferLifecycleAction.CANCEL_SELL,"SALE_AUTHORIZED",now,now-1,key,source);
-                if(refusal!=null)decision=PolicyDecision.abstain("1","companion-sale-9","refused",
+                if(refusal!=null)decision=PolicyDecision.abstain("1","companion-sale-10","refused",
                     slot<0?PolicyDecisionType.EXIT:PolicyDecisionType.SELL_MAINTENANCE,
                     PolicyAbstentionReason.ACCOUNT_STATE_INCONSISTENT,refusal,now,now-1,key,source);
                 boolean correcting=revisionPrice!=null && (refuseRevision || !q.get("price").equals(revisionPrice.toString()));
-                if(correcting)decision=PolicyDecision.abstain("1","companion-sale-9","reprice",
+                if(correcting)decision=PolicyDecision.abstain("1","companion-sale-10","reprice",
                     slot<0?PolicyDecisionType.EXIT:PolicyDecisionType.SELL_MAINTENANCE,
                     PolicyAbstentionReason.ACCOUNT_STATE_INCONSISTENT,"SALE_PRICE_NOT_AUTHORIZED",now,now-1,key,source)
                     .withSalePriceRevision(revisionPrice,57,true);

@@ -104,7 +104,7 @@ public class SellTimingEngine
 			return SellDecision.hold("Waiting for a current price on this item.", 0);
 		}
 
-		boolean throughStop = throughStop(position,marketSell,profile);
+		boolean throughStop = StopLossEvidence.confirmed(position,latest,series,now);
 		// How far the pricing may reach to get the offer filled. Crossing the spread costs real gold,
 		// so reserve the modeled discount for a fresh stop or explicit player wind-down.
 		boolean urgent = sellOnly || throughStop;
@@ -125,7 +125,8 @@ public class SellTimingEngine
             var forecast=forecastForOrder(itemId,price,quantity,series,horizon);
             exit=new PricedExit(price,forecast==null?Double.NaN:forecast.getExpectedTotalSeconds()/60.0);
         } else exit = bestExit(series, itemId, marketSell, marketBuy, quantity, horizon,
-			position.isCostKnown()?position.getTotalCost():0, true, breakEven, position.getTargetSellPrice(), lossAllowed);
+			position.isCostKnown()?position.getTotalCost():0, true, breakEven, position.getTargetSellPrice(), lossAllowed,
+            throughStop?latest.getLow():1);
 
 		long expectedProfit = position.isCostKnown()
 			? taxCalculator.netProceeds(itemId,exit.price,quantity)-position.getTotalCost()
@@ -137,8 +138,8 @@ public class SellTimingEngine
 			// other one. The action differs only so the card and the overlay can warn that this one
 			// realises a loss.
 			return new SellDecision(SellDecision.Action.CUT, exit.price,
-				"This has fallen through its stop loss, so it is being sold at the best price "
-					+ "available rather than held any longer.", exit.expectedMinutes, expectedProfit);
+				"Fresh trades on both sides and a completed five-minute volume bucket confirm the recorded stop loss. "
+                    + "This exit may realize a loss; its limit is not discounted below the latest reported instant-sell price. A fill is not guaranteed.", exit.expectedMinutes, expectedProfit);
 		}
 
 		return new SellDecision(SellDecision.Action.SELL, exit.price,
@@ -187,13 +188,6 @@ public class SellTimingEngine
             return Math.max(Math.max(1,costFloor),position.protectedOriginalTarget(now.getEpochSecond(),horizon.maxHoldMinutes()));
         return Math.max(1,costFloor);
     }
-    /** Callers must establish quote freshness before using this to authorize a loss. */
-    static boolean throughStop(Position position,int marketSell,RiskProfile profile) {
-        if(position==null || !position.isCostKnown() || marketSell<=0)return false;
-        int stop=position.getStopPrice();
-        // Missing original acquisition context cannot invent loss permission from today's settings.
-        return stop>0 && marketSell<=stop;
-    }
 
 	/**
 	 * A price to quote the offer at, from the live quote if there is one and from the last bar that
@@ -231,12 +225,12 @@ public class SellTimingEngine
 
 	private PricedExit bestExit(List<Candle> series, int itemId, int marketSell, int marketBuy,
 		int quantity, TradingHorizon horizon, long totalCost, boolean urgent, int breakEven,
-		int target, boolean lossAllowed)
+		int target, boolean lossAllowed,int observedSellFloor)
 	{
 		// The cheapest price this sale is allowed to name. See exitPrices: the grid is anchored on
 		// the market, and a position whose break-even sits above the market has no profitable price
 		// in it at all -- so the floor is what stops the search returning the least-bad loss.
-		int floor = lossAllowed || breakEven <= 0 ? 1 : breakEven;
+		int floor = Math.max(observedSellFloor,lossAllowed || breakEven <= 0 ? 1 : breakEven);
 
 		if (series == null || series.isEmpty())
 		{

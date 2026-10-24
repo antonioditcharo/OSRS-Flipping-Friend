@@ -30,6 +30,27 @@ import static org.junit.Assert.assertTrue;
  */
 public class SeriesCacheTest
 {
+    @Test public void heldStockRefreshesBeforeEntryCacheExpiryWithoutFetchingOnReadsOrRetryingFailures()throws Exception {
+        var client=org.mockito.Mockito.mock(okhttp3.OkHttpClient.class);
+        var call=org.mockito.Mockito.mock(okhttp3.Call.class);
+        var request=new okhttp3.Request.Builder().url("https://example.invalid/history").build();
+        org.mockito.Mockito.when(client.newCall(org.mockito.ArgumentMatchers.any())).thenReturn(call);
+        org.mockito.Mockito.when(call.execute()).thenAnswer(invocation->new okhttp3.Response.Builder().request(request)
+            .protocol(okhttp3.Protocol.HTTP_1_1).code(200).message("OK")
+            .body(okhttp3.ResponseBody.create("{\"data\":[]}",okhttp3.MediaType.get("application/json"))).build());
+        var cache=new SeriesCache(null,client);
+        cache.remember(11230,"5m",history(),Instant.now().minusSeconds(180));
+        assertEquals(0,cache.warm(List.of(11230),"5m",1));
+        assertFalse(cache.series(11230,"5m").isEmpty());
+        org.mockito.Mockito.verifyNoInteractions(client);
+        assertEquals(1,cache.warmMaintenance(List.of(11230),1));
+        assertEquals(0,cache.warmMaintenance(List.of(11230),1));
+        org.mockito.Mockito.verify(client,org.mockito.Mockito.times(1)).newCall(org.mockito.ArgumentMatchers.any());
+        org.mockito.Mockito.when(call.execute()).thenThrow(new java.io.IOException("offline"));
+        cache.remember(11230,"5m",history(),Instant.now().minusSeconds(180));
+        assertEquals(1,cache.warmMaintenance(List.of(11230),1));
+        assertEquals(0,cache.warmMaintenance(List.of(11230),1));
+    }
 	@Rule
 	public final TemporaryFolder folder = new TemporaryFolder();
 

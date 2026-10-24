@@ -359,6 +359,14 @@ public class MarketDataService
 	}
 
 	/** Warms the series cache for a batch of items the engine is about to look at closely. */
+    public void refreshMaintenanceSeries(int itemId,String timestep) {
+        getSeries(itemId,timestep);
+        var cached=seriesCache.get(cacheKey(itemId,timestep));
+        if("5m".equals(timestep) && cached!=null && !cached.inFlight && !cached.failed
+            && cached.fetchedAt.plus(Duration.ofMinutes(2)).isBefore(Instant.now()))requestSeries(itemId,timestep);
+    }
+
+	/** Warms the series cache for a batch of items the engine is about to look at closely. */
 	public void prefetchSeries(List<Integer> itemIds, String timestep)
 	{
 		for (int itemId : itemIds)

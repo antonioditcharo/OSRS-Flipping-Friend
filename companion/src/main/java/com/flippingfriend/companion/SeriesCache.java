@@ -138,6 +138,10 @@ final class SeriesCache implements SeriesSource
 	 */
 	int warm(List<Integer> itemIds, String timestep, int budget)
 	{
+        return warm(itemIds,timestep,budget,false);
+    }
+    int warmMaintenance(List<Integer> itemIds,int budget) {return warm(itemIds,"5m",budget,true);}
+    private int warm(List<Integer> itemIds,String timestep,int budget,boolean maintenance) {
 		int spent = 0;
 		for (Integer itemId : itemIds)
 		{
@@ -147,7 +151,7 @@ final class SeriesCache implements SeriesSource
 			}
 			String key = key(itemId, timestep);
 			Cached cached = cache.get(key);
-			if (cached != null && !cached.isStale(timestep))
+			if (cached != null && !(maintenance?cached.isMaintenanceStale():cached.isStale(timestep)))
 			{
 				continue;
 			}
@@ -468,5 +472,8 @@ final class SeriesCache implements SeriesSource
 			Duration ttl = "5m".equals(timestep) ? SHORT_TTL : LONG_TTL;
 			return fetchedAt.plus(ttl).isBefore(Instant.now());
 		}
+        boolean isMaintenanceStale() {
+            return failed?isStale("5m"):fetchedAt.plus(Duration.ofMinutes(2)).isBefore(Instant.now());
+        }
 	}
 }

@@ -7,6 +7,13 @@ import org.junit.Test;
 import static org.junit.Assert.*;
 
 public class SalePolicyProofTest {
+    @Test public void existingVersionNineAcceptanceRemainsReadableWhileNewReceiptsUseTen()throws Exception {
+        var r=receipt();assertEquals("companion-sale-10",r.getPolicyVersion());
+        var version=SalePolicyReceipt.class.getDeclaredField("policyVersion");version.setAccessible(true);version.set(r,"companion-sale-9");
+        assertTrue(r.isWellFormed());assertTrue(r.matchesSource(original()));
+        assertTrue(AcceptedSalePolicyProof.accepted(r,"legacy",at,CaptureOrder.next()).isWellFormed());
+        version.set(r,"companion-sale-8");assertFalse(r.isWellFormed());
+    }
     private final long placed=1_800_000_000L,at=placed+600;
     private final String account=AccountIdentity.fromProfileKey("sale-policy-proof");
     private AccountSnapshot settings(int cadence,boolean windDown) {

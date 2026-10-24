@@ -21,6 +21,7 @@ final class CompanionAccounts implements AutoCloseable
         this.root = root.toAbsolutePath().normalize();
         this.marketSource = marketSource;
         marketSource.useWarmShortlist(this::shortlist);
+        marketSource.useWarmMaintenance(this::maintenance);
     }
 
     synchronized CompanionService forAccount(String accountId) throws Exception
@@ -61,6 +62,11 @@ final class CompanionAccounts implements AutoCloseable
     {
         java.util.Set<Integer> ids = new java.util.LinkedHashSet<>();
         for (CompanionService service : services.values()) ids.addAll(service.shortlistIds());
+        return new ArrayList<>(ids);
+    }
+    private synchronized List<Integer> maintenance() {
+        java.util.Set<Integer> ids=new java.util.LinkedHashSet<>();
+        for(var service:services.values())ids.addAll(service.maintenanceIds());
         return new ArrayList<>(ids);
     }
 

@@ -9,6 +9,40 @@ import org.junit.rules.TemporaryFolder;
 import static org.junit.Assert.*;
 
 public class CompanionSalePolicyTest {
+    @Test public void isolatedStopPrintCannotCancelOrRelistButConfirmedLossStillRequiresExactFreshFloor()throws Exception {
+        try(var store=new SqliteStore(folder.newFolder().toPath().resolve("confirmed-stop.db"))) {
+            long now=at+3600;var account=setup(store,new AcquisitionExitContext(140,90,120));
+            var sale=event(0,"SELLING","fresh-sale",3,0,0,150,now);accept(store,sale);
+            var read=store.saleProjections(id,now);var policy=new CompanionSalePolicy();int effects=store.positionEventCount();
+            assertEquals(OfferLifecycleAction.WAIT,policy.decide(read.planning,read.ledger,account,market(now,80),(i,s)->List.of(),
+                561,80,3,sale.getEventId(),true,0,now).getAction());
+            var confirmed=policy.decide(read.planning,read.ledger,account,market(now,80),(i,s)->bars(now,80),
+                561,80,3,sale.getEventId(),true,0,now);
+            assertEquals(OfferLifecycleAction.CANCEL_SELL,confirmed.getAction());
+            assertEquals(OfferLifecycleAction.WAIT,policy.decide(read.planning,read.ledger,account,market(now,80),(i,s)->bars(now,80),
+                561,79,3,sale.getEventId(),true,0,now).getAction());
+            accept(store,event(0,"CANCELLED_SELL","fresh-sale",3,0,0,150,now+1));
+            accept(store,event(0,"EMPTY",null,0,0,0,0,now+2));
+            read=store.saleProjections(id,now+3);String source=read.ledger.getTradingPositions().get(0).getSourceEventId();
+            assertEquals(OfferLifecycleAction.WAIT,policy.decide(read.planning,read.ledger,account,market(now+3,80),(i,s)->List.of(),
+                561,80,3,source,true,-1,now+3,sale.getEventId()).getAction());
+            assertEquals(OfferLifecycleAction.PLACE_SELL,policy.decide(read.planning,read.ledger,account,market(now+3,80),(i,s)->bars(now+3,80),
+                561,80,3,source,true,-1,now+3,sale.getEventId()).getAction());
+            assertEquals(OfferLifecycleAction.WAIT,policy.decide(read.planning,read.ledger,account,market(now+3,80),(i,s)->bars(now+3,80),
+                561,79,3,source,true,-1,now+3,sale.getEventId()).getAction());
+            assertEquals(effects,store.positionEventCount());
+        }
+    }
+    @Test public void maintenanceHistoryKeepsCanonicalStockAfterItLeavesTheEntryShortlist()throws Exception {
+        try(var store=new SqliteStore(folder.newFolder().toPath().resolve("owned-history.db"))) {
+            setup(store,new AcquisitionExitContext(140,90,120));
+            try(var root=new CompanionService(json,store);var service=root.forAccountStore(store,id)) {
+                service.rehydrate();assertTrue(service.shortlistIds().isEmpty());
+                assertEquals(List.of(561),service.maintenanceIds());
+                assertFalse("Routine belongings cannot become maintenance stock",service.maintenanceIds().contains(11230));
+            }
+        }
+    }
     @Test public void mismatchedSalePriceOffersOnlyACanonicalQuoteAndStillRequiresExactReauthorization()throws Exception {
         try(var store=new SqliteStore(folder.newFolder().toPath().resolve("quote-retry.db"))) {
             var account=setup(store,new AcquisitionExitContext(140,90,120));long now=at+3600;
@@ -145,7 +179,7 @@ public class CompanionSalePolicyTest {
             assertEquals("Fresh actual recovery can support a new current limit",OfferLifecycleAction.PLACE_SELL,
                 policy.decide(read.planning,read.ledger,fresh,market(now+3,150),(i,s)->List.of(),561,150,2,
                     remaining.getSourceEventId(),false,-1,now+3,sale.getEventId()).getAction());
-            assertEquals(OfferLifecycleAction.PLACE_SELL,policy.decide(read.planning,read.ledger,fresh,market(now+3,80),(i,s)->List.of(),
+            assertEquals(OfferLifecycleAction.PLACE_SELL,policy.decide(read.planning,read.ledger,fresh,market(now+3,80),(i,s)->bars(now+3,80),
                 561,80,2,remaining.getSourceEventId(),true,-1,now+3,sale.getEventId()).getAction());
             assertEquals(OfferLifecycleAction.WAIT,policy.decide(read.planning,read.ledger,fresh,market(now+3,150),(i,s)->List.of(),
                 561,100,2,remaining.getSourceEventId(),false,-1,now+3,sale.getEventId()).getAction());

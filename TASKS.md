@@ -1,10 +1,15 @@
 # Tasks
 
-Updated 23 October 2026. Read [HANDOFF.md](HANDOFF.md) and the actual delivery receipt at
-`local-data/full-board-churn-20261023/delivery-state.json` first. Implemented/tested, merged,
+Updated 24 October 2026. Read [HANDOFF.md](HANDOFF.md) and the actual delivery receipt at
+`local-data/dragon-dart-loss-20261023/delivery-state.json` first. Implemented/tested, merged,
 installed and player accepted are separate states. Owner is home; older login deferrals are superseded.
 
 ## Current batch
+
+- [ ] Deliver/accept confirmed automatic stop losses across initial exits, working sales, exact
+      collected relists and restart. Preserve profitable limits without completed-market support,
+      confirmed urgent stops, wind-down, exact costs, old receipts and financial/risk identities.
+      Keep owned-stock history fresh outside the entry shortlist. [Contract](docs/architecture/confirmed-stop-loss.md).
 
 - [ ] Verify/deliver full-board churn recovery: one engine-pass ledger, consistent last-slot exit
       priority after sale/continuation refusals, canonical entry/replacement reservation and sale

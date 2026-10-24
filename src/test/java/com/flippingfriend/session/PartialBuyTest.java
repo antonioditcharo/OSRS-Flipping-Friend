@@ -105,7 +105,7 @@ public class PartialBuyTest
 	private static List<Candle> bars(int bid, int ask, int count, int stepSeconds)
 	{
 		List<Candle> series = new ArrayList<>(count);
-		long now = Instant.now().getEpochSecond();
+		long now = Instant.now().getEpochSecond()/stepSeconds*stepSeconds;
 		for (int i = 0; i < count; i++)
 		{
 			int drift = (int) Math.round(bid * 0.02 * Math.sin(i * 0.37));

@@ -62,10 +62,11 @@ public class SaleMaintenancePricingTest {
     }
     @Test public void freshStopsAndExplicitWindDownKeepTheirSeparateRelistRules() {
         long first=now.getEpochSecond()-900;
-        var cut=relist(planned(),80,List.of(),first,first).quote;
-        assertNotNull(cut);assertTrue(cut.lossCut);assertEquals(1,cut.floor);
+        var supported=List.of(new Candle(now.getEpochSecond()-300,80,80,100,100));
+        var cut=relist(planned(),80,supported,first,first).quote;
+        assertNotNull(cut);assertTrue(cut.lossCut);assertEquals(80,cut.floor);
         var windDown=new SaleMaintenancePricing().evaluateRelist(1,150,2,planned(),new LatestPrice(80,now.getEpochSecond(),80,now.getEpochSecond()),
-            List.of(),horizon,now,true,exits,tax,first,first).quote;
+            supported,horizon,now,true,exits,tax,first,first).quote;
         assertNotNull(windDown);assertTrue("A proven stop remains urgent even in wind-down",windDown.lossCut);
         var noStop=planned();noStop.setStopPrice(0);
         windDown=new SaleMaintenancePricing().evaluateRelist(1,150,2,noStop,new LatestPrice(80,now.getEpochSecond(),80,now.getEpochSecond()),

@@ -10,7 +10,7 @@ import java.util.*;
 
 /** Final read-only authority for managed exits and observed sale maintenance. No cost comes from the request. */
 final class CompanionSalePolicy {
-    static final String VERSION="companion-sale-9";
+    static final String VERSION="companion-sale-10";
     static String identity(int item,int price,int quantity,String source,boolean cut,int slot) {
         return identity(item,price,quantity,source,cut,slot,null);
     }
@@ -70,7 +70,7 @@ final class CompanionSalePolicy {
                     offer.getFirstSeenAt(),read.saleProgressAt.getOrDefault(slot,Long.MAX_VALUE));
                 if(proposed==null || proposed.lossCut!=cut || Math.abs((long)proposed.price-price)>=horizon.outbidDeadband(proposed.price)
                     || offer.getPrice()-(long)price<horizon.outbidDeadband(offer.getPrice())
-                    || !cut && proposed.costKnown && (proposed.floor<=0 || price<proposed.floor))
+                    || proposed.costKnown && (proposed.floor<=0 || price<proposed.floor))
                     return proposed!=null && proposed.lossCut==cut
                         ?refusal(type,identity,source,now,"SALE_PRICE_NOT_AUTHORIZED").withSalePriceRevision(proposed.price,
                             proposed.costKnown?tax.netProceeds(item,proposed.price,quantity)-proposed.allocatedCost:0,proposed.costKnown)
@@ -112,6 +112,7 @@ final class CompanionSalePolicy {
                             tax.netProceeds(item,decision.getPrice(),quantity)-SaleAccounting.allocateCost(position.getTotalCost(),position.getQuantity(),quantity),true)
                         :refusal(type,identity,source,now,"SALE_EXIT_CHANGED");
                 long cost=SaleAccounting.allocateCost(position.getTotalCost(),position.getQuantity(),quantity);
+                if(cut && price<quote.getLow())return refusal(type,identity,source,now,"SALE_STOP_PRICE_FLOOR");
                 if(!cut && (relist!=null || !account.isSellOnly() || quote.stalestSideSeconds(at)>300)) {
                     int floor=tax.breakEvenSellPriceForCost(item,cost,quantity);
                     if(floor<=0 || price<(relist==null?SellTimingEngine.protectedPrice(position,horizon,at,floor):floor))

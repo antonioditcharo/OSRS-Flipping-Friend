@@ -1,5 +1,11 @@
 # Continuation prompt
 
+Read `local-data/dragon-dart-loss-20261023/delivery-state.json` first for the latest loss investigation
+and delivery. [Confirmed-stop contract](architecture/confirmed-stop-loss.md): original stops need
+fresh coherent two-sided and completed-volume support; automatic loss limits protect the reported
+instant-sell trade through stabilization/final authority. Owned-stock history is independent of the
+entry shortlist. Preserve version-nine receipts, exact costs and every source/financial/risk row.
+
 Continue in `C:\Users\Antonio\OSRS Flipping Friend Rebuild`.
 Implement, verify and deliver reliable trade/inventory workflow batches; do not stop at a roadmap.
 Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
