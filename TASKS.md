@@ -1,8 +1,8 @@
 # Tasks
 
 Updated 24 October 2026. Read [HANDOFF.md](HANDOFF.md) and the current no-trade-left-behind receipt at
-`local-data/no-trade-left-behind-20261024/delivery-state.json` first; #158 remains the installed baseline
-until this receipt verifies a paired update. Implemented/tested, merged,
+`local-data/no-trade-left-behind-20261024/delivery-state.json` first for the installed pair and any
+pending source; #158 was this batch's original baseline. Implemented/tested, merged,
 installed and player accepted are separate states. Owner is home; older login deferrals are superseded.
 
 ## Current batch
@@ -12,8 +12,8 @@ installed and player accepted are separate states. Owner is home; older login de
       preserve original replacement budgets, durable reassessment, independent maintenance,
       exact costs/stops and all source/financial/risk evidence. Accept the native recovery view,
       full partial/cancel/late-fill/collect/replacement-or-exit/completion/restart workflow and
-      sustained latency. [Contract](docs/architecture/no-trade-left-behind.md). Source is queued;
-      installation and controlled acceptance must be recorded separately in the delivery receipt.
+      sustained latency. [Contract](docs/architecture/no-trade-left-behind.md). Source is merged as
+      #159; current API pin is 1.13.4. Read the receipt for installation and controlled acceptance.
 
 - [ ] Deliver/accept item-local stop rechecks across additional ordinary buys, cached READY plans,
       exact cancelled-buy replacements, partials and restart. Preserve exact remainders, fresh
