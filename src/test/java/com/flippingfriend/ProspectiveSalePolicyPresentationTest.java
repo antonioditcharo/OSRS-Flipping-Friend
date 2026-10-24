@@ -30,10 +30,11 @@ public class ProspectiveSalePolicyPresentationTest {
         var accept=FlippingFriendPlugin.class.getDeclaredMethod("recordVisibleAdvice");accept.setAccessible(true);accept.invoke(f.plugin);
         var cleanup=FlippingFriendPlugin.class.getDeclaredMethod("applyEditorSaleQuote",Suggestion.class);cleanup.setAccessible(true);
         cleanup.invoke(f.plugin,new Object[]{null});cleanup.invoke(f.plugin,new Object[]{null});
-        f.set("tradeConfirmGuard",mock(com.flippingfriend.overlay.TradeConfirmGuard.class));
-        f.set("geInputAssist",mock(com.flippingfriend.overlay.GeInputAssist.class));
-        var closed=mock(net.runelite.api.events.WidgetClosed.class);
-        when(closed.getGroupId()).thenReturn(net.runelite.api.widgets.WidgetUtil.componentToInterface(net.runelite.api.gameval.InterfaceID.GeOffers.UNIVERSE));
+        var resolver=mock(com.flippingfriend.overlay.GeWidgetResolver.class);var config=mock(FlippingFriendConfig.class);
+        f.set("tradeConfirmGuard",new com.flippingfriend.overlay.TradeConfirmGuard(client,guide,resolver,config));
+        f.set("geInputAssist",new com.flippingfriend.overlay.GeInputAssist(client,null,null,null,config,guide,resolver));
+        var closed=new net.runelite.api.events.WidgetClosed(
+            net.runelite.api.widgets.WidgetUtil.componentToInterface(net.runelite.api.gameval.InterfaceID.GeOffers.UNIVERSE),0,true);
         f.plugin.onWidgetClosed(closed);
         assertSame(advice,guide.getSuggestion());
         verify(engine,times(1)).recordPresentedMaintenance(eq(advice),eq(account),anyLong());
