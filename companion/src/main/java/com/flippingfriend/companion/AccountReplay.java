@@ -12,7 +12,7 @@ import java.util.*;
 
 /** One simulated account, one bankroll and eight physical slots; never opens a live database. */
 final class AccountReplay implements AutoCloseable {
-    static final String VERSION="account-replay-20";
+    static final String VERSION="account-replay-21";
     private static final String ACCOUNT=AccountIdentity.fromProfileKey("synthetic-account-replay-only");
     interface Entries {
         PortfolioPlan plan(MarketIngestionService.MarketState market,AccountSnapshot account,
@@ -96,6 +96,12 @@ final class AccountReplay implements AutoCloseable {
         List<OfferContinuation> buy=new ArrayList<>(),sell=new ArrayList<>();
         List<OfferContinuation> consumed=new ArrayList<>();
         List<ContinuationSuccessorProof> successors=new ArrayList<>();
+        Map<String,Long> buyDeadlines=new HashMap<>();
+        Map<String,RecoveryDecision> recovery=new LinkedHashMap<>();
+    }
+    private static final class RecoveryDecision {
+        int item,price,quantity;long at,notBefore;
+        RecoveryDecision(int item,int price,int quantity,long at,long patience){this.item=item;this.price=price;this.quantity=quantity;this.at=at;notBefore=at+patience;}
     }
     private Continuations continuations=new Continuations();
     private final List<OfferContinuation> collectedBuys=new ArrayList<>(),collectedSells=new ArrayList<>();
@@ -221,6 +227,7 @@ final class AccountReplay implements AutoCloseable {
         now=input.endAt;return new Result(this,now);
     }
     private Guidance guide() throws Exception {
+        refreshRecoveryDecisions();
         AccountSnapshot account=capture();
         CompanionAction collection=new CompanionActionSelector().select(events());
         if(collection.isActionable())return offerGuidance("COLLECT",offers[collection.getSlot()],0,null,false);
@@ -228,6 +235,13 @@ final class AccountReplay implements AutoCloseable {
         if(now-market.observedAt>120){abstain("MARKET_DATA_STALE");return null;}
         observeContinuations(null);Guidance replacement=null;
         for(var continuation:collectedBuys) {
+            Long budget=continuations.buyDeadlines.get(continuation.getOriginalIdentity());
+            if(budget==null){abstain("REPLACEMENT_BUDGET_UNAVAILABLE");continue;}
+            if(budget<=now) {
+                rememberRecovery(continuation.getOriginalIdentity(),continuation.getItemId(),continuation.getOriginalPrice(),continuation.getCollectedRemaining());
+                if(continuation.getClaimedQuantity()>0)continuations.consumed.add(continuation);
+                continuations.buy.remove(continuation);saveContinuations();abstain("ORIGINAL_BUY_BUDGET_ELAPSED");continue;
+            }
             var planning=currentEntryAccount(account,market);
             if(planning==null)break;
             var reply=replacementPlanner.plan(continuation.getItemId(),continuation.getCollectedRemaining(),market,
@@ -287,7 +301,8 @@ final class AccountReplay implements AutoCloseable {
         if(replacement!=null)return replacement;
         var ordered=new ArrayList<Offer>();
         for(var offer:offers)if(offer!=null && !offer.terminal)ordered.add(offer);
-        ordered.sort(Comparator.comparingDouble(this::strandedBy).reversed().thenComparingInt(o->o.slot));
+        ordered.sort(Comparator.comparingLong((Offer o)->Math.max(o.placedAt,o.lastProgressAt))
+            .thenComparing(Comparator.comparingDouble(this::strandedBy).reversed()).thenComparingInt(o->o.slot));
         for(Offer offer:ordered) {
             if(offer.buy) {
                 if(limits.remainingAt(offer.item,input.mapping.get(offer.item).buyLimit,Instant.ofEpochSecond(now))<=0)
@@ -354,7 +369,8 @@ final class AccountReplay implements AutoCloseable {
         if(exposure==null){abstain("CURRENT_EVIDENCE_UNAVAILABLE");return null;}
         var risk=DurableRisk.evaluate(read,account,exposure,market,now);
         if(!risk.isAvailable()){abstain("DURABLE_RISK_UNAVAILABLE: "+risk.getReason());return null;}
-        return account.withPlanningRestrictions(exposure.committedByItem,EntryStopPause.restrictions(exposure,read,market,now)).withCanonicalRisk(risk);
+        var paused=EntryStopPause.restrictions(exposure,read,market,now);paused.addAll(recoveryPausedItems());
+        return account.withPlanningRestrictions(exposure.committedByItem,paused).withCanonicalRisk(risk);
     }
     private Guidance entryGuidance(PortfolioPlan plan,PortfolioCandidate c,int slot,String kind,String original) {
         int stop=(int)Math.round(c.getBuyPrice()*(1-horizon.getProfile().getLossCutPct()));
@@ -466,6 +482,10 @@ final class AccountReplay implements AutoCloseable {
             if("REPRICE_BUY".equals(advice.kind))rememberContinuation(offers[advice.slot],true);
             if("CANCEL_SELL".equals(advice.kind))rememberContinuation(offers[advice.slot],false,advice.salePolicyReceipt);
             if("CANCEL_BUY".equals(advice.kind) || advice.cut && ("SELL".equals(advice.kind) || "RELIST_SELL".equals(advice.kind))) {
+                if("CANCEL_BUY".equals(advice.kind)) {
+                    var offer=offers[advice.slot];rememberRecovery(OfferContinuation.identity(offer.slot,offer.item,true,offer.price,offer.quantity,offer.placedAt,offer.identity),
+                        offer.item,offer.price,offer.remaining());
+                }
                 boolean changed=false;
                 for(var iterator=continuations.buy.iterator();iterator.hasNext();) {
                     var intent=iterator.next();if(intent.getItemId()!=advice.item)continue;
@@ -485,6 +505,11 @@ final class AccountReplay implements AutoCloseable {
         else inventory.merge(item,-quantity,Integer::sum);
         if(cash<0 || inventory.getOrDefault(item,0)<0)throw new IllegalStateException("Shared capital or inventory overspent");
         Offer offer=new Offer(slot,item,price,quantity,buy,now,"sim-offer-"+(++sequence));offers[slot]=offer;
+        if("REPLACE_BUY".equals(advice.kind)) {
+            Long budget=continuations.buyDeadlines.get(advice.offerIdentity);
+            if(budget==null || budget<=now)throw new IllegalStateException("Expired replacement buy budget");
+            offer.buyMaintenanceDeadlineAt=budget;
+        }
         if(buy || advice.successorAcceptance!=null) {
             // Prospective synthetic advice was actually displayed earlier. This is not real execution learning.
             offer.origin=event(offer,advice);
@@ -552,7 +577,7 @@ final class AccountReplay implements AutoCloseable {
         }
         for(Offer o:offers)if(o!=null && o.buy)exposure.merge(o.item,(long)o.remaining()*o.price,Math::addExact);
         AccountSnapshot a=new AccountSnapshot("replay:"+cadence+":"+now,now,cash,locked(),8-(int)Arrays.stream(offers).filter(Objects::nonNull).count(),8,
-            true,false,0,input.risk,exposure,input.minimumProfit,Map.of(),baseline,cadence,Set.of(),Set.of(),onOffer,false,0,positions)
+            true,false,0,input.risk,exposure,input.minimumProfit,Map.of(),baseline,cadence,Set.of(),recoveryPausedItems(),onOffer,false,0,positions)
             .withAccountId(ACCOUNT).withAutomaticTradeScope().withOfferReadSet(readSet).withObservedHoldings(inventory);
         store.recordAndReconcileAccount(a,PositionStateView.from(a),json.toJson(a),now);return a;
     }
@@ -681,6 +706,8 @@ final class AccountReplay implements AutoCloseable {
         var current=buying?continuations.buy:continuations.sell;
         for(var intent:current)if(intent.valid(now) && intent.matches(observation(offer,false)))return;
         var created=OfferContinuation.advise(observation(offer,false),observedBoard(),!buying,now,0);
+        if(buying)continuations.buyDeadlines.putIfAbsent(OfferContinuation.identity(offer.slot,offer.item,true,offer.price,offer.quantity,offer.placedAt,offer.identity),
+            freezeBuyMaintenanceDeadline(offer,horizon,now));
         if(created!=null){
             if(!buying) {
                 if(policy==null)throw new IllegalStateException("Synthetic cancellation lacks its canonical policy receipt");
@@ -723,6 +750,18 @@ final class AccountReplay implements AutoCloseable {
         java.nio.file.Files.writeString(temp,json.toJson(continuations));
         try {java.nio.file.Files.move(temp,continuationFile,java.nio.file.StandardCopyOption.ATOMIC_MOVE,java.nio.file.StandardCopyOption.REPLACE_EXISTING);}
         catch(java.nio.file.AtomicMoveNotSupportedException unsupported){java.nio.file.Files.move(temp,continuationFile,java.nio.file.StandardCopyOption.REPLACE_EXISTING);}
+    }
+    private Set<Integer> recoveryPausedItems(){
+        var paused=new HashSet<Integer>();for(var d:continuations.recovery.values())paused.add(d.item);return paused;
+    }
+    private void rememberRecovery(String identity,int item,int price,int quantity)throws Exception {
+        if(quantity>0)continuations.recovery.putIfAbsent(identity,new RecoveryDecision(item,price,quantity,now,Math.max(480L,cadence*60L)));
+        saveContinuations();
+    }
+    private void refreshRecoveryDecisions()throws Exception {
+        boolean changed=continuations.recovery.entrySet().removeIf(e->{var d=e.getValue();return BuyRecoveryJournal.recovered(d.item,d.price,d.quantity,d.at,d.notBefore,
+            latest(d.item),frame.shortHistory.getOrDefault(d.item,List.of()),horizon,tax,input.minimumProfit,now);});
+        if(changed)saveContinuations();
     }
     private com.flippingfriend.data.Candle aggregate(int item,MarketIngestionService.MarketState market) {
         var raw=market.fiveMinute.get(Integer.toString(item));

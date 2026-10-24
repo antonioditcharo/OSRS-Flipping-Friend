@@ -316,6 +316,7 @@ final class CompanionService implements AutoCloseable
 			try
 			{
                 int maintenanceSpent=series.warmMaintenance(warmMaintenance.get(),Math.min(32,WARM_BUDGET));
+				if(maintenanceSpent>0)requestPlan();
 				java.util.List<Integer> wanted = warmShortlist.get();
 				if (!wanted.isEmpty())
 				{

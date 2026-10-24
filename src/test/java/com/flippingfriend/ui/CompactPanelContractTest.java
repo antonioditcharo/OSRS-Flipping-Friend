@@ -98,7 +98,7 @@ public class CompactPanelContractTest {
             button("graph-action").doClick(); button("preferences-action").doClick(); button("performance-action").doClick();
             for(Component entry:panel.detailsMenu().getComponents()) ((JMenuItem)entry).doClick();
         });
-        assertEquals(Arrays.asList("Price graph","Settings","Performance","Recommendation","Price graph","Plan","Holdings",
+        assertEquals(Arrays.asList("Price graph","Settings","Performance","Recommendation","Trade recovery","Price graph","Plan","Holdings",
             "Performance","Recorded sales","Local history","Bank estimate","Market drops","Settings","Missed flips"),opened);
         verify(market,atLeastOnce()).getGraphSeries(561,"1h");
         verify(market,never()).getGraphSeries(eq(4151),anyString());

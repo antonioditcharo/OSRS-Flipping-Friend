@@ -16,6 +16,24 @@ public class BuyMaintenanceDeadlinesTest {
     @Rule public TemporaryFolder folder=new TemporaryFolder();
     final long now=1800000600;
     TrackedOffer buy(){var offer=new TrackedOffer(0,561,true,1000,10,now-600);offer.setState("BUYING");return offer;}
+    @Test public void replacementKeepsItsOriginalBudgetAcrossSuccessorsAndRestartEvenAfterExpiry()throws Exception {
+        var storage=TestStorage.rootedAt(folder.newFolder().toPath(),"deadline");String account=storage.accountId();
+        var original=buy();var deadlines=new BuyMaintenanceDeadlines(storage);
+        long budget=deadlines.freeze(account,original,20,180,now);
+        var next=new TrackedOffer(1,561,true,1100,5,now+100);next.setState("BUYING");
+        assertEquals(budget,deadlines.freeze(account,next,300,400,now+100,original.getContinuationIdentity()));
+        var last=new TrackedOffer(2,561,true,1150,2,now+700);last.setState("BUYING");
+        assertEquals(budget,new BuyMaintenanceDeadlines(storage).freeze(account,last,300,400,now+700,next.getContinuationIdentity()));
+        assertEquals(budget,new BuyMaintenanceDeadlines(storage).retained(account,last.getContinuationIdentity(),now+800));
+        assertTrue(BuyRepricePricing.overdue(last.getFirstSeen(),last.getFirstSeen(),budget,
+            new LatestPrice(1500,now+2000,1100,now+2000),com.flippingfriend.TradingHorizon.of(com.flippingfriend.RiskProfile.MODERATE,com.flippingfriend.CheckInterval.FIVE_MINUTES),now+2000));
+    }
+    @Test public void missingOrForeignReplacementPredecessorCannotStartANewWaitingBudget()throws Exception {
+        var storage=TestStorage.rootedAt(folder.newFolder().toPath(),"deadline");var deadlines=new BuyMaintenanceDeadlines(storage);String account=storage.accountId();
+        assertEquals(0,deadlines.freeze(account,buy(),20,180,now,"missing-original"));
+        assertEquals(0,deadlines.retained("foreign",buy().getContinuationIdentity(),now));
+        assertFalse(Files.exists(storage.accountDir().resolve(BuyMaintenanceDeadlines.FILE_NAME)));
+    }
     @Test public void frozenDeadlinesSurviveRestartWithoutRewritingExecutionSnapshots()throws Exception {
         var storage=TestStorage.rootedAt(folder.newFolder().toPath(),"deadline");String account=storage.accountId();
         Path offers=storage.accountDir().resolve("offers.json");byte[] original="execution snapshot retained byte for byte".getBytes(StandardCharsets.UTF_8);Files.write(offers,original);

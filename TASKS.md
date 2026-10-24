@@ -6,6 +6,14 @@ installed and player accepted are separate states. Owner is home; older login de
 
 ## Current batch
 
+- [ ] Deliver/accept the owner-approved no-trade-left-behind pass: every unfinished exact offer,
+      canonical unlisted acquisition and saved continuation has an action or explicit blocker;
+      preserve original replacement budgets, durable reassessment, independent maintenance,
+      exact costs/stops and all source/financial/risk evidence. Accept the native recovery view,
+      full partial/cancel/late-fill/collect/replacement-or-exit/completion/restart workflow and
+      sustained latency. [Contract](docs/architecture/no-trade-left-behind.md). Source is queued;
+      installation and controlled acceptance must be recorded separately in the delivery receipt.
+
 - [ ] Deliver/accept item-local stop rechecks across additional ordinary buys, cached READY plans,
       exact cancelled-buy replacements, partials and restart. Preserve exact remainders, fresh
       recovery, unrelated entries, non-loss exits, confirmed stops and original finance/risk evidence.

@@ -37,7 +37,7 @@ public final class BuyRepricePricing {
     }
     public static boolean overdue(long firstSeen,long lastProgressAt,long deadline,LatestPrice price,TradingHorizon horizon,long at) {
         var now=Instant.ofEpochSecond(at);
-        return firstSeen>0 && firstSeen<=lastProgressAt && lastProgressAt<=at && deadline>=firstSeen && deadline<=at
+        return firstSeen>0 && firstSeen<=lastProgressAt && lastProgressAt<=at && deadline>0 && deadline<=at
             && at-lastProgressAt>=horizon.staleOfferMinutes()*60 && price!=null && price.isComplete()
             && price.secondsSinceLow(now)>=0 && price.secondsSinceLow(now)<=300
             && price.secondsSinceHigh(now)>=0 && price.secondsSinceHigh(now)<=300;

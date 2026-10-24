@@ -1243,8 +1243,10 @@ public class CompanionClient
         try {
             outbox.pending(); // Unsaved append or malformed retained evidence must not become a permanent fallback.
             if(!account.equals(accountContext()) || !event.getSessionId().equals(outbox.sessionId()))return 0;
+            var successor=event.getContinuationSuccessorProof();
+            if(successor!=null && (!successor.matchesEpisode(event) || !successor.isBuying()))return 0;
             return tracker.freezeBuyMaintenanceDeadline(expected.getSlot(),expected.getContinuationIdentity(),
-                originalBuyDuration(event),fallbackMinutes,now,account);
+                originalBuyDuration(event),fallbackMinutes,now,account,successor==null?null:successor.getOriginIdentity());
         }catch(Exception unavailable){return 0;}
     }
 
