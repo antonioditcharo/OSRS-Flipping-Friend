@@ -1116,7 +1116,8 @@ public class CompanionClient
                         var receipt=decision.getSalePolicyReceipt();var current=canonicalOffers.get(slot);
                         if(receipt==null || !receipt.isWellFormed() || !receiptRequest.equals(receipt.getReceiptId())
                             || !requestedAccount.equals(receipt.getAccountId()) || !source.equals(receipt.getSourceEventId())
-                            || receipt.getDecidedAt()!=decision.getDecidedAt() || receipt.getSlot()!=slot
+                            || receipt.getDecidedAt()>decision.getDecidedAt() || receivedAt<receipt.getDecidedAt()
+                            || receivedAt-receipt.getDecidedAt()>5 || receipt.getSlot()!=slot
                             || receipt.isLossCut()!=proposed.isLossCut() || !receipt.matchesOrder(proposed.getItemId(),proposed.getPrice(),proposed.getQuantity())
                             || !receipt.matchesSource(current)) {
                             lastError="Sale verification: SALE_POLICY_RECEIPT_UNAVAILABLE";

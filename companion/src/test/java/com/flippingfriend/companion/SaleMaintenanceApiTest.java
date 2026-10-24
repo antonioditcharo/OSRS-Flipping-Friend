@@ -140,7 +140,7 @@ public class SaleMaintenanceApiTest {
             assertEquals(first.body,OfferLifecycleAction.CANCEL_SELL,first.decision().getAction());
             var receipt=first.decision().getSalePolicyReceipt();assertNotNull(first.body,receipt);assertTrue(receipt.isWellFormed());
             assertEquals(body.get("requestId").getAsString(),receipt.getReceiptId());assertEquals(f.helper.id,receipt.getAccountId());
-            var retry=f.post(body);assertEquals(200,retry.status);assertEquals(receipt,retry.decision().getSalePolicyReceipt());
+            var retry=f.post(body);assertEquals(200,retry.status);assertEquals(retry.body,receipt,retry.decision().getSalePolicyReceipt());
             assertEquals(1,f.count("sale_policy_receipt"));
             f.request(f.route+query,"GET","fixture",f.helper.id,null);assertEquals(1,f.count("sale_policy_receipt"));
             var other=f.request("accounts/"+AccountIdentity.fromProfileKey("other")+"/policy/sale-maintenance","POST","fixture",
@@ -148,6 +148,22 @@ public class SaleMaintenanceApiTest {
             assertEquals(200,other.status);assertEquals(OfferLifecycleAction.WAIT,other.decision().getAction());assertNull(other.decision().getSalePolicyReceipt());
             assertEquals(1,f.count("sale_policy_receipt"));assertEquals(events,f.count("event_log"));assertEquals(effects,f.count("position_event"));
             assertEquals(0,f.legacy.positionEventCount());
+        }
+    }
+    @Test public void exactRetryAcrossSecondsKeepsItsReceiptButNeverRefreshesItsAcceptanceLifetime()throws Exception {
+        try(var f=new Fixture()) {
+            f.seed();long events=f.count("event_log"),effects=f.count("position_event");
+            var body=f.requestBody();var first=f.post(body);var receipt=first.decision().getSalePolicyReceipt();assertNotNull(first.body,receipt);
+            var service=f.accounts.forAccount(f.helper.id);String id=body.get("requestId").getAsString();
+            for(long delay:new long[]{1,5}) {
+                var retry=service.saleMaintenanceDecision(id,561,119,3,f.source.getEventId(),false,0,receipt.getDecidedAt()+delay);
+                assertEquals(OfferLifecycleAction.CANCEL_SELL,retry.getAction());assertEquals(receipt,retry.getSalePolicyReceipt());
+                assertEquals(receipt.getDecidedAt()+delay,retry.getDecidedAt());
+            }
+            var expired=service.saleMaintenanceDecision(id,561,119,3,f.source.getEventId(),false,0,receipt.getDecidedAt()+6);
+            assertEquals(OfferLifecycleAction.WAIT,expired.getAction());assertEquals("SALE_POLICY_RECEIPT_EXPIRED",expired.getReasonCode());
+            assertNull(expired.getSalePolicyReceipt());assertEquals(1,f.count("sale_policy_receipt"));
+            assertEquals(events,f.count("event_log"));assertEquals(effects,f.count("position_event"));
         }
     }
 }

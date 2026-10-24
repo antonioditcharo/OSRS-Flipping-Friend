@@ -71,6 +71,11 @@ Replay version 21 shares buy reassessment qualification, original replacement bu
 offer ordering. Synthetic execution/price-touch evidence stays separate from account executions;
 complete foreground/editor/transport replay parity and controlled trading remain open.
 
+Sale-receipt retries revalidate current policy while preserving the original receipt ID and issue
+clock. A retry decision can be newer by at most five seconds; client delivery also checks the
+original receipt age, so retries cannot extend its acceptance lifetime. Expired requests return
+WAIT and require a fresh request. Receipt/account/source/financial rows are not rewritten.
+
 ## Verification and remaining acceptance
 
 Behavioral regressions cover eight-slot coverage during collection, canonical stock versus personal

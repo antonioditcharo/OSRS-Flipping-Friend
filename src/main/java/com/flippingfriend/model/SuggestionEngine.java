@@ -1001,9 +1001,9 @@ public class SuggestionEngine
 							+ "are now selling at " + explainer.formatNumber(price.getLow()) + " gp, so your "
 							+ "offer is being skipped over.\n\nThe Grand Exchange cannot change the price "
 							+ "of an offer that is already running, so cancel this one and collect what it "
-							+ "bought along with the coins it gives back. You will be told to place the "
-							+ "replacement at " + explainer.formatNumber(newPrice) + " gp straight "
-								+ "after fresh checks. Collection may change the remaining quantity or price; if the replacement is no longer safe, acquired units will receive an exit plan instead.")
+								+ "bought along with the coins it gives back. The exact unbought remainder will be retained. "
+                                + "After collection, fresh checks will determine whether a replacement is still safe; its price and quantity may change. "
+                                + "If replacement is refused, acquired units remain tracked for a supported exit.")
 						.build();
 				}
 			}

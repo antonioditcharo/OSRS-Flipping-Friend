@@ -690,6 +690,12 @@ final class CompanionService implements AutoCloseable
                 AccountReplay.interval(account.getCheckIntervalMinutes()),account.getTargetHoldMinutes());
             var receipt=store.issueSalePolicyReceipt(request,account,offer,read.planning.saleProgressAt.getOrDefault(slot,offer.getFirstSeenAt()),
                 price,quantity,cut,at,horizon.staleOfferMinutes()*60L);
+            // A retry revalidates current policy, but cannot renew the immutable issuance clock.
+            if(receipt.getDecidedAt()>at || at-receipt.getDecidedAt()>5)
+                return PolicyDecision.abstain("1",CompanionSalePolicy.VERSION,decision.getDecisionId(),
+                    com.flippingfriend.core.PolicyDecisionType.SELL_MAINTENANCE,
+                    com.flippingfriend.core.PolicyAbstentionReason.ACCOUNT_STATE_INCONSISTENT,"SALE_POLICY_RECEIPT_EXPIRED",at,at,
+                    decision.getCandidateId(),source);
             return decision.withSalePolicyReceipt(receipt);
         }catch(Exception unavailable) {
             String identity=CompanionSalePolicy.identity(item,price,quantity,source,cut,slot);
