@@ -12,6 +12,11 @@ session, slot, offer identity, item, standing price, total and placement clock, 
 source order, observation time, fill counters and proceeds. Equal source sequences cannot acquire
 a different event ID. A future original decision cannot qualify a past renewal.
 
+Unchanged GE editor cleanup and closing setup must not reaccept an already committed visible
+instruction. Only a change in the displayed instruction triggers presentation acceptance there.
+Normal engine delivery still validates and commits new instructions; cleanup does not renew the
+original advice lifetime or bypass account/source invalidation.
+
 Heartbeat sources and partial progress may advance within that episode. They do not replace the
 first acceptance, receipt, accepted ordering, patience or cancellation provenance. Existing bound
 outbox acceptance remains idempotent. A new quote still requires independent final authority;
