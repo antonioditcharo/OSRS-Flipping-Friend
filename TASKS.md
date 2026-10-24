@@ -1,10 +1,15 @@
 # Tasks
 
 Updated 23 October 2026. Read [HANDOFF.md](HANDOFF.md) and the actual delivery receipt at
-`local-data/trading-flow-blockers-20261023/delivery-state.json` first. Implemented/tested, merged,
+`local-data/sale-acceptance-renewal-20261023/delivery-state.json` first. Implemented/tested, merged,
 installed and player accepted are separate states. Owner is home; older login deferrals are superseded.
 
 ## Current batch
+
+- [ ] Verify/deliver original sale-acceptance renewal across fresh source IDs, heartbeat, partial
+      progress and restart. PR #153 is installed; authorized receipts currently fail the staging
+      adapter's obsolete exact-source comparison. Preserve original acceptance and source identity.
+      [Contract](docs/architecture/sale-acceptance-renewal.md).
 
 - [ ] Verify/deliver canonical capped replacement requests, bounded fully reauthorized sale-price
       correction and distinct working maintenance after urgent refusals. PR #152 is installed;

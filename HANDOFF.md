@@ -5,17 +5,21 @@ Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
 ## Current delivery
 
-Read `local-data/trading-flow-blockers-20261023/delivery-state.json` first for current source,
-verification, CI and delivery. PR #152 (`c8378eaae0ff289f0accbe193d69dcb50cc77225`, including
-#150/#151) is installed. Backup, installed hashes, unchanged task settings, all 114,169 frozen
-source rows, 1,861 accounting effects and the loss anchor passed preservation. Fresh eight-slot
-and empty-outbox checks passed, but the panel repeatedly showed sale/replacement WAITs despite
-independently available entry authority. Guidance acceptance remains open.
+Read `local-data/sale-acceptance-renewal-20261023/delivery-state.json` first for current source,
+verification, CI and delivery. PR #153 (`e67a517d1ccc642ca65e16328b884a809eb1a73e`) is installed.
+Backup, hashes, task settings, all 114,716 frozen source rows, 1,861 accounting effects and the
+loss anchor passed preservation. Fresh eight-slot/empty-outbox/final-entry checks passed, but
+the panel now withholds authorized maintenance at "Saving this trade workflow".
 
-The current source routes capped saved replacements directly to canonical pricing, permits one
+The current source fixes renewal matching: a fresh exact source/receipt may retain the immutable
+original acceptance for the same economic offer episode as observations and partial counters advance.
+[Contract](docs/architecture/sale-acceptance-renewal.md). No source/financial history is repaired.
+Guidance acceptance remains open; this fix is queued until its receipt records installation.
+
+Installed PR #153 routes capped saved replacements directly to canonical pricing, permits one
 strictly reauthorized sale-price correction, and checks independently authorized working maintenance
 after urgent exits refuse. [Contract](docs/architecture/trading-flow-authority-recovery.md).
-These changes are not installed until the receipt says so. No original stop, exact cost, source,
+No original stop, exact cost, source,
 loss authority or acquisition context may be invented to make a refused action pass.
 
 Installed PR #152 moves trading heartbeat/account-refresh/persistence scheduling and offer-retry backoff

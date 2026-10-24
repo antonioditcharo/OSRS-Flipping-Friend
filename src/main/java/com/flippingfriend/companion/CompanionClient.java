@@ -523,18 +523,23 @@ public class CompanionClient
             java.util.List<com.flippingfriend.core.AcceptedSalePolicyProof> proofs,String expected) {
         if(expected==null || !expected.equals(accountContext()) || advice==null || advice.getSalePolicyReceipt()==null || proofs==null)return false;
         var receipt=advice.getSalePolicyReceipt();
-        if(advice.getType()!=SuggestionType.MODIFY_SELL || !receipt.matchesOrder(advice.getItemId(),advice.getPrice(),advice.getQuantity())
-            || receipt.isLossCut()!=advice.isLossCut())return false;
+        var current=canonicalOffers.get(advice.getSlot());
+        long now=Instant.now().getEpochSecond();
+        if(advice.getType()!=SuggestionType.MODIFY_SELL || !receipt.isWellFormed() || !expected.equals(receipt.getAccountId())
+            || !receipt.matchesOrder(advice.getItemId(),advice.getPrice(),advice.getQuantity())
+            || receipt.isLossCut()!=advice.isLossCut() || !receipt.matchesSource(current)
+            || receipt.getDecidedAt()>now || now-receipt.getDecidedAt()>5 || offerEvidencePending())return false;
         com.flippingfriend.core.AcceptedSalePolicyProof selected=null;
         for(var proof:proofs)if(proof!=null && proof.isWellFormed() && !proof.isBound()) {
             var original=proof.getReceipt();
             // A renewed final price must retain the workflow's immutable first acceptance.
-            if(!expected.equals(original.getAccountId()) || !receipt.getSourceEventId().equals(original.getSourceEventId())
-                || !receipt.getSessionId().equals(original.getSessionId()) || !receipt.getOfferIdentity().equals(original.getOfferIdentity())
-                || receipt.getSlot()!=original.getSlot() || receipt.getItemId()!=original.getItemId()
-                || receipt.getStandingPrice()!=original.getStandingPrice() || receipt.getTotalQuantity()!=original.getTotalQuantity()
-                || receipt.getFilledQuantity()!=original.getFilledQuantity() || receipt.getSpent()!=original.getSpent()
-                || receipt.getFirstSeenAt()!=original.getFirstSeenAt() || receipt.getSourceSequence()!=original.getSourceSequence())continue;
+            // Every refresh has a new source ID/sequence. The original acceptance belongs to
+            // the economic episode, not just its first observation. Counters may advance, never
+            // reverse; the fresh receipt must still match the current canonical source exactly.
+            if(!expected.equals(original.getAccountId()) || !original.matchesEpisode(current)
+                || original.getDecidedAt()>receipt.getDecidedAt()
+                || original.getSourceSequence()==receipt.getSourceSequence()
+                    && !original.getSourceEventId().equals(receipt.getSourceEventId()))continue;
             if(selected!=null)return false;selected=proof;
         }
         if(selected==null)return false;

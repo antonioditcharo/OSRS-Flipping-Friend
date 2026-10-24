@@ -84,7 +84,7 @@ public class ProspectiveSalePolicyCaptureTest {
         var helper=new SalePolicyAcceptanceDeliveryTest();helper.folder=folder;var f=helper.new Fixture(folder.newFolder().toPath());
         var source=f.publish(f.working,helper.at);assertTrue(f.accept(source,"display-bound",false));var proofs=f.intents.acceptedPolicies(f.storage.accountId());
         var advice=Suggestion.builder(SuggestionType.MODIFY_SELL).item(561,"Rune").slot(0).price(150).quantity(10).build();
-        advice.bindSaleRepriceSource(source.getEventId());advice.bindSalePolicyReceipt(proofs.get(0).getReceipt());
+        advice.bindSaleRepriceSource(source.getEventId());advice.bindSalePolicyReceipt(proofs.get(0).getReceipt());f.ack();
         assertFalse(f.client.retainPresentedSalePolicy(advice,List.of(),f.storage.accountId()));
         assertFalse(f.client.retainPresentedSalePolicy(advice,proofs,"foreign"));
         assertTrue(f.client.retainPresentedSalePolicy(advice,proofs,f.storage.accountId()));
@@ -94,5 +94,48 @@ public class ProspectiveSalePolicyCaptureTest {
         assertTrue("A renewed price preserves the original workflow acceptance",f.client.retainPresentedSalePolicy(renewed,proofs,f.storage.accountId()));
         f.client.setSalePolicyAcceptanceReader(a->null);f.working.setState("CANCELLED_SELL");
         assertNotNull(f.publish(f.working.copyCurrentObservation(),helper.at+1).getAcceptedSalePolicyProof());
+    }
+    @Test public void acknowledgedHeartbeatAndPartialProgressRenewTheDisplayWithoutReplacingTheOriginalAcceptance()throws Exception {
+        var helper=new SalePolicyAcceptanceDeliveryTest();helper.folder=folder;var f=helper.new Fixture(folder.newFolder().toPath());
+        var source=f.publish(f.working,helper.at);assertTrue(f.accept(source,"first-workflow",false));f.ack();
+        var proofs=f.intents.acceptedPolicies(f.storage.accountId());var original=proofs.get(0);
+        var first=advice(source,original.getReceipt());
+        assertTrue(f.client.retainPresentedSalePolicy(first,proofs,f.storage.accountId()));
+        for(int filled:new int[]{0,2}) {
+            f.working.setQuantityFilled(filled);f.working.setSpent(filled*200L);
+            var fresh=f.publish(f.working.copyCurrentObservation(),now());f.ack();
+            assertNotEquals(source.getEventId(),fresh.getEventId());assertTrue(fresh.getSequence()>source.getSequence());
+            var receipt=SalePolicyAcceptanceDeliveryTest.receipt(f.storage.accountId(),"renewed-"+filled,fresh,149,now());
+            assertTrue(f.intents.advise(f.working,f.storage.accountId(),true,f.tracker,fresh.getEventId(),receipt,now()));
+            var before=Files.readAllBytes(f.storage.accountDir().resolve(OfferEventOutbox.FILE_NAME));
+            assertTrue(f.client.retainPresentedSalePolicy(advice(fresh,receipt),f.intents.acceptedPolicies(f.storage.accountId()),f.storage.accountId()));
+            assertArrayEquals("Already bound acceptance is idempotent",before,Files.readAllBytes(f.storage.accountDir().resolve(OfferEventOutbox.FILE_NAME)));
+            assertEquals(original,f.intents.acceptedPolicies(f.storage.accountId()).get(0));
+            assertTrue(original.hasSameAcceptance(fresh.getAcceptedSalePolicyProof()));
+        }
+        var restart=new CompanionClient(f.storage,f.storage.gson(),new SuggestionLedger(),new OfferEventOutbox(f.storage));
+        restart.captureObservedOffer(f.working.copyCurrentObservation(),f.storage.accountId(),now());
+        var afterRestart=f.outbox.pending().get(0);f.ack();
+        var renewed=SalePolicyAcceptanceDeliveryTest.receipt(f.storage.accountId(),"after-restart",afterRestart,148,now());
+        assertTrue(restart.retainPresentedSalePolicy(advice(afterRestart,renewed),proofs,f.storage.accountId()));
+        assertEquals(original,f.intents.acceptedPolicies(f.storage.accountId()).get(0));
+    }
+    @Test public void pendingOrSupersededReceiptCannotRenewAndSlotReuseCannotBorrowTheOldAcceptance()throws Exception {
+        var helper=new SalePolicyAcceptanceDeliveryTest();helper.folder=folder;var f=helper.new Fixture(folder.newFolder().toPath());
+        var source=f.publish(f.working,helper.at);assertTrue(f.accept(source,"original",false));
+        var proofs=f.intents.acceptedPolicies(f.storage.accountId());var first=advice(source,proofs.get(0).getReceipt());
+        assertFalse("An unacknowledged source cannot authorize presentation",f.client.retainPresentedSalePolicy(first,proofs,f.storage.accountId()));
+        f.ack();assertTrue(f.client.retainPresentedSalePolicy(first,proofs,f.storage.accountId()));
+        var fresh=f.publish(f.working.copyCurrentObservation(),now());f.ack();
+        assertFalse("An old exact receipt is not current authority",f.client.retainPresentedSalePolicy(first,proofs,f.storage.accountId()));
+        var reused=new com.flippingfriend.session.TrackedOffer(0,561,false,200,10,now()-1800);reused.setState("SELLING");
+        var replacement=f.publish(reused.copyCurrentObservation(),now());f.ack();
+        var receipt=SalePolicyAcceptanceDeliveryTest.receipt(f.storage.accountId(),"other-episode",replacement,149,now());
+        assertFalse(f.client.retainPresentedSalePolicy(advice(replacement,receipt),proofs,f.storage.accountId()));
+    }
+    private Suggestion advice(OfferEvent source,SalePolicyReceipt receipt) {
+        var advice=Suggestion.builder(SuggestionType.MODIFY_SELL).item(source.getItemId(),source.getItemName())
+            .slot(source.getSlot()).price(receipt.getProposedPrice()).quantity(receipt.getQuantity()).lossCut(receipt.isLossCut()).build();
+        advice.bindSaleRepriceSource(source.getEventId());advice.bindSalePolicyReceipt(receipt);return advice;
     }
 }
