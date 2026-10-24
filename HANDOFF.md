@@ -5,7 +5,8 @@ Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
 ## Current delivery
 
-The owner-approved no-trade-left-behind pass is queued on `codex/no-trade-left-behind`.
+The owner-approved [no-trade-left-behind PR #159](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/159)
+is queued on `codex/no-trade-left-behind`.
 It adds account-wide recovery coverage/native Records view, original replacement deadlines,
 durable guided reassessment, exact-origin expiry, maintenance fairness and final-refusal fallthrough.
 [Contract](docs/architecture/no-trade-left-behind.md). Current verification/delivery belongs in

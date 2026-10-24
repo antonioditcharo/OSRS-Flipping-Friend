@@ -1,7 +1,8 @@
 # Tasks
 
-Updated 24 October 2026. Read [HANDOFF.md](HANDOFF.md) and the actual delivery receipt at
-`local-data/stop-entry-pause-20261024/delivery-state.json` first. Implemented/tested, merged,
+Updated 24 October 2026. Read [HANDOFF.md](HANDOFF.md) and the current no-trade-left-behind receipt at
+`local-data/no-trade-left-behind-20261024/delivery-state.json` first; #158 remains the installed baseline
+until this receipt verifies a paired update. Implemented/tested, merged,
 installed and player accepted are separate states. Owner is home; older login deferrals are superseded.
 
 ## Current batch
