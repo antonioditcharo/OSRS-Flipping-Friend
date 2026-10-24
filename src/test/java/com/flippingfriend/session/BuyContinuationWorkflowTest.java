@@ -122,6 +122,17 @@ public class BuyContinuationWorkflowTest {
             Map.of(561,new LatestPrice(850,quoteTime,800,quoteTime)),Map.of(),Map.of(),Instant.ofEpochSecond(now)));
         when(f.market.getSeries(eq(561),eq("5m"))).thenReturn(List.of(new com.flippingfriend.data.Candle(now/300*300-300,850,800,100,100)));
     }
+    @Test public void anUnconfirmedStopRetainsTheReplacementWithoutBuyingMoreOrAuthorizingALoss()throws Exception {
+        var f=new Fixture();f.present();f.cancelCollect();f.restart();stoppedStock(f,6,true,now);
+        when(f.market.getSeries(eq(561),eq("5m"))).thenReturn(List.of());
+        var next=f.engine.refresh(false);
+        assertTrue("Missing loss confirmation must not turn back into more accumulation",next==null || next.getType()!=SuggestionType.BUY);
+        assertTrue(next==null || !next.isLossCut());
+        assertEquals(94,new BuyRepriceIntent(f.storage).collectedRequest(f.tracker,f.storage.accountId(),now).quantity);
+        assertEquals(6,f.positions.get(561).getQuantity());assertEquals(6000,f.positions.get(561).getTotalCost());
+        f.quote(now,now);
+        assertEquals("A fresh recovery must release the original exact replacement",SuggestionType.BUY,f.engine.refresh(false).getType());
+    }
     private static Object read(Object target,String name)throws Exception {
         var field=target.getClass().getDeclaredField(name);field.setAccessible(true);return field.get(target);
     }
