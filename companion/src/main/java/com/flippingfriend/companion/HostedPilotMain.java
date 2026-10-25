@@ -82,6 +82,7 @@ public final class HostedPilotMain {
                     var request=gson.fromJson(body,PilotProtocol.AllocationRequest.class);authorize(device,request.accountId,request.installationId);
                     long now=System.currentTimeMillis()/1000;coordinator.enqueue(device.userId,request,now);
                     var hint=hints.get(device.userId+"/"+request.accountId);
+                    if(request.candidates.isEmpty())hint=coordinator.demandReceipt(device.userId,request,now);
                     if(hint==null || !hint.matches(request,now)){respond(x,202,Map.of("protocol",PilotProtocol.VERSION,"status","LOCAL_FALLBACK"));return;}
                     respond(x,200,hint);return;
                 }

@@ -40,7 +40,8 @@ final class CompanionService implements AutoCloseable
 {
 	private final Gson gson;
     private PilotGateway pilot;
-    void usePilot(PilotGateway gateway){pilot=gateway;planner.usePilot(gateway,()->{pilotRevision.incrementAndGet();requestPlan();});}
+    void usePilot(PilotGateway gateway){pilot=gateway;planner.usePilot(gateway,()->{pilotRevision.incrementAndGet();requestPlan();},()->coordinatedStock);}
+    private volatile java.util.Collection<com.flippingfriend.core.PositionProjection> coordinatedStock=java.util.List.of();
     private final java.util.concurrent.atomic.AtomicLong pilotRevision=new java.util.concurrent.atomic.AtomicLong();
     private volatile long lastPlannedPilotRevision=-1;
     Map<String,Object> pilotStatus(){return pilot==null?Map.of("mode","LOCAL_ONLY"):pilot.status(accountId);}
@@ -893,12 +894,14 @@ final class CompanionService implements AutoCloseable
 		try
 		{
 			var read = store.planningProjections(snapshot.getAccountId());
+            coordinatedStock=read.tradeScope==null?java.util.List.of():java.util.List.copyOf(read.tradeScope.positions.values());
 			DurablePlanningExposure exposure =
 				DurablePlanningExposure.forAccount(read, snapshot,Instant.now().getEpochSecond());
 			if (exposure == null)
 				throw new IllegalStateException(DurablePlanningExposure.refusalReason(read,snapshot,Instant.now().getEpochSecond()));
             risk=DurableRisk.evaluate(read,snapshot,exposure,planningMarket,Instant.now().getEpochSecond());
             if(!risk.isAvailable()) {
+                if(pilot!=null)pilot.observeDemand(snapshot,activeOffers.getActiveOffers(),planningMarket.observedAt,Instant.now().getEpochSecond(),coordinatedStock);
                 synchronized(this) {
                     if(revision!=planningInputRevision.get() || account!=sourceSnapshot)return;
                     plan=PortfolioPlan.unavailable(snapshot.getCorrelationId(),PortfolioPlanOutcome.COMPANION_STATE_UNAVAILABLE,
@@ -908,6 +911,7 @@ final class CompanionService implements AutoCloseable
             }
             var waitingExit=ExitSlotReservation.awaiting(read,snapshot,0);
             if(waitingExit!=null) {
+                if(pilot!=null)pilot.observeDemand(snapshot,activeOffers.getActiveOffers(),planningMarket.observedAt,Instant.now().getEpochSecond(),coordinatedStock);
                 synchronized(this) {
                     if(revision!=planningInputRevision.get() || account!=sourceSnapshot)return;
                     plan=PortfolioPlan.unavailable(snapshot.getCorrelationId(),PortfolioPlanOutcome.NO_FREE_SLOT,

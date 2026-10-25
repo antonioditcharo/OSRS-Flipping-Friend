@@ -1,6 +1,6 @@
 # Agent handoff
 
-Updated 24 October 2026 (America/Anchorage). Read AGENTS.md and TASKS.md.
+Updated 25 October 2026 (America/Anchorage). Read AGENTS.md and TASKS.md.
 Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
 ## Current delivery

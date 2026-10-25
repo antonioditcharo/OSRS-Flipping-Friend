@@ -45,6 +45,14 @@ final class PilotCoordinator {
     synchronized void restore(String user,PilotProtocol.AllocationRequest input) {
         requests.put(user+"/"+input.accountId,new Request(user,input));
     }
+    synchronized PilotProtocol.AllocationHint demandReceipt(String user,PilotProtocol.AllocationRequest input,long now) {
+        var retained=requests.get(user+"/"+input.accountId);
+        if(!input.candidates.isEmpty() || retained==null || retained.input.generation!=input.generation
+                || retained.input.frameOrder!=input.frameOrder || !Objects.equals(retained.input.context,input.context))return null;
+        var hint=new PilotProtocol.AllocationHint();hint.accountId=input.accountId;hint.installationId=input.installationId;
+        hint.context=input.context;hint.generation=input.generation;hint.adviceId=UUID.randomUUID().toString();
+        hint.revision=++revision;hint.expiresAt=now+15;hint.mode="DEMAND_ONLY";return hint;
+    }
     synchronized void submit(String user,PilotProtocol.AllocationRequest input,long now,Runnable persist) {
         input.validate(now);
         String key=user+"/"+input.accountId;
@@ -73,7 +81,7 @@ final class PilotCoordinator {
         for(var request:requests.values())for(var d:request.input.demand){var total=totals.computeIfAbsent(d.itemId,i->new long[2]);total[0]=saturatedAdd(total[0],d.buying);total[1]=saturatedAdd(total[1],d.selling);}
         var result=new HashMap<String,PilotProtocol.AllocationHint>();var served=new HashSet<String>();
         for(var entry:active) {
-            Request r=entry.getValue();if(!served.add(r.user))continue;
+            Request r=entry.getValue();if(served.contains(r.user))continue;
             var in=r.input;var hint=new PilotProtocol.AllocationHint();
             hint.accountId=in.accountId;hint.installationId=in.installationId;hint.generation=in.generation;
             hint.context=in.context;hint.adviceId=UUID.randomUUID().toString();hint.revision=++revision;
@@ -104,7 +112,7 @@ final class PilotCoordinator {
             }
             result.put(entry.getKey(),hint);
             // A refresh cannot jump the fair queue; only a useful grant advances a user's turn.
-            if(hint.itemId>0){userTurn.put(r.user,revision);accountTurn.put(entry.getKey(),revision);}
+            if(hint.itemId>0){served.add(r.user);userTurn.put(r.user,revision);accountTurn.put(entry.getKey(),revision);}
         }
         return result;
     }

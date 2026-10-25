@@ -67,6 +67,13 @@ frames in one FULL SQLite transaction before making them eligible for advice. Fa
 queued; older frames cannot replace pending newer frames. Identical refreshes do not force another
 disk flush. This avoids a synchronized user burst performing one foreground fsync per request.
 
+Demand-only frames cover full funding, no entry candidates, sell-only mode, a reserved exit slot
+or unavailable entry risk. They require current account evidence but can carry an unavailable market
+without pretending it is fresh. Their receipt acknowledges coordination storage only, never a trade
+or financial event. Quantities come from canonical trade stock and observed offers, with uncertain
+stock labelled; personal inventory is excluded. A failed account may yield to another eligible
+account of the same person without granting that person a second allocation in the round.
+
 ## Private operator workflow
 
 `tools/configure-hosting.ps1` saves the provider token encrypted for the current Windows user;

@@ -44,6 +44,26 @@ public class HostedPilotTest {
         assertEquals(0,coordinator.round((item,buy)->100,now+16).get("owner/"+account).itemId);
         try{coordinator.submit("owner",request(account,now),now);fail("old frame accepted");}catch(IllegalArgumentException expected){}
     }
+    @Test public void aBlockedAccountCannotStarveItsOwnersEligibleAlternativeOrGiveThemTwoGrants() {
+        long now=20000;var coordinator=new PilotCoordinator();
+        var ids=new ArrayList<>(List.of(account,AccountIdentity.fromProfileKey("owner-alt")));Collections.sort(ids);
+        var blocked=request(ids.get(0),now);var viable=request(ids.get(1),now);viable.candidates=List.of(candidate(562,30,now));
+        var other=request(AccountIdentity.fromProfileKey("other-user"),now);other.candidates=List.of(candidate(563,30,now));
+        coordinator.submit("one",blocked,now);coordinator.submit("one",viable,now);coordinator.submit("two",other,now);
+        var hints=coordinator.round((item,buy)->item==561?0:1000,now);
+        assertEquals(562,hints.get("one/"+ids.get(1)).itemId);assertEquals(563,hints.get("two/"+other.accountId).itemId);
+        assertEquals(1,hints.entrySet().stream().filter(e->e.getKey().startsWith("one/") && e.getValue().itemId>0).count());
+    }
+    @Test public void aFullyFundedOrSellOnlyAccountReportsDemandWithoutNeedingAnEntryOrFreshMarket()throws Exception {
+        long now=20000;var coordinator=new PilotCoordinator();var working=request(account,now);
+        working.candidates=List.of();working.marketAt=0;working.demand=List.of(new PilotProtocol.Demand(561,100,100,false));
+        coordinator.enqueue("working",working,now);assertNull(coordinator.demandReceipt("working",working,now));
+        try(var store=new PilotEvidenceStore(folder.newFolder().toPath().resolve("replica.db"))){coordinator.flush(store::saveDemands);}
+        var receipt=coordinator.demandReceipt("working",working,now);assertNotNull(receipt);assertTrue(receipt.matches(working,now));
+        assertEquals("DEMAND_ONLY",receipt.mode);assertEquals(0,receipt.itemId);
+        var other=request(AccountIdentity.fromProfileKey("other"),now);coordinator.submit("other",other,now);
+        assertEquals(0,coordinator.round((item,buy)->100,now).get("other/"+other.accountId).itemId);
+    }
     @Test public void oneBlockedAccountCannotConsumeEveryForegroundWorker()throws Exception {
         var workers=Executors.newFixedThreadPool(2);var work=new FairAccountWork(workers);
         var entered=new CountDownLatch(1);var release=new CountDownLatch(1);var healthy=new CountDownLatch(1);

@@ -26,9 +26,11 @@ public final class PilotProtocol {
             if(!VERSION.equals(protocol) || installationId==null || installationId.length()>100
                     || context==null || !context.matches("[0-9a-f]{64}") || generation<1 || frameOrder<1
                     || observedAt<=0 || observedAt>now || now-observedAt>150
-                    || marketAt<=0 || marketAt>now || now-marketAt>180 || preferredProfit<0
+                    || marketAt<0 || marketAt>now || preferredProfit<0
                     || candidates==null || candidates.size()>2048 || demand==null || demand.size()>4096)
                 throw new IllegalArgumentException("invalid allocation scope or freshness");
+            if(!candidates.isEmpty() && (marketAt<=0 || now-marketAt>180))
+                throw new IllegalArgumentException("fresh market required for candidate advice");
             Set<Integer> ids=new HashSet<>();
             for(Demand d:demand)if(d==null || d.itemId<=0 || d.buying<0 || d.selling<0 || !ids.add(d.itemId))
                 throw new IllegalArgumentException("invalid demand");

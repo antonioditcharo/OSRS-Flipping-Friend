@@ -43,7 +43,8 @@ final class PortfolioPlanner
 	private final CandidateFactory candidates;
     private PilotGateway pilot;
     private Runnable pilotRefresh=()->{};
-    void usePilot(PilotGateway gateway,Runnable refresh){pilot=gateway;pilotRefresh=refresh;}
+    private java.util.function.Supplier<Collection<com.flippingfriend.core.PositionProjection>> pilotStock=List::of;
+    void usePilot(PilotGateway gateway,Runnable refresh,java.util.function.Supplier<Collection<com.flippingfriend.core.PositionProjection>> stock){pilot=gateway;pilotRefresh=refresh;pilotStock=stock;}
 
 
 	PortfolioPlanner(SeriesCache series)
@@ -86,6 +87,7 @@ final class PortfolioPlanner
 
 		if (market.observedAt <= 0 || market.observedAt > nowSeconds || nowSeconds - market.observedAt > MAX_MARKET_AGE_SECONDS)
 		{
+            if(pilot!=null)pilot.observeDemand(account,activeOffers,Math.max(0,market.observedAt),nowSeconds,pilotStock.get());
 			return describing(PortfolioPlan.unavailable(correlationId, PortfolioPlanOutcome.MARKET_DATA_STALE,
 				"Market data is stale, so no buy will be suggested until a fresh snapshot arrives.",
 				nowSeconds), account);
@@ -95,6 +97,7 @@ final class PortfolioPlanner
 		long lossBudget = lossBudgetFor(account,nowSeconds);
 		if (lossBudget <= 0)
 		{
+            if(pilot!=null)pilot.observeDemand(account,activeOffers,market.observedAt,nowSeconds,pilotStock.get());
 			return describing(PortfolioPlan.unavailable(correlationId, PortfolioPlanOutcome.DRAWDOWN_LIMIT_REACHED,
 				account.getCanonicalRisk() == null ? "Account risk is unavailable or its loss allowance is exhausted."
                     : account.getCanonicalRisk().getReason(),
@@ -103,6 +106,7 @@ final class PortfolioPlanner
 
 		if (account.isSellOnly())
 		{
+            if(pilot!=null)pilot.observeDemand(account,activeOffers,market.observedAt,nowSeconds,pilotStock.get());
 			// Before the slot check, because sell-only is the player's own decision and should be
 			// reported as such rather than hidden behind whatever else happens to be true.
 			return describing(PortfolioPlan.unavailable(correlationId, PortfolioPlanOutcome.SELL_ONLY_MODE,
@@ -174,7 +178,7 @@ final class PortfolioPlanner
         }
         boolean usedHosted=false;
         if(pilot!=null)try {
-            var immediate=pilot.choose(account,offerable,activeOffers,market.observedAt,nowSeconds,pilotRefresh,limits,plan);
+            var immediate=pilot.choose(account,offerable,activeOffers,market.observedAt,nowSeconds,pilotRefresh,limits,plan,pilotStock.get());
             if(immediate!=offerable) {
                 var hosted=optimizer.optimizePreferred(immediate,limits,correlationId,nowSeconds);
                 // Coordination is advisory during the pilot; it cannot blank otherwise valid local guidance.

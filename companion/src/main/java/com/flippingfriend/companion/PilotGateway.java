@@ -59,8 +59,8 @@ final class PilotGateway implements AutoCloseable {
     boolean automaticRecovery(){return config.automaticRecovery;}
     List<PortfolioCandidate> choose(AccountSnapshot account,List<PortfolioCandidate> candidates,
             Collection<OfferEvent> offers,long marketAt,long now,Runnable refresh,
-            PortfolioConstraints limits,PortfolioPlan baseline) {
-        if(!config.enabled || account.getAccountId()==null || account.getOfferReadSet().size()!=8 || candidates.isEmpty())return candidates;
+            PortfolioConstraints limits,PortfolioPlan baseline,Collection<PositionProjection> stock) {
+        if(!config.enabled || account.getAccountId()==null || account.getOfferReadSet().size()!=8)return candidates;
         State state=states.get(account.getAccountId());
         if(state==null){if(states.size()>=4096)return candidates;state=states.computeIfAbsent(account.getAccountId(),key->new State());}
         var input=new PilotProtocol.AllocationRequest();input.accountId=account.getAccountId();input.installationId=config.installationId;
@@ -78,8 +78,8 @@ final class PilotGateway implements AutoCloseable {
         input.candidates.sort(Comparator.comparingDouble(PortfolioCandidate::expectedGpPerSlotHour).reversed());
         if(input.candidates.size()>512)input.candidates=new ArrayList<>(input.candidates.subList(0,512));
         var demand=new TreeMap<Integer,PilotProtocol.Demand>();
-        for(var position:account.getPositions())if(position.isCostKnown() && position.getQuantity()>0) {
-            var d=demand.computeIfAbsent(position.getItemId(),i->new PilotProtocol.Demand(i,0,0,false));
+        for(var position:stock)if(position.getQuantity()>0) {
+            var d=demand.computeIfAbsent(position.getItemId(),i->new PilotProtocol.Demand(i,0,0,!position.isCostKnown()));
             d.selling=Math.addExact(d.selling,position.getQuantity());
         }
         var listed=new HashMap<Integer,Long>();var futureBuys=new HashMap<Integer,Long>();
@@ -125,6 +125,11 @@ final class PilotGateway implements AutoCloseable {
         if(account==null || !config.enabled || config.shadow || (!config.recommendations && !config.coordination))return localExpiry;
         State state=states.get(account);var hint=state==null?null:state.hint;
         return !config.shadow && hint!=null && hint.expiresAt>now?Math.min(localExpiry,hint.expiresAt):localExpiry;
+    }
+    void observeDemand(AccountSnapshot account,Collection<OfferEvent> offers,long marketAt,long now,Collection<PositionProjection> stock) {
+        try{choose(account,List.of(),offers,marketAt,now,()->{},new PortfolioConstraints(0,0,0,0,0),
+            PortfolioPlan.unavailable("demand-only",PortfolioPlanOutcome.NO_ELIGIBLE_CANDIDATE,"No entry requested",now),stock);}
+        catch(RuntimeException optionalFailure){/* Financial delivery and maintenance stay independent. */}
     }
     Map<String,Object> status(String account) {
         State state=states.get(account);if(state==null)return Map.of("mode",config.shadow?"SHADOW":"LOCAL_FALLBACK","submitted",0);
