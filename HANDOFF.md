@@ -5,28 +5,19 @@ Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
 ## Current delivery
 
-Current installed pair: PR #167 in private shadow mode; its receipt is below. Earlier installed
-PR #165 removed quadratic sale-scope copies and unnecessary acquisition/gap history scans after
-clean Java/tooling and Windows/Linux CI. Its 12-table preservation, 51-file restoration and #164
-rollback reads passed; retain `local-data/hosted-pilot/guidance-hot-path-delivery.json`.
-The prior #164 live check acknowledged 1,024-row RuneLite GE history and logged BUY, maintenance,
-COLLECT and CANCEL; retain `compatibility-delivery.json` and
-[the compatibility/latency contract](docs/architecture/pilot-client-compatibility.md).
-Encrypted off-server restoration now verifies 144,227 replicated evidence rows. Sustained latency,
-player-operated trading/restart and hosted advice acceptance retain separate gates. Financial rows,
-risk anchors and existing offers remain authoritative; hosted advice, coordination and learning
-promotion remain off.
-
-PR #167 is now installed: unchanged historical funding reuse, failed-transport cleanup and split
-publication timing passed clean Java/tooling, exact-head Windows/Linux CI, 12-table preservation,
-57-file restoration and #165/current rollback reads. Fresh BUY/SELL/COLLECT deliveries are logged;
-HTTP stalls remain. Read `local-data/hosted-pilot/ack-latency-delivery.json` and
-[the latency contract](docs/architecture/acknowledged-guidance-latency.md).
-Next source is `codex/foreground-market-isolation`: public-feed reads leave financial FIFO queues,
-with bounded workers/backpressure and a pre-copy disk-space guard for disposable restores.
+Current installed pair: PR #168 in private shadow mode. Public-feed GETs have bounded workers
+outside financial FIFO queues; disposable restoration checks logical size plus runtime headroom
+before copying. Clean Java/tooling and exact-head Windows/Linux CI passed. Installation preserved
+all 12 checked source/financial/projection tables; 95 restored files and five separately captured
+configuration files verify. #167/current reads match ledger totals, managed stock, source scope
+and the present original risk window. Fresh BUY/COLLECT deliveries, an acknowledged eight-slot
+frame and zero pending financial events are recorded; original immutable prefixes still match.
 Read `local-data/hosted-pilot/foreground-market-delivery.json` and
-[the isolation contract](docs/architecture/foreground-market-isolation.md). Installed #167 remains
-authoritative until that receipt proves the follow-on update; all earlier acceptance gates remain.
+[the isolation contract](docs/architecture/foreground-market-isolation.md) for current evidence.
+Some cold-start/report stalls remain; sustained warm-path timing and controlled player/restart
+acceptance stay open. Hosted advice, coordination and learning promotion remain off. Earlier pilot
+receipts and preservation details are retained in
+[the PR #163–167 checkpoint](docs/history/handoff-pilot-through-2026-10-25-pr167.md).
 
 The approved hosted-pilot pass is PR #163 (`codex/hosted-pilot-continuous-guidance`).
 Read `local-data/hosted-pilot/delivery-state.json` and

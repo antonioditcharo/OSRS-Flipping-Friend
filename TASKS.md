@@ -7,13 +7,14 @@ installed and player accepted are separate states. Owner is home; older login de
 
 ## Current batch
 
-- [ ] Verify/deliver `codex/foreground-market-isolation`: public reads cannot occupy financial FIFO
+- [x] Implement/test/install PR #168 (`codex/foreground-market-isolation`): public reads cannot occupy financial FIFO
       queues; bounded public-feed overload retains authentication, global health and canonical writes.
       Disposable restoration must refuse known low space before creating a partial copy. Preserve
-      installed #167 rollback and all source/financial/risk data; verify clean Java/tooling, both CI
-      platforms, paired installation, fresh frame ACKs/guidance and sustained latency.
+      #167 rollback and all source/financial/risk data. Clean Java/tooling, both CI platforms,
+      paired installation, 95-file plus five-configuration restoration, original risk-window/ledger
+      equality and fresh frame ACKs/logged guidance pass. Sustained latency remains open below.
       [Contract](docs/architecture/foreground-market-isolation.md);
-      `local-data/hosted-pilot/foreground-market-delivery.json`. Source is not runtime activation.
+      `local-data/hosted-pilot/foreground-market-delivery.json`.
 
 - [x] Implement/test/install `codex/acknowledged-guidance-latency`: bounded historical funding reuse,
       fresh current-state/overflow checks, failure-safe HTTP cleanup/exact source retries and
@@ -33,7 +34,7 @@ installed and player accepted are separate states. Owner is home; older login de
       [Contract](docs/architecture/pilot-client-compatibility.md); receipts
       `local-data/hosted-pilot/compatibility-delivery.json` and `guidance-hot-path-delivery.json`.
       Sustained warm-path timing, final UI latency, player trading/restart and active hosted advice
-      outage acceptance remain open; installed #167 is the current baseline. Its latest receipt
+      outage acceptance remain open; installed #168 is the current baseline. Its latest receipt
       records fresh login/guidance/timing separately; source tests alone cannot close those gates.
 
 - [ ] Complete the approved hosted pilot: preservation/rollback proof, isolated background history
