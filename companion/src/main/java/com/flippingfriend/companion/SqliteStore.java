@@ -81,6 +81,7 @@ final class SqliteStore implements AutoCloseable
 	// is always reread. In particular a failed transaction cannot publish a prefix.
 	private List<OfferEvent> canonicalHistory;
     private final ProspectiveGapExposure.Memo prospectiveGapMemo=new ProspectiveGapExposure.Memo();
+    private final BoundedHistoricalExposure.Memo historicalFundingMemo=new BoundedHistoricalExposure.Memo();
 	private String canonicalHistoryAccount;
 	private long canonicalHistoryCursor, canonicalHistoryDataVersion = -1;
     private long canonicalHistoryGeneration;
@@ -449,6 +450,7 @@ final class SqliteStore implements AutoCloseable
         Map<Integer,Long> saleProgressAt=java.util.Collections.emptyMap();
         List<OfferEvent> history;
         ProspectiveGapExposure.Memo prospectiveGapMemo;
+        BoundedHistoricalExposure.Memo historicalFundingMemo;
         RiskLedgerEvidence riskEvidence;
         SalePolicyReceiptStore.Evidence salePolicyEvidence=new SalePolicyReceiptStore.Evidence();
 		PlanningProjections(List<PositionProjection> positions,
@@ -562,6 +564,7 @@ final class SqliteStore implements AutoCloseable
 		String session = result.currentEvents.isEmpty() ? null : result.currentEvents.values().iterator().next().getSessionId();
 		result.riskEvidence = riskLedgerEvidence(result.tradeScope, riskWindow(expectedAccountId, session));
         result.prospectiveGapMemo=prospectiveGapMemo;
+        result.historicalFundingMemo=historicalFundingMemo;
 		return result;
 	}
 
