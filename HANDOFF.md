@@ -5,17 +5,18 @@ Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
 ## Current delivery
 
-PR #164 is installed in private shadow mode after clean Java/tooling and Windows/Linux CI.
-Fresh live 1,024-row RuneLite GE history captures are acknowledged, and BUY, sale/buy maintenance,
-COLLECT and CANCEL deliveries are logged. Its quiescent backup matches all 12 original financial/
-source tables; the #163 rollback runtime reads the same restored ledger. Read
-`local-data/hosted-pilot/compatibility-delivery.json` and
+PR #165 is installed in private shadow mode after clean Java/tooling and exact-head Windows/Linux
+CI. It removes quadratic sale-scope copies and unnecessary history scans from acquisition/gap
+ACKs. Its quiescent backup matches all 12 original source/financial/projection tables; 51 restored
+files verify, and the #164 rollback runtime reads the same restored ledger. Read
+`local-data/hosted-pilot/guidance-hot-path-delivery.json` for fresh login, guidance and timing status.
+The prior #164 live check acknowledged 1,024-row RuneLite GE history and logged BUY, maintenance,
+COLLECT and CANCEL; retain `compatibility-delivery.json` and
 [the compatibility/latency contract](docs/architecture/pilot-client-compatibility.md).
-Sustained latency remains open: profiling found quadratic client sale-scope copies and redundant
-historical checks. Follow-on source on `codex/pilot-guidance-hot-path` is queued until its own checks,
-paired install and live acceptance pass; see `local-data/hosted-pilot/guidance-hot-path-delivery.json`.
-Financial source rows, risk anchors and existing offers remain authoritative; hosted advice,
-coordination and learning promotion remain off.
+Encrypted off-server restoration now verifies 144,227 replicated evidence rows. Sustained latency,
+player-operated trading/restart and hosted advice acceptance retain separate gates. Financial rows,
+risk anchors and existing offers remain authoritative; hosted advice, coordination and learning
+promotion remain off. No source change is queued merely by this documentation checkpoint.
 
 The approved hosted-pilot pass is PR #163 (`codex/hosted-pilot-continuous-guidance`).
 Read `local-data/hosted-pilot/delivery-state.json` and
