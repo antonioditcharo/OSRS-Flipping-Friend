@@ -949,6 +949,7 @@ public class FlippingFriendPlugin extends Plugin
             if(!offerTracker.hasCompleteOfferEvidence()){withdrawUnsupportedPriceAdvice();return;}
             if(client.getGameState()!=GameState.LOGGED_IN || !accountDataLoaded.get() || !hasProfile())return;
             if(!offerSnapshotReady)return;
+            long clientCaptureStarted=System.nanoTime();
             com.flippingfriend.session.AccountState observedState=accountMonitor.refresh();
 			// Editor deferral belongs to StepGuide. It must not bypass live engine validation or
 			// turn a repeatedly returned old maintenance card into a freshly validated receipt.
@@ -968,11 +969,13 @@ public class FlippingFriendPlugin extends Plugin
                     "Cash and all Grand Exchange slots must agree before new advice is shown."));
                 panel.refresh();return;
             }
+            long localCaptureFinished=System.nanoTime();
 
 			executor.execute(() ->
 			{
 				try
 				{
+                    long workerStarted=System.nanoTime();
                     if(epoch!=engineRefreshEpoch.get())return;
 					if (observedGeneration != offerObservationGeneration.get() || observedRevision!=adviceObservationRevision.get()) {
                         requestEngineRefresh();return;
@@ -994,6 +997,7 @@ public class FlippingFriendPlugin extends Plugin
 					// top-ranked trade and the headline rate was computed from trades never on offer.
                     engine.setObservedAccount(observedAccount);
                     engine.refreshEntryRecovery(observedAccount,java.time.Instant.now().getEpochSecond());
+                    long recoveryFinished=System.nanoTime();
 					companion.publishAccount(observedState, config, 0,
 						committedByItem(), buyLimits.activeWindows(java.time.Instant.now()),
 						com.flippingfriend.model.SuggestionEngine.parseBlocked(config.blockedItems()),
@@ -1136,6 +1140,10 @@ public class FlippingFriendPlugin extends Plugin
 					log.info("Guidance delivered: {} ms from refresh request; capture/durable publication {} ms, plan/ledger {} ms, decision/delivery {} ms; {}",
 						(System.nanoTime()-guidanceStarted)/1_000_000,(publicationFinished-guidanceStarted)/1_000_000,
 						(planFinished-publicationFinished)/1_000_000,(System.nanoTime()-planFinished)/1_000_000,stepGuide.getSuggestion().getType());
+                    log.info("Guidance publication phases: client queue {} ms, local capture/persist {} ms, worker queue {} ms, entry recovery {} ms, account publication {} ms",
+                        (clientCaptureStarted-guidanceStarted)/1_000_000,(localCaptureFinished-clientCaptureStarted)/1_000_000,
+                        (workerStarted-localCaptureFinished)/1_000_000,(recoveryFinished-workerStarted)/1_000_000,
+                        (publicationFinished-recoveryFinished)/1_000_000);
 				});
 				if (epoch==engineRefreshEpoch.get() && observedRevision==adviceObservationRevision.get() && !stepGuide.isPaused())checkPriceDumps();
 

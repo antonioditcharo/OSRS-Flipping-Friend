@@ -16,7 +16,13 @@ COLLECT and CANCEL; retain `compatibility-delivery.json` and
 Encrypted off-server restoration now verifies 144,227 replicated evidence rows. Sustained latency,
 player-operated trading/restart and hosted advice acceptance retain separate gates. Financial rows,
 risk anchors and existing offers remain authoritative; hosted advice, coordination and learning
-promotion remain off. No source change is queued merely by this documentation checkpoint.
+promotion remain off.
+
+Next source is `codex/acknowledged-guidance-latency`: reuse only unchanged historical funding
+bounds while rechecking live state, close failed HTTP transports and split publication timing.
+Read `local-data/hosted-pilot/ack-latency-delivery.json` and
+[the latency contract](docs/architecture/acknowledged-guidance-latency.md) for checks/install status.
+Installed #165 remains authoritative until that receipt proves the follow-on paired update.
 
 The approved hosted-pilot pass is PR #163 (`codex/hosted-pilot-continuous-guidance`).
 Read `local-data/hosted-pilot/delivery-state.json` and

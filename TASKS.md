@@ -7,6 +7,14 @@ installed and player accepted are separate states. Owner is home; older login de
 
 ## Current batch
 
+- [ ] Verify/deliver `codex/acknowledged-guidance-latency`: bounded historical funding reuse,
+      fresh current-state/overflow checks, failure-safe HTTP cleanup/exact source retries and
+      separated capture/queue/publication timing. Keep #165 rollback, original source/financial
+      rows, current guards and working offers. Complete clean Java/tooling, exact-head Windows/Linux
+      CI, paired backup/install, fresh frame ACKs/guidance and sustained latency acceptance.
+      [Contract](docs/architecture/acknowledged-guidance-latency.md);
+      `local-data/hosted-pilot/ack-latency-delivery.json`. Source is not runtime activation.
+
 - [ ] Complete latency/player acceptance after installed #164: provided Gson 2.8.5 live history ACKs,
       fresh guidance, clean Java/tooling, both CI platforms, original data preservation and rollback
       reads pass. PR #165 also passed those checks and is installed: it removes quadratic sale-scope

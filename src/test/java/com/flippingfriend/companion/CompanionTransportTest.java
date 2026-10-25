@@ -159,4 +159,26 @@ public class CompanionTransportTest {
         }catch(Exception e){throw new java.io.IOException(e);}});
         client.resumeOfferReplay();publishEmptyFrame();assertTrue(outbox.pending().isEmpty());assertEquals(1,snapshots.get());
     }
+    @Test public void failedHttpResponseRetainsAndRetriesTheExactDurableSources()throws Exception {
+        var unavailable=new java.util.concurrent.atomic.AtomicBoolean(true);var original=new ArrayList<String>();
+        var received=new ArrayList<String>();var snapshots=new java.util.concurrent.atomic.AtomicInteger();
+        server.createContext("/v1/accounts/",exchange->{try {
+            String body=new String(exchange.getRequestBody().readAllBytes(),StandardCharsets.UTF_8);
+            if(exchange.getRequestURI().getPath().endsWith("events/ge-offer")) {
+                received.add(body);var event=gson.fromJson(body,OfferEvent.class);
+                reply(exchange,unavailable.get()?503:202,unavailable.get()?"{\"error\":\"fixture unavailable\"}":OfferReplayTailTest.ack(event));
+            }else{snapshots.incrementAndGet();reply(exchange,202,"{\"accepted\":true}");}
+        }catch(Exception failure){throw new java.io.IOException(failure);}});
+        var capture=client.capturePlanningObservation(emptyFrame());
+        for(var event:outbox.pending())original.add(gson.toJson(event));
+        client.resumeOfferReplay();
+        client.publishAccount(capture.getState(),org.mockito.Mockito.mock(com.flippingfriend.FlippingFriendConfig.class),0,
+            Map.of(),Map.of(),Set.of(),Set.of(),Set.of(),false,List.of(),List.of(),storage.accountId(),capture);
+        assertEquals(8,outbox.pending().size());assertEquals(0,snapshots.get());assertEquals(original.get(0),received.get(0));
+        unavailable.set(false);
+        client.publishAccount(capture.getState(),org.mockito.Mockito.mock(com.flippingfriend.FlippingFriendConfig.class),0,
+            Map.of(),Map.of(),Set.of(),Set.of(),Set.of(),false,List.of(),List.of(),storage.accountId(),capture);
+        assertTrue(outbox.pending().isEmpty());assertEquals(1,snapshots.get());
+        assertEquals("The failed request must retry its original financial identity and payload",original,received.subList(1,received.size()));
+    }
 }

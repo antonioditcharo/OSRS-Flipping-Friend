@@ -1850,31 +1850,40 @@ public class CompanionClient
 		// An older companion has no account namespace and returns 404 before accepting any mutation.
 		String endpoint = accountRequest ? "accounts/" + accountId + "/" + path : path;
 		HttpURLConnection connection = (HttpURLConnection) new URL(base + endpoint).openConnection();
-		connection.setRequestMethod(method);
-		connection.setConnectTimeout(TIMEOUT_MILLIS);
-		connection.setReadTimeout(readTimeoutMillis);
-		connection.setRequestProperty("X-Flipping-Friend-Token", token);
-		if (accountId != null) connection.setRequestProperty(com.flippingfriend.core.AccountIdentity.HEADER, accountId);
-		connection.setRequestProperty("Content-Type", "application/json");
-		if (body != null)
+        long requestStarted=System.nanoTime();int code=-1;
+		try
 		{
-			connection.setDoOutput(true);
-			try (OutputStream output = connection.getOutputStream()) { output.write(body.getBytes(StandardCharsets.UTF_8)); }
+			connection.setRequestMethod(method);
+			connection.setConnectTimeout(TIMEOUT_MILLIS);
+			connection.setReadTimeout(readTimeoutMillis);
+			connection.setRequestProperty("X-Flipping-Friend-Token", token);
+			if (accountId != null) connection.setRequestProperty(com.flippingfriend.core.AccountIdentity.HEADER, accountId);
+			connection.setRequestProperty("Content-Type", "application/json");
+			if (body != null)
+			{
+				connection.setDoOutput(true);
+				try (OutputStream output = connection.getOutputStream()) { output.write(body.getBytes(StandardCharsets.UTF_8)); }
+			}
+			code = connection.getResponseCode();
+			try (InputStream input = code < 200 || code >= 300 ? connection.getErrorStream() : connection.getInputStream())
+			{
+				if (code < 200 || code >= 300) throw new IllegalStateException("Companion returned " + code);
+				String response = new String(input.readAllBytes(), StandardCharsets.UTF_8);
+				if (accountRequest && (!accountId.equals(connection.getHeaderField(com.flippingfriend.core.AccountIdentity.HEADER))
+					|| !com.flippingfriend.core.AccountIdentity.PROTOCOL.equals(
+						connection.getHeaderField(com.flippingfriend.core.AccountIdentity.PROTOCOL_HEADER))))
+					throw new IllegalStateException("Companion does not confirm account-scoped protocol");
+				if (accountRequest && !accountId.equals(accountContext()))
+					throw new IllegalStateException("Account changed during request");
+				return response;
+			}
 		}
-		int code = connection.getResponseCode();
-		try (InputStream input = code < 200 || code >= 300 ? connection.getErrorStream() : connection.getInputStream())
-		{
-			if (code < 200 || code >= 300) throw new IllegalStateException("Companion returned " + code);
-			String response = new String(input.readAllBytes(), StandardCharsets.UTF_8);
-			if (accountRequest && (!accountId.equals(connection.getHeaderField(com.flippingfriend.core.AccountIdentity.HEADER))
-				|| !com.flippingfriend.core.AccountIdentity.PROTOCOL.equals(
-					connection.getHeaderField(com.flippingfriend.core.AccountIdentity.PROTOCOL_HEADER))))
-				throw new IllegalStateException("Companion does not confirm account-scoped protocol");
-			if (accountRequest && !accountId.equals(accountContext()))
-				throw new IllegalStateException("Account changed during request");
-			return response;
-		}
-		finally { connection.disconnect(); }
+		finally {
+            connection.disconnect();
+            long elapsed=System.nanoTime()-requestStarted;
+            if(elapsed>=750_000_000L)LOG.info("Companion request duration: {} ms; {} {}; response {}",
+                elapsed/1_000_000,method,path.split("\\?",2)[0],code);
+        }
 	}
 
 	private String token() throws Exception
