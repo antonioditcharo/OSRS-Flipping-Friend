@@ -60,6 +60,23 @@ public class SaleMaintenancePricingTest {
         assertEquals(SaleMaintenancePricing.Status.STALE_PRICES,new SaleMaintenancePricing().evaluateRelist(1,150,2,planned(),stale,
             List.of(),horizon,now,false,exits,tax,first,first).status);
     }
+    @Test public void savedRoutineLimitStillRechecksExactCostQuantityAndQuoteFreshness() {
+        long at=now.getEpochSecond(),first=at-900;
+        String account="rs-"+"1".repeat(64);
+        var source=com.flippingfriend.core.OfferEvent.builder("saved",at,"SELLING").accountId(account).authenticatedObservation(true)
+            .eventIdentity("saved-source","session","sale").sequence(1).slot(0).item(1,"Item").price(150)
+            .quantities(3,0).spent(0).firstSeenAt(first).build();
+        var accepted=com.flippingfriend.companion.SalePolicyAcceptanceDeliveryTest.receipt(account,"saved-reduction",source,119,at);
+        var p=new Position(1,"Item",3,371,first,true);p.setTargetSellPrice(140);p.setStopPrice(90);
+        var quote=new LatestPrice(120,at,120,at);
+        var pricing=new SaleMaintenancePricing();
+        var recovered=pricing.evaluateRelist(1,150,2,p,quote,List.of(),horizon,now,false,exits,tax,first,first,accepted).quote;
+        assertNotNull(recovered);assertFalse(recovered.lossCut);assertTrue(recovered.price>=119);
+        assertTrue(tax.netProceeds(1,recovered.price,2)>=com.flippingfriend.core.SaleAccounting.allocateCost(371,3,2));
+        assertNull(pricing.evaluateRelist(1,150,4,p,quote,List.of(),horizon,now,false,exits,tax,first,first,accepted).quote);
+        assertNull(pricing.evaluateRelist(1,150,2,p,new LatestPrice(120,at-301,120,at),List.of(),horizon,now,false,exits,tax,first,first,accepted).quote);
+        assertNull(pricing.evaluateRelist(1,150,2,p,quote,List.of(),horizon,now,false,exits,tax,first,first+1,accepted).quote);
+    }
     @Test public void freshStopsAndExplicitWindDownKeepTheirSeparateRelistRules() {
         long first=now.getEpochSecond()-900;
         var supported=List.of(new Candle(now.getEpochSecond()-300,80,80,100,100));

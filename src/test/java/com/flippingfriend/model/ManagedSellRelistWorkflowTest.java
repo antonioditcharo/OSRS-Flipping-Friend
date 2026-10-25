@@ -101,15 +101,44 @@ public class ManagedSellRelistWorkflowTest {
         assertEquals(SuggestionType.SELL,f.next().getType());
     }
     private void bindReducedRelist(Fixture f)throws Exception {
+        bindReducedRelist(f,false);
+    }
+    private void bindReducedRelist(Fixture f,boolean accepted)throws Exception {
         var collected=f.offers.getSettledOffer(0);
         var working=collected.copyObservation();working.setState("SELLING");working.setQuantityFilled(2);working.setCollected(false);
         when(f.offers.getOffers()).thenReturn(List.of(working));when(f.offers.getOffer(0)).thenReturn(working);
         var book=new SellRelistIntent(f.storage);
-        assertTrue(book.advise(working,account,true,f.offers,"accepted-working-sale"));
+        if(accepted) {
+            working.setSpent(2400);collected.setSpent(4800);
+            long acceptedAt=Instant.now().getEpochSecond();
+            var source=OfferEvent.builder("accepted",acceptedAt,"SELLING").accountId(account).authenticatedObservation(true)
+                .eventIdentity("accepted-working-sale","session","0@"+working.getFirstSeen()+":561").sequence(1)
+                .slot(0).item(561,"Nature rune").price(1200).quantities(10,2).spent(2400).firstSeenAt(working.getFirstSeen()).build();
+            var receipt=com.flippingfriend.companion.SalePolicyAcceptanceDeliveryTest.receipt(account,"accepted-reduction",source,999,acceptedAt);
+            assertTrue(book.advise(working,account,true,f.offers,source.getEventId(),receipt,acceptedAt));
+        } else assertTrue(book.advise(working,account,true,f.offers,"accepted-working-sale"));
         when(f.offers.getOffers()).thenReturn(List.of());when(f.offers.getOffer(0)).thenReturn(null);
         assertEquals(6,book.collectedRequest(f.offers,account).getQuantity());
         when(f.offers.getSettledOffer(0)).thenReturn(null);
         inject(f.engine,"sellRelist",new SellRelistIntent(f.storage));
+    }
+    @Test public void acceptedCollectedSaleKeepsAnExactNonLossLimitAndUsesTheReservedSlotAfterRestart()throws Exception {
+        var f=new Fixture(6,5001,6006,1000,true);f.context(1200,0,120,now.getEpochSecond()-60);bindReducedRelist(f,true);
+        when(f.market.getSeries(anyInt(),anyString())).thenReturn(List.of());
+        when(f.monitor.getState()).thenReturn(new AccountState(true,true,false,100000000,0,0,1,8,0,false,
+            Map.of(561,6006),Map.of(561,6006),Map.of()));
+        var next=f.next();assertEquals(SuggestionType.SELL,next.getType());assertEquals(999,next.getPrice());assertEquals(6,next.getQuantity());
+        assertFalse(next.isLossCut());assertTrue(tax.netProceeds(561,next.getPrice(),6)>=5001);
+        assertNotNull(next.getContinuationOriginIdentity());assertEquals("accepted-working-sale",next.getSaleRepriceSource());
+        assertEquals(5001,f.companion.tradingLedger().getTradingPositions().get(0).getTotalCost());
+    }
+    @Test public void reservedSlotReportsTheActualRelistRefusalWhenProofRemainsUnavailable()throws Exception {
+        var f=new Fixture(6,5001,6,1000,true);f.context(1200,0,120,now.getEpochSecond()-60);bindReducedRelist(f);
+        when(f.market.getSeries(anyInt(),anyString())).thenReturn(List.of());
+        when(f.monitor.getState()).thenReturn(new AccountState(true,true,false,100000000,0,0,1,8,0,false,
+            Map.of(561,6),Map.of(561,6),Map.of()));
+        var next=f.next();assertEquals(SuggestionType.WAIT,next.getType());assertEquals("Rechecking the cancelled sale",next.getHeadline());
+        assertSame(next,f.engine.entryPriorityWait());
     }
     @Test public void missingRelistMarketSupportCannotResurrectTheAbandonedTargetAfterRestart()throws Exception {
         var f=new Fixture(6,5001,6,1000,true);f.context(1200,0,120,now.getEpochSecond()-60);bindReducedRelist(f);

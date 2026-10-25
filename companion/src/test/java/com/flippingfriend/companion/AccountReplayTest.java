@@ -95,7 +95,7 @@ public class AccountReplayTest {
         var result=run(input,5,10);
         assertTrue(result.actions.toString(),result.actions.stream().anyMatch(s->s.contains("SELL ")));
         assertEquals(1,result.completedSales);assertEquals(180,result.realizedProfit);
-        assertEquals("account-replay-22",result.policyVersion);
+        assertEquals("account-replay-23",result.policyVersion);
         assertEquals("companion-sale-10",result.salePolicyVersion);assertEquals(1,result.authorizedSales);
     }
     AccountReplayInput interruptedRelist(boolean recovered) {
@@ -117,21 +117,25 @@ public class AccountReplayTest {
         if(recovered)for(var frame:input.frames)if(frame.availableAt>=start+1500)frame.latest.getAsJsonObject("1").addProperty("high",150);
         return input;
     }
-    @Test public void vanishedHistoryAfterCancellationCannotBypassTheRelistThroughAnOrdinaryTargetExit()throws Exception {
+    @Test public void vanishedHistoryAfterCancellationRetainsTheAcceptedLimitAcrossRestartAndLaterRecovery()throws Exception {
         var input=interruptedRelist(false);var result=run(input,5,10);
         assertTrue("The supported working sale should first be cancelled: "+result.actions,
             result.actions.stream().anyMatch(s->s.startsWith((start+1215)+" CANCEL ")));
         assertTrue("Bucket evidence disappears between cancellation and collection: "+result.actions,
             result.actions.stream().anyMatch(s->s.startsWith((start+1230)+" COLLECT ")));
-        assertEquals(result.actions.toString(),1,result.actions.stream().filter(s->s.contains(" SELL ")).count());
-        assertEquals(0,result.relistedSales);assertEquals(1000,result.inventoryCost);assertEquals(0,result.realizedProfit);
+        assertEquals(result.actions.toString(),2,result.actions.stream().filter(s->s.contains(" SELL ")).count());
+        assertTrue(result.actions.toString(),result.actions.contains((start+1245)+" SELL 1 10 @ 109"));
+        assertEquals(1,result.relistedSales);assertEquals(1000,result.inventoryCost);assertEquals(0,result.realizedProfit);
         input.restartAt=List.of(start+1235);
         var restarted=run(input,5,10);
-        assertEquals(result.actions,restarted.actions);assertEquals(result.inventoryCost,restarted.inventoryCost);
-        assertEquals(0,restarted.relistedSales);assertEquals(0,restarted.realizedProfit);
+        assertEquals(result.actions.subList(0,5),restarted.actions.subList(0,5));assertEquals(6,restarted.actions.size());
+        assertEquals("The explicit restart delays the next manual action by its five seconds",
+            (start+1250)+" SELL 1 10 @ 109",restarted.actions.get(5));
+        assertEquals(result.inventoryCost,restarted.inventoryCost);
+        assertEquals(1,restarted.relistedSales);assertEquals(0,restarted.realizedProfit);
         var recovered=run(interruptedRelist(true),5,10);
         assertEquals(recovered.actions.toString(),1,recovered.relistedSales);
-        assertTrue(recovered.actions.toString(),recovered.actions.stream().anyMatch(s->s.contains(" SELL 1 10 @ 150")));
+        assertEquals("A later market recovery keeps the already working accepted limit",result.actions,recovered.actions);
         assertEquals(1000,recovered.inventoryCost);assertEquals(0,recovered.realizedProfit);
     }
     @Test public void restartDuringPartialPurchasePreservesCanonicalCostLimitsAndRiskWindow()throws Exception {
