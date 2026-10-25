@@ -6,6 +6,30 @@ import java.util.*;
 /** Possible new loss capital, distinct from the retained lifetime historical exposure guard. */
 final class ProspectiveGapExposure {
     static Map<Integer,Long> calculate(SqliteStore.PlanningProjections read) {
+        return read.prospectiveGapMemo==null?calculateUncached(read):read.prospectiveGapMemo.calculate(read);
+    }
+    /** One immutable source prefix, one original risk window and exact opening/scope inputs only.
+     * Never caches current holdings, cash, market marks, losses or final entry authorization. */
+    static final class Memo {
+        private List<OfferEvent> history;
+        private List<Object> window;
+        private Set<Integer> items;
+        private Map<Integer,Long> opening,result;
+        synchronized Map<Integer,Long> calculate(SqliteStore.PlanningProjections read) {
+            var evidence=read.riskEvidence;
+            if(evidence==null || evidence.window==null || evidence.unbounded || read.history==null)
+                return calculateUncached(read);
+            var w=evidence.window;var key=new ArrayList<Object>();
+            Collections.addAll(key,w.accountId,w.windowId,w.sessionId,w.startedAt,w.positionCursor,w.startingCapital);
+            for(int slot=0;slot<8;slot++)key.add(w.sourceForSlot(slot));
+            if(history==read.history && key.equals(window) && evidence.newReconciliationItems.equals(items)
+                    && evidence.openingCosts.equals(opening))return result;
+            var computed=calculateUncached(read);
+            history=read.history;window=key;items=Set.copyOf(evidence.newReconciliationItems);
+            opening=Map.copyOf(evidence.openingCosts);result=computed;return computed;
+        }
+    }
+    private static Map<Integer,Long> calculateUncached(SqliteStore.PlanningProjections read) {
         var evidence=read.riskEvidence;
         if(evidence==null || evidence.window==null || evidence.unbounded)return null;
         if(evidence.newReconciliationItems.isEmpty())return Map.of();

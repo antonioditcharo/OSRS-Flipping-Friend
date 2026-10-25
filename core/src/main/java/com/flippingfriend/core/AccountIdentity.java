@@ -21,9 +21,13 @@ public final class AccountIdentity
         {
             byte[] digest = MessageDigest.getInstance("SHA-256")
                 .digest(profileKey.getBytes(StandardCharsets.UTF_8));
-            StringBuilder id = new StringBuilder("rs-");
-            for (byte part : digest) id.append(String.format("%02x", part & 0xff));
-            return id.toString();
+            char[] id = new char[67];id[0]='r';id[1]='s';id[2]='-';
+            String hex="0123456789abcdef";
+            for(int index=0;index<digest.length;index++) {
+                id[3+index*2]=hex.charAt((digest[index]>>>4)&15);
+                id[4+index*2]=hex.charAt(digest[index]&15);
+            }
+            return new String(id);
         }
         catch (NoSuchAlgorithmException impossible)
         {
@@ -33,8 +37,13 @@ public final class AccountIdentity
 
     public static String require(String accountId)
     {
-        if (accountId == null || !accountId.matches("rs-[0-9a-f]{64}"))
+        if (accountId == null || accountId.length()!=67 || !accountId.startsWith("rs-"))
             throw new IllegalArgumentException("valid account identity is required");
+        for(int index=3;index<67;index++) {
+            char part=accountId.charAt(index);
+            if(!(part>='0' && part<='9' || part>='a' && part<='f'))
+                throw new IllegalArgumentException("valid account identity is required");
+        }
         return accountId;
     }
 }

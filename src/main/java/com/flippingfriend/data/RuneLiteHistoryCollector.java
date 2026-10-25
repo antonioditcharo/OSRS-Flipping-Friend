@@ -68,7 +68,7 @@ import net.runelite.client.plugins.grandexchange.GrandExchangeConfig;
             Path target=directory.resolve(signature+".json");
             if(!Files.exists(target) && !storage.writeDurably(target,gson.toJson(snapshot).getBytes(StandardCharsets.UTF_8)))return;
             deliver(directory,snapshot.accountId);
-        }catch(Exception malformed){synchronized(this){captured.remove(snapshot.accountId,signature);} }
+        }catch(Exception|LinkageError malformed){synchronized(this){captured.remove(snapshot.accountId,signature);} }
     }
     private void deliver(Path directory,String account) {
         try(var files=Files.list(directory)) {

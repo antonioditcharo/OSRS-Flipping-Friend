@@ -30,7 +30,8 @@ public final class GeHistorySnapshot {
         AccountIdentity.require(accountId);
         if(observedAt<=0 || historyJson==null || historyJson.length()>1048576 || visibleHistory==null || visibleHistory.size()>2048)
             throw new IllegalArgumentException("bounded scoped history required");
-        JsonElement parsed=JsonParser.parseString(historyJson);
+        // RuneLite 1.13.4 provides Gson 2.8.5; static parseString was added later.
+        JsonElement parsed=new JsonParser().parse(historyJson);
         if(!parsed.isJsonArray() || parsed.getAsJsonArray().size()>1024)throw new IllegalArgumentException("invalid RuneLite history");
         var rows=new ArrayList<Row>();int occurrence=0;
         for(var element:parsed.getAsJsonArray()) {

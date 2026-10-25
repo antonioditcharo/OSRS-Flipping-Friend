@@ -5,6 +5,14 @@ Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
 ## Current delivery
 
+PR #163 is installed in private shadow mode; fresh COLLECT and BUY deliveries were logged. The live
+check found a RuneLite Gson 2.8.5 linkage error in optional GE history capture and repeated full
+history validation in risk reads, with 4–10 second deliveries. Follow-on source is on
+`codex/pilot-client-compatibility`; read `local-data/hosted-pilot/compatibility-delivery.json` and
+[the compatibility/latency contract](docs/architecture/pilot-client-compatibility.md). It is queued
+until its own tests, exact-head CI, paired install and live acceptance pass. Financial source rows,
+risk anchors and existing offers remain authoritative; no learning or hosted advice is promoted.
+
 The approved hosted-pilot pass is PR #163 (`codex/hosted-pilot-continuous-guidance`).
 Read `local-data/hosted-pilot/delivery-state.json` and
 [the pilot contract](docs/architecture/hosted-pilot.md) before older checkpoints. Installed local

@@ -5,6 +5,15 @@ import static org.junit.Assert.*;
 
 public class AccountIdentityTest
 {
+    @Test public void optimizedIdentityKeepsTheOriginalUtf8HashAndExactLowercaseScopeAlphabet() {
+        String expected="rs-4041f52c8c4a9dc317372a802b1d53cd3e8e5fbe6989faec3cf19349e9f5316f";
+        assertEquals(expected,AccountIdentity.fromProfileKey("preserved-account-\u00df-\u754c"));
+        assertEquals(expected,AccountIdentity.require(expected));
+        for(String invalid:new String[]{expected+"\n",expected.substring(0,66),"rs-"+"0".repeat(63)+"A",
+                "rs-"+"0".repeat(63)+"\uff10","RS-"+"0".repeat(64)}) {
+            try{AccountIdentity.require(invalid);fail("Invalid identity accepted");}catch(IllegalArgumentException required){}
+        }
+    }
     @Test public void identityIsStableOpaqueAndDoesNotCollapseSanitizedNames()
     {
         String first = AccountIdentity.fromProfileKey("one/two");

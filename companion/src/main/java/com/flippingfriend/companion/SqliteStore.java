@@ -80,6 +80,7 @@ final class SqliteStore implements AutoCloseable
 	// the indexed tail. External commits and every rollback discard it. Live eight-slot evidence
 	// is always reread. In particular a failed transaction cannot publish a prefix.
 	private List<OfferEvent> canonicalHistory;
+    private final ProspectiveGapExposure.Memo prospectiveGapMemo=new ProspectiveGapExposure.Memo();
 	private String canonicalHistoryAccount;
 	private long canonicalHistoryCursor, canonicalHistoryDataVersion = -1;
     private long canonicalHistoryGeneration;
@@ -447,6 +448,7 @@ final class SqliteStore implements AutoCloseable
         Map<Integer,OfferEvent> currentEvents=java.util.Collections.emptyMap();
         Map<Integer,Long> saleProgressAt=java.util.Collections.emptyMap();
         List<OfferEvent> history;
+        ProspectiveGapExposure.Memo prospectiveGapMemo;
         RiskLedgerEvidence riskEvidence;
         SalePolicyReceiptStore.Evidence salePolicyEvidence=new SalePolicyReceiptStore.Evidence();
 		PlanningProjections(List<PositionProjection> positions,
@@ -559,6 +561,7 @@ final class SqliteStore implements AutoCloseable
 		if (!result.tradeScope.unsafeItems.isEmpty()) result.history = history.get();
 		String session = result.currentEvents.isEmpty() ? null : result.currentEvents.values().iterator().next().getSessionId();
 		result.riskEvidence = riskLedgerEvidence(result.tradeScope, riskWindow(expectedAccountId, session));
+        result.prospectiveGapMemo=prospectiveGapMemo;
 		return result;
 	}
 
@@ -849,7 +852,8 @@ final class SqliteStore implements AutoCloseable
     private List<OfferEvent> offerHistory(String expectedAccountId) throws Exception {
         if (expectedAccountId==null) return null;
         checkCanonicalDataVersion(expectedAccountId);
-        List<OfferEvent> history=new ArrayList<>(canonicalHistory==null?java.util.List.of():canonicalHistory);
+        List<OfferEvent> history=canonicalHistory;
+        boolean copied=false;
         long cursor=canonicalHistory==null?0:canonicalHistoryCursor;
         com.google.gson.Gson parser=new com.google.gson.Gson();
         try (PreparedStatement s=connection.prepareStatement(
@@ -864,12 +868,13 @@ final class SqliteStore implements AutoCloseable
                         || !expectedAccountId.equals(event.getAccountId()) || !TradeGapEvidence.valid(event)) {
                     discardCanonicalHistory(); return null;
                 }
+                if(!copied){history=new ArrayList<>(history==null?java.util.List.of():history);copied=true;}
                 history.add(event);
                 cursor=r.getLong(3);
             }
             }
         }
-        canonicalHistory=java.util.Collections.unmodifiableList(history);
+        if(copied || canonicalHistory==null)canonicalHistory=history==null?java.util.List.of():java.util.Collections.unmodifiableList(history);
         canonicalHistoryCursor=cursor;
         return canonicalHistory;
     }
