@@ -7,13 +7,15 @@ installed and player accepted are separate states. Owner is home; older login de
 
 ## Current batch
 
-- [ ] Deliver/accept the installed #163 follow-on: use RuneLite's provided Gson 2.8.5 for actual
-      history capture/acknowledgement, isolate optional linkage failures, and bound repeated history
-      validation without caching current cash, holdings, prices or financial authorization. Preserve
-      exact account hashes, source prefixes, risk windows and original trades. Run clean Java/tooling
-      checks and both exact-head CI platforms, then verify fresh history, suggestions, outage fallback
-      and sustained latency. [Contract](docs/architecture/pilot-client-compatibility.md);
-      `local-data/hosted-pilot/compatibility-delivery.json`. Installed #163 remains the baseline.
+- [ ] Complete latency/player acceptance after installed #164: provided Gson 2.8.5 live history ACKs,
+      fresh guidance, clean Java/tooling, both CI platforms, original data preservation and rollback
+      reads pass. Follow-on `codex/pilot-guidance-hot-path` removes quadratic sale-scope copies and
+      redundant historical checks; deliver through its own verification and paired update. Current
+      cash, holdings, prices, account/source checks and financial authorization remain fresh.
+      [Contract](docs/architecture/pilot-client-compatibility.md); receipts
+      `local-data/hosted-pilot/compatibility-delivery.json` and `guidance-hot-path-delivery.json`.
+      Sustained warm-path timing, final UI latency, player trading/restart and active hosted advice
+      outage acceptance remain open; installed #164 is the current baseline.
 
 - [ ] Complete the approved hosted pilot: preservation/rollback proof, isolated background history
       support and canonical qualified repair, flexible preferences/rounded estimates, reusable Java

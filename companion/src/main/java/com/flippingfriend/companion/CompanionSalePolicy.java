@@ -34,7 +34,8 @@ final class CompanionSalePolicy {
                 || market==null || market.observedAt<=0 || market.observedAt>now || now-market.observedAt>120)
                 return refusal(type,identity,source,now,"SALE_EVIDENCE_UNAVAILABLE");
             boolean paused=ledger.hasUnboundedReconciliation();
-            if(ledger.getReconciliationScope()!=null)for(var scope:ledger.getReconciliationScope().values())if(scope.contains(item))paused=true;
+            var reconciliation=ledger.getReconciliationScope();
+            if(reconciliation!=null)for(var scope:reconciliation.values())if(scope.contains(item))paused=true;
             if(slot<0 && paused)return refusal(type,identity,source,now,"SALE_ITEM_PAUSED");
             var raw=market.latest.get(Integer.toString(item));
             LatestPrice quote=raw==null?null:new com.google.gson.Gson().fromJson(raw,LatestPrice.class);

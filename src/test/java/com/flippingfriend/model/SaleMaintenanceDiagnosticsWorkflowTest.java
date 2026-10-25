@@ -90,4 +90,34 @@ public class SaleMaintenanceDiagnosticsWorkflowTest {
         engine.refresh(false);
         assertEquals(SaleMaintenancePricing.Status.UNPROVEN_QUANTITY,engine.saleMaintenanceDiagnostics().get(0).evaluation.status);
     }
+    @Test public void historicalGapsRequireOneScopeCopyPerSaleCheckAndNewEvidenceStillRefuses()throws Exception {
+        var gaps=new ArrayList<MissedFlipEvidence>();var scopes=new HashMap<String,Set<Integer>>();
+        for(int i=0;i<1500;i++) {
+            String id="historical-gap-"+i;
+            gaps.add(new MissedFlipEvidence(id,"episode",562,"Unrelated item","RECONCILE",0,at-1,
+                null,null,null,null,null,null,"Retained source uncertainty"));
+            scopes.put(id,Set.of(562));
+        }
+        var current=ledger(List.of(PositionProjection.ready(561,"Rune",3,300,at-3600,at,"source","episode")))
+            .withTradeEvidence(List.of(PositionProjection.ready(561,"Rune",3,300,at-3600,at,"source","episode")),gaps,scopes);
+        class CountedScope extends HashMap<String,Set<Integer>> {
+            int copies;
+            @Override public void forEach(java.util.function.BiConsumer<? super String,? super Set<Integer>> action) {
+                copies++;super.forEach(action);
+            }
+        }
+        var counted=new CountedScope();counted.putAll(scopes);
+        var field=AccountLedgerSnapshot.class.getDeclaredField("reconciliationScope");field.setAccessible(true);field.set(current,counted);
+        when(companion.tradingLedger()).thenReturn(current);
+        var check=SuggestionEngine.class.getDeclaredMethod("saleLedger",int.class,Instant.class);check.setAccessible(true);
+        assertSame(current,check.invoke(engine,561,Instant.ofEpochSecond(at)));
+        assertEquals("Historical gap count must not multiply full map copies",1,counted.copies);
+        assertNull("The affected item remains paused",check.invoke(engine,562,Instant.ofEpochSecond(at)));
+        when(companion.tradingLedger()).thenReturn(null);
+        assertNull("Pending current evidence withdraws eligibility",check.invoke(engine,561,Instant.ofEpochSecond(at)));
+        when(companion.tradingLedger()).thenReturn(current);
+        assertNull("Freshness remains a current check",check.invoke(engine,561,Instant.ofEpochSecond(at+151)));
+        engine.setObservedAccount(AccountIdentity.fromProfileKey("different-account"));
+        assertNull("Account switching cannot reuse this qualification",check.invoke(engine,561,Instant.ofEpochSecond(at)));
+    }
 }

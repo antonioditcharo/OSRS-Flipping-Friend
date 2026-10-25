@@ -1741,8 +1741,10 @@ public class SuggestionEngine
             || ledger.getObservedAt() > now.getEpochSecond() || now.getEpochSecond()-ledger.getObservedAt()>150
             || ledger.hasUnboundedReconciliation())
             return null;
+        // The getter takes a defensive copy. Read it once for this immutable ledger, not once
+        // per historical gap: that multiplied retained history into quadratic foreground work.
+        var scope = ledger.getReconciliationScope();
         for (var gap : ledger.getMissedFlips()) if ("RECONCILE".equals(gap.getType())) {
-            var scope = ledger.getReconciliationScope();
             if (gap.getItemId() == item || scope == null || scope.get(gap.getEventId()) == null
                 || scope.get(gap.getEventId()).contains(item))
                 return null;
