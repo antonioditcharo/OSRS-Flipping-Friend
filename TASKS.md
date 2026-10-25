@@ -9,13 +9,15 @@ installed and player accepted are separate states. Owner is home; older login de
 
 - [ ] Complete latency/player acceptance after installed #164: provided Gson 2.8.5 live history ACKs,
       fresh guidance, clean Java/tooling, both CI platforms, original data preservation and rollback
-      reads pass. Follow-on `codex/pilot-guidance-hot-path` removes quadratic sale-scope copies and
-      redundant historical checks; deliver through its own verification and paired update. Current
+      reads pass. PR #165 also passed those checks and is installed: it removes quadratic sale-scope
+      copies and unnecessary acquisition/gap history scans. Its 51-file restoration and exact 12-table
+      preservation pass; #164 rollback reads agree. Current
       cash, holdings, prices, account/source checks and financial authorization remain fresh.
       [Contract](docs/architecture/pilot-client-compatibility.md); receipts
       `local-data/hosted-pilot/compatibility-delivery.json` and `guidance-hot-path-delivery.json`.
       Sustained warm-path timing, final UI latency, player trading/restart and active hosted advice
-      outage acceptance remain open; installed #164 is the current baseline.
+      outage acceptance remain open; installed #165 is the current baseline. Its latest receipt
+      records fresh login/guidance/timing separately; source tests alone cannot close those gates.
 
 - [ ] Complete the approved hosted pilot: preservation/rollback proof, isolated background history
       support and canonical qualified repair, flexible preferences/rounded estimates, reusable Java
