@@ -19,6 +19,20 @@ public class CurrentOfferReadLatencyTest {
     final String account = AccountIdentity.fromProfileKey("query-budget");
     final long at = Instant.now().getEpochSecond() - 4;
 
+    @Test public void unchangedValidatedHistoryIsReusedAndAppendingDoesNotMutateAnEarlierRead()throws Exception {
+        var fixture=new BoundedPlanningStateTest();
+        try(var store=new SqliteStore(folder.newFolder().toPath().resolve("immutable-prefix.db"))) {
+            fixture.seed(store);var first=store.planningProjections(fixture.account);assertNotNull(first.history);
+            int original=first.history.size();assertSame(first.history,store.planningProjections(fixture.account).history);
+            var previous=first.currentEvents.get(7);
+            var next=OfferEvent.builder("fixture",previous.getObservedAt(),"EMPTY").accountId(fixture.account)
+                .eventIdentity("new-heartbeat",previous.getSessionId(),null).slot(7).sequence(previous.getSequence()+100).authenticatedObservation(true).build();
+            store.recordAndProjectOffer(next,gson.toJson(next),true);
+            var later=store.planningProjections(fixture.account);assertNotSame(first.history,later.history);
+            assertEquals(original,first.history.size());assertEquals(original+1,later.history.size());
+        }
+    }
+
     Connection connection(SqliteStore store) throws Exception {
         var field = SqliteStore.class.getDeclaredField("connection");
         field.setAccessible(true);

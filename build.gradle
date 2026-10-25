@@ -46,6 +46,10 @@ tasks.named('test') {
     }
 }
 
+// Match the Gson supplied by the supported RuneLite launcher, rather than masking client linkage
+// failures with the standalone companion's newer dependency.
+configurations.testRuntimeClasspath.resolutionStrategy.force 'com.google.code.gson:gson:2.8.5'
+
 // Explicit visual check of the production Swing chart; never opens RuneLite or sends input.
 tasks.register('renderMarketGraph', JavaExec) {
     dependsOn tasks.named('testClasses')
