@@ -71,8 +71,11 @@ public final class ExecutionForecast {
             Double.toHexString(expectedTotalSeconds),Double.toHexString(completionProbability));
         try {
             byte[] digest=MessageDigest.getInstance("SHA-256").digest(material.getBytes(StandardCharsets.UTF_8));
-            StringBuilder hex=new StringBuilder();for(byte b:digest)hex.append(String.format(java.util.Locale.ROOT,"%02x",b&255));
-            return hex.toString();
+            char[] hex=new char[digest.length*2];String digits="0123456789abcdef";
+            for(int i=0;i<digest.length;i++) {
+                hex[2*i]=digits.charAt((digest[i]>>>4)&15);hex[2*i+1]=digits.charAt(digest[i]&15);
+            }
+            return new String(hex);
         }catch(java.security.NoSuchAlgorithmException impossible){throw new IllegalStateException(impossible);}
     }
 }

@@ -56,4 +56,24 @@ public class CanonicalHistoryCacheTest {
             assertTrue(warm.getReconciliationScope().containsKey("real"));
         }
     }
+    @Test public void acquisitionAndGapAcknowledgementsDoNotRebuildHistoricalScopeButLedgerStillQualifiesIt()throws Exception {
+        Path db=folder.newFolder().toPath().resolve("ack-budget.db");
+        try(var s=new SqliteStore(db)) {
+            accept(s,event("open","BUYING",561,true,0,1));
+            accept(s,event("fill","BOUGHT",561,true,10,2));
+            var history=SqliteStore.class.getDeclaredField("canonicalHistory");history.setAccessible(true);
+            assertNull("Acquisition cost comes from its accepted execution, not a historical scope scan",history.get(s));
+            accept(s,event("gap","BUYING",562,true,0,3));
+            assertNull("Retaining a gap cannot spend the foreground ACK budget scanning all previous trades",history.get(s));
+            var ledger=s.ledgerSnapshot(account);
+            assertNotNull("Guidance still validates the canonical history",history.get(s));
+            assertEquals(java.util.Set.of(561,562),ledger.getReconciliationScope().get("gap"));
+            assertTrue(ledger.getTradingPositions().isEmpty());
+            assertEquals(1,ledger.getMissedFlips().size());
+            try(var other=DriverManager.getConnection("jdbc:sqlite:"+db);var sql=other.createStatement();
+                    var rows=sql.executeQuery("SELECT SUM(quantity),SUM(acquisition_cost) FROM position_event WHERE effect_type='ACQUIRE'")) {
+                assertTrue(rows.next());assertEquals(10,rows.getInt(1));assertEquals(1000,rows.getLong(2));
+            }
+        }
+    }
 }

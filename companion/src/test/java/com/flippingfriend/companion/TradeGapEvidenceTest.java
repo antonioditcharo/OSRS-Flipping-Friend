@@ -72,4 +72,16 @@ public class TradeGapEvidenceTest {
             .price(100).quantities(10,0).build();
         assertTrue(scope(List.of(malformed,e("gap","EMPTY",0,2,"s")),Map.of("gap",0)).get("gap").isEmpty());
     }
+    @Test public void sharedAccountValidationStillRejectsDuplicatesNullRowsAndMalformedScopes() {
+        var first=e("first","BUYING",561,1,"s");var gap=e("gap","EMPTY",0,2,"s");
+        var gson=new com.google.gson.Gson();var raw=gson.toJsonTree(gap).getAsJsonObject();raw.remove("accountId");
+        var missingAccount=gson.fromJson(raw,OfferEvent.class);raw.addProperty("accountId","rs-invalid");
+        var malformedAccount=gson.fromJson(raw,OfferEvent.class);
+        for(var history:List.of(Arrays.asList(first,null,gap),List.of(first,gap,gap),
+                List.of(first,missingAccount),List.of(first,malformedAccount))) {
+            assertTrue(scope(history,Map.of("gap",0)).get("gap").isEmpty());
+        }
+        assertTrue(TradeGapEvidence.scope(List.of(first,gap),Map.of("gap",0),"rs-invalid").get("gap").isEmpty());
+        assertEquals(Set.of(561),scope(List.of(first,gap),Map.of("gap",0)).get("gap"));
+    }
 }

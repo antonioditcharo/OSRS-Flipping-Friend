@@ -943,11 +943,13 @@ final class SqliteStore implements AutoCloseable
     private PositionProjection applyAutomaticPositionEffect(PositionAccountingEffect effect, OfferEvent event,
             OfferLifecycleProjection previous, String taxPolicy) throws Exception {
         if (effect == null || effect.getType() == PositionAccountingEffectType.NONE) return null;
-        AutomaticTradeScope scope = automaticTradeScope(event.getAccountId());
-        PositionProjection current = scope.positions.get(effect.getItemId());
         Long cost = null;
         String reason = effect.getReason();
         if (effect.getType() == PositionAccountingEffectType.DISPOSE) {
+            // Only a disposal allocates prior stock cost. Acquisitions and retained gaps carry
+            // their own deltas; rebuilding all historical scope for each slot delayed its ACK.
+            AutomaticTradeScope scope = automaticTradeScope(event.getAccountId());
+            PositionProjection current = scope.positions.get(effect.getItemId());
             if (current != null && !scope.hasUnboundedReconciliation
                     && (!scope.unsafeItems.contains(effect.getItemId()) || scope.unchangedFrameItems.contains(effect.getItemId()))
                     && effect.getQuantity() <= current.getQuantity())

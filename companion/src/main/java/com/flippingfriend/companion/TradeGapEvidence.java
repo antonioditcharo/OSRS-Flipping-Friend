@@ -21,8 +21,9 @@ final class TradeGapEvidence {
         Map<String,Set<Integer>> episodeItems=new HashMap<>();
         Set<String> eventIds=new HashSet<>();
         for (OfferEvent e:history) {
-            if (!valid(e) || !eventIds.add(e.getEventId())) return unknown(gaps);
-            if (!account.equals(e.getAccountId())) return unknown(gaps);
+            // Equality to the already validated account proves the identical account alphabet.
+            // Keep every event/duplicate check without scanning that 64-digit hash per row.
+            if (!validFields(e) || !account.equals(e.getAccountId()) || !eventIds.add(e.getEventId())) return unknown(gaps);
             Slot prior=slots.get(e.getSlot());
             boolean ordered=prior==null || (prior.trusted && prior.session.equals(e.getSessionId())
                 && e.getSequence()>prior.sequence && (e.getObservedAt()>=prior.observedAt
@@ -70,9 +71,13 @@ final class TradeGapEvidence {
             && a.getFilledQuantity()==b.getFilledQuantity() && a.getSpent()==b.getSpent();
     }
     static boolean valid(OfferEvent e) {
+        if(e==null)return false;
+        try { AccountIdentity.require(e.getAccountId()); } catch (IllegalArgumentException invalid) { return false; }
+        return validFields(e);
+    }
+    private static boolean validFields(OfferEvent e) {
         if (e==null || !"1".equals(e.getSchemaVersion()) || blank(e.getEventId()) || blank(e.getSessionId())
                 || e.getSequence()<=0 || e.getObservedAt()<0 || e.getSlot()<0 || e.getSlot()>=8) return false;
-        try { AccountIdentity.require(e.getAccountId()); } catch (IllegalArgumentException invalid) { return false; }
         if ("EMPTY".equals(e.getEventType())) return e.getItemId()==0 && !e.isBuying()
             && e.getPrice()==0 && e.getTotalQuantity()==0 && e.getFilledQuantity()==0 && e.getSpent()==0
             && blank(e.getOfferIdentity());

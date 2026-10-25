@@ -48,3 +48,24 @@ checks. Existing valid guidance and final current-state guards must survive the 
 - Measure retained-action reads separately from durable state-change delivery. Private shadow
   transport outage, sustained latency and player-operated trading/restart remain separate evidence.
   Hosted advice/coordination and learning promotion stay gated by the pilot contract.
+
+## Follow-on foreground profiling
+
+Installed #164 captures and acknowledges real 1,024-row RuneLite history and delivers live trading
+guidance. A 40-second JFR capture still found long foreground sale checks: `saleLedger` defensively
+copied the entire reconciliation map inside its per-gap loop. The live account had 1,389 gaps;
+this makes historical review size multiply foreground work. Read one defensive scope copy per sale
+check, retaining the same current ledger, account, freshness and item-pause predicates. A behavioral
+budget test reproduces 1,500 copies, then requires one and checks changed evidence still refuses.
+
+Historical scoping validates its requested account once, then compares every row to that exact
+validated value while retaining structural and duplicate checks. This proves the same account
+alphabet without rescanning the same hash for each event. Forecast SHA-256 byte encoding uses
+direct lowercase hexadecimal digits with an existing-format golden receipt; prediction identities,
+wire content and learning qualification remain unchanged. No new financial cache or storage format
+is introduced. Canonical ACQUIRE/RECONCILE acceptance records the same self-contained execution/gap
+delta without rebuilding historical stock scope; only DISPOSE needs that scope to allocate prior
+cost. Guidance still validates the resulting complete ledger, and every disposal retains exact
+allocation and pause checks. This removes repeated full-history scans from eight-slot ACK delivery.
+Preserve all earlier rollout and latency gates; faster pure evidence reads alone
+cannot establish end-to-end latency.
