@@ -32,7 +32,9 @@ cancel/collect chain still qualify independently. A stop or wind-down receipt ca
 loss through the routine fallback. Fresh confirmed stops retain their existing separate path.
 Missing legacy acceptance, stale prices, ambiguous sources or impossible non-loss floors remain
 refusals. No financial rows, original acquisition contexts or risk anchors change. Storage and wire
-formats remain compatible with #168; rollback may withhold a new fallback quote without altering
+formats remain compatible with #168. Chronological replay version 23 identifies the changed
+continuation behavior; its synthetic cancelled/collected/restarted workflow retains the saved limit
+without inventing a fill. Rollback may withhold a new fallback quote without altering
 the retained trade.
 
 The main action chain still puts urgent exits and actionable relists before reservation messages.
