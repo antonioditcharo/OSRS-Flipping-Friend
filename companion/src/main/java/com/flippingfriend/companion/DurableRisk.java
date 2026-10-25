@@ -29,8 +29,10 @@ final class DurableRisk {
                 return AccountRiskSnapshot.unavailable(id,now,"Risk window or current loss scope is inconsistent.");
             if(market==null || market.observedAt<=0 || market.observedAt>now || now-market.observedAt>120)
                 return AccountRiskSnapshot.unavailable(id,now,"Waiting for fresh prices to evaluate account risk.");
+            var newGapBounds=ProspectiveGapExposure.calculate(read);
+            if(newGapBounds==null)return AccountRiskSnapshot.unavailable(id,now,"A new trade gap has no proven prospective capital bound.");
             for(var offer:read.offers)if(offer.getState()!=OfferLifecycleState.EMPTY
-                && exposure.unavailableEntryItems.contains(offer.getItemId()) && !UnchangedFrameRecovery.boundedSell(read,offer))
+                && exposure.unavailableEntryItems.contains(offer.getItemId()) && !boundedQuarantinedSell(read,offer,newGapBounds))
                 return AccountRiskSnapshot.unavailable(id,now,"The current offer for "
                     +(offer.getItemName()==null?"Item "+offer.getItemId():offer.getItemName())
                     +" has unresolved execution evidence. Finish or collect that offer before new entries. Historical records stay separate.");
@@ -81,8 +83,6 @@ final class DurableRisk {
                 marked=Math.addExact(marked,quiet?Math.min(0,sale.getProfitLower()):sale.getProfitLower());
             }
             Map<Integer,Long> reserves=new HashMap<>(evidence.unresolvedCosts);
-            var newGapBounds=ProspectiveGapExposure.calculate(read);
-            if(newGapBounds==null)return AccountRiskSnapshot.unavailable(id,now,"A new trade gap has no proven prospective capital bound.");
             for(int item:evidence.newReconciliationItems) {
                 Long bound=newGapBounds.get(item);
                 if(bound==null)return AccountRiskSnapshot.unavailable(id,now,"A new trade gap has no finite capital bound.");
@@ -99,6 +99,13 @@ final class DurableRisk {
         }catch(RuntimeException malformed) {
             return AccountRiskSnapshot.unavailable(id,now,"Account risk evidence cannot be evaluated: "+malformed.getClass().getSimpleName()+".");
         }
+    }
+
+    private static boolean boundedQuarantinedSell(SqliteStore.PlanningProjections read,OfferLifecycleProjection offer,Map<Integer,Long> bounds) {
+        if(!UnchangedFrameRecovery.coveredSell(read,offer))return false;
+        var pool=read.tradeScope.positions.get(offer.getItemId());
+        return pool!=null && pool.isCostKnown() && pool.getTotalCost()>0 && !read.tradeScope.unprovenCostItems.contains(offer.getItemId())
+            && bounds.getOrDefault(offer.getItemId(),-1L)>=pool.getTotalCost();
     }
 
     static int physicalQuantity(SqliteStore.PlanningProjections read,AccountSnapshot account,PositionProjection position) {

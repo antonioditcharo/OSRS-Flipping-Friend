@@ -1355,6 +1355,13 @@ final class SqliteStore implements AutoCloseable
 			checkpoint.reached("SNAPSHOT_POSITIONS_RECONCILED");
 			reconcileBuyLimits(snapshot, result);
 			checkpoint.reached("SNAPSHOT_BUY_LIMITS_RECONCILED");
+            // A complete copied frame establishes only current state. Episode/financial gaps,
+            // source rows, counters booked before the gap and learning claims stay untouched.
+            var frameRead=new PlanningProjections(positionProjections(),offerProjections());
+            frameRead.currentEvents=currentOfferEvidence(snapshot.getAccountId());
+            for(var baseline:CurrentFrameBaseline.qualify(frameRead,snapshot,evaluatedAt))
+                writeProjection(baseline,frameRead.currentEvents.get(baseline.getSlot()).getEventId(),"Current frame baseline; financial episode remains quarantined");
+            checkpoint.reached("CURRENT_FRAME_BASELINES_WRITTEN");
 			RiskWindow window = startRiskWindowIfProven(snapshot,evaluatedAt);
 			connection.commit();
 			cacheRiskWindow(window);

@@ -48,6 +48,7 @@ import javax.inject.Singleton;
 @Singleton
 public class CompanionClient
 {
+    private static final org.slf4j.Logger LOG=org.slf4j.LoggerFactory.getLogger(CompanionClient.class);
 	private static final String BASE = "http://127.0.0.1:37777/v1/";
 	private static final int TIMEOUT_MILLIS = 750;
 	/** Ledger-backed reads may scan retained evidence. This is a transport budget, not advice TTL. */
@@ -1552,7 +1553,7 @@ public class CompanionClient
         private void replayPendingOffers()
         {
                 long generation = replayGeneration.get();
-                replayPendingOffers(event -> request("events/ge-offer", "POST", gson.toJson(event), TIMEOUT_MILLIS, event.getAccountId()), generation);
+                replayPendingOffers(event -> request("events/ge-offer", "POST", gson.toJson(event), ACCOUNT_READ_TIMEOUT_MILLIS, event.getAccountId()), generation);
         }
 
         boolean replayPendingOffers(OfferEventSender sender)
@@ -1657,7 +1658,7 @@ public class CompanionClient
                                 {
                                         if (replayEnabled && generation == replayGeneration.get())
                                         {
-                                                replayPendingOffers(event -> request("events/ge-offer", "POST", gson.toJson(event), TIMEOUT_MILLIS, event.getAccountId()), generation);
+                                                replayPendingOffers(event -> request("events/ge-offer", "POST", gson.toJson(event), ACCOUNT_READ_TIMEOUT_MILLIS, event.getAccountId()), generation);
                                         }
                                 }
                                 finally
@@ -1731,9 +1732,9 @@ public class CompanionClient
 
 	private void post(String path, Object body)
 	{
-		try { request(path, "POST", gson.toJson(body), TIMEOUT_MILLIS,
+		try { request(path, "POST", gson.toJson(body), body instanceof AccountSnapshot?ACCOUNT_READ_TIMEOUT_MILLIS:TIMEOUT_MILLIS,
 			body instanceof AccountSnapshot ? ((AccountSnapshot) body).getAccountId() : accountContext()); }
-		catch (Exception ex) { lastError = ex.getMessage(); }
+		catch (Exception ex) { lastError = ex.getMessage();LOG.warn("Companion {} publication failed: {}",path,lastError); }
 	}
 
 	private <T> T get(String path, Class<T> type) throws Exception

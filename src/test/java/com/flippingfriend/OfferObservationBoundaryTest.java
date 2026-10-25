@@ -120,6 +120,8 @@ public class OfferObservationBoundaryTest
     {
         Fixture f = new Fixture();
         f.plugin.onGameTick(new net.runelite.api.events.GameTick());
+        f.plugin.onGrandExchangeOfferChanged(changed(2, observation(GrandExchangeOfferState.BOUGHT,10)));
+        clearInvocations(f.tracker,f.companion);
         f.plugin.onGrandExchangeOfferChanged(changed(2, observation(GrandExchangeOfferState.EMPTY, 0)));
         f.worker.runPending();
         verify(f.tracker).onOfferChanged(eq(2), any());
@@ -129,6 +131,7 @@ public class OfferObservationBoundaryTest
     @Test public void loggedInDefaultEmptyCallbacksCannotClearPersistedOffers() throws Exception
     {
         Fixture f = new Fixture();
+        f.plugin.onGameTick(new net.runelite.api.events.GameTick());
         for(int slot=0;slot<8;slot++)
             f.plugin.onGrandExchangeOfferChanged(changed(slot, observation(GrandExchangeOfferState.EMPTY,0)));
         f.worker.runPending();
