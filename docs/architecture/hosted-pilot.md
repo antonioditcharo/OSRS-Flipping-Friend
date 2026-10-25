@@ -62,6 +62,11 @@ counted twice. Disconnected real demand persists conservatively. Pooled capture 
 fair rounds operate by person then accounts. This estimates opportunity, not a GE reservation.
 Refresh spam or more accounts cannot increase a person's round priority.
 
+New demand frames enter a bounded coalescing queue. Allocation rounds commit at most 128 latest
+frames in one FULL SQLite transaction before making them eligible for advice. Failed batches remain
+queued; older frames cannot replace pending newer frames. Identical refreshes do not force another
+disk flush. This avoids a synchronized user burst performing one foreground fsync per request.
+
 ## Private operator workflow
 
 `tools/configure-hosting.ps1` saves the provider token encrypted for the current Windows user;

@@ -20,15 +20,26 @@ final class PilotEvidenceStore implements AutoCloseable {
         }
     }
     synchronized void saveDemand(String user,PilotProtocol.AllocationRequest input) {
+        saveDemands(java.util.List.of(new PilotCoordinator.Request(user,input)));
+    }
+    synchronized void saveDemands(java.util.List<PilotCoordinator.Request> batch) {
         try {
             // Only the last authenticated frame and its outstanding quantities survive restart.
             // Candidate advice leases expire; this record never becomes financial exposure.
-            var retained=gson.fromJson(gson.toJson(input),PilotProtocol.AllocationRequest.class);
-            retained.candidates=java.util.List.of();
+            db.setAutoCommit(false);
             try(var statement=db.prepareStatement("INSERT OR REPLACE INTO capacity_demand VALUES(?,?,?)")) {
-                statement.setString(1,user);statement.setString(2,input.accountId);statement.setString(3,gson.toJson(retained));statement.executeUpdate();
+                for(var request:batch) {
+                    var input=request.input;var retained=new PilotProtocol.AllocationRequest();
+                    retained.protocol=input.protocol;retained.accountId=input.accountId;retained.installationId=input.installationId;
+                    retained.context=input.context;retained.generation=input.generation;retained.frameOrder=input.frameOrder;
+                    retained.observedAt=input.observedAt;retained.marketAt=input.marketAt;retained.coordinate=input.coordinate;
+                    retained.preferredProfit=input.preferredProfit;retained.demand=input.demand;
+                    statement.setString(1,request.user);statement.setString(2,input.accountId);statement.setString(3,gson.toJson(retained));statement.addBatch();
+                }
+                statement.executeBatch();db.commit();
             }
-        }catch(Exception unavailable){throw new IllegalStateException("Outstanding demand persistence unavailable",unavailable);}
+        }catch(Exception unavailable){try{db.rollback();}catch(Exception rollback){unavailable.addSuppressed(rollback);}throw new IllegalStateException("Outstanding demand persistence unavailable",unavailable);}
+        finally{try{db.setAutoCommit(true);}catch(Exception failure){throw new IllegalStateException(failure);}}
     }
     synchronized void restoreDemand(PilotCoordinator coordinator)throws Exception {
         try(var statement=db.createStatement();var rows=statement.executeQuery("SELECT user_id,payload FROM capacity_demand LIMIT 4097")) {

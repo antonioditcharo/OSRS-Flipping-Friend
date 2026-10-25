@@ -80,7 +80,7 @@ public final class HostedPilotMain {
                 String body=new String(bytes,StandardCharsets.UTF_8);
                 if("/service/v1/allocations".equals(route)) {
                     var request=gson.fromJson(body,PilotProtocol.AllocationRequest.class);authorize(device,request.accountId,request.installationId);
-                    long now=System.currentTimeMillis()/1000;coordinator.submit(device.userId,request,now,()->evidence.saveDemand(device.userId,request));
+                    long now=System.currentTimeMillis()/1000;coordinator.enqueue(device.userId,request,now);
                     var hint=hints.get(device.userId+"/"+request.accountId);
                     if(hint==null || !hint.matches(request,now)){respond(x,202,Map.of("protocol",PilotProtocol.VERSION,"status","LOCAL_FALLBACK"));return;}
                     respond(x,200,hint);return;
@@ -101,6 +101,7 @@ public final class HostedPilotMain {
         }
         void allocate() {
             try {
+                coordinator.flush(evidence::saveDemands);
                 var state=market.state();long now=System.currentTimeMillis()/1000;
                 if(state.observedAt<=0 || now-state.observedAt>180)return;
                 hints.putAll(coordinator.round((item,buy)->{

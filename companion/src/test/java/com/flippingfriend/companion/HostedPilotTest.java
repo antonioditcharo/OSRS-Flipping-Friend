@@ -65,6 +65,18 @@ public class HostedPilotTest {
         var hints=restored.round((item,buy)->100,now+200);
         assertFalse(hints.containsKey("offline/"+account));assertEquals(0,hints.get("active/"+other).itemId);
     }
+    @Test public void queuedFramesCannotAllocateBeforeDurabilityAndFailedBatchesRetryWithoutLosingDemand()throws Exception {
+        long now=20000;var coordinator=new PilotCoordinator();coordinator.enqueue("one",request(account,now),now);
+        assertTrue(coordinator.round((item,buy)->10000,now).isEmpty());
+        try{coordinator.flush(batch->{throw new IllegalStateException("disk unavailable");});fail();}catch(IllegalStateException expected){}
+        assertTrue(coordinator.round((item,buy)->10000,now).isEmpty());
+        var input=request(account,now);input.frameOrder=2;input.context="b".repeat(64);coordinator.enqueue("one",input,now);
+        try{coordinator.enqueue("one",request(account,now),now);fail();}catch(IllegalArgumentException expected){}
+        var batches=new ArrayList<List<PilotCoordinator.Request>>();coordinator.flush(batches::add);
+        assertEquals(1,batches.size());assertEquals(2,batches.get(0).get(0).input.frameOrder);
+        assertEquals(561,coordinator.round((item,buy)->10000,now).get("one/"+account).itemId);
+        coordinator.enqueue("one",input,now);coordinator.flush(batch->fail("Identical refresh caused a durability write"));
+    }
     @Test public void replicaCommitsOriginalIdsOnceAndWrongAccountOrChangedPayloadCannotAdvanceIt()throws Exception {
         Path file=folder.newFolder().toPath().resolve("replica.db");long now=20000;
         try(var store=new PilotEvidenceStore(file)) {

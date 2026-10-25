@@ -8,6 +8,7 @@ final class PilotCoordinator {
     static final double POOLED_SHARE=0.55;
     interface Capacity { long hourly(int item,boolean buy); }
     private final Map<String,Request> requests=new LinkedHashMap<>();
+    private final Map<String,Request> pending=new LinkedHashMap<>();
     private final Map<String,Lease> leases=new HashMap<>();
     private final Map<String,Long> userTurn=new HashMap<>(),accountTurn=new HashMap<>();
     private long revision;
@@ -21,6 +22,26 @@ final class PilotCoordinator {
     synchronized void submit(String user,PilotProtocol.AllocationRequest input,long now) {
         submit(user,input,now,()->{});
     }
+    synchronized void enqueue(String user,PilotProtocol.AllocationRequest input,long now) {
+        input.validate(now);String key=user+"/"+input.accountId;
+        if(!requests.containsKey(key) && !pending.containsKey(key) && requests.size()+pending.size()>=4096)
+            throw new IllegalStateException("pilot account capacity");
+        validateOrder(requests.get(key),input);validateOrder(pending.get(key),input);
+        pending.put(key,new Request(user,input));
+    }
+    synchronized void flush(java.util.function.Consumer<List<Request>> persist) {
+        if(pending.isEmpty())return;
+        var selected=new ArrayList<Map.Entry<String,Request>>();var changed=new ArrayList<Request>();
+        for(var entry:pending.entrySet()) {
+            if(selected.size()>=128)break;selected.add(entry);
+            var old=requests.get(entry.getKey());var input=entry.getValue().input;
+            if(old==null || input.generation!=old.input.generation || input.frameOrder!=old.input.frameOrder
+                    || !Objects.equals(input.context,old.input.context))changed.add(entry.getValue());
+        }
+        // One FULL SQLite commit for a fair batch, before any corresponding advice can be allocated.
+        if(!changed.isEmpty())persist.accept(changed);
+        for(var entry:selected){requests.put(entry.getKey(),entry.getValue());pending.remove(entry.getKey());}
+    }
     synchronized void restore(String user,PilotProtocol.AllocationRequest input) {
         requests.put(user+"/"+input.accountId,new Request(user,input));
     }
@@ -29,16 +50,18 @@ final class PilotCoordinator {
         String key=user+"/"+input.accountId;
         if(!requests.containsKey(key) && requests.size()>=4096)throw new IllegalStateException("pilot account capacity");
         Request old=requests.get(key);
+        validateOrder(old,input);
+        if(old==null || input.generation!=old.input.generation || input.frameOrder!=old.input.frameOrder
+                || !Objects.equals(input.context,old.input.context))persist.run();
+        requests.put(key,new Request(user,input));
+    }
+    private static void validateOrder(Request old,PilotProtocol.AllocationRequest input) {
         if(old!=null && (!old.input.installationId.equals(input.installationId)
                 || input.generation<old.input.generation || (input.generation==old.input.generation && input.frameOrder<old.input.frameOrder) || input.observedAt<old.input.observedAt))
             throw new IllegalArgumentException("stale or foreign capture writer");
         if(old!=null && input.generation==old.input.generation && input.frameOrder==old.input.frameOrder
                 && (!Objects.equals(input.context,old.input.context) || input.observedAt!=old.input.observedAt))
             throw new IllegalArgumentException("conflicting capture frame");
-        // Identical refreshes need no repeated disk write or additional allocation priority.
-        if(old==null || input.generation!=old.input.generation || input.frameOrder!=old.input.frameOrder
-                || !Objects.equals(input.context,old.input.context))persist.run();
-        requests.put(key,new Request(user,input));
     }
     synchronized Map<String,PilotProtocol.AllocationHint> round(Capacity capacity,long now) {
         leases.values().removeIf(l->l.expires<=now);
