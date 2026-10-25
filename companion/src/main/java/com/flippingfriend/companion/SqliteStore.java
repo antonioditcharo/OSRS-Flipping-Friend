@@ -808,11 +808,13 @@ final class SqliteStore implements AutoCloseable
         scope.reconciliationScope.putAll(reconciliationScope(expectedAccountId, history));
         Map<String,com.flippingfriend.core.AcquisitionExitContext> exitContexts=null;
         var parser=new com.google.gson.Gson();
+        Map<String,String> gapReasons=new HashMap<>();
         try (PreparedStatement s = connection.prepareStatement(
-            "SELECT p.effect_type,p.item_id,p.item_name,p.quantity,p.acquisition_cost,p.observed_at,p.source_event_id,p.source_offer_identity,e.payload "
+            "SELECT p.effect_type,p.item_id,p.item_name,p.quantity,p.acquisition_cost,p.observed_at,p.source_event_id,p.source_offer_identity,e.payload,p.transition_reason "
                 +"FROM position_event p LEFT JOIN event_log e ON e.event_id=p.source_event_id AND e.event_id IS NOT NULL AND e.event_id<>'' ORDER BY p.id");
              ResultSet r = s.executeQuery()) {
             while (r.next()) {
+                if("RECONCILE".equals(r.getString(1)))gapReasons.put(r.getString(7),r.getString(10));
                 com.flippingfriend.core.AcquisitionExitContext context=null;
                 if(expectedAccountId!=null && "ACQUIRE".equals(r.getString(1)) && r.getString(9)!=null) {
                     OfferEvent source=null;
@@ -829,6 +831,7 @@ final class SqliteStore implements AutoCloseable
                 scope.reconciliationScope.get(r.getString(7)),context);
             }
         }
+        scope.unchangedFrameItems=UnchangedFrameRecovery.items(sources,scope,gapReasons);
         if(sources!=null){scopedEffects=scope;scopedEffectsCursor=cursor;}
         return scope;
     }
@@ -940,7 +943,8 @@ final class SqliteStore implements AutoCloseable
         Long cost = null;
         String reason = effect.getReason();
         if (effect.getType() == PositionAccountingEffectType.DISPOSE) {
-            if (current != null && !scope.hasUnboundedReconciliation && !scope.unsafeItems.contains(effect.getItemId())
+            if (current != null && !scope.hasUnboundedReconciliation
+                    && (!scope.unsafeItems.contains(effect.getItemId()) || scope.unchangedFrameItems.contains(effect.getItemId()))
                     && effect.getQuantity() <= current.getQuantity())
                 cost = SaleAccounting.allocateCost(current.getTotalCost(), current.getQuantity(), effect.getQuantity());
             else reason = "Sale lacks complete observed acquisition coverage";

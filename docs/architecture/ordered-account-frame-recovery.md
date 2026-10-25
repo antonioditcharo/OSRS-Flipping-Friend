@@ -24,6 +24,15 @@ event type, price, size, filled count and spent counter are identical. It is not
 Changed counters/episodes, missing sources, foreign accounts/sessions and ambiguous ordering
 remain unbounded. Original gaps and item pauses remain; current cash and risk are separate gates.
 
+An additional read-only proof pairs the rejected unchanged frame with its immediately following
+unchanged authenticated recovery baseline. Both exact reasons, the original same-episode counters,
+ordered sequences and restored original clock are required. Every gap affecting an item must have
+this proof; an independent gap or malformed acquisition defeats it. This does not clear the gaps,
+item entry pause, prospective funding bound or full cost reserve. A current sell whose aggregate
+remaining listings fit the recorded acquisition pool may coexist with unrelated entries under
+those reserves; live uncertain buys and excessive/unsupported sells still block. Future observed
+sale deltas can consume that pool's exact cost without becoming another unmatched-cost incident.
+
 Ledger construction attaches item scope before validation. Otherwise an item-zero legacy gap
 could incorrectly reject unrelated managed holdings before their scope proof was installed.
 

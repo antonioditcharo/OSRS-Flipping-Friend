@@ -30,7 +30,7 @@ final class DurableRisk {
             if(market==null || market.observedAt<=0 || market.observedAt>now || now-market.observedAt>120)
                 return AccountRiskSnapshot.unavailable(id,now,"Waiting for fresh prices to evaluate account risk.");
             for(var offer:read.offers)if(offer.getState()!=OfferLifecycleState.EMPTY
-                && exposure.unavailableEntryItems.contains(offer.getItemId()))
+                && exposure.unavailableEntryItems.contains(offer.getItemId()) && !UnchangedFrameRecovery.boundedSell(read,offer))
                 return AccountRiskSnapshot.unavailable(id,now,"The current offer for "
                     +(offer.getItemName()==null?"Item "+offer.getItemId():offer.getItemName())
                     +" has unresolved execution evidence. Finish or collect that offer before new entries. Historical records stay separate.");

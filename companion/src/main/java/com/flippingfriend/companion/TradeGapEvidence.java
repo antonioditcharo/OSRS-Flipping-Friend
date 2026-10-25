@@ -61,7 +61,7 @@ final class TradeGapEvidence {
     }
     // A delayed unchanged frame cannot widen the possible item set. This is scope evidence only:
     // the reducer still retains the rejection/baseline and never books recovered counters.
-    private static boolean unchangedAuthenticatedEpisode(OfferEvent a,OfferEvent b) {
+    static boolean unchangedAuthenticatedEpisode(OfferEvent a,OfferEvent b) {
         return a!=null && a.isAuthenticatedObservation() && b.isAuthenticatedObservation()
             && a.getItemId()>0 && a.getItemId()==b.getItemId()
             && Objects.equals(a.getOfferIdentity(),b.getOfferIdentity())

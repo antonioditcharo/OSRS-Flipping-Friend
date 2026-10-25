@@ -25,6 +25,9 @@ public final class SaleCostIncidentProbe {
         var report=new LinkedHashMap<String,Object>();report.put("evidence","OFFLINE_FROZEN_COPY_ONLY");
         try(var store=new SqliteStore(destination)) {
             var read=store.planningProjections(account);report.put("unboundedScope",read.tradeScope.hasUnboundedReconciliation);
+            report.put("unchangedFrameItems",read.tradeScope.unchangedFrameItems);
+            report.put("boundedActivePausedSells",read.offers.stream().filter(o->read.tradeScope.unsafeItems.contains(o.getItemId())
+                && UnchangedFrameRecovery.boundedSell(read,o)).map(o->o.getItemId()).collect(java.util.stream.Collectors.toList()));
             var exposure=DurablePlanningExposure.forAccount(read,snapshot,snapshot.getObservedAt());report.put("exposureAvailable",exposure!=null);
             report.put("currentReadSetValid",CurrentOfferReadSet.valid(read,snapshot,evaluatedAt));
             report.put("historicalExposureAvailable",BoundedHistoricalExposure.calculate(read)!=null);
