@@ -7,13 +7,22 @@ installed and player accepted are separate states. Owner is home; older login de
 
 ## Current batch
 
-- [ ] Verify/deliver `codex/acknowledged-guidance-latency`: bounded historical funding reuse,
+- [ ] Verify/deliver `codex/foreground-market-isolation`: public reads cannot occupy financial FIFO
+      queues; bounded public-feed overload retains authentication, global health and canonical writes.
+      Disposable restoration must refuse known low space before creating a partial copy. Preserve
+      installed #167 rollback and all source/financial/risk data; verify clean Java/tooling, both CI
+      platforms, paired installation, fresh frame ACKs/guidance and sustained latency.
+      [Contract](docs/architecture/foreground-market-isolation.md);
+      `local-data/hosted-pilot/foreground-market-delivery.json`. Source is not runtime activation.
+
+- [x] Implement/test/install `codex/acknowledged-guidance-latency`: bounded historical funding reuse,
       fresh current-state/overflow checks, failure-safe HTTP cleanup/exact source retries and
       separated capture/queue/publication timing. Keep #165 rollback, original source/financial
-      rows, current guards and working offers. Complete clean Java/tooling, exact-head Windows/Linux
-      CI, paired backup/install, fresh frame ACKs/guidance and sustained latency acceptance.
+      rows, current guards and working offers. Clean Java/tooling, exact-head Windows/Linux CI,
+      paired backup/install, 57-file restoration, rollback reads and fresh guidance pass. Installed
+      #167 has remaining HTTP stalls; sustained frame/guidance latency stays unchecked below.
       [Contract](docs/architecture/acknowledged-guidance-latency.md);
-      `local-data/hosted-pilot/ack-latency-delivery.json`. Source is not runtime activation.
+      `local-data/hosted-pilot/ack-latency-delivery.json`.
 
 - [ ] Complete latency/player acceptance after installed #164: provided Gson 2.8.5 live history ACKs,
       fresh guidance, clean Java/tooling, both CI platforms, original data preservation and rollback
@@ -24,7 +33,7 @@ installed and player accepted are separate states. Owner is home; older login de
       [Contract](docs/architecture/pilot-client-compatibility.md); receipts
       `local-data/hosted-pilot/compatibility-delivery.json` and `guidance-hot-path-delivery.json`.
       Sustained warm-path timing, final UI latency, player trading/restart and active hosted advice
-      outage acceptance remain open; installed #165 is the current baseline. Its latest receipt
+      outage acceptance remain open; installed #167 is the current baseline. Its latest receipt
       records fresh login/guidance/timing separately; source tests alone cannot close those gates.
 
 - [ ] Complete the approved hosted pilot: preservation/rollback proof, isolated background history

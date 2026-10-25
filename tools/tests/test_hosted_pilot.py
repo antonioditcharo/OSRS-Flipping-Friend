@@ -24,6 +24,25 @@ hosted_backup = load('pilot_remote_backup', ROOT / 'tools/hosting/pilot-backup.p
 
 
 class HostedPilotToolsTest(unittest.TestCase):
+    def test_disposable_restore_refuses_low_space_before_hashing_or_creating_any_copy(self):
+        from types import SimpleNamespace
+        with tempfile.TemporaryDirectory() as temporary:
+            source = Path(temporary) / 'backup'
+            source.mkdir()
+            (source / 'backup-verification.json').write_text(json.dumps({'status': 'VERIFIED'}))
+            for name in ('osrs-flipping-friend.jar', 'flipping-friend-companion.jar', 'installation.json'):
+                (source / name).write_bytes(b'unchanged source')
+            destination = Path(temporary) / 'missing-parent' / 'restored'
+            size = sum(path.stat().st_size for path in source.iterdir())
+            with patch.object(backup.shutil, 'disk_usage', return_value=SimpleNamespace(free=size+768*1024*1024-1)), \
+                    patch.object(backup, 'digest') as digest, patch.object(backup.shutil, 'copytree') as copy:
+                with self.assertRaisesRegex(ValueError, 'Insufficient disposable restore space'):
+                    backup.verify(source, destination)
+                digest.assert_not_called()
+                copy.assert_not_called()
+            self.assertFalse(destination.parent.exists())
+            self.assertTrue(all(path.read_bytes()==b'unchanged source' for path in source.iterdir() if path.suffix!='.json'))
+
     def test_quote_reserves_headroom_and_refuses_an_unapproved_price(self):
         with tempfile.TemporaryDirectory() as temporary:
             private = Path(temporary) / 'private'

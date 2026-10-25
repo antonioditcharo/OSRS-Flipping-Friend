@@ -19,6 +19,7 @@ import java.util.concurrent.RejectedExecutionException;
 /** Authenticated loopback-only HTTP boundary. It intentionally exposes no control endpoint. */
 final class ApiServer implements AutoCloseable
 {
+    private static final org.slf4j.Logger LOG=org.slf4j.LoggerFactory.getLogger(ApiServer.class);
 	static final int PORT = 37_777;
 	private final HttpServer server;
 	private final ExecutorService executor = Executors.newFixedThreadPool(2);
@@ -29,6 +30,9 @@ final class ApiServer implements AutoCloseable
 	// Historical reports and their potentially slow response bodies cannot occupy event/authority workers.
 	private final ThreadPoolExecutor reportExecutor = new ThreadPoolExecutor(1, 1, 0, TimeUnit.SECONDS,
 		new ArrayBlockingQueue<>(2));
+    // Public feed reads have no financial ordering relationship to the caller's account.
+    private final ThreadPoolExecutor feedExecutor = new ThreadPoolExecutor(2, 2, 0, TimeUnit.SECONDS,
+        new ArrayBlockingQueue<>(8));
 	final FairAccountWork accountWork=new FairAccountWork(accountExecutor);
 	private final String token;
 	private final Gson gson;
@@ -80,15 +84,27 @@ final class ApiServer implements AutoCloseable
 	{
 		if (!authorized(exchange)) return;
 		boolean report = reportRequest(exchange);
+        boolean feed = "GET".equals(exchange.getRequestMethod()) && java.util.Set.of(
+            "/v1/market/snapshot","/v1/market/series").contains(exchange.getRequestURI().getPath());
 		try
 		{
-			Runnable work=()->{try{handler.handle(exchange);}catch(IOException|RuntimeException error){exchange.close();}};
-            if(report)reportExecutor.execute(work);
+            long queuedAt=System.nanoTime();
+			Runnable work=()->{
+                long started=System.nanoTime();
+                try{handler.handle(exchange);}catch(IOException|RuntimeException error){exchange.close();}
+                finally {
+                    long finished=System.nanoTime();
+                    if(finished-queuedAt>=750_000_000L)LOG.info("Companion API duration: {} ms queued, {} ms handler; {}",
+                        (started-queuedAt)/1_000_000,(finished-started)/1_000_000,feed?"public market":report?"report":"account");
+                }
+            };
+            if(feed)feedExecutor.execute(work);
+            else if(report)reportExecutor.execute(work);
             else accountWork.execute(java.util.Objects.toString(exchange.getRequestHeaders().getFirst(com.flippingfriend.core.AccountIdentity.HEADER),"unscoped"),work);
 		}
 		catch (RejectedExecutionException busy)
 		{
-			respond(exchange, 503, report
+			respond(exchange, 503, feed ? "{\"error\":\"Public market reads are busy; retry the read later.\"}" : report
                 ? "{\"error\":\"Companion reports are busy; retry the read later.\"}"
                 : "{\"error\":\"Companion account requests are busy; retry without changing event identity.\"}");
 		}
@@ -461,5 +477,5 @@ final class ApiServer implements AutoCloseable
 		exchange.getResponseBody().write(bytes);
 		exchange.close();
 	}
-	@Override public void close() { server.stop(0); accountWork.close();executor.shutdownNow(); accountExecutor.shutdownNow(); reportExecutor.shutdownNow(); }
+	@Override public void close() { server.stop(0); accountWork.close();executor.shutdownNow(); accountExecutor.shutdownNow(); reportExecutor.shutdownNow(); feedExecutor.shutdownNow(); }
 }
