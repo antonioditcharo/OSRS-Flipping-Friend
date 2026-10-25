@@ -27,6 +27,16 @@ def verify(source, destination):
     files = [p for p in source.rglob('*') if p.is_file()]
     if any(p.is_symlink() or getattr(p.lstat(), 'st_file_attributes', 0) & 0x400 for p in source.rglob('*')):
         raise ValueError('Backup links are not accepted')
+    # Budget uncompressed bytes even when the source uses transparent NTFS compression.
+    # A failed disposable copy must not fill the runtime volume or leave a partial destination.
+    volume = destination.parent
+    while not volume.exists():
+        if volume == volume.parent:
+            raise ValueError('Disposable restoration volume is unavailable')
+        volume = volume.parent
+    required = sum(path.stat().st_size for path in files) + 768 * 1024 * 1024
+    if shutil.disk_usage(volume).free < required:
+        raise ValueError('Insufficient disposable restore space; backup and destination are unchanged')
     hashes = {str(p.relative_to(source)): digest(p) for p in files}
     shutil.copytree(source, destination)
     for relative, expected in hashes.items():

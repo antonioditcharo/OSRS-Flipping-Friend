@@ -5,11 +5,10 @@ Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
 ## Current delivery
 
-PR #165 is installed in private shadow mode after clean Java/tooling and exact-head Windows/Linux
-CI. It removes quadratic sale-scope copies and unnecessary history scans from acquisition/gap
-ACKs. Its quiescent backup matches all 12 original source/financial/projection tables; 51 restored
-files verify, and the #164 rollback runtime reads the same restored ledger. Read
-`local-data/hosted-pilot/guidance-hot-path-delivery.json` for fresh login, guidance and timing status.
+Current installed pair: PR #167 in private shadow mode; its receipt is below. Earlier installed
+PR #165 removed quadratic sale-scope copies and unnecessary acquisition/gap history scans after
+clean Java/tooling and Windows/Linux CI. Its 12-table preservation, 51-file restoration and #164
+rollback reads passed; retain `local-data/hosted-pilot/guidance-hot-path-delivery.json`.
 The prior #164 live check acknowledged 1,024-row RuneLite GE history and logged BUY, maintenance,
 COLLECT and CANCEL; retain `compatibility-delivery.json` and
 [the compatibility/latency contract](docs/architecture/pilot-client-compatibility.md).
@@ -18,11 +17,16 @@ player-operated trading/restart and hosted advice acceptance retain separate gat
 risk anchors and existing offers remain authoritative; hosted advice, coordination and learning
 promotion remain off.
 
-Next source is `codex/acknowledged-guidance-latency`: reuse only unchanged historical funding
-bounds while rechecking live state, close failed HTTP transports and split publication timing.
-Read `local-data/hosted-pilot/ack-latency-delivery.json` and
-[the latency contract](docs/architecture/acknowledged-guidance-latency.md) for checks/install status.
-Installed #165 remains authoritative until that receipt proves the follow-on paired update.
+PR #167 is now installed: unchanged historical funding reuse, failed-transport cleanup and split
+publication timing passed clean Java/tooling, exact-head Windows/Linux CI, 12-table preservation,
+57-file restoration and #165/current rollback reads. Fresh BUY/SELL/COLLECT deliveries are logged;
+HTTP stalls remain. Read `local-data/hosted-pilot/ack-latency-delivery.json` and
+[the latency contract](docs/architecture/acknowledged-guidance-latency.md).
+Next source is `codex/foreground-market-isolation`: public-feed reads leave financial FIFO queues,
+with bounded workers/backpressure and a pre-copy disk-space guard for disposable restores.
+Read `local-data/hosted-pilot/foreground-market-delivery.json` and
+[the isolation contract](docs/architecture/foreground-market-isolation.md). Installed #167 remains
+authoritative until that receipt proves the follow-on update; all earlier acceptance gates remain.
 
 The approved hosted-pilot pass is PR #163 (`codex/hosted-pilot-continuous-guidance`).
 Read `local-data/hosted-pilot/delivery-state.json` and

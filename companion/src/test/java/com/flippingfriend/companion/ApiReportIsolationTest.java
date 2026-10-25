@@ -30,6 +30,37 @@ public class ApiReportIsolationTest {
             return status;
         }finally{connection.disconnect();}
     }
+    @Test public void blockedPublicSeriesReadCannotHoldAnAccountsFinancialQueue()throws Exception {
+        var root=folder.newFolder().toPath();var json=new Gson();String account=AccountIdentity.fromProfileKey("market-isolation");
+        var entered=new CountDownLatch(1);var release=new CountDownLatch(1);var clients=Executors.newFixedThreadPool(2);
+        try(var store=new SqliteStore(root.resolve("legacy.db"));var market=new CompanionService(json,store);
+            var accounts=new CompanionAccounts(root.resolve("accounts"),market);
+            var api=new ApiServer("secret",json,market,accounts,new InetSocketAddress("127.0.0.1",0))) {
+            var seriesField=CompanionService.class.getDeclaredField("series");seriesField.setAccessible(true);
+            var cacheField=SeriesCache.class.getDeclaredField("cache");cacheField.setAccessible(true);
+            cacheField.set(seriesField.get(market),new java.util.HashMap<Object,Object>() {
+                @Override public Object get(Object key) {
+                    entered.countDown();
+                    try{if(!release.await(10,TimeUnit.SECONDS))throw new IllegalStateException("fixture release missing");}
+                    catch(InterruptedException interrupted){Thread.currentThread().interrupt();throw new IllegalStateException(interrupted);}
+                    return null;
+                }
+            });
+            api.start();accounts.forAccount(account);
+            var feed=clients.submit(()->request(api,"market/series?id=561&timestep=5m",account,"secret",null));
+            assertTrue(entered.await(5,TimeUnit.SECONDS));
+            long at=Instant.now().getEpochSecond()-5;
+            var offer=OfferEvent.builder("fixture",at,"BUYING").accountId(account).authenticatedObservation(true)
+                .eventIdentity("market-independent-source","session","episode").slot(0).item(561,"Nature rune").buying(true)
+                .price(100).quantities(4,0).sequence(1).firstSeenAt(at).build();
+            try {
+                var acknowledgement=clients.submit(()->request(api,"accounts/"+account+"/events/ge-offer",account,"secret",json.toJson(offer)));
+                assertEquals("A stalled public feed must not occupy the account's source queue",202,acknowledgement.get(2,TimeUnit.SECONDS).intValue());
+                assertFalse(feed.isDone());assertEquals(0,store.positionEventCount());
+            }finally{release.countDown();}
+            assertEquals(200,feed.get(5,TimeUnit.SECONDS).intValue());
+        }finally{release.countDown();clients.shutdownNow();}
+    }
     @Test public void blockedReportWorkerAndQueuedReportDoNotDelayRealOfferAcknowledgementOrEntryAuthority()throws Exception {
         var root=folder.newFolder().toPath();var json=new Gson();String account=AccountIdentity.fromProfileKey("report-isolation");
         var entered=new CountDownLatch(1);var release=new CountDownLatch(1);var client=Executors.newSingleThreadExecutor();
@@ -81,6 +112,32 @@ public class ApiReportIsolationTest {
             var ledger=accounts.forAccount(account).ledger();assertEquals(4,ledger.getPositions().get(0).getQuantity());
             assertEquals(400,ledger.getPositions().get(0).getTotalCost());assertEquals(0,store.positionEventCount());
             release.countDown();
+        }finally{release.countDown();}
+    }
+    @Test public void publicFeedBackpressureLeavesAuthenticationAndFinancialWritesIndependent()throws Exception {
+        var root=folder.newFolder().toPath();var json=new Gson();String account=AccountIdentity.fromProfileKey("feed-overload");
+        var release=new CountDownLatch(1);
+        try(var store=new SqliteStore(root.resolve("legacy.db"));var market=new CompanionService(json,store);
+            var accounts=new CompanionAccounts(root.resolve("accounts"),market);
+            var api=new ApiServer("secret",json,market,accounts,new InetSocketAddress("127.0.0.1",0))) {
+            api.start();accounts.forAccount(account);
+            var field=ApiServer.class.getDeclaredField("feedExecutor");field.setAccessible(true);
+            var feeds=(ThreadPoolExecutor)field.get(api);var entered=new CountDownLatch(feeds.getCorePoolSize());
+            for(int i=0;i<feeds.getCorePoolSize();i++)feeds.execute(()->{
+                entered.countDown();try{release.await();}catch(InterruptedException interrupted){Thread.currentThread().interrupt();}
+            });
+            assertTrue(entered.await(5,TimeUnit.SECONDS));int capacity=feeds.getQueue().remainingCapacity();
+            assertTrue(capacity>0 && capacity<=8);for(int i=0;i<capacity;i++)feeds.execute(()->{});
+            assertEquals(503,request(api,"market/series?id=561&timestep=5m",account,"secret",null));
+            assertEquals(503,request(api,"market/snapshot",account,"secret",null));
+            assertEquals(401,request(api,"market/snapshot",account,"wrong",null));
+            long at=Instant.now().getEpochSecond()-5;
+            var event=OfferEvent.builder("fixture",at,"BUYING").accountId(account).authenticatedObservation(true)
+                .eventIdentity("feed-independent","session","episode").slot(0).item(561,"Nature rune").buying(true)
+                .price(100).quantities(4,0).sequence(1).firstSeenAt(at).build();
+            assertEquals(202,request(api,"accounts/"+account+"/events/ge-offer",account,"secret",json.toJson(event)));
+            assertEquals(202,request(api,"accounts/"+account+"/events/ge-offer",account,"secret",json.toJson(event)));
+            assertEquals(200,request(api,"health",null,"secret",null));assertEquals(0,store.positionEventCount());
         }finally{release.countDown();}
     }
 }
