@@ -57,6 +57,11 @@ public class OrdinarySaleMaintenanceQueueTest {
         PositionProjection holding(int item){return PositionProjection.ready(item,"Rune",3,301,now.getEpochSecond()-3600,now.getEpochSecond(),"buy-"+item,"episode-"+item);}
         AccountLedgerSnapshot ledger(List<PositionProjection> positions){return new AccountLedgerSnapshot(account,now.getEpochSecond(),0,0,0,0,0,0,0,0,List.of()).withTradeEvidence(positions,List.of(),Map.of());}
         Suggestion next(){return engine.refresh(false);}
+        void publishPrices() {
+            var previous=market.getSnapshot();
+            when(market.getSnapshot()).thenReturn(new MarketSnapshot(previous.getMetadata(),prices,previous.getFiveMinute(),
+                previous.getHourly(),now,previous.getLatestFeedObservedAt()));
+        }
         void buy(int low)throws Exception {
             var buy=new TrackedOffer(2,563,true,100,2,now.getEpochSecond()-3600);buy.setState("BUYING");active.set(2,buy);
             var previous=market.getSnapshot();var mapping=new HashMap<>(previous.getMetadata());mapping.put(563,new ItemMetadata(563,"Buy rune",false,1000,0));
@@ -108,9 +113,11 @@ public class OrdinarySaleMaintenanceQueueTest {
         var f=new Sales(mock(CompanionClient.class));f.first.observeFillAt(now.getEpochSecond()-1);
         assertEquals(562,f.next().getItemId());assertEquals(1,f.engine.saleCandidates().size());
         f.prices.put(562,new LatestPrice(120,now.getEpochSecond()-301,110,now.getEpochSecond()));
+        f.publishPrices();
         assertEquals(SuggestionType.WAIT,f.next().getType());assertTrue(f.engine.saleCandidates().isEmpty());
         f.prices.put(562,price(120,110));when(f.companion.tradingLedger()).thenReturn(f.ledger(List.of(f.holding(561),
             PositionProjection.ready(562,"Rune",3,600,now.getEpochSecond()-3600,now.getEpochSecond(),"buy-562","episode-562"))));
+        f.publishPrices();
         assertEquals(SuggestionType.WAIT,f.next().getType());assertTrue(f.engine.saleCandidates().isEmpty());
     }
     @Test public void accountChangesAndSlotReuseCannotRetainThePreviousCandidateQueue()throws Exception {
@@ -143,6 +150,7 @@ public class OrdinarySaleMaintenanceQueueTest {
             var f=new Sales(mock(CompanionClient.class));f.buy(115);assertEquals(SuggestionType.MODIFY_SELL,f.next().getType());
             if(recent)f.active.get(2).observeFillAt(now.getEpochSecond()-1);
             else f.prices.put(563,new LatestPrice(160,now.getEpochSecond()-301,115,now.getEpochSecond()));
+            f.publishPrices();
             assertNull(f.engine.buyMaintenanceAfterSaleRefusal(Set.of()));
         }
     }
