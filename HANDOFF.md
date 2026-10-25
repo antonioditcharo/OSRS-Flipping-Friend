@@ -5,26 +5,23 @@ Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
 ## Current delivery
 
-Queued source: `codex/steady-guidance-relist` addresses the owner's #168 feedback: duplicate or
-unrelated container callbacks withdraw BUY cards, and a collected accepted sale reduction can
-wait for bucket support again. It retains immediate real-state invalidation, exact taxed costs,
-canonical acceptance/source checks and the exit slot. [Contract](docs/architecture/steady-guidance-relist.md).
-Read `local-data/hosted-pilot/steady-guidance-delivery.json` for verification versus installation.
-Player acceptance and sustained latency remain open; the owner reports the general workflow works
-but these intermittent issues remain.
-
-Current installed pair: PR #168 in private shadow mode. Public-feed GETs have bounded workers
-outside financial FIFO queues; disposable restoration checks logical size plus runtime headroom
-before copying. Clean Java/tooling and exact-head Windows/Linux CI passed. Installation preserved
-all 12 checked source/financial/projection tables; 95 restored files and five separately captured
-configuration files verify. #167/current reads match ledger totals, managed stock, source scope
-and the present original risk window. Fresh BUY/COLLECT deliveries, an acknowledged eight-slot
-frame and zero pending financial events are recorded; original immutable prefixes still match.
-Read `local-data/hosted-pilot/foreground-market-delivery.json` and
-[the isolation contract](docs/architecture/foreground-market-isolation.md) for current evidence.
-Some cold-start/report stalls remain; sustained warm-path timing and controlled player/restart
-acceptance stay open. Hosted advice, coordination and learning promotion remain off. Earlier pilot
-receipts and preservation details are retained in
+Current installed pair: PR #170 (`codex/steady-guidance-relist`) in private shadow mode. It retains
+valid advice across exact duplicate/irrelevant container callbacks, and completes source-proven
+accepted routine sale reductions at a saved non-loss limit if optional bucket history disappears.
+Real/unreadable state changes, bank cash, exact remaining costs, original targets/stops, canonical
+acceptance/source checks and the exit slot retain their guards. Chronological replay is version 23.
+[Contract](docs/architecture/steady-guidance-relist.md);
+`local-data/hosted-pilot/steady-guidance-delivery.json` separates source, installation and acceptance.
+Clean Java (2,353 tests, six existing skips), 121 tooling tests, Java 11 and both exact-head CI
+platforms passed. Paired installation preserves all 12 checked source/financial/projection tables;
+107 restored files, five configuration files and #168/current ledger/stock/scope/original risk-window
+equality verify. Reopened RuneLite has a fresh acknowledged eight-slot frame, zero pending financial
+events and unchanged original immutable prefixes. All slots were occupied; visible guidance and
+controlled entry/relist/restart acceptance remain open. The owner's #168 feedback was generally positive but
+reported intermittent pauses, stranded relists and BUY flicker; it does not accept this new pair.
+Some cold-start/report stalls remain; sustained warm-path timing is open. Hosted advice,
+coordination and learning promotion remain off. Earlier preservation receipts are retained in
+[the #168 checkpoint](docs/history/handoff-foreground-through-pr168.md) and
 [the PR #163–167 checkpoint](docs/history/handoff-pilot-through-2026-10-25-pr167.md).
 
 The approved hosted-pilot pass is PR #163 (`codex/hosted-pilot-continuous-guidance`).
