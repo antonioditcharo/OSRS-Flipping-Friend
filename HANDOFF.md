@@ -5,6 +5,15 @@ Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
 ## Current delivery
 
+Fresh installed #161 login exposed after-tick default EMPTY callbacks and cold write timeouts;
+original default EMPTY sources/rejected returning episodes remain preserved. Follow-on source
+requires a current-login nonempty predecessor for every callback EMPTY, restores current slot
+metadata only from complete acknowledged cash/eight-slot frames, retains financial quarantine,
+and bounds affected active sells with their full recorded cost before unrelated entries. Canonical
+writes use the existing five-second account budget. [Contract](docs/architecture/current-frame-quarantine-recovery.md).
+Read the latest receipt for this source versus installed runtime. Newly interrupted execution
+evidence remains in Missed flips; current-state recovery cannot book omitted offline fills.
+
 The latest owner-approved regression batch is ordered account-frame capture and source-proven
 sale-cost amendments. Read `local-data/ordered-frame-recovery-20261024/delivery-state.json` first.
 An older copied eight-slot frame overtook a callback, creating a Raw manta ray timestamp gap that

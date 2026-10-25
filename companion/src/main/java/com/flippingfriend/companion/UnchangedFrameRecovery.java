@@ -34,6 +34,10 @@ final class UnchangedFrameRecovery {
     }
     static boolean boundedSell(SqliteStore.PlanningProjections read,OfferLifecycleProjection offer) {
         if(offer.isBuying() || !read.tradeScope.unchangedFrameItems.contains(offer.getItemId()))return false;
+        return coveredSell(read,offer);
+    }
+    static boolean coveredSell(SqliteStore.PlanningProjections read,OfferLifecycleProjection offer) {
+        if(offer.isBuying())return false;
         long remaining=0;
         for(var current:read.offers)if(current.getItemId()==offer.getItemId() && current.getState()!=OfferLifecycleState.EMPTY) {
             if(current.isBuying() || current.getState()==OfferLifecycleState.ERROR_RECONCILIATION)return false;

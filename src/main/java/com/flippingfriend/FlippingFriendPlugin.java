@@ -370,7 +370,7 @@ public class FlippingFriendPlugin extends Plugin
 		// A terminal/nonempty callback followed by EMPTY in this same login is still real evidence.
 		if (event.getOffer().getState() == net.runelite.api.GrandExchangeOfferState.EMPTY)
 		{
-			if (!offerSnapshotReady && !nonemptyOfferSeen[observedSlot]) return;
+			if (!nonemptyOfferSeen[observedSlot]) return;
 		}
 		else nonemptyOfferSeen[observedSlot] = true;
 		invalidateAccountAdvice();

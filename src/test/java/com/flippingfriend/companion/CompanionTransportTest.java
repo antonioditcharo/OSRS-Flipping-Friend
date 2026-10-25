@@ -148,4 +148,15 @@ public class CompanionTransportTest {
         assertEquals(3,requests.get());assertEquals(0,snapshots.get());assertEquals(2,writes.get());
         assertEquals(6,new OfferEventOutbox(storage).pending().size());assertEquals(3,outbox.pending().get(0).getSequence());
     }
+    @Test public void aColdCanonicalWriteLongerThanTheQuoteBudgetCanAcknowledgeTheOriginalFrame()throws Exception {
+        var snapshots=new java.util.concurrent.atomic.AtomicInteger();
+        server.createContext("/v1/accounts/",exchange->{try {
+            String body=new String(exchange.getRequestBody().readAllBytes(),StandardCharsets.UTF_8);
+            if(exchange.getRequestURI().getPath().endsWith("events/ge-offer")) {
+                var event=gson.fromJson(body,OfferEvent.class);if(event.getSequence()==1)Thread.sleep(1100);
+                reply(exchange,202,OfferReplayTailTest.ack(event));
+            }else{snapshots.incrementAndGet();reply(exchange,202,"{\"accepted\":true}");}
+        }catch(Exception e){throw new java.io.IOException(e);}});
+        client.resumeOfferReplay();publishEmptyFrame();assertTrue(outbox.pending().isEmpty());assertEquals(1,snapshots.get());
+    }
 }

@@ -7,6 +7,13 @@ installed and player accepted are separate states. Owner is home; older login de
 
 ## Current batch
 
+- [ ] Deliver/accept after-tick EMPTY prevention, cold canonical-write ACKs and complete current-frame
+      baseline recovery without booking missed executions. Preserve source/financial/risk rows and
+      item pauses; prove unrelated verified-cash suggestions with bounded active sells. Retain newly
+      interrupted source episodes in Missed flips for separately qualified execution recovery.
+      [Contract](docs/architecture/current-frame-quarantine-recovery.md); current delivery remains in
+      `local-data/ordered-frame-recovery-20261024/delivery-state.json`.
+
 - [ ] Deliver/accept ordered account-frame recovery and explicit source-proven sale amendments.
       Preserve all original sources/effects/risk anchors; verify current cash/eight-slot ACKs,
       corrected costs/reporting/risk, eligible unrelated entry delivery and independent maintenance.
