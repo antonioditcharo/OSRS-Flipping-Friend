@@ -11,10 +11,18 @@ final class BoundedHistoricalExposure {
         private List<OfferEvent> history;
         private Set<Integer> paused;
         private Map<Integer,Long> result;
+        private FundingState state;
+        synchronized void reset(){history=null;paused=null;result=null;state=null;}
+        /** Only SqliteStore's completely validated append may carry the prior prefix forward. */
+        synchronized void appendCanonical(List<OfferEvent> previous,List<OfferEvent> appended) {
+            if(history==null || history!=previous || state==null || appended==null || appended.size()<previous.size())return;
+            for(int index=previous.size();index<appended.size();index++)state.accept(appended.get(index),paused);
+            history=appended;result=state.snapshot();
+        }
         synchronized Map<Integer,Long> funding(List<OfferEvent> sources,Set<Integer> items) {
             if(history==sources && items.equals(paused))return result;
-            var computed=historicalFunding(sources,items);
-            history=sources;paused=Set.copyOf(items);result=computed;return computed;
+            var next=new FundingState();for(var source:sources)next.accept(source,items);
+            history=sources;paused=Set.copyOf(items);state=next;result=next.snapshot();return result;
         }
     }
     static DurablePlanningExposure calculate(SqliteStore.PlanningProjections read) {
@@ -59,19 +67,25 @@ final class BoundedHistoricalExposure {
         }catch(ArithmeticException malformed){return null;}
     }
     private static Map<Integer,Long> historicalFunding(List<OfferEvent> history,Set<Integer> paused) {
-        Map<Integer,Long> amounts=new HashMap<>();Map<Integer,OfferEvent> prior=new HashMap<>();
-        try {
-            for(var e:history) {
-                if(e.getEventType().equals("EMPTY")){prior.remove(e.getSlot());continue;}
+        var state=new FundingState();for(var source:history)state.accept(source,paused);return state.snapshot();
+    }
+    private static final class FundingState {
+        private final Map<Integer,Long> amounts=new HashMap<>();
+        private final Map<Integer,OfferEvent> prior=new HashMap<>();
+        private boolean invalid;
+        void accept(OfferEvent e,Set<Integer> paused) {
+            if(invalid)return;
+            try {
+                if(e.getEventType().equals("EMPTY")){prior.remove(e.getSlot());return;}
                 var before=prior.put(e.getSlot(),e);
                 if(paused.contains(e.getItemId()) && e.isBuying()) {
                     long funding=Math.multiplyExact(e.getPrice(),(long)e.getTotalQuantity());
-                    if(e.getSpent()>funding)return null;
+                    if(e.getSpent()>funding){invalid=true;return;}
                     if(!sameEpisode(before,e))amounts.merge(e.getItemId(),funding,Math::addExact);
                 }
-            }
-            return Collections.unmodifiableMap(amounts);
-        }catch(ArithmeticException malformed){return null;}
+            }catch(ArithmeticException malformed){invalid=true;}
+        }
+        Map<Integer,Long> snapshot(){return invalid?null:Collections.unmodifiableMap(new HashMap<>(amounts));}
     }
     static boolean sameEpisode(OfferEvent a,OfferEvent b) {
         return a!=null && a.isBuying() && Objects.equals(a.getSessionId(),b.getSessionId())

@@ -100,7 +100,7 @@ final class CompanionSalePolicy {
                         return refusal(type,identity,source,now,"SALE_REPRICE_CHAIN_UNAVAILABLE");
                     relist=new SaleMaintenancePricing().evaluateRelist(item,proof.original.getPrice(),quantity,position,quote,series,horizon,at,
                         account.isSellOnly(),exits,tax,proof.original.getFirstSeenAt(),proof.lastProgressAt,
-                        acceptance.valid()?acceptance.proof.getReceipt():null).quote;
+                        acceptance.valid()?acceptance.proof.getReceipt():null,market.observedAt).quote;
                     if(relist==null)return refusal(type,identity,source,now,"SALE_RELIST_PRICE_UNSUPPORTED");
                 }
                 var decision=relist==null?exits.evaluateManagedExit(position,quote,null,series,horizon,at,account.getMinProfitPerFlip(),true,account.isSellOnly(),false)

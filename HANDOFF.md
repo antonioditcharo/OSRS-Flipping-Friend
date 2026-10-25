@@ -5,6 +5,14 @@ Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
 ## Current delivery
 
+Queued source: `codex/collected-relist-foreground-recovery`. The owner's #170 feedback remains
+unaccepted: long collected-sale/account-state waits and periodic slowdown. Live evidence identified
+a known-cost, accepted routine relist withheld solely for an old last-trade print in a fresh feed.
+The follow-on adds a protected quiet limit, actual feed clocks and immutable market snapshots;
+validated funding-tail reuse and a sparse sale-source index remove repeated historical work.
+[Contract](docs/architecture/collected-relist-foreground-recovery.md);
+`local-data/hosted-pilot/collected-guidance-delivery.json` records source versus installed evidence.
+
 Current installed pair: PR #170 (`codex/steady-guidance-relist`) in private shadow mode. It retains
 valid advice across exact duplicate/irrelevant container callbacks, and completes source-proven
 accepted routine sale reductions at a saved non-loss limit if optional bucket history disappears.

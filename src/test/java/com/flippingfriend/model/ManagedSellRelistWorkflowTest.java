@@ -140,6 +140,17 @@ public class ManagedSellRelistWorkflowTest {
         var next=f.next();assertEquals(SuggestionType.WAIT,next.getType());assertEquals("Rechecking the cancelled sale",next.getHeadline());
         assertSame(next,f.engine.entryPriorityWait());
     }
+    @Test public void collectedAcceptedSaleGetsALimitWithQuietTradesAndWithdrawsOnAnOldFeed()throws Exception {
+        var f=new Fixture(6,5001,6,1000,true);f.context(1200,0,120,now.getEpochSecond()-60);bindReducedRelist(f,true);
+        var original=f.market.getSnapshot();
+        when(f.market.getSeries(anyInt(),anyString())).thenReturn(List.of());
+        var quiet=Map.of(561,new LatestPrice(1000,now.getEpochSecond()-1200,1000,now.getEpochSecond()));
+        when(f.market.getSnapshot()).thenReturn(new MarketSnapshot(original.getMetadata(),quiet,Map.of(),Map.of(),Instant.now()));
+        var next=f.next();assertEquals(SuggestionType.SELL,next.getType());assertEquals(999,next.getPrice());assertEquals(6,next.getQuantity());
+        assertFalse(next.isLossCut());assertTrue(next.getDetail().contains("quiet"));
+        when(f.market.getSnapshot()).thenReturn(new MarketSnapshot(original.getMetadata(),quiet,Map.of(),Map.of(),now.minusSeconds(121)));
+        assertEquals(SuggestionType.WAIT,f.next().getType());
+    }
     @Test public void missingRelistMarketSupportCannotResurrectTheAbandonedTargetAfterRestart()throws Exception {
         var f=new Fixture(6,5001,6,1000,true);f.context(1200,0,120,now.getEpochSecond()-60);bindReducedRelist(f);
         var supported=f.next();assertEquals(SuggestionType.SELL,supported.getType());assertEquals(999,supported.getPrice());

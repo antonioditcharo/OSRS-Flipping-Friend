@@ -80,6 +80,7 @@ final class SqliteStore implements AutoCloseable
 	// the indexed tail. External commits and every rollback discard it. Live eight-slot evidence
 	// is always reread. In particular a failed transaction cannot publish a prefix.
 	private List<OfferEvent> canonicalHistory;
+    private final Map<String,OfferEvent> canonicalSaleSources=new HashMap<>();
     private final ProspectiveGapExposure.Memo prospectiveGapMemo=new ProspectiveGapExposure.Memo();
     private final BoundedHistoricalExposure.Memo historicalFundingMemo=new BoundedHistoricalExposure.Memo();
 	private String canonicalHistoryAccount;
@@ -91,6 +92,7 @@ final class SqliteStore implements AutoCloseable
 	private void discardCanonicalHistory() {
         canonicalHistoryGeneration++;
 		canonicalHistory=null; canonicalHistoryAccount=null; canonicalHistoryCursor=0;
+        canonicalSaleSources.clear();historicalFundingMemo.reset();
 		scopedEffects=null;scopedEffectsCursor=-1;
         automaticModes.clear();
         cachedTradeReview=null;cachedReviewLiveItems=java.util.Set.of();
@@ -873,11 +875,16 @@ final class SqliteStore implements AutoCloseable
                 }
                 if(!copied){history=new ArrayList<>(history==null?java.util.List.of():history);copied=true;}
                 history.add(event);
+                if(ContinuationSaleRead.disposalSource(event))canonicalSaleSources.put(event.getEventId(),event);
                 cursor=r.getLong(3);
             }
             }
         }
-        if(copied || canonicalHistory==null)canonicalHistory=history==null?java.util.List.of():java.util.Collections.unmodifiableList(history);
+        if(copied || canonicalHistory==null) {
+            var previous=canonicalHistory;
+            canonicalHistory=history==null?java.util.List.of():java.util.Collections.unmodifiableList(history);
+            historicalFundingMemo.appendCanonical(previous,canonicalHistory);
+        }
         canonicalHistoryCursor=cursor;
         return canonicalHistory;
     }
@@ -1189,13 +1196,12 @@ final class SqliteStore implements AutoCloseable
         }
         if(cachedContinuationSales==null || cursor!=continuationSalesCursor || history.size()!=continuationSalesHistorySize) {
             java.util.Set<String> disposals=new java.util.HashSet<>(),rejected=new java.util.HashSet<>();
-            Map<String,OfferEvent> sources=new HashMap<>();for(var source:history)sources.put(source.getEventId(),source);
             try(var s=connection.createStatement();var r=s.executeQuery(
                 "SELECT source_event_id,effect_type,item_id,source_offer_identity,observed_at,quantity FROM position_event WHERE effect_type IN ('DISPOSE','RECONCILE')")) {
                 while(r.next()) {
                     String id=r.getString(1);
                     if("RECONCILE".equals(r.getString(2))){rejected.add(id);continue;}
-                    var source=sources.get(id);
+                    var source=canonicalSaleSources.get(id);
                     if(source!=null && source.getItemId()==r.getInt(3) && java.util.Objects.equals(source.getOfferIdentity(),r.getString(4))
                         && source.getObservedAt()==r.getLong(5) && r.getInt(6)>0 && r.getInt(6)<=source.getFilledQuantity())disposals.add(id);
                 }

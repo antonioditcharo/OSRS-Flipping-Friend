@@ -98,4 +98,27 @@ public class HistoricalFundingReadBudgetTest {
         read.history=new Counted(sources.subList(0,2));
         assertEquals(Long.valueOf((long)Integer.MAX_VALUE*Integer.MAX_VALUE),BoundedHistoricalExposure.calculate(read).committedByItem.get(561));
     }
+    @Test public void validatedCanonicalAppendReadsOnlyTheTailAndKeepsOldResultsImmutable() {
+        var memo=new BoundedHistoricalExposure.Memo();var values=new ArrayList<OfferEvent>();
+        for(int i=0;i<20000;i++)values.add(buy("old-"+i,561,"same",10,0,0,i+1));
+        var prefix=new Counted(values);var original=memo.funding(prefix,Set.of(561));assertEquals(Long.valueOf(1000),original.get(561));
+        values.add(empty("clear",20001));values.add(buy("new",561,"new",20,0,0,20002));
+        var appended=new Counted(values);memo.appendCanonical(prefix,appended);
+        assertEquals(2,appended.reads);assertEquals(Long.valueOf(3000),memo.funding(appended,Set.of(561)).get(561));
+        assertEquals(2,appended.reads);assertEquals(Long.valueOf(1000),original.get(561));
+        var expected=new BoundedHistoricalExposure.Memo().funding(List.copyOf(values),Set.of(561));
+        assertEquals(expected,memo.funding(appended,Set.of(561)));
+        assertEquals(Map.of(),memo.funding(appended,Set.of(562)));assertTrue(appended.reads>20000);
+        memo.reset();int before=appended.reads;assertEquals(expected,memo.funding(appended,Set.of(561)));assertTrue(appended.reads>before);
+    }
+    @Test public void unqualifiedReplacementAndInvalidAppendedFundingCannotBorrowAPreviousResult() {
+        var memo=new BoundedHistoricalExposure.Memo();var prefix=new Counted(List.of(buy("one",561,"one",10,0,0,1)));
+        assertEquals(Long.valueOf(1000),memo.funding(prefix,Set.of(561)).get(561));
+        var unrelated=new Counted(List.of(buy("other",561,"other",40,0,0,1)));
+        memo.appendCanonical(new Counted(prefix.values),unrelated);
+        assertEquals(Long.valueOf(4000),memo.funding(unrelated,Set.of(561)).get(561));
+        var bad=new Counted(List.of(unrelated.get(0),buy("bad",561,"other",40,1,4001,2)));
+        memo.appendCanonical(unrelated,bad);assertNull(memo.funding(bad,Set.of(561)));assertEquals(1,bad.reads);
+        memo.reset();assertNull(memo.funding(bad,Set.of(561)));assertEquals(Map.of(),memo.funding(bad,Set.of(562)));
+    }
 }

@@ -86,6 +86,16 @@ public class CompanionSeedTest
 
 		assertNull(service.getSnapshot().latest(MAGIC_LOGS));
 	}
+    @Test public void metadataPublicationCannotRenewAnOldLatestFeedOrMutateAnEarlierSnapshot()throws Exception {
+        var service=serviceAt(folder.newFolder("feed-clock").toPath());
+        Mockito.when(companion.fetchMarketFeed()).thenReturn(feed());service.setCompanion(companion);service.seedFromCompanion();
+        var prior=service.getSnapshot();assertEquals(1788081274L,prior.getLatestFeedObservedAt());
+        Mockito.when(wiki.fetchMapping()).thenReturn(java.util.List.of(new ItemMetadata(MAGIC_LOGS,"Magic logs",true,12000,0)));
+        service.refreshMetadataIfNeeded();var current=service.getSnapshot();
+        assertEquals(1788081274L,current.getLatestFeedObservedAt());assertNotNull(current.metadata(MAGIC_LOGS));
+        assertNull("An already published snapshot cannot acquire later mapping mutations",prior.metadata(MAGIC_LOGS));
+        assertNotNull(prior.latest(MAGIC_LOGS));assertEquals(Long.valueOf(1),prior.latest(MAGIC_LOGS).getHighTime());
+    }
 
 	@Test
 	public void aCompanionThatCannotAnswerIsNotAnError() throws Exception

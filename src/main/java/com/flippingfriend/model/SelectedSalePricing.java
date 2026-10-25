@@ -73,7 +73,7 @@ public final class SelectedSalePricing {
         var reduced=reprice==null || reprice.getSaleRepriceSource()==null?null
             :new com.flippingfriend.session.SaleMaintenancePricing().evaluateRelist(item,reprice.getOriginalPrice(),selected,position,
                 market.latest(item),series,horizon,now,sellOnly,exits,tax,reprice.getFirstSeenAt(),reprice.getProgressAt(),
-                reprice.getAcceptedSalePolicyProof()==null?null:reprice.getAcceptedSalePolicyProof().getReceipt()).quote;
+                reprice.getAcceptedSalePolicyProof()==null?null:reprice.getAcceptedSalePolicyProof().getReceipt(),market.getLatestFeedObservedAt()).quote;
         if(reprice!=null && reprice.getSaleRepriceSource()!=null && reduced==null)
             return waiting("Rechecking the returned sale",
                 "Current prices and market evidence do not support this selected relist. Its saved remainder and accepted reduction are retained; the old target is not restored.");

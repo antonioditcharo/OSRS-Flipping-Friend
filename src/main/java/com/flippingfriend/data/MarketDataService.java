@@ -101,6 +101,7 @@ public class MarketDataService
 
 	private final Map<Integer, ItemMetadata> metadata = new ConcurrentHashMap<>();
 	private final Map<Integer, LatestPrice> latest = new ConcurrentHashMap<>();
+    private long latestFeedObservedAt;
 	private final Map<Integer, Candle> fiveMinute = new ConcurrentHashMap<>();
 	private final Map<Integer, Candle> hourly = new ConcurrentHashMap<>();
 
@@ -570,6 +571,7 @@ public class MarketDataService
 				if (!prices.isEmpty() && latest.isEmpty())
 				{
 					latest.putAll(prices);
+                    latestFeedObservedAt=feed.getObservedAt();
 					seeded = true;
 				}
 				if (!five.isEmpty() && fiveMinute.isEmpty())
@@ -632,6 +634,7 @@ public class MarketDataService
 				{
 					latest.clear();
 					latest.putAll(prices);
+                    latestFeedObservedAt=Instant.now().getEpochSecond();
 				}
 				succeeded("latest prices");
 				publish();
@@ -703,7 +706,7 @@ public class MarketDataService
 				Collections.unmodifiableMap(latest),
 				Collections.unmodifiableMap(fiveMinute),
 				Collections.unmodifiableMap(hourly),
-				Instant.now());
+				Instant.now(),latestFeedObservedAt);
 		}
 		snapshot.set(taken);
 
