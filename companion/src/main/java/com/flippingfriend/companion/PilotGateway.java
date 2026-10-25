@@ -122,6 +122,7 @@ final class PilotGateway implements AutoCloseable {
         return candidates;
     }
     long expiresAt(String account,long localExpiry,long now) {
+        if(account==null || !config.enabled || config.shadow || (!config.recommendations && !config.coordination))return localExpiry;
         State state=states.get(account);var hint=state==null?null:state.hint;
         return !config.shadow && hint!=null && hint.expiresAt>now?Math.min(localExpiry,hint.expiresAt):localExpiry;
     }

@@ -172,12 +172,13 @@ final class PortfolioPlanner
             }
             plan=optimizer.optimizePreferred(offerable,limits,correlationId,nowSeconds);
         }
+        boolean usedHosted=false;
         if(pilot!=null)try {
             var immediate=pilot.choose(account,offerable,activeOffers,market.observedAt,nowSeconds,pilotRefresh,limits,plan);
             if(immediate!=offerable) {
                 var hosted=optimizer.optimizePreferred(immediate,limits,correlationId,nowSeconds);
                 // Coordination is advisory during the pilot; it cannot blank otherwise valid local guidance.
-                if(!hosted.getAllocations().isEmpty())plan=hosted;
+                if(!hosted.getAllocations().isEmpty()){plan=hosted;usedHosted=true;}
             }
         }catch(RuntimeException ignored){/* Retain the verified local plan. */}
 
@@ -230,7 +231,7 @@ final class PortfolioPlanner
 		}
 
 		plan = new PortfolioPlan(plan.getCorrelationId(), plan.getCreatedAt(),
-            pilot==null?plan.getExpiresAt():pilot.expiresAt(account.getAccountId(),plan.getExpiresAt(),nowSeconds),
+            !usedHosted?plan.getExpiresAt():pilot.expiresAt(account.getAccountId(),plan.getExpiresAt(),nowSeconds),
 			plan.getStatus(), plan.getReason(), plan.getExpectedGpPerSlotHour(), plan.getAllocations(),
 			alerts, null).withOutcome(plan.getOutcome());
 

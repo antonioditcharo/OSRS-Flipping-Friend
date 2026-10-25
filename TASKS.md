@@ -1,8 +1,8 @@
 # Tasks
 
-Updated 24 October 2026. Read [HANDOFF.md](HANDOFF.md) and the current no-trade-left-behind receipt at
-`local-data/no-trade-left-behind-20261024/delivery-state.json` first for the installed pair and any
-pending source; #158 was this batch's original baseline. Implemented/tested, merged,
+Updated 24 October 2026. Read [HANDOFF.md](HANDOFF.md) and the current hosted-pilot receipt at
+`local-data/hosted-pilot/delivery-state.json` first for the installed pair and pending source;
+#162 was the hosted pilot's original baseline. Implemented/tested, merged,
 installed and player accepted are separate states. Owner is home; older login deferrals are superseded.
 
 ## Current batch
@@ -14,7 +14,7 @@ installed and player accepted are separate states. Owner is home; older login de
       encrypted off-server restore, 1,000 connected/100 planning capacity, shadow comparisons,
       installation, fresh suggestions, outage fallback and sustained player/restart acceptance.
       [Contract](docs/architecture/hosted-pilot.md); `local-data/hosted-pilot/delivery-state.json`.
-      Installed local runtime is still #162; staging server running is not local activation.
+      Read the receipt for the installed pair; staging server running is not local activation.
 
 - [ ] Deliver/accept after-tick EMPTY prevention, cold canonical-write ACKs and complete current-frame
       baseline recovery without booking missed executions. Preserve source/financial/risk rows and

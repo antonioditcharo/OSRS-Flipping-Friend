@@ -5,15 +5,16 @@ Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
 ## Current delivery
 
-The approved hosted-pilot pass is in progress on `codex/hosted-pilot-continuous-guidance`.
+The approved hosted-pilot pass is PR #163 (`codex/hosted-pilot-continuous-guidance`).
 Read `local-data/hosted-pilot/delivery-state.json` and
 [the pilot contract](docs/architecture/hosted-pilot.md) before older checkpoints. Installed local
-runtime remains PR #162 (tested source `5e29ef9`); queued source is not installed. DigitalOcean
+baseline was PR #162 (tested source `5e29ef9`); the receipt identifies the current installed pair.
+Queued source or a merge is not proof of installation. DigitalOcean
 private staging is provisioned at $36.20/month before tax under the $50 ceiling; root first login,
-strict SSH verification, private service and encrypted object upload passed. No live account
-replication or hosted advice is enabled locally yet. Cloud deployment is staging, not release
-acceptance. Backup decryption/restore, full clean tests, exact-head CI, shadow comparison, capacity,
-paired installation and player acceptance remain unchecked. Never print private credentials.
+strict SSH verification, private service and encrypted off-server restoration passed. Read the
+receipt for live replication, shadow/advice flags, tests, exact-head CI, capacity and installation.
+Cloud deployment is staging, not player acceptance. Four return benchmarks, sustained latency,
+shadow/advice activation and player/restart acceptance retain separate gates. Never print credentials.
 
 Fresh installed #161 login exposed after-tick default EMPTY callbacks and cold write timeouts;
 original default EMPTY sources/rejected returning episodes remain preserved. Follow-on source

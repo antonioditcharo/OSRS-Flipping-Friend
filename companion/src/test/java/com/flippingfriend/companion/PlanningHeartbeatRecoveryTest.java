@@ -69,4 +69,28 @@ public class PlanningHeartbeatRecoveryTest {
                 service.plan().getOutcome());
         }
     }
+    @Test public void shortHostedAdviceIsReusedAndOptionalRefreshCannotWithdrawValidFinancialGuidance()throws Exception {
+        long now=Instant.now().getEpochSecond();
+        try(var store=new SqliteStore(folder.newFolder().toPath().resolve("optional.db"));var service=new CompanionService(gson,store)) {
+            seed(store,service,now-2);
+            var cached=new PortfolioPlan("short",now,now+15,"READY","fixture",1,List.of());
+            set(service,"plan",cached);set(service,"lastPlannedRevision",0L);set(service,"lastPlannedPilotRevision",0L);
+            set(service,"lastPlannedMarketAt",now-2);set(service,"lastPlannedSeriesRevision",((SeriesCache)get(service,"series")).revision());
+            service.refreshAccountPlan();drain(service);assertSame("A 15-second lease must not cause a permanent refresh loop",cached,service.plan());
+            long sources=store.eventCount("EMPTY");var originalAccount=get(service,"account");
+            var config=new PilotGateway.Config();
+            try(var gateway=new PilotGateway(config)) {
+                service.usePilot(gateway);var entered=new CountDownLatch(1);var release=new CountDownLatch(1);
+                ((ExecutorService)get(service,"planThread")).submit(()->{entered.countDown();try{release.await(3,TimeUnit.SECONDS);}catch(InterruptedException ignored){}});
+                assertTrue(entered.await(1,TimeUnit.SECONDS));
+                try {
+                    ((Runnable)get(get(service,"planner"),"pilotRefresh")).run();
+                    assertSame("Optional hosting work cannot blank a valid action",cached,service.plan());
+                    assertSame(originalAccount,get(service,"account"));assertEquals(sources,store.eventCount("EMPTY"));
+                }finally{release.countDown();}
+                drain(service);
+                assertEquals(PortfolioPlanOutcome.NO_ELIGIBLE_CANDIDATE,service.plan().getOutcome());
+            }
+        }
+    }
 }

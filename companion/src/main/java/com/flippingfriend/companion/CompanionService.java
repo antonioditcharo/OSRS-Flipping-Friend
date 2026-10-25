@@ -840,7 +840,8 @@ final class CompanionService implements AutoCloseable
 			&& currentMarket!=null && currentMarket.observedAt==lastPlannedMarketAt
 			&& lastPlannedSeriesRevision==series.revision()
 			&& freeSlots == lastPlanFreeSlots && sellOnly == lastPlanSellOnly
-			&& plan.getExpiresAt()>now+PLAN_RENEWAL_MARGIN_SECONDS
+			&& plan.getExpiresAt()>now+Math.min(PLAN_RENEWAL_MARGIN_SECONDS,
+                Math.max(1,(plan.getExpiresAt()-plan.getCreatedAt())/3))
 			&& (currentRisk==null || currentRisk.getValidUntil()!=null && currentRisk.getValidUntil()>now))
 		{
 			return;
