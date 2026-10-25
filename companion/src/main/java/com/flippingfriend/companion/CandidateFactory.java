@@ -65,7 +65,10 @@ final class CandidateFactory
 			this.shortKey=shortKey;this.longKey=longKey;this.low=low;this.features=features;this.context=context;this.curve=curve;
 		}
 	}
-	private final Map<Integer,HistoryAnalysis> historyAnalysis=new ConcurrentHashMap<>();
+	private final Map<Integer,HistoryAnalysis> historyAnalysis=java.util.Collections.synchronizedMap(
+        new LinkedHashMap<Integer,HistoryAnalysis>(256,0.75f,true) {
+            @Override protected boolean removeEldestEntry(Map.Entry<Integer,HistoryAnalysis> entry){return size()>256;}
+        });
 	/** Exact value keys, not identity or a collision-prone hash; replay/mutable candles stay safe. */
 	private static long[] historyKey(List<Candle> rows) {
 		long[] key=new long[rows.size()*7];int i=0;
@@ -98,6 +101,7 @@ final class CandidateFactory
 	 * actually judge.
 	 */
 	private static final int DEEP_ANALYSIS_LIMIT = 90;
+    private int discoveryCursor;
 	/**
 	 * Liquidity floors, in units and in gold.
 	 * <p>
@@ -610,9 +614,12 @@ final class CandidateFactory
 		}
 
 		shortlist.sort(Comparator.comparingLong((Screened s) -> s.throughput).reversed());
-		return shortlist.size() > DEEP_ANALYSIS_LIMIT
-			? new ArrayList<>(shortlist.subList(0, DEEP_ANALYSIS_LIMIT))
-			: shortlist;
+		if(shortlist.size()<=DEEP_ANALYSIS_LIMIT)return shortlist;
+        var selected=new ArrayList<>(shortlist.subList(0,DEEP_ANALYSIS_LIMIT));
+        int tail=shortlist.size()-DEEP_ANALYSIS_LIMIT, count=Math.min(18,tail);
+        for(int k=0;k<count;k++)selected.add(shortlist.get(DEEP_ANALYSIS_LIMIT+Math.floorMod(discoveryCursor+k,tail)));
+        discoveryCursor=Math.floorMod(discoveryCursor+count,tail);
+        return selected;
 	}
 
 	/** The expensive pass: real history, real vetoes, real fill estimates. */

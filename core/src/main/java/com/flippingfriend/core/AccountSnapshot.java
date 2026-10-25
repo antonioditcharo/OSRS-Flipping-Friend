@@ -399,6 +399,8 @@ public final class AccountSnapshot
 	}
 
 	public long getMinProfitPerFlip() { return Math.max(0, minProfitPerFlip); }
+    /** The stored user value is an aspiration; entries still need strictly positive net profit. */
+    public long getEntryProfitFloor() { return 1; }
 
 	public int getCheckIntervalMinutes() { return Math.max(0, checkIntervalMinutes); }
 

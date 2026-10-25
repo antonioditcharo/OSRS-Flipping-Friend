@@ -107,4 +107,30 @@ public class SaleCostAmendmentsTest {
             assertEquals(Long.valueOf(0),after.getUncertainLossReserve());
         }
     }
+
+    @Test public void backgroundQualificationDoesNotBlockCanonicalWritesAndCommitsWithoutReplayingExecutions()throws Exception {
+        Path path=fixture(true);
+        try(var store=new SqliteStore(path);var read=DriverManager.getConnection("jdbc:sqlite:"+path.toAbsolutePath().toUri().toASCIIString()+"?mode=ro")) {
+            long revision=store.recoveryExternalRevision();read.setAutoCommit(false);
+            var prepared=SaleCostAmendments.prepare(read,account,List.of("sold"),1792860100).get(0);
+            long effects=store.positionEventCount();
+            // This canonical append commits while the separate historical read transaction is open.
+            accept(store,event("later-cleared",null,"EMPTY",0,0,8));read.rollback();
+            prepared.expectedExternalRevision=revision;store.commitPreparedRecovery(prepared);
+            assertEquals(effects,store.positionEventCount());assertEquals(0,store.ledgerSnapshot(account).getUnresolvedSales());
+        }
+    }
+    @Test public void sameCountExternalPrefixEditsInvalidateAQueuedBackgroundRepair()throws Exception {
+        Path path=fixture(true);
+        try(var store=new SqliteStore(path);var read=DriverManager.getConnection("jdbc:sqlite:"+path.toAbsolutePath().toUri().toASCIIString()+"?mode=ro")) {
+            long revision=store.recoveryExternalRevision();read.setAutoCommit(false);
+            var prepared=SaleCostAmendments.prepare(read,account,List.of("sold"),1792860100).get(0);read.rollback();
+            prepared.expectedExternalRevision=revision;
+            try(var external=DriverManager.getConnection("jdbc:sqlite:"+path);var change=external.createStatement()) {
+                change.executeUpdate("UPDATE position_event SET acquisition_cost=acquisition_cost+1 WHERE source_event_id='buy'");
+            }
+            try{store.commitPreparedRecovery(prepared);fail("changed financial prefix was accepted");}catch(IllegalStateException expected){}
+            assertEquals(1,store.ledgerSnapshot(account).getUnresolvedSales());
+        }
+    }
 }

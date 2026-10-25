@@ -74,8 +74,8 @@ public class ApiHealthIsolationTest
                 second = clients.submit(() -> request(api, "action", account, "secret", null));
                 ThreadPoolExecutor workers = awaitBusy(api);
                 // Hold both real account requests at initialization, then fill the bounded pending queue.
-                for (int i = 0; i < 64; i++) workers.execute(() -> { });
-                assertEquals(0, workers.getQueue().remainingCapacity());
+                for (int i = 0; i < 15; i++) api.accountWork.execute(account, () -> { });
+                assertEquals(16, api.accountWork.pending(account));
                 assertEquals(503, request(api, "events/ge-offer", account, "secret", payload));
                 assertEquals(200, request(api, "health", null, "secret", null));
             }
@@ -122,8 +122,9 @@ public class ApiHealthIsolationTest
         var field = ApiServer.class.getDeclaredField("accountExecutor"); field.setAccessible(true);
         ThreadPoolExecutor workers = (ThreadPoolExecutor) field.get(api);
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
-        while (workers.getActiveCount() < 2 && System.nanoTime() < deadline) Thread.sleep(5);
-        assertEquals("Both requests must enter account work before the health probe", 2, workers.getActiveCount());
+        while ((workers.getActiveCount() < 1 || api.accountWork.queued()<1) && System.nanoTime() < deadline) Thread.sleep(5);
+        assertEquals("One account has one active request; its second request stays ordered", 1, workers.getActiveCount());
+        assertTrue(api.accountWork.queued()>=1);
         return workers;
     }
 

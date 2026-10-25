@@ -31,7 +31,7 @@ final class BuyReplacementAccountConstraintComposer {
                 || at - observedAt > CompanionBuyReplacementReadinessPolicy.MAX_INPUT_AGE_SECONDS) return null;
         // The Package 3.82 selector is the revalidation, timing, and freshness gate for the candidate set.
         if (new BuyReplacementQuantityCandidateSelector(tax)
-                .select(source, account.getMinProfitPerFlip(), at) == null) return null;
+                .select(source, account.getEntryProfitFloor(), at) == null) return null;
         for (Long value : account.getCommittedByItem().values()) if (value == null || value < 0) return null;
         long lossBudget = PortfolioPlanner.lossBudgetFor(account);
         if (lossBudget <= 0) return refused(source, account, BuyReplacementAccountConstraintOutcome.DRAWDOWN_LIMIT_REACHED, lossBudget, at);

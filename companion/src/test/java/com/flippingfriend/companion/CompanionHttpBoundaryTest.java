@@ -15,7 +15,7 @@ public class CompanionHttpBoundaryTest
                 String boundary = read(root.resolve("companion/src/main/java/com/flippingfriend/companion/CompanionHttp.java"));
                 String ingestion = read(root.resolve("companion/src/main/java/com/flippingfriend/companion/MarketIngestionService.java"));
                 String series = read(root.resolve("companion/src/main/java/com/flippingfriend/companion/SeriesCache.java"));
-                String plugin = read(root.resolve("src/main/java/com/flippingfriend/data/WikiPriceClient.java"));
+                String plugin = read(root.resolve("core/src/main/java/com/flippingfriend/data/WikiPriceClient.java"));
                 Assert.assertTrue(boundary.contains("static final OkHttpClient CLIENT = new OkHttpClient()"));
                 Assert.assertTrue(boundary.contains("github.com/antonioditcharo/OSRS-Flipping-Friend"));
                 Assert.assertTrue(ingestion.contains("CompanionHttp.CLIENT"));

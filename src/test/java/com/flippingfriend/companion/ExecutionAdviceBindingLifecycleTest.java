@@ -48,8 +48,8 @@ public class ExecutionAdviceBindingLifecycleTest {
     @Test public void failedSaveRetainsChangedInputsAndCannotRequalifyTheOriginalPrediction()throws Exception {
         Fixture f=new Fixture(folder.newFolder().toPath(),"one");
         var first=f.publish(AT,100,10,0,"original",12);byte[] before=Files.readAllBytes(f.file);
-        Path temp=f.file.resolveSibling(f.file.getFileName()+".tmp");
-        Files.createDirectory(temp);Path obstruction=temp.resolve("fixture");Files.writeString(obstruction,"test");
+        Path temp=f.file.resolveSibling(f.file.getFileName()+".lock");
+        Files.deleteIfExists(temp);Files.createDirectory(temp);Path obstruction=temp.resolve("fixture");Files.writeString(obstruction,"test");
         try {f.publish(AT+1,101,10,0,"changed",120);fail("fixture write must fail");}
         catch(java.io.IOException expected){ }
         assertArrayEquals(before,Files.readAllBytes(f.file));

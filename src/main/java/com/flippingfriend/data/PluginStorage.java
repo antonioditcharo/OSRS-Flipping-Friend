@@ -35,6 +35,23 @@ public class PluginStorage
 	private final ConfigManager configManager;
 	private final Gson gson;
 	private final Path root;
+    private com.flippingfriend.core.AccountWriterLease captureLease;
+    private String captureAccount;
+
+    public synchronized boolean acquireCaptureWriter() {
+        String account=accountId();if(account==null)return false;
+        if(account.equals(captureAccount) && captureLease!=null)return true;
+        releaseCaptureWriter();
+        try {
+            captureLease=com.flippingfriend.core.AccountWriterLease.tryAcquire(accountDir(account));
+            if(captureLease!=null)captureAccount=account;
+            return captureLease!=null;
+        }catch(IOException unavailable){log.warn("Account capture ownership unavailable: {}",unavailable.getClass().getSimpleName());return false;}
+    }
+    public synchronized void releaseCaptureWriter() {
+        if(captureLease!=null)try{captureLease.close();}catch(IOException error){log.warn("Could not release capture ownership",error);}
+        captureLease=null;captureAccount=null;
+    }
 
 	@Inject
 	public PluginStorage(ConfigManager configManager, Gson gson)

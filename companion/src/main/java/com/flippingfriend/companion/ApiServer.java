@@ -29,6 +29,7 @@ final class ApiServer implements AutoCloseable
 	// Historical reports and their potentially slow response bodies cannot occupy event/authority workers.
 	private final ThreadPoolExecutor reportExecutor = new ThreadPoolExecutor(1, 1, 0, TimeUnit.SECONDS,
 		new ArrayBlockingQueue<>(2));
+	final FairAccountWork accountWork=new FairAccountWork(accountExecutor);
 	private final String token;
 	private final Gson gson;
 	private final CompanionService service;
@@ -81,10 +82,9 @@ final class ApiServer implements AutoCloseable
 		boolean report = reportRequest(exchange);
 		try
 		{
-			(report ? reportExecutor : accountExecutor).execute(() -> {
-				try { handler.handle(exchange); }
-				catch (IOException | RuntimeException error) { exchange.close(); }
-			});
+			Runnable work=()->{try{handler.handle(exchange);}catch(IOException|RuntimeException error){exchange.close();}};
+            if(report)reportExecutor.execute(work);
+            else accountWork.execute(java.util.Objects.toString(exchange.getRequestHeaders().getFirst(com.flippingfriend.core.AccountIdentity.HEADER),"unscoped"),work);
 		}
 		catch (RejectedExecutionException busy)
 		{
@@ -94,11 +94,12 @@ final class ApiServer implements AutoCloseable
 		}
 	}
     private static boolean reportRequest(HttpExchange exchange) {
+        if(exchange.getRequestURI().getPath().endsWith("/events/ge-history"))return true;
         if(!"GET".equals(exchange.getRequestMethod()))return false;
         String prefix="/v1/accounts/",path=exchange.getRequestURI().getPath();
         if(!path.startsWith(prefix))return false;
         String[] scoped=path.substring(prefix.length()).split("/",2);
-        return scoped.length==2 && java.util.Set.of("performance/current","trade-review/current","learning/current").contains(scoped[1]);
+        return scoped.length==2 && java.util.Set.of("performance/current","trade-review/current","learning/current","trade-recovery/background","hosted/current").contains(scoped[1]);
     }
 
 	private void accountRoute(HttpExchange exchange) throws IOException
@@ -127,10 +128,40 @@ final class ApiServer implements AutoCloseable
 			case "policy/sale": saleDecision(exchange); break;
             case "policy/sale-maintenance": saleMaintenanceDecision(exchange);break;
 			case "events/account-state": account(exchange); break;
+            case "events/ge-history": historyEvidence(exchange);break;
+            case "trade-recovery/background": recoveryStatus(exchange);break;
+            case "hosted/current":
+                if(!"GET".equals(exchange.getRequestMethod())){respond(exchange,405,"{}");break;}
+                try {
+                    var hostedAccount=exchange.getRequestHeaders().getFirst(com.flippingfriend.core.AccountIdentity.HEADER);
+                    exchange.getResponseHeaders().set(com.flippingfriend.core.AccountIdentity.HEADER,hostedAccount);
+                    respond(exchange,200,gson.toJson(accounts.forAccount(hostedAccount).pilotStatus()));
+                }catch(Exception invalid){respond(exchange,400,error(invalid));}
+                break;
 			case "events/ge-offer": offer(exchange); break;
 			default: respond(exchange, 404, "{\"error\":\"unknown account endpoint\"}");
 		}
 	}
+
+    private void historyEvidence(HttpExchange exchange)throws IOException {
+        if(!"POST".equals(exchange.getRequestMethod())){respond(exchange,405,"{}");return;}
+        String account=exchange.getRequestHeaders().getFirst(com.flippingfriend.core.AccountIdentity.HEADER);
+        try {
+            byte[] bytes=exchange.getRequestBody().readNBytes(2097153);if(bytes.length>2097152){respond(exchange,413,"{}");return;}
+            var snapshot=gson.fromJson(new String(bytes,StandardCharsets.UTF_8),com.flippingfriend.core.GeHistorySnapshot.class);
+            requirePayloadAccount(exchange,snapshot.accountId);
+            String evidence=accounts.acceptHistory(snapshot);
+            exchange.getResponseHeaders().set(com.flippingfriend.core.AccountIdentity.HEADER,account);
+            respond(exchange,200,gson.toJson(java.util.Map.of("accountId",account,"evidenceId",evidence)));
+        }catch(Exception invalid){respond(exchange,400,error(invalid));}
+    }
+    private void recoveryStatus(HttpExchange exchange)throws IOException {
+        if(!"GET".equals(exchange.getRequestMethod())){respond(exchange,405,"{}");return;}
+        try {
+            String account=com.flippingfriend.core.AccountIdentity.require(exchange.getRequestHeaders().getFirst(com.flippingfriend.core.AccountIdentity.HEADER));
+            exchange.getResponseHeaders().set(com.flippingfriend.core.AccountIdentity.HEADER,account);respond(exchange,200,accounts.recoveryStatus(account));
+        }catch(Exception invalid){respond(exchange,400,error(invalid));}
+    }
 
 	private CompanionService accountService(HttpExchange exchange) throws IOException
 	{
@@ -430,5 +461,5 @@ final class ApiServer implements AutoCloseable
 		exchange.getResponseBody().write(bytes);
 		exchange.close();
 	}
-	@Override public void close() { server.stop(0); executor.shutdownNow(); accountExecutor.shutdownNow(); reportExecutor.shutdownNow(); }
+	@Override public void close() { server.stop(0); accountWork.close();executor.shutdownNow(); accountExecutor.shutdownNow(); reportExecutor.shutdownNow(); }
 }

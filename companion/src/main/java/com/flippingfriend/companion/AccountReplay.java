@@ -12,7 +12,7 @@ import java.util.*;
 
 /** One simulated account, one bankroll and eight physical slots; never opens a live database. */
 final class AccountReplay implements AutoCloseable {
-    static final String VERSION="account-replay-21";
+    static final String VERSION="account-replay-22";
     private static final String ACCOUNT=AccountIdentity.fromProfileKey("synthetic-account-replay-only");
     interface Entries {
         PortfolioPlan plan(MarketIngestionService.MarketState market,AccountSnapshot account,
@@ -759,7 +759,7 @@ final class AccountReplay implements AutoCloseable {
         saveContinuations();
     }
     private void refreshRecoveryDecisions()throws Exception {
-        boolean changed=continuations.recovery.entrySet().removeIf(e->{var d=e.getValue();return BuyRecoveryJournal.recovered(d.item,d.price,d.quantity,d.at,d.notBefore,
+        boolean changed=continuations.recovery.entrySet().removeIf(e->{var d=e.getValue();return BuyRecoveryEvidence.recovered(d.item,d.price,d.quantity,d.at,d.notBefore,
             latest(d.item),frame.shortHistory.getOrDefault(d.item,List.of()),horizon,tax,input.minimumProfit,now);});
         if(changed)saveContinuations();
     }

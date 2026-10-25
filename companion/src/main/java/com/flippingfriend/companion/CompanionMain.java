@@ -111,8 +111,14 @@ public final class CompanionMain
 		// Buy-limit windows outlast this process, so recover them before advising anything.
 		service.rehydrate();
 		service.refreshMarket();
-		CompanionAccounts accounts = new CompanionAccounts(companion.resolve("accounts"), service);
-		ApiServer api = new ApiServer(token, gson, service, accounts);
+		PilotGateway pilot=PilotGateway.load(companion.resolve("hosted-pilot.json"));
+        service.usePilot(pilot);
+        CompanionAccounts accounts = new CompanionAccounts(companion.resolve("accounts"), service);
+		BackgroundTradeRecovery recovery=new BackgroundTradeRecovery(companion,()->pilot==null || pilot.automaticRecovery());
+        accounts.useRecovery(recovery);
+        PilotReplication replication=pilot==null?null:new PilotReplication(companion,pilot);
+        accounts.useReplication(replication);
+        ApiServer api = new ApiServer(token, gson, service, accounts);
 		api.start();
 		lifecycle.started();
 		ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(2, r -> { Thread t = new Thread(r, "flipping-friend-market"); t.setDaemon(true); return t; });
@@ -137,7 +143,7 @@ public final class CompanionMain
 			}
 		}), 1, 1, TimeUnit.HOURS);
 		Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-			scheduler.shutdownNow(); api.close();
+			scheduler.shutdownNow(); api.close();recovery.close();if(replication!=null)replication.close();if(pilot!=null)pilot.close();
 			try { accounts.close(); } catch (Exception error) { System.err.println("could not close account stores: " + error); }
 			service.close(); try { store.close(); } catch (Exception ignored) { }
 		}));

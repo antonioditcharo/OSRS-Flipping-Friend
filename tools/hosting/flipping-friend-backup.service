@@ -1,0 +1,9 @@
+[Unit]
+Description=Consistent encrypted Flipping Friend evidence backup
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/flipping-friend/pilot-backup.py
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true

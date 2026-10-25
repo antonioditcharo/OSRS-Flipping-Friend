@@ -113,8 +113,8 @@ final class EntryDecisionPresenter
                 return Suggestion.waiting("Account state needs reconciliation",
                     "No new buy will be suggested until the companion can reconcile the account state.");
             case NO_FREE_SLOT:
-                return Suggestion.waiting("All Grand Exchange slots are busy",
-                    "No new buy can be placed until a slot becomes available.");
+                return Suggestion.waiting("Keep your current offers in place",
+                    "Collect completed offers as they finish; the next trade is prepared in the background.");
             case NO_ELIGIBLE_CANDIDATE:
                 var diagnostics=plan==null?null:plan.getDiagnostics();
                 if(diagnostics!=null && diagnostics.getTacticsGenerated()==0

@@ -88,7 +88,8 @@ public class SalePolicyAcceptanceDeliveryTest {
     }
     @Test public void boundLegacyHintRemainsLegacyWhenLaterPolicyReceiptIsAccepted()throws Exception {
         var f=new Fixture(folder.newFolder().toPath());var source=f.publish(f.working,at);
-        assertTrue(f.intents.advise(f.working,f.storage.accountId(),true,f.tracker,source.getEventId()));
+        // Keep the legacy binding and prospective acceptance on the fixture's frozen clock.
+        assertTrue(f.intents.advise(f.working,f.storage.accountId(),true,f.tracker,source.getEventId(),null,at));
         assertTrue(f.accept(source,"prospective-receipt"));
         assertTrue("An earlier bound legacy hint cannot gain retrospective policy authority",f.intents.acceptedPolicies(f.storage.accountId()).isEmpty());
     }

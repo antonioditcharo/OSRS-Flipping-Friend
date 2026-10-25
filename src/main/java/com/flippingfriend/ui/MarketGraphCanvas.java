@@ -73,15 +73,19 @@ final class MarketGraphCanvas extends JPanel {
         if(projections && projection!=null && projection.isAvailable() && at>=projection.originAt) {
             if(at>projection.points.get(projection.points.size()-1).at)return "No supported projection at this horizon";
             var point=projection.points.stream().min(Comparator.comparingDouble(p->Math.abs(p.at-at))).orElse(null);
-            return point==null?null:String.format(Locale.ROOT,"<html>%s UTC · experimental projection<br>Low median %s (%s–%s)<br>High median %s (%s–%s)<br>%,d completed historical comparisons; ranges are not guaranteed.</html>",
-                DATE.format(Instant.ofEpochSecond(point.at)),number(point.low.median),number(point.low.lower),number(point.low.upper),
-                number(point.high.median),number(point.high.lower),number(point.high.upper),point.analogues);
+            return point==null?null:String.format(Locale.ROOT,"<html>%s UTC · experimental projection<br>Estimated low average %s gp<br>Estimated high average %s gp<br>%,d completed historical comparisons; estimates are not guaranteed.</html>",
+                DATE.format(Instant.ofEpochSecond(point.at)),estimate(point.low.lower,point.low.upper),
+                estimate(point.high.lower,point.high.upper),point.analogues);
         }
         Candle bar=bars.stream().min(Comparator.comparingDouble(c->Math.abs(c.getTimestamp()+bucket-at))).orElse(null);
         if(bar==null || Math.abs(bar.getTimestamp()+bucket-at)>bucket)return "No observed bucket at this time";
         return String.format(Locale.ROOT,"<html>%s UTC · completed bucket averages<br>Low: %s gp · volume %,d<br>High: %s gp · volume %,d</html>",
             DATE.format(Instant.ofEpochSecond(bar.getTimestamp()+bucket)),Objects.toString(bar.getAvgLowPrice(),"Unavailable"),bar.getLowPriceVolume(),
             Objects.toString(bar.getAvgHighPrice(),"Unavailable"),bar.getHighPriceVolume());
+    }
+    private static String estimate(double lower,double upper) {
+        return java.math.BigDecimal.valueOf(lower).add(java.math.BigDecimal.valueOf(upper))
+            .divide(java.math.BigDecimal.valueOf(2),0,java.math.RoundingMode.HALF_UP).toPlainString();
     }
     @Override protected void paintComponent(Graphics g) {
         super.paintComponent(g);Graphics2D gg=(Graphics2D)g.create();

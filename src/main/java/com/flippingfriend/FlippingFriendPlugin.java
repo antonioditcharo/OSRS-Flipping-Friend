@@ -114,6 +114,8 @@ public class FlippingFriendPlugin extends Plugin
 
 	@Inject
 	private ConfigManager configManager;
+    @Inject private com.flippingfriend.data.PluginStorage pluginStorage;
+    @Inject private com.flippingfriend.data.RuneLiteHistoryCollector geHistory;
 
 	@Inject
 	private Notifier notifier;
@@ -229,6 +231,7 @@ public class FlippingFriendPlugin extends Plugin
         editorSaleOriginIdentity=null;editorSaleOriginAccount=null;editorSaleOriginItem=0;
         engineRefreshEpoch.incrementAndGet();engineRefreshInFlight.set(false);engineRefreshRequested.set(false);
         geInputAssist.start();
+        if(geHistory!=null)geHistory.start();
 		worker = Executors.newSingleThreadExecutor(r ->
 		{
 			Thread thread = new Thread(r, "flipping-friend-engine");
@@ -277,6 +280,7 @@ public class FlippingFriendPlugin extends Plugin
 	{
         engineRefreshEpoch.incrementAndGet();engineRefreshInFlight.set(false);engineRefreshRequested.set(false);
         geInputAssist.stop();
+        if(geHistory!=null)geHistory.stop();
         stepGuide.reset(); tradeConfirmGuard.reset();
 		offerObservationGeneration.incrementAndGet();
         offerTracker.resetContinuationObservations();
@@ -305,6 +309,7 @@ public class FlippingFriendPlugin extends Plugin
 			worker.shutdownNow();
 			worker = null;
 		}
+        if(pluginStorage!=null)pluginStorage.releaseCaptureWriter();
 
 		accountDataLoaded.set(false);
 		exemptionsResolved = false;
@@ -353,6 +358,7 @@ public class FlippingFriendPlugin extends Plugin
 			persist();
 			accountMonitor.reset();
 			accountDataLoaded.set(false);
+            if(pluginStorage!=null)pluginStorage.releaseCaptureWriter();
 		}
 	}
 
@@ -433,12 +439,18 @@ public class FlippingFriendPlugin extends Plugin
     public void onGameTick(net.runelite.api.events.GameTick event) {
         if(client.getGameState()==GameState.LOGGED_IN) {
             offerSnapshotReady=true;
+            if(accountDataLoaded.get() && geHistory!=null)geHistory.capture(false);
             if(restoreOffersPending) {
                 restoreOffersPending=false;
                 restoreCurrentOffers(pendingRestoreGeneration,pendingRestoreProfile);
             }
         }
         refreshSellSetupQuote();
+    }
+    @Subscribe
+    public void onWidgetLoaded(net.runelite.api.events.WidgetLoaded event) {
+        if(event.getGroupId()==InterfaceID.GE_HISTORY && geHistory!=null)
+            clientThread.invokeLater(()->geHistory.capture(true));
     }
     @Subscribe
     public void onVarbitChanged(net.runelite.api.events.VarbitChanged event) { refreshSellSetupQuote(); }
@@ -775,7 +787,8 @@ public class FlippingFriendPlugin extends Plugin
 			{
 				return;
 			}
-			buyLimits.load();
+			if(pluginStorage!=null && !pluginStorage.acquireCaptureWriter())return;
+            buyLimits.load();
 			skipList.load();
 			positions.load();
 			tradePlans.load();

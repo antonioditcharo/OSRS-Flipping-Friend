@@ -72,5 +72,5 @@ final class RecordedSalesPanel extends JPanel {
         }
         evidence.setText("This offer is outside the most recent recorded sale details available here. Its measurement remains in Performance.");
     }
-    private static String range(Long lower,Long upper){return lower==null?"Unknown":lower.equals(upper)?lower.toString():lower+" to "+upper;}
+    private static String range(Long lower,Long upper){return com.flippingfriend.core.RoundedEstimate.text(lower,upper);}
 }

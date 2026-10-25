@@ -1054,6 +1054,17 @@ final class SqliteStore implements AutoCloseable
 	{
 		return ledgerSnapshot(accountId,Instant.now().getEpochSecond());
 	}
+    synchronized long recoveryExternalRevision()throws Exception {
+        try(var s=connection.createStatement();var r=s.executeQuery("PRAGMA data_version")){if(!r.next())throw new IllegalStateException("No external revision");return r.getLong(1);}
+    }
+    synchronized void commitPreparedRecovery(SaleCostAmendments.Prepared prepared)throws Exception {
+        if(prepared.expectedExternalRevision<0 || prepared.expectedExternalRevision!=recoveryExternalRevision())
+            throw new IllegalStateException("External ledger writes require fresh recovery qualification");
+        boolean auto=connection.getAutoCommit();connection.setAutoCommit(false);
+        try {prepared.validateAndInsert(connection);checkpoint.reached("SALE_COST_AMENDMENTS_WRITTEN");connection.commit();discardCanonicalHistory();}
+        catch(Exception failure){connection.rollback();discardCanonicalHistory();throw failure;}
+        finally{connection.setAutoCommit(auto);}
+    }
     synchronized List<String> amendSaleCosts(String account,List<String> sources,long now)throws Exception {
         // Explicit maintenance only, never startup/read-time repair or execution replay.
         boolean auto=connection.getAutoCommit();connection.setAutoCommit(false);

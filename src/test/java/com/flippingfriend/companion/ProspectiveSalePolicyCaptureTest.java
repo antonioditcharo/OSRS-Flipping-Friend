@@ -35,8 +35,8 @@ public class ProspectiveSalePolicyCaptureTest {
         var helper=new SalePolicyAcceptanceDeliveryTest();helper.folder=folder;var f=helper.new Fixture(folder.newFolder().toPath());
         var source=f.publish(f.working,helper.at);assertTrue(f.accept(source,"unstaged",false));
         var proof=f.intents.acceptedPolicies(f.storage.accountId()).get(0);assertTrue(proof.isProspectiveCaptureRequired());
-        var target=f.storage.accountDir().resolve(OfferEventOutbox.FILE_NAME);var blocked=target.resolveSibling(target.getFileName()+".tmp");
-        var before=Files.readAllBytes(target);Files.createDirectory(blocked);
+        var target=f.storage.accountDir().resolve(OfferEventOutbox.FILE_NAME);var blocked=target.resolveSibling(target.getFileName()+".lock");
+        var before=Files.readAllBytes(target);Files.deleteIfExists(blocked);Files.createDirectory(blocked);
         try{f.outbox.retainSalePolicy(proof);fail("Expected failed durable staging");}catch(Exception expected){}
         assertArrayEquals(before,Files.readAllBytes(target));Files.deleteIfExists(blocked);
         f.working.setState("CANCELLED_SELL");f.working.setQuantityFilled(2);f.working.setSpent(400);

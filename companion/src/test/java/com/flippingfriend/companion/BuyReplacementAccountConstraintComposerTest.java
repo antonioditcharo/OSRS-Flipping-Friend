@@ -87,7 +87,7 @@ public class BuyReplacementAccountConstraintComposerTest {
         assertEquals(budget, c.getSessionLossBudget());
         assertEquals((long) (equity * appetite.getItemExposureLimit()), c.getPerItemCapitalCap());
         assertEquals((long) (equity * appetite.getGroupExposureLimit()), c.getPerGroupCapitalCap());
-        assertEquals(0, c.getMinProfitPerFlip());
+        assertEquals(1, c.getMinProfitPerFlip());
         assertEquals(account.getCommittedByItem(), c.getCommittedByItem());
         Map<String, Long> groups = new HashMap<>();
         groups.merge(ItemGroups.groupOf("Abyssal whip"), 3000L, Long::sum);
@@ -166,7 +166,7 @@ public class BuyReplacementAccountConstraintComposerTest {
         String planner = Files.readString(Path.of("src/main/java/com/flippingfriend/companion/PortfolioPlanner.java"));
         assertTrue(planner.contains("long lossBudget = lossBudgetFor(account,nowSeconds);"));
         assertTrue(planner.contains("Map<String, Long> committedByGroup = committedByGroupFor(account, market.mapping);"));
-        assertTrue(planner.contains("PortfolioConstraints limits = constraintsFor(account, appetite, lossBudget, committedByGroup,nowSeconds);"));
+        assertTrue(planner.contains("PortfolioConstraints limits = constraintsFor(account, appetite, lossBudget, committedByGroup,nowSeconds)"));
         for (Method m : PortfolioPlanner.class.getDeclaredMethods())
             if (Arrays.asList("lossBudgetFor", "committedByGroupFor", "constraintsFor").contains(m.getName())) {
                 assertTrue(Modifier.isStatic(m.getModifiers()));

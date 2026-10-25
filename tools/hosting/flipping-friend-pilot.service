@@ -1,0 +1,21 @@
+[Unit]
+Description=Flipping Friend private advisory pilot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=flipping-friend
+Group=flipping-friend
+ExecStart=/usr/bin/java -Xmx1536m -cp /opt/flipping-friend/current.jar com.flippingfriend.companion.HostedPilotMain /etc/flipping-friend/server-config.json
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/flipping-friend
+MemoryMax=2G
+TasksMax=256
+
+[Install]
+WantedBy=multi-user.target
