@@ -31,6 +31,16 @@ final class DurablePlanningExposure {
         catch(ArithmeticException unrepresentable){return null;}
         return result;
     }
+    static String refusalReason(SqliteStore.PlanningProjections read,com.flippingfriend.core.AccountSnapshot account,long now) {
+        if(!CurrentOfferReadSet.valid(read,account,now))return "Waiting for an acknowledged current cash and eight-slot capture.";
+        if(read.tradeScope==null)return "Recorded trade holdings are unavailable.";
+        if(read.tradeScope.hasUnboundedReconciliation) {
+            var ids=new java.util.TreeSet<String>();
+            read.tradeScope.reconciliationScope.forEach((id,items)->{if(items.isEmpty())ids.add(id);});
+            return "New buys paused: trade observation scope is unresolved ("+ids.size()+" source records). Open Records → Trade recovery for the affected evidence.";
+        }
+        return "New buys paused: recorded capital or current offer exposure is contradictory or cannot be bounded. Open Records → Trade recovery.";
+    }
 
     static DurablePlanningExposure from(SqliteStore.PlanningProjections read) {
         return from(read, Collections.emptyMap());

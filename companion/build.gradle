@@ -59,6 +59,19 @@ tasks.named('test') {
     }
 }
 
+// Explicit offline reproduction. The probe refuses live paths and existing destination databases.
+tasks.register('probeSaleCostIncident', JavaExec) {
+    group = 'verification'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    workingDir rootProject.projectDir
+    mainClass = 'com.flippingfriend.companion.SaleCostIncidentProbe'
+    doFirst {
+        if (!project.hasProperty('incidentArgsFile')) throw new GradleException('incidentArgsFile JSON array required')
+        args new groovy.json.JsonSlurper().parse(file(project.property('incidentArgsFile')))
+    }
+}
+
 /**
  * Lets a probe be pointed at captured market data from the command line.
  * <p>

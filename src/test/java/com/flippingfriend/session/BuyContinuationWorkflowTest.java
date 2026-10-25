@@ -183,7 +183,9 @@ public class BuyContinuationWorkflowTest {
         inject(plugin,"client",client);inject(plugin,"clientThread",thread);inject(plugin,"worker",executor);
         inject(plugin,"engine",f.engine);inject(plugin,"stepGuide",guide);inject(plugin,"widgetResolver",resolver);
         inject(plugin,"accountMonitor",f.account);inject(plugin,"offerTracker",f.tracker);inject(plugin,"configManager",profiles);
-        inject(plugin,"companion",read(f.engine,"companion"));inject(plugin,"panel",mock(com.flippingfriend.ui.FlippingFriendPanel.class));
+        var companion=(CompanionClient)read(f.engine,"companion");
+        when(companion.capturePlanningObservation(any())).thenAnswer(call->call.getArgument(0));
+        inject(plugin,"companion",companion);inject(plugin,"panel",mock(com.flippingfriend.ui.FlippingFriendPanel.class));
         ((java.util.concurrent.atomic.AtomicBoolean)read(plugin,"accountDataLoaded")).set(true);inject(plugin,"offerSnapshotReady",true);
         var capture=FlippingFriendPlugin.class.getDeclaredMethod("beginEngineRefresh",long.class);capture.setAccessible(true);capture.invoke(plugin,0L);
         verify(executor).execute(any(Runnable.class));

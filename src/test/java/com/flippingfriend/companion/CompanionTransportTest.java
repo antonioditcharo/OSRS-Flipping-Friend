@@ -76,11 +76,46 @@ public class CompanionTransportTest {
         assertEquals(8,peers.size());assertEquals(8,new HashSet<>(peers).size());
     }
     void publishEmptyFrame()throws Exception {
+        var capture=emptyFrame();
+        client.publishAccount(capture.getState(),org.mockito.Mockito.mock(com.flippingfriend.FlippingFriendConfig.class),0,Map.of(),Map.of(),Set.of(),Set.of(),Set.of(),false,List.of(),List.of(),storage.accountId(),client.capturePlanningObservation(capture));
+    }
+    private com.flippingfriend.session.PlanningAccountObservation emptyFrame() {
         var slots=new net.runelite.api.GrandExchangeOffer[8];
         for(int i=0;i<8;i++){slots[i]=org.mockito.Mockito.mock(net.runelite.api.GrandExchangeOffer.class);org.mockito.Mockito.when(slots[i].getState()).thenReturn(net.runelite.api.GrandExchangeOfferState.EMPTY);}
         var state=new com.flippingfriend.session.AccountState(true,true,false,100000000,0,0,8,8,0,false,Map.of(),Map.of(),Map.of());
         var capture=com.flippingfriend.session.PlanningAccountObservation.capture(storage.accountId(),state,slots,List.of(),java.time.Instant.now().getEpochSecond());
-        client.publishAccount(state,org.mockito.Mockito.mock(com.flippingfriend.FlippingFriendConfig.class),0,Map.of(),Map.of(),Set.of(),Set.of(),Set.of(),false,List.of(),List.of(),storage.accountId(),capture);
+        return capture;
+    }
+    @Test public void aNewerUnchangedCallbackCannotBeOvertakenByAQueuedAccountFrame()throws Exception {
+        var copied=emptyFrame();var captured=client.capturePlanningObservation(copied);
+        assertNotNull(captured);assertEquals(8,outbox.pending().size());
+        client.captureObservedOfferCleared(7,storage.accountId(),copied.getObservedAt()+1);
+        assertEquals(9,outbox.pending().size());
+        var last=outbox.pending().get(8);assertEquals(9,last.getSequence());
+        client.publishAccount(copied.getState(),org.mockito.Mockito.mock(com.flippingfriend.FlippingFriendConfig.class),0,Map.of(),Map.of(),Set.of(),Set.of(),Set.of(),false,List.of(),List.of(),storage.accountId(),captured);
+        assertEquals("Worker must never append a delayed frame",9,outbox.pending().size());
+        assertEquals(last.getEventId(),outbox.pending().get(8).getEventId());assertTrue(peers.isEmpty());
+        var restart=new OfferEventOutbox(storage);assertEquals(9,restart.pending().size());
+        assertEquals(captured.getReceipt().get(7),restart.pending().get(7).getEventId());
+    }
+    @Test public void anUncommittedFrameCannotBeAppendedFromTheWorker()throws Exception {
+        var copied=emptyFrame();
+        client.publishAccount(copied.getState(),org.mockito.Mockito.mock(com.flippingfriend.FlippingFriendConfig.class),0,Map.of(),Map.of(),Set.of(),Set.of(),Set.of(),false,List.of(),List.of(),storage.accountId(),copied);
+        assertTrue(outbox.pending().isEmpty());assertTrue(peers.isEmpty());
+    }
+    @Test public void unavailableHealthCanExplainItsRefusalWithoutAuthorizingAnEntry()throws Exception {
+        long now=java.time.Instant.now().getEpochSecond();String reason="New buys paused: trade observation scope is unresolved.";
+        server.createContext("/v1/health",exchange->{try{reply(exchange,200,gson.toJson(new CompanionHealth("DEGRADED","Recorded source issue",now,0,now,false)));}
+            catch(Exception e){throw new java.io.IOException(e);}});
+        server.createContext("/v1/accounts/",exchange->{try {
+            String path=exchange.getRequestURI().getPath();Object body;
+            if(path.endsWith("health"))body=new CompanionHealth("DEGRADED","Recorded source issue",now,0,now,false);
+            else if(path.endsWith("ledger/current"))body=new AccountLedgerSnapshot(storage.accountId(),now,0,0,0,0,0,0,0,0,List.of());
+            else body=PortfolioPlan.unavailable("refused",PortfolioPlanOutcome.COMPANION_STATE_UNAVAILABLE,reason,now);
+            reply(exchange,200,gson.toJson(body));
+        }catch(Exception e){throw new java.io.IOException(e);}});
+        assertNull(client.refreshPlan());assertNull(client.lastPlan());
+        var shown=client.entryUnavailableSuggestion();assertEquals(com.flippingfriend.model.SuggestionType.WAIT,shown.getType());assertEquals(reason,shown.getDetail());
     }
     @Test public void eightActualPostAcknowledgementsPrecedeTheAccountReadSetWithOnlyTwoOutboxReplacements()throws Exception {
         var accepted=new LinkedHashMap<Integer,String>();var snapshots=new java.util.concurrent.atomic.AtomicInteger();

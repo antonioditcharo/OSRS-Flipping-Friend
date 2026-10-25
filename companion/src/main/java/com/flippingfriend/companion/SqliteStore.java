@@ -65,6 +65,7 @@ final class SqliteStore implements AutoCloseable
 	private static final TransactionCheckpoint NO_CHECKPOINT = checkpoint -> { };
 	private final Connection connection;
 	private final TransactionCheckpoint checkpoint;
+    private String effectiveEffects="position_event";
 	/** Immutable metadata is cached only after its transaction commits. No cached absence. */
 	private final Map<String,RiskWindow> riskWindows = new HashMap<>();
     private static final String ACCOUNTING_MODE="AUTOMATIC_ACCOUNTING_V1";
@@ -132,6 +133,9 @@ final class SqliteStore implements AutoCloseable
 			// here; mode=ro on a file: URL is the form it accepts.
             if (!Files.isRegularFile(database)) throw new IllegalArgumentException("existing database is required");
             connection = DriverManager.getConnection("jdbc:sqlite:" + database.toAbsolutePath().toUri().toASCIIString() + "?mode=ro");
+            try(var s=connection.createStatement();var r=s.executeQuery("SELECT 1 FROM sqlite_master WHERE type='view' AND name='effective_position_event'")) {
+                if(r.next())effectiveEffects="effective_position_event";
+            }
 			return;
 		}
 		Files.createDirectories(database.getParent());
@@ -169,6 +173,8 @@ final class SqliteStore implements AutoCloseable
 				try (Statement statement = connection.createStatement())
 				{ statement.execute("ALTER TABLE position_event ADD COLUMN " + definition); }
 		}
+        SaleCostAmendments.initialize(connection);
+        effectiveEffects="effective_position_event";
 		if (!hasColumn("offer_projection", "sale_tax_policy"))
 			try (Statement statement = connection.createStatement())
 			{ statement.execute("ALTER TABLE offer_projection ADD COLUMN sale_tax_policy TEXT"); }
@@ -611,7 +617,7 @@ final class SqliteStore implements AutoCloseable
 		AutomaticTradeScope replay = new AutomaticTradeScope();
 		try (Statement sql = connection.createStatement(); ResultSet rows = sql.executeQuery(
 			"SELECT id,effect_type,item_id,item_name,quantity,acquisition_cost,observed_at,source_event_id," +
-			"source_offer_identity,profit_lower,profit_upper,applied_cost_basis FROM position_event ORDER BY id"))
+			"source_offer_identity,profit_lower,profit_upper,applied_cost_basis FROM "+effectiveEffects+" ORDER BY id"))
 		{
 			while (rows.next())
 			{
@@ -909,7 +915,7 @@ final class SqliteStore implements AutoCloseable
         try (PreparedStatement s = connection.prepareStatement(
             "SELECT source_event_id,source_offer_identity,item_id,item_name,effect_type,quantity,observed_at," +
             "acquisition_cost,gross_proceeds,tax_lower,tax_upper,profit_lower,profit_upper," +
-            "COALESCE(sale_accounting_reason,transition_reason,'Incomplete trade evidence') FROM position_event " +
+            "COALESCE(sale_accounting_reason,transition_reason,'Incomplete trade evidence') FROM "+effectiveEffects+" " +
             "WHERE effect_type='RECONCILE' OR transition_reason IS NOT NULL OR " +
             "(effect_type='DISPOSE' AND (profit_lower IS NULL OR profit_lower<>profit_upper)) ORDER BY id DESC");
              ResultSet r = s.executeQuery()) {
@@ -1044,6 +1050,16 @@ final class SqliteStore implements AutoCloseable
 	{
 		return ledgerSnapshot(accountId,Instant.now().getEpochSecond());
 	}
+    synchronized List<String> amendSaleCosts(String account,List<String> sources,long now)throws Exception {
+        // Explicit maintenance only, never startup/read-time repair or execution replay.
+        boolean auto=connection.getAutoCommit();connection.setAutoCommit(false);
+        try {
+            var result=SaleCostAmendments.apply(connection,account,sources,now);
+            checkpoint.reached("SALE_COST_AMENDMENTS_WRITTEN");connection.commit();
+            discardCanonicalHistory();return result;
+        }catch(Exception failure){connection.rollback();discardCanonicalHistory();throw failure;}
+        finally{connection.setAutoCommit(auto);}
+    }
 	synchronized AccountLedgerSnapshot ledgerSnapshot(String accountId,long evaluatedAt) throws Exception
 	{
 		return readLedgerSnapshot(accountId,evaluatedAt,automaticTradeScope(accountId));
@@ -1053,7 +1069,7 @@ final class SqliteStore implements AutoCloseable
 		try (Statement statement = connection.createStatement(); ResultSet row = statement.executeQuery(
 			"SELECT COUNT(*),COUNT(profit_lower),COALESCE(SUM(CASE WHEN profit_lower<>profit_upper THEN 1 ELSE 0 END),0),COUNT(tax_lower)," +
 			"COALESCE(SUM(profit_lower),0),COALESCE(SUM(profit_upper),0)," +
-			"COALESCE(SUM(tax_lower),0),COALESCE(SUM(tax_upper),0) FROM position_event WHERE effect_type='DISPOSE'"))
+			"COALESCE(SUM(tax_lower),0),COALESCE(SUM(tax_upper),0) FROM "+effectiveEffects+" WHERE effect_type='DISPOSE'"))
 		{
 			row.next();
 			return new AccountLedgerSnapshot(accountId, evaluatedAt, row.getLong(1),
@@ -1071,7 +1087,7 @@ final class SqliteStore implements AutoCloseable
 		List<com.flippingfriend.core.RecordedSale> result=new ArrayList<>();
 		try(Statement statement=connection.createStatement();ResultSet r=statement.executeQuery(
 			"SELECT id,observed_at,item_id,item_name,quantity,applied_cost_basis,source_event_id,source_offer_identity,gross_proceeds,tax_lower,tax_upper,profit_lower,profit_upper,sale_tax_policy,"+
-                "CASE WHEN transition_reason IS NULL THEN sale_accounting_reason ELSE COALESCE(sale_accounting_reason,'Incomplete accounting') || '; ' || transition_reason END FROM position_event WHERE effect_type='DISPOSE' ORDER BY id DESC"+limit)) {
+                "CASE WHEN transition_reason IS NULL THEN sale_accounting_reason ELSE COALESCE(sale_accounting_reason,'Incomplete accounting') || '; ' || transition_reason END FROM "+effectiveEffects+" WHERE effect_type='DISPOSE' ORDER BY id DESC"+limit)) {
 			while(r.next())result.add(new com.flippingfriend.core.RecordedSale(r.getLong(1),r.getLong(2),r.getInt(3),r.getString(4),r.getInt(5),r.getLong(6),
 				r.getString(7),r.getString(8),nullableLong(r,9),nullableLong(r,10),nullableLong(r,11),nullableLong(r,12),nullableLong(r,13),r.getString(14),r.getString(15)));
 		}
@@ -1188,7 +1204,7 @@ final class SqliteStore implements AutoCloseable
         List<TradeReviewRead.Row> rows=new ArrayList<>();
         try(var s=connection.createStatement();var r=s.executeQuery(
             "SELECT p.id,p.source_event_id,p.source_offer_identity,p.item_id,EXISTS(SELECT 1 FROM position_event b WHERE b.effect_type='ACQUIRE' AND b.item_id=p.item_id AND b.id<p.id) " +
-            "FROM position_event p WHERE p.effect_type='DISPOSE' AND p.profit_lower IS NULL ORDER BY p.id")) {
+            "FROM "+effectiveEffects+" p WHERE p.effect_type='DISPOSE' AND p.profit_lower IS NULL ORDER BY p.id")) {
             while(r.next())if(r.getString(2)!=null && !r.getString(2).isBlank())
                 rows.add(new TradeReviewRead.Row(r.getLong(1),r.getString(2),r.getString(3),r.getInt(4),r.getBoolean(5)));
         }

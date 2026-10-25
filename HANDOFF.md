@@ -5,6 +5,15 @@ Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
 ## Current delivery
 
+The latest owner-approved regression batch is ordered account-frame capture and source-proven
+sale-cost amendments. Read `local-data/ordered-frame-recovery-20261024/delivery-state.json` first.
+An older copied eight-slot frame overtook a callback, creating a Raw manta ray timestamp gap that
+became global uncertainty; unrelated known-cost sales were refused after restart. New source fixes
+capture ordering, narrowly bounds unchanged authenticated duplicate scope, attaches ledger scope
+before validation, and adds explicit immutable amendments shared by reporting/risk. Original
+source/financial/risk rows remain intact. [Contract](docs/architecture/ordered-account-frame-recovery.md).
+Source, CI, installation, amendments and fresh suggestion acceptance are separate receipt fields.
+
 The owner-approved [no-trade-left-behind PR #159](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/159)
 is merged. The original 1.13.3 update was refused safely when official RuneLite moved to 1.13.4;
 the current source pin is 1.13.4. Read the cumulative receipt below for exact tested heads,

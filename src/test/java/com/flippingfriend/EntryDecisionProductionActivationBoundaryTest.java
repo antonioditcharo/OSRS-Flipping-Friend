@@ -26,7 +26,7 @@ public class EntryDecisionProductionActivationBoundaryTest
             "src/main/java/com/flippingfriend/companion/CompanionClient.java"), StandardCharsets.UTF_8);
         Assert.assertTrue(client.contains("public Suggestion nextEntrySuggestion("));
         Assert.assertTrue(client.contains("PresentedEntryDecision presented = nextEntryDecisionPresentation("));
-        Assert.assertTrue(client.contains("Companion entry decision unavailable"));
+        Assert.assertTrue(client.contains("return entryUnavailableSuggestion()"));
         int productionStart = client.indexOf("public Suggestion nextEntrySuggestion(");
         int productionEnd = client.indexOf(
             "PresentedEntryDecision nextEntryDecisionPresentation(Explainer explainer",

@@ -7,6 +7,12 @@ installed and player accepted are separate states. Owner is home; older login de
 
 ## Current batch
 
+- [ ] Deliver/accept ordered account-frame recovery and explicit source-proven sale amendments.
+      Preserve all original sources/effects/risk anchors; verify current cash/eight-slot ACKs,
+      corrected costs/reporting/risk, eligible unrelated entry delivery and independent maintenance.
+      [Contract](docs/architecture/ordered-account-frame-recovery.md); latest receipt:
+      `local-data/ordered-frame-recovery-20261024/delivery-state.json`. Earlier release gates remain open.
+
 - [ ] Deliver/accept the owner-approved no-trade-left-behind pass: every unfinished exact offer,
       canonical unlisted acquisition and saved continuation has an action or explicit blocker;
       preserve original replacement budgets, durable reassessment, independent maintenance,

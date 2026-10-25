@@ -51,8 +51,14 @@ public final class AccountLedgerSnapshot
     }
     public AccountLedgerSnapshot withTradeEvidence(List<PositionProjection> trades, List<MissedFlipEvidence> missed,
             java.util.Map<String, java.util.Set<Integer>> scope) {
-        AccountLedgerSnapshot copy=withTradeEvidence(trades,missed);
         if (scope == null) throw new IllegalArgumentException("reconciliation scope required");
+        // Install the complete evidence atomically before validation. A legacy item-zero gap can
+        // coexist with unrelated managed stock only when its causal item scope is attached.
+        AccountLedgerSnapshot copy=new AccountLedgerSnapshot(accountId,observedAt,sales,boundedSales,
+            uncertainSales,taxBoundedSales,profitLower,profitUpper,taxLower,taxUpper,positions);
+        copy.schemaVersion="2";copy.tradingPositions=Collections.unmodifiableList(new ArrayList<>(trades));
+        copy.missedFlips=Collections.unmodifiableList(new ArrayList<>(missed));
+        copy.recentSales=recentSales;copy.continuationDispositions=continuationDispositions;
         copy.reconciliationScope=copyScope(scope);
         if (!copy.isValid()) throw new IllegalArgumentException("invalid reconciliation scope");
         return copy;

@@ -92,7 +92,7 @@ public class CompanionClient
 		lastBuy = null;
 	}
 
-    public void invalidateEntryAdvice() { lastPlan=null; lastHealth=null; clearIncumbent(); }
+    public void invalidateEntryAdvice() { lastPlan=null; refusalPlan=null; lastHealth=null; clearIncumbent(); }
 
 	/** The single point where a plan becomes the one in force, so tests can reach the same state. */
 	void acceptPlan(PortfolioPlan plan)
@@ -139,6 +139,7 @@ public class CompanionClient
     private String lastPresentedSuccessorId;
 	private volatile String lastError = "Companion has not been contacted.";
 	private volatile PortfolioPlan lastPlan;
+    private volatile PortfolioPlan refusalPlan;
 	private volatile CompanionHealth lastHealth;
 	private volatile com.flippingfriend.core.AccountLedgerSnapshot lastLedger;
     /** Display-only durable records. Never an input to trading, ownership accounting or entry authority. */
@@ -276,6 +277,7 @@ public class CompanionClient
 	/** Latest durably published canonical offer event by slot, retained after acknowledgement. */
 	private final java.util.concurrent.ConcurrentMap<Integer, OfferEvent> canonicalOffers =
 		new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.concurrent.ConcurrentMap<Integer,OfferEvent> capturedSources=new java.util.concurrent.ConcurrentHashMap<>();
 
 	private synchronized String accountContext()
 	{
@@ -288,12 +290,14 @@ public class CompanionClient
 		if (unsupportedPrice || !java.util.Objects.equals(current, observedAccountId))
 		{
 			clearIncumbent(); lastPlan = null; lastHealth = null;
+            refusalPlan=null;
 			lastLedger = null;
             lastHistoryLedger = null;
             ledgerGeneration++;
             performance=null;performanceGeneration++;lastPerformanceRequest=0;performanceError="";
             tradeReview=null;tradeReviewError="";
 			canonicalOffers.clear(); ledger.clear();
+            capturedSources.clear();
             lastPresented = null;
 			observedAccountId = current;
 		}
@@ -378,20 +382,14 @@ public class CompanionClient
             if(!expectedAccountId.equals(observation.getAccountId()) || state!=observation.getState() || age<0 || age>150)return;
             java.util.List<TrackedOffer> observed=observation.getSlots();
             onOffer=new java.util.HashSet<>();
-            var factories=new java.util.ArrayList<OfferEventOutbox.EventFactory>();
             for(int slot=0;slot<8;slot++) {
                 if(observed.get(slot)!=null)onOffer.add(observed.get(slot).getItemId());
-                factories.add(observed.get(slot)==null
-                    ? clearedFactory(slot,expectedAccountId,true,observation.getObservedAt())
-                    : offerFactory(observed.get(slot),expectedAccountId,true,observation.getObservedAt()));
-            }
-            try {
-                for(var event:enqueueObservedOffers(factories)) {
-                    receipt.put(event.getSlot(),event.getEventId());rememberCanonicalOffer(event);
+                var source=capturedSources.get(slot);
+                String id=observation.getReceipt().get(slot);
+                if(id==null || source==null || !id.equals(source.getEventId())) {
+                    lastError="Account frame superseded; waiting for a fresh cash and slot capture";return;
                 }
-                lastLedger=null;
-            }catch(Exception failure) {
-                lastError="Could not persist offer observations: "+failure.getMessage();return;
+                receipt.put(slot,id);
             }
         }else {
             // Legacy callers cannot supply current-read proof or release bounded-history planning.
@@ -469,6 +467,27 @@ public class CompanionClient
         }
         public void publishObservedOffer(TrackedOffer offer,String expectedAccountId,long observedAt)
         { publishOffer(offer,expectedAccountId,true,observedAt,true); }
+
+    /** Commit a copied client capture locally before dispatch. Never performs HTTP. */
+    public com.flippingfriend.session.PlanningAccountObservation capturePlanningObservation(
+            com.flippingfriend.session.PlanningAccountObservation observation) {
+        if(observation==null || !observation.getAccountId().equals(accountContext()))return null;
+        var factories=new java.util.ArrayList<OfferEventOutbox.EventFactory>();
+        var slots=observation.getSlots();
+        for(int slot=0;slot<8;slot++)factories.add(slots.get(slot)==null
+            ?clearedFactory(slot,observation.getAccountId(),true,observation.getObservedAt())
+            :offerFactory(slots.get(slot),observation.getAccountId(),true,observation.getObservedAt()));
+        try {
+            var receipt=new java.util.HashMap<Integer,String>();
+            for(var event:enqueueObservedOffers(factories)) {
+                receipt.put(event.getSlot(),event.getEventId());rememberCanonicalOffer(event);
+            }
+            lastLedger=null;wakeCapturedOfferReplay();
+            return observation.withReceipt(receipt);
+        }catch(Exception failure) {
+            lastError="Could not persist account frame: "+failure.getMessage();return null;
+        }
+    }
 
     /** Commit a copied client capture locally before dispatch. Never performs HTTP. */
     public void captureObservedOffer(TrackedOffer offer,String expectedAccountId,long observedAt) {
@@ -665,6 +684,13 @@ public class CompanionClient
 			if (health == null || !health.canReadPlan(Instant.now().getEpochSecond()))
 			{
 				lastPlan = null;
+                refusalPlan=null;
+                long now=Instant.now().getEpochSecond();
+                if(health!=null && "DEGRADED".equals(health.getStatus()) && health.getCheckedAt()<=now && now-health.getCheckedAt()<=150) {
+                    var refusal=get("portfolio/current",PortfolioPlan.class);
+                    if(java.util.Objects.equals(requestedAccount,accountContext()) && refusal!=null && "UNAVAILABLE".equals(refusal.getStatus())
+                            && refusal.getCreatedAt()<=now && refusal.getExpiresAt()>now)refusalPlan=refusal;
+                }
 				return null;
 			}
 			PortfolioPlan fetched = get("portfolio/current", PortfolioPlan.class);
@@ -736,7 +762,12 @@ public class CompanionClient
     }
 
     private java.util.List<OfferEvent> enqueueObservedOffers(java.util.List<OfferEventOutbox.EventFactory> factories)throws Exception {
-        try { return outbox.enqueueObservedOffers(factories); }
+        try {
+            var events=outbox.enqueueObservedOffers(factories);
+            for(var event:events)capturedSources.compute(event.getSlot(),(slot,old)->old==null
+                || !java.util.Objects.equals(old.getSessionId(),event.getSessionId()) || old.getSequence()<event.getSequence()?event:old);
+            return events;
+        }
         catch(Exception unavailable) {
             // Keep account proof and cached advice withdrawn while the outbox retains this tail.
             lastLedger=null;invalidateEntryAdvice();
@@ -947,9 +978,16 @@ public class CompanionClient
 		{
 			return presented.getSuggestion();
 		}
-		return Suggestion.waiting("Companion entry decision unavailable",
-			"No new buy will be suggested until the companion returns a current, valid entry decision.");
+		return entryUnavailableSuggestion();
 	}
+    public Suggestion entryUnavailableSuggestion() {
+        accountContext();var plan=lastPlan==null?refusalPlan:lastPlan;long now=Instant.now().getEpochSecond();
+        if(plan!=null && !"READY".equals(plan.getStatus()) && plan.getCreatedAt()<=now && plan.getExpiresAt()>now
+                && plan.getReason()!=null && !plan.getReason().isBlank())
+            return Suggestion.waiting("New buys paused",plan.getReason());
+        return Suggestion.waiting("Waiting for a current entry decision",
+            "Waiting for acknowledged cash, slots and companion entry checks.");
+    }
 
     /** A collected remainder is only a size preference; re-plan it with fresh account authority. */
     public Suggestion replacementSuggestion(int item,int cap,Explainer explainer,Set<String> blocked,

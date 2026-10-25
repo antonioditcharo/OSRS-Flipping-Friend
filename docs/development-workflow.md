@@ -4,7 +4,10 @@ Owner direction, 14 October 2026: the agent manages routine diagnostics, backup 
 paired updates, launching and GitHub delivery. Batch related fixes and user acceptance checks.
 The earlier one-response-per-step and manual backup-confirmation routine is superseded for this
 assisted workflow. Login, GE actions and all other in-game input remain the player's actions.
-Live databases and unassigned legacy data must never be edited, migrated or repaired.
+Agents must never directly edit or repair live databases or unassigned legacy data. The owner's
+24 October accepted [source-proven amendment workflow](architecture/ordered-account-frame-recovery.md)
+is a narrow application-level exception: explicitly requested, fully qualified sale amendments
+append separate immutable proof while preserving every original source, financial and risk row.
 
 Owner direction, 19 October: batch multiple related improvements and focused regressions before
 the final full verification, paired restart and consolidated receipt. Do not turn every small fix

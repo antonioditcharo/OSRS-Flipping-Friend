@@ -28,7 +28,7 @@ public class PlanningObservationPublicationTest {
         long at=Instant.now().getEpochSecond()-2;
         var capture=PlanningAccountObservation.capture(storage.accountId(),state,slots,List.of(),at);
         var config=mock(FlippingFriendConfig.class);
-        client.publishAccount(state,config,0,Map.of(),Map.of(),Set.of(),Set.of(),Set.of(),false,List.of(),List.of(),storage.accountId(),capture);
+        client.publishAccount(state,config,0,Map.of(),Map.of(),Set.of(),Set.of(),Set.of(),false,List.of(),List.of(),storage.accountId(),client.capturePlanningObservation(capture));
         var pending=outbox.pending();assertEquals(8,pending.size());Set<Integer> seen=new HashSet<>();
         Map<Integer,String> receipt=new HashMap<>();
         for(var e:pending){assertTrue(e.isAuthenticatedObservation());assertEquals(at,e.getObservedAt());

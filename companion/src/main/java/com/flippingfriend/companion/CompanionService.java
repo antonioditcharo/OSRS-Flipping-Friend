@@ -440,6 +440,12 @@ final class CompanionService implements AutoCloseable
     synchronized com.flippingfriend.core.TradeReviewSnapshot tradeReview()throws Exception {
         return store.tradeReview(accountId,Instant.now().getEpochSecond());
     }
+    synchronized java.util.List<String> amendSaleCosts(SaleCostAmendments.Request request)throws Exception {
+        if(request==null || accountId==null || !accountId.equals(request.accountId))
+            throw new IllegalArgumentException("Amendment account must match the scoped service");
+        var result=store.amendSaleCosts(accountId,request.saleSourceEventIds,Instant.now().getEpochSecond());
+        planningInputRevision.incrementAndGet();requestPlan();return result;
+    }
     synchronized com.flippingfriend.core.TradeReviewSnapshot reviewTrades(com.flippingfriend.core.TradeReviewSnapshot.Request request)throws Exception {
         return store.reviewTrades(accountId,request,Instant.now().getEpochSecond());
     }
@@ -874,7 +880,7 @@ final class CompanionService implements AutoCloseable
 			DurablePlanningExposure exposure =
 				DurablePlanningExposure.forAccount(read, snapshot,Instant.now().getEpochSecond());
 			if (exposure == null)
-				throw new IllegalStateException("durable exposure requires reconciliation");
+				throw new IllegalStateException(DurablePlanningExposure.refusalReason(read,snapshot,Instant.now().getEpochSecond()));
             risk=DurableRisk.evaluate(read,snapshot,exposure,planningMarket,Instant.now().getEpochSecond());
             if(!risk.isAvailable()) {
                 synchronized(this) {
@@ -909,7 +915,7 @@ final class CompanionService implements AutoCloseable
 			plan = PortfolioPlan.unavailable(
 				snapshot.getCorrelationId() == null ? "none" : snapshot.getCorrelationId(),
 				PortfolioPlanOutcome.COMPANION_STATE_UNAVAILABLE,
-				"Durable holdings or offers require reconciliation before new buys.",
+				unavailable.getMessage()==null?"Recorded account evidence is unavailable.":unavailable.getMessage(),
 				Instant.now().getEpochSecond());
 			return;
 			}

@@ -1,5 +1,10 @@
 # Continuation prompt
 
+Read `local-data/ordered-frame-recovery-20261024/delivery-state.json` first for the latest owner-approved
+regression batch and its exact source/installation/amendment/suggestion acceptance states. See
+[ordered frames and amendments](architecture/ordered-account-frame-recovery.md). Original financial
+rows remain immutable; never replay executions or supply generic historical unknown costs.
+
 Read `local-data/stop-entry-pause-20261024/delivery-state.json` first for the latest delivery.
 [Stop-entry contract](architecture/stop-entry-pause.md): an original acquisition stop can pause
 additional purchases without granting loss authority. Retain exact remainders, fresh recovery,

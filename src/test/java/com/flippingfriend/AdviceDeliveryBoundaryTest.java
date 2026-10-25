@@ -86,6 +86,7 @@ public class AdviceDeliveryBoundaryTest {
         final Suggestion advice=Suggestion.builder(SuggestionType.BUY).item(562,"Fixture").quantity(10).price(100).build();
         Fixture()throws Exception { this(true); }
         Fixture(boolean serverTickObserved)throws Exception {
+            when(companion.capturePlanningObservation(any())).thenAnswer(call->call.getArgument(0));
             var client=mock(Client.class);when(client.getGameState()).thenReturn(GameState.LOGGED_IN);
             GrandExchangeOffer[] slots=new GrandExchangeOffer[8];for(int i=0;i<8;i++) {
                 slots[i]=mock(GrandExchangeOffer.class);when(slots[i].getState()).thenReturn(GrandExchangeOfferState.EMPTY);

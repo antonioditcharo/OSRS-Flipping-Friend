@@ -114,6 +114,7 @@ final class ApiServer implements AutoCloseable
 		{
 			case "portfolio/current": portfolio(exchange); break;
 			case "ledger/current": ledger(exchange); break;
+            case "ledger/sale-cost-amendments": saleCostAmendments(exchange);break;
 			case "learning/current": learning(exchange); break;
 			case "performance/current": performance(exchange); break;
 			case "performance/session": performanceSession(exchange); break;
@@ -182,6 +183,19 @@ final class ApiServer implements AutoCloseable
 		if (service == null) return;
 		respond(exchange, 200, gson.toJson(service.action()));
 	}
+    private void saleCostAmendments(HttpExchange exchange)throws IOException {
+        if(!authorized(exchange))return;
+        if(!"POST".equals(exchange.getRequestMethod())){respond(exchange,405,"{\"error\":\"POST required\"}");return;}
+        var scoped=accountService(exchange);if(scoped==null)return;
+        try {
+            byte[] body=exchange.getRequestBody().readNBytes(16385);
+            if(body.length>16384)throw new IllegalArgumentException("Amendment request too large");
+            var request=gson.fromJson(new String(body,StandardCharsets.UTF_8),SaleCostAmendments.Request.class);
+            if(request==null)throw new IllegalArgumentException("Amendment request required");
+            requirePayloadAccount(exchange,request.accountId);
+            respond(exchange,200,gson.toJson(java.util.Map.of("amendedSaleSources",scoped.amendSaleCosts(request))));
+        }catch(Exception failure){respond(exchange,400,error(failure));}
+    }
 	private void performance(HttpExchange exchange) throws IOException {
 		if(!authorized(exchange))return;
 		if(!"GET".equals(exchange.getRequestMethod())){respond(exchange,405,"{\"error\":\"GET required\"}");return;}
