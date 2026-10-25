@@ -670,7 +670,11 @@ public class SuggestionEngine
                 if(candidate!=null && candidate.getType()!=SuggestionType.WAIT) {
                     relists.add(candidate);
                     if(relist==null || candidate.isLossCut() && !relist.isLossCut())relist=candidate;
-                } else if(candidate!=null)deferredWait=candidate;
+                } else if(candidate!=null) {
+                    deferredWait=candidate;
+                    if(entryPriorityWait!=null && account.getInventoryHoldings().getOrDefault(remaining.getItemId(),0)>0)
+                        entryPriorityWait=candidate;
+                }
             }
         }
 

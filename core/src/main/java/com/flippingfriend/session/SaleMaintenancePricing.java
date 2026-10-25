@@ -9,7 +9,7 @@ import java.util.List;
 
 /** Pure sale-maintenance authority shared by the client, companion and chronological replay. */
 public final class SaleMaintenancePricing {
-    public static final String VERSION="supported-sale-maintenance-6";
+    public static final String VERSION="supported-sale-maintenance-7";
     public enum Status {
         ELIGIBLE, INVALID_QUANTITY, MISSING_PRICES, STALE_PRICES, IMMATERIAL_CHANGE,
         UNPROVEN_QUANTITY, UNKNOWN_CLOCKS, PLACEMENT_PATIENCE, RECENT_PROGRESS,
@@ -66,6 +66,18 @@ public final class SaleMaintenancePricing {
         if(position==null || !position.isCostKnown() || remaining>position.getQuantity())return reduction;
         if(firstObservedAt<=0 || firstObservedAt>now.getEpochSecond() || lastProgressAt<firstObservedAt
             || lastProgressAt>now.getEpochSecond())return Evaluation.waitFor(Status.UNKNOWN_CLOCKS);
+        // Cancellation has already removed a supported routine offer. Complete that exact
+        // accepted reduction as a non-loss limit if optional bucket history disappears.
+        // An old stop/wind-down receipt never grants a fresh loss exit through this path.
+        if(accepted!=null && accepted.getMode()==com.flippingfriend.core.SalePolicyReceipt.Mode.ROUTINE
+            && !sellOnly && reduction.status==Status.MARKET_SUPPORT) {
+            long cost=SaleAccounting.allocateCost(position.getTotalCost(),position.getQuantity(),remaining);
+            int floor=tax.breakEvenSellPriceForCost(item,cost,remaining);
+            if(floor<=0)return Evaluation.waitFor(Status.COST_FLOOR);
+            int price=Math.max(floor,accepted.getProposedPrice());
+            if(price<offerPrice)return new Evaluation(Status.ELIGIBLE,new Quote(price,floor,cost,true,false,
+                "Complete the accepted sale reduction at its saved limit. The exact remaining acquisition cost is protected after tax; current fills at this limit are not guaranteed."),0);
+        }
         var decision=exits.evaluateManagedExit(position,latest,null,series,horizon,now,0,true,sellOnly,false);
         if(!decision.isSell())return reduction;
         boolean cut=decision.getAction()==SellDecision.Action.CUT;

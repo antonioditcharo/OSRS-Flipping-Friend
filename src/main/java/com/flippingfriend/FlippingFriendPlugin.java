@@ -198,6 +198,7 @@ public class FlippingFriendPlugin extends Plugin
 	private long pendingRestoreGeneration;
 	private String pendingRestoreProfile;
 	private final boolean[] nonemptyOfferSeen = new boolean[8];
+    private final com.flippingfriend.session.AdviceContainerChanges adviceContainers=new com.flippingfriend.session.AdviceContainerChanges();
 	private java.util.function.LongSupplier heartbeatClock=()->System.nanoTime()/1_000_000;
 	private volatile long lastAccountRefresh=Long.MIN_VALUE;
 	private volatile long lastEngineRefresh=Long.MIN_VALUE;
@@ -325,6 +326,7 @@ public class FlippingFriendPlugin extends Plugin
 	@Subscribe
 	public void onGameStateChanged(GameStateChanged event)
 	{
+        adviceContainers.reset();
         if (geInputAssist != null) geInputAssist.reset();
         if (stepGuide != null) stepGuide.reset();
         if (tradeConfirmGuard != null) tradeConfirmGuard.reset();
@@ -430,6 +432,7 @@ public class FlippingFriendPlugin extends Plugin
 	@Subscribe
 	public void onItemContainerChanged(ItemContainerChanged event)
 	{
+        if(event==null || !adviceContainers.changed(event.getContainerId(),event.getItemContainer()))return;
 		invalidateAccountAdvice();
         accountMonitor.observeBankContainer(event.getContainerId(),event.getItemContainer());
 		refreshAccountState(this::requestEngineRefresh);

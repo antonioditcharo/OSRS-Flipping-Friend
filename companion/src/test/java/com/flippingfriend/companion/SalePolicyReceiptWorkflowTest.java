@@ -137,6 +137,23 @@ public class SalePolicyReceiptWorkflowTest {
             assertEquals(prefix,financialPrefix(f.path));
         }
     }
+    @Test public void acceptedCollectedReductionCompletesWithoutRequiringTheDisappearedBucketsAgain()throws Exception {
+        try(var f=new Fixture()) {
+            var receipt=f.issue(UUID.randomUUID().toString());f.collect(receipt);var prefix=financialPrefix(f.path);
+            try(var restarted=new SqliteStore(f.path)) {
+                var read=restarted.saleProjections(f.helper.id,f.now+4);var stock=read.ledger.getTradingPositions().get(0);
+                var policy=new CompanionSalePolicy();
+                var exact=policy.decide(read.planning,read.ledger,f.account,f.helper.market(f.now+4,120),(i,s)->List.of(),
+                    561,119,2,stock.getSourceEventId(),false,-1,f.now+4,f.source.getEventId());
+                assertEquals(exact.getReasonCode(),OfferLifecycleAction.PLACE_SELL,exact.getAction());
+                for(int price:new int[]{100,140})assertEquals(OfferLifecycleAction.WAIT,
+                    policy.decide(read.planning,read.ledger,f.account,f.helper.market(f.now+4,120),(i,s)->List.of(),
+                        561,price,2,stock.getSourceEventId(),false,-1,f.now+4,f.source.getEventId()).getAction());
+                assertEquals(201,stock.getTotalCost());assertEquals(2,stock.getQuantity());
+            }
+            assertEquals(prefix,financialPrefix(f.path));
+        }
+    }
     @Test public void newMissingAcceptanceCannotDowngradeToLegacyWhenCurrentCadenceWouldQualify()throws Exception {
         for(boolean modern:List.of(false,true))try(var f=new Fixture(modern)) {
             f.collect(null);f.captureSettings(5,f.now+4,2);

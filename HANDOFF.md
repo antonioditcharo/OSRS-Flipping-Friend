@@ -5,6 +5,14 @@ Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
 ## Current delivery
 
+Queued source: `codex/steady-guidance-relist` addresses the owner's #168 feedback: duplicate or
+unrelated container callbacks withdraw BUY cards, and a collected accepted sale reduction can
+wait for bucket support again. It retains immediate real-state invalidation, exact taxed costs,
+canonical acceptance/source checks and the exit slot. [Contract](docs/architecture/steady-guidance-relist.md).
+Read `local-data/hosted-pilot/steady-guidance-delivery.json` for verification versus installation.
+Player acceptance and sustained latency remain open; the owner reports the general workflow works
+but these intermittent issues remain.
+
 Current installed pair: PR #168 in private shadow mode. Public-feed GETs have bounded workers
 outside financial FIFO queues; disposable restoration checks logical size plus runtime headroom
 before copying. Clean Java/tooling and exact-head Windows/Linux CI passed. Installation preserved

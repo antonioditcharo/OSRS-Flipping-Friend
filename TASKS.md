@@ -7,6 +7,14 @@ installed and player accepted are separate states. Owner is home; older login de
 
 ## Current batch
 
+- [ ] Verify/deliver `codex/steady-guidance-relist`: retain valid BUY guidance across exact duplicate
+      and irrelevant container callbacks; immediately withdraw on real/unreadable state changes.
+      Complete source-proven accepted routine sale reductions at a protected saved non-loss limit
+      when optional bucket history disappears. Preserve current trades, #168 rollback, exact costs,
+      original risk/target context and last-slot reservation. Accept the player relist/entry/restart
+      loop and measure sustained timing separately. [Contract](docs/architecture/steady-guidance-relist.md);
+      `local-data/hosted-pilot/steady-guidance-delivery.json`.
+
 - [x] Implement/test/install PR #168 (`codex/foreground-market-isolation`): public reads cannot occupy financial FIFO
       queues; bounded public-feed overload retains authentication, global health and canonical writes.
       Disposable restoration must refuse known low space before creating a partial copy. Preserve

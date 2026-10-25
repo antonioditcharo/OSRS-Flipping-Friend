@@ -113,7 +113,11 @@ public class SelectedSalePricingTest {
         assertFalse(selected.isLossCut());assertTrue(selected.isProfitKnown());
         assertEquals(tax.netProceeds(13263,1199,1)-SaleAccounting.allocateCost(remainingCost,2,1),selected.getExpectedProfit());
         assertEquals(tax.breakEvenSellPriceForCost(13263,SaleAccounting.allocateCost(remainingCost,2,1),1),selected.getBreakEvenPrice());
-        assertEquals(SuggestionType.WAIT,pricing.quote(13263,1,2,account,ledger,Map.of(),Set.of(),market,List.of(),eightHours,now,false,reprice).getType());
+        var retained=pricing.quote(13263,1,2,account,ledger,Map.of(),Set.of(),market,List.of(),eightHours,now,false,reprice);
+        assertEquals(SuggestionType.SELL,retained.getType());assertEquals(1199,retained.getPrice());
+        assertEquals(1,retained.getQuantity());assertEquals(1400,retained.getTargetSellPrice());
+        assertEquals(selected.getExpectedProfit(),retained.getExpectedProfit());assertEquals(selected.getBreakEvenPrice(),retained.getBreakEvenPrice());
+        assertFalse(retained.isLossCut());
         assertEquals(SuggestionType.WAIT,pricing.quote(13263,3,100,account,ledger,Map.of(),Set.of(),market,bars,eightHours,now,false,reprice).getType());
         var depressed=new MarketSnapshot(market.getMetadata(),Map.of(13263,new LatestPrice(800,at,750,at)),Map.of(),Map.of(),now);
         var lowBars=List.of(new Candle(end-600,800,750,100,100),new Candle(end-300,800,750,100,100));

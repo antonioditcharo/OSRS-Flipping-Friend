@@ -254,6 +254,21 @@ public class AdviceDeliveryBoundaryTest {
         verify(f.guide).withdrawAdvice(argThat(s->s.getType()==SuggestionType.WAIT));
         verify(f.companion).invalidateEntryAdvice();
     }
+    @Test public void duplicateAndUnrelatedContainerCallbacksRetainDisplayedBuyAndQueuedDelivery()throws Exception {
+        Fixture f=new Fixture();var inventory=mock(ItemContainer.class);
+        when(inventory.getItems()).thenReturn(new Item[]{new Item(995,1000000)});
+        f.plugin.onItemContainerChanged(new ItemContainerChanged(93,inventory));
+        f.clientQueue.clear();clearInvocations(f.companion,f.guide);
+        when(f.guide.getSuggestion()).thenReturn(f.advice);
+        f.queueAdvice();
+        f.plugin.onItemContainerChanged(new ItemContainerChanged(93,inventory));
+        f.plugin.onItemContainerChanged(new ItemContainerChanged(123456,mock(ItemContainer.class)));
+        verify(f.guide,never()).withdrawAdvice(any());verify(f.companion,never()).invalidateEntryAdvice();
+        assertEquals(1,f.clientQueue.size());f.clientQueue.remove().run();verify(f.guide).setSuggestion(f.advice);
+        when(inventory.getItems()).thenReturn(new Item[]{new Item(995,999999)});
+        f.plugin.onItemContainerChanged(new ItemContainerChanged(93,inventory));
+        verify(f.guide).withdrawAdvice(any());verify(f.companion).invalidateEntryAdvice();
+    }
     @Test public void queuedSellDoesNotEnterAdviceEvidenceBeforeClientDelivery()throws Exception {
         Fixture f=new Fixture();when(f.guide.isPaused()).thenReturn(false);
         f.set("notifier",mock(net.runelite.client.Notifier.class));
