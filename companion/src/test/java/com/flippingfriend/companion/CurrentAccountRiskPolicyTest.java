@@ -11,6 +11,58 @@ public class CurrentAccountRiskPolicyTest {
     @Rule public TemporaryFolder folder=new TemporaryFolder();
     final DurableRiskWindowTest f=new DurableRiskWindowTest();
     @Before public void setup(){f.folder=folder;}
+    @Test public void unchangedFrameGapRetainsItemPauseButUnrelatedSaleAndFinalEntryRemainAvailable()throws Exception {
+        try(var store=new SqliteStore(folder.newFolder().toPath().resolve("overtaken.db"))) {
+            var start=f.capture(store,100000000);String window=f.evaluate(store,start,100).getWindowId();
+            f.buy(store,"proven-buy",100,100);
+            for(int phase=0;phase<5;phase++) {
+                int filled=phase==0?0:phase==4?5866:1448;String type=phase==4?"BOUGHT":"BUYING";
+                var source=OfferEvent.builder("fixture",phase==2?f.at-1:f.at,type).accountId(f.account).authenticatedObservation(true)
+                    .eventIdentity("manta-"+phase,f.session,"manta").slot(7).sequence(++f.sequence)
+                    .item(389,"Raw manta ray").buying(true).price(910).quantities(5866,filled).spent(filled*910L).build();
+                f.accept(store,source);
+            }
+            f.accept(store,f.event(7,"EMPTY",null,0,0,0,0));
+            f.sell(store,"proven-sale",100,120,12000);var account=captureWithMantaSell(store,0,5866);
+            var read=store.planningProjections(f.account);assertFalse(read.tradeScope.hasUnboundedReconciliation);
+            assertTrue(read.tradeScope.unsafeItems.contains(389));assertEquals(Set.of(389),read.tradeScope.reconciliationScope.get("manta-2"));
+            assertTrue(read.tradeScope.unchangedFrameItems.contains(389));
+            var risk=f.evaluate(store,account,100);assertTrue(risk.getReason(),risk.isAvailable());assertEquals(window,risk.getWindowId());
+            assertTrue("The active listing exception must retain the full prospective cost reserve",risk.getHistoricalUncertaintyReserve()>=5866L*910);
+            assertTrue(risk.getRemainingLossBudget()>0);assertEquals(0,store.ledgerSnapshot(f.account).getUnresolvedSales());
+            assertTrue(store.ledgerSnapshot(f.account).getMissedFlips().stream().anyMatch(e->e.getEventId().equals("manta-2")));
+            try(var service=new CompanionService(f.gson,store)) {
+                var helper=new BoundedPlanningStateTest();helper.set(service,"account",account);
+                var market=(MarketIngestionService)helper.get(service,"market");
+                helper.set(market,"state",new MarketIngestionService.MarketState(Map.of(562,new MarketIngestionService.Item(562,"Item 562",10000)),
+                    new com.google.gson.JsonObject(),new com.google.gson.JsonObject(),new com.google.gson.JsonObject(),f.at));
+                var candidate=new PortfolioCandidate(562,"Item 562","",100,100,100,120,120,120,10,10000,200,1,1,.95,.95,.4,.4,1.5,f.at+90);
+                helper.set(service,"plan",new PortfolioPlan("after-frame-gap",f.at,f.at+90,"READY","fixture",100,List.of(new PortfolioAllocation(1,candidate,"BUY"))));
+                assertEquals(OfferLifecycleAction.PLACE_BUY,service.entryDecision("after-frame-gap",1,f.at).getAction());
+            }
+            // The no-delta gap cannot turn a later fully observed sale into a zero-cost result.
+            account=captureWithMantaSell(store,100,5866);
+            assertEquals(0,store.ledgerSnapshot(f.account).getUnresolvedSales());
+            var partial=store.ledgerSnapshot(f.account).getRecentSales().get(0);assertEquals(91000,partial.getAppliedCost());
+            assertEquals(Long.valueOf(3400),partial.getProfitLower());
+            // An active buy or an excessive sell still has unknown live exposure and blocks entries.
+            var readAfter=store.planningProjections(f.account);assertTrue(UnchangedFrameRecovery.boundedSell(readAfter,readAfter.offers.stream().filter(o->o.getSlot()==7).findFirst().get()));
+            var changed=captureWithMantaSell(store,100,5867);assertFalse(f.evaluate(store,changed,100).isAvailable());
+        }
+    }
+    AccountSnapshot captureWithMantaSell(SqliteStore store,int filled,int total)throws Exception {
+        Map<Integer,String> receipt=new HashMap<>();
+        for(int slot=0;slot<8;slot++) {
+            var e=slot==7?OfferEvent.builder("fixture",f.at,"SELLING").accountId(f.account).authenticatedObservation(true)
+                .eventIdentity("manta-sell-"+(++f.sequence),f.session,"manta-sale-"+total).slot(7).sequence(f.sequence)
+                .item(389,"Raw manta ray").price(963).quantities(total,filled).spent(filled*963L).build()
+                :f.event(slot,"EMPTY",null,0,0,0,0);
+            f.accept(store,e);receipt.put(slot,e.getEventId());
+        }
+        var account=new AccountSnapshot("manta-board-"+f.sequence,f.at,100000000,0,7,8,true,false,0)
+            .withAccountId(f.account).withAutomaticTradeScope().withOfferReadSet(receipt).withObservedHoldings(Map.of());
+        store.recordAndReconcileAccount(account,PositionStateView.from(account),f.gson.toJson(account));return account;
+    }
     void gap(SqliteStore store)throws Exception {
         f.accept(store,f.event(0,"BUYING","incomplete",20,0,0,1000000));f.clear(store);
     }

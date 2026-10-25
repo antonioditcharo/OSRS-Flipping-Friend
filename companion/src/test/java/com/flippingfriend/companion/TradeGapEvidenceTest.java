@@ -6,6 +6,23 @@ import org.junit.Test;
 import static org.junit.Assert.*;
 
 public class TradeGapEvidenceTest {
+    private OfferEvent frame(String id,long at,long seq,int filled,String episode) {
+        return OfferEvent.builder("fixture",at,"BUYING").accountId(AccountIdentity.fromProfileKey("fixture"))
+            .eventIdentity(id,"s",episode).authenticatedObservation(true).slot(7).sequence(seq)
+            .item(389,"Raw manta ray").buying(true).price(910).quantities(5866,filled).spent(filled*910L).build();
+    }
+    @Test public void anOvertakenUnchangedFrameAndRecoveryStayItemScoped() {
+        var history=List.of(frame("newer",103,1,1448,"episode"),frame("delayed",102,2,1448,"episode"),
+            frame("baseline",104,3,1448,"episode"));
+        var scopes=scope(history,Map.of("delayed",389,"baseline",389));
+        assertEquals(Set.of(389),scopes.get("delayed"));assertEquals(Set.of(389),scopes.get("baseline"));
+    }
+    @Test public void regressingTimeWithDifferentCountersOrEpisodeRemainsUnbounded() {
+        for(var changed:List.of(frame("gap",102,2,1449,"episode"),frame("gap",102,2,1448,"other"))) {
+            var scopes=scope(List.of(frame("newer",103,1,1448,"episode"),changed,frame("baseline",104,3,1449,"episode")),Map.of("gap",389,"baseline",389));
+            assertTrue(scopes.get("gap").isEmpty());assertTrue(scopes.get("baseline").isEmpty());
+        }
+    }
     private Map<String,Set<Integer>> scope(List<OfferEvent> history,Map<String,Integer> gaps) {
         return TradeGapEvidence.scope(history,gaps,AccountIdentity.fromProfileKey("fixture"));
     }

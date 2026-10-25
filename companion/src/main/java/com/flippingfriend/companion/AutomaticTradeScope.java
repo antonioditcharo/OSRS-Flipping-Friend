@@ -15,6 +15,8 @@ final class AutomaticTradeScope {
     final Set<Integer> acquiredItems = new HashSet<>();
     final Map<String, PositionProjection> positionsAtEvent = new HashMap<>();
     final Set<Integer> unsafeItems = new HashSet<>();
+    Set<Integer> unchangedFrameItems=java.util.Collections.emptySet();
+    final Set<Integer> unprovenCostItems=new HashSet<>();
     boolean hasUnassignedReconciliation;
     boolean hasUnboundedReconciliation;
     final Map<String,Set<Integer>> reconciliationScope = new HashMap<>();
@@ -47,7 +49,7 @@ final class AutomaticTradeScope {
         if ("ACQUIRE".equals(type)) {
             acquiredItems.add(item);
             if (quantity <= 0 || cost <= 0 || offer == null || offer.isBlank()) {
-                unsafeItems.add(item); return;
+                unsafeItems.add(item);unprovenCostItems.add(item); return;
             }
             var origins=new ArrayList<com.flippingfriend.core.AcquisitionExitSlice>(prior==null?java.util.List.of():prior.getExitContexts());
             String origin=context==null?event:context.getSourceEventId();
@@ -62,7 +64,7 @@ final class AutomaticTradeScope {
                 Math.addExact(prior == null ? 0 : prior.getTotalCost(), cost),
                 prior == null ? when : prior.getOpenedAt(), when, event, offer).withExitContexts(origins));
         } else if ("DISPOSE".equals(type)) {
-            if (quantity <= 0) { unsafeItems.add(item); return; }
+            if (quantity <= 0) { unsafeItems.add(item);unprovenCostItems.add(item); return; }
             if (prior == null) return; // An unrelated sale never creates a holding.
             int matched = Math.min(quantity, prior.getQuantity());
             long consumed = SaleAccounting.allocateCost(prior.getTotalCost(), prior.getQuantity(), matched);

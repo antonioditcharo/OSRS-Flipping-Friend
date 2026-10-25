@@ -25,7 +25,8 @@ final class TradeGapEvidence {
             if (!account.equals(e.getAccountId())) return unknown(gaps);
             Slot prior=slots.get(e.getSlot());
             boolean ordered=prior==null || (prior.trusted && prior.session.equals(e.getSessionId())
-                && e.getSequence()>prior.sequence && e.getObservedAt()>=prior.observedAt);
+                && e.getSequence()>prior.sequence && (e.getObservedAt()>=prior.observedAt
+                    || unchangedAuthenticatedEpisode(prior.source,e)));
             if (gaps.containsKey(e.getEventId()) && gaps.get(e.getEventId())==e.getItemId() && ordered) {
                 Set<Integer> possible=new HashSet<>();
                 if (prior!=null) possible.addAll(prior.items);
@@ -53,9 +54,20 @@ final class TradeGapEvidence {
             }
             next.sequence=Math.max(next.sequence,e.getSequence());
             next.observedAt=Math.max(next.observedAt,e.getObservedAt());
+            next.source=e;
             slots.put(e.getSlot(),next);
         }
         return result;
+    }
+    // A delayed unchanged frame cannot widen the possible item set. This is scope evidence only:
+    // the reducer still retains the rejection/baseline and never books recovered counters.
+    static boolean unchangedAuthenticatedEpisode(OfferEvent a,OfferEvent b) {
+        return a!=null && a.isAuthenticatedObservation() && b.isAuthenticatedObservation()
+            && a.getItemId()>0 && a.getItemId()==b.getItemId()
+            && Objects.equals(a.getOfferIdentity(),b.getOfferIdentity())
+            && Objects.equals(a.getEventType(),b.getEventType()) && a.isBuying()==b.isBuying()
+            && a.getPrice()==b.getPrice() && a.getTotalQuantity()==b.getTotalQuantity()
+            && a.getFilledQuantity()==b.getFilledQuantity() && a.getSpent()==b.getSpent();
     }
     static boolean valid(OfferEvent e) {
         if (e==null || !"1".equals(e.getSchemaVersion()) || blank(e.getEventId()) || blank(e.getSessionId())
@@ -77,6 +89,7 @@ final class TradeGapEvidence {
         final Set<Integer> items=new HashSet<>();
         long sequence,observedAt;
         boolean trusted=true,terminal;
+        OfferEvent source;
         Slot(String session) { this.session=session; }
     }
 }

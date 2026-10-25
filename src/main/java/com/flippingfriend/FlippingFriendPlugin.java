@@ -946,8 +946,9 @@ public class FlippingFriendPlugin extends Plugin
 				: com.flippingfriend.core.AccountIdentity.fromProfileKey(observedProfile);
 			long observedGeneration = offerObservationGeneration.get();
             long observedRevision=adviceObservationRevision.get();
-            var planningObservation=com.flippingfriend.session.PlanningAccountObservation.capture(observedAccount,
-                observedState,client.getGrandExchangeOffers(),observedOffers,java.time.Instant.now().getEpochSecond());
+            var planningObservation=companion.capturePlanningObservation(
+                com.flippingfriend.session.PlanningAccountObservation.capture(observedAccount,
+                observedState,client.getGrandExchangeOffers(),observedOffers,java.time.Instant.now().getEpochSecond()));
             if(planningObservation==null) {
                 companion.invalidateEntryAdvice();
                 stepGuide.setSuggestion(Suggestion.waiting("Waiting for complete account observations",
@@ -1070,8 +1071,7 @@ public class FlippingFriendPlugin extends Plugin
 					else if(continuationRefusal!=null)suggestion=continuationRefusal;
 					else
 					{
-						suggestion = Suggestion.waiting("Companion entry decision unavailable",
-				"No new buy will be suggested until the companion returns a current, valid entry decision.");
+						suggestion = planned!=null?planned:companion.entryUnavailableSuggestion();
 					}
 
 				}

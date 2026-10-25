@@ -17,6 +17,22 @@ import static org.junit.Assert.*;
 public class AccountApiIsolationTest
 {
     @Rule public final TemporaryFolder folder = new TemporaryFolder();
+    @Test public void saleCostAmendmentRequiresAuthenticationExactScopeAndExplicitProvenSources()throws Exception {
+        var fixture=new SaleCostAmendmentsTest();fixture.folder=folder;Path original=fixture.fixture(true),root=folder.newFolder().toPath();
+        String one=fixture.account,two=AccountIdentity.fromProfileKey("other");Path scoped=root.resolve("accounts").resolve(one);
+        java.nio.file.Files.createDirectories(scoped);java.nio.file.Files.copy(original,scoped.resolve("flipping-friend.db"));Gson gson=new Gson();
+        try(var legacy=new SqliteStore(root.resolve("legacy.db"));var market=new CompanionService(gson,legacy);
+                var accounts=new CompanionAccounts(root.resolve("accounts"),market);var api=new ApiServer("test-token",gson,market,accounts,new InetSocketAddress("127.0.0.1",0))) {
+            api.start();String path="accounts/"+one+"/ledger/sale-cost-amendments";
+            String body=gson.toJson(java.util.Map.of("accountId",one,"saleSourceEventIds",java.util.List.of("sold")));
+            assertEquals(405,request(api,path,one,null));assertEquals(400,request(api,path,two,body));assertEquals(400,request(api,path,one,"{}"));
+            var unauthorized=connection(api,path,one);unauthorized.setRequestProperty("X-Flipping-Friend-Token","wrong");
+            try{assertEquals(401,unauthorized.getResponseCode());}finally{unauthorized.disconnect();}
+            assertEquals(200,request(api,path,one,body));assertEquals(200,request(api,path,one,body));
+            var ledger=gson.fromJson(body(api,"accounts/"+one+"/ledger/current",one),com.flippingfriend.core.AccountLedgerSnapshot.class);
+            assertEquals(0,ledger.getUnresolvedSales());assertEquals(1797,ledger.getProfitLower());assertEquals(0,legacy.positionEventCount());
+        }
+    }
     @Test public void tradeReviewAnnotationsRequireAuthenticatedExactAccountScopeAndNeverPostAnOffer()throws Exception {
         Gson gson=new Gson();Path root=folder.newFolder().toPath();String one=AccountIdentity.fromProfileKey("review-api"),two=AccountIdentity.fromProfileKey("other");
         try(var legacy=new SqliteStore(root.resolve("legacy.db"));var market=new CompanionService(gson,legacy);

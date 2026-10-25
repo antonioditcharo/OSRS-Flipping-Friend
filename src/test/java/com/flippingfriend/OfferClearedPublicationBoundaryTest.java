@@ -33,7 +33,7 @@ public class OfferClearedPublicationBoundaryTest
                         "public void publishOfferCleared(int slot)"));
                 // Public cleared-event persistence/retry is exercised by OfferPersistenceRecoveryTest.
                 Assert.assertTrue(client.contains(
-                        "clearedFactory(slot,expectedAccountId,true,observation.getObservedAt())"));
+                        "clearedFactory(slot,observation.getAccountId(),true,observation.getObservedAt())"));
                 Assert.assertTrue(client.contains(".slot(slot)"));
                 Assert.assertTrue(client.contains(
                         ".eventIdentity(eventId,sessionId,null)"));

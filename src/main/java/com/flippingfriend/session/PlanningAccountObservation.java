@@ -11,12 +11,24 @@ public final class PlanningAccountObservation {
     private final long observedAt;
     private final AccountState state;
     private final List<TrackedOffer> slots;
+    private final Map<Integer,String> receipt;
     private PlanningAccountObservation(String accountId,long observedAt,AccountState state,List<TrackedOffer> slots) {
+        this(accountId,observedAt,state,slots,Map.of());
+    }
+    private PlanningAccountObservation(String accountId,long observedAt,AccountState state,List<TrackedOffer> slots,Map<Integer,String> receipt) {
         this.accountId=accountId;this.observedAt=observedAt;this.state=state;this.slots=slots;
+        this.receipt=Map.copyOf(receipt);
     }
     public String getAccountId(){return accountId;}
     public long getObservedAt(){return observedAt;}
     public AccountState getState(){return state;}
+    public Map<Integer,String> getReceipt(){return receipt;}
+    public PlanningAccountObservation withReceipt(Map<Integer,String> receipt) {
+        if(receipt.size()!=8)throw new IllegalArgumentException("Eight durable sources required");
+        for(int slot=0;slot<8;slot++)if(receipt.get(slot)==null || receipt.get(slot).isBlank())
+            throw new IllegalArgumentException("Missing durable slot source");
+        return new PlanningAccountObservation(accountId,observedAt,state,slots,receipt);
+    }
     public List<TrackedOffer> getSlots(){
         List<TrackedOffer> copy=new ArrayList<>();slots.forEach(o->copy.add(o==null?null:o.copyObservation()));
         return Collections.unmodifiableList(copy);
