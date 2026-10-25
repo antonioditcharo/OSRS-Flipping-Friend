@@ -42,10 +42,10 @@ public class ReplacementEntryIntegrationTest {
             assertNotNull(c.getSellForecast());assertTrue(c.getSellForecast().matches(item,false,c.getSellPrice(),c.getQuantity()));
             assertEquals(c.getBuyForecast().getExpectedTotalSeconds(),c.getBuyHours()*3600,1e-9);
             assertEquals(0,store.positionEventCount());assertEquals(1,store.eventCount(RiskWindow.EVENT_TYPE));
-            // A claimed old buy does not waive the new minimum-profit policy for a small remainder.
+            // A requested profit is a preference; smaller exact replacements retain every financial guard.
             var json=f.gson.toJsonTree(account).getAsJsonObject();json.addProperty("minProfitPerFlip",1000000);
             helper.set(service,"account",f.gson.fromJson(json,AccountSnapshot.class));
-            assertEquals(OfferLifecycleAction.WAIT,service.replacementEntry(item,3,f.at).getDecision().getAction());
+            assertEquals(OfferLifecycleAction.PLACE_BUY,service.replacementEntry(item,3,f.at).getDecision().getAction());
             // Nor can the cap rescue a stale/mismatched cash/eight-slot capture.
             json=f.gson.toJsonTree(account).getAsJsonObject();json.addProperty("observedAt",f.at-151);
             helper.set(service,"account",f.gson.fromJson(json,AccountSnapshot.class));

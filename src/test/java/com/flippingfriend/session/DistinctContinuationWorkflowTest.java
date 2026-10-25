@@ -105,7 +105,7 @@ public class DistinctContinuationWorkflowTest {
     @Test public void failedSuccessorAcceptanceCannotSelfCommitDuringCallbackRetries()throws Exception {
         for(boolean buying:new boolean[]{true,false}) {
             var f=new Fixture(buying);Path blocked=f.storage.accountDir().resolve((buying?"buy-reprice-intent.json":"sell-relist-intent.json")+".tmp");
-            Files.createDirectory(blocked);
+            Files.deleteIfExists(blocked);Files.createDirectory(blocked);
             assertNull(buying?f.buys.acceptSuccessor(f.a,561,100,80,f.tracker,f.storage.accountId(),now())
                 :f.sells.acceptSuccessor(f.a,561,100,80,f.tracker,f.storage.accountId(),now()));
             Files.delete(blocked);f.frame(2,80,0,f.active(),true);assertTrue(f.caps().isEmpty());
@@ -128,7 +128,7 @@ public class DistinctContinuationWorkflowTest {
         for(boolean buying:new boolean[]{true,false}) {
             var f=new Fixture(buying);f.accept(f.a,80);
             var blocked=f.storage.accountDir().resolve((buying?"buy-reprice-intent.json":"sell-relist-intent.json")+".tmp");
-            Files.createDirectory(blocked);f.frame(2,80,0,f.active(),true);
+            Files.deleteIfExists(blocked);Files.createDirectory(blocked);f.frame(2,80,0,f.active(),true);
             assertTrue("Uncommitted allocation cannot publish the sibling",f.caps().isEmpty());
             var first=f.outbox.successorBindings().get(0);f.ack();Files.delete(blocked);
             if(buying)assertEquals(70,new BuyRepriceIntent(f.storage).collectedRequest(f.tracker,f.storage.accountId(),now()).quantity);
@@ -139,7 +139,7 @@ public class DistinctContinuationWorkflowTest {
     @Test public void failedOutboxCaptureThenClearRetainsPendingBarrierUntilOriginalSourceCommits()throws Exception {
         for(boolean buying:new boolean[]{true,false}) {
             var f=new Fixture(buying);f.accept(f.a,80);
-            var blocked=f.storage.accountDir().resolve("offer-event-outbox.json.tmp");Files.createDirectory(blocked);
+            var blocked=f.storage.accountDir().resolve("offer-event-outbox.json.lock");Files.deleteIfExists(blocked);Files.createDirectory(blocked);
             // The outbox cleans failed temporary files; keep a nonempty directory to model
             // storage remaining unavailable throughout the subsequent callbacks.
             Files.writeString(blocked.resolve("unavailable"),"fixture");

@@ -167,7 +167,7 @@ public class SuggestionEngine
     public void refreshEntryRecovery(String expected,long now) {
         if(buyRecovery==null)return;
         var paused=buyRecovery.pausedItems(expected,marketData.getSnapshot(),item->{marketData.refreshMaintenanceSeries(item,TIMESTEP);return marketData.getSeries(item,TIMESTEP);},
-            TradingHorizon.of(config.riskProfile(),config.checkInterval(),config.targetHoldMinutes()),taxCalculator,config.minProfitPerFlip(),now);
+            TradingHorizon.of(config.riskProfile(),config.checkInterval(),config.targetHoldMinutes()),taxCalculator,1L,now);
         if(!java.util.Objects.equals(expected,observedAccount))return;
         recoveryEntriesReadable=paused!=null;recoveryEntryPauses=paused==null?Collections.emptySet():paused;
     }
@@ -242,7 +242,7 @@ public class SuggestionEngine
         var diagnostics=saleDiagnostics;if(diagnostics!=null)market=diagnostics.market;
         var snapshot=com.flippingfriend.session.TradeRecoveryScanner.scan(expected,now,ledger,account,copied,market,
             diagnostics==null?Collections.emptyMap():diagnostics.rows,positionStatuses.get(),workflows,selected,
-            TradingHorizon.of(config.riskProfile(),config.checkInterval(),config.targetHoldMinutes()),taxCalculator,config.minProfitPerFlip());
+            TradingHorizon.of(config.riskProfile(),config.checkInterval(),config.targetHoldMinutes()),taxCalculator,1L);
         if(java.util.Objects.equals(expected,observedAccount)) {
             recoveryPublication=new RecoveryPublication(ledger,market,account,saleDiagnosticSettings(),recoveryOfferFingerprint());recovery=snapshot;
         }
@@ -940,7 +940,7 @@ public class SuggestionEngine
 					int newPrice = advisedPrices.buyReprice(offer.getItemId(), offer.getPrice(), price.getLow() + 1,
 						now.getEpochSecond());
                     var buyQuote=com.flippingfriend.session.BuyRepricePricing.quote(offer.getItemId(),offer.getPrice(),remaining,
-                        offer.getFirstSeen(),offer.getLastFillObservedAt(),price,trend,horizon,taxCalculator,now.getEpochSecond(),newPrice,config.minProfitPerFlip());
+                        offer.getFirstSeen(),offer.getLastFillObservedAt(),price,trend,horizon,taxCalculator,now.getEpochSecond(),newPrice,1L);
                     if(buyQuote==null)continue;
                     int targetSellPrice=buyQuote.target;
                     long expectedProfit=buyQuote.profit;
@@ -1787,7 +1787,7 @@ public class SuggestionEngine
         if (quantity<=0) return Suggestion.waiting("Stock already listed", "No verified unlisted quantity remains for this sale.");
         var series = maintenanceSeries(item);
         var decision = sellTiming.evaluateManagedExit(position,price,featureEngine.compute(item,series,BUCKET_SECONDS),
-            series,horizon,now,config.minProfitPerFlip(),true,sellOnly,false);
+            series,horizon,now,1L,true,sellOnly,false);
         var relist=remaining.getSaleRepriceSource()==null?null:new com.flippingfriend.session.SaleMaintenancePricing().evaluateRelist(
             item,remaining.getOriginalPrice(),quantity,position,price,series,horizon,now,sellOnly,sellTiming,taxCalculator,
             remaining.getFirstSeenAt(),remaining.getProgressAt(),remaining.getAcceptedSalePolicyProof()==null?null:remaining.getAcceptedSalePolicyProof().getReceipt()).quote;
@@ -1939,7 +1939,7 @@ public class SuggestionEngine
 
 			boolean isSkipped = skippedItems().contains(itemId);
 			SellDecision decision = sellTiming.evaluateManagedExit(position, price, features, series, horizon, now,
-				config.minProfitPerFlip(), inInventory, sellOnly, isSkipped);
+				1L, inInventory, sellOnly, isSkipped);
 
 			// A buy for this item is still working, so nothing of it is listed.
 			//
@@ -2027,7 +2027,7 @@ public class SuggestionEngine
 			// waits for the offer already running to clear.
 			long remainderProfit = taxCalculator.netProceeds(itemId,decision.getPrice(),quantity)
                 -(position.isCostKnown()?com.flippingfriend.core.SaleAccounting.allocateCost(position.getTotalCost(),position.getQuantity(),quantity):0);
-			if (!remainderWarrantsItsOwnOffer(listed, remainderProfit, config.minProfitPerFlip()))
+			if (!remainderWarrantsItsOwnOffer(listed, remainderProfit, 1L))
 			{
 				statuses.put(itemId, sellingStatus(itemId, quantity));
 				continue;
@@ -2218,7 +2218,7 @@ public class SuggestionEngine
 			
 			long netProfit = expectedRevenue - totalCost - tax;
 			
-			if (netProfit > config.minProfitPerFlip())
+			if (netProfit > 1L)
 			{
 				return Suggestion.builder(recipe.getActionType())
 					.item(mainOutputId, recipe.getName())
@@ -2318,7 +2318,7 @@ public class SuggestionEngine
 			Candidate candidate = scorer.score(screened.metadata, screened.price, features, series, context,
 				horizon, spendable, screened.buyLimitRemaining, config.useCalibration(), natureRunePrice, now);
 
-			if (candidate == null || candidate.getNetProfit() < config.minProfitPerFlip())
+			if (candidate == null || candidate.getNetProfit() <= 0)
 			{
 				continue;
 			}
@@ -2510,7 +2510,7 @@ public class SuggestionEngine
 			}
 
 			long potential = marginPerItem * fillable;
-			if (potential < config.minProfitPerFlip())
+			if (potential < 1L)
 			{
 				continue;
 			}

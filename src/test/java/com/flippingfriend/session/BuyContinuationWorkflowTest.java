@@ -408,11 +408,13 @@ public class BuyContinuationWorkflowTest {
     @Test public void anOldCancellationCannotRetireANewerSameItemEpisode()throws Exception {
         var f=new Fixture();f.present();var old=cancellation(f.tracker.getOffer(0));
         f.cancelCollect();f.progress(GrandExchangeOfferState.BUYING,0);
-        assertTrue(f.intent.advise(f.tracker.getOffer(0),f.storage.accountId(),f.tracker,now));
+        // The real callback can cross a second boundary after this fixture's initial clock.
+        long current=Math.max(now,f.tracker.getOffer(0).getFirstSeen());
+        assertTrue(f.intent.advise(f.tracker.getOffer(0),f.storage.accountId(),f.tracker,current));
         var path=f.storage.accountDir().resolve("buy-reprice-intent.json");byte[] before=java.nio.file.Files.readAllBytes(path);
         assertFalse("Item and slot cannot substitute for the accepted episode",f.engine.recordPresentedMaintenance(old,f.storage.accountId(),now));
         assertArrayEquals(before,java.nio.file.Files.readAllBytes(path));
-        assertTrue(new BuyRepriceIntent(f.storage).isPending(561,f.tracker,f.storage.accountId(),now));
+        assertTrue(new BuyRepriceIntent(f.storage).isPending(561,f.tracker,f.storage.accountId(),current));
     }
     @Test public void acceptedCancellationMustCommitBeforeRetiringTheOriginalPromiseAndCanRetry()throws Exception {
         var f=new Fixture();f.present();var cancel=cancellation(f.tracker.getOffer(0));

@@ -14,6 +14,16 @@ import java.util.Set;
  */
 public final class PortfolioOptimizer
 {
+    /** Preferences may narrow the first pass, but cannot eliminate an otherwise safe entry. */
+    public PortfolioPlan optimizePreferred(List<PortfolioCandidate> raw, PortfolioConstraints constraints,
+        String correlationId, long now) {
+        PortfolioPlan preferred = optimize(raw, constraints, correlationId, now);
+        if (!preferred.getAllocations().isEmpty() || constraints.getMinProfitPerFlip() <= 1
+                || constraints.getFreeSlots() <= 0) return preferred;
+        return optimize(raw, constraints.withCommitted(constraints.getCommittedByItem(),
+            constraints.getCommittedByGroup(), 1), correlationId, now);
+    }
+
 	public PortfolioPlan optimize(List<PortfolioCandidate> raw, PortfolioConstraints constraints,
 		String correlationId, long now)
 	{

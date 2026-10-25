@@ -7,6 +7,15 @@ installed and player accepted are separate states. Owner is home; older login de
 
 ## Current batch
 
+- [ ] Complete the approved hosted pilot: preservation/rollback proof, isolated background history
+      support and canonical qualified repair, flexible preferences/rounded estimates, reusable Java
+      core, account writer fencing, authenticated scoped replication, fair shared allocations and
+      asynchronous local fallback. Verify clean Java/tooling tests and exact-head Windows/Linux CI,
+      encrypted off-server restore, 1,000 connected/100 planning capacity, shadow comparisons,
+      installation, fresh suggestions, outage fallback and sustained player/restart acceptance.
+      [Contract](docs/architecture/hosted-pilot.md); `local-data/hosted-pilot/delivery-state.json`.
+      Installed local runtime is still #162; staging server running is not local activation.
+
 - [ ] Deliver/accept after-tick EMPTY prevention, cold canonical-write ACKs and complete current-frame
       baseline recovery without booking missed executions. Preserve source/financial/risk rows and
       item pauses; prove unrelated verified-cash suggestions with bounded active sells. Retain newly

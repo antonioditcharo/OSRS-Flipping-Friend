@@ -75,7 +75,7 @@ public class RiskPausePresentationTest {
     }
     @Test public void anotherRefusalReasonIsNotOverriddenByARiskDiagnostic() {
         var suggestion=present(risk(0,20000000),account,PolicyAbstentionReason.NO_FREE_SLOT);
-        assertEquals("All Grand Exchange slots are busy",suggestion.getHeadline());
+        assertEquals("Keep your current offers in place",suggestion.getHeadline());
         assertFalse(suggestion.getDetail().contains("uncertainty reserve"));
     }
     @Test public void currentStockValuationIsNotPresentedAsBrokenHistoricalRecords() {

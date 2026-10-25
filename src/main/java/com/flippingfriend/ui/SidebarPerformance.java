@@ -88,7 +88,7 @@ final class SidebarPerformance extends JPanel {
             }
             values.get("Flips made").setText(Long.toString(measurement.completedFlips));
             values.get("Flips made").setToolTipText("Fully completed, cost-matched sell orders. Partial updates contribute profit but do not inflate this count.");
-            if(measurement.appliedCost>0)values.get("ROI").setText(percent(low,measurement.appliedCost)+(low==high?"":" to "+percent(high,measurement.appliedCost)));
+            if(measurement.appliedCost>0)values.get("ROI").setText((low==high?"":"Est. ")+percent(RoundedEstimate.midpoint(low,high),measurement.appliedCost));
             Color realizedColor=low>0?UiUtils.profitColor(1):high<0?UiUtils.profitColor(-1):UiUtils.TEXT;
             values.get("ROI").setForeground(realizedColor);
             values.get("ROI").setToolTipText("Known net realized profit / exact applied acquisition cost of priced sales; unknown sales excluded.");
@@ -179,7 +179,7 @@ final class SidebarPerformance extends JPanel {
     private void addSale(JComponent c){c.setAlignmentX(LEFT_ALIGNMENT);c.setMaximumSize(new Dimension(Integer.MAX_VALUE,c.getPreferredSize().height));sales.add(c);}
     private String amount(Long amount){return amount==null?"Unknown":explainer.formatNumber(amount)+" GP";}
     private String shortRange(long a,long b){return a==b?explainer.formatGp(a):explainer.formatGp(a)+"…"+explainer.formatGp(b);}
-    private String range(long a,long b){return a==b?explainer.formatNumber(a)+" gp":explainer.formatNumber(a)+" to "+explainer.formatNumber(b)+" gp";}
+    private String range(long a,long b){return (a==b?"":"Est. ")+explainer.formatNumber(RoundedEstimate.midpoint(a,b))+" gp";}
     private static String percent(long p,long cost){return String.format(Locale.ROOT,"%.3f%%",p*100.0/cost);}
     private String rate(long low,long high,long seconds){return shortRange(Math.round(low*3600.0/seconds),Math.round(high*3600.0/seconds))+"/h";}
 }

@@ -8,6 +8,7 @@ import java.io.Writer;
 import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
@@ -506,10 +507,13 @@ public class MarketDataService
 		try
 		{
 			Files.createDirectories(cacheFile.getParent());
-			try (Writer writer = Files.newBufferedWriter(cacheFile, StandardCharsets.UTF_8))
-			{
-				gson.toJson(mapping, MAPPING_LIST, writer);
-			}
+			Path temporary=Files.createTempFile(cacheFile.getParent(),"mapping-",".tmp");
+            try {
+                try (Writer writer=Files.newBufferedWriter(temporary,StandardCharsets.UTF_8)) {
+                    gson.toJson(mapping,MAPPING_LIST,writer);
+                }
+                Files.move(temporary,cacheFile,StandardCopyOption.ATOMIC_MOVE,StandardCopyOption.REPLACE_EXISTING);
+            }finally{Files.deleteIfExists(temporary);}
 		}
 		catch (Exception ex)
 		{

@@ -84,7 +84,7 @@ public class CompactPanelContractTest {
         when(companion.lastLedger()).thenReturn(new AccountLedgerSnapshot(AccountIdentity.fromProfileKey("synthetic"),
             java.time.Instant.now().getEpochSecond(),1,1,0,1,-11,-10,2,3,Collections.emptyList()));
         refresh();
-        assertTrue(tree(panel).stream().filter(c->c instanceof JTextArea).map(c->((JTextArea)c).getText()).anyMatch(t->t.contains("-11")&&t.contains("-10")));
+        assertTrue(tree(panel).stream().filter(c->c instanceof JTextArea).map(c->((JTextArea)c).getText()).anyMatch(t->t.contains("Est. -11")));
         verify(journal,never()).sessionStats(); verify(journal,never()).lifetimeStats();
     }
     private String text(Component view) {

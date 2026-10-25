@@ -145,6 +145,8 @@ public class CompanionClient
 	private volatile com.flippingfriend.core.AccountLedgerSnapshot lastLedger;
     /** Display-only durable records. Never an input to trading, ownership accounting or entry authority. */
     private volatile com.flippingfriend.core.AccountLedgerSnapshot lastHistoryLedger;
+    private volatile String backgroundRecovery="";
+    public String backgroundRecoveryStatus(){accountContext();return backgroundRecovery;}
     private long ledgerGeneration;
     private final java.util.concurrent.ExecutorService performanceWorker=java.util.concurrent.Executors.newSingleThreadExecutor(r->{
         Thread t=new Thread(r,"flipping-friend-performance");t.setDaemon(true);return t;
@@ -214,6 +216,12 @@ public class CompanionClient
                     performance=result;performanceError="";
                 }
                 try {
+                    var status=gson.fromJson(request("trade-recovery/background","GET",null,750,account),com.google.gson.JsonObject.class);
+                    if(status!=null && status.has("accountId") && account.equals(status.get("accountId").getAsString()) && status.has("status"))
+                        synchronized(this){if(generation==performanceGeneration && account.equals(accountContext()))backgroundRecovery=status.get("status").getAsString();}
+                }catch(Exception optional){}
+
+                try {
                     var review=gson.fromJson(request("trade-review/current","GET",null,ACCOUNT_READ_TIMEOUT_MILLIS,account),com.flippingfriend.core.TradeReviewSnapshot.class);
                     synchronized(this) {
                         if(generation==performanceGeneration && account.equals(accountContext())) {
@@ -280,6 +288,16 @@ public class CompanionClient
 		new java.util.concurrent.ConcurrentHashMap<>();
     private final java.util.concurrent.ConcurrentMap<Integer,OfferEvent> capturedSources=new java.util.concurrent.ConcurrentHashMap<>();
 
+    /** Secondary evidence delivery uses its own collector worker, never the canonical outbox. */
+    public boolean publishHistory(com.flippingfriend.core.GeHistorySnapshot snapshot) {
+        String account=accountContext();if(snapshot==null || account==null || !account.equals(snapshot.accountId))return false;
+        try {
+            var response=request("events/ge-history","POST",gson.toJson(snapshot),750,account);
+            var ack=gson.fromJson(response,com.google.gson.JsonObject.class);
+            return ack!=null && ack.has("evidenceId") && snapshot.evidenceId().equals(ack.get("evidenceId").getAsString()) && account.equals(accountContext());
+        }catch(Exception unavailable){return false;}
+    }
+
 	private synchronized String accountContext()
 	{
 		String current = storage.accountId();
@@ -294,6 +312,7 @@ public class CompanionClient
             refusalPlan=null;
 			lastLedger = null;
             lastHistoryLedger = null;
+            backgroundRecovery="";
             ledgerGeneration++;
             performance=null;performanceGeneration++;lastPerformanceRequest=0;performanceError="";
             tradeReview=null;tradeReviewError="";

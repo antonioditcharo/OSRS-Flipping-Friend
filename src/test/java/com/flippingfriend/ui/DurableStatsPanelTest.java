@@ -42,12 +42,13 @@ public class DurableStatsPanelTest
         assertTrue(labels.contains("Unavailable")); assertFalse(labels.contains("0 gp"));
     }
 
-    @Test public void smallTaxRangesAndLossesRemainVisibleAtFullPrecision() throws Exception
+    @Test public void roundedTaxAndLossEstimatesRetainTheirUnderlyingBounds() throws Exception
     {
         AccountLedgerSnapshot ledger = new AccountLedgerSnapshot(AccountIdentity.fromProfileKey("p"), 1,
             1, 1, 1, 1, -2, -1, 1, 2, Collections.emptyList());
         List<String> labels = text(render(ledger));
-        assertTrue(labels.contains("-2 to -1 gp")); assertTrue(labels.contains("Recorded tax: 1 to 2 gp"));
+        assertEquals(-2,ledger.getProfitLower());assertEquals(-1,ledger.getProfitUpper());
+        assertTrue(labels.contains("Est. -2 gp")); assertTrue(labels.contains("Recorded tax: Est. 2 gp"));
         assertTrue(labels.stream().anyMatch(label -> label.contains("Elapsed session measurements are available in the sidebar")));
     }
 

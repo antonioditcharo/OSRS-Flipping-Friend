@@ -117,9 +117,9 @@ public interface FlippingFriendConfig extends Config
 
 	@ConfigItem(
 		keyName = "minProfitPerFlip",
-		name = "Minimum profit per flip",
-		description = "Ignore suggestions worth less than this in total profit. Stops the panel "
-			+ "filling up with trades that are not worth the clicks.",
+		name = "Preferred profit per flip",
+		description = "Prefer trades meeting this total profit. A viable smaller trade may be suggested "
+			+ "when the preference cannot be met. Financial safety limits still apply.",
 		position = 3,
 		section = tradingSection
 	)

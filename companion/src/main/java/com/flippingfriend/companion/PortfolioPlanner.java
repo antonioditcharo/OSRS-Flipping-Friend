@@ -41,6 +41,9 @@ final class PortfolioPlanner
 
 	private final PortfolioOptimizer optimizer = new PortfolioOptimizer();
 	private final CandidateFactory candidates;
+    private PilotGateway pilot;
+    private Runnable pilotRefresh=()->{};
+    void usePilot(PilotGateway gateway,Runnable refresh){pilot=gateway;pilotRefresh=refresh;}
 
 
 	PortfolioPlanner(SeriesCache series)
@@ -122,7 +125,8 @@ final class PortfolioPlanner
 		// side's own rule, so it is applied here rather than sent over the wire.
 		Map<String, Long> committedByGroup = committedByGroupFor(account, market.mapping);
 
-		PortfolioConstraints limits = constraintsFor(account, appetite, lossBudget, committedByGroup,nowSeconds);
+		PortfolioConstraints limits = constraintsFor(account, appetite, lossBudget, committedByGroup,nowSeconds)
+            .withCommitted(account.getCommittedByItem(),committedByGroup,account.getMinProfitPerFlip());
 
 		// Drop what the player has already rejected before optimising, not after. Filtering at
 		// selection left the plan itself describing trades that would never be offered: the portfolio
@@ -154,8 +158,30 @@ final class PortfolioPlanner
 		// shrink as money went into offers, so the chart still tracked how busy you were. Equity is
 		// spendable plus committed, which is the money the planner would have to work with once the
 		// current trades come back.
-		PortfolioPlan plan = optimizer.optimize(offerable, limits, correlationId, nowSeconds);
-		PortfolioPlan board = optimizer.optimize(offerable,
+        PortfolioPlan plan = optimizer.optimizePreferred(offerable, limits, correlationId, nowSeconds);
+        // A requested horizon is an aspiration, never an empty-panel condition. Only the no-candidate
+        // case expands; funding, slot, source, loss and exposure refusals retain their own authority.
+        if (plan.getAllocations().isEmpty() && limits.getFreeSlots()>0
+                && plan.getOutcome()==PortfolioPlanOutcome.NO_ELIGIBLE_CANDIDATE) {
+            double requested=horizonFor(account,appetite);
+            for(double substitute:new double[]{1.0/12,0.25,0.5,1,2,4,8}) {
+                if(Math.abs(substitute-requested)<0.001)continue;
+                var alternatives=candidates.build(market,substitute,buyLimitRemaining,
+                    account.getSpendableCoins(),account.isMembers(),now);
+                for(var candidate:alternatives)if(!rejected(candidate,account))offerable.add(candidate);
+            }
+            plan=optimizer.optimizePreferred(offerable,limits,correlationId,nowSeconds);
+        }
+        if(pilot!=null)try {
+            var immediate=pilot.choose(account,offerable,activeOffers,market.observedAt,nowSeconds,pilotRefresh,limits,plan);
+            if(immediate!=offerable) {
+                var hosted=optimizer.optimizePreferred(immediate,limits,correlationId,nowSeconds);
+                // Coordination is advisory during the pilot; it cannot blank otherwise valid local guidance.
+                if(!hosted.getAllocations().isEmpty())plan=hosted;
+            }
+        }catch(RuntimeException ignored){/* Retain the verified local plan. */}
+
+		PortfolioPlan board = optimizer.optimizePreferred(offerable,
 			limits.withSlots(Math.max(1, account.getTotalSlots())).withCoins(equity),
 			correlationId, nowSeconds);
 
@@ -203,7 +229,8 @@ final class PortfolioPlanner
 			}
 		}
 
-		plan = new PortfolioPlan(plan.getCorrelationId(), plan.getCreatedAt(), plan.getExpiresAt(),
+		plan = new PortfolioPlan(plan.getCorrelationId(), plan.getCreatedAt(),
+            pilot==null?plan.getExpiresAt():pilot.expiresAt(account.getAccountId(),plan.getExpiresAt(),nowSeconds),
 			plan.getStatus(), plan.getReason(), plan.getExpectedGpPerSlotHour(), plan.getAllocations(),
 			alerts, null).withOutcome(plan.getOutcome());
 
@@ -370,7 +397,7 @@ final class PortfolioPlanner
 			account.getSpendableCoins(), lossBudget,
 			(long) (equity * appetite.getItemExposureLimit()),
 			(long) (equity * appetite.getGroupExposureLimit()),
-			account.getCommittedByItem(), committedByGroup, account.getMinProfitPerFlip());
+			account.getCommittedByItem(), committedByGroup, account.getEntryProfitFloor());
 	}
 	/** Whether the player has put this item out of bounds, by any of the three means available. */
 	static boolean rejected(PortfolioCandidate candidate, AccountSnapshot account)

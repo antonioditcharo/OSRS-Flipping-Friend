@@ -101,6 +101,8 @@ final class MissedFlipsWindow {
             ? "Waiting for account trade history."
             : model.getRowCount() + " shown · "+(review==null?0:review.effectiveArchived().size())+" archived. " + (companion.lastLedger()!=ledger
                 ? "Updating; showing last confirmed history." : "Unknown values stay unknown; current account checks govern new buys."));
+        String recovery=java.util.Objects.toString(companion.backgroundRecoveryStatus(),"");
+        if(ledger!=null && !recovery.isEmpty())status.setText(status.getText()+" "+recovery);
         String reviewError=java.util.Objects.toString(companion.tradeReviewError(),"");
         if(ledger!=null && !reviewError.isEmpty())status.setText(status.getText()+" "+reviewError);
         status.setToolTipText(ledger==null?null:"Recorded through "+Instant.ofEpochSecond(ledger.getObservedAt())+". Historical quantities are not current inventory.");
@@ -164,7 +166,7 @@ final class MissedFlipsWindow {
         private static String date(long seconds) { return DATE.format(Instant.ofEpochSecond(seconds)); }
         private static String money(Long value) { return value == null ? "Unavailable" : value + " gp"; }
         private static String range(Long low, Long high) {
-            return low == null ? "Unavailable" : low.equals(high) ? money(low) : low + "–" + high + " gp";
+            return low == null || high == null ? "Unavailable" : com.flippingfriend.core.RoundedEstimate.text(low,high)+" gp";
         }
         public int getRowCount() { return rows.size(); }
         public int getColumnCount() { return columns.length; }

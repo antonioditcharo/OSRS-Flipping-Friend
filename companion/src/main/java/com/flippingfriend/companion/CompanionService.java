@@ -39,6 +39,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
 final class CompanionService implements AutoCloseable
 {
 	private final Gson gson;
+    private PilotGateway pilot;
+    void usePilot(PilotGateway gateway){pilot=gateway;planner.usePilot(gateway,()->{pilotRevision.incrementAndGet();requestPlan();});}
+    private final java.util.concurrent.atomic.AtomicLong pilotRevision=new java.util.concurrent.atomic.AtomicLong();
+    private volatile long lastPlannedPilotRevision=-1;
+    Map<String,Object> pilotStatus(){return pilot==null?Map.of("mode","LOCAL_ONLY"):pilot.status(accountId);}
 	private final SqliteStore store;
 	private final String accountId;
 	private final boolean ownsMarket;
@@ -57,7 +62,8 @@ final class CompanionService implements AutoCloseable
 
 
 	/** Single thread, so plans are computed one at a time and in order. */
-	private final ExecutorService planThread = Executors.newSingleThreadExecutor(runnable ->
+	private final ExecutorService planThread = new java.util.concurrent.ThreadPoolExecutor(0,1,60,
+        java.util.concurrent.TimeUnit.SECONDS,new java.util.concurrent.LinkedBlockingQueue<>(),runnable ->
 	{
 		Thread thread = new Thread(runnable, "flipping-friend-planner");
 		thread.setDaemon(true);
@@ -77,7 +83,8 @@ final class CompanionService implements AutoCloseable
 	 * looking at. Here the cost is spread across the cache lifetime instead, at a rate a free
 	 * community API can absorb without noticing.
 	 */
-	private final ExecutorService warmThread = Executors.newSingleThreadExecutor(runnable ->
+	private final ExecutorService warmThread = new java.util.concurrent.ThreadPoolExecutor(0,1,60,
+        java.util.concurrent.TimeUnit.SECONDS,new java.util.concurrent.LinkedBlockingQueue<>(),runnable ->
 	{
 		Thread thread = new Thread(runnable, "flipping-friend-warmer");
 		thread.setDaemon(true);
@@ -182,8 +189,9 @@ final class CompanionService implements AutoCloseable
 
 	CompanionService forAccountStore(SqliteStore store, String accountId)
 	{
-		return new CompanionService(gson, store, market, series,
-			com.flippingfriend.core.AccountIdentity.require(accountId), false);
+		var scoped=new CompanionService(gson, store, market, series,
+            com.flippingfriend.core.AccountIdentity.require(accountId), false);
+        scoped.usePilot(pilot);return scoped;
 	}
 
 	void useWarmShortlist(java.util.function.Supplier<java.util.List<Integer>> supplier) { warmShortlist = supplier; }
@@ -439,6 +447,11 @@ final class CompanionService implements AutoCloseable
 	}
     synchronized com.flippingfriend.core.TradeReviewSnapshot tradeReview()throws Exception {
         return store.tradeReview(accountId,Instant.now().getEpochSecond());
+    }
+    synchronized long recoveryExternalRevision()throws Exception{return store.recoveryExternalRevision();}
+    synchronized void commitRecovery(SaleCostAmendments.Prepared prepared)throws Exception {
+        if(accountId==null || !accountId.equals(prepared.account))throw new IllegalArgumentException("foreign recovery");
+        store.commitPreparedRecovery(prepared);planningInputRevision.incrementAndGet();requestPlan();
     }
     synchronized java.util.List<String> amendSaleCosts(SaleCostAmendments.Request request)throws Exception {
         if(request==null || accountId==null || !accountId.equals(request.accountId))
@@ -823,6 +836,7 @@ final class CompanionService implements AutoCloseable
 		var currentMarket=market.state();
 		var currentRisk=plan==null?null:plan.getCanonicalRisk();
 		if (plan!=null && lastPlannedRevision==planningInputRevision.get()
+            && lastPlannedPilotRevision==pilotRevision.get()
 			&& currentMarket!=null && currentMarket.observedAt==lastPlannedMarketAt
 			&& lastPlannedSeriesRevision==series.revision()
 			&& freeSlots == lastPlanFreeSlots && sellOnly == lastPlanSellOnly
@@ -864,6 +878,7 @@ final class CompanionService implements AutoCloseable
 	private void refreshPlan()
 	{
         long revision=planningInputRevision.get();
+        long optionalRevision=pilotRevision.get();
 		AccountSnapshot snapshot = account;
 		if (snapshot == null)
 		{
@@ -930,6 +945,7 @@ final class CompanionService implements AutoCloseable
 		lastPlannedRevision=revision;
 		lastPlannedMarketAt=planningMarket.observedAt;
 		lastPlannedSeriesRevision=seriesRevision;
+        lastPlannedPilotRevision=optionalRevision;
         }
 		try
 		{

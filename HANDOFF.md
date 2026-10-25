@@ -5,6 +5,16 @@ Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
 ## Current delivery
 
+The approved hosted-pilot pass is in progress on `codex/hosted-pilot-continuous-guidance`.
+Read `local-data/hosted-pilot/delivery-state.json` and
+[the pilot contract](docs/architecture/hosted-pilot.md) before older checkpoints. Installed local
+runtime remains PR #162 (tested source `5e29ef9`); queued source is not installed. DigitalOcean
+private staging is provisioned at $36.20/month before tax under the $50 ceiling; root first login,
+strict SSH verification, private service and encrypted object upload passed. No live account
+replication or hosted advice is enabled locally yet. Cloud deployment is staging, not release
+acceptance. Backup decryption/restore, full clean tests, exact-head CI, shadow comparison, capacity,
+paired installation and player acceptance remain unchecked. Never print private credentials.
+
 Fresh installed #161 login exposed after-tick default EMPTY callbacks and cold write timeouts;
 original default EMPTY sources/rejected returning episodes remain preserved. Follow-on source
 requires a current-login nonempty predecessor for every callback EMPTY, restores current slot
@@ -89,8 +99,8 @@ remain open; already published receipt-free cancellations are not repaired.
 The prior live blockade has fresh recovery evidence in the PR #149 receipt. Recheck current
 account/slot/outbox and guidance evidence instead of assuming it remains fresh. Preserve all
 pending event identities and financial/source/risk prefixes. Normal closure, verified backup/update/
-launch and scoped reads are authorized; login and game actions remain manual. Disk space now reads
-more than 12 GB; the earlier disk-full receipt describes its actual prior attempt, not a quota.
+launch and scoped reads are authorized; login and game actions remain manual. Recheck disk space
+before large captures or disposable restores; historical free-space receipts are not current quotas.
 
 The old three-bludgeon original plan stays unknown; those units subsequently sold, and the newer
 two-unit purchase is separate. Bolts retain separately proven contexts. Dual macuahuitl's older rebuy

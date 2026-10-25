@@ -20,6 +20,11 @@ final class SaleCostAmendments {
     }
     static final class Request { String accountId; List<String> saleSourceEventIds; }
     static List<String> apply(Connection connection,String account,List<String> ids,long now)throws Exception {
+        for(var prepared:prepare(connection,account,ids,now))prepared.insert(connection);
+        return List.copyOf(ids);
+    }
+    static List<Prepared> prepare(Connection connection,String account,List<String> ids,long now)throws Exception {
+        var prepared=new ArrayList<Prepared>();
         AccountIdentity.require(account);
         if(ids==null || ids.isEmpty() || ids.size()>20 || new HashSet<>(ids).size()!=ids.size())
             throw new IllegalArgumentException("One to twenty distinct sale sources required");
@@ -112,12 +117,45 @@ final class SaleCostAmendments {
                     continue;
                 }}
             }
+            prepared.add(new Prepared(id,account,cost,accounting.getProfitLower(),accounting.getProfitUpper(),encoded,now,
+                sourceRows.values().stream().mapToLong(Long::longValue).max().orElse(0),history.size(),
+                effects.isEmpty()?0:number(effects.get(effects.size()-1),"id"),effects.size(),countAmendments(connection)));
+        }
+        return List.copyOf(prepared);
+    }
+
+    private static long countAmendments(Connection connection)throws Exception {
+        try(var s=connection.createStatement();var r=s.executeQuery("SELECT COUNT(*) FROM sale_cost_amendment")){return r.next()?r.getLong(1):0;}
+    }
+    /** Qualified on a separate read transaction; applying it never rereads the entire history. */
+    static final class Prepared {
+        long expectedExternalRevision=-1;
+        final String id,account,proof;final long cost,low,high,createdAt,sourceCursor,sourceCount,effectCursor,effectCount,amendmentCount;
+        private Prepared(String id,String account,long cost,long low,long high,String proof,long createdAt,
+                long sourceCursor,long sourceCount,long effectCursor,long effectCount,long amendmentCount) {
+            this.id=id;this.account=account;this.cost=cost;this.low=low;this.high=high;this.proof=proof;this.createdAt=createdAt;
+            this.sourceCursor=sourceCursor;this.sourceCount=sourceCount;this.effectCursor=effectCursor;this.effectCount=effectCount;
+            this.amendmentCount=amendmentCount;
+        }
+        void insert(Connection connection)throws Exception {
             try(var s=connection.prepareStatement("INSERT INTO sale_cost_amendment VALUES(?,?,?,?,?,?,?)")) {
-                s.setString(1,id);s.setString(2,account);s.setLong(3,cost);s.setLong(4,accounting.getProfitLower());
-                s.setLong(5,accounting.getProfitUpper());s.setString(6,encoded);s.setLong(7,now);s.executeUpdate();
+                s.setString(1,id);s.setString(2,account);s.setLong(3,cost);s.setLong(4,low);s.setLong(5,high);
+                s.setString(6,proof);s.setLong(7,createdAt);s.executeUpdate();
             }
         }
-        return List.copyOf(ids);
+        void validateAndInsert(Connection connection)throws Exception {
+            // Canonical source/effect prefixes are immutable. Check retained prefix identities/counts;
+            // later appends are permitted, while changed amendment overlays require fresh qualification.
+            if(countAmendments(connection)!=amendmentCount)throw new IllegalStateException("amendment overlay advanced");
+            for(String query:new String[]{"SELECT COUNT(*) FROM event_log WHERE event_id IS NOT NULL AND event_id<>'' AND id<=?",
+                    "SELECT COUNT(*) FROM position_event WHERE id<=?"}) {
+                try(var s=connection.prepareStatement(query)) {
+                    boolean source=query.contains("event_log");s.setLong(1,source?sourceCursor:effectCursor);
+                    try(var r=s.executeQuery()){if(!r.next() || r.getLong(1)!=(source?sourceCount:effectCount))throw new IllegalStateException("recovery prefix changed");}
+                }
+            }
+            insert(connection);
+        }
     }
     private static long number(Map<String,Object> row,String key){return ((Number)row.get(key)).longValue();}
     private static String digest(String value)throws Exception {

@@ -71,7 +71,7 @@ class StatsPanel extends JPanel
     private String range(long lower, long upper)
     {
         // Full GP precision avoids hiding a small loss or rounding uncertainty at a large value.
-        return lower == upper ? explainer.formatNumber(lower) + " gp"
-            : explainer.formatNumber(lower) + " to " + explainer.formatNumber(upper) + " gp";
+        return (lower == upper ? "" : "Est. ") + explainer.formatNumber(
+            com.flippingfriend.core.RoundedEstimate.midpoint(lower, upper)) + " gp";
     }
 }

@@ -422,9 +422,12 @@ public final class OfferEventOutbox
 		if (!state.accountId.equals(storage.accountId()))
 			throw new IllegalStateException("account changed before saving the outbox");
 		Path file = state.file;
-		Path temp = file.resolveSibling(file.getFileName() + ".tmp");
-		try
-		{
+		Files.createDirectories(file.getParent());
+        Path temp = Files.createTempFile(file.getParent(), "outbox-", ".tmp");
+        try (var commitChannel=java.nio.channels.FileChannel.open(file.resolveSibling(file.getFileName()+".lock"),
+                java.nio.file.StandardOpenOption.CREATE,java.nio.file.StandardOpenOption.WRITE);
+             var commitLock=commitChannel.lock())
+        {
             verifyDestination(state);
             Files.createDirectories(file.getParent());
             byte[] image=gson.toJson(state).getBytes(StandardCharsets.UTF_8);
