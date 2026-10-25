@@ -15,8 +15,9 @@ acceptance/source checks and the exit slot retain their guards. Chronological re
 Clean Java (2,353 tests, six existing skips), 121 tooling tests, Java 11 and both exact-head CI
 platforms passed. Paired installation preserves all 12 checked source/financial/projection tables;
 107 restored files, five configuration files and #168/current ledger/stock/scope/original risk-window
-equality verify. RuneLite reopened; fresh manual login, visible guidance and controlled
-entry/relist/restart acceptance remain open. The owner's #168 feedback was generally positive but
+equality verify. Reopened RuneLite has a fresh acknowledged eight-slot frame, zero pending financial
+events and unchanged original immutable prefixes. All slots were occupied; visible guidance and
+controlled entry/relist/restart acceptance remain open. The owner's #168 feedback was generally positive but
 reported intermittent pauses, stranded relists and BUY flicker; it does not accept this new pair.
 Some cold-start/report stalls remain; sustained warm-path timing is open. Hosted advice,
 coordination and learning promotion remain off. Earlier preservation receipts are retained in
