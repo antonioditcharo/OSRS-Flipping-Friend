@@ -8,11 +8,15 @@ development and defer further login/game requests until they return.
 
 ## Current batch
 
-- [ ] Deliver `codex/market-exit-comparison`: compare protected forecast limits over a shared horizon
+- [x] Implement/test PR #180 protected forecast limits over a shared horizon
       including exact tax/cost, actual quantity, estimated completion and unsold stock. Explain the
       comparison in Records without changing accounting, risk, stops or action-panel availability.
-      Require later frozen whole-account evaluation at 5m/30m/2h/8h, full tests/CI, old-runtime
-      compatibility and a reversible release. This does not finish market-informed loss authority.
+      Clean 2,413 Java (six existing skips), 121 tooling and old/new Java 11 financial/risk reads pass.
+      Twelve later frozen 5m/30m/2h/8h cases reproduce; two small 30m improvements, ten unchanged,
+      all conservative ending changes negative. [Evidence](docs/history/exit-comparison-verification-2026-10-26.md).
+- [ ] Release/accept PR #180 after exact-head Windows/Linux CI and installed #178's deferred
+      player acceptance, with a verified paired backup/update and fresh guidance/trade/restart
+      checks. It is not installed. This does not finish market-informed loss authority.
 
 - [x] Implement/test/merge/install #178, combining #177 with recovered chart source and cold startup
       recovery bounds: clean 2,403 Java tests (six existing skips), 121 tooling, Java 11 and both

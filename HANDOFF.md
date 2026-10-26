@@ -41,16 +41,21 @@ $36.20/month before tax under the owner's $50 ceiling. Local companion is sole f
 
 ## Remaining work
 
-Source branch `codex/market-exit-comparison` builds on merged documentation #179. It is not
+PR #180 (`codex/market-exit-comparison`) builds on merged documentation #179. It is not
 installed. Optional non-loss forecast limits now compare the same exact quantity over one horizon,
 retaining a common taxed current-bid mark for unsold stock and crediting no replacement income.
 An alternative must improve the existing estimated rate and cannot worsen marked horizon value.
 Immutable worker results explain standing/routine alternatives in Records; they grant no loss or
 cancellation authority. Missing evidence immediately retains existing pricing. Maintenance 12/
 replay 28 identify this proposed behavior; installed #178 remains 11/27. Receipt/source identities
-and risk rules are unchanged. Focused arithmetic/fallback/cost tests pass; later whole-account
-evaluation, full build/CI, compatibility and deployment gates remain open. Private research is in
-`local-data/exit-comparison-20261026` in the primary checkout. Do not claim return improvement.
+and risk rules are unchanged. Clean Java 2,413 tests (six existing skips), 121 tooling, Java 11
+and frozen old/new financial/risk reads pass. Twelve later sixteen-item account cases reproduce:
+ten match, two 30m cases gain 605/1,386 simulated GP with unchanged drawdown/losses/inventory and
+fewer reprice proposals. Every conservative ending account change remains negative; this is not
+return-superiority evidence. Exact-head CI is tracked in PR #180 and the private verification
+receipt. Runtime activation is held for installed #178's deferred player acceptance, then a paired
+backup/update and fresh acceptance of this pass. [Verification and next implementation map](docs/history/exit-comparison-verification-2026-10-26.md).
+Private research: `local-data/exit-comparison-20261026` in the primary checkout.
 
 The complete unchecked list remains in TASKS. Accept the installed combined update when the owner returns through
 fresh ordered eight-slot ACKs, visible useful guidance, retained trades, sustained latency and

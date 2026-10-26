@@ -1,6 +1,6 @@
 # Comparing protected exit limits over one horizon
 
-26 October 2026. Source branch `codex/market-exit-comparison`; not installed. The owner is away;
+26 October 2026. PR #180, source branch `codex/market-exit-comparison`; not installed. The owner is away;
 manual login/GE, live timing and chart acceptance for installed #178 remain deferred. This pass
 does not create new market-informed loss authority or promote execution learning.
 
@@ -66,14 +66,19 @@ twelve cadence/capture-share cases. It is a regression fixture, not untouched pr
 A new sixteen-item catalogue was frozen from earlier hourly prefixes before fetching targets.
 The later evaluation suffix starts after the old development window, retains the catalogue and
 unknown/missing evidence, and includes missed visits, restarts, tax and remaining inventory.
-Its 100M/member/eight-slot 5m/30m/2h/8h cases remain separate. Retrospective bucket-average quotes
+Its 100M/member/eight-slot 5m/30m/2h/8h cases remain separate. Both exact artifacts reproduce all
+twelve later cases on Linux. Ten match; two 30m cases gain 605 and 1,386 simulated GP without more
+drawdown, losses, inventory or interaction count. All conservative ending account changes remain
+negative. Retrospective bucket-average quotes
 and unknown original publication/revision clocks prevent actual-execution or profit claims.
 Private inputs, source/artifact hashes and receipts are in `local-data/exit-comparison-20261026`
 in the primary checkout. A Windows disposable-file replacement failure and its retry receipt
 are retained; neither is a trading-policy outcome or a live account write. Exact frozen artifacts
-are being checked on the existing Linux pilot under resource limits, without replacing its service.
+passed on the existing Linux pilot under resource limits, without replacing its service. The
+original service PID and JAR hash remain unchanged.
 
-Before delivery require the final full build/tooling and exact-head Windows/Linux CI, repeatable
-whole-account comparisons, original financial/risk equality and old-runtime read compatibility.
+Clean 2,413 Java tests (six existing skips), 121 tooling, Java 11 compatibility, repeatable
+whole-account comparisons and original financial/risk equality pass. Exact-head CI and delivery
+are tracked in [the verification receipt](../history/exit-comparison-verification-2026-10-26.md).
 Current #178 manual acceptance and the explicit budgeted market-informed loss/hold policy remain
 separate open gates. No return improvement, predictive superiority or full Copilot parity is claimed.

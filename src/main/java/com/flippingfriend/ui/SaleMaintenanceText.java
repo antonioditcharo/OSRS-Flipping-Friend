@@ -57,7 +57,7 @@ final class SaleMaintenanceText {
             text.append(" · Est. horizon P/L ").append(limit.roundedMarkedProfit()).append(" gp.");
         }
         text.append("\nUnsold remainder uses the same current ").append(comparison.terminalPrice)
-            .append(" gp seller-received trade, after tax; future prices, volume and fills may differ.")
+            .append(" gp low-side trade; tax is deducted in the valuation. Future prices, volume and fills may differ.")
             .append(" Partial-fill outcomes are not predicted. No replacement-trade profit is credited.")
             .append(" This comparison grants no loss or cancellation permission.");
     }
