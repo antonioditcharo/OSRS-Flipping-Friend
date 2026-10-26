@@ -886,13 +886,16 @@ final class SqliteStore implements AutoCloseable
         boolean copied=false;
         long cursor=canonicalHistory==null?0:canonicalHistoryCursor;
         com.google.gson.Gson parser=new com.google.gson.Gson();
+        // Reuse only exact immutable evidence within a cold read. Warm append decoding retains
+        // its existing path; the decoder is discarded with this call, including on any failure.
+        ColdOfferDecoder cold=canonicalHistory==null?new ColdOfferDecoder():null;
         try (PreparedStatement s=connection.prepareStatement(
                 "SELECT event_id,payload,id FROM event_log WHERE id>? AND event_id IS NOT NULL AND event_id<>'' ORDER BY id")) {
             s.setLong(1,cursor);
             try(ResultSet r=s.executeQuery()) {
             while (r.next()) {
                 OfferEvent event;
-                try { event=parser.fromJson(r.getString(2),OfferEvent.class); }
+                try { event=cold==null?parser.fromJson(r.getString(2),OfferEvent.class):cold.decode(r.getString(2)); }
                 catch (RuntimeException incomplete) { discardCanonicalHistory(); return null; }
                 if (event==null || !r.getString(1).equals(event.getEventId())
                         || !expectedAccountId.equals(event.getAccountId()) || !TradeGapEvidence.valid(event)) {

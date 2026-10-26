@@ -16,6 +16,13 @@ development and defer further login/game requests until they return.
       preservation, bounded resource work and measured cold/warm behavior. Keep all invalid sources,
       duplicate occurrences, original targets/stops, financial effects and external-edit/rollback
       invalidation. Do not use the rejected hash cache or skip source validation to fill the panel.
+- [ ] Deliver PR #182 (`codex/bounded-cold-offer-decoding`): bounded read-scoped reuse of exact immutable
+      nested evidence, preserving distinct observations, every original field and Gson rejection
+      semantics. Six new semantic/resource and four prefix tests pass; 165,183 source records match.
+      Three cold JVM pairs improve consistently (median 21%); warm reads are unchanged. Clean 2,419
+      Java (six existing skips) and 121 tooling pass. Exact-head CI/financial/replay receipts are
+      tracked in the PR and private verification receipt; then
+      retain the existing paired-update/manual acceptance gates. Source only; not installed.
 
 - [x] Implement/test PR #180 protected forecast limits over a shared horizon
       including exact tax/cost, actual quantity, estimated completion and unsold stock. Explain the
