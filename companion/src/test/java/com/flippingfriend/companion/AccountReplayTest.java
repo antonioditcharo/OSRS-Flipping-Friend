@@ -95,7 +95,7 @@ public class AccountReplayTest {
         var result=run(input,5,10);
         assertTrue(result.actions.toString(),result.actions.stream().anyMatch(s->s.contains("SELL ")));
         assertEquals(1,result.completedSales);assertEquals(180,result.realizedProfit);
-        assertEquals("account-replay-24",result.policyVersion);
+        assertEquals("account-replay-25",result.policyVersion);
         assertEquals("companion-sale-10",result.salePolicyVersion);assertEquals(1,result.authorizedSales);
     }
     AccountReplayInput interruptedRelist(boolean recovered) {
@@ -137,6 +137,26 @@ public class AccountReplayTest {
         assertEquals(recovered.actions.toString(),1,recovered.relistedSales);
         assertEquals("A later market recovery keeps the already working accepted limit",result.actions,recovered.actions);
         assertEquals(1000,recovered.inventoryCost);assertEquals(0,recovered.realizedProfit);
+    }
+    @Test public void supportedFineSaleReplaysOneCancelAndExactRelistWithoutARepeatedCancellationLoop()throws Exception {
+        var input=interruptedRelist(false);
+        for(var frame:input.frames) {
+            int high=frame.availableAt>=start+900?3599:3600;
+            frame.latest.getAsJsonObject("1").addProperty("high",high);
+            if(!frame.shortHistory.isEmpty()) {
+                long end=frame.availableAt/300*300;int supported=frame.availableAt>=start+1200?3599:3600;
+                frame.shortHistory.put(1,List.of(new com.flippingfriend.data.Candle(end-600,supported,100,100,100),
+                    new com.flippingfriend.data.Candle(end-300,supported,100,100,100)));
+            }
+        }
+        var result=run(input,5,10);
+        assertEquals(result.actions.toString(),1,result.actions.stream().filter(s->s.contains(" CANCEL ")).count());
+        assertTrue(result.actions.toString(),result.actions.contains((start+1245)+" SELL 1 10 @ 3598"));
+        assertEquals(1,result.relistedSales);assertEquals(1000,result.inventoryCost);assertEquals(0,result.realizedProfit);
+        input.restartAt=List.of(start+1235);
+        var restarted=run(input,5,10);assertEquals(1,restarted.relistedSales);
+        assertTrue(restarted.actions.toString(),restarted.actions.contains((start+1250)+" SELL 1 10 @ 3598"));
+        assertEquals(1000,restarted.inventoryCost);assertEquals(0,restarted.realizedProfit);
     }
     @Test public void restartDuringPartialPurchasePreservesCanonicalCostLimitsAndRiskWindow()throws Exception {
         var input=input(1,21);for(var f:input.frames)for(var flow:f.flows)flow.lowVolume=600;

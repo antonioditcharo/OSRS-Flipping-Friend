@@ -1032,13 +1032,10 @@ public class SuggestionEngine
 			 * this caught is still caught; it is caught by the path that knows what the position cost.
 			 */
 
-			// The same deadband the buy side uses. A strict comparison here would chase a quote that
-			// wobbles by a gp, cancelling and re-listing a working offer for no gain, which is the
-			// other half of the flashing the player reported.
-			if (!offer.isBuying()
-				&& offer.getPrice() - price.getHigh() >= horizon.outbidDeadband(offer.getPrice()))
+			// Shared sale policy distinguishes a supported small adjustment from a spot wobble.
+			// Buy patience and material-change rules remain independent.
+			if (!offer.isBuying())
 			{
-				if (!freshSaleQuote(price, now)) continue;
 				var saleLedger = companion == null ? null : saleLedger(offer.getItemId(), now);
 				if (companion != null && saleLedger == null) continue;
                 Position position = companion == null ? tradingPosition(offer.getItemId())
@@ -1054,12 +1051,12 @@ public class SuggestionEngine
                 long allocatedCost = proposal.allocatedCost;
 				// Settled through noise, and then floored again: stickiness must never be the thing
 				// that walks a price below what the position cost.
-				newPrice = advisedPrice(offer.getItemId(), false, newPrice, now.getEpochSecond());
+				newPrice = advisedPrices.saleMaintenance(offer.getItemId(), proposal, now.getEpochSecond());
 				if (costKnown)
 				{
 					newPrice = Math.max(newPrice, breakEven);
 				}
-                if(offer.getPrice()-(long)newPrice<horizon.outbidDeadband(offer.getPrice()))continue;
+                if(offer.getPrice()-(long)newPrice<proposal.minimumReduction)continue;
 
 				// What the new price is actually worth. The reprice card carried no figure at all, so a
 				long change = costKnown ? taxCalculator.netProceeds(offer.getItemId(),newPrice,remaining)-allocatedCost : 0;
@@ -1807,7 +1804,8 @@ public class SuggestionEngine
         if (!decision.isSell()) return Suggestion.waiting("Waiting for a supported sell price",decision.getReason());
         boolean cut = decision.getAction()==SellDecision.Action.CUT;
         long cost = com.flippingfriend.core.SaleAccounting.allocateCost(position.getTotalCost(),position.getQuantity(),quantity);
-        int quoted = advisedPrice(item,false,decision.getPrice(),now.getEpochSecond());
+        int quoted = relist!=null && relist.requiresExactPrice(remaining.getOriginalPrice())?relist.price
+            :advisedPrice(item,false,decision.getPrice(),now.getEpochSecond());
         if(cut)quoted=Math.max(quoted,price.getLow());
         if (!cut && (relist!=null || !sellOnly || !freshSaleQuote(price,now))) {
             int floor = taxCalculator.breakEvenSellPriceForCost(item,cost,quantity);

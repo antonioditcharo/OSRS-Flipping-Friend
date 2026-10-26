@@ -30,6 +30,12 @@ max(8 minutes, checking interval), two consecutive completed five-minute buyer-v
 and a material reduction. The exact taxed cost floor remains protected. Original targets remain
 context; a fresh proven stop or explicit player wind-down follows its separate existing loss rules.
 
+The [small-adjustment contract](supported-small-sale-adjustments.md) supersedes the coarse threshold
+and opposite-side freshness requirement only for qualified known-cost non-loss routine maintenance.
+Its own two-bucket support and exact price checks apply. Read HANDOFF for installed delivery.
+The owner's 25 October market-informed loss/hold direction is a separate pending policy; the
+small-adjustment source does not activate extra loss authority or an age-only timeout.
+
 Cancellation permission follows the exact accepted episode through late fills, collection and
 capped relisting. Final companion authority rechecks the original source chain, returned quantity,
 current market and exact cost. A cancelled offer cannot silently regain the old target or supply

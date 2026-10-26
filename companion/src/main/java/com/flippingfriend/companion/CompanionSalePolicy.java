@@ -41,8 +41,7 @@ final class CompanionSalePolicy {
             LatestPrice quote=raw==null?null:new com.google.gson.Gson().fromJson(raw,LatestPrice.class);
             Instant at=Instant.ofEpochSecond(now);
             if(quote==null || !quote.isComplete() || quote.getHighTime()==null || quote.getLowTime()==null
-                || quote.getHighTime()<=0 || quote.getLowTime()<=0 || quote.secondsSinceHigh(at)<0 || quote.secondsSinceLow(at)<0
-                || slot>=0 && quote.stalestSideSeconds(at)>300)
+                || quote.getHighTime()<=0 || quote.getLowTime()<=0 || quote.secondsSinceHigh(at)<0 || quote.secondsSinceLow(at)<0)
                 return refusal(type,identity,source,now,"SALE_QUOTE_STALE");
             Position position=null;
             for(var p:ledger.getTradingPositions())if(!paused && p.getItemId()==item) {
@@ -67,10 +66,12 @@ final class CompanionSalePolicy {
                     || projection.getPrice()!=offer.getPrice() || projection.getSpent()!=offer.getSpent()
                     || projection.getTotalQuantity()!=offer.getTotalQuantity() || projection.getFilledQuantity()!=offer.getFilledQuantity())
                     return refusal(type,identity,source,now,"SALE_OFFER_CHANGED");
-                var proposed=new SaleMaintenancePricing().quote(item,offer.getPrice(),quantity,position,quote,series,horizon,at,account.isSellOnly(),exits,tax,
+                var evaluation=new SaleMaintenancePricing().evaluate(item,offer.getPrice(),quantity,position,quote,series,horizon,at,account.isSellOnly(),exits,tax,
                     offer.getFirstSeenAt(),read.saleProgressAt.getOrDefault(slot,Long.MAX_VALUE));
-                if(proposed==null || proposed.lossCut!=cut || Math.abs((long)proposed.price-price)>=horizon.outbidDeadband(proposed.price)
-                    || offer.getPrice()-(long)price<horizon.outbidDeadband(offer.getPrice())
+                if(evaluation.status==SaleMaintenancePricing.Status.STALE_PRICES)return refusal(type,identity,source,now,"SALE_QUOTE_STALE");
+                var proposed=evaluation.quote;
+                if(proposed==null || proposed.lossCut!=cut || Math.abs((long)proposed.price-price)>=(proposed.fineTick?1:horizon.outbidDeadband(proposed.price))
+                    || offer.getPrice()-(long)price<proposed.minimumReduction
                     || proposed.costKnown && (proposed.floor<=0 || price<proposed.floor))
                     return proposed!=null && proposed.lossCut==cut
                         ?refusal(type,identity,source,now,"SALE_PRICE_NOT_AUTHORIZED").withSalePriceRevision(proposed.price,
@@ -91,6 +92,7 @@ final class CompanionSalePolicy {
                 }
                 if(quantity>position.getQuantity()-listed)return refusal(type,identity,source,now,"SALE_QUANTITY_ALREADY_LISTED");
                 SaleMaintenancePricing.Quote relist=null;
+                boolean preciseRelist=false;
                 if(repriceSource!=null) {
                     var acceptance=SalePolicyEvidence.resolve(read.history,repriceSource,read.salePolicyEvidence);
                     var proof=SaleRepriceEvidence.prove(read.history,repriceSource,account.getAccountId(),item,quantity,now,horizon.staleOfferMinutes()*60,read.salePolicyEvidence);
@@ -102,12 +104,13 @@ final class CompanionSalePolicy {
                         account.isSellOnly(),exits,tax,proof.original.getFirstSeenAt(),proof.lastProgressAt,
                         acceptance.valid()?acceptance.proof.getReceipt():null,market.observedAt).quote;
                     if(relist==null)return refusal(type,identity,source,now,"SALE_RELIST_PRICE_UNSUPPORTED");
+                    preciseRelist=relist.requiresExactPrice(proof.original.getPrice());
                 }
                 var decision=relist==null?exits.evaluateManagedExit(position,quote,null,series,horizon,at,account.getMinProfitPerFlip(),true,account.isSellOnly(),false)
                     :new SellDecision(relist.lossCut?SellDecision.Action.CUT:SellDecision.Action.SELL,relist.price,relist.reason,Double.NaN,
                         tax.netProceeds(item,relist.price,quantity)-relist.allocatedCost);
                 if(!decision.isSell() || (decision.getAction()==SellDecision.Action.CUT)!=cut
-                    || Math.abs((long)decision.getPrice()-price)>=horizon.outbidDeadband(decision.getPrice()))
+                    || Math.abs((long)decision.getPrice()-price)>=(preciseRelist?1:horizon.outbidDeadband(decision.getPrice())))
                     return decision.isSell() && (decision.getAction()==SellDecision.Action.CUT)==cut
                         ?refusal(type,identity,source,now,"SALE_EXIT_CHANGED").withSalePriceRevision(decision.getPrice(),
                             tax.netProceeds(item,decision.getPrice(),quantity)-SaleAccounting.allocateCost(position.getTotalCost(),position.getQuantity(),quantity),true)

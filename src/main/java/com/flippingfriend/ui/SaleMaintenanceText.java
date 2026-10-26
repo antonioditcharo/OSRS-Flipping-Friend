@@ -27,7 +27,7 @@ final class SaleMaintenanceText {
                 if(row.highTradePrice!=null && row.highTradePrice>0)
                     text.append(" Standing ask minus latest buyer-paid trade: ")
                         .append((long)offer.getPrice()-row.highTradePrice).append(" gp per item.");
-                text.append(" A crossed original stop still requires a material supported change.");
+                text.append(" Small profitable adjustments need two completed buyer-volume buckets at the supported trading level.");
             }
             if(row.evaluation.reassessAt>now)text.append(" Clock-only reassessment in ")
                 .append(duration(row.evaluation.reassessAt-now)).append("; current market evidence will still be required.");
@@ -53,13 +53,13 @@ final class SaleMaintenanceText {
             case ELIGIBLE:return "Supported price change is eligible for further checks. Final authority, delivery and foreground priority can still withhold guidance.";
             case INVALID_QUANTITY:return "No remaining quantity is proven for this evaluation.";
             case MISSING_PRICES:return "Waiting for complete two-sided market prices.";
-            case STALE_PRICES:return "Waiting for fresh two-sided market prices (at most 5 minutes old).";
+            case STALE_PRICES:return "Waiting for a fresh buyer-paid trade (at most 5 minutes old). Unknown costs, loss exits and wind-down also require a fresh seller-received trade.";
             case IMMATERIAL_CHANGE:return "No material supported price reduction is available.";
             case UNPROVEN_QUANTITY:return "The listing exceeds the proven managed remainder; personal extras cannot borrow managed pricing protection.";
             case UNKNOWN_CLOCKS:return "Placement or progress ordering is unproven; no patience deadline can be claimed.";
             case PLACEMENT_PATIENCE:return "Waiting for placement patience.";
             case RECENT_PROGRESS:return "Recent observed fills: waiting for the no-progress interval.";
-            case MARKET_SUPPORT:return "Waiting for two consecutive completed 5-minute buckets with buyer volume supporting a materially lower ask.";
+            case MARKET_SUPPORT:return "Waiting for two consecutive completed 5-minute buckets with buyer volume supporting a lower ask.";
             case COST_FLOOR:return "The exact after-tax remaining-cost floor prevents a material supported reduction.";
             default:throw new IllegalArgumentException("Unknown sale status: "+status);
         }

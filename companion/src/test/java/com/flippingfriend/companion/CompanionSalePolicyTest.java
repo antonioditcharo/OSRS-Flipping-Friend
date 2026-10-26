@@ -9,6 +9,29 @@ import org.junit.rules.TemporaryFolder;
 import static org.junit.Assert.*;
 
 public class CompanionSalePolicyTest {
+    @Test public void supportedFineSaleRequiresExactCanonicalPriceAndCannotConsumeToleranceOrAStaleStop()throws Exception {
+        try(var store=new SqliteStore(folder.newFolder().toPath().resolve("fine-sale.db"))) {
+            var account=setup(store,new AcquisitionExitContext(3700,90,120));long now=at+3600;
+            var sale=event(0,"SELLING","fine-sale",3,0,0,3600,now);accept(store,sale);
+            var read=store.saleProjections(id,now);var market=market(now,3599);market.latest.getAsJsonObject("561").addProperty("lowTime",now-901);
+            var policy=new CompanionSalePolicy();int effects=store.positionEventCount();
+            assertEquals(OfferLifecycleAction.CANCEL_SELL,policy.decide(read.planning,read.ledger,account,market,(i,s)->bars(now,3599),
+                561,3598,3,sale.getEventId(),false,0,now).getAction());
+            for(int price:new int[]{3590,3597,3599,3600}) {
+                var rejected=policy.decide(read.planning,read.ledger,account,market,(i,s)->bars(now,3599),561,price,3,sale.getEventId(),false,0,now);
+                assertEquals(OfferLifecycleAction.WAIT,rejected.getAction());assertNotNull(rejected.getSalePriceRevision());
+                assertEquals(3598,rejected.getSalePriceRevision().getPrice());
+            }
+            assertEquals(OfferLifecycleAction.WAIT,policy.decide(read.planning,read.ledger,account,market,(i,s)->bars(now,3599),
+                561,3598,3,sale.getEventId(),true,0,now).getAction());
+            assertEquals(OfferLifecycleAction.WAIT,policy.decide(read.planning,read.ledger,account,market,(i,s)->List.of(),
+                561,3598,3,sale.getEventId(),false,0,now).getAction());
+            market.latest.getAsJsonObject("561").addProperty("highTime",now-301);
+            assertEquals("SALE_QUOTE_STALE",policy.decide(read.planning,read.ledger,account,market,(i,s)->bars(now,3599),
+                561,3598,3,sale.getEventId(),false,0,now).getReasonCode());
+            assertEquals(effects,store.positionEventCount());
+        }
+    }
     @Test public void isolatedStopPrintCannotCancelOrRelistButConfirmedLossStillRequiresExactFreshFloor()throws Exception {
         try(var store=new SqliteStore(folder.newFolder().toPath().resolve("confirmed-stop.db"))) {
             long now=at+3600;var account=setup(store,new AcquisitionExitContext(140,90,120));

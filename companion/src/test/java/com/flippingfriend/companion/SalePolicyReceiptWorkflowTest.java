@@ -16,14 +16,17 @@ public class SalePolicyReceiptWorkflowTest {
     final class Fixture implements AutoCloseable {
         final CompanionSalePolicyTest helper=new CompanionSalePolicyTest();
         final Path path;final SqliteStore store;final long now=helper.at+1800;
-        AccountSnapshot account;OfferEvent source;boolean listed=true;final boolean modernSource;
+        AccountSnapshot account;OfferEvent source;boolean listed=true;final boolean modernSource;final int ask;
         Fixture()throws Exception {this(true,null);}
         Fixture(boolean modernSource)throws Exception {this(modernSource,null);}
         Fixture(boolean modernSource,SqliteStore.TransactionCheckpoint checkpoint)throws Exception {
-            this.modernSource=modernSource;
+            this(modernSource,checkpoint,150);
+        }
+        Fixture(boolean modernSource,SqliteStore.TransactionCheckpoint checkpoint,int ask)throws Exception {
+            this.modernSource=modernSource;this.ask=ask;
             path=folder.newFolder().toPath().resolve("account.db");store=checkpoint==null?new SqliteStore(path):new SqliteStore(path,checkpoint);
             account=helper.setup(store,new AcquisitionExitContext(140,90,120));
-            accept(helper.event(0,"SELLING","sale",3,0,0,150,now-20));
+            accept(helper.event(0,"SELLING","sale",3,0,0,ask,now-20));
             captureSettings(5,now-10,3);captureSettings(5,now,3);
         }
         void accept(OfferEvent event)throws Exception {helper.accept(store,event);}
@@ -31,7 +34,7 @@ public class SalePolicyReceiptWorkflowTest {
             var readSet=new HashMap<Integer,String>();
             for(int slot=0;slot<8;slot++) {
                 var event=helper.event(slot,slot==0 && listed?"SELLING":"EMPTY",slot==0 && listed?"sale":null,
-                    slot==0 && listed?3:0,0,0,slot==0 && listed?150:0,time);
+                    slot==0 && listed?3:0,0,0,slot==0 && listed?ask:0,time);
                 if(slot==0 && listed && modernSource)event=event.withSalePolicyEvidenceVersion("1");
                 accept(event);readSet.put(slot,event.getEventId());if(slot==0 && listed)source=event;
             }
@@ -53,10 +56,10 @@ public class SalePolicyReceiptWorkflowTest {
         void collect(SalePolicyReceipt receipt)throws Exception {
             AcceptedSalePolicyProof proof=null;
             if(receipt!=null)proof=AcceptedSalePolicyProof.accepted(receipt,now,CaptureOrder.next()).captured(CaptureOrder.next());
-            var fill=helper.event(0,"SELLING","sale",3,1,150,150,now+1);
+            var fill=helper.event(0,"SELLING","sale",3,1,ask,ask,now+1);
             if(proof!=null){proof=proof.bindTo(fill);assertNotNull(proof);fill=fill.withAcceptedSalePolicyProof(proof);}
             accept(fill);
-            var cancel=helper.event(0,"CANCELLED_SELL","sale",3,1,150,150,now+2);
+            var cancel=helper.event(0,"CANCELLED_SELL","sale",3,1,ask,ask,now+2);
             accept(proof==null?cancel:cancel.withAcceptedSalePolicyProof(proof));
             accept(helper.event(0,"EMPTY",null,0,0,0,0,now+3));listed=false;
             captureSettings(480,now+4,2);
@@ -79,6 +82,29 @@ public class SalePolicyReceiptWorkflowTest {
     private List<String> financialPrefix(Path path)throws Exception {
         var result=new ArrayList<>(rows(path,"SELECT * FROM position_event ORDER BY id"));
         result.addAll(rows(path,"SELECT * FROM event_log WHERE event_type<>'ACCOUNT_STATE' ORDER BY id"));return result;
+    }
+    @Test public void fineAdjustmentSurvivesLateFillCadenceChangeRestartAndQuietCollectionWithoutRestoringTheAsk()throws Exception {
+        try(var f=new Fixture(true,null,3600)) {
+            var read=f.store.saleProjections(f.helper.id,f.now);var market=f.helper.market(f.now,3599);
+            market.latest.getAsJsonObject("561").addProperty("lowTime",f.now-901);
+            assertEquals(OfferLifecycleAction.CANCEL_SELL,new CompanionSalePolicy().decide(read.planning,read.ledger,f.account,
+                market,(i,s)->f.helper.bars(f.now,3599),561,3598,3,f.source.getEventId(),false,0,f.now).getAction());
+            var receipt=f.store.issueSalePolicyReceipt(UUID.randomUUID().toString(),f.account,f.source,f.source.getFirstSeenAt(),3598,3,false,f.now,480);
+            assertEquals("Backward-readable receipt family; no financial migration", "companion-sale-10",receipt.getPolicyVersion());
+            f.collect(receipt);var prefix=financialPrefix(f.path);
+            try(var restarted=new SqliteStore(f.path)) {
+                var current=restarted.saleProjections(f.helper.id,f.now+4);var stock=current.ledger.getTradingPositions().get(0);
+                assertEquals(2,stock.getQuantity());assertEquals(201,stock.getTotalCost());
+                var quiet=f.helper.market(f.now+4,3599);quiet.latest.getAsJsonObject("561").addProperty("highTime",f.now-901);
+                for(int proposed:new int[]{3598,3597,3599,3600}) {
+                    var result=new CompanionSalePolicy().decide(current.planning,current.ledger,f.account,quiet,(i,s)->List.of(),
+                        561,proposed,2,stock.getSourceEventId(),false,-1,f.now+4,f.source.getEventId());
+                    assertEquals(result.getReasonCode(),proposed==3598?OfferLifecycleAction.PLACE_SELL:OfferLifecycleAction.WAIT,result.getAction());
+                }
+                assertEquals(140,stock.getExitContext().getTargetSellPrice());assertEquals(90,stock.getExitContext().getStopPrice());
+            }
+            assertEquals(prefix,financialPrefix(f.path));
+        }
     }
     private void mutate(Path path,String sql)throws Exception {
         try(var db=DriverManager.getConnection("jdbc:sqlite:"+path.toAbsolutePath());var statement=db.createStatement()){statement.executeUpdate(sql);}

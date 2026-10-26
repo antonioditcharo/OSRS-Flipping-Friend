@@ -6,7 +6,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /** Display-price stability shared by live guidance and chronological replay. No financial authority. */
 public final class AdvisedPriceTracker {
-    public static final String VERSION="advised-price-3";
+    public static final String VERSION="advised-price-4";
     private static final long MAX_AGE_SECONDS=600;
     private final Map<Long,Quote> quotes=new ConcurrentHashMap<>();
     private static final class Quote {
@@ -29,6 +29,12 @@ public final class AdvisedPriceTracker {
             quotes.put(((long)item<<1)|1,new Quote(fresh,at));return fresh;
         }
         return settled;
+    }
+    /** Two completed buckets already qualify a fine sale adjustment; smoothing cannot erase it. */
+    public int saleMaintenance(int item,SaleMaintenancePricing.Quote proposal,long at) {
+        if(!proposal.fineTick)return price(item,false,proposal.price,at);
+        if(item<=0 || proposal.price<=0 || at<0)throw new IllegalArgumentException("Invalid supported sale price");
+        quotes.put((long)item<<1,new Quote(proposal.price,at));return proposal.price;
     }
     public void clear(){quotes.clear();}
 }
