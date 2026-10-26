@@ -155,6 +155,26 @@ public class SalePolicyReceiptWorkflowTest {
             assertEquals(prefix,financialPrefix(f.path));
         }
     }
+    @Test public void cancelledStopGetsAProtectedNonLossListingWhenRecoveryNoLongerJustifiesItsLoss()throws Exception {
+        try(var f=new Fixture(true,null,103)) {
+            var read=f.store.saleProjections(f.helper.id,f.now);
+            var decision=new CompanionSalePolicy().decide(read.planning,read.ledger,f.account,f.helper.market(f.now,80),
+                (i,s)->f.helper.bars(f.now,80),561,80,3,f.source.getEventId(),true,0,f.now);
+            assertEquals(OfferLifecycleAction.CANCEL_SELL,decision.getAction());
+            var receipt=f.store.issueSalePolicyReceipt(UUID.randomUUID().toString(),f.account,f.source,f.source.getFirstSeenAt(),80,3,true,f.now,480);
+            f.collect(receipt);var prefix=financialPrefix(f.path);
+            try(var restarted=new SqliteStore(f.path)) {
+                var current=restarted.saleProjections(f.helper.id,f.now+4);var stock=current.ledger.getTradingPositions().get(0);
+                assertEquals(201,stock.getTotalCost());assertEquals(2,stock.getQuantity());
+                var policy=new CompanionSalePolicy();
+                assertEquals(OfferLifecycleAction.PLACE_SELL,policy.decide(current.planning,current.ledger,f.account,f.helper.market(f.now+4,95),
+                    (i,s)->List.of(),561,103,2,stock.getSourceEventId(),false,-1,f.now+4,f.source.getEventId()).getAction());
+                assertEquals(OfferLifecycleAction.WAIT,policy.decide(current.planning,current.ledger,f.account,f.helper.market(f.now+4,95),
+                    (i,s)->List.of(),561,80,2,stock.getSourceEventId(),true,-1,f.now+4,f.source.getEventId()).getAction());
+            }
+            assertEquals(prefix,financialPrefix(f.path));
+        }
+    }
     @Test public void legacyCancellationCannotBorrowTodaysSettingsToProveItsHistoricalEligibility()throws Exception {
         try(var f=new Fixture(false)) {
             f.collect(null);var prefix=financialPrefix(f.path);

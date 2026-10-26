@@ -17,6 +17,15 @@ final class RiskLedgerEvidence {
     final Set<Integer> newReconciliationItems=new HashSet<>();
     boolean unbounded;
     RiskLedgerEvidence(RiskWindow window){this.window=window;}
+    /** Detached derived inputs only; current cash, offers, market marks and authority are not cached. */
+    RiskLedgerEvidence copy() {
+        var copy=new RiskLedgerEvidence(window);
+        copy.maxPositionCursor=maxPositionCursor;copy.profitLower=profitLower;copy.profitUpper=profitUpper;
+        copy.boundedSales=boundedSales;copy.unresolvedManagedSales=unresolvedManagedSales;copy.untrackedUnpricedSales=untrackedUnpricedSales;
+        copy.unresolvedCosts.putAll(unresolvedCosts);copy.openingCosts.putAll(openingCosts);
+        copy.prospectiveCosts.putAll(prospectiveCosts);copy.settledUnpricedCosts.putAll(settledUnpricedCosts);
+        copy.newReconciliationItems.addAll(newReconciliationItems);copy.opened=opened;copy.unbounded=unbounded;return copy;
+    }
 
     void open(AutomaticTradeScope before) {
         if(opened || window==null)return;

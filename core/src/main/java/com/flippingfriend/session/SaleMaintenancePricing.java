@@ -9,7 +9,7 @@ import java.util.List;
 
 /** Pure sale-maintenance authority shared by the client, companion and chronological replay. */
 public final class SaleMaintenancePricing {
-    public static final String VERSION="supported-sale-maintenance-9";
+    public static final String VERSION="supported-sale-maintenance-10";
     public enum Status {
         ELIGIBLE, INVALID_QUANTITY, MISSING_PRICES, STALE_PRICES, IMMATERIAL_CHANGE,
         UNPROVEN_QUANTITY, UNKNOWN_CLOCKS, PLACEMENT_PATIENCE, RECENT_PROGRESS,
@@ -78,6 +78,22 @@ public final class SaleMaintenancePricing {
         }
         var reduction=evaluate(item,offerPrice,remaining,position,latest,series,horizon,now,sellOnly,exits,tax,
             firstObservedAt,lastProgressAt,patience);
+        // A cancelled loss exit whose supporting evidence vanished must still get its returned
+        // stock listed. This grants a fresh exact non-loss limit, never stale loss permission.
+        // Keeping this completion readable also permits safe runtime rollback after a later policy.
+        boolean currentFeed=feedObservedAt>0 && feedObservedAt<=now.getEpochSecond() && now.getEpochSecond()-feedObservedAt<=120;
+        if(reduction.quote==null && accepted!=null && accepted.isLossCut() && currentFeed && !sellOnly
+            && (reduction.status==Status.COST_FLOOR || reduction.status==Status.MARKET_SUPPORT
+                || reduction.status==Status.IMMATERIAL_CHANGE || reduction.status==Status.STALE_PRICES)
+            && position!=null && position.isCostKnown() && remaining<=position.getQuantity()
+            && firstObservedAt>0 && firstObservedAt<=lastProgressAt && lastProgressAt<=now.getEpochSecond()
+            && latest!=null && latest.isComplete() && latest.getHighTime()!=null && latest.getHighTime()>0
+            && latest.getLowTime()!=null && latest.getLowTime()>0 && latest.secondsSinceHigh(now)>=0 && latest.secondsSinceLow(now)>=0) {
+            long cost=SaleAccounting.allocateCost(position.getTotalCost(),position.getQuantity(),remaining);
+            int floor=tax.breakEvenSellPriceForCost(item,cost,remaining);
+            if(floor>0)return new Evaluation(Status.ELIGIBLE,new Quote(Math.max(floor,latest.getHigh()),floor,cost,true,false,
+                "The earlier loss exit is no longer confirmed. Relist at this non-loss limit, protecting the exact remaining cost after tax. A fill is not guaranteed."),0);
+        }
         boolean quiet=reduction.status==Status.STALE_PRICES && feedObservedAt>0 && feedObservedAt<=now.getEpochSecond()
             && now.getEpochSecond()-feedObservedAt<=120 && latest!=null && latest.isComplete()
             && latest.getHighTime()!=null && latest.getHighTime()>0 && latest.getLowTime()!=null && latest.getLowTime()>0

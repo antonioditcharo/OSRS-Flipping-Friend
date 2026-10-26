@@ -7,6 +7,17 @@ installed and player accepted are separate states. Owner is home; older login de
 
 ## Current batch
 
+- [ ] Complete `codex/workflow-verification-dynamic-pricing`: remove profiled verification scans/
+      background churn with indexed and exact-prefix bounded reads; preserve financial/source/risk
+      data, current guards and safe cancelled-loss relisting. Verify full builds/tooling/both CI,
+      frozen old/new semantics, native work budgets, paired preservation/rollback and sustained live
+      account acknowledgements. [Contract](docs/architecture/workflow-verification-and-predictive-pricing.md).
+- [ ] Deliver market-predictive pricing from the owner's appended Copilot references: changing low/
+      high paths with qualified uncertainty, actual entry/exit price selection, supported hold/
+      adjustment/loss decisions and whole-account evaluation. Keep persistence/seasonal comparisons,
+      5m/30m/2h/8h results, source/receipt compatibility, loss budgets and guidance fallback explicit.
+      Workflow-only changes and visually curved charts do not complete this requirement.
+
 - [x] Implement/test/install PR #173 (`codex/supported-sell-walkdowns`): qualify exact small non-loss sell adjustments
       from two completed buyer-volume buckets and fresh buyer-paid trades; preserve patience,
       partial costs, original plans, buy anti-churn, durable cancellation/relist and #172 rollback.

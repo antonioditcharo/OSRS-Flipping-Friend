@@ -81,18 +81,25 @@ final class SqliteStore implements AutoCloseable
 	// is always reread. In particular a failed transaction cannot publish a prefix.
 	private List<OfferEvent> canonicalHistory;
     private final Map<String,OfferEvent> canonicalSaleSources=new HashMap<>();
+    private final ContinuationSaleRead.Index continuationSaleIndex=new ContinuationSaleRead.Index();
     private final ProspectiveGapExposure.Memo prospectiveGapMemo=new ProspectiveGapExposure.Memo();
     private final BoundedHistoricalExposure.Memo historicalFundingMemo=new BoundedHistoricalExposure.Memo();
 	private String canonicalHistoryAccount;
 	private long canonicalHistoryCursor, canonicalHistoryDataVersion = -1;
     private long canonicalHistoryGeneration;
     private final PerformanceCompletionIndex performanceCompletionIndex=new PerformanceCompletionIndex();
+    private RiskLedgerEvidence cachedRiskEvidence;
+    private RiskWindow cachedRiskEvidenceWindow;
+    private String cachedRiskEvidenceAccount;
+    private Map<String,java.util.Set<Integer>> cachedRiskEvidenceScope;
 	private AutomaticTradeScope scopedEffects;
 	private long scopedEffectsCursor=-1;
 	private void discardCanonicalHistory() {
         canonicalHistoryGeneration++;
+        cachedRiskEvidence=null;cachedRiskEvidenceWindow=null;cachedRiskEvidenceAccount=null;cachedRiskEvidenceScope=null;
+        riskWindows.clear();
 		canonicalHistory=null; canonicalHistoryAccount=null; canonicalHistoryCursor=0;
-        canonicalSaleSources.clear();historicalFundingMemo.reset();
+        canonicalSaleSources.clear();historicalFundingMemo.reset();prospectiveGapMemo.reset();continuationSaleIndex.reset();
 		scopedEffects=null;scopedEffectsCursor=-1;
         automaticModes.clear();
         cachedTradeReview=null;cachedReviewLiveItems=java.util.Set.of();
@@ -149,6 +156,7 @@ final class SqliteStore implements AutoCloseable
 			statement.execute("PRAGMA journal_mode=WAL");
 			statement.execute("PRAGMA foreign_keys=ON");
 			statement.execute("CREATE TABLE IF NOT EXISTS event_log (id INTEGER PRIMARY KEY, observed_at INTEGER NOT NULL, correlation_id TEXT NOT NULL, event_id TEXT, event_type TEXT NOT NULL, payload TEXT NOT NULL)");
+            statement.execute("CREATE INDEX IF NOT EXISTS event_log_type_id ON event_log(event_type,id)");
             SalePolicyReceiptStore.initialize(statement);
 			// market_observation is not created any more, and is dropped below if an older database
 			// still has it. Nothing ever read a row from it: every SELECT in all three modules is
@@ -163,6 +171,7 @@ final class SqliteStore implements AutoCloseable
 			statement.execute("CREATE TABLE IF NOT EXISTS position_projection (item_id INTEGER PRIMARY KEY, item_name TEXT, quantity INTEGER NOT NULL, total_cost INTEGER NOT NULL, cost_known INTEGER NOT NULL, opened_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, source_event_id TEXT, source_offer_identity TEXT, consistency_state TEXT NOT NULL, consistency_reason TEXT)");
 			statement.execute("CREATE TABLE IF NOT EXISTS position_event (id INTEGER PRIMARY KEY AUTOINCREMENT, source_event_id TEXT, source_offer_identity TEXT, observed_at INTEGER NOT NULL, effect_type TEXT NOT NULL, item_id INTEGER NOT NULL, item_name TEXT, quantity INTEGER NOT NULL, acquisition_cost INTEGER NOT NULL, applied_cost_basis INTEGER NOT NULL DEFAULT 0, transition_reason TEXT, created_at INTEGER NOT NULL)");
 			statement.execute("CREATE UNIQUE INDEX IF NOT EXISTS position_event_source_unique ON position_event(source_event_id) WHERE source_event_id IS NOT NULL AND source_event_id <> ''");
+            statement.execute("CREATE INDEX IF NOT EXISTS position_event_item_effect_id ON position_event(item_id,effect_type,id)");
 			statement.execute("CREATE TABLE IF NOT EXISTS reconciliation_event (id INTEGER PRIMARY KEY AUTOINCREMENT, snapshot_correlation_id TEXT, snapshot_observed_at INTEGER NOT NULL, subject_type TEXT NOT NULL, subject_id TEXT NOT NULL, outcome TEXT NOT NULL, previous_state TEXT, resulting_state TEXT, reason TEXT NOT NULL, created_at INTEGER NOT NULL)");
 			statement.execute("CREATE TABLE IF NOT EXISTS buy_limit_projection (item_id INTEGER PRIMARY KEY, started_at INTEGER NOT NULL, used_quantity INTEGER NOT NULL, updated_at INTEGER NOT NULL, source_event_id TEXT, source_snapshot_correlation_id TEXT)");
 			statement.execute("CREATE TABLE IF NOT EXISTS buy_limit_event (id INTEGER PRIMARY KEY AUTOINCREMENT, item_id INTEGER NOT NULL, started_at INTEGER NOT NULL, quantity_delta INTEGER NOT NULL, resulting_used_quantity INTEGER NOT NULL, source_type TEXT NOT NULL, source_event_id TEXT, source_snapshot_correlation_id TEXT, observed_at INTEGER NOT NULL, created_at INTEGER NOT NULL)");
@@ -194,6 +203,8 @@ final class SqliteStore implements AutoCloseable
 		{
 			statement.execute("CREATE UNIQUE INDEX IF NOT EXISTS event_log_event_id_unique "
 				+ "ON event_log(event_id) WHERE event_id IS NOT NULL AND event_id <> ''");
+            statement.execute("CREATE INDEX IF NOT EXISTS event_log_terminal_sources ON event_log(id) WHERE "+BackgroundTradeRecovery.TERMINAL_SOURCES);
+            statement.execute("CREATE INDEX IF NOT EXISTS event_log_invalid_source_json ON event_log(id) WHERE "+BackgroundTradeRecovery.INVALID_SOURCE_JSON);
 		}
 		// predicted_minutes arrived after the table had already shipped, so databases created by an
 		// earlier build need it bolting on. SQLite has no "add column if missing", and the failure on
@@ -621,6 +632,11 @@ final class SqliteStore implements AutoCloseable
 
 	private RiskLedgerEvidence riskLedgerEvidence(AutomaticTradeScope current, RiskWindow window) throws Exception
 	{
+        long cursor;
+        try(var sql=connection.createStatement();var rows=sql.executeQuery("SELECT COALESCE(MAX(id),0) FROM position_event")){rows.next();cursor=rows.getLong(1);}
+        if(cachedRiskEvidence!=null && canonicalHistoryAccount!=null && canonicalHistoryAccount.equals(cachedRiskEvidenceAccount)
+            && window==cachedRiskEvidenceWindow && cursor==cachedRiskEvidence.maxPositionCursor
+            && current.reconciliationScope.equals(cachedRiskEvidenceScope))return cachedRiskEvidence.copy();
 		RiskLedgerEvidence result = new RiskLedgerEvidence(window);
 		AutomaticTradeScope replay = new AutomaticTradeScope();
 		try (Statement sql = connection.createStatement(); ResultSet rows = sql.executeQuery(
@@ -640,6 +656,10 @@ final class SqliteStore implements AutoCloseable
 		result.open(replay);
 		if (window != null && window.positionCursor > result.maxPositionCursor)
 			throw new IllegalStateException("Risk cursor exceeds the recorded ledger.");
+        if(canonicalHistoryAccount!=null) {
+            var scope=new HashMap<String,java.util.Set<Integer>>();current.reconciliationScope.forEach((id,items)->scope.put(id,java.util.Set.copyOf(items)));
+            cachedRiskEvidence=result.copy();cachedRiskEvidenceWindow=window;cachedRiskEvidenceAccount=canonicalHistoryAccount;cachedRiskEvidenceScope=scope;
+        }
 		return result;
 	}
 
@@ -884,6 +904,8 @@ final class SqliteStore implements AutoCloseable
             var previous=canonicalHistory;
             canonicalHistory=history==null?java.util.List.of():java.util.Collections.unmodifiableList(history);
             historicalFundingMemo.appendCanonical(previous,canonicalHistory);
+            prospectiveGapMemo.appendCanonical(previous,canonicalHistory);
+            continuationSaleIndex.appendCanonical(previous,canonicalHistory);
         }
         canonicalHistoryCursor=cursor;
         return canonicalHistory;
@@ -1206,7 +1228,7 @@ final class SqliteStore implements AutoCloseable
                         && source.getObservedAt()==r.getLong(5) && r.getInt(6)>0 && r.getInt(6)<=source.getFilledQuantity())disposals.add(id);
                 }
             }
-            cachedContinuationSales=ContinuationSaleRead.read(history,disposals,rejected);continuationSalesCursor=cursor;
+            cachedContinuationSales=continuationSaleIndex.read(history,disposals,rejected);continuationSalesCursor=cursor;
             continuationSalesHistorySize=history.size();
         }
         return cachedContinuationSales.stream().filter(sale->sale.getObservedAt()<=now).collect(java.util.stream.Collectors.toList());

@@ -10,8 +10,15 @@ import java.util.concurrent.*;
 
 /** Optional historical work never owns the event/plan worker or the canonical read connection. */
 final class BackgroundTradeRecovery implements AutoCloseable {
+    static final String INVALID_SOURCE_JSON="event_id IS NOT NULL AND event_id<>'' AND NOT json_valid(payload)";
+    static final String TERMINAL_SOURCES="event_id IS NOT NULL AND event_id<>'' AND CASE WHEN json_valid(payload) THEN "
+        +"json_extract(payload,'$.filledQuantity')>0 AND (json_extract(payload,'$.filledQuantity')=json_extract(payload,'$.totalQuantity') "
+        +"OR event_type IN ('CANCELLED_BUY','CANCELLED_SELL')) ELSE 0 END";
     private static final class Account {
         Path database;CompanionService service;int next;long nextScan;
+        long rejectedRevision=-1,rejectedAmendments=-1;
+        final Set<String> rejectedSources=new HashSet<>();
+        String supportSnapshot;long supportRevision=-1,supportCursor=-1;
     }
     private final Path root,features;
     private final java.util.function.BooleanSupplier featureGate;
@@ -59,16 +66,27 @@ final class BackgroundTradeRecovery implements AutoCloseable {
             var candidates=new ArrayList<String>();List<SaleCostAmendments.Prepared> prepared=List.of();
             try(var read=DriverManager.getConnection("jdbc:sqlite:"+account.database.toAbsolutePath().toUri().toASCIIString()+"?mode=ro")) {
                 read.setAutoCommit(false);
+                long amendments;
+                try(var s=read.createStatement();var rows=s.executeQuery("SELECT COUNT(*) FROM sale_cost_amendment")){rows.next();amendments=rows.getLong(1);}
+                if(account.rejectedRevision!=externalRevision || account.rejectedAmendments!=amendments) {
+                    account.rejectedSources.clear();account.rejectedRevision=externalRevision;account.rejectedAmendments=amendments;
+                }
                 try(var s=read.createStatement();var rows=s.executeQuery("SELECT p.source_event_id FROM position_event p LEFT JOIN sale_cost_amendment a ON a.sale_source_event_id=p.source_event_id WHERE p.effect_type='DISPOSE' AND p.profit_lower IS NULL AND a.sale_source_event_id IS NULL AND p.transition_reason='Sale lacks complete observed acquisition coverage' ORDER BY p.id DESC LIMIT 100")) {
                     while(rows.next())candidates.add(rows.getString(1));
                 }
+                candidates.removeAll(account.rejectedSources);
                 if(!candidates.isEmpty()) {
                     String source=candidates.get(Math.floorMod(account.next++,candidates.size()));
                     try{prepared=SaleCostAmendments.prepare(read,id,List.of(source),now);}
-                    catch(IllegalArgumentException|IllegalStateException unresolved){writeStatus(id,now,"Investigating recorded trade evidence",source,unresolved.getMessage());}
+                    catch(IllegalArgumentException|IllegalStateException unresolved){
+                        // Canonical appends cannot change a failed earlier immutable source/effect
+                        // prefix. External edits or new amendments invalidate these bounded negatives.
+                        if(account.rejectedSources.size()<100)account.rejectedSources.add(source);
+                        writeStatus(id,now,"Investigating recorded trade evidence",source,unresolved.getMessage());
+                    }
                 }
                 // A support report cannot establish missing executions, assignment or FIFO ownership.
-                matchHistory(read,id,now);
+                matchHistory(read,id,now,account,externalRevision);
                 read.rollback();
             }
             for(var amendment:prepared){amendment.expectedExternalRevision=externalRevision;account.service.commitRecovery(amendment);}
@@ -77,7 +95,7 @@ final class BackgroundTradeRecovery implements AutoCloseable {
             try{writeStatus(id,now,"Background evidence review will retry",null,unavailable.getClass().getSimpleName());}catch(Exception ignored){}
         }
     }
-    private void matchHistory(Connection read,String id,long now)throws Exception {
+    private void matchHistory(Connection read,String id,long now,Account account,long externalRevision)throws Exception {
         Path directory=root.resolve("trade-evidence").resolve(id);if(!Files.isDirectory(directory))return;
         Path latest;
         try(var files=Files.list(directory)) {
@@ -86,8 +104,14 @@ final class BackgroundTradeRecovery implements AutoCloseable {
         }
         if(latest==null)return;var snapshot=gson.fromJson(Files.readString(latest),GeHistorySnapshot.class);
         if(!id.equals(snapshot.accountId))throw new IllegalArgumentException("history account mismatch");
+        String snapshotId=snapshot.evidenceId();long cursor;
+        try(var s=read.createStatement();var rows=s.executeQuery("SELECT 1 FROM event_log WHERE "+INVALID_SOURCE_JSON+" LIMIT 1")) {
+            if(rows.next())throw new IllegalStateException("Invalid canonical source JSON; support remains unqualified");
+        }
+        try(var s=read.createStatement();var rows=s.executeQuery("SELECT COALESCE(MAX(id),0) FROM event_log WHERE "+TERMINAL_SOURCES)){rows.next();cursor=rows.getLong(1);}
+        if(snapshotId.equals(account.supportSnapshot) && account.supportRevision==externalRevision && account.supportCursor==cursor)return;
         var terminals=new HashMap<String,OfferEvent>();
-        try(var s=read.createStatement();var rows=s.executeQuery("SELECT payload FROM event_log WHERE event_id IS NOT NULL AND event_id<>'' ORDER BY id")) {
+        try(var s=read.createStatement();var rows=s.executeQuery("SELECT payload FROM event_log WHERE "+TERMINAL_SOURCES+" ORDER BY id")) {
             while(rows.next()) {
                 var e=gson.fromJson(rows.getString(1),OfferEvent.class);
                 if(e!=null && id.equals(e.getAccountId()) && e.getOfferIdentity()!=null && e.getFilledQuantity()>0
@@ -106,6 +130,7 @@ final class BackgroundTradeRecovery implements AutoCloseable {
             result.put("authorizesAccounting",false);report.add(result);
         }
         atomic(directory.resolve("support-report.json"),gson.toJson(Map.of("accountId",id,"observedAt",now,"snapshotId",snapshot.evidenceId(),"rows",report)));
+        account.supportSnapshot=snapshotId;account.supportRevision=externalRevision;account.supportCursor=cursor;
     }
     private void writeStatus(String id,long now,String status,String source,String detail)throws Exception {
         var result=new LinkedHashMap<String,Object>();result.put("accountId",id);result.put("observedAt",now);
