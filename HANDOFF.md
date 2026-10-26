@@ -56,6 +56,12 @@ document deletions in the primary checkout remain untouched. A hash-bound privat
 verification and installation; no separate chart-chat response is needed. The chart worker also
 uses minimum thread priority. Read [the recovered chart contract](docs/architecture/day-ahead-chart-forecasts.md).
 Fresh combined builds/CI, preservation/rollback and request-failure/guidance timing remain required.
+An additional current cold-start stall was caught in `rehydrate -> recentOfferEvents` while the
+account service was opening. The combined source skips unused legacy replay when both durable
+projections exist, and explicitly selects an additive time/row partial index for genuine fallback.
+Read-only archives remain compatible without that index. The first native budget test exposed
+SQLite still choosing the old type-index plan without the explicit hint; its failing receipt is
+retained privately. Final amended-source verification is required; no runtime change is implied.
 
 The broader [pricing/workflow contract](docs/architecture/workflow-verification-and-predictive-pricing.md)
 remains open. An unrestricted forecast frontier failed the 5m account development scenario and was

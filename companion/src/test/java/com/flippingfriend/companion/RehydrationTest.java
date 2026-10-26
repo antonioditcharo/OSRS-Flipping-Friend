@@ -119,4 +119,37 @@ public class RehydrationTest
 		mapping.put(ITEM, new MarketIngestionService.Item(ITEM, "Nature rune", LIMIT));
 		return ledger.remaining(mapping).get(ITEM);
 	}
+
+	@Test public void durableLimitsAndOffersDoNotDependOnReplayingUnassignedLegacyPayloads() throws Exception {
+		try(var first=open()) {
+			var before=new CompanionService(gson,first);
+			try{before.offer(buy(9_000,Instant.now()));}finally{before.close();}
+			// Legacy rows without source IDs are not canonical execution evidence. Replaying
+			// an unused malformed row must not strand already durable offer/limit state.
+			first.recordEvent(Instant.now().getEpochSecond(),"unused-legacy","BUYING","{");
+		}
+		try(var second=open()) {
+			var after=new CompanionService(gson,second);
+			try {
+				after.rehydrate();
+				assertEquals(Integer.valueOf(LIMIT-9_000),remaining(after));
+				assertEquals(9_000,second.offerProjections().get(0).getFilledQuantity());
+				assertEquals(1,second.executionStats().get(ITEM).observed);
+			}finally{after.close();}
+		}
+	}
+	@Test public void missingDurableStateStillRestoresLegacyLimitsWithoutBookingFinancialEffects() throws Exception {
+		try(var store=open()) {
+			var event=buy(9_000,Instant.now());
+			store.recordEvent(event.getObservedAt(),"legacy","BOUGHT",gson.toJson(event));
+			var after=new CompanionService(gson,store);
+			try {
+				after.rehydrate();
+				assertEquals(Integer.valueOf(LIMIT-9_000),remaining(after));
+				assertEquals(0,store.positionEventCount());
+				assertEquals(0,store.buyLimitProjections().size());
+				assertEquals(0,store.executionStats().size());
+			}finally{after.close();}
+		}
+	}
 }

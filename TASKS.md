@@ -11,7 +11,8 @@ installed and player accepted are separate states. Owner is home; older login de
       fresh backups/rollback, preserved trades, ordered frame ACKs, actual guidance and sustained
       timing including failed requests. Chart source recovered from the disappeared side-chat into
       `codex/recovered-day-ahead-charts`; this chat handles the combined update. Installed runtime
-      remains #176. [Contract](docs/architecture/report-and-replication-latency.md).
+      remains #176. Include the separately caught cold account-open scan, durable-projection reuse
+      and indexed legacy fallback in final verification. [Contract](docs/architecture/report-and-replication-latency.md).
 - [ ] Verify/deliver recovered day-ahead chart availability and visible viewport expansion, keeping
       strategy horizons, cache, identities, order decisions and risk unchanged. Preserve honest
       missing/flat forecasts, observed timestamps and manual zoom. Longer bands remain uncalibrated

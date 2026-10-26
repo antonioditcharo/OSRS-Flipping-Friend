@@ -71,3 +71,24 @@ successful delivery times: a timeout may produce no delivered-duration log. The 
 goal and explicit budgeted market-informed loss policy remain separate unchecked requirements.
 The owner confirmed concurrent chart work in the primary checkout. This follow-up is isolated in
 a managed worktree; final runtime installation must preserve the combined verified changes.
+
+## Cold account opening follow-up
+
+During combined chart verification, a fresh thread capture found `forAccount` still opening its
+service inside `rehydrate -> recentOfferEvents`, while client offer POSTs timed out. The startup
+query selected old offers through the event-type index, then sorted by observation time. This is
+separate from the warm report lock above. Private capture: `combined-preinstall-threads.txt`.
+
+When durable offer and buy-limit projections both exist, rehydration now skips the unused legacy
+history read. If either needs legacy restoration, it retains the same four-hour window, timestamp/
+row ordering, duplicate occurrences and per-consumer restoration rules. A new additive partial
+index on `(observed_at,id)` covers the exact offer-type predicate. Writable startup explicitly
+selects it: merely creating the index still let SQLite choose the expensive type-index plan in
+the first instruction-budget regression. Read-only historical archives retain the compatible
+unhinted query and receive no schema changes. Previous runtimes ignore the new index safely.
+
+Regressions cover old-offer work budgets, identical timestamp/row occurrences, read-only archives
+without the index, durable limits/offers independent of unused legacy payloads, genuine missing-
+projection fallback and unchanged financial/learning rows. This is not replaying financial effects
+or accepting omitted executions. Combined clean build, exact-head CI and installation/live timing
+must be verified again for the amended source.
