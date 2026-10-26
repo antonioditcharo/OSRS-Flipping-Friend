@@ -58,13 +58,20 @@ receipt. Runtime activation is held for installed #178's deferred player accepta
 backup/update and fresh acceptance of this pass. [Verification and next implementation map](docs/history/exit-comparison-verification-2026-10-26.md).
 Private research: `local-data/exit-comparison-20261026` in the primary checkout.
 
-Current `codex/cold-ledger-profile` is a documentation/research checkpoint; its runtime code is
-identical to #180. A frozen-account profile isolated cold canonical history decoding and original
-plan qualification; warm reads are much faster. A transient forecast-hash cache passed identity/
-serialization tests but showed no reliable timing benefit in three correctly hashed alternating
-pairs, so its source changes were rejected/restored. Preserve the invalid earlier artifact-path
-run and corrected receipts. [Profile and next latency work](docs/history/cold-ledger-profile-2026-10-26.md).
-Private research: `local-data/forecast-read-cache-20261026`; its candidate JAR is not releasable.
+Current `codex/bounded-cold-offer-decoding` implements read-scoped bounded reuse of identical
+immutable forecast/buy-plan values during cold canonical history decoding. Every observation is
+still separately decoded/validated in its original order; duplicate fields, coercions, malformed
+rejection, original plan qualification and financial identities remain. Warm append decoding uses
+the existing reader. Six new semantic/resource tests and four prefix/rollback tests pass; all
+165,183 frozen source records serialize identically through old/new readers. Three alternating
+JVM pairs reduce median cold component time from 5,871 to 4,641 ms (21%); warm timing is essentially
+unchanged. This is source only; full build, exact-head CI, final financial/rollback reads and
+release gates remain open. [Contract](docs/architecture/cold-canonical-decoding.md).
+Private research: `local-data/cold-offer-decoding-20261026` in the primary checkout.
+
+The earlier transient forecast-hash cache remains rejected; its invalid artifact-path run and
+corrected measurements are retained. It is absent from this source and is not releasable.
+[Earlier profile](docs/history/cold-ledger-profile-2026-10-26.md).
 
 The complete unchecked list remains in TASKS. Accept the installed combined update when the owner returns through
 fresh ordered eight-slot ACKs, visible useful guidance, retained trades, sustained latency and
