@@ -19,7 +19,8 @@ installed and player accepted are separate states. Owner is home; older login de
       collection, exact relisting, completion and restart. All slots were full after installation;
       the copied current sells had no supported routine change. Fresh frame/WAIT and frozen Marlin
       component replay are not controlled maintenance acceptance. Keep sustained UI/event/ACK timing
-      open: cold retry and roughly 1.1–2s sampled subsequent refreshes miss the instant-guidance goal.
+      open: cold/later five-second retries and many roughly 0.8–2s subsequent refreshes miss the
+      instant-guidance goal.
 
 - [ ] Implement the owner's 25 October market-informed loss/hold policy: compare waiting, small
       profitable adjustments and bounded loss exits from history, volume, spread, volatility,

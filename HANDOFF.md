@@ -19,7 +19,8 @@ original risk-window equality verify. After manual login/GE, a fresh acknowledge
 frame, zero pending financial events, original immutable prefixes and logged WAIT guidance pass.
 All slots are occupied. The current copied seven sells have no supported routine change; this
 does not prove controlled small-adjustment acceptance. Initial delivery took about 4.4s with a
-five-second ACK retry; subsequent sampled refreshes were about 1.1–2s. Sustained timing, UI and
+five-second ACK retry; many subsequent sampled refreshes were about 0.8–2s, with later five-second
+ACK/report stalls still observed. Sustained timing, UI and
 player-operated full-loop/restart acceptance remain open. [Installed receipt](docs/history/sell-walkdown-install-2026-10-25.md).
 Hosted advice, coordination and learning promotion remain off. Prior #172 workflow/slowdown receipts
 remain in [#172 history](docs/history/handoff-pilot-through-pr172.md), with

@@ -44,8 +44,9 @@ new small-adjustment path. The earlier frozen component changes its old STALE_PR
 supported 3,548 GP limit with unchanged original cost, quantity, target and stop; that frozen result
 is not current order authority, placement or controlled player acceptance.
 
-The initial client delivery took about 4.4 seconds with a five-second canonical retry; sampled later
-refreshes were about 1.1–2 seconds. Render p95, sustained latency and complete player-operated
+The initial client delivery took about 4.4 seconds with a five-second canonical retry; many sampled
+later refreshes were about 0.8–2 seconds, with later five-second ACK/report stalls still observed.
+Render p95, sustained latency and complete player-operated
 small reduction/cancel/late-fill/collect/relist/completion/restart remain open. Public-price forecasts
 remain unvalidated; the newly requested market-informed loss/hold policy is separately pending.
 Hosted shadow stays on; hosted advice, coordination and learning promotion remain off.
