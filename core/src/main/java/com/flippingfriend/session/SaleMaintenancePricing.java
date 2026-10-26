@@ -9,7 +9,7 @@ import java.util.List;
 
 /** Pure sale-maintenance authority shared by the client, companion and chronological replay. */
 public final class SaleMaintenancePricing {
-    public static final String VERSION="supported-sale-maintenance-11";
+    public static final String VERSION="supported-sale-maintenance-12";
     public enum Status {
         ELIGIBLE, INVALID_QUANTITY, MISSING_PRICES, STALE_PRICES, IMMATERIAL_CHANGE,
         UNPROVEN_QUANTITY, UNKNOWN_CLOCKS, PLACEMENT_PATIENCE, RECENT_PROGRESS,

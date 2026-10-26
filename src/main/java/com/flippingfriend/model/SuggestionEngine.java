@@ -275,13 +275,17 @@ public class SuggestionEngine
             Position position=currentLedger==null?null:salePosition(currentLedger,offer.getItemId());
             var price=market.latest(offer.getItemId());
             String unavailable=currentLedger==null?"Managed scope unavailable: waiting for acknowledged, fresh canonical acquisition evidence.":null;
+            var series=unavailable==null?maintenanceSeries(offer.getItemId()):Collections.<Candle>emptyList();
             var evaluation=unavailable!=null?null:new com.flippingfriend.session.SaleMaintenancePricing().evaluate(
                 offer.getItemId(),offer.getPrice(),offer.getRemaining(),position,price,
-                maintenanceSeries(offer.getItemId()),horizon,now,sellOnly,sellTiming,taxCalculator,
+                series,horizon,now,sellOnly,sellTiming,taxCalculator,
                 offer.getFirstSeen(),offer.getLastFillObservedAt());
+            Integer routine=evaluation!=null && evaluation.quote!=null && !evaluation.quote.lossCut?evaluation.quote.price:null;
+            var comparison=unavailable==null?sellTiming.compareMaintenance(position,offer.getRemaining(),offer.getPrice(),
+                routine,price,series,horizon,now):null;
             rows.put(offer.getSlot(),new com.flippingfriend.session.SaleMaintenanceDiagnostic(offer,evaluation,unavailable,
                 price,now.getEpochSecond(),currentLedger==null?now.getEpochSecond()+30:currentLedger.getObservedAt()+151,
-                companion==null?Double.NaN:companion.originalSellExpectedMinutes(offer),currentLedger!=null && position==null));
+                companion==null?Double.NaN:companion.originalSellExpectedMinutes(offer),currentLedger!=null && position==null,comparison));
         }
         if(java.util.Objects.equals(account,observedAccount) && settings.equals(saleDiagnosticSettings()))
             saleDiagnostics=new SaleDiagnostics(account,settings,ledger,market,rows);

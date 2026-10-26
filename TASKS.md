@@ -3,9 +3,20 @@
 Updated 26 October 2026. Read [HANDOFF.md](HANDOFF.md) and the current hosted-pilot receipt at
 `local-data/hosted-pilot/delivery-state.json` first for the installed pair and pending source;
 #162 was the hosted pilot's original baseline. Implemented/tested, merged,
-installed and player accepted are separate states. Owner is home; older login deferrals are superseded.
+installed and player accepted are separate states. Owner is away on 26 October; continue offline
+development and defer further login/game requests until they return.
 
 ## Current batch
+
+- [x] Implement/test PR #180 protected forecast limits over a shared horizon
+      including exact tax/cost, actual quantity, estimated completion and unsold stock. Explain the
+      comparison in Records without changing accounting, risk, stops or action-panel availability.
+      Clean 2,413 Java (six existing skips), 121 tooling and old/new Java 11 financial/risk reads pass.
+      Twelve later frozen 5m/30m/2h/8h cases reproduce; two small 30m improvements, ten unchanged,
+      all conservative ending changes negative. [Evidence](docs/history/exit-comparison-verification-2026-10-26.md).
+- [ ] Release/accept PR #180 after exact-head Windows/Linux CI and installed #178's deferred
+      player acceptance, with a verified paired backup/update and fresh guidance/trade/restart
+      checks. It is not installed. This does not finish market-informed loss authority.
 
 - [x] Implement/test/merge/install #178, combining #177 with recovered chart source and cold startup
       recovery bounds: clean 2,403 Java tests (six existing skips), 121 tooling, Java 11 and both
@@ -23,7 +34,7 @@ installed and player accepted are separate states. Owner is home; older login de
 - [x] Implement/test/merge #177 review-prefix indexing and indexed replica source lookup: isolated
       clean 2,392 Java tests (six existing skips), 121 tooling, Java 11 and both exact-head CI
       platforms pass. Frozen ledger/stock/scope/continuation/exposure/original-risk reads match.
-      Exact-artifact review classification/archive hashes match. Not yet installed or live accepted.
+      Exact-artifact review classification/archive hashes match. Installed through #178; live acceptance remains open.
 - [x] Implement/test/install #176 background price paths and qualified non-loss alternatives:
       clean 2,386 Java tests/121 tooling, both exact-head CI platforms, 12-table preservation,
       179-file/five-configuration restoration and #175 rollback reads pass. Fresh acknowledged frame,
