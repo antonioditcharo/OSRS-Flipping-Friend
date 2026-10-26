@@ -8,15 +8,25 @@ development and defer further login/game requests until they return.
 
 ## Current batch
 
+- [x] Profile frozen cold ledger rebuilding and reject an unproven forecast-hash cache. Golden
+      identities and serialization tests pass, but three alternating JVM pairs show inconsistent
+      cold effects and essentially unchanged warm reads. Source restored to merged #180; rejected
+      candidate is not a release. [Profile](docs/history/cold-ledger-profile-2026-10-26.md).
+- [ ] Reduce cold canonical history decoding/original-plan qualification with exact source-prefix
+      preservation, bounded resource work and measured cold/warm behavior. Keep all invalid sources,
+      duplicate occurrences, original targets/stops, financial effects and external-edit/rollback
+      invalidation. Do not use the rejected hash cache or skip source validation to fill the panel.
+
 - [x] Implement/test PR #180 protected forecast limits over a shared horizon
       including exact tax/cost, actual quantity, estimated completion and unsold stock. Explain the
       comparison in Records without changing accounting, risk, stops or action-panel availability.
       Clean 2,413 Java (six existing skips), 121 tooling and old/new Java 11 financial/risk reads pass.
       Twelve later frozen 5m/30m/2h/8h cases reproduce; two small 30m improvements, ten unchanged,
       all conservative ending changes negative. [Evidence](docs/history/exit-comparison-verification-2026-10-26.md).
-- [ ] Release/accept PR #180 after exact-head Windows/Linux CI and installed #178's deferred
+- [ ] Release/accept merged PR #180 after installed #178's deferred
       player acceptance, with a verified paired backup/update and fresh guidance/trade/restart
-      checks. It is not installed. This does not finish market-informed loss authority.
+      checks. Exact-head Windows/Linux CI `40376426920` passes; it is not installed. This does not
+      finish market-informed loss authority.
 
 - [x] Implement/test/merge/install #178, combining #177 with recovered chart source and cold startup
       recovery bounds: clean 2,403 Java tests (six existing skips), 121 tooling, Java 11 and both
