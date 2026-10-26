@@ -235,6 +235,9 @@ final class CompanionService implements AutoCloseable
 				fault("Offer projection slot " + projection.getSlot(), "durable offer requires reconciliation", null);
 		refreshPositionFaults();
 		if(accountId!=null)ledger();
+		// Durable projections already supply both states. Legacy replay is a fallback, not
+		// a startup reporting scan over every old offer when neither consumer needs it.
+		if(!restoreBuyLimitsFromEvents && !restoreOffersFromEvents)return;
 		long since = Instant.now().minus(BuyLimitLedger.WINDOW).getEpochSecond();
 		int replayed = 0;
 		for (String payload : store.recentOfferEvents(since))

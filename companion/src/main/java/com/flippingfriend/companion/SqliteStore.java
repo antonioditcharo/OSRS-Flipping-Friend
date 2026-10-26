@@ -32,6 +32,10 @@ import java.util.Map;
 /** The companion is the sole writer of durable portfolio and telemetry state. */
 final class SqliteStore implements AutoCloseable
 {
+	static final String RECENT_OFFER_TYPES="event_type IN ('EMPTY','BUYING','BOUGHT','CANCELLED_BUY','SELLING','SOLD','CANCELLED_SELL')";
+	static final String LEGACY_RECENT_OFFERS_SQL="SELECT payload FROM event_log WHERE observed_at >= ? AND "+RECENT_OFFER_TYPES+" ORDER BY observed_at ASC, id ASC";
+	// Do not let the event-type index select every historical offer and sort it at startup.
+	static final String RECENT_OFFERS_SQL="SELECT payload FROM event_log INDEXED BY event_log_recent_offer_time WHERE observed_at >= ? AND "+RECENT_OFFER_TYPES+" ORDER BY observed_at ASC, id ASC";
 	enum EventAcceptance { NEW, DUPLICATE }
 	static final class ProjectedEventAcceptance
 	{
@@ -64,6 +68,7 @@ final class SqliteStore implements AutoCloseable
 	}
 	private static final TransactionCheckpoint NO_CHECKPOINT = checkpoint -> { };
 	private final Connection connection;
+	private final boolean readOnly;
 	private final TransactionCheckpoint checkpoint;
     private String effectiveEffects="position_event";
 	/** Immutable metadata is cached only after its transaction commits. No cached absence. */
@@ -136,6 +141,7 @@ final class SqliteStore implements AutoCloseable
 	{
 	        if (checkpoint == null) throw new IllegalArgumentException("checkpoint is required");
 	        this.checkpoint = checkpoint;
+	        this.readOnly = readOnly;
 		if (readOnly)
 		{
 			// The driver rejects the extra immutable/nolock parameters that look like they belong
@@ -155,6 +161,7 @@ final class SqliteStore implements AutoCloseable
 			statement.execute("PRAGMA foreign_keys=ON");
 			statement.execute("CREATE TABLE IF NOT EXISTS event_log (id INTEGER PRIMARY KEY, observed_at INTEGER NOT NULL, correlation_id TEXT NOT NULL, event_id TEXT, event_type TEXT NOT NULL, payload TEXT NOT NULL)");
             statement.execute("CREATE INDEX IF NOT EXISTS event_log_type_id ON event_log(event_type,id)");
+            statement.execute("CREATE INDEX IF NOT EXISTS event_log_recent_offer_time ON event_log(observed_at,id) WHERE "+RECENT_OFFER_TYPES);
             SalePolicyReceiptStore.initialize(statement);
 			// market_observation is not created any more, and is dropped below if an older database
 			// still has it. Nothing ever read a row from it: every SELECT in all three modules is
@@ -2035,10 +2042,8 @@ final class SqliteStore implements AutoCloseable
 	synchronized List<String> recentOfferEvents(long since) throws Exception
 	{
 		List<String> payloads = new ArrayList<>();
-		try (PreparedStatement statement = connection.prepareStatement(
-			"SELECT payload FROM event_log WHERE observed_at >= ? "
-                + "AND event_type IN ('EMPTY','BUYING','BOUGHT','CANCELLED_BUY','SELLING','SOLD','CANCELLED_SELL') "
-                + "ORDER BY observed_at ASC, id ASC"))
+		// An explicitly read-only historical archive need not have the newer additive index.
+		try (PreparedStatement statement = connection.prepareStatement(readOnly?LEGACY_RECENT_OFFERS_SQL:RECENT_OFFERS_SQL))
 		{
 			statement.setLong(1, since);
 			try (ResultSet result = statement.executeQuery())

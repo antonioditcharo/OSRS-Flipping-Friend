@@ -72,4 +72,28 @@ public class MarketGraphViewTest {
             assertEquals(span,canvas.window()[1]-canvas.window()[0],.1);
         });
     }
+    @Test public void completedBackgroundForecastExpandsUntouchedViewportButPreservesManualZoom()throws Exception {
+        SwingUtilities.invokeAndWait(()->{
+            var canvas=new MarketGraphCanvas();canvas.setSize(1000,600);
+            canvas.setData(bars(300,12),300,null,0,0,now-3600,now,true);
+            canvas.setData(bars(300,12),300,null,0,0,now-3600,now+86400,false);
+            assertEquals(now+86400,canvas.window()[1],.1);
+            canvas.zoom(.5);double[] manual=canvas.window();
+            canvas.setData(bars(300,12),300,null,0,0,now-3600,now+86401,false);
+            assertArrayEquals(manual,canvas.window(),.1);
+        });
+    }
+    @Test public void everyHistoricalRangeKeepsTheDayAheadForecastVisible()throws Exception {
+        var market=market();
+        PublicPriceForecast.fitChart(market.getGraphSeries(30088,"5m"),market.getGraphSeries(30088,"1h"),market.getGraphSeries(30088,"6h"),now);
+        SwingUtilities.invokeAndWait(()->{
+            var view=new MarketGraphView(market,()->now);view.showItem(30088);
+            for(String label:new String[]{"Month","Week","Day","8h"}) {
+                button(view,"graph-range-"+label).doClick();
+                assertEquals(label,now+86400,view.chart.window()[1],.1);
+                assertTrue(text(view),text(view).contains("24.0h available"));
+            }
+            view.dispose();
+        });
+    }
 }

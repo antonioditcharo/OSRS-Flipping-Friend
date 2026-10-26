@@ -87,4 +87,35 @@ public class WorkflowLookupBudgetTest {
             }finally{ProgressHandler.clearHandler(db);}
         }
     }
+    @Test public void startupFallbackReadsOnlyItsTimeWindowInTheOriginalTimestampAndOccurrenceOrder()throws Exception {
+        try(var store=new SqliteStore(folder.newFolder().toPath().resolve("startup.db"))) {
+            var db=connection(store);metadata(db);
+            try(var s=db.createStatement()) {
+                s.execute("UPDATE event_log SET event_type='BUYING'");
+                s.execute("INSERT INTO event_log(observed_at,correlation_id,event_type,payload) VALUES(20001,'later','SOLD','later')");
+                s.execute("INSERT INTO event_log(observed_at,correlation_id,event_type,payload) VALUES(20000,'first','BUYING','same')");
+                s.execute("INSERT INTO event_log(observed_at,correlation_id,event_type,payload) VALUES(20000,'second','BUYING','same')");
+            }
+            budget(db);try{assertEquals(List.of("same","same","later"),store.recentOfferEvents(20000));}
+            finally{ProgressHandler.clearHandler(db);}
+            try(var s=db.createStatement()){s.execute("DROP INDEX event_log_recent_offer_time");}
+            budget(db);try(var s=db.prepareStatement(SqliteStore.LEGACY_RECENT_OFFERS_SQL)) {
+                s.setLong(1,20000);s.executeQuery();fail("The previous startup query plan must reproduce its old-offer scan");}
+            catch(SQLException expected){assertTrue(expected.getMessage().contains("interrupt"));}
+            finally{ProgressHandler.clearHandler(db);}
+        }
+    }
+    @Test public void readOnlyHistoricalArchivesRemainReadableWithoutInstallingTheStartupIndex()throws Exception {
+        var path=folder.newFolder().toPath().resolve("old-archive.db");
+        try(var store=new SqliteStore(path)) {
+            store.recordEvent(10,"old","SOLD","retained");
+            try(var s=connection(store).createStatement()){s.execute("DROP INDEX event_log_recent_offer_time");}
+        }
+        try(var store=SqliteStore.openReadOnly(path)) {
+            assertEquals(List.of("retained"),store.recentOfferEvents(0));
+            try(var s=connection(store).createStatement();var rows=s.executeQuery("SELECT COUNT(*) FROM sqlite_master WHERE name='event_log_recent_offer_time'")) {
+                rows.next();assertEquals(0,rows.getInt(1));
+            }
+        }
+    }
 }

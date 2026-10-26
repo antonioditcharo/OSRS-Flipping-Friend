@@ -7,11 +7,20 @@ installed and player accepted are separate states. Owner is home; older login de
 
 ## Current batch
 
-- [ ] Deliver `codex/report-acknowledgement-latency`: remove repeated review-prefix scans and the
-      unindexed replica source lookup identified while offer ACKs waited on report work. Preserve
-      annotation/financial/source/risk results; verify isolated clean builds, tooling, exact-head
-      Windows/Linux CI, combined chart compatibility, backups/rollback and real request failures/
-      guidance timing. [Contract](docs/architecture/report-and-replication-latency.md).
+- [ ] Install/accept merged #177 with the concurrent chart update: verify the combined release,
+      fresh backups/rollback, preserved trades, ordered frame ACKs, actual guidance and sustained
+      timing including failed requests. Chart source recovered from the disappeared side-chat into
+      `codex/recovered-day-ahead-charts`; this chat handles the combined update. Installed runtime
+      remains #176. Include the separately caught cold account-open scan, durable-projection reuse
+      and indexed legacy fallback in final verification. [Contract](docs/architecture/report-and-replication-latency.md).
+- [ ] Verify/deliver recovered day-ahead chart availability and visible viewport expansion, keeping
+      strategy horizons, cache, identities, order decisions and risk unchanged. Preserve honest
+      missing/flat forecasts, observed timestamps and manual zoom. Longer bands remain uncalibrated
+      display estimates. [Contract](docs/architecture/day-ahead-chart-forecasts.md).
+- [x] Implement/test/merge #177 review-prefix indexing and indexed replica source lookup: isolated
+      clean 2,392 Java tests (six existing skips), 121 tooling, Java 11 and both exact-head CI
+      platforms pass. Frozen ledger/stock/scope/continuation/exposure/original-risk reads match.
+      Exact-artifact review classification/archive hashes match. Not yet installed or live accepted.
 - [x] Implement/test/install #176 background price paths and qualified non-loss alternatives:
       clean 2,386 Java tests/121 tooling, both exact-head CI platforms, 12-table preservation,
       179-file/five-configuration restoration and #175 rollback reads pass. Fresh acknowledged frame,

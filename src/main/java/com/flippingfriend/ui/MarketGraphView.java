@@ -16,7 +16,7 @@ import net.runelite.client.ui.FontManager;
 final class MarketGraphView extends JPanel {
     enum Range {
         MONTH("Month",30*86400,"6h",21600,24),WEEK("Week",7*86400,"1h",3600,24),
-        DAY("Day",86400,"5m",300,8),EIGHT_HOURS("8h",28800,"5m",300,3);
+        DAY("Day",86400,"5m",300,24),EIGHT_HOURS("8h",28800,"5m",300,24);
         final String label,step;final int seconds,bucket,forecastHours;
         Range(String label,int seconds,String step,int bucket,int forecastHours){this.label=label;this.seconds=seconds;this.step=step;this.bucket=bucket;this.forecastHours=forecastHours;}
     }
@@ -24,7 +24,7 @@ final class MarketGraphView extends JPanel {
     private final MarketDataService market;
     private final LongSupplier clock;
     private static final java.util.concurrent.Executor FORECAST_WORKER=new java.util.concurrent.ThreadPoolExecutor(1,1,30,
-        java.util.concurrent.TimeUnit.SECONDS,new java.util.concurrent.ArrayBlockingQueue<>(1),r->{Thread t=new Thread(r,"flipping-friend-chart-forecast");t.setDaemon(true);return t;},new java.util.concurrent.ThreadPoolExecutor.DiscardOldestPolicy());
+        java.util.concurrent.TimeUnit.SECONDS,new java.util.concurrent.ArrayBlockingQueue<>(1),r->{Thread t=new Thread(r,"flipping-friend-chart-forecast");t.setDaemon(true);t.setPriority(Thread.MIN_PRIORITY);return t;},new java.util.concurrent.ThreadPoolExecutor.DiscardOldestPolicy());
     final MarketGraphCanvas chart=new MarketGraphCanvas();
     final JTextField search=new JTextField();
     final JButton suggested=new JButton("Switch to suggested item");
@@ -39,12 +39,11 @@ final class MarketGraphView extends JPanel {
     private int selected;
     private Range range=Range.DAY;
     private Suggestion advice=Suggestion.idle();
-    private List<Candle> lastTraining,lastShortTraining;
+    private List<Candle> lastTraining,lastShortTraining,lastSixHourlyTraining;
     private PublicPriceForecast base;
     private int forecastGeneration;
     private boolean disposed;
     private long trainingHour=-1,defaultStart,defaultEnd;
-    private int trainingHorizon=-1;
     private boolean reset=true;
     private Rectangle restoredBounds;
     private String lookupMessage;
@@ -143,15 +142,16 @@ final class MarketGraphView extends JPanel {
         if(selected<=0)return;long now=clock.getAsLong();var snapshot=market.getSnapshot();
         if(!snapshot.getItemName(selected).equals(title.getText()))updateTitle();
         List<Candle> visible=completed(market.getGraphSeries(selected,range.step),range.bucket,now);
-        List<Candle> hourly=market.getGraphSeries(selected,"1h"),daily=market.getGraphSeries(selected,"5m");
-        if(hourly==null)hourly=List.of();if(daily==null)daily=List.of();
-        if(hourly!=lastTraining || daily!=lastShortTraining || trainingHour!=now/300) {
-            lastTraining=hourly;lastShortTraining=daily;trainingHour=now/300;base=PublicPriceForecast.cached(daily,hourly,now);
+        List<Candle> hourly=market.getGraphSeries(selected,"1h"),daily=market.getGraphSeries(selected,"5m"),sixHourly=market.getGraphSeries(selected,"6h");
+        if(hourly==null)hourly=List.of();if(daily==null)daily=List.of();if(sixHourly==null)sixHourly=List.of();
+        if(hourly!=lastTraining || daily!=lastShortTraining || sixHourly!=lastSixHourlyTraining || trainingHour!=now/300) {
+            lastTraining=hourly;lastShortTraining=daily;lastSixHourlyTraining=sixHourly;trainingHour=now/300;
+            base=PublicPriceForecast.cachedChart(daily,hourly,sixHourly,now);
             int generation=++forecastGeneration;
             if(base==null) {
-                List<Candle> shortInput=new ArrayList<>(daily),longInput=new ArrayList<>(hourly);
+                List<Candle> shortInput=new ArrayList<>(daily),longInput=new ArrayList<>(hourly),sixHourInput=new ArrayList<>(sixHourly);
                 FORECAST_WORKER.execute(()->{
-                    var result=PublicPriceForecast.fit(shortInput,longInput,now);
+                    var result=PublicPriceForecast.fitChart(shortInput,longInput,sixHourInput,now);
                     SwingUtilities.invokeLater(()->{if(!disposed && generation==forecastGeneration){base=result;refresh();}});
                 });
             }

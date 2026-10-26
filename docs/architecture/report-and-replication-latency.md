@@ -51,9 +51,44 @@ component measurement; no financial events or effects were added. It is not live
 latency or profit evidence. Private receipts: `local-data/hosted-pilot/report-read-{old,new}.json`
 in the primary workspace.
 
+The final isolated #177 artifact reproduces the same hash and averages 0.721 ms over ten warm
+component cycles. Clean Java passes 2,392 tests with six existing skips; 121 tooling tests,
+Java 11 bytecode and exact-head Windows/Linux CI run `40351702015` pass for source
+`ee3d9d3026e1b90b75b1b0af73d74d2763fb6604`. Merge
+`6dd0e15a7a5f19b97fe33e0921d6851bb78e782e` has the identical tree. Frozen old/new ledger,
+stock, scope, continuation, exposure and original risk-window reads match. These source/component
+checks do not replace a fresh installation backup, rollback verification or live acceptance.
+
+Reanalysis of the earlier three-minute baseline using one client log counts seven separately
+logged slow failed requests: four offer deliveries and three performance reads. Fast requests
+under 750 ms are not logged, so the counts are not an attempt denominator or failure rate.
+Keep actionable refreshes separate from WAIT delivery and record missing/superseded outcomes as
+unmeasured. Private diagnostic: `report-baseline-guidance-with-failures.json`.
+
 Require clean Java/tooling, exact-head Windows/Linux CI, backup/rollback reads, fresh durable
 eight-slot evidence and observed guidance before acceptance. Measure request failures as well as
 successful delivery times: a timeout may produce no delivered-duration log. The instant-guidance
 goal and explicit budgeted market-informed loss policy remain separate unchecked requirements.
 The owner confirmed concurrent chart work in the primary checkout. This follow-up is isolated in
 a managed worktree; final runtime installation must preserve the combined verified changes.
+
+## Cold account opening follow-up
+
+During combined chart verification, a fresh thread capture found `forAccount` still opening its
+service inside `rehydrate -> recentOfferEvents`, while client offer POSTs timed out. The startup
+query selected old offers through the event-type index, then sorted by observation time. This is
+separate from the warm report lock above. Private capture: `combined-preinstall-threads.txt`.
+
+When durable offer and buy-limit projections both exist, rehydration now skips the unused legacy
+history read. If either needs legacy restoration, it retains the same four-hour window, timestamp/
+row ordering, duplicate occurrences and per-consumer restoration rules. A new additive partial
+index on `(observed_at,id)` covers the exact offer-type predicate. Writable startup explicitly
+selects it: merely creating the index still let SQLite choose the expensive type-index plan in
+the first instruction-budget regression. Read-only historical archives retain the compatible
+unhinted query and receive no schema changes. Previous runtimes ignore the new index safely.
+
+Regressions cover old-offer work budgets, identical timestamp/row occurrences, read-only archives
+without the index, durable limits/offers independent of unused legacy payloads, genuine missing-
+projection fallback and unchanged financial/learning rows. This is not replaying financial effects
+or accepting omitted executions. Combined clean build, exact-head CI and installation/live timing
+must be verified again for the amended source.
