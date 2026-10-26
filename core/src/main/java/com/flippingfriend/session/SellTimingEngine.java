@@ -177,18 +177,19 @@ public class SellTimingEngine
             :com.flippingfriend.model.PublicPriceForecast.ready(series,List.of(),now.getEpochSecond());
         int[] prices=com.flippingfriend.model.PredictivePriceChoices.prices(false,latest,series,forecast,seconds,new double[]{0},now.getEpochSecond());
         if(prices.length<2)return fallback;
-        FillCurve curve=FillCurve.overRecentHistory(series);double best=nonLossRate(position,fallback,curve,horizon);int chosen=fallback;
-        for(int price:prices)if(price>=floor && price<=ceiling) {
-            double rate=nonLossRate(position,price,curve,horizon);
-            if(rate>best*1.10 && rate>0){best=rate;chosen=price;}
-        }
-        return chosen;
+        return ExitPriceComparison.compare(position.getItemId(),position.getQuantity(),position.getTotalCost(),
+            fallback,floor,ceiling,prices,latest,series,horizon.legHorizonHours(),now,fillModel,taxCalculator).selectedPrice;
     }
-    private double nonLossRate(Position position,int price,FillCurve curve,TradingHorizon horizon) {
-        long profit=taxCalculator.netProceeds(position.getItemId(),price,position.getQuantity())-position.getTotalCost();
-        if(profit<=0)return 0;
-        FillEstimate fill=fillModel.estimateSell(curve,price,position.getQuantity(),horizon.legHorizonHours());
-        return fill.isPlausible()?profit*fill.getProbability()/Math.max(1.0/60,fill.getExpectedHours()):0;
+    /** Worker-only investigation of the observed ask and an independently qualified routine limit. */
+    public ExitPriceComparison.Result compareMaintenance(Position position,int remaining,int standing,Integer routine,
+            LatestPrice latest,List<Candle> series,TradingHorizon horizon,Instant now) {
+        if(position==null || !position.isCostKnown() || remaining<=0 || remaining>position.getQuantity())return null;
+        try {
+            long cost=com.flippingfriend.core.SaleAccounting.allocateCost(position.getTotalCost(),position.getQuantity(),remaining);
+            int floor=taxCalculator.breakEvenSellPriceForCost(position.getItemId(),cost,remaining);
+            return ExitPriceComparison.compare(position.getItemId(),remaining,cost,standing,Math.max(1,floor),Integer.MAX_VALUE,
+                routine==null?new int[0]:new int[]{routine},latest,series,horizon.legHorizonHours(),now,fillModel,taxCalculator);
+        }catch(RuntimeException optionalEvidenceUnavailable){return null;}
     }
 
 	/**

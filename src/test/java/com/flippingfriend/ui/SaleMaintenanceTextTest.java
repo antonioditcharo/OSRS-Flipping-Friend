@@ -64,4 +64,29 @@ public class SaleMaintenanceTextTest {
         assertFalse(SaleMaintenanceText.render(rows,at,false).contains("Nature rune"));
         assertTrue(SaleMaintenanceText.render(rows,at+30,true).contains("evaluation expired"));
     }
+    @Test public void comparisonShowsOneSharedHorizonAndNeverPresentsAProfitOrFillGuarantee() {
+        var existing=row(12,at-3600);var offer=existing.offer();var price=new LatestPrice(120,at,110,at);
+        var model=new FillModel(){@Override public FillEstimate estimateSell(FillCurve c,int p,int q,double h) {
+            return new FillEstimate(.75,.5,100,0);
+        }};
+        var comparison=ExitPriceComparison.compare(561,3,300,150,1,200,new int[]{120},price,
+            List.of(new Candle(at/300*300-300,120,110,100,100),new Candle(at/300*300-600,120,110,100,100)),
+            2,Instant.ofEpochSecond(at),model,new TaxCalculator());
+        var diagnostic=new SaleMaintenanceDiagnostic(offer,existing.evaluation,null,price,at,at+151,12,false,comparison);
+        var text=SaleMaintenanceText.render(List.of(diagnostic),at,true);
+        assertTrue(text.contains("Price comparison over 120m (unvalidated public-flow estimates)"));
+        assertTrue(text.contains("Standing 150 gp · 75% estimated completion"));
+        assertTrue(text.contains("Supported alternative 120 gp"));
+        assertTrue(text.contains("Est. horizon P/L"));
+        assertTrue(text.contains("Unsold remainder uses the same current 110 gp"));
+        assertTrue(text.contains("No replacement-trade profit is credited"));
+        assertTrue(text.contains("grants no loss or cancellation permission"));
+        assertFalse(SaleMaintenanceText.render(List.of(diagnostic),at+30,true).contains("75% estimated completion"));
+        var other=new TrackedOffer(2,562,false,150,3,at-3600);other.setState("SELLING");
+        var foreign=new SaleMaintenanceDiagnostic(other,existing.evaluation,null,price,at,at+151,12,false,comparison);
+        assertFalse(SaleMaintenanceText.render(List.of(foreign),at,true).contains("75% estimated completion"));
+        offer.setQuantityFilled(1);
+        var changed=new SaleMaintenanceDiagnostic(offer,existing.evaluation,null,price,at,at+151,12,false,comparison);
+        assertFalse(SaleMaintenanceText.render(List.of(changed),at,true).contains("75% estimated completion"));
+    }
 }

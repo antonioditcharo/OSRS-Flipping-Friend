@@ -12,11 +12,18 @@ public final class SaleMaintenanceDiagnostic {
     public final double originalExpectedMinutes;
     public final Integer highTradePrice,lowTradePrice;
     public final boolean personal;
+    public final ExitPriceComparison.Result comparison;
 
     public SaleMaintenanceDiagnostic(TrackedOffer offer,SaleMaintenancePricing.Evaluation evaluation,
             String unavailable,LatestPrice price,long now,long ledgerExpiresAt,double originalExpectedMinutes,
             boolean personal) {
+        this(offer,evaluation,unavailable,price,now,ledgerExpiresAt,originalExpectedMinutes,personal,null);
+    }
+    public SaleMaintenanceDiagnostic(TrackedOffer offer,SaleMaintenancePricing.Evaluation evaluation,
+            String unavailable,LatestPrice price,long now,long ledgerExpiresAt,double originalExpectedMinutes,
+            boolean personal,ExitPriceComparison.Result comparison) {
         this.offer=offer.copyObservation();this.evaluation=evaluation;this.unavailable=unavailable;
+        this.comparison=comparison;
         this.evaluatedAt=now;this.originalExpectedMinutes=originalExpectedMinutes;this.personal=personal;
         highTradePrice=price==null?null:price.getHigh();lowTradePrice=price==null?null:price.getLow();
         highAge=price==null || price.getHighTime()==null?-1:price.secondsSinceHigh(Instant.ofEpochSecond(now));

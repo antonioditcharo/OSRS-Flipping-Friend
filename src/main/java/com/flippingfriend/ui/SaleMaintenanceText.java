@@ -38,8 +38,28 @@ final class SaleMaintenanceText {
             } else text.append("\nOriginal actual-order estimate: unavailable; acquisition estimates are separate.");
             if(row.evaluation.quote!=null && row.evaluation.quote.costKnown)
                 text.append("\nExact allocated remaining cost: ").append(row.evaluation.quote.allocatedCost).append(" gp.");
+            if(row.comparison!=null && row.comparison.itemId==offer.getItemId()
+                && row.comparison.quantity==offer.getRemaining() && row.comparison.baseline!=null
+                && row.comparison.baseline.price==offer.getPrice() && row.comparison.observedAt==row.evaluatedAt)
+                comparison(text,row.comparison,now);
         }
         return text.toString();
+    }
+    private static void comparison(StringBuilder text,com.flippingfriend.session.ExitPriceComparison.Result comparison,long now) {
+        if(comparison==null || !comparison.currentAt(now))return;
+        text.append("\nPrice comparison over ").append(Math.round(comparison.horizonHours*60))
+            .append("m (unvalidated public-flow estimates):");
+        for(var limit:comparison.limits) {
+            text.append("\n  ").append(limit==comparison.baseline?"Standing":"Supported alternative")
+                .append(" ").append(limit.price).append(" gp · ").append(Math.round(limit.probability*100))
+                .append("% estimated completion · ").append(Math.round(limit.expectedMinutes))
+                .append("m estimated fill · ").append(limit.profit).append(" gp if fully sold");
+            text.append(" · Est. horizon P/L ").append(limit.roundedMarkedProfit()).append(" gp.");
+        }
+        text.append("\nUnsold remainder uses the same current ").append(comparison.terminalPrice)
+            .append(" gp seller-received trade, after tax; future prices, volume and fills may differ.")
+            .append(" Partial-fill outcomes are not predicted. No replacement-trade profit is credited.")
+            .append(" This comparison grants no loss or cancellation permission.");
     }
     private static String trade(Integer price,long age,long elapsed) {
         if(price==null || price<=0 || age<0)return "unavailable";

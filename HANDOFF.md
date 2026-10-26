@@ -30,7 +30,8 @@ Private receipt: `local-data/hosted-pilot/combined-guidance-delivery.json` in th
 RuneLite closed normally and reopened after installation. The prelaunch authenticated ledger GET
 opened/warmed the account in 4,532 ms, with no financial POST or restored current cash/slots.
 Fresh manual login/GE, durable frame/guidance, live chart and sustained timing acceptance remain
-pending. An asynchronous login/GE request is open. Do not claim the long-wait problem resolved
+pending. The owner is away and authorized continued offline work; defer further login/game requests
+until they return. Do not claim the long-wait problem resolved
 from component tests or successful requests alone. Measure failed transport requests separately;
 sub-750ms requests are not all logged, so logged failures are not a failure-rate denominator.
 
@@ -40,7 +41,18 @@ $36.20/month before tax under the owner's $50 ceiling. Local companion is sole f
 
 ## Remaining work
 
-The complete unchecked list remains in TASKS. First accept the installed combined update through
+Source branch `codex/market-exit-comparison` builds on merged documentation #179. It is not
+installed. Optional non-loss forecast limits now compare the same exact quantity over one horizon,
+retaining a common taxed current-bid mark for unsold stock and crediting no replacement income.
+An alternative must improve the existing estimated rate and cannot worsen marked horizon value.
+Immutable worker results explain standing/routine alternatives in Records; they grant no loss or
+cancellation authority. Missing evidence immediately retains existing pricing. Maintenance 12/
+replay 28 identify this proposed behavior; installed #178 remains 11/27. Receipt/source identities
+and risk rules are unchanged. Focused arithmetic/fallback/cost tests pass; later whole-account
+evaluation, full build/CI, compatibility and deployment gates remain open. Private research is in
+`local-data/exit-comparison-20261026` in the primary checkout. Do not claim return improvement.
+
+The complete unchecked list remains in TASKS. Accept the installed combined update when the owner returns through
 fresh ordered eight-slot ACKs, visible useful guidance, retained trades, sustained latency and
 player-operated cancel/late-fill/collect/relist/restart. Read the
 [report/startup contract](docs/architecture/report-and-replication-latency.md) and
