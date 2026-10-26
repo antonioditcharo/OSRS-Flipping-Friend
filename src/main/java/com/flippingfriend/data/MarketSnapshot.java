@@ -22,16 +22,24 @@ public class MarketSnapshot
 	private final Map<Integer, Candle> fiveMinute;
 	private final Map<Integer, Candle> hourly;
 	private final Instant capturedAt;
+    private final long latestFeedObservedAt;
 
 	public MarketSnapshot(Map<Integer, ItemMetadata> metadata, Map<Integer, LatestPrice> latest,
 		Map<Integer, Candle> fiveMinute, Map<Integer, Candle> hourly, Instant capturedAt)
 	{
-		this.metadata = Collections.unmodifiableMap(metadata);
-		this.latest = Collections.unmodifiableMap(latest);
-		this.fiveMinute = Collections.unmodifiableMap(fiveMinute);
-		this.hourly = Collections.unmodifiableMap(hourly);
+        this(metadata,latest,fiveMinute,hourly,capturedAt,capturedAt==null?0:capturedAt.getEpochSecond());
+    }
+    public MarketSnapshot(Map<Integer,ItemMetadata> metadata,Map<Integer,LatestPrice> latest,
+        Map<Integer,Candle> fiveMinute,Map<Integer,Candle> hourly,Instant capturedAt,long latestFeedObservedAt) {
+		this.metadata = Collections.unmodifiableMap(new java.util.LinkedHashMap<>(metadata));
+		this.latest = Collections.unmodifiableMap(new java.util.LinkedHashMap<>(latest));
+		this.fiveMinute = Collections.unmodifiableMap(new java.util.LinkedHashMap<>(fiveMinute));
+		this.hourly = Collections.unmodifiableMap(new java.util.LinkedHashMap<>(hourly));
 		this.capturedAt = capturedAt;
+        this.latestFeedObservedAt=latestFeedObservedAt;
 	}
+    /** Actual latest-feed receipt/publication clock; other feed refreshes cannot renew it. */
+    public long getLatestFeedObservedAt(){return latestFeedObservedAt;}
 
 	public static MarketSnapshot empty()
 	{

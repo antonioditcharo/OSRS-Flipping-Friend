@@ -7,6 +7,14 @@ installed and player accepted are separate states. Owner is home; older login de
 
 ## Current batch
 
+- [ ] Verify/deliver `codex/collected-relist-foreground-recovery`: finish accepted routine relists
+      with quiet trade prints and a truly fresh feed, preserve exact costs/targets/stops and working
+      offers, isolate market snapshots, and bound historical funding/continuation read work after
+      validated appends. Preserve #170 rollback, source/financial/risk evidence and pending events.
+      Verify clean Java/tooling, both CI platforms, exact frozen results, backup/restore and live
+      relist/entry/account-ACK/desktop timing separately. [Contract](docs/architecture/collected-relist-foreground-recovery.md);
+      `local-data/hosted-pilot/collected-guidance-delivery.json`.
+
 - [x] Implement/test/install PR #170 (`codex/steady-guidance-relist`): retain valid BUY guidance across exact duplicate
       and irrelevant container callbacks; immediately withdraw on real/unreadable state changes.
       Complete source-proven accepted routine sale reductions at a protected saved non-loss limit

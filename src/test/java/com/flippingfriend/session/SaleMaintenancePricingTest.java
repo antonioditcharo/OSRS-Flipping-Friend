@@ -77,6 +77,27 @@ public class SaleMaintenancePricingTest {
         assertNull(pricing.evaluateRelist(1,150,2,p,new LatestPrice(120,at-301,120,at),List.of(),horizon,now,false,exits,tax,first,first,accepted).quote);
         assertNull(pricing.evaluateRelist(1,150,2,p,quote,List.of(),horizon,now,false,exits,tax,first,first+1,accepted).quote);
     }
+    @Test public void quietCollectedLimitRequiresFreshFeedAndCannotReuseStaleLossPermission() {
+        long at=now.getEpochSecond(),first=at-3600;String account="rs-"+"1".repeat(64);
+        var source=com.flippingfriend.core.OfferEvent.builder("quiet",at,"SELLING").accountId(account).authenticatedObservation(true)
+            .eventIdentity("quiet-source","session","quiet-sale").sequence(1).slot(0).item(1,"Synthetic item").price(150)
+            .quantities(7,0).spent(0).firstSeenAt(first).build();
+        var accepted=com.flippingfriend.companion.SalePolicyAcceptanceDeliveryTest.receipt(account,"quiet-reduction",source,119,at);
+        var position=new Position(1,"Synthetic item",7,819,first,true);
+        position.setTargetSellPrice(150);position.setStopPrice(90);
+        var quiet=new LatestPrice(100,at-666,95,at-111);var pricing=new SaleMaintenancePricing();
+        var result=pricing.evaluateRelist(1,150,7,position,quiet,List.of(),horizon,now,false,exits,tax,first,first,accepted,at);
+        assertNotNull(result.quote);assertEquals(119,result.quote.price);assertFalse(result.quote.lossCut);
+        assertEquals(0,tax.netProceeds(1,result.quote.price,7)-result.quote.allocatedCost);
+        assertEquals(150,position.getTargetSellPrice());assertEquals(90,position.getStopPrice());
+        for(long feed:new long[]{0,at-121,at+1})assertNull(pricing.evaluateRelist(1,150,7,position,quiet,List.of(),horizon,now,false,exits,tax,first,first,accepted,feed).quote);
+        assertNull(pricing.evaluateRelist(1,150,7,position,quiet,List.of(),horizon,now,false,exits,tax,first,first,null,at).quote);
+        assertNull(pricing.evaluateRelist(1,150,7,position,new LatestPrice(100,at+1,95,at),List.of(),horizon,now,false,exits,tax,first,first,accepted,at).quote);
+        var json=new com.google.gson.Gson();var raw=json.toJsonTree(accepted).getAsJsonObject();
+        raw.addProperty("lossCut",true);raw.addProperty("mode","STOP");
+        var stop=json.fromJson(raw,com.flippingfriend.core.SalePolicyReceipt.class);assertTrue(stop.isWellFormed());
+        assertNull(pricing.evaluateRelist(1,150,7,position,quiet,List.of(),horizon,now,false,exits,tax,first,first,stop,at).quote);
+    }
     @Test public void freshStopsAndExplicitWindDownKeepTheirSeparateRelistRules() {
         long first=now.getEpochSecond()-900;
         var supported=List.of(new Candle(now.getEpochSecond()-300,80,80,100,100));

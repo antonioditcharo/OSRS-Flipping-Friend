@@ -154,6 +154,30 @@ public class SalePolicyReceiptWorkflowTest {
             assertEquals(prefix,financialPrefix(f.path));
         }
     }
+    @Test public void quietCollectedLimitUsesFreshFeedButCannotCancelWorkingSalesOrAuthorizeStaleStops()throws Exception {
+        try(var f=new Fixture()) {
+            var receipt=f.issue(UUID.randomUUID().toString());f.collect(receipt);var prefix=financialPrefix(f.path);
+            try(var restarted=new SqliteStore(f.path)) {
+                var read=restarted.saleProjections(f.helper.id,f.now+4);var stock=read.ledger.getTradingPositions().get(0);
+                var quiet=f.helper.market(f.now+4,120);quiet.latest.getAsJsonObject("561").addProperty("highTime",f.now-900);
+                var policy=new CompanionSalePolicy();
+                assertEquals(OfferLifecycleAction.PLACE_SELL,policy.decide(read.planning,read.ledger,f.account,quiet,(i,s)->List.of(),
+                    561,119,2,stock.getSourceEventId(),false,-1,f.now+4,f.source.getEventId()).getAction());
+                for(boolean cut:List.of(false,true))assertEquals(OfferLifecycleAction.WAIT,
+                    policy.decide(read.planning,read.ledger,f.account,quiet,(i,s)->List.of(),561,80,2,stock.getSourceEventId(),cut,-1,f.now+4,f.source.getEventId()).getAction());
+                var old=f.helper.market(f.now-121,120);
+                assertEquals(OfferLifecycleAction.WAIT,policy.decide(read.planning,read.ledger,f.account,old,(i,s)->List.of(),
+                    561,119,2,stock.getSourceEventId(),false,-1,f.now+4,f.source.getEventId()).getAction());
+            }
+            assertEquals(prefix,financialPrefix(f.path));
+        }
+        try(var f=new Fixture()) {
+            var read=f.store.saleProjections(f.helper.id,f.now);var quiet=f.helper.market(f.now,120);
+            quiet.latest.getAsJsonObject("561").addProperty("highTime",f.now-900);
+            assertEquals("SALE_QUOTE_STALE",new CompanionSalePolicy().decide(read.planning,read.ledger,f.account,quiet,(i,s)->List.of(),
+                561,119,3,f.source.getEventId(),false,0,f.now).getReasonCode());
+        }
+    }
     @Test public void newMissingAcceptanceCannotDowngradeToLegacyWhenCurrentCadenceWouldQualify()throws Exception {
         for(boolean modern:List.of(false,true))try(var f=new Fixture(modern)) {
             f.collect(null);f.captureSettings(5,f.now+4,2);

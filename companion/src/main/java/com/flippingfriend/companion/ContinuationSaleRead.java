@@ -5,6 +5,10 @@ import java.util.*;
 
 /** Read-only workflow disposition. Never reduces financial/exposure evidence or rebuilds holdings. */
 final class ContinuationSaleRead {
+    static boolean disposalSource(OfferEvent source) {
+        return source!=null && !source.isBuying() && source.isAuthenticatedObservation() && source.getFilledQuantity()>0
+            && ("SELLING".equals(source.getEventType()) || "SOLD".equals(source.getEventType()) || "CANCELLED_SELL".equals(source.getEventType()));
+    }
     static List<ContinuationDisposition> read(List<OfferEvent> history, Set<String> disposals, Set<String> rejected) {
         if(history==null)return List.of();
         Map<String,OfferEvent> originals=new HashMap<>();
@@ -20,12 +24,10 @@ final class ContinuationSaleRead {
         Map<Integer,ContinuationDisposition> latest=new TreeMap<>();
         for(var source:history) {
             var origin=originals.get(source.getOfferIdentity());
-            if(!disposals.contains(source.getEventId()) || source.isBuying() || !source.isAuthenticatedObservation()
+            if(!disposals.contains(source.getEventId()) || !disposalSource(source)
                 || origin==null || !origin.isAuthenticatedObservation() || inconsistent.contains(source.getOfferIdentity())
                 || origin.getFirstSeenAt()<=0 || origin.getFirstSeenAt()>origin.getObservedAt()
-                || source.getFirstSeenAt()>source.getObservedAt() || source.getFilledQuantity()<=0
-                || !("SELLING".equals(source.getEventType()) || "SOLD".equals(source.getEventType())
-                    || "CANCELLED_SELL".equals(source.getEventType())))continue;
+                || source.getFirstSeenAt()>source.getObservedAt())continue;
             var disposition=new ContinuationDisposition(source.getItemId(),source.getEventId(),source.getOfferIdentity(),
                 origin.getFirstSeenAt(),source.getObservedAt());
             var previous=latest.get(source.getItemId());

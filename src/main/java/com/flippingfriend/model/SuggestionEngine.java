@@ -1796,7 +1796,8 @@ public class SuggestionEngine
             series,horizon,now,1L,true,sellOnly,false);
         var relist=remaining.getSaleRepriceSource()==null?null:new com.flippingfriend.session.SaleMaintenancePricing().evaluateRelist(
             item,remaining.getOriginalPrice(),quantity,position,price,series,horizon,now,sellOnly,sellTiming,taxCalculator,
-            remaining.getFirstSeenAt(),remaining.getProgressAt(),remaining.getAcceptedSalePolicyProof()==null?null:remaining.getAcceptedSalePolicyProof().getReceipt()).quote;
+            remaining.getFirstSeenAt(),remaining.getProgressAt(),remaining.getAcceptedSalePolicyProof()==null?null:remaining.getAcceptedSalePolicyProof().getReceipt(),
+            market.getLatestFeedObservedAt()).quote;
         if(remaining.getSaleRepriceSource()!=null && relist==null)
             return Suggestion.waiting("Rechecking the cancelled sale",
                 "Current prices and market evidence do not support this relist. Its exact remainder and accepted reduction are retained; the old target is not restored.");
