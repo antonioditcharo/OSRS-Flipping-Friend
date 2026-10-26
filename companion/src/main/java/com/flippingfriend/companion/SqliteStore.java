@@ -71,8 +71,6 @@ final class SqliteStore implements AutoCloseable
     private static final String ACCOUNTING_MODE="AUTOMATIC_ACCOUNTING_V1";
     // Presence means automatic; true additionally proves the non-expiring marker exists.
     private final Map<String,Boolean> automaticModes=new HashMap<>();
-    private com.flippingfriend.core.TradeReviewSnapshot cachedTradeReview;
-    private java.util.Set<Integer> cachedReviewLiveItems=java.util.Set.of();
     private List<com.flippingfriend.core.ContinuationDisposition> cachedContinuationSales;
     private long continuationSalesCursor=-1;
     private int continuationSalesHistorySize=-1;
@@ -82,6 +80,7 @@ final class SqliteStore implements AutoCloseable
 	private List<OfferEvent> canonicalHistory;
     private final Map<String,OfferEvent> canonicalSaleSources=new HashMap<>();
     private final ContinuationSaleRead.Index continuationSaleIndex=new ContinuationSaleRead.Index();
+    private final TradeReviewRead.Index tradeReviewIndex=new TradeReviewRead.Index();
     private final ProspectiveGapExposure.Memo prospectiveGapMemo=new ProspectiveGapExposure.Memo();
     private final BoundedHistoricalExposure.Memo historicalFundingMemo=new BoundedHistoricalExposure.Memo();
 	private String canonicalHistoryAccount;
@@ -99,10 +98,9 @@ final class SqliteStore implements AutoCloseable
         cachedRiskEvidence=null;cachedRiskEvidenceWindow=null;cachedRiskEvidenceAccount=null;cachedRiskEvidenceScope=null;
         riskWindows.clear();
 		canonicalHistory=null; canonicalHistoryAccount=null; canonicalHistoryCursor=0;
-        canonicalSaleSources.clear();historicalFundingMemo.reset();prospectiveGapMemo.reset();continuationSaleIndex.reset();
+        canonicalSaleSources.clear();historicalFundingMemo.reset();prospectiveGapMemo.reset();continuationSaleIndex.reset();tradeReviewIndex.reset();
 		scopedEffects=null;scopedEffectsCursor=-1;
         automaticModes.clear();
-        cachedTradeReview=null;cachedReviewLiveItems=java.util.Set.of();
         cachedContinuationSales=null;continuationSalesCursor=-1;
         continuationSalesHistorySize=-1;
 	}
@@ -906,6 +904,7 @@ final class SqliteStore implements AutoCloseable
             historicalFundingMemo.appendCanonical(previous,canonicalHistory);
             prospectiveGapMemo.appendCanonical(previous,canonicalHistory);
             continuationSaleIndex.appendCanonical(previous,canonicalHistory);
+            tradeReviewIndex.appendCanonical(previous,canonicalHistory);
         }
         canonicalHistoryCursor=cursor;
         return canonicalHistory;
@@ -1285,11 +1284,7 @@ final class SqliteStore implements AutoCloseable
         for(var p:positionProjections())if(p.getQuantity()>0 || p.getTotalCost()>0)live.add(p.getItemId());
         for(var p:offerProjections())if(p.getState()!=com.flippingfriend.core.OfferLifecycleState.EMPTY && p.getItemId()>0)live.add(p.getItemId());
         var history=offerHistory(account); // Validate the appended canonical tail even on a cache hit.
-        if(history!=null && cachedTradeReview!=null && account.equals(cachedTradeReview.accountId)
-            && cachedTradeReview.observedAt<=now && cursor==cachedTradeReview.positionCursor && live.equals(cachedReviewLiveItems))
-            return new com.flippingfriend.core.TradeReviewSnapshot(account,now,cursor,cachedTradeReview.states,cachedTradeReview.archivedSources);
-        var result=TradeReviewRead.classify(account,now,cursor,tradeReviewRows(),history,rejected,live,archivedTradeSources(account));
-        if(history!=null){cachedTradeReview=result;cachedReviewLiveItems=java.util.Set.copyOf(live);}
+        var result=tradeReviewIndex.read(account,now,cursor,tradeReviewRows(),history,rejected,live,archivedTradeSources(account));
         return result;
     }
     synchronized com.flippingfriend.core.TradeReviewSnapshot reviewTrades(String account,
@@ -1317,7 +1312,6 @@ final class SqliteStore implements AutoCloseable
                     throw new IllegalArgumentException("Selected trade is not eligible for this review action");
             }
             recordEvent(now,request.requestId,TradeReviewRead.EVENT_TYPE,payload);
-            cachedTradeReview=null;
             checkpoint.reached("TRADE_REVIEW_RECORDED");
             var result=tradeReview(account,now);connection.commit();return result;
         }catch(Exception failure){connection.rollback();discardCanonicalHistory();throw failure;}

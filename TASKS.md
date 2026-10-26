@@ -1,11 +1,21 @@
 # Tasks
 
-Updated 25 October 2026. Read [HANDOFF.md](HANDOFF.md) and the current hosted-pilot receipt at
+Updated 26 October 2026. Read [HANDOFF.md](HANDOFF.md) and the current hosted-pilot receipt at
 `local-data/hosted-pilot/delivery-state.json` first for the installed pair and pending source;
 #162 was the hosted pilot's original baseline. Implemented/tested, merged,
 installed and player accepted are separate states. Owner is home; older login deferrals are superseded.
 
 ## Current batch
+
+- [ ] Deliver `codex/report-acknowledgement-latency`: remove repeated review-prefix scans and the
+      unindexed replica source lookup identified while offer ACKs waited on report work. Preserve
+      annotation/financial/source/risk results; verify isolated clean builds, tooling, exact-head
+      Windows/Linux CI, combined chart compatibility, backups/rollback and real request failures/
+      guidance timing. [Contract](docs/architecture/report-and-replication-latency.md).
+- [x] Implement/test/install #176 background price paths and qualified non-loss alternatives:
+      clean 2,386 Java tests/121 tooling, both exact-head CI platforms, 12-table preservation,
+      179-file/five-configuration restoration and #175 rollback reads pass. Fresh acknowledged frame,
+      visible retained trades and logged BUY delivery pass. Full-loop/return/latency gates stay open.
 
 - [ ] Complete `codex/workflow-verification-dynamic-pricing`: remove profiled verification scans/
       background churn with indexed and exact-prefix bounded reads; preserve financial/source/risk

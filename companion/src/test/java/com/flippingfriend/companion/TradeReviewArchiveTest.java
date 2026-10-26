@@ -50,6 +50,15 @@ public class TradeReviewArchiveTest {
             assertEquals(effects,s.positionEventCount());assertEquals(ledgerBefore,gson.toJson(s.ledgerSnapshot(account,at+50)));
         }
     }
+    @Test public void closureEligibilityRechecksTheRecordedClockWithoutWaitingForAnotherFinancialEffect()throws Exception {
+        try(var store=new SqliteStore(folder.newFolder().toPath().resolve("future-closure.db"))) {
+            unpricedSale(store,"future-closure",561,true);
+            long cursor=store.positionEventCount();
+            assertEquals(TradeReviewSnapshot.OPEN,store.tradeReview(account,at+2).states.get("future-closure"));
+            assertEquals(TradeReviewSnapshot.ELIGIBLE,store.tradeReview(account,at+4).states.get("future-closure"));
+            assertEquals(cursor,store.positionEventCount());
+        }
+    }
     @Test public void incompleteClosureAndRetainedAcquisitionsCannotBeArchived()throws Exception {
         try(var s=new SqliteStore(folder.newFolder().toPath().resolve("guards.db"))) {
             unpricedSale(s,"uncollected",561,false);var open=s.tradeReview(account,at+50);
