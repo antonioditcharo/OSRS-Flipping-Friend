@@ -33,16 +33,29 @@ recovery true. Learning is unpromoted. Private DigitalOcean staging remains appr
 $36.20/month before tax under the owner's $50 ceiling. Local companion is the sole financial
 authority. `local-data/hosted-pilot/delivery-state.json` identifies current runtime evidence.
 
-## Source in progress
+## Verified source awaiting installation
 
-`codex/report-acknowledgement-latency` is isolated in a managed worktree from installed #176.
-It is not installed. Read [the report/replication contract](docs/architecture/report-and-replication-latency.md).
+PR #177 is merged at `6dd0e15a7a5f19b97fe33e0921d6851bb78e782e`; tested source
+`ee3d9d3026e1b90b75b1b0af73d74d2763fb6604` has the identical tree. It is isolated in the managed
+`report-ack-latency` worktree and is not installed. Read
+[the report/replication contract](docs/architecture/report-and-replication-latency.md).
 Source indexes display review evidence over exact validated canonical appends, re-evaluates current
 annotations/holdings without rescanning history, and uses the existing partial event-ID index for
 replication ownership checks. It changes no financial rows, prices, loss authority or risk policy.
-Require isolated clean Java/tooling, exact-head Windows/Linux CI, preservation/rollback and real
-request-failure/guidance timing before acceptance. Another chat edits charts in the primary checkout;
-preserve those changes and coordinate a combined verified pair before installation.
+The isolated clean build passes 2,392 Java tests (six existing skips), 121 tooling tests, Java 11
+bytecode and exact-head Windows/Linux CI run `40351702015`. Frozen old/new ledger, stock, scope,
+continuations, exposure and original risk-window reads match. Exact-artifact review classification/
+archive hashes match; ten warm component cycles average 0.721 ms versus the earlier 90.605 ms.
+Private receipt: `local-data/hosted-pilot/report-guidance-delivery.json` in the primary checkout;
+its archived pair is `report-verified-artifacts/`. This is not installed/live latency acceptance.
+The chart side-chat disappeared; no saved transcript was found in recent/archived chats or local
+thread metadata. Its seven source files and private tests/public captures remain intact. They are
+copied exactly into `codex/recovered-day-ahead-charts` on #177; the original files and three unrelated
+document deletions in the primary checkout remain untouched. A hash-bound private source snapshot is
+`local-data/hosted-pilot/recovered-chart-source/manifest.json`. This chat now handles combined release
+verification and installation; no separate chart-chat response is needed. The chart worker also
+uses minimum thread priority. Read [the recovered chart contract](docs/architecture/day-ahead-chart-forecasts.md).
+Fresh combined builds/CI, preservation/rollback and request-failure/guidance timing remain required.
 
 The broader [pricing/workflow contract](docs/architecture/workflow-verification-and-predictive-pricing.md)
 remains open. An unrestricted forecast frontier failed the 5m account development scenario and was

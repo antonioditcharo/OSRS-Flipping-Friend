@@ -7,11 +7,17 @@ import java.util.*;
 /** Bounded, public-only rolling-origin price analysis. Not an execution or disposal authority. */
 public final class PublicPriceForecast {
     public static final String VERSION="PUBLIC_PRICE_PATH_V1";
+    public static final String CHART_VERSION="PUBLIC_PRICE_CHART_PATH_V2";
     private static final int[] HORIZONS={300,1800,7200,28800};
+    private static final int[] CHART_HORIZONS={300,1800,3600,7200,14400,28800,43200,86400};
     private static final int MODELS=5,TRAIN=24,VALIDATE=12;
     private static final Map<Key,PublicPriceForecast> CACHE=Collections.synchronizedMap(
         new LinkedHashMap<Key,PublicPriceForecast>(64,.75f,true) {
             @Override protected boolean removeEldestEntry(Map.Entry<Key,PublicPriceForecast> e){return size()>128;}
+        });
+    private static final Map<Key,PublicPriceForecast> CHART_CACHE=Collections.synchronizedMap(
+        new LinkedHashMap<Key,PublicPriceForecast>(16,.75f,true) {
+            @Override protected boolean removeEldestEntry(Map.Entry<Key,PublicPriceForecast> e){return size()>32;}
         });
     private static final Set<Key> PENDING=Collections.synchronizedSet(new HashSet<>());
     private static final java.util.concurrent.Executor WORKER=new java.util.concurrent.ThreadPoolExecutor(1,1,30,
@@ -54,15 +60,40 @@ public final class PublicPriceForecast {
             return price==null || price<=0 || volume<=0?Double.NaN:Math.log(price);
         }
     }
-    private final Fit[][] fits=new Fit[2][HORIZONS.length];
+    private final Fit[][] fits;
+    private final int[] horizons;
+    private final boolean chart;
     public final long observedAt;
     public final String historyFingerprint;
     private PublicPriceForecast(List<Candle> shortRows,List<Candle> hourly,long now,String fingerprint) {
+        this(shortRows,hourly,null,now,fingerprint,false);
+    }
+    private PublicPriceForecast(List<Candle> shortRows,List<Candle> hourly,List<Candle> sixHourly,long now,String fingerprint,boolean chart) {
+        this.chart=chart;horizons=chart?CHART_HORIZONS:HORIZONS;fits=new Fit[2][horizons.length];
         observedAt=now;historyFingerprint=fingerprint;Series shortSeries=new Series(shortRows,300,now),longSeries=new Series(hourly,3600,now);
-        for(int side=0;side<2;side++)for(int h=0;h<HORIZONS.length;h++) {
+        Series sixHourSeries=chart?new Series(sixHourly,21600,now):null;
+        for(int side=0;side<2;side++)for(int h=0;h<horizons.length;h++) {
             Series series=h<2?shortSeries:longSeries;
-            fits[side][h]=fit(series,side==1,HORIZONS[h]/series.bucket);
+            Fit result=chart?chartFit(series,side==1,horizons[h]/series.bucket):fit(series,side==1,horizons[h]/series.bucket);
+            // Longer public history supplies disjoint day-ahead comparisons. Never shorten a
+            // strategy horizon or use chart fits in live order selection.
+            if(chart && horizons[h]>=43200 && result.count<TRAIN+VALIDATE) {
+                Fit longer=chartFit(sixHourSeries,side==1,horizons[h]/sixHourSeries.bucket);
+                if(longer.count>result.count)result=longer;
+            }
+            fits[side][h]=result;
         }
+    }
+    /** Display-only day-ahead fits, cached separately so browsing cannot evict strategy analysis. */
+    public static PublicPriceForecast fitChart(List<Candle> shortRows,List<Candle> hourly,List<Candle> sixHourly,long now) {
+        shortRows=copy(shortRows);hourly=copy(hourly);sixHourly=copy(sixHourly);
+        Key key=new Key(shortRows,hourly,sixHourly,now);PublicPriceForecast existing=CHART_CACHE.get(key);
+        if(existing!=null)return existing;
+        PublicPriceForecast result=new PublicPriceForecast(shortRows,hourly,sixHourly,now,key.fingerprint(),true);
+        CHART_CACHE.put(key,result);return result;
+    }
+    public static PublicPriceForecast cachedChart(List<Candle> shortRows,List<Candle> hourly,List<Candle> sixHourly,long now) {
+        return CHART_CACHE.get(new Key(shortRows,hourly,sixHourly,now));
     }
     /** Keys copy every retained public field; mutation, conflicting duplicates and time advance cannot reuse a fit. */
     public static PublicPriceForecast fit(List<Candle> shortRows,List<Candle> hourly,long now) {
@@ -93,13 +124,13 @@ public final class PublicPriceForecast {
         List<Candle> result=new ArrayList<>();for(Candle c:rows)result.add(c==null?null:new Candle(c.getTimestamp(),c.getAvgHighPrice(),c.getAvgLowPrice(),c.getHighPriceVolume(),c.getLowPriceVolume()));return result;
     }
     public Estimate at(boolean high,int seconds,int anchor) {
-        if(seconds<=0 || seconds>28800 || anchor<=0)return missing();
-        int upper=0;while(upper<HORIZONS.length-1 && HORIZONS[upper]<seconds)upper++;
-        int lower=upper==0 || HORIZONS[upper]==seconds?upper:upper-1;
+        if(seconds<=0 || seconds>horizons[horizons.length-1] || anchor<=0)return missing();
+        int upper=0;while(upper<horizons.length-1 && horizons[upper]<seconds)upper++;
+        int lower=upper==0 || horizons[upper]==seconds?upper:upper-1;
         Fit b=fits[high?1:0][upper],a=fits[high?1:0][lower];
         if(a.count<12 || b.count<12)return missing();
-        double weight=upper==lower?seconds/(double)HORIZONS[upper]
-            :(seconds-HORIZONS[lower])/(double)(HORIZONS[upper]-HORIZONS[lower]);
+        double weight=upper==lower?seconds/(double)horizons[upper]
+            :(seconds-horizons[lower])/(double)(horizons[upper]-horizons[lower]);
         double shift=upper==lower?b.shift*weight:a.shift+(b.shift-a.shift)*weight;
         double lo=upper==lower?b.lower*Math.sqrt(weight):a.lower+(b.lower-a.lower)*weight;
         double hi=upper==lower?b.upper*Math.sqrt(weight):a.upper+(b.upper-a.upper)*weight;
@@ -113,26 +144,37 @@ public final class PublicPriceForecast {
             || quote.getLowTime()==null || quote.getHighTime()==null || quote.getLowTime()<=0 || quote.getHighTime()<=0
             || quote.getLowTime()>snapshotAt || quote.getHighTime()>snapshotAt
             || now-quote.getLowTime()>7200 || now-quote.getHighTime()>7200)
-            return new MarketPriceProjection.Projection(VERSION,now,0,300,List.of(),"Waiting for timestamped market quotes");
+            return new MarketPriceProjection.Projection(chart?CHART_VERSION:VERSION,now,0,300,List.of(),"Waiting for timestamped market quotes");
         List<MarketPriceProjection.Point> points=new ArrayList<>();
         points.add(new MarketPriceProjection.Point(snapshotAt,new MarketPriceProjection.Side(quote.getLow(),quote.getLow(),quote.getLow()),
             new MarketPriceProjection.Side(quote.getHigh(),quote.getHigh(),quote.getHigh()),0));
-        for(int seconds=300;seconds<=Math.min(8,hours)*3600;seconds+=300) {
+        for(int seconds=300;seconds<=Math.min(chart?24:8,hours)*3600;seconds+=300) {
             Estimate low=at(false,seconds,quote.getLow()),high=at(true,seconds,quote.getHigh());
-            if(!low.available() || !high.available())break;
+            if(!low.available() || !high.available()){if(chart)continue;else break;}
             // Public side averages can cross. Do not draw a negative forecast spread.
             double lowMid=Math.min(low.median,high.median),highMid=Math.max(low.median,high.median);
             points.add(new MarketPriceProjection.Point(snapshotAt+seconds,
                 new MarketPriceProjection.Side(Math.min(low.lower,lowMid),lowMid,Math.max(low.upper,lowMid)),
                 new MarketPriceProjection.Side(Math.min(high.lower,highMid),highMid,Math.max(high.upper,highMid)),Math.min(low.comparisons,high.comparisons)));
         }
-        return new MarketPriceProjection.Projection(VERSION,now,snapshotAt,300,points,
+        return new MarketPriceProjection.Projection(chart?CHART_VERSION:VERSION,now,snapshotAt,300,points,
             points.size()>1?"Public-market forecast; central 50% residual interval. Price and fill outcomes remain uncertain."
                 :"Insufficient completed history for a qualified price forecast");
     }
     private static Fit fit(Series s,boolean high,int horizon) {
         if(!s.valid)return absent();
-        long end=s.origin-s.bucket;double anchor=s.price(end,high);if(!Double.isFinite(anchor))return absent();
+        return fit(s,high,horizon,s.origin-s.bucket);
+    }
+    private static Fit chartFit(Series s,boolean high,int horizon) {
+        if(!s.valid || horizon<1)return absent();
+        long end=s.origin-s.bucket;
+        // A quiet side in the newest bucket does not invalidate the other completed evidence.
+        // Use its actual earlier clock; no missing bucket is filled or compressed.
+        while(end>=s.origin-2L*s.bucket && !Double.isFinite(s.price(end,high)))end-=s.bucket;
+        return end<s.origin-2L*s.bucket?absent():fit(s,high,horizon,end);
+    }
+    private static Fit fit(Series s,boolean high,int horizon,long end) {
+        double anchor=s.price(end,high);if(!Double.isFinite(anchor))return absent();
         List<Long> origins=new ArrayList<>();
         // Disjoint evaluation horizons retain timestamps and missing outcomes; no compressed time series.
         for(long at=end-(long)horizon*s.bucket;at>=s.rows.firstKey()+48L*s.bucket && origins.size()<TRAIN+VALIDATE;at-=(long)horizon*s.bucket)
@@ -200,8 +242,14 @@ public final class PublicPriceForecast {
     private static final class Key {
         final long minute;final long[] values;final int hash;
         Key(List<Candle> shortRows,List<Candle> hourly,long now) {
+            this(Arrays.asList(shortRows,hourly),now);
+        }
+        Key(List<Candle> shortRows,List<Candle> hourly,List<Candle> sixHourly,long now) {
+            this(Arrays.asList(shortRows,hourly,sixHourly),now);
+        }
+        private Key(List<List<Candle>> histories,long now) {
             minute=now/300;List<Long> data=new ArrayList<>();
-            for(List<Candle> rows:Arrays.asList(shortRows,hourly)) {
+            for(List<Candle> rows:histories) {
                 data.add(rows==null?-1L:(long)rows.size());
                 if(rows!=null && rows.size()<=2048)for(Candle c:rows) {
                     if(c==null){data.add(Long.MIN_VALUE);continue;}

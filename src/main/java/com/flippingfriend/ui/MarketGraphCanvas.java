@@ -44,11 +44,12 @@ final class MarketGraphCanvas extends JPanel {
     private void bind(String key,Runnable action){getInputMap(WHEN_FOCUSED).put(KeyStroke.getKeyStroke(key),key);getActionMap().put(key,new AbstractAction(){@Override public void actionPerformed(ActionEvent e){action.run();}});}
     void setData(List<Candle> data,int bucket,MarketPriceProjection.Projection p,int buy,int sell,
         long defaultStart,long defaultEnd,boolean reset) {
+        boolean followingHome=end<=start || Math.abs(start-homeStart)<.5 && Math.abs(end-homeEnd)<.5;
         this.bars=List.copyOf(data);this.bucket=bucket;projection=p;this.buy=buy;this.sell=sell;
         homeStart=defaultStart;homeEnd=defaultEnd;
         minimum=bars.isEmpty()?defaultStart:Math.min(defaultStart,bars.get(0).getTimestamp()+bucket);
         maximum=Math.max(defaultEnd,p!=null && p.isAvailable()?p.points.get(p.points.size()-1).at:defaultEnd);
-        if(reset || end<=start)setWindow(defaultStart,defaultEnd);else setWindow(start,end);
+        if(reset || followingHome)setWindow(defaultStart,defaultEnd);else setWindow(start,end);
     }
     void showProjections(boolean enabled){projections=enabled;repaint();}
     void zoom(double scale){zoom(scale,.5);}
