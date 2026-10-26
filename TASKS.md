@@ -7,16 +7,19 @@ installed and player accepted are separate states. Owner is home; older login de
 
 ## Current batch
 
-- [ ] Install/accept merged #177 with the concurrent chart update: verify the combined release,
-      fresh backups/rollback, preserved trades, ordered frame ACKs, actual guidance and sustained
-      timing including failed requests. Chart source recovered from the disappeared side-chat into
-      `codex/recovered-day-ahead-charts`; this chat handles the combined update. Installed runtime
-      remains #176. Include the separately caught cold account-open scan, durable-projection reuse
-      and indexed legacy fallback in final verification. [Contract](docs/architecture/report-and-replication-latency.md).
-- [ ] Verify/deliver recovered day-ahead chart availability and visible viewport expansion, keeping
-      strategy horizons, cache, identities, order decisions and risk unchanged. Preserve honest
-      missing/flat forecasts, observed timestamps and manual zoom. Longer bands remain uncalibrated
-      display estimates. [Contract](docs/architecture/day-ahead-chart-forecasts.md).
+- [x] Implement/test/merge/install #178, combining #177 with recovered chart source and cold startup
+      recovery bounds: clean 2,403 Java tests (six existing skips), 121 tooling, Java 11 and both
+      exact-head CI platforms pass. All 12 original tables match; 189-file/five-configuration
+      restoration and #176 rollback reads pass. Primary source is synchronized; unrelated deletions
+      remain intact. RuneLite reopened. Private receipt: `combined-guidance-delivery.json`.
+- [ ] Accept installed #178 through fresh manual login/GE, preserved trades, ordered frame ACKs,
+      actual guidance and sustained timing including failed requests. The 4,532ms prelaunch ledger
+      cache warm-up is not current-frame or live latency acceptance. Include cold account-open,
+      durable-projection reuse and genuine legacy fallback. [Contract](docs/architecture/report-and-replication-latency.md).
+- [ ] Accept installed recovered day-ahead chart availability and visible viewport expansion,
+      preserving manual zoom and honest missing/flat forecasts. Regenerated Swing images match the
+      saved side-chat renders at three widths; native live charts remain unaccepted. Longer bands
+      remain uncalibrated display estimates. [Contract](docs/architecture/day-ahead-chart-forecasts.md).
 - [x] Implement/test/merge #177 review-prefix indexing and indexed replica source lookup: isolated
       clean 2,392 Java tests (six existing skips), 121 tooling, Java 11 and both exact-head CI
       platforms pass. Frozen ledger/stock/scope/continuation/exposure/original-risk reads match.

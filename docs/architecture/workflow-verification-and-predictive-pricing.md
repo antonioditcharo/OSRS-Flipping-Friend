@@ -58,7 +58,7 @@ source evidence and risk anchors; no unsupported loss, same-price cancel loop or
 Qualified market-informed losses need their own explicit evidence and durable budget check, plus
 compatible rollback and full cancellation/collection/relisting proof before activation.
 
-## Public price path increment (source; not yet installed)
+## Public price path increment (installed in #176; retained in #178)
 
 `PublicPriceForecast.PUBLIC_PRICE_PATH_V1` fits the low and high sides separately. Candidate rules
 are persistence, damped recent trend, slow median reversion, relative daily movement and a damped
@@ -69,8 +69,9 @@ filled. Sparse, conflicting, stale, oversized or unsupported input falls back wi
 otherwise eligible legacy entries. This is public statistical analysis, not execution learning.
 
 The 5m/30m fits use five-minute history; 2h/8h fits use hourly history. Interpolation preserves the
-actual horizon. The chart currently shows at most eight hours of qualified forecasts, irrespective
-of the historical zoom. It reanchors on timestamped public quotes and keeps action-price guides
+actual horizon. The #176 chart showed at most eight hours of qualified forecasts. Installed #178
+uses a separate display-only model/cache for qualified horizons through 24h; strategy horizons and
+authority remain unchanged. It reanchors on timestamped public quotes and keeps action-price guides
 separate from the paths. A bounded single-worker queue performs chart fitting off the EDT; a
 128-entry public-only exact-input cache shares analysis without sharing account state. Each input
 has at most 2,048 rows and retains at most 720 completed buckets. Model/public-input fingerprints,
@@ -131,7 +132,9 @@ After using its initial failure to design the guard, it is a development regress
 not untouched promotion evidence. The guarded decisions/results match #175 in all 12 cases.
 Preserve both rejected and revised receipts; do not claim return improvement or broad capacity.
 
-Still open: exact-head Windows/Linux CI, paired backup/rollback, real chart inspection, sustained
+Exact-head Windows/Linux CI, paired backup/rollback and production Swing inspection pass through
+installed #178; read [its receipt](../history/combined-chart-install-2026-10-26.md).
+Still open: native chart/guidance acceptance, sustained
 guidance timing under controlled load, player-operated maintenance/relist/restart, wider untouched
 chronological account evaluation and an explicit budgeted market-informed loss policy. Original
 stops, risk anchors and learning promotion fences remain in force.

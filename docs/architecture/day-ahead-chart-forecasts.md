@@ -1,8 +1,8 @@
 # Day-ahead chart forecast availability
 
-26 October 2026. Recovered side-conversation source change; **not installed**. The source is now
-integrated on merged #177 in `codex/recovered-day-ahead-charts`, with fresh combined verification
-pending. Installed runtime remains #176. The original seven source files and source-base/hash
+26 October 2026. Recovered side-conversation change, **installed in #178**, including merged #177
+and the separately caught startup scan fix. Combined clean Java/tooling, exact-head Windows/Linux
+CI, backup/rollback and installation pass; native live acceptance remains pending. The original seven source files and source-base/hash
 manifest are preserved privately in `local-data/hosted-pilot/recovered-chart-source` in the primary
 checkout. No retained side-chat transcript was found; saved code, public captures and test receipts
 are the recoverable evidence. The primary checkout and its unrelated deletions remain unchanged.
@@ -51,6 +51,7 @@ the chart's explanation that shaded bands describe earlier errors; neither the l
 a curved path grants trading, loss or learning authority. Private receipt:
 `local-data/chart-forecast-20261026/public-forecast-check.json` in the primary checkout.
 
-Installation, exact release-head CI, live chart acceptance and forward forecast accuracy remain
-release requirements. Longer chart forecasts do not establish Copilot parity, improved prediction
+Installed delivery and its exact release-head CI are recorded in
+[the #178 receipt](../history/combined-chart-install-2026-10-26.md). Live chart acceptance and forward
+forecast accuracy remain open. Longer chart forecasts do not establish Copilot parity, improved prediction
 accuracy or greater account profit. The main workflow/pricing release gates remain unchanged.

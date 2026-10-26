@@ -91,4 +91,8 @@ Regressions cover old-offer work budgets, identical timestamp/row occurrences, r
 without the index, durable limits/offers independent of unused legacy payloads, genuine missing-
 projection fallback and unchanged financial/learning rows. This is not replaying financial effects
 or accepting omitted executions. Combined clean build, exact-head CI and installation/live timing
-must be verified again for the amended source.
+pass for amended #178 source `ae512fbc2c3c46786c8d3a9f725f7f03f8a8d681`: 2,403 Java tests
+(six existing skips), 121 tooling tests, Java 11 and CI run `40360295328`. The combined pair is
+installed; 12 original tables, 189-file/five-configuration restoration and #176 rollback reads
+pass. Prelaunch account warming took 4,532 ms. Fresh manual login, native charts/guidance and
+sustained request/ACK timing remain unaccepted; see [the receipt](../history/combined-chart-install-2026-10-26.md).
