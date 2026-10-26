@@ -18,6 +18,65 @@ public class SaleMaintenancePricingTest {
             List.of(new Candle(now.getEpochSecond()/300*300-300,high,high,100,100),new Candle(now.getEpochSecond()/300*300-600,high,high,100,100)),
             horizon,now,false,exits,tax,now.getEpochSecond()-400*60,now.getEpochSecond()-400*60);
     }
+    SaleMaintenancePricing.Evaluation working(Position p,int ask,int remaining,LatestPrice price,List<Candle> bars,long first,long progress,boolean windDown) {
+        return new SaleMaintenancePricing().evaluate(1,ask,remaining,p,price,bars,horizon,now,windDown,exits,tax,first,progress);
+    }
+    List<Candle> buckets(int high) {
+        long end=now.getEpochSecond()/300*300;
+        return List.of(new Candle(end-300,high,3000,100,100),new Candle(end-600,high,3000,100,100));
+    }
+    @Test public void repeatedNearAskBuyersCanReceiveAnExactSmallProfitableAdjustmentDespiteAQuietBid() {
+        long at=now.getEpochSecond(),first=at-3600;
+        var position=new Position(1,"Synthetic item",11,37000,first,true);position.setTargetSellPrice(3650);position.setStopPrice(3100);
+        var price=new LatestPrice(3599,at,3500,at-901);
+        var result=working(position,3600,7,price,buckets(3599),first,first,false);
+        assertEquals(SaleMaintenancePricing.Status.ELIGIBLE,result.status);var quote=result.quote;
+        assertEquals(3598,quote.price);assertEquals(1,quote.minimumReduction);assertTrue(quote.fineTick);assertFalse(quote.lossCut);
+        assertEquals(com.flippingfriend.core.SaleAccounting.allocateCost(37000,11,7),quote.allocatedCost);
+        assertTrue(tax.netProceeds(1,quote.price,7)>quote.allocatedCost);
+        assertEquals(3650,position.getTargetSellPrice());assertEquals(3100,position.getStopPrice());
+        var tracker=new AdvisedPriceTracker();assertEquals(3600,tracker.price(1,false,3600,at-1));
+        assertEquals("A remembered target cannot erase supported fine repricing",3598,tracker.saleMaintenance(1,quote,at));
+        assertEquals(3598,tracker.price(1,false,3599,at+1));
+    }
+    @Test public void smallChangesStillRequirePatienceRecentConsecutiveVolumeAndReachTheObservedMarket() {
+        long at=now.getEpochSecond(),first=at-3600,end=at/300*300;
+        var position=new Position(1,"Synthetic item",7,23000,first,true);
+        var price=new LatestPrice(3599,at,3500,at);
+        for(var unsupported:List.<List<Candle>>of(List.of(),List.of(buckets(3599).get(0)),
+            List.of(new Candle(end-300,3599,3500,0,10),buckets(3599).get(1)),
+            List.of(buckets(3599).get(0),new Candle(end-900,3599,3500,100,100)),
+            List.of(buckets(3599).get(0),new Candle(end-600,3600,3500,100,100)),
+            List.of(buckets(3599).get(0),buckets(3599).get(1),new Candle(end-600,3598,3500,100,100)))) {
+            assertEquals(SaleMaintenancePricing.Status.MARKET_SUPPORT,working(position,3600,7,price,unsupported,first,first,false).status);
+        }
+        assertEquals(SaleMaintenancePricing.Status.MARKET_SUPPORT,working(position,3600,7,
+            new LatestPrice(3598,at,3500,at),buckets(3599),first,first,false).status);
+        assertEquals(SaleMaintenancePricing.Status.PLACEMENT_PATIENCE,working(position,3600,7,price,buckets(3599),at-100,at-100,false).status);
+        assertEquals(SaleMaintenancePricing.Status.RECENT_PROGRESS,working(position,3600,7,price,buckets(3599),first,at-100,false).status);
+        assertEquals(SaleMaintenancePricing.Status.UNKNOWN_CLOCKS,working(position,3600,7,price,buckets(3599),0,first,false).status);
+        assertEquals(SaleMaintenancePricing.Status.IMMATERIAL_CHANGE,working(null,3600,7,price,buckets(3599),first,first,false).status);
+        assertEquals(SaleMaintenancePricing.Status.IMMATERIAL_CHANGE,working(position,3600,7,price,buckets(3599),first,first,true).status);
+    }
+    @Test public void askOnlyEvidenceCannotAuthorizeLossUnknownCostStaleAskOrUnprovenQuantity() {
+        long at=now.getEpochSecond(),first=at-3600;
+        var position=new Position(1,"Synthetic item",7,23000,first,true);
+        for(var price:List.of(new LatestPrice(3599,at-301,3500,at),new LatestPrice(3599,at,3500,at+1),
+                new LatestPrice(3599,at+1,3500,at),new LatestPrice(3599,0L,3500,at)))
+            assertEquals(SaleMaintenancePricing.Status.STALE_PRICES,working(position,3600,7,price,buckets(3599),first,first,false).status);
+        var quietBid=new LatestPrice(3599,at,3500,at-901);
+        assertEquals(SaleMaintenancePricing.Status.STALE_PRICES,working(null,3600,7,quietBid,buckets(3599),first,first,false).status);
+        assertEquals(SaleMaintenancePricing.Status.STALE_PRICES,working(position,3600,7,quietBid,buckets(3599),first,first,true).status);
+        assertEquals(SaleMaintenancePricing.Status.UNPROVEN_QUANTITY,working(position,3600,8,quietBid,buckets(3599),first,first,false).status);
+        var taxPlateau=new Position(1,"Synthetic item",7,tax.netProceeds(1,3600,7),first,true);
+        var freeTick=working(taxPlateau,3600,7,quietBid,buckets(3599),first,first,false).quote;
+        assertNotNull(freeTick);assertEquals(3599,freeTick.price);assertEquals(0,tax.netProceeds(1,freeTick.price,7)-freeTick.allocatedCost);
+        var expensive=new Position(1,"Synthetic item",7,tax.netProceeds(1,3601,7),first,true);
+        expensive.setStopPrice(3800);
+        assertEquals(SaleMaintenancePricing.Status.COST_FLOOR,working(expensive,3600,7,quietBid,buckets(3599),first,first,false).status);
+        assertEquals("Recent buyers cannot let the exact cost floor land above their price",SaleMaintenancePricing.Status.COST_FLOOR,
+            working(expensive,3601,7,quietBid,buckets(3599),first,first,false).status);
+    }
     @Test public void exactSubsetFloorPreservesTheExtraCoin() {
         var p=new Position(1,"Item",3,301,now.getEpochSecond()-400*60,true);
         var quote=quote(p,150,2,102);

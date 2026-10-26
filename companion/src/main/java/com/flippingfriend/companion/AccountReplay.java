@@ -12,7 +12,7 @@ import java.util.*;
 
 /** One simulated account, one bankroll and eight physical slots; never opens a live database. */
 final class AccountReplay implements AutoCloseable {
-    static final String VERSION="account-replay-24";
+    static final String VERSION="account-replay-25";
     private static final String ACCOUNT=AccountIdentity.fromProfileKey("synthetic-account-replay-only");
     interface Entries {
         PortfolioPlan plan(MarketIngestionService.MarketState market,AccountSnapshot account,
@@ -350,11 +350,11 @@ final class AccountReplay implements AutoCloseable {
             frame.shortHistory.getOrDefault(offer.item,List.of()),horizon,Instant.ofEpochSecond(now),false,exits,tax,
             offer.placedAt,sale.planning.saleProgressAt.getOrDefault(offer.slot,Long.MAX_VALUE));
         if(proposal==null || stopsOnly && !proposal.lossCut)return null;
-        int price=advisedPrices.price(offer.item,false,proposal.price,now);
+        int price=advisedPrices.saleMaintenance(offer.item,proposal,now);
         if(!proposal.lossCut && proposal.costKnown) {
             if(proposal.floor<=0)return null;price=Math.max(price,proposal.floor);
         }
-        if(offer.price-(long)price<horizon.outbidDeadband(offer.price))return null;
+        if(offer.price-(long)price<proposal.minimumReduction)return null;
         if(!authorizeSale(sale,account,market,offer.item,price,offer.remaining(),offer.lastObservation.getEventId(),proposal.lossCut,offer.slot))return null;
         try {
             var guidance=offerGuidance("CANCEL_SELL",offer,price,holding,proposal.lossCut);

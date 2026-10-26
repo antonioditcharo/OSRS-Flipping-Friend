@@ -81,6 +81,19 @@ public class OrdinarySaleMaintenanceQueueTest {
         assertFalse(new SellRelistIntent(f.storage).requiresManagedCost(account));
         try{queue.clear();fail("Queue must be immutable");}catch(UnsupportedOperationException expected){}
     }
+    @Test public void supportedSmallSaleSurvivesClientPrefiltersAndRememberedTargetWithoutChangingBuyRules()throws Exception {
+        var f=new Sales(mock(CompanionClient.class));f.active.set(0,sale(0,561,3600));f.active.set(1,sale(1,562,3600));
+        f.prices.put(561,new LatestPrice(3599,now.getEpochSecond(),3500,now.getEpochSecond()-901));
+        f.prices.put(562,price(3599,3500));f.publishPrices();long end=now.getEpochSecond()/300*300;
+        when(f.market.getSeries(eq(561),anyString())).thenReturn(List.of(new Candle(end-300,3599,3500,100,100),new Candle(end-600,3599,3500,100,100)));
+        when(f.market.getSeries(eq(562),anyString())).thenReturn(List.of());
+        var tracker=new AdvisedPriceTracker();tracker.price(561,false,3600,now.getEpochSecond()-1);set(f.engine,"advisedPrices",tracker);
+        var next=f.next();assertEquals(SuggestionType.MODIFY_SELL,next.getType());assertEquals(561,next.getItemId());
+        assertEquals(3598,next.getPrice());assertFalse(next.isLossCut());assertEquals(1,f.engine.saleCandidates().size());
+        assertEquals(2,next.getQuantity());assertEquals(new TaxCalculator().netProceeds(561,3598,2)-200,next.getExpectedProfit());
+        assertFalse(new SellRelistIntent(f.storage).requiresManagedCost(account));
+        assertEquals("The independent buy deadband remains intact",18,TradingHorizon.outbidDeadbandForPrice(3600));
+    }
     @Test public void realPipelineTriesLaterSaleAndOnlyPersistsThePresentedEpisodeThroughLateFillAndRestart()throws Exception {
         var delivery=new AdviceDeliveryBoundaryTest.Fixture();var f=new Sales(delivery.companion);
         delivery.set("engine",f.engine);delivery.set("offerTracker",f.offers);delivery.set("accountMonitor",f.monitor);delivery.set("config",f.config);

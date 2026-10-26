@@ -7,12 +7,29 @@ installed and player accepted are separate states. Owner is home; older login de
 
 ## Current batch
 
-- [ ] Verify/deliver `codex/collected-relist-foreground-recovery`: finish accepted routine relists
+- [ ] Verify/deliver `codex/supported-sell-walkdowns`: qualify exact small non-loss sell adjustments
+      from two completed buyer-volume buckets and fresh buyer-paid trades; preserve patience,
+      partial costs, original plans, buy anti-churn, durable cancellation/relist and #172 rollback.
+      Prove full Java/tooling, both exact-head CI platforms, preservation/restore, visible maintenance
+      and player-operated completion separately. [Contract](docs/architecture/supported-small-sale-adjustments.md);
+      `local-data/hosted-pilot/walkdown-guidance-delivery.json`.
+
+- [ ] Implement the owner's 25 October market-informed loss/hold policy: compare waiting, small
+      profitable adjustments and bounded loss exits from history, volume, spread, volatility,
+      trend/recovery and realistic reusable-slot/capital opportunities. Preserve exact acquisition
+      allocations, original stops/anchors and durable loss budgets. Carry an explicit evidence-bound
+      reason through final authority, cancellation/late fills/collection/relist/restart and compatible
+      rollback. Test falling/recovering/sparse markets and whole accounts at 5m/30m/2h/8h; do not use
+      age alone, unvalidated learning or chart projections to authorize a loss. Keep foreground
+      suggestions independent of optional analysis. Requirements remain in the contract above.
+
+- [x] Implement/test/install PR #172 (`codex/collected-relist-foreground-recovery`): finish accepted routine relists
       with quiet trade prints and a truly fresh feed, preserve exact costs/targets/stops and working
       offers, isolate market snapshots, and bound historical funding/continuation read work after
       validated appends. Preserve #170 rollback, source/financial/risk evidence and pending events.
-      Verify clean Java/tooling, both CI platforms, exact frozen results, backup/restore and live
-      relist/entry/account-ACK/desktop timing separately. [Contract](docs/architecture/collected-relist-foreground-recovery.md);
+      Clean Java/tooling, both CI platforms, exact frozen results, 12-table preservation, 109-file/
+      five-configuration restoration, #170 rollback reads and fresh durable frame/guidance pass.
+      Player-operated full-loop/restart and sustained timing remain open below. [Contract](docs/architecture/collected-relist-foreground-recovery.md);
       `local-data/hosted-pilot/collected-guidance-delivery.json`.
 
 - [x] Implement/test/install PR #170 (`codex/steady-guidance-relist`): retain valid BUY guidance across exact duplicate
@@ -24,9 +41,10 @@ installed and player accepted are separate states. Owner is home; older login de
       reads pass. [Contract](docs/architecture/steady-guidance-relist.md);
       `local-data/hosted-pilot/steady-guidance-delivery.json`.
 
-- [ ] Accept installed #170 fresh guidance, stable BUY entry, collected exact sale/relist and restart
+- [ ] Accept installed #172 fresh guidance, stable BUY entry, collected exact sale/relist and restart
       through player operation; measure sustained timing separately. Remaining cold/ledger/report
-      stalls are not resolved by the callback filter. Source/replay tests and backup checks cannot
+      stalls still appear. Owner reports normal workflow but long-held sale maintenance is under
+      investigation. Source/replay tests and backup checks cannot
       close player acceptance or hosted advice activation.
 
 - [x] Implement/test/install PR #168 (`codex/foreground-market-isolation`): public reads cannot occupy financial FIFO

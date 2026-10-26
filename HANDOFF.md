@@ -5,32 +5,32 @@ Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
 ## Current delivery
 
-Queued source: `codex/collected-relist-foreground-recovery`. The owner's #170 feedback remains
-unaccepted: long collected-sale/account-state waits and periodic slowdown. Live evidence identified
-a known-cost, accepted routine relist withheld solely for an old last-trade print in a fresh feed.
-The follow-on adds a protected quiet limit, actual feed clocks and immutable market snapshots;
-validated funding-tail reuse and a sparse sale-source index remove repeated historical work.
-[Contract](docs/architecture/collected-relist-foreground-recovery.md);
-`local-data/hosted-pilot/collected-guidance-delivery.json` records source versus installed evidence.
+Queued source: `codex/supported-sell-walkdowns`. An audit found a stalled profitable sale excluded
+by the shared half-percent deadband despite repeated buyer-paid trades immediately below its ask.
+The shared client/companion/replay fix qualifies small exact non-loss adjustments with two completed
+volume buckets, existing placement/progress patience and a fresh buyer-paid trade. Buy rules and
+loss authority remain unchanged. [Contract](docs/architecture/supported-small-sale-adjustments.md);
+`local-data/hosted-pilot/walkdown-guidance-delivery.json` separates verification and installation.
 
-Current installed pair: PR #170 (`codex/steady-guidance-relist`) in private shadow mode. It retains
-valid advice across exact duplicate/irrelevant container callbacks, and completes source-proven
-accepted routine sale reductions at a saved non-loss limit if optional bucket history disappears.
-Real/unreadable state changes, bank cash, exact remaining costs, original targets/stops, canonical
-acceptance/source checks and the exit slot retain their guards. Chronological replay is version 23.
-[Contract](docs/architecture/steady-guidance-relist.md);
-`local-data/hosted-pilot/steady-guidance-delivery.json` separates source, installation and acceptance.
-Clean Java (2,353 tests, six existing skips), 121 tooling tests, Java 11 and both exact-head CI
-platforms passed. Paired installation preserves all 12 checked source/financial/projection tables;
-107 restored files, five configuration files and #168/current ledger/stock/scope/original risk-window
-equality verify. Reopened RuneLite has a fresh acknowledged eight-slot frame, zero pending financial
-events and unchanged original immutable prefixes. All slots were occupied; visible guidance and
-controlled entry/relist/restart acceptance remain open. The owner's #168 feedback was generally positive but
-reported intermittent pauses, stranded relists and BUY flicker; it does not accept this new pair.
-Some cold-start/report stalls remain; sustained warm-path timing is open. Hosted advice,
-coordination and learning promotion remain off. Earlier preservation receipts are retained in
-[the #168 checkpoint](docs/history/handoff-foreground-through-pr168.md) and
-[the PR #163–167 checkpoint](docs/history/handoff-pilot-through-2026-10-25-pr167.md).
+Current installed pair: PR #172 (`codex/collected-relist-foreground-recovery`) in private shadow
+mode. Clean Java (2,360 tests, six existing skips), 121 tooling tests, Java 11, both exact-head CI
+platforms, 12-table original-row preservation, 109-file/five-configuration restoration and #170
+rollback reads pass. Fresh ordered eight-slot/zero-outbox proof, immutable prefixes and logged
+BUY/COLLECT/WAIT delivery pass. Owner reports normal workflow, with long-held sale maintenance
+still a concern. Cold/occasional ACK stalls and sustained latency/full-loop/restart acceptance stay
+open. [Installed receipt](docs/history/handoff-pilot-through-pr172.md);
+`local-data/hosted-pilot/collected-guidance-delivery.json`. Hosted advice, coordination and learning
+promotion remain off. Earlier receipts remain in [#168 history](docs/history/handoff-foreground-through-pr168.md)
+and [#163–167 history](docs/history/handoff-pilot-through-2026-10-25-pr167.md).
+
+Owner direction, 25 October: justified losses are part of trading. Compare waiting, small price
+adjustments and bounded loss exits using public market history/volume/trend and whole-account
+opportunity cost, separately from future learning. Break-even cannot be an indefinite holding
+policy. This new market-informed loss policy is not active in #172 or the queued small-adjustment
+fix: preserve original stops, risk anchors and durable loss limits; complete prospective authority,
+cancel/collect/relist/rollback proof and chronological comparisons before activation. Detailed next
+requirements are in the small-adjustment contract and TASKS. Never call an old stop receipt a
+new market-exit permission or infer that age alone authorizes a loss.
 
 The approved hosted-pilot pass is PR #163 (`codex/hosted-pilot-continuous-guidance`).
 Read `local-data/hosted-pilot/delivery-state.json` and

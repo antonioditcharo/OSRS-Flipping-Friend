@@ -9,7 +9,7 @@ import java.util.List;
 
 /** Pure sale-maintenance authority shared by the client, companion and chronological replay. */
 public final class SaleMaintenancePricing {
-    public static final String VERSION="supported-sale-maintenance-8";
+    public static final String VERSION="supported-sale-maintenance-9";
     public enum Status {
         ELIGIBLE, INVALID_QUANTITY, MISSING_PRICES, STALE_PRICES, IMMATERIAL_CHANGE,
         UNPROVEN_QUANTITY, UNKNOWN_CLOCKS, PLACEMENT_PATIENCE, RECENT_PROGRESS,
@@ -30,9 +30,19 @@ public final class SaleMaintenancePricing {
         public final int price, floor;
         public final long allocatedCost;
         public final boolean costKnown, lossCut;
+        public final int minimumReduction;
+        public final boolean fineTick;
         public final String reason;
         Quote(int price,int floor,long cost,boolean known,boolean cut,String reason) {
+            this(price,floor,cost,known,cut,reason,1,false);
+        }
+        Quote(int price,int floor,long cost,boolean known,boolean cut,String reason,int minimumReduction,boolean fineTick) {
             this.price=price;this.floor=floor;allocatedCost=cost;costKnown=known;lossCut=cut;this.reason=reason;
+            this.minimumReduction=minimumReduction;this.fineTick=fineTick;
+        }
+        /** Includes a saved small reduction whose optional supporting history has disappeared. */
+        public boolean requiresExactPrice(int standing) {
+            return fineTick || price<standing && standing-(long)price<TradingHorizon.outbidDeadbandForPrice(standing);
         }
     }
     public Quote quote(int item,int offerPrice,int remaining,Position position,LatestPrice latest,
@@ -115,15 +125,21 @@ public final class SaleMaintenancePricing {
         SellTimingEngine exits,TaxCalculator tax,long firstObservedAt,long lastProgressAt,long acceptedPatience) {
         if(remaining<=0)return Evaluation.waitFor(Status.INVALID_QUANTITY);
         if(latest==null || !latest.isComplete())return Evaluation.waitFor(Status.MISSING_PRICES);
-        if(latest.secondsSinceHigh(now)<0
-            || latest.secondsSinceLow(now)<0 || latest.stalestSideSeconds(now)>300
-            )return Evaluation.waitFor(Status.STALE_PRICES);
-        if(offerPrice-latest.getHigh()<horizon.outbidDeadband(offerPrice))return Evaluation.waitFor(Status.IMMATERIAL_CHANGE);
         if(position!=null && remaining>position.getQuantity())return Evaluation.waitFor(Status.UNPROVEN_QUANTITY);
         boolean known=position!=null && position.isCostKnown();
+        if(latest.getHighTime()==null || latest.getLowTime()==null || latest.getHighTime()<=0 || latest.getLowTime()<=0
+            || latest.secondsSinceHigh(now)<0 || latest.secondsSinceLow(now)<0 || latest.secondsSinceHigh(now)>300
+            || latest.secondsSinceLow(now)>300 && (!known || sellOnly))return Evaluation.waitFor(Status.STALE_PRICES);
         long cost=known?SaleAccounting.allocateCost(position.getTotalCost(),position.getQuantity(),remaining):0;
         int floor=known?tax.breakEvenSellPriceForCost(item,cost,remaining):1;
         boolean cut=known && StopLossEvidence.confirmed(position,latest,series,now);
+        int minimumReduction=horizon.outbidDeadband(offerPrice);
+        // A small spread can be the whole available profit. Only repeated actual buyer-paid
+        // trades may replace the coarse deadband, never a spot wobble or a buy-side reprice.
+        boolean fineTick=known && !cut && !sellOnly && offerPrice>latest.getHigh()
+            && offerPrice-(long)latest.getHigh()<minimumReduction;
+        if(fineTick)minimumReduction=1;
+        if(offerPrice-(long)latest.getHigh()<minimumReduction)return Evaluation.waitFor(Status.IMMATERIAL_CHANGE);
         int price;
         String reason;
         if(cut || sellOnly) {
@@ -140,7 +156,7 @@ public final class SaleMaintenancePricing {
                 :"Finish session (sell only) is enabled; seeking a faster exit as requested.";
         } else {
             long at=now.getEpochSecond();
-            int supported=supportedLowerAsk(series,offerPrice,horizon,at);
+            int supported=supportedLowerAsk(series,offerPrice,minimumReduction,fineTick?latest.getHigh():Integer.MAX_VALUE,at);
             if(firstObservedAt<=0 || firstObservedAt>at || lastProgressAt<firstObservedAt || lastProgressAt>at)
                 return Evaluation.waitFor(Status.UNKNOWN_CLOCKS);
             long patience=acceptedPatience>=0?acceptedPatience:horizon.staleOfferMinutes()*60L;
@@ -152,15 +168,17 @@ public final class SaleMaintenancePricing {
                 if(floor<=0)return Evaluation.waitFor(Status.COST_FLOOR);
             }
             price=Math.max(floor,Math.max(latest.getHigh()-1,supported));
-            reason=!known ? "The offer has no recent fills, and two completed market buckets support a lower ask. Acquisition cost and profit remain unknown."
+            reason=fineTick ? "The offer has no recent fills, and buyers repeatedly traded just below this ask in two completed market buckets. This small reduction reaches the supported trading level and protects the exact remaining cost after tax."
+                :!known ? "The offer has no recent fills, and two completed market buckets support a lower ask. Acquisition cost and profit remain unknown."
                 :"The offer has no recent fills, and two completed market buckets support a profitable reduction. The exact after-tax acquisition cost remains protected; the original target is a reference, not a fill guarantee.";
         }
-        if(offerPrice-(long)price<horizon.outbidDeadband(offerPrice))
+        if(fineTick && price>latest.getHigh())return Evaluation.waitFor(Status.COST_FLOOR);
+        if(offerPrice-(long)price<minimumReduction)
             return Evaluation.waitFor(known && !cut && price==floor?Status.COST_FLOOR:Status.IMMATERIAL_CHANGE);
-        return new Evaluation(Status.ELIGIBLE,new Quote(price,floor,cost,known,cut,reason),0);
+        return new Evaluation(Status.ELIGIBLE,new Quote(price,floor,cost,known,cut,reason,minimumReduction,fineTick),0);
     }
     /** Two distinct, completed recent 5m buckets with actual buy-side trades; never one spot print. */
-    private static int supportedLowerAsk(List<Candle> series,int ask,TradingHorizon horizon,long now) {
+    private static int supportedLowerAsk(List<Candle> series,int ask,int minimumReduction,int maximumHigh,long now) {
         if(series==null)return 0;
         var recent=new java.util.TreeMap<Long,Candle>();
         for(var bar:series)if(bar!=null && bar.getTimestamp()>0 && bar.getTimestamp()%300==0
@@ -174,7 +192,7 @@ public final class SaleMaintenancePricing {
         for(var bar:recent.descendingMap().values()) {
             if(count==0 && now-bar.getTimestamp()>900 || count>0 && previous-bar.getTimestamp()!=300)return 0;
             if(bar.getAvgHighPrice()==null || bar.getAvgHighPrice()<=0 || bar.getHighPriceVolume()<=0
-                || ask-(long)bar.getAvgHighPrice()<horizon.outbidDeadband(ask))return 0;
+                || bar.getAvgHighPrice()>maximumHigh || ask-(long)bar.getAvgHighPrice()<minimumReduction)return 0;
             supported=Math.min(supported,Math.max(1,bar.getAvgHighPrice()-1));
             previous=bar.getTimestamp();if(++count==2)return supported;
         }

@@ -31,7 +31,7 @@ public class SaleMaintenanceTextTest {
         var offer=new TrackedOffer(4,26241,false,3751665,1,at-3600);offer.setItemName("Virtus mask");offer.setState("SELLING");
         var price=new LatestPrice(3737524,at-40,3585195,at-20);var tax=new TaxCalculator();
         var evaluation=new SaleMaintenancePricing().evaluate(26241,offer.getPrice(),1,
-            new Position(26241,"Virtus mask",1,3949121,at-3600,true),price,List.of(),
+            null,price,List.of(),
             TradingHorizon.of(RiskProfile.MODERATE,CheckInterval.FIVE_MINUTES),Instant.ofEpochSecond(at),false,
             new SellTimingEngine(new FillModel(),tax),tax,offer.getFirstSeen(),offer.getLastFillObservedAt());
         assertEquals(SaleMaintenancePricing.Status.IMMATERIAL_CHANGE,evaluation.status);assertNull(evaluation.quote);
@@ -41,7 +41,7 @@ public class SaleMaintenanceTextTest {
         assertTrue(text.contains("Latest seller-received trade: 3585195 gp, 21s old"));
         assertTrue(text.contains("Minimum material reduction: 18758 gp per item"));
         assertTrue(text.contains("Standing ask minus latest buyer-paid trade: 14141 gp per item"));
-        assertTrue(text.contains("A crossed original stop still requires a material supported change"));
+        assertTrue(text.contains("Small profitable adjustments need two completed buyer-volume buckets"));
         assertFalse(text.contains("eligible for further checks"));
         var expired=SaleMaintenanceText.render(List.of(diagnostic),at+30,true);
         assertTrue(expired.contains("evaluation expired"));assertFalse(expired.contains("3737524 gp"));
