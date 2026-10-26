@@ -12,6 +12,11 @@ installed and player accepted are separate states. Owner is home; older login de
       data, current guards and safe cancelled-loss relisting. Verify full builds/tooling/both CI,
       frozen old/new semantics, native work budgets, paired preservation/rollback and sustained live
       account acknowledgements. [Contract](docs/architecture/workflow-verification-and-predictive-pricing.md).
+- [x] Implement/test/install #175 verification-read and cancelled-loss relist baseline: clean 2,375
+      Java tests/121 tooling, both exact-head CI platforms, 12-table preservation, 171-file/five-config
+      restore and #173 rollback reads pass. Fresh acknowledged frame and BUY/SELL/COLLECT delivery
+      pass; sustained timing and controlled full-loop acceptance remain unchecked above/below.
+
 - [ ] Deliver market-predictive pricing from the owner's appended Copilot references: changing low/
       high paths with qualified uncertainty, actual entry/exit price selection, supported hold/
       adjustment/loss decisions and whole-account evaluation. Keep persistence/seasonal comparisons,

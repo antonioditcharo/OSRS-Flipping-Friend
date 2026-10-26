@@ -13,6 +13,9 @@ public final class PublicPriceForecast {
         new LinkedHashMap<Key,PublicPriceForecast>(64,.75f,true) {
             @Override protected boolean removeEldestEntry(Map.Entry<Key,PublicPriceForecast> e){return size()>128;}
         });
+    private static final Set<Key> PENDING=Collections.synchronizedSet(new HashSet<>());
+    private static final java.util.concurrent.Executor WORKER=new java.util.concurrent.ThreadPoolExecutor(1,1,30,
+        java.util.concurrent.TimeUnit.SECONDS,new java.util.concurrent.ArrayBlockingQueue<>(64),r->{Thread t=new Thread(r,"public-price-analysis");t.setDaemon(true);t.setPriority(Thread.MIN_PRIORITY);return t;});
     public static final class Estimate {
         public final double lower,median,upper;
         public final String model;
@@ -34,15 +37,15 @@ public final class PublicPriceForecast {
         final NavigableMap<Long,Candle> rows=new TreeMap<>();
         final int bucket;final boolean valid;final long origin;
         Series(List<Candle> input,int bucket,long now) {
-            this.bucket=bucket;boolean ok=true;
-            if(input!=null)for(Candle c:input)if(c!=null && c.getTimestamp()>=0 && c.getTimestamp()<=now-bucket) {
+            this.bucket=bucket;boolean ok=input==null || input.size()<=2048;
+            if(input!=null && ok)for(Candle c:input)if(c!=null && c.getTimestamp()>=0 && c.getTimestamp()<=now-bucket) {
                 if(c.getTimestamp()%bucket!=0 || c.getHighPriceVolume()<0 || c.getLowPriceVolume()<0){ok=false;break;}
                 Candle previous=rows.putIfAbsent(c.getTimestamp(),c);
                 if(previous!=null && !same(previous,c)){ok=false;break;}
             }
             while(rows.size()>720)rows.pollFirstEntry();
             origin=rows.isEmpty()?0:rows.lastKey()+bucket;
-            valid=ok && origin>0 && now-origin<=2L*bucket;
+            valid=ok && origin>0 && now-origin<2L*bucket;
         }
         double price(long at,boolean high) {
             Candle c=rows.get(at);if(c==null)return Double.NaN;
@@ -53,8 +56,9 @@ public final class PublicPriceForecast {
     }
     private final Fit[][] fits=new Fit[2][HORIZONS.length];
     public final long observedAt;
-    private PublicPriceForecast(List<Candle> shortRows,List<Candle> hourly,long now) {
-        observedAt=now;Series shortSeries=new Series(shortRows,300,now),longSeries=new Series(hourly,3600,now);
+    public final String historyFingerprint;
+    private PublicPriceForecast(List<Candle> shortRows,List<Candle> hourly,long now,String fingerprint) {
+        observedAt=now;historyFingerprint=fingerprint;Series shortSeries=new Series(shortRows,300,now),longSeries=new Series(hourly,3600,now);
         for(int side=0;side<2;side++)for(int h=0;h<HORIZONS.length;h++) {
             Series series=h<2?shortSeries:longSeries;
             fits[side][h]=fit(series,side==1,HORIZONS[h]/series.bucket);
@@ -62,9 +66,31 @@ public final class PublicPriceForecast {
     }
     /** Keys copy every retained public field; mutation, conflicting duplicates and time advance cannot reuse a fit. */
     public static PublicPriceForecast fit(List<Candle> shortRows,List<Candle> hourly,long now) {
+        shortRows=copy(shortRows);hourly=copy(hourly);
         Key key=new Key(shortRows,hourly,now);PublicPriceForecast existing=CACHE.get(key);
         if(existing!=null)return existing;
-        PublicPriceForecast result=new PublicPriceForecast(shortRows,hourly,now);CACHE.put(key,result);return result;
+        PublicPriceForecast result=new PublicPriceForecast(shortRows,hourly,now,key.fingerprint());CACHE.put(key,result);return result;
+    }
+    /** Lookup only: chart/UI callers schedule a miss on their bounded background worker. */
+    public static PublicPriceForecast cached(List<Candle> shortRows,List<Candle> hourly,long now){return CACHE.get(new Key(shortRows,hourly,now));}
+    /** Live guidance never fits inline. A miss returns immediately to the existing price policy. */
+    public static PublicPriceForecast ready(List<Candle> shortRows,List<Candle> hourly,long now) {
+        if(shortRows!=null && shortRows.size()>2048 || hourly!=null && hourly.size()>2048)return null;
+        Key key=new Key(shortRows,hourly,now);var result=CACHE.get(key);if(result!=null)return result;
+        if(PENDING.size()>=65 || !PENDING.add(key))return null;
+        try {
+            List<Candle> shortCopy=copy(shortRows),longCopy=copy(hourly);
+            if(!key.equals(new Key(shortCopy,longCopy,now))){PENDING.remove(key);return null;}
+            WORKER.execute(()->{try{if(!CACHE.containsKey(key))CACHE.put(key,new PublicPriceForecast(shortCopy,longCopy,now,key.fingerprint()));}
+                catch(RuntimeException unsupported){ /* Optional analysis never withholds the verified price path. */ }
+                finally{PENDING.remove(key);}});
+        }catch(java.util.concurrent.RejectedExecutionException full){PENDING.remove(key);}
+        return null;
+    }
+    private static List<Candle> copy(List<Candle> rows) {
+        if(rows==null)return null;
+        if(rows.size()>2048)return Collections.nCopies(2049,null);
+        List<Candle> result=new ArrayList<>();for(Candle c:rows)result.add(c==null?null:new Candle(c.getTimestamp(),c.getAvgHighPrice(),c.getAvgLowPrice(),c.getHighPriceVolume(),c.getLowPriceVolume()));return result;
     }
     public Estimate at(boolean high,int seconds,int anchor) {
         if(seconds<=0 || seconds>28800 || anchor<=0)return missing();
@@ -174,10 +200,10 @@ public final class PublicPriceForecast {
     private static final class Key {
         final long minute;final long[] values;final int hash;
         Key(List<Candle> shortRows,List<Candle> hourly,long now) {
-            minute=(now/300)*2+(now%300==0?0:1);List<Long> data=new ArrayList<>();
+            minute=now/300;List<Long> data=new ArrayList<>();
             for(List<Candle> rows:Arrays.asList(shortRows,hourly)) {
                 data.add(rows==null?-1L:(long)rows.size());
-                if(rows!=null)for(Candle c:rows) {
+                if(rows!=null && rows.size()<=2048)for(Candle c:rows) {
                     if(c==null){data.add(Long.MIN_VALUE);continue;}
                     data.add(c.getTimestamp());data.add(c.getAvgHighPrice()==null?-1L:c.getAvgHighPrice().longValue());
                     data.add(c.getAvgLowPrice()==null?-1L:c.getAvgLowPrice().longValue());data.add((long)c.getHighPriceVolume());data.add((long)c.getLowPriceVolume());
@@ -187,6 +213,13 @@ public final class PublicPriceForecast {
             hash=31*Long.hashCode(minute)+Arrays.hashCode(values);
         }
         @Override public int hashCode(){return hash;}
+        String fingerprint() {
+            try {
+                var bytes=java.nio.ByteBuffer.allocate((values.length+1)*8);bytes.putLong(minute);for(long value:values)bytes.putLong(value);
+                byte[] digest=java.security.MessageDigest.getInstance("SHA-256").digest(bytes.array());
+                var text=new StringBuilder();for(byte value:digest)text.append(String.format(Locale.ROOT,"%02x",value&255));return text.toString();
+            }catch(java.security.NoSuchAlgorithmException impossible){throw new IllegalStateException(impossible);}
+        }
         @Override public boolean equals(Object other){return other instanceof Key && minute==((Key)other).minute && Arrays.equals(values,((Key)other).values);}
     }
 }

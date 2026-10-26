@@ -31,17 +31,27 @@ final class SaleCostAmendments {
         // Negative evidence only: no earlier recorded acquisition can never prove an exact
         // acquisition pool. Do not decode the entire account before discovering that absence.
         // Positive candidates still pass every original full-prefix and tax proof below.
-        try(var query=connection.prepareStatement("SELECT p.id,p.item_id,EXISTS(SELECT 1 FROM position_event b WHERE b.item_id=p.item_id AND b.effect_type='ACQUIRE' AND b.id<p.id) FROM position_event p WHERE p.source_event_id=? AND p.source_event_id IS NOT NULL AND p.source_event_id<>''")) {
+        long throughSource=0,throughEffect=0;
+        try(var query=connection.prepareStatement("SELECT p.id,p.item_id,EXISTS(SELECT 1 FROM position_event b WHERE b.item_id=p.item_id AND b.effect_type='ACQUIRE' AND b.id<p.id),e.id,EXISTS(SELECT 1 FROM position_event g WHERE g.item_id=p.item_id AND g.effect_type='RECONCILE' AND g.id<p.id) FROM position_event p LEFT JOIN event_log e ON e.event_id=p.source_event_id AND e.event_id IS NOT NULL AND e.event_id<>'' WHERE p.source_event_id=? AND p.source_event_id IS NOT NULL AND p.source_event_id<>''")) {
             for(String id:ids) {
                 query.setString(1,id);try(var rows=query.executeQuery()) {
                     if(!rows.next())throw new IllegalArgumentException("Sale source missing");
                     if(!rows.getBoolean(3))throw new IllegalStateException("Sale has no earlier recorded acquisition pool");
+                    if(rows.getLong(4)<=0)throw new IllegalStateException("Sale canonical source missing");
+                    // AutomaticTradeScope never clears a directly recorded item's earlier gap.
+                    // No later append can turn that unsafe acquisition pool into a qualified repair.
+                    if(rows.getBoolean(5))throw new IllegalStateException("Sale has an earlier item reconciliation gap");
+                    throughSource=Math.max(throughSource,rows.getLong(4));throughEffect=Math.max(throughEffect,rows.getLong(1));
+                    if(rows.next())throw new IllegalStateException("Ambiguous sale source");
                 }
             }
         }
         var gson=new Gson();var history=new ArrayList<OfferEvent>();var sourceRows=new HashMap<String,Long>();
         var sources=new HashMap<String,OfferEvent>();var predecessors=new HashMap<String,OfferEvent>();var slots=new HashMap<Integer,OfferEvent>();
-        try(var s=connection.createStatement();var r=s.executeQuery("SELECT id,event_id,payload FROM event_log WHERE event_id IS NOT NULL AND event_id<>'' ORDER BY id")) {
+        // A later purchase or observation cannot prove an earlier sale. Validate the complete
+        // required prefix, not years of unrelated subsequent captures on every background attempt.
+        try(var s=connection.prepareStatement("SELECT id,event_id,payload FROM event_log WHERE id<=? AND event_id IS NOT NULL AND event_id<>'' ORDER BY id")) {
+            s.setLong(1,throughSource);try(var r=s.executeQuery()) {
             while(r.next()) {
                 OfferEvent e=gson.fromJson(r.getString(3),OfferEvent.class);
                 if(!TradeGapEvidence.valid(e) || !account.equals(e.getAccountId()) || !r.getString(2).equals(e.getEventId())
@@ -49,15 +59,16 @@ final class SaleCostAmendments {
                     throw new IllegalStateException("Complete matching account source history required");
                 history.add(e);
                 sources.put(e.getEventId(),e);predecessors.put(e.getEventId(),slots.put(e.getSlot(),e));
-            }
+            }}
         }
         var effects=new ArrayList<Map<String,Object>>();
-        try(var s=connection.createStatement();var r=s.executeQuery("SELECT * FROM position_event ORDER BY id")) {
+        try(var s=connection.prepareStatement("SELECT * FROM position_event WHERE id<=? ORDER BY id")) {
+            s.setLong(1,throughEffect);try(var r=s.executeQuery()) {
             while(r.next()) {
                 Map<String,Object> row=new LinkedHashMap<>();
                 for(int col=1;col<=r.getMetaData().getColumnCount();col++)row.put(r.getMetaData().getColumnName(col),r.getObject(col));
                 effects.add(row);
-            }
+            }}
         }
         for(String id:ids) {
             var target=effects.stream().filter(e->id!=null && id.equals(e.get("source_event_id"))).findFirst()

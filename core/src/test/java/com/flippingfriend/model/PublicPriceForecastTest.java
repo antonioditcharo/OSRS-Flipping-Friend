@@ -7,6 +7,25 @@ import org.junit.Test;
 import static org.junit.Assert.*;
 
 public class PublicPriceForecastTest {
+    @Test public void liveMissReturnsFallbackWithoutRunningAnalysisOnTheCallingThreadAndCopiesInputs()throws Exception {
+        var field=PublicPriceForecast.class.getDeclaredField("WORKER");field.setAccessible(true);
+        var worker=(java.util.concurrent.ThreadPoolExecutor)field.get(null);
+        var started=new java.util.concurrent.CountDownLatch(1);var release=new java.util.concurrent.CountDownLatch(1);
+        worker.execute(()->{started.countDown();try{release.await();}catch(InterruptedException interrupted){Thread.currentThread().interrupt();}});
+        assertTrue(started.await(5,java.util.concurrent.TimeUnit.SECONDS));
+        List<Candle> hours=rows(3600,366,-1),original=new ArrayList<>();
+        for(Candle c:hours)original.add(new Candle(c.getTimestamp(),c.getAvgHighPrice(),c.getAvgLowPrice(),c.getHighPriceVolume(),c.getLowPriceVolume()));
+        long now=hours.get(365).getTimestamp()+3600;
+        try {
+            assertNull(PublicPriceForecast.ready(List.of(),hours,now));
+            assertNull(PublicPriceForecast.cached(List.of(),original,now));
+            hours.get(0).setTimestamp(hours.get(1).getTimestamp());
+        }finally{release.countDown();}
+        worker.submit(()->{}).get(5,java.util.concurrent.TimeUnit.SECONDS);
+        var ready=PublicPriceForecast.cached(List.of(),original,now);assertNotNull(ready);
+        assertTrue(ready.at(true,28800,93700).available());
+        assertFalse(PublicPriceForecast.fit(List.of(),hours,now).at(true,28800,93700).available());
+    }
     private static List<Candle> rows(int bucket,int count,int direction) {
         List<Candle> rows=new ArrayList<>();
         for(int i=0;i<count;i++){int price=100000+direction*i*20;rows.add(new Candle(1_700_006_400L+(long)i*bucket,price+1000,price,100,100));}

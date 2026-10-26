@@ -30,12 +30,18 @@ public class SellTimingEngine
 
 	private final FillModel fillModel;
 	private final TaxCalculator taxCalculator;
+    private final boolean synchronousAnalysis;
 
 	@Inject
 	public SellTimingEngine(FillModel fillModel, TaxCalculator taxCalculator)
 	{
+		this(fillModel,taxCalculator,false);
+	}
+    /** Explicit offline harness mode; the price and financial rules are identical. */
+    public SellTimingEngine(FillModel fillModel,TaxCalculator taxCalculator,boolean synchronousAnalysis) {
 		this.fillModel = fillModel;
 		this.taxCalculator = taxCalculator;
+		this.synchronousAnalysis=synchronousAnalysis;
 	}
 
 	public SellDecision evaluate(Position position, LatestPrice latest, ItemFeatures features,
@@ -122,6 +128,7 @@ public class SellTimingEngine
             // Put the order on the market now, at its intended limit. A quiet/temporarily lower
             // last trade says nothing about what a patient listing will receive.
             int price=Math.max(marketSell,protectedPrice(position,horizon,now,breakEven));
+            price=predictiveNonLossLimit(position,latest,series,horizon,now,price,breakEven);
             var forecast=forecastForOrder(itemId,price,quantity,series,horizon);
             exit=new PricedExit(price,forecast==null?Double.NaN:forecast.getExpectedTotalSeconds()/60.0);
         } else exit = bestExit(series, itemId, marketSell, marketBuy, quantity, horizon,
@@ -143,9 +150,46 @@ public class SellTimingEngine
 		}
 
 		return new SellDecision(SellDecision.Action.SELL, exit.price,
-			reasonFor(position, features, minutesHeld, horizon, inInventory, sellOnly, marketSell),
+			(exit.price!=Math.max(marketSell,protectedPrice(position,horizon,now,breakEven)) && !urgent
+                ? "Completed public price history supports this limit in the near-term forecast. Price alternatives were compared using quantity, estimated fill time and exact after-tax proceeds; the original target and cost floor remain protected. " : "")
+                +reasonFor(position, features, minutesHeld, horizon, inInventory, sellOnly, marketSell),
 			exit.expectedMinutes, expectedProfit);
 	}
+
+    private int predictiveNonLossLimit(Position position,LatestPrice latest,List<Candle> series,
+            TradingHorizon horizon,Instant now,int fallback,int floor) {
+        return predictiveNonLossLimit(position,latest,series,horizon,now,fallback,
+            protectedPrice(position,horizon,now,floor),Integer.MAX_VALUE);
+    }
+    /** Called only after working-sale patience, recent progress and repeated-market proof pass. */
+    public int maintenanceLimit(Position position,int remaining,LatestPrice latest,List<Candle> series,
+            TradingHorizon horizon,Instant now,int fallback,int floor,int ceiling) {
+        if(position==null || !position.isCostKnown() || remaining<=0 || remaining>position.getQuantity())return fallback;
+        long cost=com.flippingfriend.core.SaleAccounting.allocateCost(position.getTotalCost(),position.getQuantity(),remaining);
+        Position subset=new Position(position.getItemId(),position.getItemName(),remaining,cost,position.getOpenedAt(),true);
+        return predictiveNonLossLimit(subset,latest,series,horizon,now,fallback,floor,ceiling);
+    }
+    private int predictiveNonLossLimit(Position position,LatestPrice latest,List<Candle> series,
+            TradingHorizon horizon,Instant now,int fallback,int floor,int ceiling) {
+        if(!position.isCostKnown() || floor<=0 || latest==null || !latest.isComplete() || series==null)return fallback;
+        int seconds=Math.min(1800,com.flippingfriend.model.PredictivePriceChoices.horizon(horizon.legHorizonHours()));
+        var forecast=synchronousAnalysis?com.flippingfriend.model.PublicPriceForecast.fit(series,List.of(),now.getEpochSecond())
+            :com.flippingfriend.model.PublicPriceForecast.ready(series,List.of(),now.getEpochSecond());
+        int[] prices=com.flippingfriend.model.PredictivePriceChoices.prices(false,latest,series,forecast,seconds,new double[]{0},now.getEpochSecond());
+        if(prices.length<2)return fallback;
+        FillCurve curve=FillCurve.overRecentHistory(series);double best=nonLossRate(position,fallback,curve,horizon);int chosen=fallback;
+        for(int price:prices)if(price>=floor && price<=ceiling) {
+            double rate=nonLossRate(position,price,curve,horizon);
+            if(rate>best*1.10 && rate>0){best=rate;chosen=price;}
+        }
+        return chosen;
+    }
+    private double nonLossRate(Position position,int price,FillCurve curve,TradingHorizon horizon) {
+        long profit=taxCalculator.netProceeds(position.getItemId(),price,position.getQuantity())-position.getTotalCost();
+        if(profit<=0)return 0;
+        FillEstimate fill=fillModel.estimateSell(curve,price,position.getQuantity(),horizon.legHorizonHours());
+        return fill.isPlausible()?profit*fill.getProbability()/Math.max(1.0/60,fill.getExpectedHours()):0;
+    }
 
 	/**
 	 * Why this is being sold now. Every branch ends in a sale; only the wording differs.

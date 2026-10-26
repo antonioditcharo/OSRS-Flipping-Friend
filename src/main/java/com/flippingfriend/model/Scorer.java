@@ -137,6 +137,7 @@ public class Scorer
 		}
 
 		Candidate best = null;
+        java.util.List<Candidate> fallbackCandidates=new java.util.ArrayList<>(),forecastCandidates=new java.util.ArrayList<>();
 
 		// The forecast tilts the grid; it does not replace it.
 		//
@@ -155,9 +156,14 @@ public class Scorer
 		// and nothing changes.
 		int sellAnchor = tilt(quotedSell, features.getPredictedMomentum());
 
-		for (double buyOffset : BUY_OFFSETS)
+        var publicForecast=PublicPriceForecast.ready(series,java.util.List.of(),at.getEpochSecond());
+        int forecastHorizon=Math.min(1800,PredictivePriceChoices.horizon(legHorizon));
+        LatestPrice fallbackAnchor=new LatestPrice(sellAnchor,latest.getHighTime(),quotedBuy,latest.getLowTime());
+        var fallbackBuys=new java.util.HashSet<Integer>();var fallbackSells=new java.util.HashSet<Integer>();
+        for(double offset:BUY_OFFSETS)fallbackBuys.add(applyOffset(quotedBuy,offset));
+        for(double offset:SELL_OFFSETS)fallbackSells.add(applyOffset(sellAnchor,offset));
+		for (int buyPrice : PredictivePriceChoices.prices(true,fallbackAnchor,series,publicForecast,forecastHorizon,BUY_OFFSETS,at.getEpochSecond()))
 		{
-			int buyPrice = applyOffset(quotedBuy, buyOffset);
 			if (buyPrice <= 0 || buyPrice > spendableCoins)
 			{
 				continue;
@@ -171,9 +177,8 @@ public class Scorer
 				continue;
 			}
 
-			for (double sellOffset : SELL_OFFSETS)
+			for (int sellPrice : PredictivePriceChoices.prices(false,fallbackAnchor,series,publicForecast,forecastHorizon,SELL_OFFSETS,at.getEpochSecond()))
 			{
-				int sellPrice = applyOffset(sellAnchor, sellOffset);
 
 				if (sellPrice <= buyPrice)
 				{
@@ -229,13 +234,13 @@ public class Scorer
 				Candidate candidate = build(metadata, features, context, horizon, buyPrice, sellPrice,
 					quantity, marginPerItem, buyFill, sellFill, buyLimitRemaining, calibration, natureRunePrice);
 
-				if (candidate != null && (best == null || candidate.getScore() > best.getScore()))
-				{
-					best = candidate;
-				}
+                if(candidate!=null)(fallbackBuys.contains(buyPrice) && fallbackSells.contains(sellPrice)?fallbackCandidates:forecastCandidates).add(candidate);
 			}
 		}
 
+        for(Candidate candidate:fallbackCandidates)if(best==null || candidate.getScore()>best.getScore())best=candidate;
+        for(Candidate candidate:forecastCandidates)if((best==null || candidate.getScore()>best.getScore())
+            && fallbackCandidates.stream().anyMatch(baseline->EntryPriceGuard.noWorse(candidate,baseline)))best=candidate;
 		return best;
 	}
 

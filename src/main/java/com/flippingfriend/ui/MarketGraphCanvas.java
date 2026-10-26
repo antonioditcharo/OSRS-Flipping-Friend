@@ -73,7 +73,7 @@ final class MarketGraphCanvas extends JPanel {
         if(projections && projection!=null && projection.isAvailable() && at>=projection.originAt) {
             if(at>projection.points.get(projection.points.size()-1).at)return "No supported projection at this horizon";
             var point=projection.points.stream().min(Comparator.comparingDouble(p->Math.abs(p.at-at))).orElse(null);
-            return point==null?null:String.format(Locale.ROOT,"<html>%s UTC · experimental projection<br>Estimated low average %s gp<br>Estimated high average %s gp<br>%,d completed historical comparisons; estimates are not guaranteed.</html>",
+            return point==null?null:String.format(Locale.ROOT,"<html>%s UTC · public-market forecast<br>Estimated low average %s gp<br>Estimated high average %s gp<br>%,d completed historical comparisons; estimates are not guaranteed.</html>",
                 DATE.format(Instant.ofEpochSecond(point.at)),estimate(point.low.lower,point.low.upper),
                 estimate(point.high.lower,point.high.upper),point.analogues);
         }

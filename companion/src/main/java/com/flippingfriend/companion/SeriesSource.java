@@ -20,4 +20,6 @@ interface SeriesSource
 	 * Implementations used for replay must return only bars at or before the simulated instant.
 	 */
 	List<Candle> series(int itemId, String timestep);
+    /** Explicit offline replay computes optional public analysis deterministically, without worker timing. */
+    default boolean synchronousAnalysis(){return false;}
 }

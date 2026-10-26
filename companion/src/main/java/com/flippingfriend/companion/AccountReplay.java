@@ -12,7 +12,7 @@ import java.util.*;
 
 /** One simulated account, one bankroll and eight physical slots; never opens a live database. */
 final class AccountReplay implements AutoCloseable {
-    static final String VERSION="account-replay-26";
+    static final String VERSION="account-replay-27";
     private static final String ACCOUNT=AccountIdentity.fromProfileKey("synthetic-account-replay-only");
     interface Entries {
         PortfolioPlan plan(MarketIngestionService.MarketState market,AccountSnapshot account,
@@ -112,7 +112,7 @@ final class AccountReplay implements AutoCloseable {
     private final Map<Integer,Integer> inventory=new TreeMap<>();
     private final BuyLimitLedger limits=new BuyLimitLedger();
     private final TaxCalculator tax=new TaxCalculator();
-    private final SellTimingEngine exits=new SellTimingEngine(new FillModel(),tax);
+    private final SellTimingEngine exits=new SellTimingEngine(new FillModel(),tax,true);
     private final SaleMaintenancePricing maintenance=new SaleMaintenancePricing();
     private final AdvisedPriceTracker advisedPrices=new AdvisedPriceTracker();
     private final TradingHorizon horizon;
@@ -139,8 +139,11 @@ final class AccountReplay implements AutoCloseable {
             throw new IllegalArgumentException("Four benchmark cadences, 0.01–1% volume share and a new synthetic database required");
         this.input=input;this.cadence=cadence;this.share=share;now=input.startAt;cash=input.initialCoins;peak=cash;
         horizon=TradingHorizon.of(RiskProfile.valueOf(input.risk),interval(cadence));
-        history=(item,step)->frame==null?List.of():
-            ("5m".equals(step)?frame.shortHistory:frame.longHistory).getOrDefault(item,List.of());
+        history=new SeriesSource() {
+            public List<Candle> series(int item,String step){return frame==null?List.of():
+                ("5m".equals(step)?frame.shortHistory:frame.longHistory).getOrDefault(item,List.of());}
+            public boolean synchronousAnalysis(){return true;}
+        };
         PortfolioPlanner planner=new PortfolioPlanner(history);
         baseline=challenger==null;
         if(challenger!=null) {

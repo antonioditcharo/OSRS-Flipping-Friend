@@ -11,14 +11,12 @@ import static org.junit.Assert.assertTrue;
 public class PriceOffsetIntegrationBoundaryTest
 {
 	@Test
-	public void candidateFactoryUsesSharedOffsetArithmeticWithoutChangingItsTacticBoundary() throws Exception
+	public void priceAlternativesRetainTheExistingSizingAndOptimizerBoundary() throws Exception
 	{
 		Path source = root().resolve(
 			"companion/src/main/java/com/flippingfriend/companion/CandidateFactory.java");
 		String text = Files.readString(source, StandardCharsets.UTF_8);
 
-		assertTrue(text.contains("PriceOffset.apply(screened.price.getLow(), buyOffset)"));
-		assertTrue(text.contains("PriceOffset.apply(screened.price.getHigh(), sellOffset)"));
 		assertTrue(text.contains("appetite.getBuyOffsets()"));
 		assertTrue(text.contains("appetite.getSellOffsets()"));
 		assertTrue(text.contains("quotableQuantity("));

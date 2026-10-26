@@ -9,7 +9,7 @@ import java.util.List;
 
 /** Pure sale-maintenance authority shared by the client, companion and chronological replay. */
 public final class SaleMaintenancePricing {
-    public static final String VERSION="supported-sale-maintenance-10";
+    public static final String VERSION="supported-sale-maintenance-11";
     public enum Status {
         ELIGIBLE, INVALID_QUANTITY, MISSING_PRICES, STALE_PRICES, IMMATERIAL_CHANGE,
         UNPROVEN_QUANTITY, UNKNOWN_CLOCKS, PLACEMENT_PATIENCE, RECENT_PROGRESS,
@@ -184,9 +184,13 @@ public final class SaleMaintenancePricing {
                 if(floor<=0)return Evaluation.waitFor(Status.COST_FLOOR);
             }
             price=Math.max(floor,Math.max(latest.getHigh()-1,supported));
+            int forecastPrice=known && !fineTick?exits.maintenanceLimit(position,remaining,latest,series,horizon,now,
+                price,floor,offerPrice-minimumReduction):price;
             reason=fineTick ? "The offer has no recent fills, and buyers repeatedly traded just below this ask in two completed market buckets. This small reduction reaches the supported trading level and protects the exact remaining cost after tax."
                 :!known ? "The offer has no recent fills, and two completed market buckets support a lower ask. Acquisition cost and profit remain unknown."
                 :"The offer has no recent fills, and two completed market buckets support a profitable reduction. The exact after-tax acquisition cost remains protected; the original target is a reference, not a fill guarantee.";
+            if(forecastPrice!=price)reason="The near-term public-price forecast and estimated quantity-specific fill time favor this supported limit over copying the latest quote. "+reason;
+            price=forecastPrice;
         }
         if(fineTick && price>latest.getHigh())return Evaluation.waitFor(Status.COST_FLOOR);
         if(offerPrice-(long)price<minimumReduction)
