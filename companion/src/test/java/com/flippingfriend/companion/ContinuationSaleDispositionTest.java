@@ -38,6 +38,21 @@ public class ContinuationSaleDispositionTest {
             assertEquals(2,store.positionEventCount()); // Unknown acquisition cost stays unknown.
         }
     }
+    @Test public void validatedContinuationAppendRetainsFirstDisposalAndWithdrawsLaterContradictionsWithoutRescanning() {
+        var reads=new java.util.concurrent.atomic.AtomicInteger();
+        var values=List.of(sale("open","sale",1,0,1,1001,true),sale("partial","sale",1,1,2,1001,true));
+        List<OfferEvent> prefix=new AbstractList<>(){public int size(){return values.size();}public OfferEvent get(int i){reads.incrementAndGet();return values.get(i);}};
+        var index=new ContinuationSaleRead.Index();var first=index.read(prefix,Set.of("partial"),Set.of());int work=reads.get();
+        var tail=new ArrayList<>(values);tail.add(sale("later","sale",1,2,3,1001,true));
+        index.appendCanonical(prefix,tail);
+        assertSame(first,index.read(tail,Set.of("partial"),Set.of()));assertEquals(work,reads.get());
+        assertEquals("partial",index.read(tail,Set.of("partial","later"),Set.of()).get(0).getSourceEventId());
+        var contradiction=new ArrayList<>(tail);contradiction.add(sale("changed","sale",2,2,4,1001,true));
+        index.appendCanonical(tail,contradiction);assertTrue(index.read(contradiction,Set.of("partial","later"),Set.of()).isEmpty());
+        assertEquals(work,reads.get());
+        assertTrue(index.read(new ArrayList<>(values),Set.of("partial"),Set.of("open")).isEmpty());
+        assertEquals("partial",index.read(new ArrayList<>(values),Set.of("partial"),Set.of()).get(0).getSourceEventId());
+    }
     @Test public void noFillUnauthenticatedRejectedOrChangedOriginalCannotProveADisposition()throws Exception {
         var origin=sale("open","sale",1,0,1,1001,true);var partial=sale("partial","sale",1,1,2,1001,true);
         assertTrue(ContinuationSaleRead.read(List.of(origin),Set.of(),Set.of()).isEmpty());

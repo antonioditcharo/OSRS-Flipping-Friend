@@ -155,7 +155,24 @@ public class SaleMaintenancePricingTest {
         var json=new com.google.gson.Gson();var raw=json.toJsonTree(accepted).getAsJsonObject();
         raw.addProperty("lossCut",true);raw.addProperty("mode","STOP");
         var stop=json.fromJson(raw,com.flippingfriend.core.SalePolicyReceipt.class);assertTrue(stop.isWellFormed());
-        assertNull(pricing.evaluateRelist(1,150,7,position,quiet,List.of(),horizon,now,false,exits,tax,first,first,stop,at).quote);
+        var withdrawn=pricing.evaluateRelist(1,150,7,position,quiet,List.of(),horizon,now,false,exits,tax,first,first,stop,at).quote;
+        assertNotNull(withdrawn);assertFalse("A lost stop signal permits only a new non-loss listing",withdrawn.lossCut);
+        assertTrue(tax.netProceeds(1,withdrawn.price,7)>=withdrawn.allocatedCost);
+    }
+    @Test public void returnedStopStockAtItsOriginalCostFloorStillGetsANonLossLimitWhenLossEvidenceDisappears() {
+        long at=now.getEpochSecond(),first=at-3600;String account="rs-"+"1".repeat(64);
+        var source=com.flippingfriend.core.OfferEvent.builder("stop",at,"SELLING").accountId(account).authenticatedObservation(true)
+            .eventIdentity("stop-source","session","stop-sale").sequence(1).slot(0).item(1,"Item").price(152)
+            .quantities(3,0).spent(0).firstSeenAt(first).build();
+        var routine=com.flippingfriend.companion.SalePolicyAcceptanceDeliveryTest.receipt(account,"stop-reduction",source,80,at);
+        var gson=new com.google.gson.Gson();var raw=gson.toJsonTree(routine).getAsJsonObject();raw.addProperty("lossCut",true);raw.addProperty("mode","STOP");
+        var receipt=gson.fromJson(raw,com.flippingfriend.core.SalePolicyReceipt.class);assertTrue(receipt.isWellFormed());
+        var p=new Position(1,"Item",3,tax.netProceeds(1,152,3),first,true);p.setTargetSellPrice(160);p.setStopPrice(90);
+        var pricing=new SaleMaintenancePricing();var price=new LatestPrice(140,at,138,at);
+        var limit=pricing.evaluateRelist(1,152,3,p,price,List.of(),horizon,now,false,exits,tax,first,first,receipt,at).quote;
+        assertNotNull(limit);assertEquals(152,limit.price);assertFalse(limit.lossCut);assertEquals(0,tax.netProceeds(1,limit.price,3)-limit.allocatedCost);
+        for(long feed:new long[]{0,at-121,at+1})assertNull(pricing.evaluateRelist(1,152,3,p,price,List.of(),horizon,now,false,exits,tax,first,first,receipt,feed).quote);
+        assertEquals(160,p.getTargetSellPrice());assertEquals(90,p.getStopPrice());
     }
     @Test public void freshStopsAndExplicitWindDownKeepTheirSeparateRelistRules() {
         long first=now.getEpochSecond()-900;

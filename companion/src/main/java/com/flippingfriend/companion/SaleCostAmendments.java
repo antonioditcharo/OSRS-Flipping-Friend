@@ -28,6 +28,17 @@ final class SaleCostAmendments {
         AccountIdentity.require(account);
         if(ids==null || ids.isEmpty() || ids.size()>20 || new HashSet<>(ids).size()!=ids.size())
             throw new IllegalArgumentException("One to twenty distinct sale sources required");
+        // Negative evidence only: no earlier recorded acquisition can never prove an exact
+        // acquisition pool. Do not decode the entire account before discovering that absence.
+        // Positive candidates still pass every original full-prefix and tax proof below.
+        try(var query=connection.prepareStatement("SELECT p.id,p.item_id,EXISTS(SELECT 1 FROM position_event b WHERE b.item_id=p.item_id AND b.effect_type='ACQUIRE' AND b.id<p.id) FROM position_event p WHERE p.source_event_id=? AND p.source_event_id IS NOT NULL AND p.source_event_id<>''")) {
+            for(String id:ids) {
+                query.setString(1,id);try(var rows=query.executeQuery()) {
+                    if(!rows.next())throw new IllegalArgumentException("Sale source missing");
+                    if(!rows.getBoolean(3))throw new IllegalStateException("Sale has no earlier recorded acquisition pool");
+                }
+            }
+        }
         var gson=new Gson();var history=new ArrayList<OfferEvent>();var sourceRows=new HashMap<String,Long>();
         var sources=new HashMap<String,OfferEvent>();var predecessors=new HashMap<String,OfferEvent>();var slots=new HashMap<Integer,OfferEvent>();
         try(var s=connection.createStatement();var r=s.executeQuery("SELECT id,event_id,payload FROM event_log WHERE event_id IS NOT NULL AND event_id<>'' ORDER BY id")) {

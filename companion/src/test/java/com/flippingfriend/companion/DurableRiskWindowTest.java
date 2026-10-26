@@ -68,6 +68,24 @@ public class DurableRiskWindowTest {
             assertEquals(Long.valueOf(1180),risk.getDrawdownUpper());assertEquals(1,s.eventCount(RiskWindow.EVENT_TYPE));
         }
     }
+    @Test public void cachedEffectInputsAreDetachedAndNewFinancialRowsAndExternalEditsStillInvalidateThem()throws Exception {
+        Path path=folder.newFolder().toPath().resolve("risk-cache.db");
+        try(var s=new SqliteStore(path)) {
+            capture(s,100000000);buy(s,"buy",10,1000);sell(s,"sell",10,900,9000);var a=capture(s,99998820);
+            var first=s.planningProjections(account);assertEquals(-1180,first.riskEvidence.profitLower);
+            first.riskEvidence.profitLower=999999;first.riskEvidence.newReconciliationItems.add(999);first.riskEvidence.openingCosts.put(999,999999L);
+            var second=s.planningProjections(account);assertEquals(-1180,second.riskEvidence.profitLower);
+            assertFalse(second.riskEvidence.newReconciliationItems.contains(999));assertFalse(second.riskEvidence.openingCosts.containsKey(999));
+            assertEquals(Long.valueOf(1180),evaluate(s,a,700).getDrawdownUpper());
+            buy(s,"next-buy",1,1000);sell(s,"next-sell",1,900,900);a=capture(s,99998702);
+            assertEquals(-1298,s.planningProjections(account).riskEvidence.profitLower);
+            try(var db=java.sql.DriverManager.getConnection("jdbc:sqlite:"+path);var sql=db.createStatement()) {
+                sql.executeUpdate("UPDATE position_event SET profit_lower=-1300,profit_upper=-1300 WHERE effect_type='DISPOSE' AND source_offer_identity='next-sell'");
+            }
+            assertEquals("Same-cursor external changes cannot retain cached totals",-2480,s.planningProjections(account).riskEvidence.profitLower);
+            assertEquals(1,s.eventCount(RiskWindow.EVENT_TYPE));
+        }
+    }
     @Test public void openStockUsesKnownCostAndFreshTaxedMarkRatherThanJournalProfit()throws Exception {
         try(var s=new SqliteStore(folder.newFolder().toPath().resolve("mark.db"))) {
             capture(s,100000000);buy(s,"buy",10,1000);var a=capture(s,99990000);

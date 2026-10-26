@@ -5,6 +5,15 @@ Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
 ## Current delivery
 
+Work in progress: `codex/workflow-verification-dynamic-pricing`, following the owner's request to
+finish account-verification waits, trade workflow and market-predictive prices. JFR identifies
+repeated historical risk/continuation/recovery work and an unindexed session lookup. Focused native
+SQL budgets, incremental prefix and relist tests pass; full verification/installation are pending.
+This source is not installed. [Work contract](docs/architecture/workflow-verification-and-predictive-pricing.md).
+The owner appended Copilot screenshots requiring evolving low/high forecasts to inform actual
+entries/exits. Pricing implementation/chronological return validation remain pending; do not claim
+that workflow optimizations or chart changes finish predictive trading.
+
 Current installed pair: PR #173 (`codex/supported-sell-walkdowns`) in private shadow mode. It
 qualifies small exact non-loss sell adjustments from two completed buyer-volume buckets, existing
 placement/progress patience and a fresh buyer-paid trade. Shared pricing, smoothing, final authority

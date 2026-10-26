@@ -48,4 +48,29 @@ public class ProspectiveGapMemoTest {
         return OfferEvent.builder("fixture",at,"BUYING").accountId(account).eventIdentity(id,"session",id)
             .slot(0).item(561,"Rune").buying(true).price(100).quantities(quantity,0).sequence(sequence).authenticatedObservation(true).build();
     }
+    @Test public void validatedAppendReadsOnlyTheTailAndCannotReuseAChangedScopeOrDuplicateSource() {
+        String account=AccountIdentity.fromProfileKey("append-memo");long at=20000;
+        var sources=new ArrayList<OfferEvent>();var receipt=new HashMap<Integer,String>();
+        for(int slot=0;slot<8;slot++) {
+            String id="opening-"+slot;receipt.put(slot,id);sources.add(OfferEvent.builder("fixture",at,"EMPTY").accountId(account)
+                .eventIdentity(id,"session",null).slot(slot).sequence(slot+1).authenticatedObservation(true).build());
+        }
+        sources.add(buy(account,"buy",at+1,9,10));
+        var snapshot=new AccountSnapshot("fixture",at,100000000,0,8,8,true,false,0).withAccountId(account).withOfferReadSet(receipt);
+        var read=new SqliteStore.PlanningProjections(List.of(),List.of());read.prospectiveGapMemo=new ProspectiveGapExposure.Memo();
+        read.riskEvidence=new RiskLedgerEvidence(new RiskWindow(snapshot,"session",0,100000000));
+        read.riskEvidence.newReconciliationItems.add(561);read.riskEvidence.openingCosts.put(561,500L);
+        var firstHistory=new Counted(sources);read.history=firstHistory;var first=ProspectiveGapExposure.calculate(read);int oldReads=firstHistory.reads;
+        sources.add(OfferEvent.builder("fixture",at+2,"EMPTY").accountId(account).eventIdentity("clear","session",null)
+            .slot(0).sequence(10).authenticatedObservation(true).build());sources.add(buy(account,"replacement",at+3,11,20));
+        var appended=new Counted(sources);read.prospectiveGapMemo.appendCanonical(firstHistory,appended);read.history=appended;
+        assertEquals(Long.valueOf(3500),ProspectiveGapExposure.calculate(read).get(561));
+        assertEquals(oldReads,firstHistory.reads);assertEquals("Only two new sources may be traversed",2,appended.reads);
+        assertEquals(Long.valueOf(1500),first.get(561));
+        sources.add(sources.get(8));var duplicate=new Counted(sources);read.prospectiveGapMemo.appendCanonical(appended,duplicate);read.history=duplicate;
+        assertNull(ProspectiveGapExposure.calculate(read));
+        read.prospectiveGapMemo.reset();read.history=new Counted(sources.subList(0,sources.size()-1));
+        assertEquals(Long.valueOf(3500),ProspectiveGapExposure.calculate(read).get(561));
+        read.riskEvidence.openingCosts.put(561,600L);assertEquals(Long.valueOf(3600),ProspectiveGapExposure.calculate(read).get(561));
+    }
 }
