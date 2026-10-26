@@ -19,12 +19,15 @@ public final class MarketPriceProjection {
         Point(long at,Side low,Side high,int analogues){this.at=at;this.low=low;this.high=high;this.analogues=analogues;}
     }
     public static final class Projection {
-        public final String modelVersion=VERSION,reason;
+        public final String modelVersion,reason;
         public final long observedAt,originAt;
         public final int bucketSeconds;
         public final List<Point> points;
         Projection(long now,long origin,int bucket,List<Point> points,String reason) {
-            observedAt=now;originAt=origin;bucketSeconds=bucket;this.points=List.copyOf(points);this.reason=reason;
+            this(VERSION,now,origin,bucket,points,reason);
+        }
+        Projection(String modelVersion,long now,long origin,int bucket,List<Point> points,String reason) {
+            this.modelVersion=modelVersion;observedAt=now;originAt=origin;bucketSeconds=bucket;this.points=List.copyOf(points);this.reason=reason;
         }
         public boolean isAvailable(){return points.size()>1;}
     }
