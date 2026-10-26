@@ -41,8 +41,9 @@ $36.20/month before tax under the owner's $50 ceiling. Local companion is sole f
 
 ## Remaining work
 
-PR #180 (`codex/market-exit-comparison`) builds on merged documentation #179. It is not
-installed. Optional non-loss forecast limits now compare the same exact quantity over one horizon,
+PR #180 is merged at `644a6cb130f5e72ba461379f7dd92bd2f0ccfd26`; it is not installed.
+Final source `a0e5d2d0cc2a12ec15bc184a3d4eca5988553e7e` passes both CI platforms in run
+`40376426920`. Optional non-loss forecast limits compare the same exact quantity over one horizon,
 retaining a common taxed current-bid mark for unsold stock and crediting no replacement income.
 An alternative must improve the existing estimated rate and cannot worsen marked horizon value.
 Immutable worker results explain standing/routine alternatives in Records; they grant no loss or
@@ -56,6 +57,14 @@ return-superiority evidence. Exact-head CI is tracked in PR #180 and the private
 receipt. Runtime activation is held for installed #178's deferred player acceptance, then a paired
 backup/update and fresh acceptance of this pass. [Verification and next implementation map](docs/history/exit-comparison-verification-2026-10-26.md).
 Private research: `local-data/exit-comparison-20261026` in the primary checkout.
+
+Current `codex/cold-ledger-profile` is a documentation/research checkpoint; its runtime code is
+identical to #180. A frozen-account profile isolated cold canonical history decoding and original
+plan qualification; warm reads are much faster. A transient forecast-hash cache passed identity/
+serialization tests but showed no reliable timing benefit in three correctly hashed alternating
+pairs, so its source changes were rejected/restored. Preserve the invalid earlier artifact-path
+run and corrected receipts. [Profile and next latency work](docs/history/cold-ledger-profile-2026-10-26.md).
+Private research: `local-data/forecast-read-cache-20261026`; its candidate JAR is not releasable.
 
 The complete unchecked list remains in TASKS. Accept the installed combined update when the owner returns through
 fresh ordered eight-slot ACKs, visible useful guidance, retained trades, sustained latency and
