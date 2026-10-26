@@ -1,6 +1,6 @@
 # Bounded cold canonical decoding
 
-26 October 2026. Source branch `codex/bounded-cold-offer-decoding`; not installed. Installed runtime
+26 October 2026. PR #182, source branch `codex/bounded-cold-offer-decoding`; not installed. Installed runtime
 remains #178, with verified pricing #180 queued separately. Manual acceptance is deferred while
 the owner is away. Maintenance 12/replay 28 and every semantic model/receipt version remain.
 
@@ -74,7 +74,8 @@ instant guidance, multi-user capacity or final resolution of the account-verific
 The earlier per-forecast hash cache was rejected for inconsistent timing; it is absent. This pass
 reduces repeated value decoding and allocation without changing the fingerprint implementation.
 
-Before delivery require the standard clean Java build, 121 tooling tests, exact-head Windows/Linux
-CI, final source/artifact hashes, old/new ledger/stock/scope/continuation/exposure/risk equality and
-reproduction of the frozen account replay. Keep paired backup/rollback and player acceptance gates
-visible. Private inputs and receipts are in primary `local-data/cold-offer-decoding-20261026`.
+The standard clean build passes 2,419 Java tests (six existing skips) and 121 tooling tests.
+Final exact-head Windows/Linux CI, source/artifact hashes, old/new ledger/stock/scope/continuation/
+exposure/risk equality and frozen replay reproduction are tracked in PR #182 and private
+`verification-receipt.json`. Keep paired backup/rollback and player acceptance gates visible.
+Private inputs and receipts are in primary `local-data/cold-offer-decoding-20261026`.
