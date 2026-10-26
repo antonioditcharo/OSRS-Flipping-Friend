@@ -9,6 +9,7 @@ import java.util.concurrent.*;
 
 /** Committed evidence prefixes use independent checkpoints, never the player's delivery outbox. */
 final class PilotReplication implements AutoCloseable {
+    static final String SOURCE_LOOKUP_SQL="SELECT payload FROM event_log WHERE event_id=? AND event_id IS NOT NULL AND event_id<>'' LIMIT 1";
     static final class Checkpoint {String streamId=UUID.randomUUID().toString(),hash=PilotHashes.GENESIS;long cursor;}
     private final Path root;private final PilotGateway gateway;private final Gson gson=new Gson();
     private final Map<String,Path> accounts=new LinkedHashMap<>();private int turn;
@@ -56,7 +57,7 @@ final class PilotReplication implements AutoCloseable {
                         row.sourceEventId=rows.getString("EFFECT".equals(namespace)?"source_event_id":"sale_source_event_id");
                         values.put("source_event_id",row.sourceEventId);row.eventId="EFFECT".equals(namespace)?Long.toString(row.cursor):row.sourceEventId;
                         row.payload=gson.toJson(values);
-                        try(var scope=read.prepareStatement("SELECT payload FROM event_log WHERE event_id=? LIMIT 1")) {
+                        try(var scope=read.prepareStatement(SOURCE_LOOKUP_SQL)) {
                             scope.setString(1,row.sourceEventId);try(var source=scope.executeQuery()) {
                                 if(!source.next())row.namespace="UNASSIGNED_"+namespace;
                                 else {

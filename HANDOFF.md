@@ -1,31 +1,32 @@
 # Agent handoff
 
-Updated 25 October 2026 (America/Anchorage). Read AGENTS.md and TASKS.md.
+Updated 26 October 2026 (America/Anchorage). Read AGENTS.md and TASKS.md.
 Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
 ## Installed runtime
 
-PR #175 is installed. Tested source `4adde7dcf482c8d9cfef0cccf602167b433a4c59`, merge
-`4aa44ce57b3150241a5329cfb87e0fc5b078c566`. Indexed performance-session/terminal lookups,
-validated-prefix continuation/funding reads, detached risk-input reuse and negative repair
-preflight reduce repeated account work. Current cash, ordered slots, physical holdings, fresh
-marks and final authority are still revalidated. A cancelled accepted loss exit may relist at a
-fresh exact non-loss limit when its old confirmation disappears. Receipt family 10 is unchanged;
-maintenance 10/replay 26 identify the installed behavior.
+PR #176 is installed. Tested source `019a4580ea865e0cda6c37e7e5378fcbaf6bda82`, merge
+`33a09fd768b0cefc28ab7af17aa3244381ddbb15`. It adds bounded background public low/high
+price paths, qualified entry alternatives and quantity-specific non-loss exit comparisons.
+Original costs/targets/stops, financial/execution identities and the original risk window remain.
+Maintenance 11/replay 27 identify this behavior; sale-receipt family 10 is unchanged.
+No new market-informed loss authority or execution learning is active.
 
-Clean Java: 2,375 tests, six existing skips; 121 tooling tests, Java 11 and exact-head Windows/Linux
-CI passed. Installation preserved all 12 checked original tables. The 171-file/five-configuration
-disposable restore and #173/current ledger, stock, scope, continuation and original risk-window
-equality passed. Backup: `.runelite/osrs-flipping-friend/backups/20261025-223524-e84a4038`.
-Private receipt: `local-data/hosted-pilot/workflow-guidance-delivery.json`.
+Clean Java: 2,386 tests, six existing skips; 121 tooling tests, Java 11 and exact-head Windows/Linux
+CI passed. All 12 checked original tables match. The 179-file/five-configuration disposable restore
+and #175/current ledger, stock, scope, continuation and original risk-window reads pass.
+Backup: `.runelite/osrs-flipping-friend/backups/20261025-235217-d7b2aec8`.
+Private receipt: `local-data/hosted-pilot/predictive-guidance-delivery.json` in the primary checkout.
+Detailed hashes/research limits: [installed #176 receipt](docs/history/predictive-pricing-install-2026-10-26.md).
 
-Manual login/GE produced a fresh authenticated acknowledged eight-slot frame, zero pending sources
-and original immutable-prefix equality. Logs include BUY, SELL, MODIFY_SELL and COLLECT. These are
-delivery observations, not controlled UI/full-loop/restart acceptance. A deduplicated 134-refresh
-sample has median 1,262 ms, p95 5,497 ms, max 7,194 ms end-to-end; optional build activity and current
-machine load were not controlled. Sustained timing is not accepted. A follow-up JFR still identifies
-background repair allocation and continuation/report work. Full workflow/latency completion stays
-unchecked in TASKS. Frozen component reads alone do not establish live timing.
+Manual login/GE produced fresh authenticated acknowledged ordered eight-slot evidence and zero
+pending sources. Native UI retained working offers/profit; later logs include BUY guidance.
+These are delivery observations, not controlled cancel/late-fill/collect/relist/restart acceptance.
+Sustained latency is not accepted: a three-minute no-build sample has delivered median 1,207 ms,
+p95/max 2,202 ms and after-ACK p95 1,714 ms. Five-second transport failures also occurred and are
+absent from that successful-delivery distribution. JFR/thread evidence identifies review-prefix
+classification holding the service monitor while offer delivery waits, plus an unindexed replica
+source-ownership lookup. Component timing alone cannot close live latency requirements.
 
 Hosted flags: enabled/shadow true; hosted recommendations and coordination false; automatic
 recovery true. Learning is unpromoted. Private DigitalOcean staging remains approximately
@@ -34,27 +35,26 @@ authority. `local-data/hosted-pilot/delivery-state.json` identifies current runt
 
 ## Source in progress
 
-`codex/market-predictive-order-pricing` builds on #175. This source is not installed. Read
-[the current contract](docs/architecture/workflow-verification-and-predictive-pricing.md).
-The appended Copilot images require independently evolving public low/high forecasts to inform
-actual order selection; they do not establish Copilot internals or predictive performance.
+`codex/report-acknowledgement-latency` is isolated in a managed worktree from installed #176.
+It is not installed. Read [the report/replication contract](docs/architecture/report-and-replication-latency.md).
+Source indexes display review evidence over exact validated canonical appends, re-evaluates current
+annotations/holdings without rescanning history, and uses the existing partial event-ID index for
+replication ownership checks. It changes no financial rows, prices, loss authority or risk policy.
+Require isolated clean Java/tooling, exact-head Windows/Linux CI, preservation/rollback and real
+request-failure/guidance timing before acceptance. Another chat edits charts in the primary checkout;
+preserve those changes and coordinate a combined verified pair before installation.
 
-Source adds bounded public rolling-origin model selection, persistence fallback, empirical residual
-intervals, forecast price alternatives and quantity-specific non-loss exit comparisons, with a
-bounded chart worker off the EDT. Source-bound optional market analysis is retained in prospective
-plans without changing financial/execution IDs. Background repairs examine only their required
-earlier source/effect prefixes and refuse directly gapped pools before decoding history.
+The broader [pricing/workflow contract](docs/architecture/workflow-verification-and-predictive-pricing.md)
+remains open. An unrestricted forecast frontier failed the 5m account development scenario and was
+rejected. Installed guarded alternatives match #175 in twelve eight-item/eight-hour public scenarios;
+these revised development fixtures are not untouched promotion evidence or proof of GP/hr improvement.
+Public forecast evaluation has modest aggregate differences and 8h interval undercoverage. Charts
+and price-touch simulations do not prove fills, returns or permission to take a loss.
 
-An unrestricted forecast entry frontier failed the 5m eight-hour public scenario by tying up more
-capital. It must not be activated. The revised frontier requires an existing same-quantity local
-tactic with no worse capital, downside, leg probability, wait and profit; chronological checks and
-release verification remain pending. Preserve every failing research receipt. This limited public
-scenario assumes bucket-close availability and bucket-average quotes, not observed executions.
-
-No new market-informed loss authority is active. The owner's requested hold/adjust/bounded-loss
-comparison still needs explicit immutable market-exit evidence, durable account-budget enforcement,
-final authority and cancel/late-fill/collect/relist/restart/rollback proof. Never relabel an old stop
-receipt or use age, an experimental chart, or estimated replacement profit as loss permission.
+The owner's requested supported hold/adjust/bounded-loss comparison still needs explicit immutable
+market-exit evidence, durable account-budget enforcement, final authority and complete lifecycle/
+rollback proof. Never relabel an old stop receipt or use age, an experimental chart, or estimated
+replacement profit as loss permission. Keep every unchecked acceptance requirement in TASKS visible.
 
 ## Ongoing contracts
 
@@ -64,11 +64,8 @@ unknown live scope, contradictory funding, slots and limits remain safety gates.
 are not trading stock. The unscoped legacy DB remains unassigned and untouched. Login and every
 in-game action remain manual; normal paired maintenance/backup/launch is already authorized.
 
-The complete unchecked release/acceptance list remains in [TASKS](TASKS.md). Benchmark 100M/member/
-eight slots at 5m, 30m, 2h and 8h separately. Public forecast accuracy, price-touch simulation,
-prospective execution learning and actual account returns are different evidence.
-
-[Prior checkpoints and detailed contracts through #175](docs/history/handoff-pilot-through-pr175.md)
-retain #173 and earlier delivery receipts. Earlier summaries of pending installation do not override
-the current installed receipt above. Older general project direction remains in
-[project direction](docs/project-direction.md).
+Benchmark 100M/member/eight slots at 5m, 30m, 2h and 8h separately. Public forecast accuracy,
+price-touch simulation, prospective execution learning and actual account returns are separate.
+[Prior checkpoints through #175](docs/history/handoff-pilot-through-pr175.md) retain older receipts;
+earlier installation summaries do not override the installed receipt above. Older general direction
+remains in [project direction](docs/project-direction.md).

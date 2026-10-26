@@ -75,7 +75,8 @@ final class TradeGapEvidence {
         try { AccountIdentity.require(e.getAccountId()); } catch (IllegalArgumentException invalid) { return false; }
         return validFields(e);
     }
-    private static boolean validFields(OfferEvent e) {
+    /** Callers omitting the account regex must separately require and match one validated account. */
+    static boolean validFields(OfferEvent e) {
         if (e==null || !"1".equals(e.getSchemaVersion()) || blank(e.getEventId()) || blank(e.getSessionId())
                 || e.getSequence()<=0 || e.getObservedAt()<0 || e.getSlot()<0 || e.getSlot()>=8) return false;
         if ("EMPTY".equals(e.getEventType())) return e.getItemId()==0 && !e.isBuying()

@@ -47,6 +47,26 @@ public class WorkflowLookupBudgetTest {
             try(var s=db.createStatement();var rows=s.executeQuery("SELECT COUNT(*) FROM sale_cost_amendment")){rows.next();assertEquals(0,rows.getInt(1));}
         }
     }
+    @Test public void replicaOwnershipLookupUsesTheRetainedSourceIndexAndLeavesBlankLegacyIdsUnassigned()throws Exception {
+        try(var store=new SqliteStore(folder.newFolder().toPath().resolve("replica.db"))) {
+            var db=connection(store);metadata(db);
+            try(var s=db.createStatement()) {
+                s.execute("INSERT INTO event_log(observed_at,correlation_id,event_id,event_type,payload) VALUES(1,'source','replica-source','SOLD','{\"recorded\":true}')");
+                s.execute("INSERT INTO event_log(observed_at,correlation_id,event_id,event_type,payload) VALUES(1,'legacy','','SOLD','{\"legacy\":true}')");
+            }
+            budget(db);
+            try(var s=db.prepareStatement(PilotReplication.SOURCE_LOOKUP_SQL)) {
+                for(int i=0;i<20;i++) {
+                    s.setString(1,"replica-source");try(var rows=s.executeQuery()){assertTrue(rows.next());assertEquals("{\"recorded\":true}",rows.getString(1));}
+                    s.setString(1,"missing");try(var rows=s.executeQuery()){assertFalse(rows.next());}
+                }
+                s.setString(1,"");try(var rows=s.executeQuery()){assertFalse(rows.next());}
+            }finally{ProgressHandler.clearHandler(db);}
+            budget(db);try(var s=db.prepareStatement("SELECT payload FROM event_log WHERE event_id=? LIMIT 1")) {
+                s.setString(1,"missing");s.executeQuery();fail("The old query must reproduce its account-wide scan");
+            }catch(SQLException expected){assertTrue(expected.getMessage().contains("interrupt"));}finally{ProgressHandler.clearHandler(db);}
+        }
+    }
     @Test public void supportIndexRetainsRepeatedTerminalsPartialCancellationsAndFullLiveCounters()throws Exception {
         try(var store=new SqliteStore(folder.newFolder().toPath().resolve("support.db"))) {
             var db=connection(store);metadata(db);
