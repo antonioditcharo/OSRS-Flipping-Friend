@@ -57,3 +57,81 @@ pricing/forecast contract for client, companion, charts and replay; preserved pr
 source evidence and risk anchors; no unsupported loss, same-price cancel loop or preference veto.
 Qualified market-informed losses need their own explicit evidence and durable budget check, plus
 compatible rollback and full cancellation/collection/relisting proof before activation.
+
+## Public price path increment (source; not yet installed)
+
+`PublicPriceForecast.PUBLIC_PRICE_PATH_V1` fits the low and high sides separately. Candidate rules
+are persistence, damped recent trend, slow median reversion, relative daily movement and a damped
+daily combination. Selection uses 24 earlier disjoint rolling origins and checks the chosen rule
+against persistence on 12 later completed outcomes. Directional rules require improvement on both
+parts. Missing timestamps/outcomes are retained as missing; prices and volume are never forward
+filled. Sparse, conflicting, stale, oversized or unsupported input falls back without vetoing
+otherwise eligible legacy entries. This is public statistical analysis, not execution learning.
+
+The 5m/30m fits use five-minute history; 2h/8h fits use hourly history. Interpolation preserves the
+actual horizon. The chart currently shows at most eight hours of qualified forecasts, irrespective
+of the historical zoom. It reanchors on timestamped public quotes and keeps action-price guides
+separate from the paths. A bounded single-worker queue performs chart fitting off the EDT; a
+128-entry public-only exact-input cache shares analysis without sharing account state. Each input
+has at most 2,048 rows and retains at most 720 completed buckets. Model/public-input fingerprints,
+forecast estimates and exact candidate orders are optional prospective plan analysis; legacy
+financial IDs and immutable fill-model fingerprints are unchanged.
+
+Live strategy calls perform lookup/submission only; a single low-priority model worker has a
+64-task queue and deduplicates matching requests. Cold/full/malformed requests immediately use the
+legacy grid or limit. Snapshots are copied before submission. Explicit offline SeriesSource and
+exit-harness modes fit synchronously to remove worker timing from deterministic account replay;
+the mathematical and financial decision rules are shared.
+
+Forecast values add at most two bounded prices per side. Actual-order historical flow, quantity,
+tax, cash, buy limits and final authority still apply. The first unrestricted frontier failed an
+eight-hour development scenario at 5m attendance: higher model scores accumulated more inventory
+and worsened conservative account equity. That frontier is rejected. The revised entry guard
+requires a legacy tactic for the same item and quantity with no worse capital, worst/unwind loss,
+leg probabilities, leg times and net/expected profit. It retains all legacy alternatives. The
+local Scorer uses the same guard. A higher expected GP/hour alone cannot expand entry exposure.
+
+Initial known-cost sells compare supported forecast limits with the protected original target and
+exact taxed cost floor. Working sells retain placement/progress patience and two completed market
+buckets before comparing quantity-specific non-loss limits. Fine-tick adjustments remain exact.
+Quiet prices cannot gain new predictive or loss authority. Shared maintenance is version 11 and
+replay 27; compatible sale-receipt family 10 remains unchanged. A behavioral regression demonstrates
+a supported patient limit above the instant quote and immediate legacy fallback with insufficient
+history, while preserving original targets/stops.
+
+Recovery follow-up restricts cost qualification to the complete source/effect prefixes required by
+the requested sale. Later purchases cannot price earlier disposals. An earlier directly recorded
+item gap is a permanent negative under AutomaticTradeScope and rejects before source decoding.
+Positive repairs retain source hashes, tax proof, immutable overlays and concurrent-append checks.
+
+## Research receipts and remaining gates
+
+Private frozen public input: `local-data/predictive-pricing-20261025/public-market-snapshot`.
+The first untouched-final-quarter point-error check has the following mean absolute percentage
+errors over known side outcomes. Unknown targets and abstentions remain separately counted in the
+receipt; original publication/revision times are unavailable, so bucket-close availability is an
+explicit retrospective assumption.
+
+| Horizon | Price path | Persistence | Earlier-error interval coverage on known targets |
+|---|---:|---:|---:|
+| 5m | 2.57273% | 2.57271% | 58.8% |
+| 30m | 5.88778% | 5.91113% | 51.3% |
+| 2h | 5.46645% | 5.48577% | 50.7% |
+| 8h | 9.48865% | 9.56994% | 39.3% |
+
+These small point-error differences do not establish profitable trades. The 8h nominal central
+50% earlier-error interval undercovers later outcomes; it is not calibrated loss permission.
+The chart describes historical forecast errors without guaranteeing future coverage.
+
+The account development fixture uses 100M/member/eight slots, all four cadences, 0.1%/0.5%/1%
+volume-share scenarios, manual visit/action time, tax, open stock and conservative terminal marks.
+It covers only eight items/eight hours and reconstructs quotes from bucket averages. It is not
+actual execution evidence, and the 8h cadence has almost no opportunity for a completed round trip.
+After using its initial failure to design the guard, it is a development regression fixture,
+not untouched promotion evidence. The guarded decisions/results match #175 in all 12 cases.
+Preserve both rejected and revised receipts; do not claim return improvement or broad capacity.
+
+Still open: exact-head Windows/Linux CI, paired backup/rollback, real chart inspection, sustained
+guidance timing under controlled load, player-operated maintenance/relist/restart, wider untouched
+chronological account evaluation and an explicit budgeted market-informed loss policy. Original
+stops, risk anchors and learning promotion fences remain in force.

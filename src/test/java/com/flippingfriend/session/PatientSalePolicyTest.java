@@ -87,6 +87,20 @@ public class PatientSalePolicyTest {
         var decision=exits.evaluateManagedExit(stock(100),market(1021,0),null,series(1021),longer,now,40000,true,false,false);
         assertTrue(decision.getPrice()>=1120);
     }
+    @Test public void supportedRecoveryCanChooseAPatientForecastLimitInsteadOfCopyingTheInstantQuote() {
+        long at=now.getEpochSecond();var bars=new ArrayList<Candle>();
+        for(int i=0;i<365;i++)bars.add(new Candle(at-(365L-i)*300,30000+i*100,27000+i*100,100,100));
+        var quote=new LatestPrice(65000,at-10,62000,at-10);
+        var position=new Position(4151,"Abyssal whip",1,63680,at-240,true);
+        position.setTargetSellPrice(64900);position.setStopPrice(60000);
+        PublicPriceForecast.fit(bars,List.of(),at); // Explicit offline precomputation, never a foreground wait.
+        var decision=exits.evaluateManagedExit(position,quote,null,bars,horizon,now,0,true,false,false);
+        assertTrue(decision.isSell());assertTrue(decision.getPrice()>quote.getHigh());
+        assertTrue(tax.netProceeds(4151,decision.getPrice(),1)>=position.getTotalCost());
+        assertEquals(64900,position.getTargetSellPrice());assertEquals(60000,position.getStopPrice());
+        var fallback=exits.evaluateManagedExit(position,quote,null,bars.subList(340,365),horizon,now,0,true,false,false);
+        assertTrue(fallback.isSell());assertEquals(65000,fallback.getPrice());
+    }
     @Test public void expiredHorizonDoesNotUndercutAHigherCurrentAskForAModeledFastFill() {
         var decision=exits.evaluateManagedExit(stock(400),market(1150,0),null,series(1021),horizon,now,40000,true,false,false);
         assertEquals("Elapsed time alone must not discount a current profitable ask",1150,decision.getPrice());

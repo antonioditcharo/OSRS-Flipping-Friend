@@ -221,6 +221,7 @@ public class Backtester
 			List<Candle> src = timestep.equals(TIMESTEP) ? histories.get(itemId) : longHistories.get(itemId);
 			return upTo(src, currentTimestamp);
 		}
+        public boolean synchronousAnalysis(){return true;}
 	}
 
 	private static List<Result> runFolds(RiskProfile profile, Map<Integer, ItemMetadata> metadata,

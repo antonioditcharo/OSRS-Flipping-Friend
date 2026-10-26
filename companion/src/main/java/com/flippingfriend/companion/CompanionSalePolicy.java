@@ -50,7 +50,7 @@ final class CompanionSalePolicy {
             }
             var tax=new TaxCalculator();List<ItemMetadata> metadata=new ArrayList<>();
             for(var m:market.mapping.values())metadata.add(new ItemMetadata(m.id,m.name,m.members,m.buyLimit,0));tax.resolveExemptions(metadata);
-            var exits=new SellTimingEngine(new FillModel(),tax);
+            var exits=new SellTimingEngine(new FillModel(),tax,history.synchronousAnalysis());
             TradingHorizon horizon=TradingHorizon.of(RiskProfile.valueOf(account.getRiskAppetite()),AccountReplay.interval(account.getCheckIntervalMinutes()),account.getTargetHoldMinutes());
             List<Candle> series=history.series(item,"5m");
             if(slot>=0) {

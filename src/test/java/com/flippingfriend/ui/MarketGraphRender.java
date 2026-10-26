@@ -25,6 +25,8 @@ public final class MarketGraphRender {
         Map<String,List<Candle>> histories=new HashMap<>();for(String step:new String[]{"5m","1h","6h"})
             histories.put(step,Arrays.asList(json.fromJson(json.fromJson(Files.readString(source.resolve("history-"+step+".json")),JsonObject.class).get("data"),Candle[].class)));
         LatestPrice quote=json.fromJson(json.fromJson(Files.readString(source.resolve("latest.json")),JsonObject.class).getAsJsonObject("data").get(""+item.getId()),LatestPrice.class);
+        // Run the actual public model off the EDT, as the production chart worker does.
+        com.flippingfriend.model.PublicPriceForecast.fit(histories.get("5m"),histories.get("1h"),now);
         MarketDataService market=mock(MarketDataService.class);
         when(market.getSnapshot()).thenReturn(new MarketSnapshot(Map.of(item.getId(),item),Map.of(item.getId(),quote),Map.of(),Map.of(),Instant.ofEpochSecond(now)));
         when(market.getGraphSeries(anyInt(),anyString())).thenAnswer(call->histories.getOrDefault(call.getArgument(1),List.of()));

@@ -76,6 +76,17 @@ public final class PortfolioCandidate
 	private final double horizonHours;
 	private final long expiresAt;
     private ExecutionForecast buyForecast,sellForecast;
+    private MarketPriceEvidence marketPriceEvidence;
+    /** Optional prospective plan analysis, separate from unchanged financial/execution identities. */
+    public static final class MarketPriceEvidence {
+        public final String modelVersion,historyFingerprint;
+        public final long observedAt;public final int horizonSeconds,buyOrder,sellOrder;
+        public final com.flippingfriend.model.PublicPriceForecast.Estimate low,high;
+        private MarketPriceEvidence(com.flippingfriend.model.PublicPriceForecast model,int seconds,int buy,int sell,int lowAnchor,int highAnchor) {
+            modelVersion=com.flippingfriend.model.PublicPriceForecast.VERSION;historyFingerprint=model.historyFingerprint;observedAt=model.observedAt;
+            horizonSeconds=seconds;buyOrder=buy;sellOrder=sell;low=model.at(false,seconds,lowAnchor);high=model.at(true,seconds,highAnchor);
+        }
+    }
 
 	/**
 	 * Why the order is the size it is.
@@ -169,6 +180,7 @@ public final class PortfolioCandidate
 		this.horizonHours = from.horizonHours;
 		this.expiresAt = from.expiresAt;
         this.buyForecast=from.buyForecast;this.sellForecast=from.sellForecast;
+        this.marketPriceEvidence=from.marketPriceEvidence;
 	}
 
     public PortfolioCandidate withForecasts(ExecutionForecast buy,ExecutionForecast sell) {
@@ -179,6 +191,13 @@ public final class PortfolioCandidate
     }
     public ExecutionForecast getBuyForecast(){return buyForecast;}
     public ExecutionForecast getSellForecast(){return sellForecast;}
+    public MarketPriceEvidence getMarketPriceEvidence(){return marketPriceEvidence;}
+    public PortfolioCandidate withMarketPrices(com.flippingfriend.model.PublicPriceForecast forecast,int seconds,int low,int high) {
+        if(forecast==null)return this;
+        var evidence=new MarketPriceEvidence(forecast,seconds,targetBuyPrice,targetSellPrice,low,high);
+        if(!evidence.low.available() || !evidence.high.available())return this;
+        PortfolioCandidate copy=new PortfolioCandidate(this,displayBuyFillProbability);copy.marketPriceEvidence=evidence;return copy;
+    }
     public double getDisplayBuyFillProbability(){return displayBuyFillProbability>0?displayBuyFillProbability:buyFillProbability;}
 
 	/** Expected net GP, weighting each of the three outcomes by how likely it is. */

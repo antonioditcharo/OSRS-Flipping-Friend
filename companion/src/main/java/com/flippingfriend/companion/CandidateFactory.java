@@ -671,14 +671,24 @@ final class CandidateFactory
 		long expiresAt = now.getEpochSecond() + PLAN_TTL_SECONDS;
 
 		List<PortfolioCandidate> tactics = new ArrayList<>();
+        List<PortfolioCandidate> forecastTactics=new ArrayList<>();
+        var fallbackBuys=new java.util.HashSet<Integer>();var fallbackSells=new java.util.HashSet<Integer>();
+        for(double offset:appetite.getBuyOffsets())fallbackBuys.add(PriceOffset.apply(screened.price.getLow(),offset));
+        for(double offset:appetite.getSellOffsets())fallbackSells.add(PriceOffset.apply(screened.price.getHigh(),offset));
 		boolean unfillable = false;
 
-		for (double buyOffset : appetite.getBuyOffsets())
+		var priceForecast=series.synchronousAnalysis()
+            ?com.flippingfriend.model.PublicPriceForecast.fit(shortSeries,longSeries,now.getEpochSecond())
+            :com.flippingfriend.model.PublicPriceForecast.ready(shortSeries,longSeries,now.getEpochSecond());
+        int forecastHorizon=com.flippingfriend.model.PredictivePriceChoices.horizon(horizonHours);
+        int[] buyChoices=com.flippingfriend.model.PredictivePriceChoices.prices(true,screened.price,shortSeries,
+            priceForecast,forecastHorizon,appetite.getBuyOffsets(),now.getEpochSecond());
+        int[] sellChoices=com.flippingfriend.model.PredictivePriceChoices.prices(false,screened.price,shortSeries,
+            priceForecast,forecastHorizon,appetite.getSellOffsets(),now.getEpochSecond());
+		for (int buyPrice : buyChoices)
 		{
-			int buyPrice = PriceOffset.apply(screened.price.getLow(), buyOffset);
-			for (double sellOffset : appetite.getSellOffsets())
+			for (int sellPrice : sellChoices)
 			{
-				int sellPrice = PriceOffset.apply(screened.price.getHigh(), sellOffset);
 				if (sellPrice <= buyPrice)
 				{
 					continue;
@@ -791,7 +801,7 @@ final class CandidateFactory
                     : completionScoring.probability(false,horizonHours*3600,sellFill.getProbability());
 				double displayBuyProbability = buyProbability;
 
-				tactics.add(new PortfolioCandidate(itemId, screened.item.name, group,
+				(fallbackBuys.contains(buyPrice) && fallbackSells.contains(sellPrice)?tactics:forecastTactics).add(new PortfolioCandidate(itemId, screened.item.name, group,
 					buyPrice, buyPrice, buyPrice, sellPrice, sellPrice, sellPrice,
 					quantity, screened.buyLimitRemaining, netProfit, worstLoss,
 					unwindLoss, buyProbability, sellProbability,
@@ -800,11 +810,15 @@ final class CandidateFactory
                         learned.waitMultiplier(itemId),buyHours),
                         fillModel().forecast(itemId,false,curve,sellPrice,quantity,horizonHours,season,sellFill,
                         learned.waitMultiplier(itemId),sellHours))
-					.withDisplayProbability(displayBuyProbability));
+					.withDisplayProbability(displayBuyProbability)
+                    .withMarketPrices(priceForecast,forecastHorizon,screened.price.getLow(),screened.price.getHigh()));
 				}
 			}
 		}
 
+        var qualified=new ArrayList<PortfolioCandidate>();
+        for(var changed:forecastTactics)if(tactics.stream().anyMatch(baseline->com.flippingfriend.model.EntryPriceGuard.noWorse(changed,baseline)))qualified.add(changed);
+        tactics.addAll(qualified);
 		// Keep only the strongest few. Near-duplicate tactics add branching to the optimizer's
 		// search without adding any real choice.
 		tactics.sort(Comparator.comparingDouble(PortfolioCandidate::expectedGpPerSlotHour).reversed());

@@ -108,6 +108,36 @@ public class SaleCostAmendmentsTest {
         }
     }
 
+    @Test public void aDirectEarlierItemGapRejectsRecoveryBeforeReadingSourcePayloads()throws Exception {
+        Path path=fixture(true);
+        try(var read=DriverManager.getConnection("jdbc:sqlite:"+path);var sql=read.createStatement()) {
+            // Disposable reproduction of a permanently unsafe earlier pool. Keeping the buy
+            // effect proves this is a separate refusal from absence of acquisition evidence.
+            sql.executeUpdate("UPDATE position_event SET effect_type='RECONCILE',quantity=0,acquisition_cost=0 WHERE source_event_id='partial'");
+            sql.executeUpdate("UPDATE event_log SET payload='invalid' WHERE event_id='buy'");
+            try{SaleCostAmendments.prepare(read,account,List.of("sold"),1792860100);fail();}
+            catch(IllegalStateException expected){assertTrue(expected.getMessage().contains("earlier item reconciliation"));}
+            try(var rows=sql.executeQuery("SELECT COUNT(*) FROM sale_cost_amendment")){rows.next();assertEquals(0,rows.getInt(1));}
+        }
+    }
+    @Test public void laterEvidenceCannotPriceAnEarlierSaleOrExpandItsRepairProof()throws Exception {
+        Path path=fixture(true);String proof;
+        try(var read=DriverManager.getConnection("jdbc:sqlite:"+path)) {
+            proof=SaleCostAmendments.prepare(read,account,List.of("sold"),1792860100).get(0).proof;
+        }
+        try(var store=new SqliteStore(path)) {accept(store,event("later-cleared",null,"EMPTY",0,0,8));}
+        try(var read=DriverManager.getConnection("jdbc:sqlite:"+path)) {
+            assertEquals(proof,SaleCostAmendments.prepare(read,account,List.of("sold"),1792860100).get(0).proof);
+        }
+        Path missing=fixture(false);
+        try(var store=new SqliteStore(missing)) {
+            accept(store,event("later-clear",null,"EMPTY",0,0,8));
+            accept(store,event("later-buy-open","later-buy","BUYING",0,0,9));
+            accept(store,event("later-buy","later-buy","BOUGHT",100,10003,10));
+            try{store.amendSaleCosts(account,List.of("sold"),1792860100);fail("Later purchase was borrowed");}
+            catch(IllegalStateException expected){}
+        }
+    }
     @Test public void backgroundQualificationDoesNotBlockCanonicalWritesAndCommitsWithoutReplayingExecutions()throws Exception {
         Path path=fixture(true);
         try(var store=new SqliteStore(path);var read=DriverManager.getConnection("jdbc:sqlite:"+path.toAbsolutePath().toUri().toASCIIString()+"?mode=ro")) {

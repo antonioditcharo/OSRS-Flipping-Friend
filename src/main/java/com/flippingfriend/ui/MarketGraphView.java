@@ -23,7 +23,8 @@ final class MarketGraphView extends JPanel {
     private static final DateTimeFormatter TIME=DateTimeFormatter.ofPattern("dd MMM HH:mm:ss",Locale.ROOT).withZone(ZoneOffset.UTC);
     private final MarketDataService market;
     private final LongSupplier clock;
-    private final MarketPriceProjection forecaster=new MarketPriceProjection();
+    private static final java.util.concurrent.Executor FORECAST_WORKER=new java.util.concurrent.ThreadPoolExecutor(1,1,30,
+        java.util.concurrent.TimeUnit.SECONDS,new java.util.concurrent.ArrayBlockingQueue<>(1),r->{Thread t=new Thread(r,"flipping-friend-chart-forecast");t.setDaemon(true);return t;},new java.util.concurrent.ThreadPoolExecutor.DiscardOldestPolicy());
     final MarketGraphCanvas chart=new MarketGraphCanvas();
     final JTextField search=new JTextField();
     final JButton suggested=new JButton("Switch to suggested item");
@@ -38,8 +39,10 @@ final class MarketGraphView extends JPanel {
     private int selected;
     private Range range=Range.DAY;
     private Suggestion advice=Suggestion.idle();
-    private List<Candle> lastTraining;
-    private MarketPriceProjection.Projection base;
+    private List<Candle> lastTraining,lastShortTraining;
+    private PublicPriceForecast base;
+    private int forecastGeneration;
+    private boolean disposed;
     private long trainingHour=-1,defaultStart,defaultEnd;
     private int trainingHorizon=-1;
     private boolean reset=true;
@@ -75,7 +78,7 @@ final class MarketGraphView extends JPanel {
         tools.add(periods);
         JPanel navigation=new JPanel(new FlowLayout(FlowLayout.RIGHT,3,0));navigation.setOpaque(false);
         navigation.add(projections);projections.setOpaque(false);projections.setForeground(UiUtils.TEXT);projections.setName("graph-projections");
-        projections.setToolTipText("Experimental median and central 50% historical-return range; never an approved trading model");
+        projections.setToolTipText("Low/high market forecasts with empirical central 50% residual intervals; future prices and fills remain uncertain");
         projections.addActionListener(e->{chart.showProjections(projections.isSelected());refresh();});
         navigation.add(PanelIcons.button("graph-zoom-out","zoom_out","Zoom out",()->chart.zoom(1.5)));
         navigation.add(PanelIcons.button("graph-zoom-in","zoom_in","Zoom in",()->chart.zoom(1/1.5)));
@@ -84,7 +87,7 @@ final class MarketGraphView extends JPanel {
         tools.add(navigation);chartHeaderRows.add(tools);chartHeaderRows.add(Box.createVerticalStrut(8));
         JPanel legend=new JPanel(new FlowLayout(FlowLayout.CENTER,18,0));legend.setOpaque(false);
         legend.add(legend("Low (insta-sell)",MarketGraphCanvas.LOW));legend.add(legend("High (insta-buy)",MarketGraphCanvas.HIGH));
-        legend.add(legend("Dashed: projection",UiUtils.TEXT));legend.add(legend("Shaded: 50% historical range",UiUtils.MUTED));
+        legend.add(legend("Dashed: market forecast",UiUtils.TEXT));legend.add(legend("Shaded: 50% residual interval",UiUtils.MUTED));
         chartHeaderRows.add(legend);header.add(chartHeader);add(header,BorderLayout.NORTH);
         JPanel plot=new JPanel(new BorderLayout());plot.setOpaque(false);plot.add(chart,BorderLayout.CENTER);
         status.setBorder(BorderFactory.createEmptyBorder(6,4,2,0));status.setForeground(UiUtils.MUTED);plot.add(status,BorderLayout.SOUTH);add(plot,BorderLayout.CENTER);
@@ -98,7 +101,7 @@ final class MarketGraphView extends JPanel {
         }
         c.gridx=0;c.gridwidth=2;c.weighty=1;numbers.add(Box.createVerticalGlue(),c);sidebar.add(numbers,BorderLayout.CENTER);add(sidebar,BorderLayout.EAST);
         note.setText("OSRS Wiki / RuneLite market data · completed bucket averages and reported trade volumes. "
-            +"Projections are experimental historical-return scenarios; their range coverage and fills are not guaranteed.");
+            +"Forecasts compare trend, reversion and daily patterns with unchanged prices. Intervals describe earlier forecast errors; future coverage and fills are not guaranteed.");
         note.setBorder(BorderFactory.createEmptyBorder(5,3,2,3));add(note,BorderLayout.SOUTH);
         timer=new javax.swing.Timer(1000,e->{if(isShowing())refresh();});timer.setCoalesce(true);
         setFont(FontManager.getRunescapeSmallFont());
@@ -112,7 +115,7 @@ final class MarketGraphView extends JPanel {
     }
     @Override public void addNotify(){super.addNotify();timer.start();}
     @Override public void removeNotify(){timer.stop();super.removeNotify();}
-    void dispose(){timer.stop();}
+    void dispose(){timer.stop();disposed=true;forecastGeneration++;}
     void setItemManager(ItemManager manager){items=manager;updateTitle();}
     void update(Suggestion current){advice=current==null?Suggestion.idle():current;suggested.setEnabled(advice.getItemId()>0);if(isShowing()){if(selected<=0 && advice.getItemId()>0)showItem(advice.getItemId());else refresh();}}
     void showItem(int item){if(item<=0)return;lookupMessage=null;if(selected!=item){selected=item;reset=true;lastTraining=null;}updateTitle();refresh();}
@@ -142,11 +145,20 @@ final class MarketGraphView extends JPanel {
         List<Candle> visible=completed(market.getGraphSeries(selected,range.step),range.bucket,now);
         List<Candle> hourly=market.getGraphSeries(selected,"1h"),daily=market.getGraphSeries(selected,"5m");
         if(hourly==null)hourly=List.of();if(daily==null)daily=List.of();
-        if(hourly!=lastTraining || trainingHour!=now/3600 || base==null || trainingHorizon!=range.forecastHours) {
-            lastTraining=hourly;trainingHour=now/3600;trainingHorizon=range.forecastHours;base=forecaster.project(hourly,3600,now,range.forecastHours);
+        if(hourly!=lastTraining || daily!=lastShortTraining || trainingHour!=now/300) {
+            lastTraining=hourly;lastShortTraining=daily;trainingHour=now/300;base=PublicPriceForecast.cached(daily,hourly,now);
+            int generation=++forecastGeneration;
+            if(base==null) {
+                List<Candle> shortInput=new ArrayList<>(daily),longInput=new ArrayList<>(hourly);
+                FORECAST_WORKER.execute(()->{
+                    var result=PublicPriceForecast.fit(shortInput,longInput,now);
+                    SwingUtilities.invokeLater(()->{if(!disposed && generation==forecastGeneration){base=result;refresh();}});
+                });
+            }
         }
-        LatestPrice quote=snapshot.latest(selected);var forecast=forecaster.anchor(base,quote,snapshot.getCapturedAt().getEpochSecond(),now);
-        long right=forecast.isAvailable()?forecast.originAt+range.forecastHours*3600L:now;
+        LatestPrice quote=snapshot.latest(selected);var forecast=base==null?new MarketPriceProjection().project(List.of(),300,now,1)
+            :base.projection(quote,snapshot.getCapturedAt().getEpochSecond(),now,range.forecastHours);
+        long right=forecast.isAvailable()?forecast.points.get(forecast.points.size()-1).at:now;
         defaultStart=now-range.seconds;defaultEnd=right;int buy=0,sell=0;
         if(advice.getItemId()==selected && (advice.getAdviceExpiresAt()<=0 || advice.getAdviceExpiresAt()>=now)) {
             if(advice.getType()==SuggestionType.BUY)buy=advice.getPrice();
@@ -155,7 +167,7 @@ final class MarketGraphView extends JPanel {
         chart.setData(visible,range.bucket,forecast,buy,sell,defaultStart,defaultEnd,reset);reset=false;
         String problem=market.graphHistoryProblem(selected,range.step);
         status.setText(lookupMessage!=null?lookupMessage:problem!=null?problem:visible.isEmpty()?"Loading completed market history…":
-            projections.isSelected()?(forecast.isAvailable()?"Experimental projection · "+(forecast.points.size()-1)+"h available · hover for prices, volumes and sample counts":forecast.reason)
+            projections.isSelected()?(forecast.isAvailable()?"Market forecast · "+((forecast.points.get(forecast.points.size()-1).at-forecast.originAt)/3600.0)+"h available · hover for price estimates and comparison counts":base==null?"Analysing completed market history…":forecast.reason)
                 :"Observed public market history · drag to pan, scroll to zoom · times in UTC");
         stat("Last low time (UTC)",quote==null?null:time(quote.getLowTime(),now));stat("Last high time (UTC)",quote==null?null:time(quote.getHighTime(),now));
         stat("Last low price",quote==null || quote.getLow()==null || quote.getLow()<=0 || quote.secondsSinceLow(Instant.ofEpochSecond(now))<0?null:String.format(Locale.ROOT,"%,d gp",quote.getLow()));
