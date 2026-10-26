@@ -7,12 +7,19 @@ installed and player accepted are separate states. Owner is home; older login de
 
 ## Current batch
 
-- [ ] Verify/deliver `codex/supported-sell-walkdowns`: qualify exact small non-loss sell adjustments
+- [x] Implement/test/install PR #173 (`codex/supported-sell-walkdowns`): qualify exact small non-loss sell adjustments
       from two completed buyer-volume buckets and fresh buyer-paid trades; preserve patience,
       partial costs, original plans, buy anti-churn, durable cancellation/relist and #172 rollback.
-      Prove full Java/tooling, both exact-head CI platforms, preservation/restore, visible maintenance
-      and player-operated completion separately. [Contract](docs/architecture/supported-small-sale-adjustments.md);
+      Clean Java/tooling, Java 11, both exact-head CI platforms, 12-table preservation, 149-file/
+      five-configuration restoration, #172 rollback reads and fresh ordered frame/WAIT delivery pass.
+      Visible maintenance and player-operated completion remain separate below. [Contract](docs/architecture/supported-small-sale-adjustments.md);
       `local-data/hosted-pilot/walkdown-guidance-delivery.json`.
+
+- [ ] Accept installed #173 supported small adjustment through player cancellation/late fill,
+      collection, exact relisting, completion and restart. All slots were full after installation;
+      the copied current sells had no supported routine change. Fresh frame/WAIT and frozen Marlin
+      component replay are not controlled maintenance acceptance. Keep sustained UI/event/ACK timing
+      open: cold retry and roughly 1.1–2s sampled subsequent refreshes miss the instant-guidance goal.
 
 - [ ] Implement the owner's 25 October market-informed loss/hold policy: compare waiting, small
       profitable adjustments and bounded loss exits from history, volume, spread, volatility,

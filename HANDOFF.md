@@ -5,29 +5,32 @@ Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
 ## Current delivery
 
-Queued source: `codex/supported-sell-walkdowns`. An audit found a stalled profitable sale excluded
-by the shared half-percent deadband despite repeated buyer-paid trades immediately below its ask.
-The shared client/companion/replay fix qualifies small exact non-loss adjustments with two completed
-volume buckets, existing placement/progress patience and a fresh buyer-paid trade. Buy rules and
-loss authority remain unchanged. [Contract](docs/architecture/supported-small-sale-adjustments.md);
-`local-data/hosted-pilot/walkdown-guidance-delivery.json` separates verification and installation.
+Current installed pair: PR #173 (`codex/supported-sell-walkdowns`) in private shadow mode. It
+qualifies small exact non-loss sell adjustments from two completed buyer-volume buckets, existing
+placement/progress patience and a fresh buyer-paid trade. Shared pricing, smoothing, final authority
+and durable relisting preserve that supported price; buy anti-churn and loss rules are unchanged.
+[Contract](docs/architecture/supported-small-sale-adjustments.md);
+`local-data/hosted-pilot/walkdown-guidance-delivery.json` separates source, installation and acceptance.
 
-Current installed pair: PR #172 (`codex/collected-relist-foreground-recovery`) in private shadow
-mode. Clean Java (2,360 tests, six existing skips), 121 tooling tests, Java 11, both exact-head CI
-platforms, 12-table original-row preservation, 109-file/five-configuration restoration and #170
-rollback reads pass. Fresh ordered eight-slot/zero-outbox proof, immutable prefixes and logged
-BUY/COLLECT/WAIT delivery pass. Owner reports normal workflow, with long-held sale maintenance
-still a concern. Cold/occasional ACK stalls and sustained latency/full-loop/restart acceptance stay
-open. [Installed receipt](docs/history/handoff-pilot-through-pr172.md);
-`local-data/hosted-pilot/collected-guidance-delivery.json`. Hosted advice, coordination and learning
-promotion remain off. Earlier receipts remain in [#168 history](docs/history/handoff-foreground-through-pr168.md)
-and [#163–167 history](docs/history/handoff-pilot-through-2026-10-25-pr167.md).
+Clean Java (2,367 tests, six existing skips), 121 tooling tests, Java 11 and both exact-head CI
+platforms pass. Paired installation preserves all 12 checked source/financial/projection tables;
+149-file/five-configuration restoration and #172/current ledger/stock/scope/continuations/exposure/
+original risk-window equality verify. After manual login/GE, a fresh acknowledged ordered eight-slot
+frame, zero pending financial events, original immutable prefixes and logged WAIT guidance pass.
+All slots are occupied. The current copied seven sells have no supported routine change; this
+does not prove controlled small-adjustment acceptance. Initial delivery took about 4.4s with a
+five-second ACK retry; subsequent sampled refreshes were about 1.1–2s. Sustained timing, UI and
+player-operated full-loop/restart acceptance remain open. [Installed receipt](docs/history/sell-walkdown-install-2026-10-25.md).
+Hosted advice, coordination and learning promotion remain off. Prior #172 workflow/slowdown receipts
+remain in [#172 history](docs/history/handoff-pilot-through-pr172.md), with
+[#168 history](docs/history/handoff-foreground-through-pr168.md) and
+[#163–167 history](docs/history/handoff-pilot-through-2026-10-25-pr167.md) retained.
 
 Owner direction, 25 October: justified losses are part of trading. Compare waiting, small price
 adjustments and bounded loss exits using public market history/volume/trend and whole-account
 opportunity cost, separately from future learning. Break-even cannot be an indefinite holding
-policy. This new market-informed loss policy is not active in #172 or the queued small-adjustment
-fix: preserve original stops, risk anchors and durable loss limits; complete prospective authority,
+policy. This new market-informed loss policy is not active in #173: preserve original stops, risk
+anchors and durable loss limits; complete prospective authority,
 cancel/collect/relist/rollback proof and chronological comparisons before activation. Detailed next
 requirements are in the small-adjustment contract and TASKS. Never call an old stop receipt a
 new market-exit permission or infer that age alone authorizes a loss.
