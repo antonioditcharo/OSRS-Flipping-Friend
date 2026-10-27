@@ -17,16 +17,25 @@ public final class PortfolioOptimizer
     /** Preferences may narrow the first pass, but cannot eliminate an otherwise safe entry. */
     public PortfolioPlan optimizePreferred(List<PortfolioCandidate> raw, PortfolioConstraints constraints,
         String correlationId, long now) {
-        PortfolioPlan preferred = optimize(raw, constraints, correlationId, now);
+        return optimizePreferred(raw,constraints,correlationId,now,PortfolioCandidate::expectedGpPerSlotHour);
+    }
+    /** Explicit offline/challenger objective; all financial/quantity/exposure constraints stay shared. */
+    public PortfolioPlan optimizePreferred(List<PortfolioCandidate> raw, PortfolioConstraints constraints,
+        String correlationId,long now,java.util.function.ToDoubleFunction<PortfolioCandidate> objective) {
+        PortfolioPlan preferred = optimize(raw, constraints, correlationId, now,objective);
         if (!preferred.getAllocations().isEmpty() || constraints.getMinProfitPerFlip() <= 1
                 || constraints.getFreeSlots() <= 0) return preferred;
         return optimize(raw, constraints.withCommitted(constraints.getCommittedByItem(),
-            constraints.getCommittedByGroup(), 1), correlationId, now);
+            constraints.getCommittedByGroup(), 1), correlationId, now,objective);
     }
 
 	public PortfolioPlan optimize(List<PortfolioCandidate> raw, PortfolioConstraints constraints,
 		String correlationId, long now)
 	{
+        return optimize(raw,constraints,correlationId,now,PortfolioCandidate::expectedGpPerSlotHour);
+    }
+    private PortfolioPlan optimize(List<PortfolioCandidate> raw,PortfolioConstraints constraints,
+        String correlationId,long now,java.util.function.ToDoubleFunction<PortfolioCandidate> objective) {
 		if (constraints.getFreeSlots() <= 0)
 		{
 			// Worded to match what the planner said before this check became the one that answers, so
@@ -34,6 +43,12 @@ public final class PortfolioOptimizer
 			return PortfolioPlan.unavailable(correlationId, PortfolioPlanOutcome.NO_FREE_SLOT,
 				"Every Grand Exchange slot is occupied.", now);
 		}
+        // Evaluate once: branch ordering/bounds and selection must see the same finite score.
+        java.util.Map<PortfolioCandidate,Double> scores=new java.util.IdentityHashMap<>();
+        for(var candidate:raw) {
+            double score=objective.applyAsDouble(candidate);
+            scores.put(candidate,Double.isFinite(score)?score:0);
+        }
 		// Counted, not just filtered.
 		//
 		// Every rejection below used to be silent, and all of them came out as the single sentence
@@ -76,14 +91,14 @@ public final class PortfolioOptimizer
 				// unwinding it if the sell leg does not, weighted by how likely each is. A candidate
 				// whose unwind cost outweighs its margin scores negative and can never be chosen, so
 				// counting it among the survivors only makes the plan look fuller than it is.
-				if (candidate.expectedGpPerSlotHour() <= 0)
+				if (scores.get(candidate) <= 0)
 				{
 					notWorthDoing++;
 				}
 				candidates.add(candidate);
 			}
 		}
-		candidates.sort(Comparator.comparingDouble(PortfolioCandidate::expectedGpPerSlotHour).reversed());
+		candidates.sort(Comparator.<PortfolioCandidate>comparingDouble(scores::get).reversed());
 		Search best = new Search();
 		// Seeded with what is already held, not empty. Starting from zero meant the exposure ceilings
 		// only ever limited a plan against itself: the book could hold thirty million of one item and
@@ -92,7 +107,7 @@ public final class PortfolioOptimizer
 		search(candidates, 0, constraints, new ArrayList<>(),
 			new HashMap<>(constraints.getCommittedByItem()),
 			new HashMap<>(constraints.getCommittedByGroup()),
-			new HashSet<>(), 0, 0, 0, best);
+			new HashSet<>(), 0, 0, 0, best,scores);
 		if (best.selected.isEmpty())
 		{
 			PortfolioPlanOutcome outcome = candidates.isEmpty() || notWorthDoing == candidates.size()
@@ -174,7 +189,7 @@ public final class PortfolioOptimizer
 
 	private void search(List<PortfolioCandidate> candidates, int index, PortfolioConstraints limits,
 		List<PortfolioCandidate> selected, Map<Integer, Long> itemCapital, Map<String, Long> groupCapital,
-		Set<Integer> itemIds, long coins, long loss, double score, Search best)
+		Set<Integer> itemIds, long coins, long loss, double score, Search best,Map<PortfolioCandidate,Double> scores)
 	{
 		if (score > best.score)
 		{
@@ -189,7 +204,7 @@ public final class PortfolioOptimizer
 		double bound = score;
 		for (int i = index, slots = limits.getFreeSlots() - selected.size(); i < candidates.size() && slots > 0; i++, slots--)
 		{
-			bound += Math.max(0, candidates.get(i).expectedGpPerSlotHour());
+			bound += Math.max(0, scores.get(candidates.get(i)));
 		}
 		if (bound <= best.score)
 		{
@@ -204,7 +219,7 @@ public final class PortfolioOptimizer
             item=Math.addExact(itemCapital.getOrDefault(candidate.getItemId(),0L),candidate.getCapitalRequired());
             group=Math.addExact(groupCapital.getOrDefault(candidate.getGroup(),0L),candidate.getCapitalRequired());
         }catch(ArithmeticException overflow){
-            search(candidates,index+1,limits,selected,itemCapital,groupCapital,itemIds,coins,loss,score,best);return;
+            search(candidates,index+1,limits,selected,itemCapital,groupCapital,itemIds,coins,loss,score,best,scores);return;
         }
 		boolean groupAllowed = candidate.getGroup().isEmpty() || limits.getPerGroupCapitalCap() == 0
 			|| group <= limits.getPerGroupCapitalCap();
@@ -217,13 +232,13 @@ public final class PortfolioOptimizer
 			itemCapital.put(candidate.getItemId(), item);
 			groupCapital.put(candidate.getGroup(), group);
 			search(candidates, index + 1, limits, selected, itemCapital, groupCapital, itemIds,
-				nextCoins, nextLoss, score + candidate.expectedGpPerSlotHour(), best);
+				nextCoins, nextLoss, score + scores.get(candidate), best,scores);
 			selected.remove(selected.size() - 1);
 			itemIds.remove(candidate.getItemId());
 			restore(itemCapital, candidate.getItemId(), item - candidate.getCapitalRequired());
 			restore(groupCapital, candidate.getGroup(), group - candidate.getCapitalRequired());
 		}
-		search(candidates, index + 1, limits, selected, itemCapital, groupCapital, itemIds, coins, loss, score, best);
+		search(candidates, index + 1, limits, selected, itemCapital, groupCapital, itemIds, coins, loss, score, best,scores);
 	}
 
 	private static <T> void restore(Map<T, Long> map, T key, long value)

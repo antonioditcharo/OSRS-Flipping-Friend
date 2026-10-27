@@ -16,6 +16,24 @@ import static org.junit.Assert.assertTrue;
  */
 public class PortfolioOptimizerTest
 {
+    @Test public void commonHorizonObjectiveCanChooseTradeoffsInsideTheSameAccountLimits() {
+        var expensive=candidate(1,"A","g",100,180,100,400);
+        var first=candidate(2,"B","g",60,75,100,300);
+        var second=candidate(3,"C","g",40,55,100,300);
+        var raw=List.of(expensive,first,second);var limits=new PortfolioConstraints(2,10_000,600,10_000,10_000);
+        var calls=new java.util.IdentityHashMap<PortfolioCandidate,Integer>();
+        var plan=new PortfolioOptimizer().optimizePreferred(raw,limits,"comparison",NOW,c->{
+            calls.merge(c,1,Integer::sum);return c==expensive?1000:c==first?700:600;
+        });
+        assertEquals(2,plan.getAllocations().size());
+        assertTrue(plan.getAllocations().stream().noneMatch(a->a.getCandidate()==expensive));
+        assertTrue(calls.values().stream().allMatch(n->n==1));
+        assertEquals(1,new PortfolioOptimizer().optimizePreferred(raw,new PortfolioConstraints(2,10_000,400,10_000,10_000),
+            "risk",NOW,c->c==expensive?1000:700).getAllocations().size());
+        assertEquals(PortfolioPlanOutcome.NO_FREE_SLOT,new PortfolioOptimizer().optimizePreferred(null,
+            new PortfolioConstraints(0,10_000,600,0,0),"full",NOW,c->{throw new AssertionError();}).getOutcome());
+        assertTrue(new PortfolioOptimizer().optimizePreferred(raw,limits,"invalid",NOW,c->Double.NaN).getAllocations().isEmpty());
+    }
 	private static final long NOW = 10_000;
 
 	/** Net profit is supplied by the caller now, because exact tax needs the exempt-item list. */

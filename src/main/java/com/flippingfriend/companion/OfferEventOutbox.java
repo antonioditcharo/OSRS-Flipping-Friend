@@ -27,6 +27,10 @@ public final class OfferEventOutbox
     private final ReplaceCheckpoint checkpoint;
     /** Valid unsaved appends retain their exact IDs/order/bindings until this account can commit. */
     private final java.util.Map<String,State> unsaved=new java.util.HashMap<>();
+    /** Reuse a validated private state only after re-reading and comparing every committed byte. */
+    private State validatedState;
+    private long decodedImages;
+    synchronized long decodedImageCount(){return decodedImages;}
 
 	@Inject
 	public OfferEventOutbox(PluginStorage storage)
@@ -121,6 +125,11 @@ public final class OfferEventOutbox
                 && event.getFirstSeenAt()-event.getAdviceObservedAt()<=SuggestionLedger.ATTRIBUTION_WINDOW_SECONDS;
             // Equal second timestamps preserve diagnostic association, not ordering proof.
             OfferEvent bound=event.withBoundPrediction(timely?event:null,timely && event.getAdviceObservedAt()<event.getFirstSeenAt());
+            // Display context has its own accepted/captured ordering. Missing prediction evidence
+            // must not discard that context or create a prediction from it. Only this first source
+            // retains it; later observations still use the immutable original binding below.
+            var display=event.getDisplayedPricingContext();
+            if(display!=null && display.matches(event))bound=bound.withDisplayedPricingContext(display);
             updated.predictions.put(event.getSlot(),new PredictionBinding(bound,!bound.isPredictionComparable()));
             return bound;
         }
@@ -292,6 +301,9 @@ public final class OfferEventOutbox
 		Path file = storage.accountDir(accountId).resolve(FILE_NAME);
 		byte[] image=readImage(file);
 		if (image==null) return new State(UUID.randomUUID().toString(), accountId, file);
+        if(validatedState!=null && accountId.equals(validatedState.accountId) && file.equals(validatedState.file)
+            && java.util.Arrays.equals(image,validatedState.committedImage))return validatedState;
+        decodedImages++;
 		State state=gson.fromJson(new String(image,StandardCharsets.UTF_8),State.class);
 		if (state == null || state.formatVersion != FORMAT_VERSION || blank(state.sessionId)
 			|| state.nextSequence < 1 || state.pending == null)
@@ -405,6 +417,9 @@ public final class OfferEventOutbox
             || state.successorEpisodes.get(key).getAcceptedBuyPlanProof()==null)
             throw new IllegalStateException("invalid accepted buy plan refusal");
 		if (upgraded && !appending) write(state);
+        // Appending legacy state defers its upgrade to the observation transaction. A cache must
+        // not bypass that write or the original validation of the resulting file image.
+        if(!upgraded)validatedState=state;
 		return state;
 	}
     /** Worker-only retry. Ordinary readers must withhold authority without doing a forced write. */
@@ -441,6 +456,7 @@ public final class OfferEventOutbox
             verifyDestination(state);
             // Never fall back to a non-atomic replacement or expose an unforced delivery event.
 			Files.move(temp, file, StandardCopyOption.ATOMIC_MOVE,StandardCopyOption.REPLACE_EXISTING);
+            validatedState=null;
             state.committedImage=image;
             unsaved.remove(state.accountId,state);
 		}

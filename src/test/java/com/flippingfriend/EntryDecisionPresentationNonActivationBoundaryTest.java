@@ -25,9 +25,9 @@ public class EntryDecisionPresentationNonActivationBoundaryTest
         Assert.assertTrue(client.contains("EntryDecisionPresenter.present(decision, plan, explainer, requestedAccount)"));
         Assert.assertFalse(plugin.contains("companion.nextBuySuggestion("));
         Assert.assertFalse(plugin.contains("engine.buyFallback()"));
-        // Reviewed additive sale-policy receipt field/binding/copy; entry authority remains in
-        // CompanionClient, and sale acceptance grants no entry or placement permission.
-        Assert.assertEquals("1256CA7BBBC92907D840C5E456E71717C73C17A076A4D41530B781A3D8119478",
+        // Reviewed additive sale-policy bindings and bounded prospective display metadata.
+        // These capture settings/alternatives only; entry authority remains in CompanionClient.
+        Assert.assertEquals("997B73472F0158BD4EDE4738C69D204D3F4BAADEDE2C1886DA6FB00DEC6C2E00",
             sha256(suggestion));
     }
     private static String read(Path root, String path) throws Exception

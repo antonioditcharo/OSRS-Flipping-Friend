@@ -881,8 +881,7 @@ final class SqliteStore implements AutoCloseable
     private List<OfferEvent> offerHistory(String expectedAccountId) throws Exception {
         if (expectedAccountId==null) return null;
         checkCanonicalDataVersion(expectedAccountId);
-        List<OfferEvent> history=canonicalHistory;
-        boolean copied=false;
+        List<OfferEvent> appended=new ArrayList<>();
         long cursor=canonicalHistory==null?0:canonicalHistoryCursor;
         com.google.gson.Gson parser=new com.google.gson.Gson();
         // Reuse only exact immutable evidence within a cold read. Warm append decoding retains
@@ -900,16 +899,15 @@ final class SqliteStore implements AutoCloseable
                         || !expectedAccountId.equals(event.getAccountId()) || !TradeGapEvidence.valid(event)) {
                     discardCanonicalHistory(); return null;
                 }
-                if(!copied){history=new ArrayList<>(history==null?java.util.List.of():history);copied=true;}
-                history.add(event);
+                appended.add(event);
                 if(ContinuationSaleRead.disposalSource(event))canonicalSaleSources.put(event.getEventId(),event);
                 cursor=r.getLong(3);
             }
             }
         }
-        if(copied || canonicalHistory==null) {
+        if(!appended.isEmpty() || canonicalHistory==null) {
             var previous=canonicalHistory;
-            canonicalHistory=history==null?java.util.List.of():java.util.Collections.unmodifiableList(history);
+            canonicalHistory=CanonicalOfferPrefix.append(previous,appended);
             historicalFundingMemo.appendCanonical(previous,canonicalHistory);
             prospectiveGapMemo.appendCanonical(previous,canonicalHistory);
             continuationSaleIndex.appendCanonical(previous,canonicalHistory);

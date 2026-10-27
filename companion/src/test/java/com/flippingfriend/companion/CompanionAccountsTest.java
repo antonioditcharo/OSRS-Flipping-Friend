@@ -15,6 +15,25 @@ import static org.junit.Assert.*;
 
 public class CompanionAccountsTest
 {
+    @Test public void startupPreparationIsBoundedScopedAndSharesCanonicalAccountOpening() throws Exception {
+        Path root=folder.newFolder().toPath(),accountsRoot=root.resolve("accounts");
+        java.nio.file.Files.createDirectories(accountsRoot);
+        var ids=new java.util.ArrayList<String>();
+        for(int i=0;i<6;i++) {
+            String id=AccountIdentity.fromProfileKey("prepared-"+i);ids.add(id);
+            Path db=accountsRoot.resolve(id).resolve("flipping-friend.db");
+            try(var store=new SqliteStore(db)){}
+            java.nio.file.Files.setLastModifiedTime(db,java.nio.file.attribute.FileTime.fromMillis(1000L+i));
+        }
+        Path unassigned=accountsRoot.resolve("unassigned.db");java.nio.file.Files.writeString(unassigned,"preserved legacy");
+        try(var legacy=new SqliteStore(root.resolve("legacy.db"));var market=new CompanionService(new Gson(),legacy);
+            var accounts=new CompanionAccounts(accountsRoot,market)) {
+            var work=accounts.prepareExistingAccounts();assertSame(work,accounts.prepareExistingAccounts());
+            assertEquals(java.util.List.of(ids.get(5),ids.get(4),ids.get(3),ids.get(2)),work.get(10,java.util.concurrent.TimeUnit.SECONDS));
+            var service=accounts.forAccount(ids.get(5));assertSame(service,accounts.forAccount(ids.get(5)));
+            assertEquals("preserved legacy",java.nio.file.Files.readString(unassigned));
+        }
+    }
     @Rule public final TemporaryFolder folder = new TemporaryFolder();
     private final String one = AccountIdentity.fromProfileKey("one");
     private final String two = AccountIdentity.fromProfileKey("two");

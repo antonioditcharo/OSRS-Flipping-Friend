@@ -31,6 +31,9 @@ public class ExecutionForecastPublicationTest {
         client.recordPresentedAdvice(suggestion,suggestion.getAdviceAccountId());
         var advice=ledger.attribute(561,true,Instant.now().getEpochSecond());assertNotNull(advice);
         assertEquals("The displayed buy forecast was 70%, while the round trip was 35%",.7,advice.getPredictedCompletion(),1e-12);
+        var context=advice.getDisplayedPricingContext();assertNotNull(context);assertTrue(context.isValid());
+        assertEquals(advice.getAcceptedAdviceId(),context.getAdviceId());assertNull(context.getSourceEventId());
+        assertEquals(1,context.getAccountAlternatives().size());
     }
     @Test public void aProposedBuyIsNotEvidenceOfDisplayedAdvice()throws Exception {
         propose(client());
@@ -42,6 +45,18 @@ public class ExecutionForecastPublicationTest {
             .expectedMinutes(50).build());
         var advice=ledger.attribute(561,false,Instant.now().getEpochSecond());assertNotNull(advice);
         assertEquals("A missing sell forecast stays unknown",0,advice.getPredictedMinutes(),0);
+    }
+    @Test public void acceptedContextFreezesActualSettingsAndUnknownProfitStaysUnknown()throws Exception {
+        var client=client();Suggestion suggestion=propose(client);
+        var config=new DisplayedPricingContext.Configuration("MODERATE",30,120,10000,100000000,false);
+        suggestion.bindDisplayConfiguration(config);client.recordPresentedAdvice(suggestion,suggestion.getAdviceAccountId());
+        var first=ledger.attribute(561,true,Instant.now().getEpochSecond()).getDisplayedPricingContext();
+        assertNotNull(first);assertTrue(first.getConfigurationVersion().contains(":30:120:10000:"));
+        suggestion.bindDisplayConfiguration(new DisplayedPricingContext.Configuration("HIGH",480,480,1,0,false));
+        assertSame(config,suggestion.getDisplayConfiguration());
+        var personal=Suggestion.builder(SuggestionType.SELL).item(561,"Nature rune").quantity(10).price(100).profitKnown(false).build();
+        client.recordSellAdvice(personal);var sale=ledger.attribute(561,false,Instant.now().getEpochSecond()).getDisplayedPricingContext();
+        assertNotNull(sale);assertNull(sale.getExpectedProfit());assertNull(sale.getForecastFingerprint());
     }
     @Test public void aLateOrForeignProposalCannotEnterThePresentationLedger()throws Exception {
         var client=client();Suggestion proposed=propose(client);

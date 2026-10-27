@@ -15,6 +15,9 @@ final class CompanionAccounts implements AutoCloseable
     private final Map<String, CompanionService> services = new LinkedHashMap<>();
     private final Map<String, SqliteStore> stores = new LinkedHashMap<>();
     private boolean closed;
+    private final java.util.concurrent.ExecutorService preparation=java.util.concurrent.Executors.newSingleThreadExecutor(r->{
+        var t=new Thread(r,"flipping-friend-account-preparation");t.setDaemon(true);t.setPriority(Thread.MIN_PRIORITY);return t;});
+    private java.util.concurrent.CompletableFuture<List<String>> prepared;
     private final Map<String,java.util.concurrent.CompletableFuture<CompanionService>> opening=new LinkedHashMap<>();
     private PilotReplication replication;
     void useReplication(PilotReplication value){replication=value;}
@@ -33,6 +36,45 @@ final class CompanionAccounts implements AutoCloseable
         this.marketSource = marketSource;
         marketSource.useWarmShortlist(this::shortlist);
         marketSource.useWarmMaintenance(this::maintenance);
+    }
+
+    /** Start bounded read preparation before login, without holding the registry or an account lock. */
+    synchronized java.util.concurrent.CompletableFuture<List<String>> prepareExistingAccounts() {
+        if(prepared!=null)return prepared;
+        if(closed)throw new IllegalStateException("account services are closed");
+        prepared=java.util.concurrent.CompletableFuture.supplyAsync(()->{
+            var completed=new ArrayList<String>();
+            try {
+                if(!java.nio.file.Files.isDirectory(root))return List.<String>of();
+                var candidates=new ArrayList<Path>();
+                try(var dirs=java.nio.file.Files.list(root)) {
+                    dirs.limit(4096).filter(p->p.getFileName().toString().matches("rs-[0-9a-f]{64}"))
+                        .filter(this::existingScopedDatabase).forEach(candidates::add);
+                }
+                candidates.sort(java.util.Comparator.comparingLong((Path p)->{
+                    try{return java.nio.file.Files.getLastModifiedTime(p.resolve("flipping-friend.db")).toMillis();}
+                    catch(Exception unavailable){return Long.MIN_VALUE;}
+                }).reversed().thenComparing(p->p.getFileName().toString()));
+                for(Path path:candidates.subList(0,Math.min(4,candidates.size()))) {
+                    if(Thread.currentThread().isInterrupted())break;
+                    if(!existingScopedDatabase(path))continue;
+                    String account=path.getFileName().toString();long started=System.nanoTime();
+                    try {forAccount(account);completed.add(account);
+                        System.out.println("Existing account preparation complete: "+(System.nanoTime()-started)/1_000_000+" ms");}
+                    catch(Exception unavailable){System.err.println("Existing account preparation unavailable: "+unavailable.getClass().getSimpleName());}
+                }
+            }catch(Exception unavailable){System.err.println("Existing account preparation scan unavailable: "+unavailable.getClass().getSimpleName());}
+            return List.copyOf(completed);
+        },preparation);
+        return prepared;
+    }
+    private boolean existingScopedDatabase(Path directory) {
+        try {
+            Path file=directory.resolve("flipping-friend.db");
+            return !java.nio.file.Files.isSymbolicLink(directory) && !java.nio.file.Files.isSymbolicLink(file)
+                && java.nio.file.Files.isRegularFile(file,java.nio.file.LinkOption.NOFOLLOW_LINKS)
+                && file.toRealPath().startsWith(root.toRealPath());
+        }catch(Exception unavailable){return false;}
     }
 
     CompanionService forAccount(String accountId) throws Exception {
@@ -92,6 +134,7 @@ final class CompanionAccounts implements AutoCloseable
     @Override public synchronized void close() throws Exception
     {
         closed = true;
+        preparation.shutdownNow();
         Exception failure = null;
         for (CompanionService service : services.values()) service.close();
         for (SqliteStore store : stores.values())

@@ -55,6 +55,14 @@ import java.util.Map;
  */
 final class CandidateFactory
 {
+    /** Offline qualification only. Live services never enable an unqualified pricing objective. */
+    private int pricingCadence;
+    private double pricingHorizon;
+    void usePricingExperiment(int cadence,double hours) {
+        if(!List.of(0,5,30,120,480).contains(cadence) || !Double.isFinite(hours) || hours<0 || hours>48)
+            throw new IllegalArgumentException("Unsupported pricing experiment");
+        pricingCadence=cadence;pricingHorizon=hours;
+    }
 	private static final class HistoryAnalysis {
 		final long[] shortKey,longKey;
 		final int low;
@@ -817,8 +825,16 @@ final class CandidateFactory
 		}
 
         var qualified=new ArrayList<PortfolioCandidate>();
-        for(var changed:forecastTactics)if(tactics.stream().anyMatch(baseline->com.flippingfriend.model.EntryPriceGuard.noWorse(changed,baseline)))qualified.add(changed);
+        for(var changed:forecastTactics)if(pricingCadence>0 || tactics.stream().anyMatch(baseline->com.flippingfriend.model.EntryPriceGuard.noWorse(changed,baseline)))qualified.add(changed);
         tactics.addAll(qualified);
+        if(pricingCadence>0) {
+            for(int i=0;i<tactics.size();i++) {
+                var candidate=tactics.get(i);
+                tactics.set(i,candidate.withAccountPriceScenarios(com.flippingfriend.model.AccountPriceScenarios.entry(
+                    candidate,pricingCadence,pricingHorizon,screened.price,now.getEpochSecond(),tax)));
+            }
+            tactics.sort(Comparator.comparingDouble((PortfolioCandidate c)->c.getAccountPriceScenarios()==null?0:c.getAccountPriceScenarios().score()).reversed());
+        }else
 		// Keep only the strongest few. Near-duplicate tactics add branching to the optimizer's
 		// search without adding any real choice.
 		tactics.sort(Comparator.comparingDouble(PortfolioCandidate::expectedGpPerSlotHour).reversed());

@@ -1,23 +1,38 @@
 # Agent handoff
 
-Updated 26 October 2026 (America/Anchorage). Read AGENTS.md and TASKS.md.
+Updated 27 October 2026 (America/Anchorage). Read AGENTS.md and TASKS.md.
 Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
 ## Installed runtime
 
-PR #186 is installed, including #184 and all earlier workflow/chart/protected-pricing work.
+PR #188 is installed, including #186 and all earlier workflow/chart/protected-pricing work.
+Source `bc5bee2a9dd6b950f517ee6b32b1d32ae8d0abf5`, merge
+`95add1fbfff62d6a859da32fe18857fdc6885a87`, identical trees. Clean 2,476 Java (six existing skips),
+121 tooling, Java 11 and both exact-head CI platforms `40472136348` pass. Supported backup
+`20261027-002325-b206bfc5` restores 251 files; six configuration copies, 12 original tables and
+old/new original-risk reads pass. Fresh ordered eight-slot/projection proof and BUY/COLLECT guidance
+pass. Initial six BUY post-frame-ACK p95/max 709 ms, five COLLECT 383 ms; WAIT has 2,140 ms outliers.
+The first cold scoped GET still exceeds ten seconds. Sustained/manual acceptance remains open.
+[Current receipt](docs/history/optimization-stage-a-install-2026-10-27.md).
+
+Queued, not installed: `codex/account-pricing-qualification`. Adds chunked immutable canonical
+prefixes, byte-exact validated outbox read reuse, bounded pre-login account preparation, shared
+partial-fill/common-horizon entry and sale experiments, and 60/20/20 qualification/public capture
+tools and optional first-source display context. A lifecycle regression was corrected without
+creating prediction evidence; the existing 600-second association window is shared. Pricing
+experiments are offline only; no new loss or learning authority. Focused tests pass; full build/
+tooling/frozen equivalence/both CI/paired release remain pending. Hosted #188 synthetic hour passes
+(1,000 connected/100 active/72,000 decisions/zero errors/127.02 ms decision p95). The initial public
+capture stopped after 39 snapshots and stays incomplete. Private receipts: primary
+`local-data/optimization-pricing-20261026`.
+[Queued contract](docs/architecture/prepared-guidance-and-pricing-experiments.md).
+[Approved pass](docs/architecture/optimization-pricing-qualification.md).
+
+Previous #186 delivery:
 Tested source `b874cff2857dce94479f2661cdb0631f02d3e00e` and merge
 `70df699804f3b797e6d3bb51ead9940022de164d` have identical trees. Clean 2,451 Java tests (six existing
 skips), 121 tooling, Java 11 and both exact-head CI platforms pass in run `40446407196`.
 Documentation #187 is merged at `84f401b850f4d523081b9aa6050b4a46582f984c` after both CI checks.
-Queued, not installed: `codex/optimization-pricing-qualification`, implementing the owner's
-approved optimization/pricing plan. Initial source adds immutable-prefix original-context and
-execution-episode indexes, explicit main/editor delivery outcomes and expiry retry, hidden-view
-budget isolation, and latest-quote graph endpoints/connectors. Focused prefix, delivery and chart
-tests pass; full build/tooling, frozen comparison, CI, installation and soak remain pending.
-No new pricing, loss policy or learning authority is active. Private baseline/profiles/logs:
-primary `local-data/optimization-pricing-20261026`.
-[Approved pass](docs/architecture/optimization-pricing-qualification.md).
 
 The supported primary-checkout updater installed the frozen pair after RuneLite's ordinary Close
 control completed. No force kill, login or game input. Backup `20261026-200132-8982ebc8` restores
@@ -86,9 +101,10 @@ Every unchecked release requirement remains in TASKS. Extend the initial fresh A
 proof to sustained end-to-end timing including failed/missing
 outcomes; native charts; player-operated partial/cancel/late-fill/collect/relist/completion/restart.
 The first cold scoped-GET failure and independent UI/capture/persistence/worker budgets remain open.
-Next latency work: preserve original-proof/duplicate/rollback semantics while eliminating repeated
-`AcquisitionExitEvidence.read` and `executionPrediction` historical scans; classify SELL-to-WAIT
-outcomes before declaring maintenance delivery complete. No such follow-on Java source is queued.
+Installed #188 removes the original-context/execution scans and classifies main/editor outcomes.
+Next queued latency work preserves the exact sources while reducing history-reference copies,
+repeated outbox JSON decoding and first-account cold preparation. Controlled sale-revision/editor
+acceptance and sustained timing remain required; explanatory logs alone do not complete them.
 
 Next functional priority is the requested market-supported hold/adjust/bounded-loss comparison:
 immutable qualified market-exit evidence, durable account-budget enforcement, final authority and

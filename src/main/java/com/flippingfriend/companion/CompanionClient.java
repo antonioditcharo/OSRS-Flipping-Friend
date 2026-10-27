@@ -646,6 +646,10 @@ public class CompanionClient
                     buyPlan.getAcceptedAdviceId(),offer.getItemId(),buyPlan.getPrice(),buyPlan.getQuantity(),buyPlan.getRecordedAt(),
                     buyPlan.getAcceptedOrder(),buyPlan.getExitContext(),forecast).captured(offer.getFirstCaptureOrder()));
             }
+            var display=buyPlan!=null?buyPlan.getDisplayedPricingContext():advice==null?null:advice.getDisplayedPricingContext();
+            if(authenticated && offer.getQuantityFilled()==0 && start==now && display!=null)try {
+                builder.displayedPricingContext(display.bind(eventId,offer.getFirstCaptureOrder()));
+            }catch(RuntimeException unsupported){/* No optional context is preferable to a fabricated association. */}
             var event=builder.build();
             for(var proof:saleProofs)if(proof!=null && proof.isWellFormed() && proof.getReceipt().matchesEpisode(event)) {
                 event=event.withAcceptedSalePolicyProof(proof.captured(offer.getObservationCaptureOrder()));break;
@@ -917,7 +921,7 @@ public class CompanionClient
             && Double.isFinite(suggestion.getSellFillMinutes()) && suggestion.getSellFillMinutes()>0)
             exit=new com.flippingfriend.core.AcquisitionExitContext(suggestion.getTargetSellPrice(),stopPrice,suggestion.getSellFillMinutes());
         ledger.recorded(recommendation,suggestion.getItemId(),buying,suggestion.getPrice(),suggestion.getQuantity(),
-            suggestion.getQuoteAgeSeconds(),scalarValid ? minutes : 0,scalarValid ? probability : 0,forecast,exit,suggestion.getContinuationSuccessorProof());
+            suggestion.getQuoteAgeSeconds(),scalarValid ? minutes : 0,scalarValid ? probability : 0,forecast,exit,suggestion.getContinuationSuccessorProof(),suggestion,account);
         lastPresented = suggestion;
         lastPresentedSuccessorId=suggestion.getContinuationSuccessorProof()==null?null:suggestion.getContinuationSuccessorProof().getAcceptedAdviceId();
     }

@@ -60,6 +60,10 @@ final class EntryDecisionPresenter
             .adviceContext(account,plan.getCorrelationId(),Math.max(0,java.time.Instant.now().getEpochSecond()-plan.getCreatedAt()),plan.getExpiresAt())
             .legCompletionProbability(forecastConsistent ? matched.getDisplayBuyFillProbability() : null)
             .executionForecast(forecast)
+            .pricingContext(matched.getMarketPriceEvidence(),plan.getAllocations().stream()
+                .filter(a->a!=null && a.getCandidate()!=null).limit(4)
+                .map(a->new com.flippingfriend.core.DisplayedPricingContext.Alternative(a.getCandidate()))
+                .collect(java.util.stream.Collectors.toList()))
             .targetSellPrice(matched.getSellPrice())
             .headline("Buy " + explainer.formatNumber(matched.getQuantity()) + " × "
                 + matched.getItemName())

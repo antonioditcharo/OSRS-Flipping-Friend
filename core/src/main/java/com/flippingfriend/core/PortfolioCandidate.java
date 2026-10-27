@@ -77,6 +77,7 @@ public final class PortfolioCandidate
 	private final long expiresAt;
     private ExecutionForecast buyForecast,sellForecast;
     private MarketPriceEvidence marketPriceEvidence;
+    private com.flippingfriend.model.AccountPriceScenarios.Result accountPriceScenarios;
     /** Optional prospective plan analysis, separate from unchanged financial/execution identities. */
     public static final class MarketPriceEvidence {
         public final String modelVersion,historyFingerprint;
@@ -181,6 +182,7 @@ public final class PortfolioCandidate
 		this.expiresAt = from.expiresAt;
         this.buyForecast=from.buyForecast;this.sellForecast=from.sellForecast;
         this.marketPriceEvidence=from.marketPriceEvidence;
+        this.accountPriceScenarios=from.accountPriceScenarios;
 	}
 
     public PortfolioCandidate withForecasts(ExecutionForecast buy,ExecutionForecast sell) {
@@ -192,6 +194,13 @@ public final class PortfolioCandidate
     public ExecutionForecast getBuyForecast(){return buyForecast;}
     public ExecutionForecast getSellForecast(){return sellForecast;}
     public MarketPriceEvidence getMarketPriceEvidence(){return marketPriceEvidence;}
+    public com.flippingfriend.model.AccountPriceScenarios.Result getAccountPriceScenarios(){return accountPriceScenarios;}
+    public PortfolioCandidate withAccountPriceScenarios(com.flippingfriend.model.AccountPriceScenarios.Result result) {
+        if(result==null)return this;
+        if(result.itemId!=itemId || result.buyPrice!=targetBuyPrice || result.sellPrice!=targetSellPrice || result.quantity!=quantity)
+            throw new IllegalArgumentException("Scenario order mismatch");
+        PortfolioCandidate copy=new PortfolioCandidate(this,displayBuyFillProbability);copy.accountPriceScenarios=result;return copy;
+    }
     public PortfolioCandidate withMarketPrices(com.flippingfriend.model.PublicPriceForecast forecast,int seconds,int low,int high) {
         if(forecast==null)return this;
         var evidence=new MarketPriceEvidence(forecast,seconds,targetBuyPrice,targetSellPrice,low,high);

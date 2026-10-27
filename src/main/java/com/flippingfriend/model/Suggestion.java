@@ -52,6 +52,15 @@ public class Suggestion
     private com.flippingfriend.core.ContinuationSuccessorProof continuationSuccessorProof;
     private long quoteAgeSeconds,adviceExpiresAt;
     private com.flippingfriend.core.ExecutionForecast executionForecast;
+    private com.flippingfriend.core.DisplayedPricingContext.Configuration displayConfiguration;
+    private java.util.List<com.flippingfriend.core.DisplayedPricingContext.Alternative> displayAlternatives=java.util.List.of();
+    private com.flippingfriend.core.PortfolioCandidate.MarketPriceEvidence displayMarket;
+    public void bindDisplayConfiguration(com.flippingfriend.core.DisplayedPricingContext.Configuration configuration) {
+        if(displayConfiguration==null)displayConfiguration=configuration;
+    }
+    public com.flippingfriend.core.DisplayedPricingContext.Configuration getDisplayConfiguration(){return displayConfiguration;}
+    public java.util.List<com.flippingfriend.core.DisplayedPricingContext.Alternative> getDisplayAlternatives(){return displayAlternatives;}
+    public com.flippingfriend.core.PortfolioCandidate.MarketPriceEvidence getDisplayMarket(){return displayMarket;}
     private Double legCompletionProbability;
 
 	private Suggestion(SuggestionType type, int itemId, String itemName, int price, int quantity, int slot,
@@ -295,6 +304,13 @@ public class Suggestion
         private String continuationOriginIdentity;
         private long quoteAgeSeconds,adviceExpiresAt;
         private com.flippingfriend.core.ExecutionForecast executionForecast;
+        private java.util.List<com.flippingfriend.core.DisplayedPricingContext.Alternative> displayAlternatives=java.util.List.of();
+        private com.flippingfriend.core.PortfolioCandidate.MarketPriceEvidence displayMarket;
+        public Builder pricingContext(com.flippingfriend.core.PortfolioCandidate.MarketPriceEvidence market,
+                java.util.List<com.flippingfriend.core.DisplayedPricingContext.Alternative> alternatives) {
+            if(alternatives==null || alternatives.size()>4)throw new IllegalArgumentException("Bounded account alternatives required");
+            displayMarket=market;displayAlternatives=java.util.List.copyOf(alternatives);return this;
+        }
         private Double legCompletionProbability;
 
 		private Builder(SuggestionType type)
@@ -410,6 +426,7 @@ public class Suggestion
             suggestion.continuationOriginIdentity=continuationOriginIdentity;
             suggestion.quoteAgeSeconds=quoteAgeSeconds;suggestion.adviceExpiresAt=adviceExpiresAt;
             suggestion.executionForecast=executionForecast;suggestion.legCompletionProbability=legCompletionProbability;
+            suggestion.displayAlternatives=displayAlternatives;suggestion.displayMarket=displayMarket;
 			return suggestion;
 		}
 	}

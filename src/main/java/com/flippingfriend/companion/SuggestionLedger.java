@@ -31,7 +31,7 @@ public class SuggestionLedger
 	 * to a booth and typing an offer; short enough that an unrelated trade in the same item an hour
 	 * later is not credited to it.
 	 */
-	static final long ATTRIBUTION_WINDOW_SECONDS = 600;
+	static final long ATTRIBUTION_WINDOW_SECONDS = com.flippingfriend.core.AdviceObservationWindow.SECONDS;
 	/** Bounded so a long session cannot grow this without limit. */
 	private static final int MAX_ENTRIES = 64;
 
@@ -83,6 +83,13 @@ public class SuggestionLedger
     public synchronized void recorded(String recommendationId,int itemId,boolean buying,int price,int quantity,
             long quoteAgeSeconds,double predictedMinutes,double predictedCompletion,com.flippingfriend.core.ExecutionForecast forecast,
             com.flippingfriend.core.AcquisitionExitContext exitContext,com.flippingfriend.core.ContinuationSuccessorProof successorProof)
+    {
+        recorded(recommendationId,itemId,buying,price,quantity,quoteAgeSeconds,predictedMinutes,predictedCompletion,forecast,exitContext,successorProof,null,null);
+    }
+    public synchronized void recorded(String recommendationId,int itemId,boolean buying,int price,int quantity,
+            long quoteAgeSeconds,double predictedMinutes,double predictedCompletion,com.flippingfriend.core.ExecutionForecast forecast,
+            com.flippingfriend.core.AcquisitionExitContext exitContext,com.flippingfriend.core.ContinuationSuccessorProof successorProof,
+            com.flippingfriend.model.Suggestion displayed,String expectedAccount)
 	{
 		if (recommendationId == null || recommendationId.isEmpty() || itemId <= 0)
 		{
@@ -111,7 +118,7 @@ public class SuggestionLedger
 			? previous.suggestedAt
 			: now;
         Advice current=new Advice(recommendationId, price, quantity,
-            quoteAgeSeconds, predictedMinutes, predictedCompletion, since, now,forecast,exitContext,successorProof);
+            quoteAgeSeconds, predictedMinutes, predictedCompletion, since, now,forecast,exitContext,successorProof,displayed,itemId,buying,expectedAccount);
         outstanding.put(key,current);
         displayedSuccessorAdvice=successorProof==null?null:current;
         displayedBuyPlanAdvice=buying && exitContext!=null && exitContext.isValid() && !exitContext.isBound()
@@ -194,15 +201,16 @@ public class SuggestionLedger
         private final com.flippingfriend.core.CaptureOrder acceptedOrder;
         private final com.flippingfriend.core.ContinuationSuccessorProof continuationSuccessorProof;
         private final String acceptedAdviceId;
+        private final com.flippingfriend.core.DisplayedPricingContext displayedPricingContext;
 		Advice(String recommendationId, int price, int quantity, long quoteAgeSeconds,
 			double predictedMinutes, double predictedCompletion, long suggestedAt)
 		{
-			this(recommendationId,price,quantity,quoteAgeSeconds,predictedMinutes,predictedCompletion,suggestedAt,suggestedAt,null,null,null);
+			this(recommendationId,price,quantity,quoteAgeSeconds,predictedMinutes,predictedCompletion,suggestedAt,suggestedAt,null,null,null,null,0,false,null);
 		}
 		private Advice(String recommendationId, int price, int quantity, long quoteAgeSeconds,
 			double predictedMinutes, double predictedCompletion, long suggestedAt, long recordedAt,
             com.flippingfriend.core.ExecutionForecast forecast,com.flippingfriend.core.AcquisitionExitContext exitContext,
-            com.flippingfriend.core.ContinuationSuccessorProof successorProof)
+            com.flippingfriend.core.ContinuationSuccessorProof successorProof,com.flippingfriend.model.Suggestion displayed,int item,boolean buying,String expectedAccount)
 		{
 			this.recommendationId = recommendationId;
 			this.price = price;
@@ -217,6 +225,13 @@ public class SuggestionLedger
             this.continuationSuccessorProof=successorProof;
             this.acceptedOrder=com.flippingfriend.core.CaptureOrder.next();
             this.acceptedAdviceId=java.util.UUID.randomUUID().toString();
+            com.flippingfriend.core.DisplayedPricingContext context=null;
+            if(displayed!=null && displayed.getItemId()==item && displayed.getPrice()==price && displayed.getQuantity()==quantity)try {
+                context=new com.flippingfriend.core.DisplayedPricingContext(expectedAccount,acceptedAdviceId,buying?"BUY":"SELL",item,price,quantity,
+                    recordedAt,acceptedOrder,displayed.isProfitKnown()?displayed.getExpectedProfit():null,displayed.getDetail(),forecast,
+                    displayed.getDisplayConfiguration(),displayed.getDisplayAlternatives(),displayed.getDisplayMarket());
+            }catch(RuntimeException unsupported){/* Optional metadata cannot interrupt financial observation. */}
+            this.displayedPricingContext=context;
 		}
 
 		/** Whether this is the same recommendation repeated, rather than a genuinely new one. */
@@ -235,6 +250,7 @@ public class SuggestionLedger
 		/** Availability of this prediction snapshot, distinct from the first identical order display. */
 		public long getRecordedAt() { return recordedAt; }
         public com.flippingfriend.core.ExecutionForecast getForecast(){return forecast;}
+        public com.flippingfriend.core.DisplayedPricingContext getDisplayedPricingContext(){return displayedPricingContext;}
         public com.flippingfriend.core.AcquisitionExitContext getExitContext(){return exitContext;}
         public com.flippingfriend.core.CaptureOrder getAcceptedOrder(){return acceptedOrder;}
         public String getAcceptedAdviceId(){return acceptedAdviceId;}
