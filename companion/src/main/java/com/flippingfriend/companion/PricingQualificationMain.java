@@ -48,7 +48,7 @@ public final class PricingQualificationMain {
     }
     static void freeze(Path source,Path exclusions,Path output)throws Exception {
         byte[] input=AccountReplayMain.read(source),excluded=AccountReplayMain.read(exclusions);
-        var data=JSON.fromJson(new String(input,StandardCharsets.UTF_8),AccountReplayInput.class);data.validate();
+        var data=FrozenReplayInputs.load(source);data.validate();
         var prior=JSON.fromJson(new String(excluded,StandardCharsets.UTF_8),Exclusions.class);
         if(prior==null || !"1".equals(prior.schemaVersion) || prior.tunedThrough==null || prior.tunedThrough<0
             || prior.inputSha256==null || prior.inputSha256.isEmpty() || prior.availabilityEvidence==null
@@ -62,7 +62,7 @@ public final class PricingQualificationMain {
         manifest.artifactSha256=artifactIdentity();manifest.startAt=data.startAt;manifest.endAt=data.endAt;
         manifest.fitEnd=data.startAt+duration*3/5;manifest.validationEnd=data.startAt+duration*4/5;
         Path out=AccountReplayMain.privateNewDirectory(output);Files.createDirectory(out);
-        Files.write(out.resolve("input.json"),input,StandardOpenOption.CREATE_NEW);
+        FrozenReplayInputs.copy(source,out.resolve("input.json"));
         Files.write(out.resolve("exclusions.json"),excluded,StandardOpenOption.CREATE_NEW);
         Path code=Path.of(PricingQualificationMain.class.getProtectionDomain().getCodeSource().getLocation().toURI());
         if(Files.isRegularFile(code))Files.write(out.resolve("evaluator.jar.bin"),AccountReplayMain.read(code),StandardOpenOption.CREATE_NEW);
@@ -82,17 +82,16 @@ public final class PricingQualificationMain {
         long duration=manifest.endAt-manifest.startAt;
         if(duration<1500 || manifest.fitEnd!=manifest.startAt+duration*3/5 || manifest.validationEnd!=manifest.startAt+duration*4/5)
             throw new IllegalArgumentException("Chronological boundaries changed");
+        FrozenReplayInputs.load(cohort.resolve("input.json")).validate();
         return manifest;
     }
     static AccountReplayInput slice(AccountReplayInput input,long start,long end) {
-        var copy=JSON.fromJson(JSON.toJson(input),AccountReplayInput.class);
-        copy.startAt=start;copy.endAt=end;copy.frames.removeIf(f->f.availableAt>end);
-        copy.restartAt.removeIf(at->at<=start || at>=end);copy.validate();return copy;
+        return input.window(start,end);
     }
     static void evaluate(Path cohort,String fold)throws Exception {
         if(!Set.of("fit","validation","test").contains(fold))throw new IllegalArgumentException("Unknown chronological fold");
         Manifest manifest=verify(cohort);
-        var input=JSON.fromJson(Files.readString(cohort.resolve("input.json")),AccountReplayInput.class);input.validate();
+        var input=FrozenReplayInputs.load(cohort.resolve("input.json"));input.validate();
         if(input.startAt!=manifest.startAt || input.endAt!=manifest.endAt)throw new IllegalArgumentException("Cohort boundaries disagree");
         var exclusions=JSON.fromJson(Files.readString(cohort.resolve("exclusions.json")),Exclusions.class);
         Set<Integer> eligible=new HashSet<>(List.of(5,30,120,480));

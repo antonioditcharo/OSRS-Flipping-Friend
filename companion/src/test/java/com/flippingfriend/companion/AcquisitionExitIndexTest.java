@@ -25,8 +25,10 @@ public class AcquisitionExitIndexTest {
         var index=new AcquisitionExitEvidence.Index();var a=modern("one","same-advice",at);
         List<OfferEvent> first=List.of(a,fixture.independentFill(a,at+3,2,202));
         index.appendCanonical(null,first);equal(index,first);var snapshot=index.read(first);assertEquals(2,snapshot.size());
+        long revision=index.existingContextRevision();
         var values=new ArrayList<>(first);values.add(modern("two","same-advice",at+4));List<OfferEvent> next=List.copyOf(values);
         index.appendCanonical(first,next);equal(index,next);assertTrue(index.read(next).isEmpty());assertEquals(2,snapshot.size());
+        assertTrue(index.existingContextRevision()>revision);
         try{snapshot.clear();fail("A consumer cannot corrupt prepared context");}catch(UnsupportedOperationException expected){}
     }
     @Test public void duplicateAdviceCannotEraseALaterLegacyContributionWithTheSameEventId() {

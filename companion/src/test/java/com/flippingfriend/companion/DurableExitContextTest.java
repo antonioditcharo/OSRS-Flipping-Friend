@@ -151,6 +151,27 @@ public class DurableExitContextTest {
         return event(filled==10?"BOUGHT":"BUYING",origin.getOfferIdentity(),origin.getFirstSeenAt(),when,10,filled,spent,null)
             .withAcceptedBuyPlanProof(origin.getAcceptedBuyPlanProof());
     }
+    @Test public void conflictingLaterOriginalWithdrawsCachedContextWithoutANewEconomicEffect()throws Exception {
+        Path db=folder.newFolder().toPath().resolve("cached-conflict.db");
+        try(var store=new SqliteStore(db)) {
+            for(int item:new int[]{562,563})accept(store,OfferEvent.builder("fixture",AT-20+item-562,"BUYING")
+                .accountId(account).authenticatedObservation(true).eventIdentity("gap-"+item,"session","gap")
+                .slot(7).sequence(++sequence).item(item,"Unrelated gap").buying(true).price(100).quantities(10,0).build());
+            clear(store,AT-1);var original=independentOpen("first","same-advice",AT,AT+1,0);accept(store,original);
+            accept(store,independentFill(original,AT+2,10,1010));clear(store,AT+3);
+            var before=store.planningProjections(account).tradeScope.positions.get(561);assertNotNull(before.getExitContext());
+            int effects=store.positionEventCount();
+            accept(store,independentOpen("conflicting","same-advice",AT+4,AT+5,0));
+            assertEquals("An unfilled new order has no accounting delta",effects,store.positionEventCount());
+            var warm=store.planningProjections(account).tradeScope.positions.get(561);
+            assertNull("A duplicate prospective claim revokes context immediately",warm.getExitContext());
+            assertEquals(10,warm.getQuantity());assertEquals(1010,warm.getTotalCost());
+            try(var cold=SqliteStore.openReadOnly(db)) {
+                assertEquals(json.toJsonTree(cold.planningProjections(account).tradeScope.positions),
+                    json.toJsonTree(store.planningProjections(account).tradeScope.positions));
+            }
+        }
+    }
     @Test public void independentlyAcceptedPlanSurvivesPartialFillsRestartAndSaleWithoutLearningOrFinancialRewrite()throws Exception {
         Path db=folder.newFolder().toPath().resolve("independent.db");OfferEvent origin;
         try(var store=new SqliteStore(db)) {

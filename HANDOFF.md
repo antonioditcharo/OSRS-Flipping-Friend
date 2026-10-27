@@ -5,27 +5,31 @@ Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
 ## Installed runtime
 
-PR #188 is installed, including #186 and all earlier workflow/chart/protected-pricing work.
-Source `bc5bee2a9dd6b950f517ee6b32b1d32ae8d0abf5`, merge
-`95add1fbfff62d6a859da32fe18857fdc6885a87`, identical trees. Clean 2,476 Java (six existing skips),
-121 tooling, Java 11 and both exact-head CI platforms `40472136348` pass. Supported backup
-`20261027-002325-b206bfc5` restores 251 files; six configuration copies, 12 original tables and
-old/new original-risk reads pass. Fresh ordered eight-slot/projection proof and BUY/COLLECT guidance
-pass. Initial six BUY post-frame-ACK p95/max 709 ms, five COLLECT 383 ms; WAIT has 2,140 ms outliers.
-The first cold scoped GET still exceeds ten seconds. Sustained/manual acceptance remains open.
-[Current receipt](docs/history/optimization-stage-a-install-2026-10-27.md).
+PR #189 is installed, including #188/#186 and earlier workflow/chart/protected-pricing work.
+Source `926d0664f4c4939a4fc19906d079831a25618b2b`, merge
+`32a69711b52b0f6286c9cff8c19f9b8d3a9d007d`, identical trees. Clean 2,493 Java (six existing skips),
+126 tooling, Java 11 and both exact-head CI platforms `40536305854` pass. Supported backup
+`20261027-081233-7a36f748` restores 252 files; six configuration copies, 12 original tables and
+old/new original-risk reads pass. First scoped GET after background startup preparation passes;
+retain the earlier #188 cold timeout. Fresh ordered eight-slot/projection proof, main/editor SELL
+logs and native BUY guidance pass. Initial SELL post-frame-ACK includes 1,669/1,012/603 ms; sustained
+latency, cached render and controlled full-workflow acceptance remain open.
+[Current receipt](docs/history/optimization-stage-b-install-2026-10-27.md),
+[previous #188 receipt](docs/history/optimization-stage-a-install-2026-10-27.md).
 
-Queued, not installed: `codex/account-pricing-qualification`. Adds chunked immutable canonical
-prefixes, byte-exact validated outbox read reuse, bounded pre-login account preparation, shared
-partial-fill/common-horizon entry and sale experiments, and 60/20/20 qualification/public capture
-tools and optional first-source display context. A lifecycle regression was corrected without
-creating prediction evidence; the existing 600-second association window is shared. Pricing
-experiments are offline only; no new loss or learning authority. Focused tests pass; full build/
-tooling/frozen equivalence/both CI/paired release remain pending. Hosted #188 synthetic hour passes
+Installed #189 adds chunked immutable prefixes, exact-byte outbox read reuse, bounded pre-login
+preparation, offline common-horizon entry/sale experiments, qualification/capture tools and optional
+first-source display context. Context cannot create prediction evidence; the existing 600-second
+association window is shared. Pricing experiments remain offline; no new loss/learning authority.
+Queued `codex/compact-public-cohorts`: persistent original-context snapshots, incremental unchanged-
+frame preparation and compact public capture/referenced replay. Warm #189 JFR still finds full-map
+copies/history walks; store monitor waits reach 2.205s. Fresh source/financial/full-build/CI/release
+checks remain required. [Queued contract](docs/architecture/compact-public-cohorts-and-scope-preparation.md).
+Hosted #188 synthetic hour passes
 (1,000 connected/100 active/72,000 decisions/zero errors/127.02 ms decision p95). The initial public
 capture stopped after 39 snapshots and stays incomplete. Private receipts: primary
 `local-data/optimization-pricing-20261026`.
-[Queued contract](docs/architecture/prepared-guidance-and-pricing-experiments.md).
+[Installed research contract](docs/architecture/prepared-guidance-and-pricing-experiments.md).
 [Approved pass](docs/architecture/optimization-pricing-qualification.md).
 
 Previous #186 delivery:
@@ -101,9 +105,10 @@ Every unchecked release requirement remains in TASKS. Extend the initial fresh A
 proof to sustained end-to-end timing including failed/missing
 outcomes; native charts; player-operated partial/cancel/late-fill/collect/relist/completion/restart.
 The first cold scoped-GET failure and independent UI/capture/persistence/worker budgets remain open.
-Installed #188 removes the original-context/execution scans and classifies main/editor outcomes.
-Next queued latency work preserves the exact sources while reducing history-reference copies,
-repeated outbox JSON decoding and first-account cold preparation. Controlled sale-revision/editor
+Installed #189 prepares original-context/execution sources, classifies main/editor outcomes and
+reduces history-reference copies, repeated outbox decoding and cold startup work. The next profile-
+driven pass removes full context-map copies and repeated unchanged-frame recovery scans.
+Controlled sale-revision/editor
 acceptance and sustained timing remain required; explanatory logs alone do not complete them.
 
 Next functional priority is the requested market-supported hold/adjust/bounded-loss comparison:
