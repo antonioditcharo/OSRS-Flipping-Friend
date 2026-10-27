@@ -17,9 +17,11 @@ and retained backup `20261026-154703-1f152085`. A 195-file disposable restoratio
 restores and old/new Java 11 ledger/stock/scope/continuation/exposure/original-risk-window reads pass.
 Five configuration files are byte-identical; only the hosted writer generation advanced once via
 `PilotGateway.load`, with every credential/feature field preserved. Manifest/JAR hashes, status,
-launcher compatibility and the account-scoped GET-only pipeline pass. RuneLite reopened; no login
-or game action was performed. Fresh frames, visible suggestions and sustained/full-loop player
-acceptance remain pending; do not request them while the owner is away.
+launcher compatibility and the account-scoped GET-only pipeline pass. RuneLite reopened. The owner
+then logged in/opened GE: fresh authenticated ordered eight-slot sources, matching projections,
+an empty pending outbox, visible full-slot guidance and logged BUY/SELL/MODIFY_SELL/COLLECT pass.
+Repeated five-second timeouts still occur; sustained latency and controlled full-loop/chart
+acceptance remain open. All login/game actions were manual.
 [Delivery receipt](docs/history/pricing-and-cold-install-2026-10-26.md).
 Private receipt: primary `local-data/runtime182-install-20261026/installation-receipt.json`.
 
@@ -69,22 +71,28 @@ private `verification-receipt.json`. Installed with the paired preservation chec
 acceptance remains deferred. [Contract](docs/architecture/cold-canonical-decoding.md).
 Private research: `local-data/cold-offer-decoding-20261026` in the primary checkout.
 
-Next source branch `codex/transport-latency-totals` closes the measurement gap left by logging only
-requests over 750 ms. Bounded account/diagnostic-epoch totals cover completed HTTP invocations,
-including fast failures, with rate-limited cumulative-prefix summaries. Eleven new tests and
-stronger existing real-loopback ACK/retry checks cover isolation, partitions, privacy, concurrency
-and unchanged outboxes. HTTP/body/scope success is distinct from durable ACK, typed-body validation
-and actual guidance. Timeouts, retries, outbox delivery, financial controls and main-panel waits
-are unchanged. Clean/tooling/exact-head CI and delivery are separate gates; consult its PR and
-primary `local-data/transport-totals-20261026`. Source only, queued for a batched installation;
-#182 remains installed. [Contract](docs/architecture/transport-latency-totals.md).
+PR #183 is merged (`14813d6241853a87f68ec633a64ad66793e81ba0`): bounded diagnostic transport
+prefixes, 2,430 Java tests (six existing skips), 121 tooling, Java 11 and both exact-head CI jobs
+pass in run `40425796819`. Eleven new tests preserve account isolation and original outboxes.
+HTTP/body/scope success grants no financial ACK or guidance. Source only; queued into the next
+batch below. [Contract](docs/architecture/transport-latency-totals.md). Private receipt:
+primary `local-data/transport-totals-20261026/verification-receipt.json`.
+
+Next branch `codex/indexed-offer-episode-lookup` fixes a concrete live delivery stall: the new-offer
+identity guard scans historical JSON under the delivery monitors. Full-depth JFR includes 103
+native SQLite samples there; a related planner wait reaches 2.637 seconds. Two additive indexes
+merge exactly the original matching/uncertain-source rows, preserving rejection and final Gson
+checks. Four new golden/native-budget/archive tests and nine cleared-episode/six lookup regressions
+pass. A frozen 183,995-event account is captured read-only. Full build, frozen comparison, CI and
+paired preservation/release checks remain gates; #182 is still installed. This batch includes #183.
+[Contract](docs/architecture/indexed-offer-episode-lookup.md). Private `local-data/live-ack-20261026`.
 
 The earlier transient forecast-hash cache remains rejected; its invalid artifact-path run and
 corrected measurements are retained. It is absent from this source and is not releasable.
 [Earlier profile](docs/history/cold-ledger-profile-2026-10-26.md).
 
-The complete unchecked list remains in TASKS. Accept the installed combined update when the owner returns through
-fresh ordered eight-slot ACKs, visible useful guidance, retained trades, sustained latency and
+The complete unchecked list remains in TASKS. Finish acceptance of the installed combined update through
+retained trades, sustained latency and
 player-operated cancel/late-fill/collect/relist/restart. Read the
 [report/startup contract](docs/architecture/report-and-replication-latency.md) and
 [recovered chart contract](docs/architecture/day-ahead-chart-forecasts.md).
