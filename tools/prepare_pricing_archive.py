@@ -62,6 +62,7 @@ def prepare(source, output, count=24):
     selected = sorted(item for _, item in sorted(initial, reverse=True)[:count])
     if not selected:
         raise ValueError('No initial history-supported catalogue')
+    initial_hourly = [item for item in selected if histories.get((item, '1h'))]
     histories = {key: value for key, value in histories.items() if key[0] in selected}
     output.mkdir()
     target = Blobs(output / 'blobs')
@@ -132,7 +133,7 @@ def prepare(source, output, count=24):
     receipt = {'schemaVersion': 2, 'inputSha256': sha(raw), 'captureManifestSha256': sha(manifest_bytes),
                'availabilityEvidence': 'RECORDED_PUBLIC_AVAILABILITY', 'selectedItems': selected,
                'initialEligibleItems': len(initial),
-               'initialHourlyHistoryItems': [item for item in selected if any(entry['key'] == f'{item}@1h' for entry in series['entries'])],
+               'initialHourlyHistoryItems': initial_hourly,
                'startAt': start, 'endAt': end, 'captureFailures': failures,
                'revisions': revisions, 'compressedPublicBytes': target.used,
                'scope': 'PUBLIC_SCENARIOS_NOT_EXECUTION_OR_PROMOTION'}
