@@ -9,7 +9,7 @@ import java.util.*;
 /** Separate chronological pricing experiment. No live store, policy switch or learning promotion. */
 public final class PricingQualificationMain {
     private static final Gson JSON=new Gson();
-    private static final String VERSION="PRICING_QUALIFICATION_V1";
+    private static final String VERSION="PRICING_QUALIFICATION_V2";
     static final class Exclusions {
         String schemaVersion;
         Long tunedThrough;
@@ -34,10 +34,12 @@ public final class PricingQualificationMain {
         final String fold,cohortSha256,artifactSha256;
         final List<Pair> comparisons;
         final Map<Integer,String> cadenceOutcomes;
-        Report(String fold,Manifest manifest,List<Pair> pairs,Map<Integer,String> outcomes) {
+        final PricingForecastCalibration.Report forecastCalibration;
+        Report(String fold,Manifest manifest,List<Pair> pairs,Map<Integer,String> outcomes,PricingForecastCalibration.Report calibration) {
             method=VERSION;policy=AccountPriceScenarios.VERSION;
             this.fold=fold;cohortSha256=manifest.inputSha256;artifactSha256=manifest.artifactSha256;
             comparisons=List.copyOf(pairs);cadenceOutcomes=Collections.unmodifiableMap(new TreeMap<>(outcomes));
+            forecastCalibration=calibration;
         }
     }
     private PricingQualificationMain(){}
@@ -116,6 +118,7 @@ public final class PricingQualificationMain {
         long start="fit".equals(fold)?manifest.startAt:"validation".equals(fold)?manifest.fitEnd:manifest.validationEnd;
         long end="fit".equals(fold)?manifest.fitEnd:"validation".equals(fold)?manifest.validationEnd:manifest.endAt;
         var data=slice(input,start,end);var pairs=new ArrayList<Pair>();var outcomes=new TreeMap<Integer,String>();
+        var calibration=PricingForecastCalibration.evaluate(data,start,end);
         for(int cadence:new int[]{5,30,120,480}) {
             if(!eligible.contains(cadence)){outcomes.put(cadence,"NOT_RUN_VALIDATION_FAILED");continue;}
             for(int share:new int[]{10,50,100}) {
@@ -124,18 +127,20 @@ public final class PricingQualificationMain {
                 try(var replay=new AccountReplay(data,cadence,share,out.resolve("challenger-"+cadence+"-"+share+".db"),null,null,true)){changed=replay.run();}
                 pairs.add(new Pair(cadence,share,base,changed));
             }
-            outcomes.put(cadence,outcome(pairs,cadence,end-start,exclusions.availabilityEvidence));
+            outcomes.put(cadence,outcome(pairs,cadence,end-start,exclusions.availabilityEvidence,calibration));
         }
-        var report=new Report(fold,manifest,pairs,outcomes);
+        var report=new Report(fold,manifest,pairs,outcomes,calibration);
         byte[] result=AccountReplayMain.bytes(report);
         Files.write(out.resolve("results.json"),result,StandardOpenOption.CREATE_NEW);
         Files.write(out.resolve("receipt.json"),AccountReplayMain.bytes(Map.of("sha256",ExecutionEvaluationMain.hash(result),
             "cohort",manifest.inputSha256,"artifact",manifest.artifactSha256,"fold",fold)),StandardOpenOption.CREATE_NEW);
         System.out.println(JSON.toJson(outcomes));
     }
-    private static String outcome(List<Pair> pairs,int cadence,long duration,String clocks) {
+    private static String outcome(List<Pair> pairs,int cadence,long duration,String clocks,PricingForecastCalibration.Report calibration) {
         if(!"RECORDED_PUBLIC_AVAILABILITY".equals(clocks))return "UNSUPPORTED_AVAILABILITY_CLOCKS";
         if(duration<Math.max(86400,cadence*60L*6))return "INSUFFICIENT_ELAPSED_COVERAGE";
+        String support=calibration.support(cadence);
+        if(!"SUPPORTED_PUBLIC_FORECASTS_ONLY".equals(support))return support;
         var shares=new HashSet<Integer>();
         for(var p:pairs)if(p.cadenceMinutes==cadence) {
             if(!shares.add(p.captureShareBps) || !Set.of(10,50,100).contains(p.captureShareBps))return "INVALID_STRESS_COVERAGE";

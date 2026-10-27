@@ -5,29 +5,39 @@ Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
 ## Installed runtime
 
-PR #189 is installed, including #188/#186 and earlier workflow/chart/protected-pricing work.
-Source `926d0664f4c4939a4fc19906d079831a25618b2b`, merge
-`32a69711b52b0f6286c9cff8c19f9b8d3a9d007d`, identical trees. Clean 2,493 Java (six existing skips),
-126 tooling, Java 11 and both exact-head CI platforms `40536305854` pass. Supported backup
-`20261027-081233-7a36f748` restores 252 files; six configuration copies, 12 original tables and
-old/new original-risk reads pass. First scoped GET after background startup preparation passes;
-retain the earlier #188 cold timeout. Fresh ordered eight-slot/projection proof, main/editor SELL
-logs and native BUY guidance pass. Initial SELL post-frame-ACK includes 1,669/1,012/603 ms; sustained
-latency, cached render and controlled full-workflow acceptance remain open.
-[Current receipt](docs/history/optimization-stage-b-install-2026-10-27.md),
+PR #190 is installed, including #189/#188/#186 and earlier workflow/chart/protected-pricing work.
+Source `a8b2c134f69d868f6636b9f78768e1ff0594221e`, merge
+`4198e215ccd7633be4311b55b346237f7d3cbc55`, identical trees. Clean 2,504 Java (six existing skips),
+132 tooling, Java 11 and both exact-head CI platforms `40546616198` pass. Supported backup
+`20261027-091216-f89a7888` restores 255 files; six configuration copies, 12 original tables and
+old/new original-risk reads pass, including intervening trades. First scoped GET after background
+preparation passes; retain the earlier cold failures. RuneLite reopened; fresh #190 login/guidance
+and sustained/manual acceptance remain open. Earlier #189 ordered frame, main/editor SELL and
+native BUY pass, with initial SELL post-ACK outliers 1,669/1,012/603 ms.
+[Current receipt](docs/history/incremental-scope-install-2026-10-27.md),
+[previous #189 receipt](docs/history/optimization-stage-b-install-2026-10-27.md),
 [previous #188 receipt](docs/history/optimization-stage-a-install-2026-10-27.md).
 
 Installed #189 adds chunked immutable prefixes, exact-byte outbox read reuse, bounded pre-login
 preparation, offline common-horizon entry/sale experiments, qualification/capture tools and optional
 first-source display context. Context cannot create prediction evidence; the existing 600-second
 association window is shared. Pricing experiments remain offline; no new loss/learning authority.
-Queued `codex/compact-public-cohorts`: persistent original-context snapshots, incremental unchanged-
-frame preparation and compact public capture/referenced replay. Warm #189 JFR still finds full-map
-copies/history walks; store monitor waits reach 2.205s. Fresh source/financial/full-build/CI/release
-checks remain required. [Queued contract](docs/architecture/compact-public-cohorts-and-scope-preparation.md).
-Hosted #188 synthetic hour passes
-(1,000 connected/100 active/72,000 decisions/zero errors/127.02 ms decision p95). The initial public
-capture stopped after 39 snapshots and stays incomplete. Private receipts: primary
+Installed #190 adds persistent original-context snapshots, incremental unchanged-frame preparation
+and compact public capture/referenced replay. Full-reader/frozen financial checks pass. Three JVM
+pairs reduce measured append p95 median 9.6239 -> 0.0335 ms; this is not live timing. The real 31-
+capture smoke works and correctly refuses qualification. The later local capture stopped after
+163 records and remains incomplete; persistent hosted capture is the next continuity fix.
+Queued `codex/public-forecast-calibration` adds explicit prospective public targets, unknown/censored
+outcomes and calibration support to offline qualification v2. Clean 2,512 Java (six existing skips),
+132 tooling, bytecode 55 and exact-artifact Java 11 smoke pass; CI remains required. No runtime pricing/
+loss/learning activation.
+[Installed contract](docs/architecture/compact-public-cohorts-and-scope-preparation.md),
+[queued qualification](docs/architecture/public-forecast-qualification.md).
+The repeated #189 hosted hour passes (1,000 connected/100 active/72,000 decisions/zero errors,
+152.17 ms decision p95); this excludes local ACK/rendering. The separate mixed synthetic workflow
+hour completes with 120 group runs, 6,900 checks and zero failures; this excludes native rendering
+and player-operated acceptance. The initial public capture stopped
+after 39 snapshots and stays incomplete. Private receipts: primary
 `local-data/optimization-pricing-20261026`.
 [Installed research contract](docs/architecture/prepared-guidance-and-pricing-experiments.md).
 [Approved pass](docs/architecture/optimization-pricing-qualification.md).
@@ -105,9 +115,9 @@ Every unchecked release requirement remains in TASKS. Extend the initial fresh A
 proof to sustained end-to-end timing including failed/missing
 outcomes; native charts; player-operated partial/cancel/late-fill/collect/relist/completion/restart.
 The first cold scoped-GET failure and independent UI/capture/persistence/worker budgets remain open.
-Installed #189 prepares original-context/execution sources, classifies main/editor outcomes and
-reduces history-reference copies, repeated outbox decoding and cold startup work. The next profile-
-driven pass removes full context-map copies and repeated unchanged-frame recovery scans.
+Installed #190 prepares original-context/execution sources, classifies main/editor outcomes and
+reduces history-reference copies, repeated outbox decoding, full context-map copies, unchanged-frame
+recovery walks and cold startup work. Current-state qualification still remains fresh.
 Controlled sale-revision/editor
 acceptance and sustained timing remain required; explanatory logs alone do not complete them.
 
