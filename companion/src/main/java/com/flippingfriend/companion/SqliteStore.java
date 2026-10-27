@@ -208,6 +208,7 @@ final class SqliteStore implements AutoCloseable
 		{
 			statement.execute("CREATE UNIQUE INDEX IF NOT EXISTS event_log_event_id_unique "
 				+ "ON event_log(event_id) WHERE event_id IS NOT NULL AND event_id <> ''");
+            OfferEpisodeLookup.initialize(statement);
             statement.execute("CREATE INDEX IF NOT EXISTS event_log_terminal_sources ON event_log(id) WHERE "+BackgroundTradeRecovery.TERMINAL_SOURCES);
             statement.execute("CREATE INDEX IF NOT EXISTS event_log_invalid_source_json ON event_log(id) WHERE "+BackgroundTradeRecovery.INVALID_SOURCE_JSON);
 		}
@@ -354,23 +355,17 @@ final class SqliteStore implements AutoCloseable
             }
         }
         if (continuation) return null;
-        // CASE protects json_extract from malformed legacy payloads; missing nonempty identity is
-        // uncertainty, not proof that a key is new. Account snapshots have no canonical event ID.
-        try (var sql = connection.prepareStatement("SELECT payload FROM event_log WHERE event_id IS NOT NULL "
-                + "AND event_id<>'' AND event_id<>? AND CASE WHEN json_valid(payload)=0 THEN 1 "
-                + "WHEN json_type(payload)<>'object' THEN 1 "
-                + "WHEN json_type(payload,'$.offerIdentity')='text' THEN json_extract(payload,'$.offerIdentity')=? "
-                + "WHEN event_type='EMPTY' THEN 0 ELSE 1 END ORDER BY id DESC LIMIT 1")) {
-            sql.setString(1, event.getEventId()); sql.setString(2, identity);
-            try (var rows = sql.executeQuery()) {
-                if (!rows.next()) return null;
+        // Merge the newest matching identity and newest uncertain source using their indexes.
+        // Preserve the old CASE result/order, including malformed legacy and duplicate JSON keys.
+        var retained=OfferEpisodeLookup.find(connection,event.getEventId(),identity);
+        if(retained!=null) {
                 try {
-                    OfferEvent old = new com.google.gson.Gson().fromJson(rows.getString(1), OfferEvent.class);
+                    OfferEvent old = new com.google.gson.Gson().fromJson(retained.payload, OfferEvent.class);
                     if (old != null && identity.equals(old.getOfferIdentity())) return REUSED_EPISODE;
                 } catch (RuntimeException unreadable) { /* preserve unknown identity evidence */ }
                 return UNKNOWN_EPISODE_HISTORY;
-            }
         }
+        return null;
     }
 
     /** Optional learning evidence never changes raw events or financial acceptance. Legacy totals

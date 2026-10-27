@@ -3,8 +3,8 @@
 Updated 26 October 2026. Read [HANDOFF.md](HANDOFF.md) and the current hosted-pilot receipt at
 `local-data/hosted-pilot/delivery-state.json` first for the installed pair and pending source;
 #162 was the hosted pilot's original baseline. Implemented/tested, merged,
-installed and player accepted are separate states. Owner is away on 26 October; continue offline
-development and defer further login/game requests until they return.
+installed and player accepted are separate states. The owner confirmed login/GE on 26 October.
+All game interaction remains manual; batch runtime updates and acceptance work.
 
 ## Current batch
 
@@ -16,6 +16,16 @@ development and defer further login/game requests until they return.
 - [ ] Accept installed #182 when the owner returns: fresh ordered eight-slot ACKs, useful visible
       guidance, preserved trades, cold/warm timing and player-operated cancel/late-fill/collect/
       relist/restart. Do not request login/game actions while they are away.
+- [x] Verify the owner's post-login #182 frame: all eight authenticated ordered sources precede
+      the account frame; latest projection counters/identities match and pending outbox is empty.
+      Visible full-slot guidance and logged BUY/SELL/MODIFY_SELL/COLLECT pass. Five-second timeouts
+      remain; this is partial live evidence, not sustained latency or controlled trade-loop acceptance.
+- [ ] Deliver `codex/indexed-offer-episode-lookup`: replace the profiled historical JSON scan with
+      exact indexed matching/uncertain-source branches. Four new golden/native-work/archive tests
+      and existing episode/workflow regressions pass. Frozen 183,995-event comparison, clean build,
+      tooling, exact-head CI, paired backup/rollback and fresh guidance remain release gates.
+      Includes queued #183 diagnostics; preserve every financial/source row and guard.
+      [Contract](docs/architecture/indexed-offer-episode-lookup.md).
 - [ ] Verify/deliver `codex/transport-latency-totals`: implemented bounded scope-safe request totals/histograms
       include fast successes and failures, making observed-prefix denominators meaningful. Keep
       transport success separate from financial ACK and guidance; no new trading waits/authority.
