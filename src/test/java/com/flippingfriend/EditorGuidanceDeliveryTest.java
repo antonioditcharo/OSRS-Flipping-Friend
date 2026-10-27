@@ -57,4 +57,15 @@ public class EditorGuidanceDeliveryTest {
         f.queueAdvice();f.clientQueue.remove().run();verify(f.guide).setSuggestion(f.advice);
         verify(f.guide,times(1)).getPending();
     }
+    @Test public void expiryDuringPresentationSavingImmediatelySchedulesASuccessor()throws Exception {
+        var f=new AdviceDeliveryBoundaryTest.Fixture();var client=(Client)field(f.plugin,"client");when(client.isClientThread()).thenReturn(true);
+        var guide=new StepGuide(client,(GeWidgetResolver)field(f.plugin,"widgetResolver"));f.set("stepGuide",guide);
+        var engine=(SuggestionEngine)field(f.plugin,"engine");
+        when(engine.recordPresentedMaintenance(any(),anyString(),anyLong())).thenAnswer(c->{
+            var expiry=Suggestion.class.getDeclaredField("adviceExpiresAt");expiry.setAccessible(true);
+            expiry.setLong(f.advice,java.time.Instant.now().getEpochSecond()-1);return true;
+        });
+        f.queueAdvice();f.clientQueue.remove().run();assertEquals(SuggestionType.WAIT,guide.getSuggestion().getType());
+        assertFalse("An expired accepted proposal cannot wait for the next heartbeat",f.clientQueue.isEmpty());
+    }
 }

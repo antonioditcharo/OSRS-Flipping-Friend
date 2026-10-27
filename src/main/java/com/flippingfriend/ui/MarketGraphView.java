@@ -164,7 +164,7 @@ final class MarketGraphView extends JPanel {
             if(advice.getType()==SuggestionType.BUY)buy=advice.getPrice();
             if(advice.getType()==SuggestionType.SELL || advice.getType()==SuggestionType.MODIFY_SELL)sell=advice.getPrice();
         }
-        chart.setData(visible,range.bucket,forecast,buy,sell,defaultStart,defaultEnd,reset);reset=false;
+        chart.setData(visible,range.bucket,forecast,buy,sell,defaultStart,defaultEnd,reset,quote,snapshot.getCapturedAt().getEpochSecond());reset=false;
         String problem=market.graphHistoryProblem(selected,range.step);
         status.setText(lookupMessage!=null?lookupMessage:problem!=null?problem:visible.isEmpty()?"Loading completed market history…":
             projections.isSelected()?(forecast.isAvailable()?"Market forecast · "+((forecast.points.get(forecast.points.size()-1).at-forecast.originAt)/3600.0)+"h available · hover for price estimates and comparison counts":base==null?"Analysing completed market history…":forecast.reason)

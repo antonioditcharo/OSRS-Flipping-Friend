@@ -9,7 +9,15 @@ PR #186 is installed, including #184 and all earlier workflow/chart/protected-pr
 Tested source `b874cff2857dce94479f2661cdb0631f02d3e00e` and merge
 `70df699804f3b797e6d3bb51ead9940022de164d` have identical trees. Clean 2,451 Java tests (six existing
 skips), 121 tooling, Java 11 and both exact-head CI platforms pass in run `40446407196`.
-No Java source is queued. Documentation branch: `codex/panel-guidance-delivery`.
+Documentation #187 is merged at `84f401b850f4d523081b9aa6050b4a46582f984c` after both CI checks.
+Queued, not installed: `codex/optimization-pricing-qualification`, implementing the owner's
+approved optimization/pricing plan. Initial source adds immutable-prefix original-context and
+execution-episode indexes, explicit main/editor delivery outcomes and expiry retry, hidden-view
+budget isolation, and latest-quote graph endpoints/connectors. Focused prefix, delivery and chart
+tests pass; full build/tooling, frozen comparison, CI, installation and soak remain pending.
+No new pricing, loss policy or learning authority is active. Private baseline/profiles/logs:
+primary `local-data/optimization-pricing-20261026`.
+[Approved pass](docs/architecture/optimization-pricing-qualification.md).
 
 The supported primary-checkout updater installed the frozen pair after RuneLite's ordinary Close
 control completed. No force kill, login or game input. Backup `20261026-200132-8982ebc8` restores

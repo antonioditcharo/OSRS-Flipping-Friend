@@ -424,8 +424,8 @@ final class ApiServer implements AutoCloseable
 			requirePayloadAccount(exchange, snapshot.getAccountId());
 			CompanionService service = accountService(exchange);
 			if (service == null) return;
-			service.account(snapshot);
-			respond(exchange, 202, "{\"accepted\":true}");
+			boolean verified=service.account(snapshot);
+			respond(exchange, 202, gson.toJson(com.flippingfriend.core.AccountFrameAcknowledgement.of(snapshot,verified)));
 		}
 		catch (Exception ex) { respond(exchange, 400, error(ex)); }
 	}

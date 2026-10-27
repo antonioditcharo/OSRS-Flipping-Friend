@@ -117,9 +117,34 @@ public class StepGuide
         AdviceReceipt(Suggestion suggestion,long issuedAt){this.suggestion=suggestion;this.issuedAt=issuedAt;}
     }
     private boolean expired(Suggestion advice,long issuedAt) {
-        long age=adviceClock.getAsLong()-issuedAt;
-        return advice.getAdviceExpiresAt()>0 && advice.getAdviceExpiresAt()<=java.time.Instant.now().getEpochSecond()
+        return expired(advice,issuedAt,adviceClock.getAsLong(),java.time.Instant.now().getEpochSecond());
+    }
+    private static boolean expired(Suggestion advice,long issuedAt,long nanos,long seconds) {
+        long age=nanos-issuedAt;
+        return advice.getAdviceExpiresAt()>0 && advice.getAdviceExpiresAt()<=seconds
             || advice.isActionable() && (age<0 || age>=MAX_ADVICE_AGE_NANOS);
+    }
+    public enum DeliveryOutcome { VISIBLE, DEFERRED_EDITOR, SELECTED_EDITOR_QUOTE, SUPERSEDED, EXPIRED, PAUSED }
+    /** One clock-consistent visibility snapshot, diagnostic only; it is not order authority. */
+    public static final class DeliveryReceipt {
+        public final int schemaVersion=1;
+        public final DeliveryOutcome outcome;
+        public final Suggestion visible,pending;
+        private DeliveryReceipt(DeliveryOutcome outcome,Suggestion visible,Suggestion pending) {
+            this.outcome=outcome;this.visible=visible;this.pending=pending;
+        }
+    }
+    public synchronized DeliveryReceipt deliveryReceipt(Suggestion proposed) {
+        long nanos=adviceClock.getAsLong(),seconds=java.time.Instant.now().getEpochSecond();
+        Suggestion selected=editorQuote==null?tracked:editorQuote;long at=editorQuote==null?trackedAt:editorQuoteAt;
+        boolean expired=expired(selected,at,nanos,seconds);
+        Suggestion visible=paused?PAUSED:expired?EXPIRED:selected;
+        Suggestion queued=pending!=null && !expired(pending,pendingAt,nanos,seconds)?pending:null;
+        DeliveryOutcome outcome=paused?DeliveryOutcome.PAUSED:visible==proposed?DeliveryOutcome.VISIBLE
+            :queued==proposed?DeliveryOutcome.DEFERRED_EDITOR
+            :(pending!=null && pending==proposed && queued==null) || expired?DeliveryOutcome.EXPIRED
+            :editorQuote!=null && selected!=proposed?DeliveryOutcome.SELECTED_EDITOR_QUOTE:DeliveryOutcome.SUPERSEDED;
+        return new DeliveryReceipt(outcome,visible,queued);
     }
     synchronized AdviceReceipt getAdviceReceipt() {
         if(paused)return new AdviceReceipt(PAUSED,adviceClock.getAsLong());

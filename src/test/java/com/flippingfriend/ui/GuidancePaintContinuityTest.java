@@ -14,6 +14,15 @@ import static org.junit.Assert.*;
 import static org.mockito.Mockito.*;
 
 public class GuidancePaintContinuityTest {
+    @Test public void hiddenInvestigationViewsNeverUseTheForegroundRefreshBudget()throws Exception {
+        var f=new CompactPanelContractTest();f.setup();clearInvocations(f.engine);
+        for(int i=0;i<12;i++)f.refresh();verify(f.engine,never()).tradeRecovery();verify(f.engine,never()).saleMaintenanceDiagnostics();
+        SwingUtilities.invokeAndWait(()->f.panel.detailsComponent("Recommendation"));verify(f.engine,atLeastOnce()).saleMaintenanceDiagnostics();
+        verify(f.engine,never()).tradeRecovery();
+        SwingUtilities.invokeAndWait(()->f.panel.detailsComponent("Trade recovery"));verify(f.engine,atLeastOnce()).tradeRecovery();
+        clearInvocations(f.engine);for(int i=0;i<4;i++)f.refresh();
+        verify(f.engine,never()).tradeRecovery();verify(f.engine,never()).saleMaintenanceDiagnostics();
+    }
     @Test public void unchangedOrderDoesNotRewriteTextButAChangedPriceAndForecastRender()throws Exception {
         var f=new CompactPanelContractTest();f.setup();var changes=new AtomicInteger();
         SwingUtilities.invokeAndWait(()->{

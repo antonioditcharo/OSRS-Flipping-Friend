@@ -285,6 +285,17 @@ public class CompanionClient
 		catch (Exception failed) { lastError = "Stock review was not saved: " + failed.getMessage(); return false; }
 	}
 	private String observedAccountId;
+    private volatile AcknowledgedFrame acknowledgedFrame;
+    private static final class AcknowledgedFrame {
+        final com.flippingfriend.session.PlanningAccountObservation observation;final long nanos;
+        AcknowledgedFrame(com.flippingfriend.session.PlanningAccountObservation observation,long nanos){this.observation=observation;this.nanos=nanos;}
+    }
+    /** Strong diagnostic clock only; never a substitute for final account/risk/offer validation. */
+    public long acknowledgedFrameAt(com.flippingfriend.session.PlanningAccountObservation observation) {
+        var frame=acknowledgedFrame;
+        return frame!=null && observation!=null && frame.observation==observation
+            && observation.getAccountId().equals(accountContext())?frame.nanos:0;
+    }
 	/** Latest durably published canonical offer event by slot, retained after acknowledgement. */
 	private final java.util.concurrent.ConcurrentMap<Integer, OfferEvent> canonicalOffers =
 		new java.util.concurrent.ConcurrentHashMap<>();
@@ -314,6 +325,7 @@ public class CompanionClient
 			clearIncumbent(); lastPlan = null; lastHealth = null;
             refusalPlan=null;
 			lastLedger = null;
+            acknowledgedFrame=null;
             lastHistoryLedger = null;
             backgroundRecovery="";
             ledgerGeneration++;
@@ -396,6 +408,7 @@ public class CompanionClient
         boolean sellOnly,java.util.Collection<Position> positions,java.util.Collection<TrackedOffer> offers,
         String expectedAccountId,com.flippingfriend.session.PlanningAccountObservation observation)
 	{
+		acknowledgedFrame=null;
 		if (!state.isLoggedIn()) return;
 		String accountId = accountContext();
 		if (accountId == null || !accountId.equals(expectedAccountId)) { lastError = "Waiting for current account identity"; return; }
@@ -457,7 +470,14 @@ public class CompanionClient
         snapshot=snapshot.withObservedHoldings(currentPhysicalHoldings(state));
         snapshot=snapshot.withObservedInventory(state.getInventoryHoldings());
 		if(observation!=null) snapshot=snapshot.withOfferReadSet(receipt);
-		post("events/account-state", snapshot);
+        try {
+            String response=request("events/account-state","POST",gson.toJson(snapshot),ACCOUNT_READ_TIMEOUT_MILLIS,accountId);
+            var ack=gson.fromJson(response,com.flippingfriend.core.AccountFrameAcknowledgement.class);
+            if(observation!=null && ack!=null && ack.matches(snapshot) && ack.isCurrentFrameVerified()
+                && accountId.equals(accountContext()))acknowledgedFrame=new AcknowledgedFrame(observation,System.nanoTime());
+            // Older compatible servers return accepted:true only. Normal planning keeps its
+            // existing validation path; no timing/verified-frame claim is made for that body.
+        }catch(Exception ex){lastError=ex.getMessage();LOG.warn("Companion account publication failed: {}",lastError);}
 	}
     /** Remove cached bank quantities without masking contradictory/overflowed container totals. */
     static java.util.Map<Integer,Integer> currentPhysicalHoldings(AccountState state) {

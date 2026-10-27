@@ -16,6 +16,32 @@ import static org.junit.Assert.*;
 
 public class AccountApiIsolationTest
 {
+    @Test public void accountAckBindsTheDurableFrameButSeparatesUnverifiedReadSets()throws Exception {
+        Gson json=new Gson();Path root=folder.newFolder().toPath();String account=AccountIdentity.fromProfileKey("frame-ack");
+        try(var legacy=new SqliteStore(root.resolve("legacy.db"));var market=new CompanionService(json,legacy);
+                var accounts=new CompanionAccounts(root.resolve("accounts"),market);
+                var api=new ApiServer("test-token",json,market,accounts,new InetSocketAddress("127.0.0.1",0))) {
+            api.start();long now=Instant.now().getEpochSecond();var sources=new java.util.HashMap<Integer,String>();
+            for(int slot=0;slot<8;slot++) {
+                var event=OfferEvent.builder("fixture",now,"EMPTY").accountId(account).authenticatedObservation(true)
+                    .eventIdentity("source-"+slot,"session",null).sequence(slot+1).slot(slot).build();
+                accounts.forAccount(account).offer(event);sources.put(slot,event.getEventId());
+            }
+            for(boolean valid:new boolean[]{true,false}) {
+                if(!valid)sources.put(0,"missing-source");
+                var frame=new com.flippingfriend.core.AccountSnapshot(java.util.UUID.randomUUID().toString(),now,100000000,0,8,8,true,false,0)
+                    .withAccountId(account).withAutomaticTradeScope().withOfferReadSet(sources)
+                    .withObservedHoldings(java.util.Map.of()).withObservedInventory(java.util.Map.of());
+                var call=connection(api,"accounts/"+account+"/events/account-state",account);call.setRequestMethod("POST");call.setDoOutput(true);
+                try {
+                    call.getOutputStream().write(json.toJson(frame).getBytes(StandardCharsets.UTF_8));assertEquals(202,call.getResponseCode());
+                    var ack=json.fromJson(new String(call.getInputStream().readAllBytes(),StandardCharsets.UTF_8),com.flippingfriend.core.AccountFrameAcknowledgement.class);
+                    assertTrue(ack.matches(frame));assertEquals(valid,ack.isCurrentFrameVerified());
+                }finally{call.disconnect();}
+            }
+            assertEquals(0,legacy.positionEventCount());
+        }
+    }
     @Rule public final TemporaryFolder folder = new TemporaryFolder();
     @Test public void saleCostAmendmentRequiresAuthenticationExactScopeAndExplicitProvenSources()throws Exception {
         var fixture=new SaleCostAmendmentsTest();fixture.folder=folder;Path original=fixture.fixture(true),root=folder.newFolder().toPath();
