@@ -18,7 +18,10 @@ configuration copies restore, five live files are exact and only hosted generati
 Old/new Java 11 ledger/stock/scope/continuation/exposure/original-risk reads agree on both the
 frozen account and fresh restored backup. Task XML/permissions and lifecycle 1 are unchanged.
 Both installed JARs/manifest, status, launcher and first cold GET-only pipeline pass. RuneLite
-reopened; the owner must log in manually. Fresh #186 visible guidance, ACKs and timing are pending.
+reopened. The owner's subsequent login/GE passes fresh ordered eight-slot evidence and all current
+projections match; BUY and full-slot guidance are visible, with COLLECT/SELL/BUY delivery logs.
+The initial prefix has 250 completed offer calls, no offer transport failures and a 25 ms histogram
+p95 upper bound. This is partial acceptance; sustained timing/full workflows remain open.
 [Delivery receipt](docs/history/panel-guidance-install-2026-10-26.md).
 Private receipts: primary `local-data/panel-guidance-20261026`.
 
@@ -52,6 +55,13 @@ existing partial index: frozen 183,995-event result identical, 25,335 ms versus 
 component comparison. Seventeen new regressions pass. No financial/storage/strategy changes.
 [Contract](docs/architecture/panel-guidance-continuity.md).
 
+Active #186 profiling still records a 2.04-second offer monitor wait and prominent original
+acquisition-context/execution-prediction scans. Most sampled deliveries are about 0.5–1.5 seconds;
+do not claim instant verification. Three proposed SELL results displayed WAIT at the client
+boundary; editor overrides/refusals still require classification. One optional history upload
+timed out, then recovered: all 87 retained captures have verified ACK hashes and none pending.
+Keep these distinct from the successful financial-delivery prefix.
+
 Earlier installed work: #184 indexed canonical episode lookup; #183 bounded cumulative transport
 diagnostics; #177/#178 indexed reports/replication/startup fallback and recovered 24h chart model/
 cache/manual zoom; #180 protected common-horizon non-loss comparison; #182 bounded cold decoding.
@@ -64,10 +74,13 @@ overlapping cumulative prefixes or infer outcomes for the unlogged tail.
 
 ## Remaining work and contracts
 
-Every unchecked release requirement remains in TASKS. Require fresh post-update ordered ACKs,
-visible useful guidance and retained trades; sustained end-to-end timing including failed/missing
+Every unchecked release requirement remains in TASKS. Extend the initial fresh ACK/visible-guidance
+proof to sustained end-to-end timing including failed/missing
 outcomes; native charts; player-operated partial/cancel/late-fill/collect/relist/completion/restart.
 The first cold scoped-GET failure and independent UI/capture/persistence/worker budgets remain open.
+Next latency work: preserve original-proof/duplicate/rollback semantics while eliminating repeated
+`AcquisitionExitEvidence.read` and `executionPrediction` historical scans; classify SELL-to-WAIT
+outcomes before declaring maintenance delivery complete. No such follow-on Java source is queued.
 
 Next functional priority is the requested market-supported hold/adjust/bounded-loss comparison:
 immutable qualified market-exit evidence, durable account-budget enforcement, final authority and

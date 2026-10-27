@@ -14,7 +14,7 @@ All game interaction remains manual; batch runtime updates and acceptance work.
       financial/risk reads and both exact-head CI platforms `40446407196` pass. Installed through
       supported updater; 207-file/six-configuration restore, all 12 original tables and old/new
       restored-backup/original-risk reads pass. Status/launcher/first cold GET-only pipeline pass.
-      Fresh visible guidance and sustained timing are separate acceptance gates below.
+      Initial fresh guidance/ACKs pass; sustained timing is a separate acceptance gate below.
       [Receipt](docs/history/panel-guidance-install-2026-10-26.md).
 - [x] Install merged #180/#182 at the owner's explicit request before later player verification.
       Both CI platforms, clean 2,419 Java (six existing skips), 121 tooling, all-source parity and
@@ -23,12 +23,16 @@ All game interaction remains manual; batch runtime updates and acceptance work.
       [Receipt](docs/history/pricing-and-cold-install-2026-10-26.md).
 - [ ] Accept combined installed #186: fresh post-update ordered eight-slot ACKs, useful visible
       guidance, preserved trades, cold/warm timing and player-operated cancel/late-fill/collect/
-      relist/restart and native charts. Fresh #186 acceptance is pending. Prior #184 manual login/GE,
-      eight-slot proof and visible full-slot/MODIFY_SELL guidance pass. Its first account prefix has
-      94 completed offer calls, zero transport
-      failures and histogram p95 upper bound 25 ms; this short sample is not sustained acceptance.
-      Initial guidance still includes an 8.3-second client queue, and policy timings remain open.
-      Retain the first cold ten-second pipeline timeout as an open issue despite the later pass.
+      relist/restart and native charts. Initial #186 manual login/GE, eight-slot proof and visible
+      BUY/full-slot guidance pass, with COLLECT/SELL/BUY logs. The first prefix has 250 completed
+      offer calls without transport failures and a 25 ms histogram p95 upper bound. Most sampled
+      delivery times are about 0.5–1.5 seconds; sustained targets remain unproven. Prior cold/UI
+      timing failures remain retained in the linked #184 receipt.
+- [ ] Remove remaining original-context/execution-prediction history scans with full provenance,
+      duplicate-advice, external-edit, rollback and learning-identity preservation. Active #186
+      JFR still records an offer monitor wait of 2.04 seconds. Classify three proposed SELL-to-WAIT
+      outcomes (editor override/refusal versus lost delivery) before claiming complete maintenance
+      delivery. One optional history-upload timeout recovered; 87/87 retained files have valid ACKs.
 - [x] Verify the owner's post-login #182 frame: all eight authenticated ordered sources precede
       the account frame; latest projection counters/identities match and pending outbox is empty.
       Visible full-slot guidance and logged BUY/SELL/MODIFY_SELL/COLLECT pass. Five-second timeouts

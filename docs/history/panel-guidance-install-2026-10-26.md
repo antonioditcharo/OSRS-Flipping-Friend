@@ -59,8 +59,25 @@ separate disaster-recovery operation. No live database repair or synthetic obser
 
 Status, launcher and the first cold complete scoped GET-only pipeline pass. With the client
 closed, the entry response correctly requires fresh client cash/slots. The hidden normal launcher
-reopens RuneLite. Fresh manual login/GE, ordered durable ACKs, actual visible guidance, editor
-transitions, sustained full end-to-end timings and player-operated partial/cancel/late-fill/
+reopens RuneLite. Subsequent manual login/GE passes a fresh authenticated ordered eight-slot
+frame, with every current projection matching. An actual BUY card and healthy full-slot guidance
+are visible, with COLLECT/SELL/BUY deliveries in the new logs. This is initial partial acceptance.
+
+The initial cumulative account prefix has 250 completed offer calls, no offer transport failures
+and a 25 ms histogram p95 upper bound. Eighteen policy calls have a 1,000 ms p95 histogram upper
+bound. Twenty-four client-delivery logs include roughly 0.5–1.5-second samples. Three proposed
+SELL results instead show WAIT at the boundary; editor overrides/receipt refusals still require
+classification, and they are not counted as visible delivery. One optional GE-history POST
+times out at 754 ms; all 87 retained history files subsequently have exact ACK hashes and none
+pending. A secondary upload failure is not a financial delivery failure, nor should it be hidden.
+
+The active two-minute JFR still records a 2.04-second offer monitor wait and a 1.25-second report
+wait. Original acquisition-context qualification and execution-prediction reads remain prominent
+(129 and 87 project-frame samples). Do not claim all verification waits or CPU problems resolved.
+Their original-proof, duplicate-advice, source/learning identity and rollback semantics require
+preservation in the next optimization. No follow-on Java change is queued in this receipt.
+
+Actual editor transitions, sustained full end-to-end timings and player-operated partial/cancel/late-fill/
 collect/relist/completion/restart remain acceptance gates. Previous #184 timing failures remain
 retained in its receipt; this pass does not erase them. Native chart acceptance and market-informed
 bounded-loss authority remain unfinished. Hosted recommendations/coordination and learning stay off.
