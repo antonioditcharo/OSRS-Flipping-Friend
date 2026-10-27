@@ -80,21 +80,67 @@ final class SalePolicyReceiptStore {
         }catch(Exception failure){db.rollback();throw failure;}finally{db.setAutoCommit(true);}
     }
     static Evidence read(Connection db,String account,List<OfferEvent> history)throws Exception {
-        var evidence=new Evidence();var needed=new HashSet<String>();var origins=new HashSet<String>();var bindings=new HashSet<String>();
-        for(var event:history) {
+        var input=new Inputs();for(var event:history)input.accept(event);
+        var sources=new HashMap<String,OfferEvent>();
+        for(var event:history)if(input.origins.contains(event.getEventId()))sources.put(event.getEventId(),event);
+        return read(db,account,input,sources,Long.MAX_VALUE);
+    }
+    private static final class Inputs {
+        final Set<String> needed=new HashSet<>(),origins=new HashSet<>(),bindings=new HashSet<>();
+        void accept(OfferEvent event) {
             var proof=event.getAcceptedSalePolicyProof();
             if(proof!=null && proof.getReceipt()!=null) {
                 needed.add(proof.getReceipt().getReceiptId());origins.add(proof.getReceipt().getSourceEventId());
-                // Propagated frames retain the same first binding; only that immutable source row qualifies.
                 if(proof.qualifiesObservation(event))bindings.add(event.getEventId());
             }
         }
-        if(needed.isEmpty())return evidence;
-        var sources=new HashMap<String,OfferEvent>();
-        for(var event:history)if(origins.contains(event.getEventId()))sources.put(event.getEventId(),event);
+    }
+    /** Prepares source identities, never receipt authority. Every retained row is checked afresh. */
+    static final class InputIndex {
+        private List<OfferEvent> canonical;private int authorizedSize,consumed;private String account;
+        private Inputs input=new Inputs();private long processed;
+        private RuntimeException failure;
+        void reset(){canonical=null;authorizedSize=consumed=0;account=null;input=new Inputs();failure=null;}
+        void appendCanonical(String expectedAccount,List<OfferEvent> previous,List<OfferEvent> next) {
+            if(previous!=canonical || !Objects.equals(account,expectedAccount) || next==null || next.size()<authorizedSize)reset();
+            canonical=next;authorizedSize=next==null?0:next.size();account=expectedAccount;
+            // Optional sale preparation must not turn a malformed historical policy into an
+            // unrelated account/entry failure. Only the sale reader consumes this refusal.
+            try{prepare(expectedAccount,next);}catch(RuntimeException unavailable){failure=unavailable;}
+        }
+        private Inputs prepare(String expectedAccount,List<OfferEvent> history) {
+            if(history==null)throw new IllegalArgumentException("Canonical receipt sources unavailable");
+            if(history!=canonical || history.size()!=authorizedSize || !Objects.equals(account,expectedAccount)) {
+                reset();canonical=history;authorizedSize=history.size();account=expectedAccount;
+            }
+            if(failure!=null)throw new IllegalStateException("Sale policy sources require review",failure);
+            while(consumed<history.size()){input.accept(history.get(consumed));consumed++;processed++;}
+            return input;
+        }
+        long processedCount(){return processed;}
+    }
+    static Evidence read(Connection db,String account,List<OfferEvent> history,InputIndex index,long sourceCursor)throws Exception {
+        var input=index.prepare(account,history);var sources=new HashMap<String,OfferEvent>();
+        // The cursor belongs to this transaction's complete validated source prefix. An origin
+        // outside it cannot borrow authority from a later row, including under rollback/external edit.
+        try(var query=db.prepareStatement(SOURCE_LOOKUP_SQL+" AND id<=?")) {
+            for(String id:input.origins) {
+                if(id==null)continue;query.setString(1,id);query.setLong(2,sourceCursor);
+                try(var rows=query.executeQuery()) {
+                    if(!rows.next())continue;
+                    var source=JSON.fromJson(rows.getString(2),OfferEvent.class);
+                    if(source!=null && TradeGapEvidence.validFields(source) && account.equals(source.getAccountId())
+                        && id.equals(source.getEventId()) && !rows.next())sources.put(id,source);
+                }
+            }
+        }
+        return read(db,account,input,sources,sourceCursor);
+    }
+    private static Evidence read(Connection db,String account,Inputs input,Map<String,OfferEvent> sources,long sourceCursor)throws Exception {
+        var evidence=new Evidence();if(input.needed.isEmpty())return evidence;
         try(var find=db.prepareStatement("SELECT account_id,account_row_id,source_event_id,issued_after_row,payload FROM "+TABLE+" WHERE receipt_id=?");
             var sourceOrder=db.prepareStatement(BINDING_ROW_SQL)) {
-            for(var id:needed) {
+            for(var id:input.needed) {
                 if(id==null)continue;find.setString(1,id);
                 try {
                 try(var row=find.executeQuery()) {
@@ -106,9 +152,9 @@ final class SalePolicyReceiptStore {
                 }
                 }catch(RuntimeException malformed){ /* Unusable policy metadata grants no exemption. */ }
             }
-            for(var binding:bindings) {
+            for(var binding:input.bindings) {
                 sourceOrder.setString(1,binding);try(var rows=sourceOrder.executeQuery()) {
-                    if(rows.next()){long value=rows.getLong(1);if(!rows.next())evidence.eventRows.put(binding,value);}
+                    if(rows.next()){long value=rows.getLong(1);if(value<=sourceCursor && !rows.next())evidence.eventRows.put(binding,value);}
                 }
             }
         }

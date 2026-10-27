@@ -11,6 +11,10 @@ import java.util.concurrent.*;
 /** Optional historical work never owns the event/plan worker or the canonical read connection. */
 final class BackgroundTradeRecovery implements AutoCloseable {
     static final String INVALID_SOURCE_JSON="event_id IS NOT NULL AND event_id<>'' AND NOT json_valid(payload)";
+    // Equality/nonblank estimates can otherwise choose the much larger identity index and decode
+    // every historical payload. SqliteStore creates this exact partial index before registration.
+    // An unsupported old replica refuses optional support instead of falling back to that scan.
+    static final String INVALID_SOURCE_LOOKUP_SQL="SELECT 1 FROM event_log INDEXED BY event_log_invalid_source_json WHERE "+INVALID_SOURCE_JSON+" LIMIT 1";
     static final String TERMINAL_SOURCES="event_id IS NOT NULL AND event_id<>'' AND CASE WHEN json_valid(payload) THEN "
         +"json_extract(payload,'$.filledQuantity')>0 AND (json_extract(payload,'$.filledQuantity')=json_extract(payload,'$.totalQuantity') "
         +"OR event_type IN ('CANCELLED_BUY','CANCELLED_SELL')) ELSE 0 END";
@@ -105,7 +109,7 @@ final class BackgroundTradeRecovery implements AutoCloseable {
         if(latest==null)return;var snapshot=gson.fromJson(Files.readString(latest),GeHistorySnapshot.class);
         if(!id.equals(snapshot.accountId))throw new IllegalArgumentException("history account mismatch");
         String snapshotId=snapshot.evidenceId();long cursor;
-        try(var s=read.createStatement();var rows=s.executeQuery("SELECT 1 FROM event_log WHERE "+INVALID_SOURCE_JSON+" LIMIT 1")) {
+        try(var s=read.createStatement();var rows=s.executeQuery(INVALID_SOURCE_LOOKUP_SQL)) {
             if(rows.next())throw new IllegalStateException("Invalid canonical source JSON; support remains unqualified");
         }
         try(var s=read.createStatement();var rows=s.executeQuery("SELECT COALESCE(MAX(id),0) FROM event_log WHERE "+TERMINAL_SOURCES)){rows.next();cursor=rows.getLong(1);}

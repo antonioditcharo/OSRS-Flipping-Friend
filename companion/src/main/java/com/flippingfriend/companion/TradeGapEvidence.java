@@ -15,15 +15,65 @@ final class TradeGapEvidence {
         return result;
     }
     static Map<String,Set<Integer>> scope(List<OfferEvent> history,Map<String,Integer> gaps,String account) {
-        Map<String,Set<Integer>> result=unknown(gaps);
-        try { AccountIdentity.require(account); } catch (IllegalArgumentException unavailable) { return result; }
-        Map<Integer,Slot> slots=new HashMap<>();
-        Map<String,Set<Integer>> episodeItems=new HashMap<>();
-        Set<String> eventIds=new HashSet<>();
-        for (OfferEvent e:history) {
+        try { AccountIdentity.require(account); } catch (IllegalArgumentException unavailable) { return unknown(gaps); }
+        Scan scan=new Scan(gaps,account);
+        for(OfferEvent event:history)if(!scan.accept(event))return unknown(gaps);
+        return scan.snapshot();
+    }
+    /** Receives only immutable prefixes whose append chain SqliteStore has validated. */
+    static final class Index {
+        private List<OfferEvent> canonical;
+        private int authorizedSize,consumed;
+        private String account;
+        private Scan scan;
+        private long processed;
+        void reset(){canonical=null;authorizedSize=consumed=0;account=null;scan=null;}
+        void appendCanonical(List<OfferEvent> previous,List<OfferEvent> next) {
+            if(previous!=canonical || next==null || next.size()<authorizedSize)reset();
+            canonical=next;authorizedSize=next==null?0:next.size();
+        }
+        Map<String,Set<Integer>> read(List<OfferEvent> history,Map<String,Integer> gaps,String expectedAccount) {
+            try{AccountIdentity.require(expectedAccount);}catch(IllegalArgumentException unavailable){reset();return unknown(gaps);}
+            if(history==null){reset();return unknown(gaps);}
+            if(history!=canonical || history.size()!=authorizedSize) {
+                reset();canonical=history;authorizedSize=history.size();
+            }
+            boolean rebuild=scan==null || !Objects.equals(account,expectedAccount);
+            if(!rebuild) {
+                for(var old:scan.gaps.entrySet())if(!gaps.containsKey(old.getKey()) || !Objects.equals(old.getValue(),gaps.get(old.getKey()))) {rebuild=true;break;}
+                // A newly discovered gap at an already processed EMPTY changes that episode's
+                // clear semantics. Rebuild; do not apply today's gap map to yesterday's state.
+                if(!rebuild)for(String id:gaps.keySet())if(!scan.gaps.containsKey(id) && scan.eventIds.contains(id)){rebuild=true;break;}
+            }
+            if(rebuild){scan=new Scan(gaps,expectedAccount);consumed=0;account=expectedAccount;}
+            else scan.addGaps(gaps);
+            if(!scan.valid)return unknown(gaps);
+            while(consumed<history.size()) {
+                OfferEvent event=history.get(consumed++);processed++;
+                if(!scan.accept(event))return unknown(gaps);
+            }
+            return scan.snapshot();
+        }
+        long processedCount(){return processed;}
+    }
+    private static final class Scan {
+        final String account;
+        Map<String,Integer> gaps;
+        final Map<String,Set<Integer>> result=new HashMap<>();
+        final Map<Integer,Slot> slots=new HashMap<>();
+        final Map<String,Set<Integer>> episodeItems=new HashMap<>();
+        final Set<String> eventIds=new HashSet<>();
+        boolean valid=true;
+        Scan(Map<String,Integer> gaps,String account){this.account=account;addGaps(gaps);}
+        void addGaps(Map<String,Integer> next) {
+            gaps=new HashMap<>(next);
+            for(String id:gaps.keySet())result.putIfAbsent(id,Collections.emptySet());
+        }
+        Map<String,Set<Integer>> snapshot(){return new HashMap<>(result);}
+        boolean accept(OfferEvent e) {
             // Equality to the already validated account proves the identical account alphabet.
             // Keep every event/duplicate check without scanning that 64-digit hash per row.
-            if (!validFields(e) || !account.equals(e.getAccountId()) || !eventIds.add(e.getEventId())) return unknown(gaps);
+            if (!validFields(e) || !account.equals(e.getAccountId()) || !eventIds.add(e.getEventId())) {valid=false;return false;}
             Slot prior=slots.get(e.getSlot());
             boolean ordered=prior==null || (prior.trusted && prior.session.equals(e.getSessionId())
                 && e.getSequence()>prior.sequence && (e.getObservedAt()>=prior.observedAt
@@ -57,8 +107,8 @@ final class TradeGapEvidence {
             next.observedAt=Math.max(next.observedAt,e.getObservedAt());
             next.source=e;
             slots.put(e.getSlot(),next);
+            return true;
         }
-        return result;
     }
     // A delayed unchanged frame cannot widen the possible item set. This is scope evidence only:
     // the reducer still retains the rejection/baseline and never books recovered counters.

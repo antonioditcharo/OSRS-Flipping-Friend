@@ -42,8 +42,10 @@ public class FlippingFriendPanel extends PluginPanel {
     private final JLabel cadenceCaption = label("How often do you check offers?", false);
     private final JLabel bankroll = label("", false), mode = label("", false);
     private final JButton skip, block, pause, graph;
+    private final Icon pauseImage=PanelIcons.icon("pause",UiUtils.TEXT),playImage=PanelIcons.icon("play_arrow",UiUtils.TEXT);
     private final JPopupMenu menu = new JPopupMenu();
     private Runnable onRejection = () -> { };
+    private final java.util.concurrent.atomic.AtomicBoolean refreshQueued=new java.util.concurrent.atomic.AtomicBoolean();
 
     @Inject public FlippingFriendPanel(SuggestionEngine engine, PositionBook positions, TradeJournal journal,
         AccountMonitor accountMonitor, MarketDataService marketData, ItemManager itemManager,
@@ -168,7 +170,10 @@ public class FlippingFriendPanel extends PluginPanel {
     private void changed() { companion.clearIncumbent(); refresh(); onRejection.run(); }
     public void setOnRejection(Runnable callback) { onRejection = callback == null ? () -> { } : callback; }
     public void refresh() {
-        if (SwingUtilities.isEventDispatchThread()) refreshOnEdt(); else SwingUtilities.invokeLater(this::refreshOnEdt);
+        if(SwingUtilities.isEventDispatchThread()){refreshOnEdt();return;}
+        if(refreshQueued.compareAndSet(false,true))SwingUtilities.invokeLater(()->{
+            refreshQueued.set(false);refreshOnEdt();
+        });
     }
     private void refreshOnEdt() {
         AccountState account = accountMonitor.getState();
@@ -185,10 +190,11 @@ public class FlippingFriendPanel extends PluginPanel {
         missedFlips.refresh(account!=null && account.isLoggedIn());
         boolean buying = active != null && active.getType() == SuggestionType.BUY && !stepGuide.isPaused();
         skip.setEnabled(buying); block.setEnabled(buying); graph.setEnabled(active != null && active.getItemId() > 0);
-        pause.setIcon(PanelIcons.icon(stepGuide.isPaused() ? "play_arrow" : "pause", UiUtils.TEXT));
+        pause.setIcon(stepGuide.isPaused()?playImage:pauseImage);
         pause.setToolTipText(stepGuide.isPaused() ? "Resume recommendations" : "Pause recommendations");
         pause.getAccessibleContext().setAccessibleName(pause.getToolTipText());
-        cadenceGroup.clearSelection(); riskGroup.clearSelection();
+        if(!cadences.containsKey(config.checkInterval()))cadenceGroup.clearSelection();
+        if(!risks.containsKey(config.riskProfile()))riskGroup.clearSelection();
         for (Map.Entry<CheckInterval, JToggleButton> entry : cadences.entrySet()) style(entry.getValue(), entry.getKey() == config.checkInterval());
         for (Map.Entry<RiskProfile, JToggleButton> entry : risks.entrySet()) style(entry.getValue(), entry.getKey() == config.riskProfile());
         cadenceCaption.setText(cadences.containsKey(config.checkInterval()) || config.checkInterval() == null

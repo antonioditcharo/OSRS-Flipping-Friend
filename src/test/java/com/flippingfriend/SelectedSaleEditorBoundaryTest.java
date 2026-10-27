@@ -48,6 +48,26 @@ public class SelectedSaleEditorBoundaryTest {
         assertEquals(1,displayed.getQuantity());assertEquals(1400,displayed.getPrice());assertTrue(displayed.isProfitKnown());
         verify(f.companion).authorizeSale(same(displayed));verify(f.companion).recordPresentedAdvice(same(displayed),anyString(),anyInt());
     }
+    @Test public void backgroundReverificationKeepsOnlyTheStillValidSelectedQuote()throws Exception {
+        var f=new Fixture();var clock=new java.util.concurrent.atomic.AtomicLong(100);
+        f.set("adviceClock",(java.util.function.LongSupplier)clock::get);
+        f.selected();f.compute();f.deliver();var shown=f.real.getSuggestion();assertEquals(SuggestionType.SELL,shown.getType());
+        clock.addAndGet(java.util.concurrent.TimeUnit.SECONDS.toNanos(2));f.selected();
+        assertSame("Refresh starts before expiration without replacing the valid quote by a spinner",shown,f.real.getSuggestion());
+        for(int i=0;i<8;i++)f.selected();assertEquals(1,f.worker.tasks.size());
+        when(f.companion.authorizeSale(any())).thenReturn(null);f.compute();f.deliver();
+        assertEquals("An actual refusal still withdraws the old price immediately",SuggestionType.WAIT,f.real.getSuggestion().getType());
+        clock.addAndGet(java.util.concurrent.TimeUnit.SECONDS.toNanos(1));f.selected();assertEquals(1,f.worker.tasks.size());
+    }
+    @Test public void expiredOrChangedSelectedQuoteIsWithdrawnEvenWhileTheRefreshWorkerWaits()throws Exception {
+        var f=new Fixture();var clock=new java.util.concurrent.atomic.AtomicLong(100);
+        f.set("adviceClock",(java.util.function.LongSupplier)clock::get);
+        f.selected();f.compute();f.deliver();clock.addAndGet(java.util.concurrent.TimeUnit.SECONDS.toNanos(2));f.selected();
+        assertEquals(SuggestionType.SELL,f.real.getSuggestion().getType());
+        clock.addAndGet(java.util.concurrent.TimeUnit.SECONDS.toNanos(3));f.selected();assertEquals(SuggestionType.WAIT,f.real.getSuggestion().getType());
+        assertEquals(1,f.worker.tasks.size());f.compute();f.deliver();assertEquals(SuggestionType.SELL,f.real.getSuggestion().getType());
+        f.setup.set(new int[]{13263,2});f.selected();assertEquals(SuggestionType.WAIT,f.real.getSuggestion().getType());
+    }
     @Test public void refusalNeverFallsBackToGenericBelowCostQuote()throws Exception {
         var f=new Fixture();when(f.companion.authorizeSale(any())).thenReturn(null);
         f.selected();f.compute();f.deliver();assertEquals(SuggestionType.WAIT,f.real.getSuggestion().getType());
