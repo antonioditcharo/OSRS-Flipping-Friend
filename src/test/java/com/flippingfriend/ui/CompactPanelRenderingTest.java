@@ -21,11 +21,11 @@ public class CompactPanelRenderingTest {
         try {
             SwingUtilities.invokeAndWait(() -> assertTrue(net.runelite.client.ui.laf.RuneLiteLAF.setup()));
             CompactPanelContractTest f = new CompactPanelContractTest(); f.setup();
-            AsyncBufferedImage sprite = mock(AsyncBufferedImage.class);
+            AsyncBufferedImage sprite = new AsyncBufferedImage(mock(net.runelite.client.callback.ClientThread.class),36,32,BufferedImage.TYPE_INT_ARGB);
             File fixture = new File(".gradle/reference/bracelet-icon.png");
             if (fixture.exists()) {
                 BufferedImage image = ImageIO.read(fixture);
-                doAnswer(call -> { ((JLabel)call.getArgument(0)).setIcon(new ImageIcon(image)); return null; }).when(sprite).addTo(any(JLabel.class));
+                Graphics2D graphics=sprite.createGraphics();graphics.drawImage(image,0,0,null);graphics.dispose();
             }
             when(f.items.getImage(19544)).thenReturn(sprite);
             when(f.config.checkInterval()).thenReturn(CheckInterval.THIRTY_MINUTES);
@@ -36,7 +36,6 @@ public class CompactPanelRenderingTest {
                 .headline("Buy Tormented bracelet").detail("A fresh recommendation for the selected checking interval.").build();
             when(f.guide.getSuggestion()).thenReturn(buy); f.refresh();
             capture(f.panel,239,499,"compact-buy.png");
-            verify(sprite,atLeastOnce()).addTo(any(JLabel.class));
             when(f.companion.lastPlan()).thenReturn(PortfolioPlan.unavailable("fixture",
                 PortfolioPlanOutcome.NO_ELIGIBLE_CANDIDATE,"No eligible candidate in this fixture.",java.time.Instant.now().getEpochSecond())
                 .withUncertainCapitalBounds(java.util.Map.of(561,1000000L,562,24000000L)));

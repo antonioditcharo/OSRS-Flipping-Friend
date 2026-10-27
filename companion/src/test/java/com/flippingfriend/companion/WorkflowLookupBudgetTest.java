@@ -87,6 +87,33 @@ public class WorkflowLookupBudgetTest {
             }finally{ProgressHandler.clearHandler(db);}
         }
     }
+    @Test public void malformedSourceSupportCheckNeverDecodesTheEntireValidOfferArchive()throws Exception {
+        try(var store=new SqliteStore(folder.newFolder().toPath().resolve("support-budget.db"))) {
+            var db=connection(store);db.setAutoCommit(false);
+            try(var s=db.prepareStatement("INSERT INTO event_log(observed_at,correlation_id,event_id,event_type,payload) VALUES(1,?,?,'BUYING',?)")) {
+                for(int i=0;i<15000;i++) {
+                    s.setString(1,"correlation-"+i);s.setString(2,"nonterminal-"+i);
+                    s.setString(3,"{\"filledQuantity\":0,\"totalQuantity\":10}");s.addBatch();
+                }s.executeBatch();db.commit();
+            }finally{db.setAutoCommit(true);}
+            budget(db);
+            try(var s=db.createStatement();var rows=s.executeQuery(BackgroundTradeRecovery.INVALID_SOURCE_LOOKUP_SQL)){assertFalse(rows.next());}
+            finally{ProgressHandler.clearHandler(db);}
+            budget(db);
+            try(var s=db.createStatement()) {
+                s.executeQuery("SELECT 1 FROM event_log WHERE "+BackgroundTradeRecovery.INVALID_SOURCE_JSON+" LIMIT 1");
+                fail("The previous query must reproduce its valid-history JSON scan");
+            }catch(SQLException expected){assertTrue(expected.getMessage().contains("interrupt"));}
+            finally{ProgressHandler.clearHandler(db);}
+            try(var s=db.createStatement()){s.execute("INSERT INTO event_log(observed_at,correlation_id,event_id,event_type,payload) VALUES(2,'bad','bad','BUYING','{')");}
+            budget(db);
+            try(var s=db.createStatement();var rows=s.executeQuery(BackgroundTradeRecovery.INVALID_SOURCE_LOOKUP_SQL)){assertTrue(rows.next());}
+            finally{ProgressHandler.clearHandler(db);}
+            try(var s=db.createStatement()){s.execute("DROP INDEX event_log_invalid_source_json");}
+            try(var s=db.createStatement()){s.executeQuery(BackgroundTradeRecovery.INVALID_SOURCE_LOOKUP_SQL);fail("Missing index cannot silently reinstate the scan");}
+            catch(SQLException expected){assertTrue(expected.getMessage().contains("index"));}
+        }
+    }
     @Test public void startupFallbackReadsOnlyItsTimeWindowInTheOriginalTimestampAndOccurrenceOrder()throws Exception {
         try(var store=new SqliteStore(folder.newFolder().toPath().resolve("startup.db"))) {
             var db=connection(store);metadata(db);

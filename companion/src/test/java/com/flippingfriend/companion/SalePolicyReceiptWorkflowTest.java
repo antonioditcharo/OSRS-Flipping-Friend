@@ -83,6 +83,65 @@ public class SalePolicyReceiptWorkflowTest {
         var result=new ArrayList<>(rows(path,"SELECT * FROM position_event ORDER BY id"));
         result.addAll(rows(path,"SELECT * FROM event_log WHERE event_type<>'ACCOUNT_STATE' ORDER BY id"));return result;
     }
+    @SuppressWarnings("unchecked") private List<OfferEvent> canonical(Fixture f)throws Exception {
+        var method=SqliteStore.class.getDeclaredMethod("offerHistory",String.class);method.setAccessible(true);
+        return (List<OfferEvent>)method.invoke(f.store,f.helper.id);
+    }
+    private long sourceTail(Connection db)throws Exception {
+        try(var query=db.createStatement();var rows=query.executeQuery("SELECT MAX(id) FROM event_log WHERE event_id IS NOT NULL AND event_id<>''")) {
+            assertTrue(rows.next());return rows.getLong(1);
+        }
+    }
+    @Test public void preparedReceiptIdentitiesMatchFullReadsWithoutRescanningEarlierSources()throws Exception {
+        try(var f=new Fixture();var db=DriverManager.getConnection("jdbc:sqlite:"+f.path)) {
+            var initial=canonical(f);var index=new SalePolicyReceiptStore.InputIndex();index.appendCanonical(f.helper.id,null,initial);
+            var receipt=f.issue(UUID.randomUUID().toString());f.collect(receipt);var history=canonical(f);
+            var tailOnly=new AbstractList<OfferEvent>() {
+                public int size(){return history.size();}
+                public OfferEvent get(int i){assertTrue("Only new canonical sources require preparation",i>=initial.size());return history.get(i);}
+            };
+            index.appendCanonical(f.helper.id,initial,tailOnly);
+            var expected=SalePolicyReceiptStore.read(db,f.helper.id,history);
+            for(int n=0;n<3;n++) {
+                var actual=SalePolicyReceiptStore.read(db,f.helper.id,tailOnly,index,sourceTail(db));
+                assertEquals(expected.receipts,actual.receipts);assertEquals(expected.issuedAfter,actual.issuedAfter);
+                assertEquals(expected.eventRows,actual.eventRows);assertFalse(actual.receipts.isEmpty());
+                for(var event:history)assertEquals(expected.qualifies(event.getAcceptedSalePolicyProof(),event),
+                    actual.qualifies(event.getAcceptedSalePolicyProof(),event));
+            }
+            assertEquals(history.size(),index.processedCount());
+        }
+    }
+    @Test public void preparedReceiptInputsCannotCacheAuthorityOrBorrowFutureBindings()throws Exception {
+        try(var f=new Fixture();var db=DriverManager.getConnection("jdbc:sqlite:"+f.path)) {
+            var receipt=f.issue(UUID.randomUUID().toString());f.collect(receipt);var history=canonical(f);
+            var index=new SalePolicyReceiptStore.InputIndex();index.appendCanonical(f.helper.id,null,history);
+            var binding=history.stream().filter(e->e.getAcceptedSalePolicyProof()!=null).findFirst().orElseThrow();
+            var proof=binding.getAcceptedSalePolicyProof();long tail=sourceTail(db),source;
+            try(var q=db.prepareStatement("SELECT id FROM event_log WHERE event_id=?")) {
+                q.setString(1,receipt.getSourceEventId());try(var rows=q.executeQuery()){assertTrue(rows.next());source=rows.getLong(1);}
+            }
+            assertTrue(SalePolicyReceiptStore.read(db,f.helper.id,history,index,tail).qualifies(proof,binding));
+            assertFalse(SalePolicyReceiptStore.read(db,f.helper.id,history,index,source).qualifies(proof,binding));
+            assertFalse(SalePolicyReceiptStore.read(db,AccountIdentity.fromProfileKey("foreign"),history,index,tail).qualifies(proof,binding));
+            try(var q=db.createStatement()){q.executeUpdate("UPDATE sale_policy_receipt SET issued_after_row=0");}
+            assertFalse(SalePolicyReceiptStore.read(db,f.helper.id,history,index,tail).qualifies(proof,binding));
+            db.setAutoCommit(false);
+            try(var q=db.createStatement()){q.executeUpdate("DELETE FROM sale_policy_receipt");}
+            assertTrue(SalePolicyReceiptStore.read(db,f.helper.id,history,index,tail).receipts.isEmpty());db.rollback();db.setAutoCommit(true);
+            assertTrue(SalePolicyReceiptStore.read(db,f.helper.id,history,index,tail).receipts.isEmpty());
+        }
+    }
+    @Test public void optionalReceiptPreparationCannotBreakUnrelatedCanonicalLoading()throws Exception {
+        try(var f=new Fixture();var db=DriverManager.getConnection("jdbc:sqlite:"+f.path)) {
+            var index=new SalePolicyReceiptStore.InputIndex();List<OfferEvent> malformed=Arrays.asList((OfferEvent)null);
+            index.appendCanonical(f.helper.id,null,malformed);
+            try{SalePolicyReceiptStore.read(db,f.helper.id,malformed,index,sourceTail(db));fail("Malformed metadata must refuse sale authority");}
+            catch(IllegalStateException expected){assertTrue(expected.getMessage().contains("review"));}
+            var history=canonical(f);index.appendCanonical(f.helper.id,null,history);
+            assertTrue(SalePolicyReceiptStore.read(db,f.helper.id,history,index,sourceTail(db)).receipts.isEmpty());
+        }
+    }
     @Test public void fineAdjustmentSurvivesLateFillCadenceChangeRestartAndQuietCollectionWithoutRestoringTheAsk()throws Exception {
         try(var f=new Fixture(true,null,3600)) {
             var read=f.store.saleProjections(f.helper.id,f.now);var market=f.helper.market(f.now,3599);

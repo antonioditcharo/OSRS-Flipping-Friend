@@ -216,7 +216,10 @@ public class FlippingFriendPlugin extends Plugin
     private final AtomicBoolean editorSaleInFlight=new AtomicBoolean();
     private final java.util.concurrent.atomic.AtomicLong editorSaleRequest=new java.util.concurrent.atomic.AtomicLong();
     private long editorSaleContext;
+    private boolean offerEditorOpen;
     private static final long EDITOR_SALE_CACHE_NANOS=java.util.concurrent.TimeUnit.SECONDS.toNanos(5);
+    private static final long EDITOR_SALE_REFRESH_NANOS=java.util.concurrent.TimeUnit.SECONDS.toNanos(2);
+    private static final long EDITOR_SALE_RETRY_NANOS=java.util.concurrent.TimeUnit.SECONDS.toNanos(1);
 
 	@Provides
 	FlippingFriendConfig provideConfig(ConfigManager configManager)
@@ -227,6 +230,7 @@ public class FlippingFriendPlugin extends Plugin
 	@Override
 	protected void startUp()
 	{
+        offerEditorOpen=false;
         offerTracker.resetContinuationObservations();
         editorSaleRequest.incrementAndGet();editorSaleContext++;editorSaleKey=null;editorSaleQuote=null;editorSaleInFlight.set(false);
         editorSaleOriginIdentity=null;editorSaleOriginAccount=null;editorSaleOriginItem=0;
@@ -326,6 +330,7 @@ public class FlippingFriendPlugin extends Plugin
 	@Subscribe
 	public void onGameStateChanged(GameStateChanged event)
 	{
+        offerEditorOpen=false;
         adviceContainers.reset();
         if (geInputAssist != null) geInputAssist.reset();
         if (stepGuide != null) stepGuide.reset();
@@ -448,7 +453,19 @@ public class FlippingFriendPlugin extends Plugin
                 restoreCurrentOffers(pendingRestoreGeneration,pendingRestoreProfile);
             }
         }
+        refreshOfferEditorBoundary();
         refreshSellSetupQuote();
+    }
+    /** Leaving an editor is a decision boundary even when the player did not place an offer. */
+    private void refreshOfferEditorBoundary() {
+        boolean open=client.getGameState()==GameState.LOGGED_IN && accountDataLoaded.get() && hasProfile()
+            && widgetResolver!=null && widgetResolver.isSetupOpen();
+        boolean closed=offerEditorOpen && !open;offerEditorOpen=open;
+        if(!closed)return;
+        Suggestion previous=stepGuide.getSuggestion();stepGuide.onSetupClosed();
+        if(stepGuide.getSuggestion()!=previous)recordVisibleAdvice();
+        if(panel!=null)panel.refresh();
+        requestEngineRefresh();
     }
     @Subscribe
     public void onWidgetLoaded(net.runelite.api.events.WidgetLoaded event) {
@@ -482,10 +499,13 @@ public class FlippingFriendPlugin extends Plugin
         String key=account+":"+generation+":"+revision+":"+item+":"+quantity+":"+inventory+":"+sellOnly+":"+preferredOrigin;
         if(!key.equals(editorSaleKey)) {editorSaleContext++;editorSaleKey=key;editorSaleQuote=null;}
         long age=adviceClock.getAsLong()-editorSaleValidatedAt;
-        if(editorSaleQuote!=null && age>=0 && age<EDITOR_SALE_CACHE_NANOS) {
-            applyEditorSaleQuote(editorSaleQuote);return;
-        }
-        applyEditorSaleQuote(Suggestion.waiting("Verifying the selected sale",
+        boolean validQuote=editorSaleQuote!=null && age>=0 && age<EDITOR_SALE_CACHE_NANOS
+            && (editorSaleQuote.getAdviceExpiresAt()<=0 || editorSaleQuote.getAdviceExpiresAt()>Instant.now().getEpochSecond());
+        if(validQuote) {
+            applyEditorSaleQuote(editorSaleQuote);
+            long refreshAfter=editorSaleQuote.getType()==SuggestionType.SELL?EDITOR_SALE_REFRESH_NANOS:EDITOR_SALE_RETRY_NANOS;
+            if(age<refreshAfter)return;
+        }else applyEditorSaleQuote(Suggestion.waiting("Verifying the selected sale",
             "Checking its recorded quantity, exact purchase cost and current sale authority."));
         ExecutorService executor=worker;
         if(executor==null || executor.isShutdown() || selectedSalePricing==null || !editorSaleInFlight.compareAndSet(false,true))return;
@@ -589,12 +609,14 @@ public class FlippingFriendPlugin extends Plugin
 	{
 		if (event.getGroupId() == WidgetUtil.componentToInterface(InterfaceID.GeOffers.UNIVERSE))
 		{
+			offerEditorOpen=false;
 			Suggestion previous=stepGuide.getSuggestion();
 			stepGuide.onSetupClosed();
             if(stepGuide.getSuggestion()!=previous)recordVisibleAdvice();
             if (panel != null) panel.refresh();
             tradeConfirmGuard.reset();
             geInputAssist.reset();
+			requestEngineRefresh();
 		}
 	}
 
@@ -1016,7 +1038,10 @@ public class FlippingFriendPlugin extends Plugin
 					companion.refreshPlan();
 					long planFinished=System.nanoTime();
                     var risk=companion.currentRisk();
-                    if(observedGeneration!=offerObservationGeneration.get() || observedRevision!=adviceObservationRevision.get())return;
+                    if(observedGeneration!=offerObservationGeneration.get() || observedRevision!=adviceObservationRevision.get()) {
+                        log.debug("Guidance superseded after planning; scheduling the current account observation");
+                        requestEngineRefresh();return;
+                    }
                     if(risk!=null) {
                         if(!java.util.Objects.equals(drawdownAlertWindow,risk.getWindowId())) {
                             drawdownAlertWindow=risk.getWindowId();drawdownAlerted=false;
@@ -1140,7 +1165,12 @@ public class FlippingFriendPlugin extends Plugin
                     recordVisibleAdvice();
 					panel.refresh();
                     if(!stepGuide.isPaused())notifyIfNeeded(stepGuide.getSuggestion());
-					log.info("Guidance delivered: {} ms from refresh request; capture/durable publication {} ms, plan/ledger {} ms, decision/delivery {} ms; {}",
+                    Suggestion visible=stepGuide.getSuggestion(),pending=stepGuide.getPending();
+                    String outcome=stepGuide.isPaused()?"PAUSED":pending==current?"DEFERRED_EDITOR"
+                        :visible==current?"VISIBLE":"REPLACED_OR_EDITOR_QUOTE";
+                    log.info("Guidance outcome: {}; proposed {}; visible {}; pending {}",outcome,current.getType(),
+                        visible.getType(),pending==null?"NONE":pending.getType());
+                    if("VISIBLE".equals(outcome))log.info("Guidance delivered: {} ms from refresh request; capture/durable publication {} ms, plan/ledger {} ms, decision/delivery {} ms; {}",
 						(System.nanoTime()-guidanceStarted)/1_000_000,(publicationFinished-guidanceStarted)/1_000_000,
 						(planFinished-publicationFinished)/1_000_000,(System.nanoTime()-planFinished)/1_000_000,stepGuide.getSuggestion().getType());
                     log.info("Guidance publication phases: client queue {} ms, local capture/persist {} ms, worker queue {} ms, entry recovery {} ms, account publication {} ms",

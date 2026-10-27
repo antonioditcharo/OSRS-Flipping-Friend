@@ -9,7 +9,11 @@ PR #184 is installed, including #183 transport diagnostics and all #178/#180/#18
 chart and protected-pricing work. Tested source `1a0c8f5999d706e37efa8c397c153312537a4a21` and merge
 `808623ca60080aeba79b7f5175f447f5a32c7bb1` have identical trees. Clean 2,434 Java tests (six existing
 skips), 121 tooling, Java 11 and both exact-head CI platforms pass in run `40438442464`.
-No Java source is currently queued for installation. Documentation branch: `codex/episode-lookup-delivery`.
+Queued source: `codex/panel-guidance-continuity`, not installed. It prepares historical gap/receipt
+inputs without caching authority, fixes the profiled background JSON scan, refreshes selected-sale
+quotes before expiry and handles editor-close/superseded-plan delivery. Swing refresh/text/control/
+icon churn is reduced. Focused regressions pass; clean/CI/frozen comparison and paired delivery
+are pending. [Contract](docs/architecture/panel-guidance-continuity.md).
 
 RuneLite closed through its ordinary Close/exit-confirmation controls; no force kill, login or
 in-game input was performed. The supported paired updater preserved task XML/permissions and

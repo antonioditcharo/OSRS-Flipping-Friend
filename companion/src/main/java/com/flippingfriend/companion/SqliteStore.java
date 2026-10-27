@@ -86,6 +86,8 @@ final class SqliteStore implements AutoCloseable
     private final Map<String,OfferEvent> canonicalSaleSources=new HashMap<>();
     private final ContinuationSaleRead.Index continuationSaleIndex=new ContinuationSaleRead.Index();
     private final TradeReviewRead.Index tradeReviewIndex=new TradeReviewRead.Index();
+    private final TradeGapEvidence.Index tradeGapIndex=new TradeGapEvidence.Index();
+    private final SalePolicyReceiptStore.InputIndex salePolicyInputIndex=new SalePolicyReceiptStore.InputIndex();
     private final ProspectiveGapExposure.Memo prospectiveGapMemo=new ProspectiveGapExposure.Memo();
     private final BoundedHistoricalExposure.Memo historicalFundingMemo=new BoundedHistoricalExposure.Memo();
 	private String canonicalHistoryAccount;
@@ -103,7 +105,7 @@ final class SqliteStore implements AutoCloseable
         cachedRiskEvidence=null;cachedRiskEvidenceWindow=null;cachedRiskEvidenceAccount=null;cachedRiskEvidenceScope=null;
         riskWindows.clear();
 		canonicalHistory=null; canonicalHistoryAccount=null; canonicalHistoryCursor=0;
-        canonicalSaleSources.clear();historicalFundingMemo.reset();prospectiveGapMemo.reset();continuationSaleIndex.reset();tradeReviewIndex.reset();
+        canonicalSaleSources.clear();historicalFundingMemo.reset();prospectiveGapMemo.reset();continuationSaleIndex.reset();tradeReviewIndex.reset();tradeGapIndex.reset();salePolicyInputIndex.reset();
 		scopedEffects=null;scopedEffectsCursor=-1;
         automaticModes.clear();
         cachedContinuationSales=null;continuationSalesCursor=-1;
@@ -492,7 +494,7 @@ final class SqliteStore implements AutoCloseable
             planning.saleProgressAt=saleProgressEvidence(accountId,planning.currentEvents);
             // Exact cancel/collect relists are checked against this same durable source prefix.
             planning.history=offerHistory(accountId);
-            planning.salePolicyEvidence=SalePolicyReceiptStore.read(connection,accountId,planning.history);
+            planning.salePolicyEvidence=SalePolicyReceiptStore.read(connection,accountId,planning.history,salePolicyInputIndex,canonicalHistoryCursor);
 			checkpoint.reached("SALE_PLANNING_READ");
 			AccountLedgerSnapshot ledger=readLedgerSnapshot(accountId,evaluatedAt,planning.tradeScope);
 			connection.commit();
@@ -872,7 +874,7 @@ final class SqliteStore implements AutoCloseable
         }
         if (gaps.isEmpty()) return java.util.Collections.emptyMap();
         List<OfferEvent> history=read.get();
-        return history==null?TradeGapEvidence.unknown(gaps):TradeGapEvidence.scope(history,gaps,expectedAccountId);
+        return history==null?TradeGapEvidence.unknown(gaps):tradeGapIndex.read(history,gaps,expectedAccountId);
     }
     private List<OfferEvent> offerHistory(String expectedAccountId) throws Exception {
         if (expectedAccountId==null) return null;
@@ -910,6 +912,8 @@ final class SqliteStore implements AutoCloseable
             prospectiveGapMemo.appendCanonical(previous,canonicalHistory);
             continuationSaleIndex.appendCanonical(previous,canonicalHistory);
             tradeReviewIndex.appendCanonical(previous,canonicalHistory);
+            tradeGapIndex.appendCanonical(previous,canonicalHistory);
+            salePolicyInputIndex.appendCanonical(expectedAccountId,previous,canonicalHistory);
         }
         canonicalHistoryCursor=cursor;
         return canonicalHistory;

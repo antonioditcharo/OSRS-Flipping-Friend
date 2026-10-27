@@ -8,6 +8,11 @@ All game interaction remains manual; batch runtime updates and acceptance work.
 
 ## Current batch
 
+- [ ] Verify/deliver `codex/panel-guidance-continuity`: profiled source preparation and background
+      SQL scan, editor-close/superseded-plan delivery, pre-expiry selected-sale refresh and reduced
+      Swing churn. Focused regressions pass; clean build/tooling, both CI platforms, frozen old/new
+      financial/risk comparison and paired backup/install remain pending. Installed #184 remains
+      active. [Contract](docs/architecture/panel-guidance-continuity.md).
 - [x] Install merged #180/#182 at the owner's explicit request before later player verification.
       Both CI platforms, clean 2,419 Java (six existing skips), 121 tooling, all-source parity and
       twelve frozen replays pass. All 12 original tables match; 195-file/six-configuration restores

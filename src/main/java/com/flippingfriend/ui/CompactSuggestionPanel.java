@@ -20,6 +20,8 @@ final class CompactSuggestionPanel extends JPanel {
     private final JTextArea queued = text(UiUtils.WARNING);
     private final JTextArea forecast = text(UiUtils.profitColor(1));
     private Suggestion shown = Suggestion.idle();
+    private int imageItem=Integer.MIN_VALUE;
+    private AsyncBufferedImage requestedImage;
 
     CompactSuggestionPanel(ItemManager items, Explainer explainer) {
         this.items = items; this.explainer = explainer;
@@ -51,7 +53,6 @@ final class CompactSuggestionPanel extends JPanel {
     }
 
     void update(Suggestion next, Suggestion pending) {
-        Suggestion previous = shown;
         shown = next == null ? Suggestion.idle() : next;
         String instruction;
         switch (shown.getType()) {
@@ -63,26 +64,37 @@ final class CompactSuggestionPanel extends JPanel {
             default: instruction = shown.getHeadline() == null || shown.getHeadline().isEmpty()
                 ? "Waiting for a recommendation" : shown.getHeadline(); break;
         }
-        action.setText(instruction);
-        item.setText(shown.getItemName() == null ? "" : shown.getItemName());
+        boolean changed=setText(action,instruction);
+        changed|=setText(item,shown.getItemName() == null ? "" : shown.getItemName());
         boolean priced = shown.getType() == SuggestionType.BUY || shown.getType() == SuggestionType.SELL
             || shown.getType() == SuggestionType.MODIFY_BUY || shown.getType() == SuggestionType.MODIFY_SELL;
-        price.setText(priced && shown.getPrice() > 0 ? "at " + explainer.formatNumber(shown.getPrice()) + " gp each" : "");
+        changed|=setText(price,priced && shown.getPrice() > 0 ? "at " + explainer.formatNumber(shown.getPrice()) + " gp each" : "");
         boolean projected=shown.getType()==SuggestionType.BUY || shown.getType()==SuggestionType.SELL;
-        forecast.setText(projected && shown.isProfitKnown() && shown.getExpectedMinutes()>0
+        changed|=setText(forecast,projected && shown.isProfitKnown() && shown.getExpectedMinutes()>0
             ? "Est. "+explainer.formatGp(shown.getExpectedProfit())+" in "+Math.max(1,Math.round(shown.getExpectedMinutes()))+"min":"");
         forecast.setVisible(!forecast.getText().isEmpty());
         forecast.setToolTipText("Model estimate for this suggested trade, net of tax; not recorded profit or a guaranteed fill time.");
         forecast.setForeground(UiUtils.profitColor(shown.getExpectedProfit()));
-        queued.setText(pending != null && pending.isActionable() ? "Another action is waiting." : "");
+        changed|=setText(queued,pending != null && pending.isActionable() ? "Another action is waiting." : "");
         queued.setVisible(!queued.getText().isEmpty());
         icon.setVisible(shown.getItemId() > 0);
-        if (shown.getItemId() != previous.getItemId() || icon.getIcon() == null) {
+        if (shown.getItemId() != imageItem || requestedImage==null && shown.getItemId()>0) {
+            changed=true;imageItem=shown.getItemId();
             icon.setIcon(null);
             AsyncBufferedImage image = shown.getItemId() > 0 ? items.getImage(shown.getItemId()) : null;
-            if (image != null) image.addTo(icon);
+            requestedImage=image;int requestedItem=imageItem;
+            if (image != null) {
+                icon.setIcon(new ImageIcon(image));
+                image.onLoaded(()->SwingUtilities.invokeLater(()->{
+                    if(imageItem==requestedItem && requestedImage==image)icon.setIcon(new ImageIcon(image));
+                }));
+            }
         }
-        revalidate(); repaint();
+        if(changed){revalidate(); repaint();}
+    }
+    private static boolean setText(JTextArea area,String value) {
+        if(java.util.Objects.equals(area.getText(),value))return false;
+        area.setText(value);return true;
     }
     private static int heightAt(JTextArea text, int width) {
         Dimension old = text.getSize(); text.setSize(Math.max(1, width), Short.MAX_VALUE);
