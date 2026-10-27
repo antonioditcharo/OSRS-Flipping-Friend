@@ -32,7 +32,9 @@ bounded to 31 days, cadence 60–900 seconds, records 50,000 and compressed publ
 with a disk reserve. The default 2 GiB limit is an experiment budget, not a capacity guarantee.
 
 `tools/prepare_pricing_archive.py` requires a completed, intact chain and seed availability before
-the first observation. Catalogue selection uses initial turnover only, never later returns. Gaps
+the first observation. Catalogue selection uses initial supported short-history turnover only,
+never later returns. A missing hourly seed stays missing; it cannot qualify a longer forecast.
+The receipt distinguishes items with an initial hourly seed. Gaps
 stay gaps, revisions remain in the receipt and each completed flow bucket is simulated once.
 Histories retain at most 720 buckets per item/resolution, in time-aligned immutable chunks of at
 most 64 buckets. No bucket averages become invented latest quotes.

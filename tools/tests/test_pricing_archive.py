@@ -72,6 +72,20 @@ class PricingArchiveTest(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     prepare.prepare(segment.root, root / 'bad', 1)
 
+    def test_short_history_catalogue_does_not_require_or_invent_an_hourly_seed(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / 'local-data';root.mkdir()
+            _, segment = self.make(root)
+            seed = segment.manifest['seedFiles']['series-cache.json.gz']
+            value = segment.blobs.get(seed['sha256'])
+            value['entries'] = [row for row in value['entries'] if row['key'].endswith('@5m')]
+            seed['sha256'] = segment.blobs.put(value);segment.save()
+            receipt = prepare.prepare(segment.root, root / 'short-only', 1)
+            self.assertEqual([], receipt['initialHourlyHistoryItems'])
+            metadata = json.loads((root / 'short-only/input.json').read_text())
+            blobs = archive.Blobs(root / 'short-only/blobs', readonly=True)
+            self.assertEqual({'1': []}, blobs.get(metadata['storage']['frames'][0]['sha256'])['longHistory'])
+
     def test_equal_public_components_reuse_storage_but_keep_occurrences_and_failures(self):
         with tempfile.TemporaryDirectory() as temp:
             segment = archive.Segment(Path(temp) / 'new', 60)

@@ -54,7 +54,7 @@ def prepare(source, output, count=24):
     initial = []
     for item, metadata in mapping.items():
         short = histories.get((item, '5m'), {})
-        if not metadata.get('limit') or len(short) < 48 or not histories.get((item, '1h')):
+        if not metadata.get('limit') or len(short) < 48:
             continue
         turnover = sum((bar.get('lowPriceVolume', 0) + bar.get('highPriceVolume', 0))
                        * (bar.get('avgLowPrice') or 0) for bar in [short[t] for t in sorted(short)[-48:]])
@@ -131,7 +131,9 @@ def prepare(source, output, count=24):
         stream.write(raw)
     receipt = {'schemaVersion': 2, 'inputSha256': sha(raw), 'captureManifestSha256': sha(manifest_bytes),
                'availabilityEvidence': 'RECORDED_PUBLIC_AVAILABILITY', 'selectedItems': selected,
-               'initialEligibleItems': len(initial), 'startAt': start, 'endAt': end, 'captureFailures': failures,
+               'initialEligibleItems': len(initial),
+               'initialHourlyHistoryItems': [item for item in selected if any(entry['key'] == f'{item}@1h' for entry in series['entries'])],
+               'startAt': start, 'endAt': end, 'captureFailures': failures,
                'revisions': revisions, 'compressedPublicBytes': target.used,
                'scope': 'PUBLIC_SCENARIOS_NOT_EXECUTION_OR_PROMOTION'}
     (output / 'preparation-receipt.json').write_bytes(encode(receipt))
