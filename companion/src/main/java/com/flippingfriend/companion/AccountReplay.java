@@ -57,6 +57,7 @@ final class AccountReplay implements AutoCloseable {
     static final class Result {
         final String schemaVersion="1",evidence="SIMULATED_PUBLIC_VOLUME_SHARE",policyVersion=VERSION;
         final String completionModel;
+        final String pricingObjective;
         final String salePolicyVersion=CompanionSalePolicy.VERSION;
         final int cadenceMinutes,captureShareBps,actionSeconds,missedVisits;
         final long elapsedSeconds,initialCoins,bagCoins,lockedBuyCoins,collectionCoins,inventoryCost,terminalValueLower;
@@ -69,6 +70,7 @@ final class AccountReplay implements AutoCloseable {
         Result(AccountReplay r,long end) throws Exception {
             cadenceMinutes=r.cadence;captureShareBps=r.share;actionSeconds=r.input.actionSeconds;missedVisits=r.missed;
             completionModel=r.completionModel;
+            pricingObjective=r.pricingExperiment?com.flippingfriend.model.AccountPriceScenarios.VERSION:null;
             authorizedSales=r.authorizedSales;withdrawnGuidance=r.withdrawnGuidance;
             replacementBuys=r.replacementBuys;relistedSales=r.relistedSales;
             elapsedSeconds=end-r.input.startAt;initialCoins=r.input.initialCoins;bagCoins=r.cash;
@@ -126,6 +128,7 @@ final class AccountReplay implements AutoCloseable {
     private int missed; private boolean marksComplete=true;
     private final String completionModel;
     private final boolean baseline;
+    private final boolean pricingExperiment;
 
     AccountReplay(AccountReplayInput input,int cadence,int share,Path newSyntheticDatabase) throws Exception {
         this(input,cadence,share,newSyntheticDatabase,null);
@@ -134,6 +137,9 @@ final class AccountReplay implements AutoCloseable {
         this(input,cadence,share,newSyntheticDatabase,fixture,null);
     }
     AccountReplay(AccountReplayInput input,int cadence,int share,Path newSyntheticDatabase,Entries fixture,ExecutionChallenger challenger) throws Exception {
+        this(input,cadence,share,newSyntheticDatabase,fixture,challenger,false);
+    }
+    AccountReplay(AccountReplayInput input,int cadence,int share,Path newSyntheticDatabase,Entries fixture,ExecutionChallenger challenger,boolean pricingExperiment) throws Exception {
         input.validate();
         if(!List.of(5,30,120,480).contains(cadence) || share<1 || share>100 || java.nio.file.Files.exists(newSyntheticDatabase))
             throw new IllegalArgumentException("Four benchmark cadences, 0.01–1% volume share and a new synthetic database required");
@@ -145,6 +151,11 @@ final class AccountReplay implements AutoCloseable {
             public boolean synchronousAnalysis(){return true;}
         };
         PortfolioPlanner planner=new PortfolioPlanner(history);
+        this.pricingExperiment=pricingExperiment;
+        if(pricingExperiment) {
+            if(fixture!=null || challenger!=null)throw new IllegalArgumentException("Pricing qualification keeps the baseline completion model and real planner");
+            planner.usePricingExperiment();
+        }
         baseline=challenger==null;
         if(challenger!=null) {
             if(input.startAt<=challenger.capturedAt)throw new IllegalArgumentException("Challenger replay must start after frozen training capture");

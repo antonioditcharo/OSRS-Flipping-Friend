@@ -66,6 +66,7 @@ public final class OfferEvent
     private final Long adviceObservedAt;
     private final Boolean predictionComparable;
     private final ExecutionForecast executionForecast;
+    private final DisplayedPricingContext displayedPricingContext;
     private final AcquisitionExitContext exitContext;
     private final AcceptedAdviceProof acceptedAdviceProof;
     private final AcceptedBuyPlanProof acceptedBuyPlanProof;
@@ -106,6 +107,7 @@ public final class OfferEvent
         this.adviceObservedAt=builder.adviceObservedAt;
         this.predictionComparable=builder.predictionComparable;
         this.executionForecast=builder.executionForecast;
+        this.displayedPricingContext=builder.displayedPricingContext;
         this.exitContext=builder.exitContext;
         this.acceptedAdviceProof=builder.acceptedAdviceProof;
         this.acceptedBuyPlanProof=builder.acceptedBuyPlanProof;
@@ -165,6 +167,10 @@ public final class OfferEvent
     public long getAdviceObservedAt() { return adviceObservedAt==null?0:adviceObservedAt; }
     public boolean isPredictionComparable() { return Boolean.TRUE.equals(predictionComparable); }
     public ExecutionForecast getExecutionForecast(){return executionForecast;}
+    public DisplayedPricingContext getDisplayedPricingContext(){return displayedPricingContext;}
+    public OfferEvent withDisplayedPricingContext(DisplayedPricingContext context) {
+        Builder copy=copyBuilder();copy.displayedPricingContext=context;return copy.build();
+    }
     public AcquisitionExitContext getExitContext(){return exitContext;}
     public AcceptedAdviceProof getAcceptedAdviceProof(){return acceptedAdviceProof;}
     public AcceptedBuyPlanProof getAcceptedBuyPlanProof(){return acceptedBuyPlanProof;}
@@ -208,6 +214,7 @@ public final class OfferEvent
         copy.predictionEvidenceVersion=predictionEvidenceVersion;copy.predictionSourceEventId=predictionSourceEventId;
         copy.adviceObservedAt=adviceObservedAt;copy.predictionComparable=predictionComparable;
         copy.executionForecast=executionForecast;
+        copy.displayedPricingContext=displayedPricingContext;
         copy.exitContext=exitContext;
         copy.acceptedAdviceProof=acceptedAdviceProof;
         copy.acceptedBuyPlanProof=acceptedBuyPlanProof;
@@ -220,6 +227,9 @@ public final class OfferEvent
     /** Freezes observational attribution, not proof of player intent. Economic/delivery fields stay intact. */
     public OfferEvent withBoundPrediction(OfferEvent origin,boolean comparable) {
         Builder copy=copyBuilder();
+        // Retain the full optional decision once at its original source, never repeat or refresh
+        // it on later observations. Financial/forecast qualification is independent of metadata.
+        copy.displayedPricingContext=origin!=null && java.util.Objects.equals(eventId,origin.eventId)?origin.displayedPricingContext:null;
         boolean matched=origin!=null && origin.wasRecommended();
         if(origin!=null && (!java.util.Objects.equals(accountId,origin.accountId)
             || !java.util.Objects.equals(sessionId,origin.sessionId)
@@ -312,6 +322,7 @@ public final class OfferEvent
         private Long adviceObservedAt;
         private Boolean predictionComparable;
         private ExecutionForecast executionForecast;
+        private DisplayedPricingContext displayedPricingContext;
         private AcquisitionExitContext exitContext;
         private AcceptedAdviceProof acceptedAdviceProof;
         private AcceptedBuyPlanProof acceptedBuyPlanProof;
@@ -357,6 +368,7 @@ public final class OfferEvent
             predictionComparable=comparable;return this;
         }
         public Builder executionForecast(ExecutionForecast forecast){executionForecast=forecast;return this;}
+        public Builder displayedPricingContext(DisplayedPricingContext context){displayedPricingContext=context;return this;}
         public Builder exitContext(AcquisitionExitContext value){exitContext=value;return this;}
         public Builder acceptedAdviceProof(AcceptedAdviceProof value){acceptedAdviceProof=value;return this;}
         public Builder acceptedBuyPlanProof(AcceptedBuyPlanProof value){acceptedBuyPlanProof=value;return this;}

@@ -598,6 +598,9 @@ public class FlippingFriendPlugin extends Plugin
             if(engine.deferUnsavedMaintenance(accepted,java.time.Instant.now().getEpochSecond()))requestEngineRefresh();
             return PresentationRecord.PERSISTENCE_FAILED;
         }
+        if(accepted!=null)accepted.bindDisplayConfiguration(new com.flippingfriend.core.DisplayedPricingContext.Configuration(
+            config.riskProfile()==null?null:config.riskProfile().name(),config.checkInterval()==null?null:config.checkInterval().getMinutes(),
+            config.targetHoldMinutes(),config.minProfitPerFlip(),config.bankrollCap(),engine.isSellOnly()));
         companion.recordPresentedAdvice(accepted,account,stop);
         return PresentationRecord.RECORDED;
     }

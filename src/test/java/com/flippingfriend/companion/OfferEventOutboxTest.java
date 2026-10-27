@@ -17,6 +17,25 @@ import static org.junit.Assert.assertTrue;
 public class OfferEventOutboxTest
 {
 	@Rule public final TemporaryFolder folder = new TemporaryFolder();
+    @Test public void unchangedBytesAvoidRepeatedDecodeWhileSameSizeSameTimeEditsAndOtherWritersInvalidate() throws Exception {
+        PluginStorage storage=TestStorage.rootedAt(folder.newFolder("prepared-image").toPath(),"one");
+        var outbox=new OfferEventOutbox(storage);var original=outbox.enqueue((e,s,q)->event(e,s,q,561));
+        Path file=storage.accountDir().resolve(OfferEventOutbox.FILE_NAME);
+        for(int i=0;i<20;i++){assertEquals(original.getEventId(),outbox.pending().get(0).getEventId());outbox.sessionId();}
+        assertEquals(1,outbox.decodedImageCount());
+        byte[] old=Files.readAllBytes(file);var time=Files.getLastModifiedTime(file);
+        String corrupt=new String(old,java.nio.charset.StandardCharsets.UTF_8).replace("\"formatVersion\":1","\"formatVersion\":2");
+        assertEquals(old.length,corrupt.getBytes(java.nio.charset.StandardCharsets.UTF_8).length);
+        Files.writeString(file,corrupt);Files.setLastModifiedTime(file,time);
+        try{outbox.pending();org.junit.Assert.fail("Exact image changes must revalidate");}catch(IllegalStateException expected){}
+        assertEquals(2,outbox.decodedImageCount());assertEquals(corrupt,Files.readString(file));
+        Files.write(file,old);assertEquals(1,outbox.pending().size());
+        var other=new OfferEventOutbox(storage);var second=other.enqueue((e,s,q)->event(e,s,q,4151));
+        assertEquals(2,outbox.pending().size());assertEquals(3,outbox.decodedImageCount());
+        assertTrue(outbox.acknowledge(original.getEventId(),original.getSessionId(),original.getSequence()));
+        assertEquals(second.getEventId(),outbox.pending().get(0).getEventId());
+        assertEquals(1,new OfferEventOutbox(storage).pending().size());
+    }
 
 	@Test public void refusesToUseTheDefaultAccountDirectory() throws Exception
 	{

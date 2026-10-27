@@ -120,6 +120,7 @@ public final class CompanionMain
         accounts.useReplication(replication);
         ApiServer api = new ApiServer(token, gson, service, accounts);
 		api.start();
+        accounts.prepareExistingAccounts();
 		lifecycle.started();
 		ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(2, r -> { Thread t = new Thread(r, "flipping-friend-market"); t.setDaemon(true); return t; });
 		scheduler.scheduleWithFixedDelay(guarded(accounts::refreshMarket), 60, 60, TimeUnit.SECONDS);

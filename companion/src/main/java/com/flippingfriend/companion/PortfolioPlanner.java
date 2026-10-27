@@ -41,6 +41,13 @@ final class PortfolioPlanner
 
 	private final PortfolioOptimizer optimizer = new PortfolioOptimizer();
 	private final CandidateFactory candidates;
+    private boolean pricingExperiment;
+    void usePricingExperiment(){pricingExperiment=true;}
+    private PortfolioPlan optimize(List<PortfolioCandidate> raw,PortfolioConstraints limits,String correlation,long now) {
+        return pricingExperiment?optimizer.optimizePreferred(raw,limits,correlation,now,
+            c->c.getAccountPriceScenarios()==null?0:c.getAccountPriceScenarios().score())
+            :optimizer.optimizePreferred(raw,limits,correlation,now);
+    }
     private PilotGateway pilot;
     private Runnable pilotRefresh=()->{};
     private java.util.function.Supplier<Collection<com.flippingfriend.core.PositionProjection>> pilotStock=List::of;
@@ -121,6 +128,8 @@ final class PortfolioPlanner
 		// ever called that setter. Off means off on both sides now.
 		candidates.setLearningDisabled(account.isLearningDisabled());
 
+        if(pricingExperiment)candidates.usePricingExperiment(account.getCheckIntervalMinutes(),
+            Math.min(48,2*horizonFor(account,appetite)+account.getCheckIntervalMinutes()/30.0));
 		List<PortfolioCandidate> tactics = candidates.build(market, horizonFor(account, appetite),
 			buyLimitRemaining, account.getSpendableCoins(), account.isMembers(), now);
 
@@ -162,7 +171,7 @@ final class PortfolioPlanner
 		// shrink as money went into offers, so the chart still tracked how busy you were. Equity is
 		// spendable plus committed, which is the money the planner would have to work with once the
 		// current trades come back.
-        PortfolioPlan plan = optimizer.optimizePreferred(offerable, limits, correlationId, nowSeconds);
+        PortfolioPlan plan = optimize(offerable, limits, correlationId, nowSeconds);
         // A requested horizon is an aspiration, never an empty-panel condition. Only the no-candidate
         // case expands; funding, slot, source, loss and exposure refusals retain their own authority.
         if (plan.getAllocations().isEmpty() && limits.getFreeSlots()>0
@@ -174,19 +183,19 @@ final class PortfolioPlanner
                     account.getSpendableCoins(),account.isMembers(),now);
                 for(var candidate:alternatives)if(!rejected(candidate,account))offerable.add(candidate);
             }
-            plan=optimizer.optimizePreferred(offerable,limits,correlationId,nowSeconds);
+            plan=optimize(offerable,limits,correlationId,nowSeconds);
         }
         boolean usedHosted=false;
         if(pilot!=null)try {
             var immediate=pilot.choose(account,offerable,activeOffers,market.observedAt,nowSeconds,pilotRefresh,limits,plan,pilotStock.get());
             if(immediate!=offerable) {
-                var hosted=optimizer.optimizePreferred(immediate,limits,correlationId,nowSeconds);
+                var hosted=optimize(immediate,limits,correlationId,nowSeconds);
                 // Coordination is advisory during the pilot; it cannot blank otherwise valid local guidance.
                 if(!hosted.getAllocations().isEmpty()){plan=hosted;usedHosted=true;}
             }
         }catch(RuntimeException ignored){/* Retain the verified local plan. */}
 
-		PortfolioPlan board = optimizer.optimizePreferred(offerable,
+		PortfolioPlan board = optimize(offerable,
 			limits.withSlots(Math.max(1, account.getTotalSlots())).withCoins(equity),
 			correlationId, nowSeconds);
 

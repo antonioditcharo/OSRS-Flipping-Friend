@@ -1,6 +1,6 @@
 # Tasks
 
-Updated 26 October 2026. Read [HANDOFF.md](HANDOFF.md) and the current hosted-pilot receipt at
+Updated 27 October 2026. Read [HANDOFF.md](HANDOFF.md) and the current hosted-pilot receipt at
 `local-data/hosted-pilot/delivery-state.json` first for the installed pair and pending source;
 #162 was the hosted pilot's original baseline. Implemented/tested, merged,
 installed and player accepted are separate states. The owner confirmed login/GE on 26 October.
@@ -8,11 +8,18 @@ All game interaction remains manual; batch runtime updates and acceptance work.
 
 ## Current batch
 
-- [ ] Deliver approved optimization stage A on `codex/optimization-pricing-qualification`: original
+- [x] Deliver approved optimization stage A #188: original
       acquisition/execution prefix indexes, explained main/editor outcomes, successor after expiry,
       hidden investigation work removed from the card timer, and honest latest-quote chart joins.
-      Focused tests pass; clean/tooling/frozen equivalence/both CI/paired preservation and live
-      acceptance remain pending. #186 remains installed. [Pass contract](docs/architecture/optimization-pricing-qualification.md).
+      Clean 2,476 Java (six skips), 121 tooling, Java 11, frozen equivalence, both CI platforms and
+      paired preservation pass. Installed; 251-file/six-configuration restoration, all 12 tables,
+      original risk/old-runtime reads and fresh eight-slot BUY/COLLECT delivery pass. First cold
+      scoped GET still exceeds ten seconds; sustained/manual acceptance remains open below.
+      [Receipt](docs/history/optimization-stage-a-install-2026-10-27.md).
+- [ ] Verify/deliver queued `codex/account-pricing-qualification`: chunked canonical prefixes,
+      exact-image outbox read reuse, bounded pre-login preparation and offline common-horizon
+      pricing/qualification/public-availability tools. Focused tests pass; full clean/tooling,
+      frozen source/financial comparison, exact-head CI and paired release remain pending.
 - [ ] Complete approved pricing stages B/C: constrained whole-account alternatives, shared entry/
       hold/adjust/exit evaluation, distinct evidence-bound budgeted loss authority and prospective
       decision context. Freeze a new 60/20/20 chronological cohort, exclude tuned fixtures, and

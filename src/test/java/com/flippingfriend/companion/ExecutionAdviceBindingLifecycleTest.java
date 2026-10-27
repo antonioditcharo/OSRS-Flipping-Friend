@@ -13,6 +13,22 @@ import static org.junit.Assert.*;
 
 /** Fixture account files only. Exercises durable writes, legacy delivery and isolation together. */
 public class ExecutionAdviceBindingLifecycleTest {
+    @Test public void optionalDisplayContextIsStoredOnceAndSurvivesFinancialAcknowledgementAndRestart()throws Exception {
+        Fixture f=new Fixture(folder.newFolder().toPath(),"context");
+        var context=new com.flippingfriend.core.DisplayedPricingContext(f.storage.accountId(),"display","BUY",561,100,10,AT-1,
+            com.flippingfriend.core.CaptureOrder.next(),500L,"modeled",null,null,java.util.List.of(),null);
+        var first=f.outbox.enqueueObservedOffer((id,session,sequence)->OfferEvent.builder("fixture",AT,"BUYING")
+            .accountId(f.storage.accountId()).authenticatedObservation(true).eventIdentity(id,session,"same-offer").sequence(sequence)
+            .slot(0).item(561,"Nature rune").buying(true).price(100).quantities(10,0).spent(0).firstSeenAt(AT)
+            .displayedPricingContext(context.bind(id,com.flippingfriend.core.CaptureOrder.next())).build());
+        assertTrue(first.getDisplayedPricingContext().matches(first));
+        assertTrue(f.outbox.acknowledge(first.getEventId(),first.getSessionId(),first.getSequence()));
+        var restarted=new Fixture(f.storage.accountDir().getParent().getParent(),"context");
+        var later=restarted.publish(AT+1,100,10,1,null,0);
+        assertNull(later.getDisplayedPricingContext());assertEquals(100,later.getSpent());
+        assertEquals(first.getSequence()+1,later.getSequence());assertFalse(later.isPredictionComparable());
+        assertTrue(Files.readString(f.file).contains("\"sourceEventId\":\""+first.getEventId()+"\""));
+    }
     @Rule public TemporaryFolder folder=new TemporaryFolder();
     static final long AT=1_700_000_000;
     static final class Fixture {
