@@ -8,21 +8,36 @@ development and defer further login/game requests until they return.
 
 ## Current batch
 
+- [x] Install merged #180/#182 at the owner's explicit request before later player verification.
+      Both CI platforms, clean 2,419 Java (six existing skips), 121 tooling, all-source parity and
+      twelve frozen replays pass. All 12 original tables match; 195-file/six-configuration restores
+      and original risk/old-runtime reads pass. Status/launcher/GET pipeline pass; RuneLite reopened.
+      [Receipt](docs/history/pricing-and-cold-install-2026-10-26.md).
+- [ ] Accept installed #182 when the owner returns: fresh ordered eight-slot ACKs, useful visible
+      guidance, preserved trades, cold/warm timing and player-operated cancel/late-fill/collect/
+      relist/restart. Do not request login/game actions while they are away.
+- [ ] Verify/deliver `codex/transport-latency-totals`: implemented bounded scope-safe request totals/histograms
+      include fast successes and failures, making observed-prefix denominators meaningful. Keep
+      transport success separate from financial ACK and guidance; no new trading waits/authority.
+      Eleven new deterministic/loopback tests plus stronger existing ACK/retry checks. Clean Java,
+      tooling and exact-head CI remain separate gates. Source only; #182 stays installed until a
+      batched runtime update. [Contract](docs/architecture/transport-latency-totals.md).
+
 - [x] Profile frozen cold ledger rebuilding and reject an unproven forecast-hash cache. Golden
       identities and serialization tests pass, but three alternating JVM pairs show inconsistent
       cold effects and essentially unchanged warm reads. Source restored to merged #180; rejected
       candidate is not a release. [Profile](docs/history/cold-ledger-profile-2026-10-26.md).
-- [ ] Reduce cold canonical history decoding/original-plan qualification with exact source-prefix
+- [x] Reduce cold canonical history decoding/original-plan qualification with exact source-prefix
       preservation, bounded resource work and measured cold/warm behavior. Keep all invalid sources,
       duplicate occurrences, original targets/stops, financial effects and external-edit/rollback
       invalidation. Do not use the rejected hash cache or skip source validation to fill the panel.
-- [ ] Deliver PR #182 (`codex/bounded-cold-offer-decoding`): bounded read-scoped reuse of exact immutable
+- [x] Deliver PR #182 (`codex/bounded-cold-offer-decoding`): bounded read-scoped reuse of exact immutable
       nested evidence, preserving distinct observations, every original field and Gson rejection
       semantics. Six new semantic/resource and four prefix tests pass; 165,183 source records match.
       Three cold JVM pairs improve consistently (median 21%); warm reads are unchanged. Clean 2,419
       Java (six existing skips) and 121 tooling pass. Exact-head CI/financial/replay receipts are
-      tracked in the PR and private verification receipt; then
-      retain the existing paired-update/manual acceptance gates. Source only; not installed.
+      tracked in the PR and private verification receipt. Installed with the preservation checks
+      above; manual acceptance remains separately unchecked.
 
 - [x] Implement/test PR #180 protected forecast limits over a shared horizon
       including exact tax/cost, actual quantity, estimated completion and unsold stock. Explain the
@@ -30,10 +45,8 @@ development and defer further login/game requests until they return.
       Clean 2,413 Java (six existing skips), 121 tooling and old/new Java 11 financial/risk reads pass.
       Twelve later frozen 5m/30m/2h/8h cases reproduce; two small 30m improvements, ten unchanged,
       all conservative ending changes negative. [Evidence](docs/history/exit-comparison-verification-2026-10-26.md).
-- [ ] Release/accept merged PR #180 after installed #178's deferred
-      player acceptance, with a verified paired backup/update and fresh guidance/trade/restart
-      checks. Exact-head Windows/Linux CI `40376426920` passes; it is not installed. This does not
-      finish market-informed loss authority.
+- [x] Release merged PR #180 through installed #182 with verified paired backup/rollback checks.
+      Player acceptance remains unchecked above. This does not finish market-informed loss authority.
 
 - [x] Implement/test/merge/install #178, combining #177 with recovered chart source and cold startup
       recovery bounds: clean 2,403 Java tests (six existing skips), 121 tooling, Java 11 and both

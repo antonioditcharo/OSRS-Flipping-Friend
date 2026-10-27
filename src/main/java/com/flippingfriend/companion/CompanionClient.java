@@ -49,6 +49,8 @@ import javax.inject.Singleton;
 public class CompanionClient
 {
     private static final org.slf4j.Logger LOG=org.slf4j.LoggerFactory.getLogger(CompanionClient.class);
+    private final CompanionTransportTotals transportTotals=new CompanionTransportTotals();
+    private final AtomicLong transportAccountEpoch=new AtomicLong();
 	private static final String BASE = "http://127.0.0.1:37777/v1/";
 	private static final int TIMEOUT_MILLIS = 750;
 	/** Ledger-backed reads may scan retained evidence. This is a transport budget, not advice TTL. */
@@ -308,6 +310,7 @@ public class CompanionClient
 		// Repeat invalidation while blocked: an earlier in-flight response must not restore advice.
 		if (unsupportedPrice || !java.util.Objects.equals(current, observedAccountId))
 		{
+            if(!java.util.Objects.equals(current,observedAccountId))transportAccountEpoch.incrementAndGet();
 			clearIncumbent(); lastPlan = null; lastHealth = null;
             refusalPlan=null;
 			lastLedger = null;
@@ -1840,17 +1843,23 @@ public class CompanionClient
 		throws Exception
 	{
 		boolean accountRequest = !path.startsWith("market/") && !path.equals("health");
-		if (accountRequest)
-		{
-			com.flippingfriend.core.AccountIdentity.require(accountId);
-			if (!accountId.equals(accountContext())) throw new IllegalStateException("Account changed before request");
-		}
+        final long transportEpoch;
+        synchronized(this) {
+            if (accountRequest) {
+                com.flippingfriend.core.AccountIdentity.require(accountId);
+                if (!accountId.equals(accountContext())) throw new IllegalStateException("Account changed before request");
+            }
+            // Capture the diagnostic epoch with the checked scope, even if another request
+            // observes an account switch before this request opens its connection.
+            transportEpoch=transportAccountEpoch.get();
+        }
 		String token = token();
 		if (token == null) throw new IllegalStateException("Start the Flipping Friend companion first.");
 		// An older companion has no account namespace and returns 404 before accepting any mutation.
 		String endpoint = accountRequest ? "accounts/" + accountId + "/" + path : path;
 		HttpURLConnection connection = (HttpURLConnection) new URL(base + endpoint).openConnection();
-        long requestStarted=System.nanoTime();int code=-1;
+        long requestStarted=System.nanoTime();int code=-1;boolean bodyReadAndScoped=false;
+        var transportTicket=transportTotals.begin(accountRequest?accountId:null,transportEpoch,path,requestStarted);
 		try
 		{
 			connection.setRequestMethod(method);
@@ -1875,14 +1884,22 @@ public class CompanionClient
 					throw new IllegalStateException("Companion does not confirm account-scoped protocol");
 				if (accountRequest && !accountId.equals(accountContext()))
 					throw new IllegalStateException("Account changed during request");
+                bodyReadAndScoped=true;
 				return response;
 			}
 		}
 		finally {
-            connection.disconnect();
-            long elapsed=System.nanoTime()-requestStarted;
-            if(elapsed>=750_000_000L)LOG.info("Companion request duration: {} ms; {} {}; response {}",
-                elapsed/1_000_000,method,path.split("\\?",2)[0],code);
+            try {connection.disconnect();}
+            catch(RuntimeException failedDisconnect){bodyReadAndScoped=false;throw failedDisconnect;}
+            finally {
+                long elapsed=System.nanoTime()-requestStarted;
+                try {
+                    var totals=transportTotals.complete(transportTicket,elapsed,code,bodyReadAndScoped,System.nanoTime());
+                    if(totals!=null)LOG.info("Companion transport totals: {}",gson.toJson(totals));
+                }catch(RuntimeException optionalDiagnosticsUnavailable){LOG.debug("Transport totals unavailable",optionalDiagnosticsUnavailable);}
+                if(elapsed>=750_000_000L)LOG.info("Companion request duration: {} ms; {} {}; response {}",
+                    elapsed/1_000_000,method,path.split("\\?",2)[0],code);
+            }
         }
 	}
 

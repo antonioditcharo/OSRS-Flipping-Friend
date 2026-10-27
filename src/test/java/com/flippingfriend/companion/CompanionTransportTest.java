@@ -32,10 +32,22 @@ public class CompanionTransportTest {
     }
     @After public void stop(){if(server!=null)server.stop(0);if(executor!=null)executor.shutdownNow();}
     String request(String path,String method,String body)throws Exception {
+        return request(path,method,body,1000);
+    }
+    String request(String path,String method,String body,int timeoutMillis)throws Exception {
         var call=CompanionClient.class.getDeclaredMethod("request",String.class,String.class,String.class,int.class,String.class);
         call.setAccessible(true);
-        try{return (String)call.invoke(client,path,method,body,1000,storage.accountId());}
+        try{return (String)call.invoke(client,path,method,body,timeoutMillis,storage.accountId());}
         catch(java.lang.reflect.InvocationTargetException failure){throw (Exception)failure.getCause();}
+    }
+    CompanionTransportTotals.Report transportReport()throws Exception {
+        var field=CompanionClient.class.getDeclaredField("transportTotals");field.setAccessible(true);
+        var epoch=CompanionClient.class.getDeclaredField("transportAccountEpoch");epoch.setAccessible(true);
+        return ((CompanionTransportTotals)field.get(client)).snapshot(storage.accountId(),
+            ((java.util.concurrent.atomic.AtomicLong)epoch.get(client)).get(),System.nanoTime());
+    }
+    CompanionTransportTotals.Row transportRow(String group)throws Exception {
+        return transportReport().rows.stream().filter(r->r.group.equals(group)).findFirst().orElseThrow();
     }
     void reply(HttpExchange exchange,int code,String body)throws Exception {
         assertEquals("fixture-token",exchange.getRequestHeaders().getFirst("X-Flipping-Friend-Token"));
@@ -147,6 +159,8 @@ public class CompanionTransportTest {
         client.resumeOfferReplay();publishEmptyFrame();
         assertEquals(3,requests.get());assertEquals(0,snapshots.get());assertEquals(2,writes.get());
         assertEquals(6,new OfferEventOutbox(storage).pending().size());assertEquals(3,outbox.pending().get(0).getSequence());
+        var transport=transportRow("OFFERS");assertEquals(3,transport.attempts);assertEquals(3,transport.bodyReadAndScoped2xx);
+        assertTrue("Transport success explicitly grants no durable financial ACK",transportReport().semantics.contains("not durable ACK"));
     }
     @Test public void aColdCanonicalWriteLongerThanTheQuoteBudgetCanAcknowledgeTheOriginalFrame()throws Exception {
         var snapshots=new java.util.concurrent.atomic.AtomicInteger();
@@ -180,5 +194,60 @@ public class CompanionTransportTest {
             Map.of(),Map.of(),Set.of(),Set.of(),Set.of(),false,List.of(),List.of(),storage.accountId(),capture);
         assertTrue(outbox.pending().isEmpty());assertEquals(1,snapshots.get());
         assertEquals("The failed request must retry its original financial identity and payload",original,received.subList(1,received.size()));
+        var transport=transportRow("OFFERS");assertEquals(9,transport.attempts);assertEquals(8,transport.bodyReadAndScoped2xx);assertEquals(1,transport.httpFailures);
+    }
+    @Test public void transportTotalsIncludeScopedSuccessBadScopeHttpFailureAndConnectionFailure()throws Exception {
+        var count=new java.util.concurrent.atomic.AtomicInteger();
+        server.createContext("/v1/accounts/",exchange->{try {
+            int current=count.incrementAndGet();
+            if(current==2) {
+                byte[] bytes="{}".getBytes(StandardCharsets.UTF_8);exchange.sendResponseHeaders(200,bytes.length);
+                exchange.getResponseBody().write(bytes);exchange.close();
+            }else reply(exchange,current==3?503:200,"{}");
+        }catch(Exception error){throw new java.io.IOException(error);}});
+        assertEquals("{}",request("policy/fixture","GET",null));
+        try{request("policy/fixture","GET",null);fail("Missing scope must still reject");}catch(IllegalStateException expected){}
+        try{request("policy/fixture","GET",null);fail("503 must still reject");}catch(IllegalStateException expected){}
+        server.stop(0);server=null;
+        try{request("policy/fixture","GET",null);fail("Stopped service must still fail");}catch(java.io.IOException expected){}
+        var row=transportRow("POLICY");assertEquals(4,row.attempts);assertEquals(1,row.bodyReadAndScoped2xx);
+        assertEquals(1,row.failed2xx);assertEquals(1,row.httpFailures);assertEquals(1,row.noResponse);
+        long timings=0;for(long n:row.latencyHistogram)timings+=n;assertEquals(4,timings);assertEquals(0,row.invalidTiming);
+    }
+    @Test public void failedPreflightIsNotCountedAsAnAttemptThatEnteredHttpTransport()throws Exception {
+        Files.delete(storage.root().resolve("companion/companion.properties"));
+        try{request("policy/fixture","GET",null);fail("Missing credentials must reject");}catch(IllegalStateException expected){}
+        assertNull("No account transport window starts before credential preflight passes",transportReport());
+    }
+    @Test public void lateScopedHttpReplyCannotPolluteTheNewAccountOrItsReturnWindow()throws Exception {
+        Path root=storage.root();String one=storage.accountId(),two=AccountIdentity.fromProfileKey("second fixture");
+        var account=new java.util.concurrent.atomic.AtomicReference<>(one);
+        storage=org.mockito.Mockito.mock(PluginStorage.class);
+        org.mockito.Mockito.when(storage.accountId()).thenAnswer(call->account.get());
+        org.mockito.Mockito.when(storage.root()).thenReturn(root);org.mockito.Mockito.when(storage.gson()).thenReturn(gson);
+        org.mockito.Mockito.when(storage.accountDir(org.mockito.Mockito.anyString())).thenAnswer(call->root.resolve(call.getArgument(0,String.class)));
+        client=new CompanionClient(storage,gson,new SuggestionLedger(),outbox,()->0L,
+            "http://127.0.0.1:"+server.getAddress().getPort()+"/v1/");
+        var entered=new CountDownLatch(1);var release=new CountDownLatch(1);
+        server.createContext("/v1/accounts/",exchange->{try {
+            String scope=exchange.getRequestHeaders().getFirst(AccountIdentity.HEADER);
+            if(exchange.getRequestURI().getPath().endsWith("delayed")) {entered.countDown();if(!release.await(10,TimeUnit.SECONDS))throw new java.io.IOException("fixture timeout");}
+            exchange.getResponseHeaders().set(AccountIdentity.HEADER,scope);
+            exchange.getResponseHeaders().set(AccountIdentity.PROTOCOL_HEADER,AccountIdentity.PROTOCOL);
+            byte[] bytes="{}".getBytes(StandardCharsets.UTF_8);exchange.sendResponseHeaders(200,bytes.length);
+            exchange.getResponseBody().write(bytes);exchange.close();
+        }catch(Exception error){throw new java.io.IOException(error);}});
+        var worker=Executors.newSingleThreadExecutor();
+        try {
+            Future<?> late=worker.submit(()->{try{request("ledger/delayed","GET",null,5000);fail("Old account reply must reject");}
+                catch(IllegalStateException expected){}catch(Exception unexpected){throw new RuntimeException(unexpected);}});
+            assertTrue(entered.await(5,TimeUnit.SECONDS));account.set(two);assertEquals("{}",request("ledger/current","GET",null));
+            release.countDown();late.get(5,TimeUnit.SECONDS);
+            var second=transportReport();assertEquals(two,second.account);assertEquals(1,transportRow("LEDGER").attempts);
+            assertEquals(0,transportRow("LEDGER").failed2xx);
+            account.set(one);assertEquals("{}",request("ledger/current","GET",null));
+            var returned=transportReport();assertEquals(one,returned.account);assertNotEquals(second.window,returned.window);
+            assertEquals(2,returned.generation);assertEquals(1,transportRow("LEDGER").attempts);
+        }finally{release.countDown();worker.shutdownNow();}
     }
 }
