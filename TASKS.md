@@ -13,25 +13,30 @@ All game interaction remains manual; batch runtime updates and acceptance work.
       twelve frozen replays pass. All 12 original tables match; 195-file/six-configuration restores
       and original risk/old-runtime reads pass. Status/launcher/GET pipeline pass; RuneLite reopened.
       [Receipt](docs/history/pricing-and-cold-install-2026-10-26.md).
-- [ ] Accept installed #182 when the owner returns: fresh ordered eight-slot ACKs, useful visible
+- [ ] Accept combined installed #184: fresh post-update ordered eight-slot ACKs, useful visible
       guidance, preserved trades, cold/warm timing and player-operated cancel/late-fill/collect/
-      relist/restart. Do not request login/game actions while they are away.
+      relist/restart and native charts. Fresh manual login/GE, eight-slot proof and visible full-slot/
+      MODIFY_SELL guidance pass. The first account prefix has 94 completed offer calls, zero transport
+      failures and histogram p95 upper bound 25 ms; this short sample is not sustained acceptance.
+      Initial guidance still includes an 8.3-second client queue, and policy timings remain open.
+      Retain the first cold ten-second pipeline timeout as an open issue despite the later pass.
 - [x] Verify the owner's post-login #182 frame: all eight authenticated ordered sources precede
       the account frame; latest projection counters/identities match and pending outbox is empty.
       Visible full-slot guidance and logged BUY/SELL/MODIFY_SELL/COLLECT pass. Five-second timeouts
       remain; this is partial live evidence, not sustained latency or controlled trade-loop acceptance.
-- [ ] Deliver `codex/indexed-offer-episode-lookup`: replace the profiled historical JSON scan with
+- [x] Deliver #184 `codex/indexed-offer-episode-lookup`: replace the profiled historical JSON scan with
       exact indexed matching/uncertain-source branches. Four new golden/native-work/archive tests
-      and existing episode/workflow regressions pass. Frozen 183,995-event comparison, clean build,
-      tooling, exact-head CI, paired backup/rollback and fresh guidance remain release gates.
-      Includes queued #183 diagnostics; preserve every financial/source row and guard.
+      and existing episode/workflow regressions pass. Frozen 183,995-event comparison, clean 2,434
+      Java (six existing skips), 121 tooling, Java 11 and exact-head CI both pass. Installed with
+      all 12 tables equal, 201-file/six-configuration restoration and original risk/old-runtime reads.
+      Includes #183 diagnostics. Post-install fresh guidance/soak remain separately unchecked above.
       [Contract](docs/architecture/indexed-offer-episode-lookup.md).
-- [ ] Verify/deliver `codex/transport-latency-totals`: implemented bounded scope-safe request totals/histograms
+- [x] Verify/deliver #183 `codex/transport-latency-totals`: bounded scope-safe request totals/histograms
       include fast successes and failures, making observed-prefix denominators meaningful. Keep
       transport success separate from financial ACK and guidance; no new trading waits/authority.
-      Eleven new deterministic/loopback tests plus stronger existing ACK/retry checks. Clean Java,
-      tooling and exact-head CI remain separate gates. Source only; #182 stays installed until a
-      batched runtime update. [Contract](docs/architecture/transport-latency-totals.md).
+      Eleven new deterministic/loopback tests plus stronger existing ACK/retry checks; Java/tooling
+      and exact-head CI pass. Installed through #184; first GLOBAL prefix logs. Account-prefix,
+      full timing and actual guidance acceptance remain open. [Contract](docs/architecture/transport-latency-totals.md).
 
 - [x] Profile frozen cold ledger rebuilding and reject an unproven forecast-hash cache. Golden
       identities and serialization tests pass, but three alternating JVM pairs show inconsistent
