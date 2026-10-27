@@ -29,8 +29,12 @@ def collect(output, seconds, interval=60, user_root=None, budget=2 * 1024**3):
     if ('local-data' not in output.parts or output.exists() or not 1 <= seconds <= 31 * 86400
             or not 60 <= interval <= 900 or not 1024 * 1024 <= budget <= MAX_BYTES):
         raise ValueError('New private segment and bounded duration, cadence and budget required')
-    if output.parent.resolve() != output.parent or output.parent.is_symlink():
+    # Windows short names can resolve to a different spelling without being links. Inspect
+    # the actual ancestors for reparse points before canonicalizing, rather than compare text.
+    if not output.parent.is_dir() or any(parent.is_symlink() or getattr(parent.lstat(), 'st_file_attributes', 0) & 0x400
+            for parent in (output.parent, *output.parent.parents)):
         raise ValueError('Capture parent must exist without links')
+    output = output.resolve()
     if shutil.disk_usage(output.parent).free < budget + 256 * 1024**2:
         raise ValueError('Insufficient bounded capture space')
     user_root = Path(user_root) if user_root else Path.home() / '.runelite/osrs-flipping-friend'
