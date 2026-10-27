@@ -5,120 +5,87 @@ Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
 ## Installed runtime
 
-PR #182 is installed, including #180 protected exit comparisons and all #178 workflow/chart work.
-Verified source `5ca317df25ad4c0700eb9e0072abf2e94e015d06`; merge
-`1f00ea97d975c8f361636626055f7c46eb5076b5` has the identical tree. Exact-head Windows/Linux CI
-`40415436289`, 2,419 Java tests (six existing skips), 121 tooling and Java 11 checks pass. The owner
-explicitly authorized installation now and deferred player verification until home, superseding
-the earlier hold. Source #180/#182 are no longer merely queued.
+PR #184 is installed, including #183 transport diagnostics and all #178/#180/#182 workflow,
+chart and protected-pricing work. Tested source `1a0c8f5999d706e37efa8c397c153312537a4a21` and merge
+`808623ca60080aeba79b7f5175f447f5a32c7bb1` have identical trees. Clean 2,434 Java tests (six existing
+skips), 121 tooling, Java 11 and both exact-head CI platforms pass in run `40438442464`.
+No Java source is currently queued for installation. Documentation branch: `codex/episode-lookup-delivery`.
 
-The paired updater closed RuneLite normally, preserved all 12 original accounting/source tables,
-and retained backup `20261026-154703-1f152085`. A 195-file disposable restoration, six configuration
-restores and old/new Java 11 ledger/stock/scope/continuation/exposure/original-risk-window reads pass.
-Five configuration files are byte-identical; only the hosted writer generation advanced once via
-`PilotGateway.load`, with every credential/feature field preserved. Manifest/JAR hashes, status,
-launcher compatibility and the account-scoped GET-only pipeline pass. RuneLite reopened. The owner
-then logged in/opened GE: fresh authenticated ordered eight-slot sources, matching projections,
-an empty pending outbox, visible full-slot guidance and logged BUY/SELL/MODIFY_SELL/COLLECT pass.
-Repeated five-second timeouts still occur; sustained latency and controlled full-loop/chart
-acceptance remain open. All login/game actions were manual.
-[Delivery receipt](docs/history/pricing-and-cold-install-2026-10-26.md).
-Private receipt: primary `local-data/runtime182-install-20261026/installation-receipt.json`.
+RuneLite closed through its ordinary Close/exit-confirmation controls; no force kill, login or
+in-game input was performed. The supported paired updater preserved task XML/permissions and
+normal-user lifecycle 1, with backup `20261026-183607-beb8517d`. Both installed JARs/manifest verify.
+All 12 original financial/source/projection tables match. A 201-file disposable restoration, six
+configuration copies and old/new Java 11 ledger/stock/scope/continuation/exposure/original-risk
+reads pass. Five live configurations are byte-identical; only hosted generation advanced once,
+with every credential/feature field preserved. Runtime rollback preserves later trades.
+[Delivery receipt](docs/history/episode-lookup-install-2026-10-26.md).
+Private source/install receipts: primary `local-data/live-ack-20261026`.
 
-Maintenance 12/replay 28 and sale-receipt family 10 are active. No new market-informed loss
-authority, hosted recommendations/coordination or execution learning is active.
+Status/launcher checks pass. The first cold scoped GET exceeded ten seconds; a later complete
+GET-only pipeline passes. Keep the cold failure visible. RuneLite reopened and logs show the
+installed plugin and account/GLOBAL diagnostic prefixes. The owner's post-update login/GE check
+passes fresh ordered eight-slot sources, matching current projections, visible full-slot guidance
+and MODIFY_SELL delivery. The first 215-completion account prefix includes 94 offer calls with
+zero transport failures and a 25 ms histogram p95 upper bound. This short prefix is not sustained
+acceptance or a financial ACK. Initial guidance took 12,119 ms, including 8,300 ms in the client
+queue; policy calls also remain slower. Sustained/full-loop/chart acceptance stays open.
+Do not claim verification waits resolved from component measurements or successful requests alone.
 
-Retained #178 improvements include indexed report/replica reads, bounded genuine startup fallback,
-durable-projection startup reuse and the recovered independent 24h chart model/cache/manual zoom.
-[Its receipt](docs/history/combined-chart-install-2026-10-26.md) preserves the earlier artifacts,
-tests and backup. Chart/visible-guidance acceptance remains pending; no chart-chat response is
-needed. Three unrelated primary-checkout document deletions remain untouched.
-Do not claim the long-wait problem resolved from component tests or successful requests alone.
+Maintenance 12/replay 28 and sale-receipt family 10 remain active. Hosted enabled/shadow true;
+recommendations/coordination false; automatic recovery true. Local companion is sole financial
+authority. Learning and new market-informed loss authority remain off. Private hosted infrastructure
+is unchanged under the approved $50/month ceiling (original base quote approximately $36.20 before tax).
+Three unrelated primary-checkout document deletions remain untouched.
 
-Hosted flags: enabled/shadow true; hosted recommendations and coordination false; automatic
-recovery true. Learning is unpromoted. Private DigitalOcean staging remains approximately
-$36.20/month before tax under the owner's $50 ceiling. Local companion is sole financial authority.
+## Latest verified behavior
 
-## Remaining work
+The owner's pre-update login produced a fresh authenticated ordered eight-slot frame, matching
+projections, an empty pending outbox, visible full-slot guidance and BUY/SELL/MODIFY_SELL/COLLECT
+logs. This was partial live #182 evidence: repeated five-second offer/report timeouts remained.
+Full-depth JFR identifies the new-episode historical JSON lookup inside canonical offer delivery
+(103 native SQLite samples; related planner monitor wait 2.637 seconds). Quiet profiling alone
+missed it. The installed fix merges exact matching/uncertain-source indexes with unchanged row
+ordering, malformed/duplicate-key JSON handling, incoming exclusion and final Gson rejection.
+Four new golden/native-budget/archive tests and existing cleared-episode regressions pass.
 
-PR #180 is merged at `644a6cb130f5e72ba461379f7dd92bd2f0ccfd26` and installed through #182.
-Final source `a0e5d2d0cc2a12ec15bc184a3d4eca5988553e7e` passes both CI platforms in run
-`40376426920`. Optional non-loss forecast limits compare the same exact quantity over one horizon,
-retaining a common taxed current-bid mark for unsold stock and crediting no replacement income.
-An alternative must improve the existing estimated rate and cannot worsen marked horizon value.
-Immutable worker results explain standing/routine alternatives in Records; they grant no loss or
-cancellation authority. Missing evidence immediately retains existing pricing. Maintenance 12/
-replay 28 identify this installed behavior. Receipt/source identities
-and risk rules are unchanged. Clean Java 2,413 tests (six existing skips), 121 tooling, Java 11
-and frozen old/new financial/risk reads pass. Twelve later sixteen-item account cases reproduce:
-ten match, two 30m cases gain 605/1,386 simulated GP with unchanged drawdown/losses/inventory and
-fewer reprice proposals. Every conservative ending account change remains negative; this is not
-return-superiority evidence. Exact-head CI is tracked in PR #180 and the private verification
-receipt. The owner authorized the paired installation before later manual verification.
-[Verification and next implementation map](docs/history/exit-comparison-verification-2026-10-26.md).
-Private research: `local-data/exit-comparison-20261026` in the primary checkout.
+The frozen 183,995-event copy produces identical selected rows/payloads. Old lookup samples are
+10,047/1,519/1,088 ms; indexed samples 0.841/0.254/0.166 ms, with a one-time 2,146 ms index build and
+zero financial DML. These are component observations, not live p95. Old #182 safely reads the
+migrated copy with identical financial/risk results. [Contract](docs/architecture/indexed-offer-episode-lookup.md).
 
-PR #182 (`codex/bounded-cold-offer-decoding`) implements read-scoped bounded reuse of identical
-immutable forecast/buy-plan values during cold canonical history decoding. Every observation is
-still separately decoded/validated in its original order; duplicate fields, coercions, malformed
-rejection, original plan qualification and financial identities remain. Warm append decoding uses
-the existing reader. Six new semantic/resource tests and four prefix/rollback tests pass; all
-165,183 frozen source records serialize identically through old/new readers. Three alternating
-JVM pairs reduce median cold component time from 5,871 to 4,641 ms (21%); warm timing is essentially
-unchanged. Clean 2,419 Java tests (six existing skips) and 121 tooling tests pass. Final exact-head
-Windows/Linux CI, financial/rollback reads and replay receipts pass and are tracked in PR #182 and
-private `verification-receipt.json`. Installed with the paired preservation checks above; player
-acceptance remains deferred. [Contract](docs/architecture/cold-canonical-decoding.md).
-Private research: `local-data/cold-offer-decoding-20261026` in the primary checkout.
+Installed #183 diagnostics cover fast and slow completed HTTP outcomes in bounded account/epoch
+and GLOBAL cumulative prefixes. Transport body/scope success grants no typed-body validity,
+financial ACK or guidance. Never sum overlapping prefixes or infer an unlogged tail's outcomes.
+[Contract](docs/architecture/transport-latency-totals.md).
 
-PR #183 is merged (`14813d6241853a87f68ec633a64ad66793e81ba0`): bounded diagnostic transport
-prefixes, 2,430 Java tests (six existing skips), 121 tooling, Java 11 and both exact-head CI jobs
-pass in run `40425796819`. Eleven new tests preserve account isolation and original outboxes.
-HTTP/body/scope success grants no financial ACK or guidance. Source only; queued into the next
-batch below. [Contract](docs/architecture/transport-latency-totals.md). Private receipt:
-primary `local-data/transport-totals-20261026/verification-receipt.json`.
+Earlier retained work: #177/#178 indexed report/replication and bounded startup fallback;
+#178 recovered independent 24h chart model/cache/manual zoom; #180 protected common-horizon
+non-loss exit comparison; #182 bounded cold immutable-evidence decoding. The latter preserves
+all 165,183 tested source records/occurrences and reduces a three-pair median cold component from
+5,871 to 4,641 ms. [Previous installation](docs/history/pricing-and-cold-install-2026-10-26.md),
+[chart/report receipt](docs/history/combined-chart-install-2026-10-26.md),
+[exit comparison](docs/history/exit-comparison-verification-2026-10-26.md).
 
-Next branch `codex/indexed-offer-episode-lookup` fixes a concrete live delivery stall: the new-offer
-identity guard scans historical JSON under the delivery monitors. Full-depth JFR includes 103
-native SQLite samples there; a related planner wait reaches 2.637 seconds. Two additive indexes
-merge exactly the original matching/uncertain-source rows, preserving rejection and final Gson
-checks. Four new golden/native-budget/archive tests and nine cleared-episode/six lookup regressions
-pass. A frozen 183,995-event account is captured read-only. Full build, frozen comparison, CI and
-paired preservation/release checks remain gates; #182 is still installed. This batch includes #183.
-[Contract](docs/architecture/indexed-offer-episode-lookup.md). Private `local-data/live-ack-20261026`.
+## Remaining work and contracts
 
-The earlier transient forecast-hash cache remains rejected; its invalid artifact-path run and
-corrected measurements are retained. It is absent from this source and is not releasable.
-[Earlier profile](docs/history/cold-ledger-profile-2026-10-26.md).
+Every unchecked release requirement remains in TASKS. Require fresh post-update ordered ACKs,
+visible useful guidance and retained trades; sustained end-to-end timing including failed/missing
+outcomes; native charts; player-operated partial/cancel/late-fill/collect/relist/completion/restart.
+The first cold scoped-GET failure and independent UI/capture/persistence/worker budgets remain open.
 
-The complete unchecked list remains in TASKS. Finish acceptance of the installed combined update through
-retained trades, sustained latency and
-player-operated cancel/late-fill/collect/relist/restart. Read the
-[report/startup contract](docs/architecture/report-and-replication-latency.md) and
-[recovered chart contract](docs/architecture/day-ahead-chart-forecasts.md).
+Next functional priority is the requested market-supported hold/adjust/bounded-loss comparison:
+immutable qualified market-exit evidence, durable account-budget enforcement, final authority and
+full lifecycle/rollback proof. Never relabel old stop receipts or use age, a chart or estimated
+replacement profit as loss permission. Preserve original acquisition plans, exact costs and risk.
+[Workflow/pricing contract](docs/architecture/workflow-verification-and-predictive-pricing.md).
 
-The broader [pricing/workflow contract](docs/architecture/workflow-verification-and-predictive-pricing.md)
-remains open. The requested supported hold/adjust/bounded-loss comparison still needs explicit
-immutable market-exit evidence, durable account-budget enforcement, final authority and full
-lifecycle/rollback proof. Never relabel an old stop receipt or use age, an experimental chart, or
-estimated replacement profit as loss permission. Preserve original stops and loss anchors.
+The unrestricted forecast frontier and transient forecast-hash cache remain rejected. Guarded
+public simulations do not establish return superiority; every retained conservative ending account
+change remains negative. Honest flat/unavailable chart forecasts remain valid. Learning is
+unpromoted; no chart or price-touch scenario authorizes accounting, disposal or an order.
 
-The unrestricted forecast frontier failed the 5m development account scenario and was rejected.
-Installed guarded alternatives matched #175 in twelve eight-item/eight-hour public development
-scenarios; these are not untouched promotion evidence or proof of GP/hr improvement. Longer chart
-bands also have poor retained retrospective coverage. Honest flat/unavailable forecasts remain
-valid outcomes; drawing a curve cannot grant trading, disposal or learning authority.
-
-## Ongoing contracts
-
-Keep durable identities, unknown costs, original acquisition context and risk windows. Historical
-item uncertainty does not veto unrelated verified-cash entries; unknown live scope, contradictory
-funding, slots and limits remain guards. Personal belongings are not trading stock. The unscoped
-legacy DB remains unassigned and untouched. Login and every in-game action remain manual; routine
-paired maintenance/backup/launch is authorized. Rollback changes code, preserving later trades.
-
-Benchmark 100M/member/eight slots at 5m, 30m, 2h and 8h separately. Public forecasts, price-touch
-simulations, prospective execution learning and actual account returns are separate evidence.
-[Prior #176 receipt](docs/history/predictive-pricing-install-2026-10-26.md),
-[checkpoints through #175](docs/history/handoff-pilot-through-pr175.md) and
-[project direction](docs/project-direction.md) preserve earlier details without overriding this state.
+Keep canonical identities, original risk anchors and unknown costs. Historical item uncertainty
+cannot veto unrelated verified-cash entries; unknown live scope, funding, slots and limits remain
+guards. Personal belongings are not trading stock; unscoped legacy data stays unassigned. All
+login/game actions remain manual. Benchmark 100M/member/eight slots at 5m/30m/2h/8h separately.
+[Project direction](docs/project-direction.md), [checkpoints through #175](docs/history/handoff-pilot-through-pr175.md).
