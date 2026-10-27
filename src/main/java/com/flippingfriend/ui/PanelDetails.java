@@ -40,7 +40,7 @@ final class PanelDetails {
     private final RecordedSalesPanel recordedSales;
     private final JButton copyQuantity = new JButton("Copy quantity"), copyPrice = new JButton("Copy price");
     private Suggestion shown = Suggestion.idle();
-    private boolean syncing;
+    private boolean syncing,accountLoggedIn;
     private JFrame dialog;
     private BiConsumer<String, JComponent> presenter;
 
@@ -110,9 +110,7 @@ final class PanelDetails {
         update(advice,ledger,ledger,false);
     }
     void updateSaleMaintenance(boolean loggedIn) {
-        tradeRecovery.setText(TradeRecoveryText.render(loggedIn?engine.tradeRecovery():null,java.time.Instant.now().getEpochSecond()));
-        saleMaintenance.setText(SaleMaintenanceText.render(loggedIn?engine.saleMaintenanceDiagnostics():java.util.Collections.emptyList(),
-            java.time.Instant.now().getEpochSecond(),loggedIn));
+        accountLoggedIn=loggedIn;
     }
     void update(Suggestion advice,AccountLedgerSnapshot ledger,AccountLedgerSnapshot history,boolean historyUpdating) {
         shown = advice == null ? Suggestion.idle() : advice;
@@ -132,7 +130,7 @@ final class PanelDetails {
         text.append(forecastDescription(shown));
         if (shown.getBreakEvenPrice() > 0) text.append("\nBreak-even sell: ").append(explainer.formatNumber(shown.getBreakEvenPrice())).append(" gp");
         if (shown.getType() == com.flippingfriend.model.SuggestionType.BUY) text.append("\nModel confidence: ").append(Math.round(shown.getConfidence() * 100)).append("%");
-        recommendation.setText(text.toString());
+        setText(recommendation,text.toString());
         copyQuantity.setEnabled(shown.getQuantity() > 0); copyPrice.setEnabled(shown.getPrice() > 0);
         syncing = true; interval.setSelectedItem(config.checkInterval()); sellOnly.setSelected(engine.isSellOnly()); syncing = false;
         if (dialog != null && dialog.isVisible()) refreshSelected();
@@ -170,6 +168,13 @@ final class PanelDetails {
         String name = tabs.getTitleAt(tabs.getSelectedIndex());
         if(dialog!=null)dialog.setTitle("Flipping Friend - "+name);
         switch (name) {
+            case "Recommendation":
+                setText(saleMaintenance,SaleMaintenanceText.render(accountLoggedIn?engine.saleMaintenanceDiagnostics():java.util.Collections.emptyList(),
+                    java.time.Instant.now().getEpochSecond(),accountLoggedIn));
+                break;
+            case "Trade recovery":
+                setText(tradeRecovery,TradeRecoveryText.render(accountLoggedIn?engine.tradeRecovery():null,java.time.Instant.now().getEpochSecond()));
+                break;
             case "Holdings": holdings.refresh(); break;
             case "Local history": history.refresh(); break;
             case "Plan": plan.refresh(); break;
@@ -181,6 +186,7 @@ final class PanelDetails {
             default: break;
         }
     }
+    private static void setText(JTextArea area,String value){if(!java.util.Objects.equals(area.getText(),value))area.setText(value);}
     void setPresenter(BiConsumer<String, JComponent> presenter) { this.presenter = presenter; }
     void setGraphItemManager(net.runelite.client.game.ItemManager items){graph.setItemManager(items);}
     void openItemGraph(Component owner,int item){graph.showItem(item);open(owner,"Price graph");}

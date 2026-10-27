@@ -8,6 +8,19 @@ All game interaction remains manual; batch runtime updates and acceptance work.
 
 ## Current batch
 
+- [ ] Deliver approved optimization stage A on `codex/optimization-pricing-qualification`: original
+      acquisition/execution prefix indexes, explained main/editor outcomes, successor after expiry,
+      hidden investigation work removed from the card timer, and honest latest-quote chart joins.
+      Focused tests pass; clean/tooling/frozen equivalence/both CI/paired preservation and live
+      acceptance remain pending. #186 remains installed. [Pass contract](docs/architecture/optimization-pricing-qualification.md).
+- [ ] Complete approved pricing stages B/C: constrained whole-account alternatives, shared entry/
+      hold/adjust/exit evaluation, distinct evidence-bound budgeted loss authority and prospective
+      decision context. Freeze a new 60/20/20 chronological cohort, exclude tuned fixtures, and
+      qualify 5m/30m/2h/8h separately before activation. Existing pricing remains the fallback.
+- [ ] Complete asynchronous hosted public preparation on the current budget, repeat capacity
+      experiment before increasing hosted responsibility, and verify 60-minute controlled mixed-load
+      soak/manual workflows. Begin execution-first learning only after delivery/latency/evidence
+      gates; learning remains observational until its own promotion requirements pass.
 - [x] Verify/deliver #186 `codex/panel-guidance-continuity`: profiled source preparation and background
       SQL scan, editor-close/superseded-plan delivery, pre-expiry selected-sale refresh and reduced
       Swing churn. Clean 2,451 Java (six existing skips), 121 tooling, Java 11 and frozen old/new

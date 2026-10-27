@@ -88,6 +88,8 @@ final class SqliteStore implements AutoCloseable
     private final TradeReviewRead.Index tradeReviewIndex=new TradeReviewRead.Index();
     private final TradeGapEvidence.Index tradeGapIndex=new TradeGapEvidence.Index();
     private final SalePolicyReceiptStore.InputIndex salePolicyInputIndex=new SalePolicyReceiptStore.InputIndex();
+    private final AcquisitionExitEvidence.Index acquisitionExitIndex=new AcquisitionExitEvidence.Index();
+    private final ExecutionPredictionIndex executionPredictionIndex=new ExecutionPredictionIndex();
     private final ProspectiveGapExposure.Memo prospectiveGapMemo=new ProspectiveGapExposure.Memo();
     private final BoundedHistoricalExposure.Memo historicalFundingMemo=new BoundedHistoricalExposure.Memo();
 	private String canonicalHistoryAccount;
@@ -105,7 +107,7 @@ final class SqliteStore implements AutoCloseable
         cachedRiskEvidence=null;cachedRiskEvidenceWindow=null;cachedRiskEvidenceAccount=null;cachedRiskEvidenceScope=null;
         riskWindows.clear();
 		canonicalHistory=null; canonicalHistoryAccount=null; canonicalHistoryCursor=0;
-        canonicalSaleSources.clear();historicalFundingMemo.reset();prospectiveGapMemo.reset();continuationSaleIndex.reset();tradeReviewIndex.reset();tradeGapIndex.reset();salePolicyInputIndex.reset();
+        canonicalSaleSources.clear();historicalFundingMemo.reset();prospectiveGapMemo.reset();continuationSaleIndex.reset();tradeReviewIndex.reset();tradeGapIndex.reset();salePolicyInputIndex.reset();acquisitionExitIndex.reset();executionPredictionIndex.reset();
 		scopedEffects=null;scopedEffectsCursor=-1;
         automaticModes.clear();
         cachedContinuationSales=null;continuationSalesCursor=-1;
@@ -389,7 +391,7 @@ final class SqliteStore implements AutoCloseable
         // source again on a completed fill. External changes and rollback discard the prefix.
         var history=offerHistory(event.getAccountId());
         if(history==null)return 0;
-        for (OfferEvent recorded:history) {
+        for (OfferEvent recorded:executionPredictionIndex.throughFirstTarget(history,event)) {
             boolean same=java.util.Objects.equals(event.getAccountId(),recorded.getAccountId())
                 && java.util.Objects.equals(event.getSessionId(),recorded.getSessionId())
                 && java.util.Objects.equals(event.getOfferIdentity(),recorded.getOfferIdentity())
@@ -852,7 +854,7 @@ final class SqliteStore implements AutoCloseable
                     if(source!=null && source.getExitContext()!=null && expectedAccountId.equals(source.getAccountId())
                         && java.util.Objects.equals(r.getString(7),source.getEventId()) && r.getInt(2)==source.getItemId()
                         && java.util.Objects.equals(r.getString(8),source.getOfferIdentity()) && r.getLong(6)==source.getObservedAt()) {
-                        if(exitContexts==null)exitContexts=AcquisitionExitEvidence.read(history.get());
+                        if(exitContexts==null)exitContexts=acquisitionExitIndex.read(history.get());
                         context=exitContexts.get(source.getEventId());
                     }
                 }
@@ -914,6 +916,8 @@ final class SqliteStore implements AutoCloseable
             tradeReviewIndex.appendCanonical(previous,canonicalHistory);
             tradeGapIndex.appendCanonical(previous,canonicalHistory);
             salePolicyInputIndex.appendCanonical(expectedAccountId,previous,canonicalHistory);
+            acquisitionExitIndex.appendCanonical(previous,canonicalHistory);
+            executionPredictionIndex.appendCanonical(previous,canonicalHistory);
         }
         canonicalHistoryCursor=cursor;
         return canonicalHistory;

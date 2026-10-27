@@ -185,8 +185,8 @@ public class FlippingFriendPanel extends PluginPanel {
         refreshPerformance();
         AccountLedgerSnapshot history = account != null && account.isLoggedIn() ? companion.historyLedger() : null;
         if(history==null)history=ledger;
-        details.update(active,ledger,history,history!=null && ledger!=history);
         details.updateSaleMaintenance(loggedIn);
+        details.update(active,ledger,history,history!=null && ledger!=history);
         missedFlips.refresh(account!=null && account.isLoggedIn());
         boolean buying = active != null && active.getType() == SuggestionType.BUY && !stepGuide.isPaused();
         skip.setEnabled(buying); block.setEnabled(buying); graph.setEnabled(active != null && active.getItemId() > 0);

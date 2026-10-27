@@ -59,6 +59,23 @@ public class SelectedSaleEditorBoundaryTest {
         assertEquals("An actual refusal still withdraws the old price immediately",SuggestionType.WAIT,f.real.getSuggestion().getType());
         clock.addAndGet(java.util.concurrent.TimeUnit.SECONDS.toNanos(1));f.selected();assertEquals(1,f.worker.tasks.size());
     }
+    @Test public void aVerifiedFrameWakesAWaitingSaleWithoutWaitingForItsRetryTimer()throws Exception {
+        var f=new Fixture();when(f.companion.authorizeSale(any())).thenReturn(Suggestion.waiting("Account frame pending","Need current source proof"));
+        f.selected();f.compute();f.deliver();assertEquals(SuggestionType.WAIT,f.real.getSuggestion().getType());
+        when(f.companion.authorizeSale(any())).thenAnswer(c->c.getArgument(0));
+        var wake=FlippingFriendPlugin.class.getDeclaredMethod("wakeSelectedSaleAfterFrame",long.class,long.class,long.class);wake.setAccessible(true);
+        long epoch=((java.util.concurrent.atomic.AtomicLong)f.field("engineRefreshEpoch")).get();
+        long generation=((java.util.concurrent.atomic.AtomicLong)f.field("offerObservationGeneration")).get();
+        long revision=((java.util.concurrent.atomic.AtomicLong)f.field("adviceObservationRevision")).get();
+        wake.invoke(f.plugin,epoch,generation,revision);assertEquals("A fresh frame is an immediate retry trigger",1,f.worker.tasks.size());
+        f.compute();f.deliver();assertEquals(SuggestionType.SELL,f.real.getSuggestion().getType());
+        wake.invoke(f.plugin,epoch,generation,revision);assertTrue("A valid sale is not withdrawn/reverified by this wake",f.worker.tasks.isEmpty());
+    }
+    @Test public void anOlderFrameCannotWakeANewerEditorContext()throws Exception {
+        var f=new Fixture();f.selected();f.compute();f.deliver();
+        var wake=FlippingFriendPlugin.class.getDeclaredMethod("wakeSelectedSaleAfterFrame",long.class,long.class,long.class);wake.setAccessible(true);
+        wake.invoke(f.plugin,-1L,-1L,-1L);assertTrue(f.worker.tasks.isEmpty());assertEquals(SuggestionType.SELL,f.real.getSuggestion().getType());
+    }
     @Test public void expiredOrChangedSelectedQuoteIsWithdrawnEvenWhileTheRefreshWorkerWaits()throws Exception {
         var f=new Fixture();var clock=new java.util.concurrent.atomic.AtomicLong(100);
         f.set("adviceClock",(java.util.function.LongSupplier)clock::get);

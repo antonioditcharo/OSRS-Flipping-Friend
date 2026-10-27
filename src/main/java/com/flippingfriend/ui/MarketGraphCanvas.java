@@ -1,6 +1,7 @@
 package com.flippingfriend.ui;
 
 import com.flippingfriend.data.Candle;
+import com.flippingfriend.data.LatestPrice;
 import com.flippingfriend.model.MarketPriceProjection;
 import java.awt.*;
 import java.awt.event.*;
@@ -19,6 +20,16 @@ final class MarketGraphCanvas extends JPanel {
     private static final DateTimeFormatter DATE=DateTimeFormatter.ofPattern("dd MMM HH:mm",Locale.ROOT).withZone(ZoneOffset.UTC);
     private List<Candle> bars=List.of();
     private MarketPriceProjection.Projection projection;
+    private QuoteAnchor lowAnchor,highAnchor;
+    /** Display provenance only; this endpoint is a known quote as of a snapshot, not a new fill. */
+    static final class QuoteAnchor {
+        final int formatVersion=1,price;final long tradeAt,asOf;
+        QuoteAnchor(int price,long tradeAt,long asOf){this.price=price;this.tradeAt=tradeAt;this.asOf=asOf;}
+    }
+    static final class QuoteJoin {
+        final long fromAt;final int fromPrice;final QuoteAnchor anchor;final boolean bridge;
+        QuoteJoin(long at,int price,QuoteAnchor anchor,boolean bridge){fromAt=at;fromPrice=price;this.anchor=anchor;this.bridge=bridge;}
+    }
     private int bucket=300,buy,sell;
     private double start,end,minimum,maximum,homeStart,homeEnd;
     private int cursor=-1,dragX;
@@ -44,12 +55,40 @@ final class MarketGraphCanvas extends JPanel {
     private void bind(String key,Runnable action){getInputMap(WHEN_FOCUSED).put(KeyStroke.getKeyStroke(key),key);getActionMap().put(key,new AbstractAction(){@Override public void actionPerformed(ActionEvent e){action.run();}});}
     void setData(List<Candle> data,int bucket,MarketPriceProjection.Projection p,int buy,int sell,
         long defaultStart,long defaultEnd,boolean reset) {
+        setData(data,bucket,p,buy,sell,defaultStart,defaultEnd,reset,null,0);
+    }
+    void setData(List<Candle> data,int bucket,MarketPriceProjection.Projection p,int buy,int sell,
+        long defaultStart,long defaultEnd,boolean reset,LatestPrice quote,long snapshotAt) {
         boolean followingHome=end<=start || Math.abs(start-homeStart)<.5 && Math.abs(end-homeEnd)<.5;
         this.bars=List.copyOf(data);this.bucket=bucket;projection=p;this.buy=buy;this.sell=sell;
+        lowAnchor=anchor(p,quote,snapshotAt,true);highAnchor=anchor(p,quote,snapshotAt,false);
         homeStart=defaultStart;homeEnd=defaultEnd;
         minimum=bars.isEmpty()?defaultStart:Math.min(defaultStart,bars.get(0).getTimestamp()+bucket);
         maximum=Math.max(defaultEnd,p!=null && p.isAvailable()?p.points.get(p.points.size()-1).at:defaultEnd);
         if(reset || followingHome)setWindow(defaultStart,defaultEnd);else setWindow(start,end);
+    }
+    private static QuoteAnchor anchor(MarketPriceProjection.Projection p,LatestPrice quote,long at,boolean low) {
+        if(p==null || !p.isAvailable() || quote==null || !quote.isComplete() || p.originAt!=at
+            || p.observedAt<at || at<=0 || p.observedAt-at>150 || p.points.get(0).at!=at)return null;
+        Long tradeAt=low?quote.getLowTime():quote.getHighTime();int price=low?quote.getLow():quote.getHigh();
+        if(tradeAt==null || tradeAt<=0 || tradeAt>at || p.observedAt-tradeAt>7200 || price<=0)return null;
+        var side=low?p.points.get(0).low:p.points.get(0).high;
+        if(side.lower!=price || side.median!=price || side.upper!=price)return null;
+        return new QuoteAnchor(price,tradeAt,at);
+    }
+    QuoteJoin quoteJoin(boolean low) {
+        var anchor=low?lowAnchor:highAnchor;if(anchor==null)return null;
+        Candle last=null;int price=0;
+        for(var bar:bars) {
+            Integer value=low?bar.getAvgLowPrice():bar.getAvgHighPrice();long close=bar.getTimestamp()+bucket;
+            if(value!=null && value>0 && close<=anchor.asOf && (last==null || bar.getTimestamp()>last.getTimestamp())){last=bar;price=value;}
+        }
+        if(last==null)return new QuoteJoin(anchor.asOf,anchor.price,anchor,false);
+        long close=last.getTimestamp()+bucket;
+        // A short, labelled transition between a bucket average and a known quote. Never move
+        // old quotes forward as new trades or fill substantial missing-history intervals.
+        boolean bridge=bucket>0 && anchor.asOf-close<=2L*bucket && anchor.tradeAt>=last.getTimestamp();
+        return new QuoteJoin(close,price,anchor,bridge);
     }
     void showProjections(boolean enabled){projections=enabled;repaint();}
     void zoom(double scale){zoom(scale,.5);}
@@ -70,6 +109,16 @@ final class MarketGraphCanvas extends JPanel {
     private int x(double at){return LEFT+(int)Math.round((at-start)*plotWidth()/Math.max(1,end-start));}
     @Override public String getToolTipText(MouseEvent e) {
         if(e.getX()<LEFT || e.getX()>getWidth()-RIGHT)return null;
+        if(projections) {
+            var low=quoteJoin(true);var high=quoteJoin(false);var bounds=priceBounds();
+            int height=(int)((getHeight()-TOP-BOTTOM)*.76);QuoteJoin nearest=null;double distance=Double.POSITIVE_INFINITY;
+            for(var join:new QuoteJoin[]{low,high})if(join!=null) {
+                double next=Point2D.distance(e.getX(),e.getY(),x(join.anchor.asOf),y(join.anchor.price,bounds[0],bounds[1],height));
+                if(next<=10 && next<distance){nearest=join;distance=next;}
+            }
+            if(nearest!=null)return String.format(Locale.ROOT,"<html>Latest %s trade: %,d gp<br>Trade time: %s UTC<br>Snapshot as of: %s UTC<br>Forecast starts from this known quote; connector is not observed intervening trades.</html>",
+                nearest==low?"low":"high",nearest.anchor.price,DATE.format(Instant.ofEpochSecond(nearest.anchor.tradeAt)),DATE.format(Instant.ofEpochSecond(nearest.anchor.asOf)));
+        }
         long at=(long)time(e.getX());
         if(projections && projection!=null && projection.isAvailable() && at>=projection.originAt) {
             if(at>projection.points.get(projection.points.size()-1).at)return "No supported projection at this horizon";
@@ -113,6 +162,7 @@ final class MarketGraphCanvas extends JPanel {
                 bands(gg,true,LOW,lo,hi,priceHeight);bands(gg,false,HIGH,lo,hi,priceHeight);
             }
             observed(gg,true,LOW,lo,hi,priceHeight);observed(gg,false,HIGH,lo,hi,priceHeight);
+            if(projections){quoteEndpoint(gg,true,LOW,lo,hi,priceHeight);quoteEndpoint(gg,false,HIGH,lo,hi,priceHeight);}
             marker(gg,buy,"Suggested buy price",lo,hi,priceHeight);
             marker(gg,sell,"Suggested sell price",lo,hi,priceHeight);
             gg.setClip(original);volume(gg,volumeTop,volumeHeight);
@@ -154,6 +204,14 @@ final class MarketGraphCanvas extends JPanel {
         g.setColor(color);g.setStroke(new BasicStroke(1.4f,BasicStroke.CAP_BUTT,BasicStroke.JOIN_MITER,1,new float[]{5,5},0));g.draw(line);
         g.setColor(new Color(170,170,170));g.setStroke(new BasicStroke(1f,BasicStroke.CAP_BUTT,BasicStroke.JOIN_MITER,1,new float[]{2,4},0));
         g.drawLine(x(projection.originAt),TOP,x(projection.originAt),TOP+height);
+    }
+    private void quoteEndpoint(Graphics2D g,boolean low,Color color,double lo,double hi,int height) {
+        var join=quoteJoin(low);if(join==null)return;
+        int xx=x(join.anchor.asOf),yy=y(join.anchor.price,lo,hi,height);
+        g.setColor(new Color(color.getRed(),color.getGreen(),color.getBlue(),170));
+        g.setStroke(new BasicStroke(1.2f,BasicStroke.CAP_ROUND,BasicStroke.JOIN_ROUND,1,new float[]{2,3},0));
+        if(join.bridge)g.drawLine(x(join.fromAt),y(join.fromPrice,lo,hi,height),xx,yy);
+        g.setColor(color);g.fill(new Ellipse2D.Double(xx-3,yy-3,6,6));
     }
     private void marker(Graphics2D g,int price,String label,double lo,double hi,int height) {
         if(price<=0)return;int yy=y(price,lo,hi,height);g.setColor(new Color(225,225,225));

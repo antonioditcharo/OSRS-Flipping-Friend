@@ -383,7 +383,7 @@ final class CompanionService implements AutoCloseable
 		}
 	}
 
-	synchronized void account(AccountSnapshot snapshot) throws Exception
+	synchronized boolean account(AccountSnapshot snapshot) throws Exception
 	{
 		if (snapshot == null || (accountId != null && !accountId.equals(snapshot.getAccountId())))
 			throw new IllegalArgumentException("snapshot account identity mismatch");
@@ -415,9 +415,11 @@ final class CompanionService implements AutoCloseable
 		else resolved("Snapshot reconciliation");
 		// Positive snapshot evidence can repair an initial/restarted unknown-cost position.
 		refreshPositionFaults();
-		if(snapshot.isAutomaticTradeScope() && CurrentOfferReadSet.valid(store.planningProjections(accountId),snapshot,Instant.now().getEpochSecond()))
+		boolean currentFrameVerified=snapshot.isAutomaticTradeScope() && CurrentOfferReadSet.valid(store.planningProjections(accountId),snapshot,Instant.now().getEpochSecond());
+		if(currentFrameVerified)
 			store.performanceSession(snapshot.getAccountId(),Instant.now().getEpochSecond(),false,java.util.UUID.randomUUID().toString());
 		requestPlan();
+        return currentFrameVerified;
 	}
 	com.flippingfriend.core.AccountLedgerSnapshot ledger() throws Exception
 	{

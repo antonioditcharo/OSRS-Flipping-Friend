@@ -65,6 +65,35 @@ public class CompanionTransportTest {
         System.out.println("Eight scoped pooled reads ms="+(System.nanoTime()-started)/1_000_000.0);
         assertEquals(8,peers.size());assertEquals("Successful reads should return their transport to the pool",1,new HashSet<>(peers).size());
     }
+    @Test public void onlyAnExactVerifiedAccountReplyStartsTheFrameClockAndLegacyRepliesKeepDeliveryCompatible()throws Exception {
+        var mode=new java.util.concurrent.atomic.AtomicInteger();
+        server.createContext("/v1/accounts/",exchange->{try {
+            var frame=gson.fromJson(new String(exchange.getRequestBody().readAllBytes(),StandardCharsets.UTF_8),AccountSnapshot.class);
+            String result=gson.toJson(AccountFrameAcknowledgement.of(frame,mode.get()!=2));
+            if(mode.get()==1)result="{\"accepted\":true}";
+            if(mode.get()==3){var rawReply=gson.fromJson(result,com.google.gson.JsonObject.class);rawReply.addProperty("correlationId","different");result=rawReply.toString();}
+            reply(exchange,202,result);
+        }catch(Exception failure){throw new java.io.IOException(failure);}});
+        var raw=new net.runelite.api.GrandExchangeOffer[8];
+        for(int i=0;i<8;i++){raw[i]=org.mockito.Mockito.mock(net.runelite.api.GrandExchangeOffer.class);org.mockito.Mockito.when(raw[i].getState()).thenReturn(net.runelite.api.GrandExchangeOfferState.EMPTY);}
+        var state=new com.flippingfriend.session.AccountState(true,true,false,100000000,0,0,8,8,0,false,Map.of(),Map.of(),Map.of());
+        long at=java.time.Instant.now().getEpochSecond();
+        var capture=client.capturePlanningObservation(com.flippingfriend.session.PlanningAccountObservation.capture(storage.accountId(),state,raw,List.of(),at));
+        client.resumeOfferReplay();assertTrue(client.replayPendingOffers(OfferReplayTailTest::ack));assertTrue(outbox.pending().isEmpty());
+        var config=org.mockito.Mockito.mock(com.flippingfriend.FlippingFriendConfig.class);
+        for(int response=0;response<4;response++) {
+            mode.set(response);long before=System.nanoTime();
+            client.publishAccount(state,config,0,Map.of(),Map.of(),Set.of(),Set.of(),Set.of(),false,List.of(),List.of(),storage.accountId(),capture);
+            long acknowledged=client.acknowledgedFrameAt(capture);
+            if(response==0)assertTrue(acknowledged>=before && acknowledged<=System.nanoTime());else assertEquals(0,acknowledged);
+            assertTrue("An account reply cannot acknowledge or erase financial outbox events",outbox.pending().isEmpty());
+        }
+        var different=com.flippingfriend.session.PlanningAccountObservation.capture(storage.accountId(),state,raw,List.of(),at).withReceipt(capture.getReceipt());
+        assertEquals(0,client.acknowledgedFrameAt(different));assertEquals(4,peers.size());
+        client.pauseOfferReplay();client.captureObservedOfferCleared(0,storage.accountId(),at+1);assertEquals(1,outbox.pending().size());
+        client.publishAccount(state,config,0,Map.of(),Map.of(),Set.of(),Set.of(),Set.of(),false,List.of(),List.of(),storage.accountId(),capture);
+        assertEquals(4,peers.size());assertEquals(1,outbox.pending().size());assertEquals(0,client.acknowledgedFrameAt(capture));
+    }
     @Test public void accountCapturePublishesInventorySeparatelyFromEquipmentCollectionAndCachedBank()throws Exception {
         var received=new java.util.concurrent.atomic.AtomicReference<AccountSnapshot>();
         server.createContext("/v1/accounts/",exchange->{try {
