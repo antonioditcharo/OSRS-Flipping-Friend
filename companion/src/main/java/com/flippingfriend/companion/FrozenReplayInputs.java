@@ -40,8 +40,14 @@ final class FrozenReplayInputs {
             previous=ref.availableAt;
         }
         Path directory=source.toAbsolutePath().normalize().getParent().resolve("blobs");
-        if(!Files.isDirectory(directory,LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(directory)
-            || !directory.toRealPath().equals(directory))throw new IllegalArgumentException("Linked or missing public blob root");
+        // A Windows short-name spelling is not a link. Inspect ancestors before canonicalizing;
+        // comparing the lexical path with toRealPath() would reject ordinary CI/user temp roots.
+        for(Path parent=directory;parent!=null;parent=parent.getParent()) {
+            var attributes=Files.readAttributes(parent,java.nio.file.attribute.BasicFileAttributes.class,LinkOption.NOFOLLOW_LINKS);
+            if(!attributes.isDirectory() || attributes.isSymbolicLink() || attributes.isOther())
+                throw new IllegalArgumentException("Linked or missing public blob root");
+        }
+        directory=directory.toRealPath();
         var input=JSON.fromJson(object,AccountReplayInput.class);
         input.frames=new Frames(directory,List.copyOf(storage.frames));return input;
     }
