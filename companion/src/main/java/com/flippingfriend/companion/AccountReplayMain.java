@@ -18,9 +18,9 @@ public final class AccountReplayMain {
         throw new IllegalArgumentException("Usage: run <frozen-input.json> <new-local-data-directory>; verify <bundle-directory>");
     }
     static void run(Path source,Path output)throws Exception {
-        byte[] inputBytes=read(source);var input=JSON.fromJson(new String(inputBytes,StandardCharsets.UTF_8),AccountReplayInput.class);input.validate();
+        byte[] inputBytes=read(source);var input=FrozenReplayInputs.load(source);input.validate();
         Path out=privateNewDirectory(output);Files.createDirectory(out);
-        Files.write(out.resolve("input.json"),inputBytes,StandardOpenOption.CREATE_NEW);
+        FrozenReplayInputs.copy(source,out.resolve("input.json"));
         byte[] report=bytes(benchmark(input,out.resolve("synthetic-ledgers")));
         Files.write(out.resolve("results.json"),report,StandardOpenOption.CREATE_NEW);
         Map<String,Object> manifest=new LinkedHashMap<>();manifest.put("schemaVersion","1");manifest.put("policyVersion",AccountReplay.VERSION);
@@ -47,7 +47,7 @@ public final class AccountReplayMain {
             throw new IllegalArgumentException("Evaluator artifact hash mismatch");
         Path scratch=Files.createTempDirectory(privateParent(bundle),"replay-verification-");
         try {
-            var input=JSON.fromJson(new String(inputBytes,StandardCharsets.UTF_8),AccountReplayInput.class);
+            var input=FrozenReplayInputs.load(bundle.resolve("input.json"));input.validate();
             if(!Arrays.equals(report,bytes(benchmark(input,scratch))))throw new IllegalArgumentException("Replay does not reproduce from frozen input");
         } finally {
             // Only the exact newly-created scratch directory is removed; input/output evidence stays intact.

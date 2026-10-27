@@ -16,10 +16,18 @@ All game interaction remains manual; batch runtime updates and acceptance work.
       original risk/old-runtime reads and fresh eight-slot BUY/COLLECT delivery pass. First cold
       scoped GET still exceeds ten seconds; sustained/manual acceptance remains open below.
       [Receipt](docs/history/optimization-stage-a-install-2026-10-27.md).
-- [ ] Verify/deliver queued `codex/account-pricing-qualification`: chunked canonical prefixes,
+- [x] Verify/deliver #189 `codex/account-pricing-qualification`: chunked canonical prefixes,
       exact-image outbox read reuse, bounded pre-login preparation and offline common-horizon
-      pricing/qualification/public-availability tools. Focused tests pass; full clean/tooling,
-      frozen source/financial comparison, exact-head CI and paired release remain pending.
+      pricing/qualification/public-availability tools and optional first-source display context.
+      Clean 2,493 Java (six existing skips), 126 tooling, frozen source/financial comparison,
+      Java 11 and both exact-head CI platforms pass. Installed; 252-file/six-configuration restore,
+      12 tables, old/new original-risk reads and fresh frame/main/editor SELL/native BUY pass.
+      Sustained/manual acceptance remains open. [Receipt](docs/history/optimization-stage-b-install-2026-10-27.md).
+- [ ] Verify/deliver queued `codex/compact-public-cohorts`: profile-driven persistent acquisition-
+      context snapshots and incremental unchanged-frame preparation; preserve full-reader/source/
+      financial equivalence. Complete compact public capture/referenced replay and an end-to-end
+      fresh smoke cohort. Full checks, frozen comparison, exact-head CI and release remain required.
+      [Contract](docs/architecture/compact-public-cohorts-and-scope-preparation.md).
 - [ ] Complete approved pricing stages B/C: constrained whole-account alternatives, shared entry/
       hold/adjust/exit evaluation, distinct evidence-bound budgeted loss authority and prospective
       decision context. Freeze a new 60/20/20 chronological cohort, exclude tuned fixtures, and

@@ -89,6 +89,7 @@ final class SqliteStore implements AutoCloseable
     private final TradeGapEvidence.Index tradeGapIndex=new TradeGapEvidence.Index();
     private final SalePolicyReceiptStore.InputIndex salePolicyInputIndex=new SalePolicyReceiptStore.InputIndex();
     private final AcquisitionExitEvidence.Index acquisitionExitIndex=new AcquisitionExitEvidence.Index();
+    private final UnchangedFrameRecovery.Index unchangedFrameIndex=new UnchangedFrameRecovery.Index();
     private final ExecutionPredictionIndex executionPredictionIndex=new ExecutionPredictionIndex();
     private final ProspectiveGapExposure.Memo prospectiveGapMemo=new ProspectiveGapExposure.Memo();
     private final BoundedHistoricalExposure.Memo historicalFundingMemo=new BoundedHistoricalExposure.Memo();
@@ -102,13 +103,14 @@ final class SqliteStore implements AutoCloseable
     private Map<String,java.util.Set<Integer>> cachedRiskEvidenceScope;
 	private AutomaticTradeScope scopedEffects;
 	private long scopedEffectsCursor=-1;
+    private long scopedEffectsContextRevision=-1;
 	private void discardCanonicalHistory() {
         canonicalHistoryGeneration++;
         cachedRiskEvidence=null;cachedRiskEvidenceWindow=null;cachedRiskEvidenceAccount=null;cachedRiskEvidenceScope=null;
         riskWindows.clear();
 		canonicalHistory=null; canonicalHistoryAccount=null; canonicalHistoryCursor=0;
-        canonicalSaleSources.clear();historicalFundingMemo.reset();prospectiveGapMemo.reset();continuationSaleIndex.reset();tradeReviewIndex.reset();tradeGapIndex.reset();salePolicyInputIndex.reset();acquisitionExitIndex.reset();executionPredictionIndex.reset();
-		scopedEffects=null;scopedEffectsCursor=-1;
+        canonicalSaleSources.clear();historicalFundingMemo.reset();prospectiveGapMemo.reset();continuationSaleIndex.reset();tradeReviewIndex.reset();tradeGapIndex.reset();salePolicyInputIndex.reset();acquisitionExitIndex.reset();unchangedFrameIndex.reset();executionPredictionIndex.reset();
+		scopedEffects=null;scopedEffectsCursor=scopedEffectsContextRevision=-1;
         automaticModes.clear();
         cachedContinuationSales=null;continuationSalesCursor=-1;
         continuationSalesHistorySize=-1;
@@ -835,10 +837,14 @@ final class SqliteStore implements AutoCloseable
         List<OfferEvent> sources=expectedAccountId==null?null:hasGaps?history.get():java.util.List.of();
         long cursor;
         try(var s=connection.createStatement();var r=s.executeQuery("SELECT COALESCE(MAX(id),0) FROM position_event")) {r.next();cursor=r.getLong(1);}
-        if(sources!=null && scopedEffects!=null && scopedEffectsCursor==cursor)return scopedEffects;
+        Map<String,com.flippingfriend.core.AcquisitionExitContext> exitContexts=null;
+        if(sources!=null && scopedEffects!=null && scopedEffectsCursor==cursor) {
+            // A later conflicting advice proof can revoke an earlier context without a fill.
+            exitContexts=acquisitionExitIndex.read(history.get());
+            if(scopedEffectsContextRevision==acquisitionExitIndex.existingContextRevision())return scopedEffects;
+        }
         AutomaticTradeScope scope = new AutomaticTradeScope();
         scope.reconciliationScope.putAll(reconciliationScope(expectedAccountId, history));
-        Map<String,com.flippingfriend.core.AcquisitionExitContext> exitContexts=null;
         var parser=new com.google.gson.Gson();
         Map<String,String> gapReasons=new HashMap<>();
         try (PreparedStatement s = connection.prepareStatement(
@@ -863,8 +869,8 @@ final class SqliteStore implements AutoCloseable
                 scope.reconciliationScope.get(r.getString(7)),context);
             }
         }
-        scope.unchangedFrameItems=UnchangedFrameRecovery.items(sources,scope,gapReasons);
-        if(sources!=null){scopedEffects=scope;scopedEffectsCursor=cursor;}
+        scope.unchangedFrameItems=unchangedFrameIndex.read(sources,scope,gapReasons);
+        if(sources!=null){scopedEffects=scope;scopedEffectsCursor=cursor;scopedEffectsContextRevision=acquisitionExitIndex.existingContextRevision();}
         return scope;
     }
 
@@ -915,6 +921,7 @@ final class SqliteStore implements AutoCloseable
             tradeGapIndex.appendCanonical(previous,canonicalHistory);
             salePolicyInputIndex.appendCanonical(expectedAccountId,previous,canonicalHistory);
             acquisitionExitIndex.appendCanonical(previous,canonicalHistory);
+            unchangedFrameIndex.appendCanonical(previous,canonicalHistory);
             executionPredictionIndex.appendCanonical(previous,canonicalHistory);
         }
         canonicalHistoryCursor=cursor;

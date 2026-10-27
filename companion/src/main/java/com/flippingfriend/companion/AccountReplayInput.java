@@ -31,6 +31,18 @@ final class AccountReplayInput {
         int itemId; long bucketStart,bucketEnd;
         int low,high,lowVolume,highVolume;
     }
+    AccountReplayInput window(long start,long end) {
+        var copy=new AccountReplayInput();copy.schemaVersion=schemaVersion;copy.taxPolicy=taxPolicy;copy.risk=risk;
+        copy.sourceDescription=sourceDescription;copy.startAt=start;copy.endAt=end;copy.initialCoins=initialCoins;
+        copy.slots=slots;copy.actionSeconds=actionSeconds;copy.visitSeconds=visitSeconds;copy.members=members;
+        copy.minimumProfit=minimumProfit;copy.terminalHaircutBps=terminalHaircutBps;
+        copy.missedVisitIndices=new ArrayList<>(missedVisitIndices);copy.restartAt=new ArrayList<>();
+        for(Long at:restartAt)if(at>start && at<end)copy.restartAt.add(at);
+        copy.mapping=new TreeMap<>(mapping);
+        int from=0,to=frames.size();
+        while(from<to){int mid=(from+to)>>>1;if(frames.get(mid).availableAt<=end)from=mid+1;else to=mid;}
+        copy.frames=frames.subList(0,from);copy.validate();return copy;
+    }
     void validate() {
         if(!"1".equals(schemaVersion) || !SaleAccounting.CURRENT_POLICY.equals(taxPolicy)
             || sourceDescription==null || sourceDescription.isBlank() || startAt<=SaleAccounting.CURRENT_POLICY_SAFE_FROM

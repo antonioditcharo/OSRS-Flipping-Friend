@@ -60,17 +60,17 @@ final class AcquisitionExitEvidence {
     static final class Index {
         private List<OfferEvent> canonical;
         private int authorizedSize,consumed;
-        private long processed;
+        private long processed,existingContextRevision;
         private final Map<List<Object>,Episode> episodes=new HashMap<>();
         private final Map<String,AcceptedBuyPlanProof> advice=new HashMap<>();
         private final Set<String> duplicateAdvice=new HashSet<>();
         private final Map<String,Set<String>> adviceEvents=new HashMap<>();
         private final Map<String,Contribution> contributions=new HashMap<>();
-        private final Map<String,AcquisitionExitContext> result=new HashMap<>();
-        private Map<String,AcquisitionExitContext> snapshot=Map.of();
+        private ImmutablePrefixMap<String,AcquisitionExitContext> result=ImmutablePrefixMap.empty();
+        private Map<String,AcquisitionExitContext> snapshot=result;
         void reset() {
-            canonical=null;authorizedSize=consumed=0;episodes.clear();advice.clear();duplicateAdvice.clear();
-            adviceEvents.clear();contributions.clear();result.clear();snapshot=Map.of();
+            canonical=null;authorizedSize=consumed=0;existingContextRevision=0;episodes.clear();advice.clear();duplicateAdvice.clear();
+            adviceEvents.clear();contributions.clear();result=ImmutablePrefixMap.empty();snapshot=result;
         }
         void appendCanonical(List<OfferEvent> previous,List<OfferEvent> next) {
             if(previous!=canonical || next==null || next.size()<authorizedSize)reset();
@@ -93,12 +93,12 @@ final class AcquisitionExitEvidence {
                         for(String id:adviceEvents.getOrDefault(proof.getAcceptedAdviceId(),Set.of())) {
                             var head=contributions.get(id);
                             while(head!=null && head.adviceId!=null && duplicateAdvice.contains(head.adviceId))head=head.previous;
-                            if(head==null){contributions.remove(id);result.remove(id);}
-                            else{contributions.put(id,head);result.put(id,head.context);}
+                            if(head==null){contributions.remove(id);if(result.containsKey(id))existingContextRevision++;result=result.without(id);}
+                            else{contributions.put(id,head);replace(id,head.context);}
                         }
                 }
                 for(;consumed<history.size();consumed++){accept(history.get(consumed));processed++;}
-                snapshot=Collections.unmodifiableMap(new HashMap<>(result));return snapshot;
+                snapshot=result;return snapshot;
             }catch(RuntimeException failure){reset();throw failure;}
         }
         private void accept(OfferEvent event) {
@@ -134,10 +134,15 @@ final class AcquisitionExitEvidence {
             add(event.getEventId(),origin.getExitContext(),null);
         }
         private void add(String id,AcquisitionExitContext context,String adviceId) {
-            contributions.put(id,new Contribution(context,adviceId,contributions.get(id)));result.put(id,context);
+            contributions.put(id,new Contribution(context,adviceId,contributions.get(id)));replace(id,context);
             if(adviceId!=null)adviceEvents.computeIfAbsent(adviceId,k->new HashSet<>()).add(id);
         }
         long processedCount(){return processed;}
+        long existingContextRevision(){return existingContextRevision;}
+        private void replace(String id,AcquisitionExitContext context) {
+            var prior=result.get(id);if(prior!=null && !prior.equals(context))existingContextRevision++;
+            result=result.with(id,context);
+        }
         private static final class Episode {
             final OfferEvent origin;boolean invalid;
             Episode(OfferEvent origin){this.origin=origin;}
