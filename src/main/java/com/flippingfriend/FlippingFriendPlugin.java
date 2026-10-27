@@ -1165,10 +1165,11 @@ public class FlippingFriendPlugin extends Plugin
                     recordVisibleAdvice();
 					panel.refresh();
                     if(!stepGuide.isPaused())notifyIfNeeded(stepGuide.getSuggestion());
-					String outcome=stepGuide.isPaused()?"PAUSED":stepGuide.getPending()==current?"DEFERRED_EDITOR"
-                        :stepGuide.getSuggestion()==current?"VISIBLE":"REPLACED_OR_EDITOR_QUOTE";
+                    Suggestion visible=stepGuide.getSuggestion(),pending=stepGuide.getPending();
+                    String outcome=stepGuide.isPaused()?"PAUSED":pending==current?"DEFERRED_EDITOR"
+                        :visible==current?"VISIBLE":"REPLACED_OR_EDITOR_QUOTE";
                     log.info("Guidance outcome: {}; proposed {}; visible {}; pending {}",outcome,current.getType(),
-                        stepGuide.getSuggestion().getType(),stepGuide.getPending()==null?"NONE":stepGuide.getPending().getType());
+                        visible.getType(),pending==null?"NONE":pending.getType());
                     if("VISIBLE".equals(outcome))log.info("Guidance delivered: {} ms from refresh request; capture/durable publication {} ms, plan/ledger {} ms, decision/delivery {} ms; {}",
 						(System.nanoTime()-guidanceStarted)/1_000_000,(publicationFinished-guidanceStarted)/1_000_000,
 						(planFinished-publicationFinished)/1_000_000,(System.nanoTime()-planFinished)/1_000_000,stepGuide.getSuggestion().getType());

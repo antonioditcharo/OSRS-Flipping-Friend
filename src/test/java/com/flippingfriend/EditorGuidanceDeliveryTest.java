@@ -52,4 +52,9 @@ public class EditorGuidanceDeliveryTest {
         assertEquals("Superseded work cannot silently leave the panel waiting for its heartbeat",1,f.clientQueue.size());
         assertFalse(((java.util.concurrent.atomic.AtomicBoolean)field(f.plugin,"engineRefreshRequested")).get());
     }
+    @Test public void pendingExpiryCannotInterruptTheClientDeliveryDiagnostics()throws Exception {
+        var f=new AdviceDeliveryBoundaryTest.Fixture();when(f.guide.getPending()).thenReturn(f.advice,null);
+        f.queueAdvice();f.clientQueue.remove().run();verify(f.guide).setSuggestion(f.advice);
+        verify(f.guide,times(1)).getPending();
+    }
 }
