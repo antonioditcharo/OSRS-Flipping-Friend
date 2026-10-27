@@ -5,35 +5,30 @@ Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
 ## Installed runtime
 
-PR #184 is installed, including #183 transport diagnostics and all #178/#180/#182 workflow,
-chart and protected-pricing work. Tested source `1a0c8f5999d706e37efa8c397c153312537a4a21` and merge
-`808623ca60080aeba79b7f5175f447f5a32c7bb1` have identical trees. Clean 2,434 Java tests (six existing
-skips), 121 tooling, Java 11 and both exact-head CI platforms pass in run `40438442464`.
-Queued source: `codex/panel-guidance-continuity`, not installed. It prepares historical gap/receipt
-inputs without caching authority, fixes the profiled background JSON scan, refreshes selected-sale
-quotes before expiry and handles editor-close/superseded-plan delivery. Swing refresh/text/control/
-icon churn is reduced. Focused regressions pass; clean/CI/frozen comparison and paired delivery
-are pending. [Contract](docs/architecture/panel-guidance-continuity.md).
+PR #186 is installed, including #184 and all earlier workflow/chart/protected-pricing work.
+Tested source `b874cff2857dce94479f2661cdb0631f02d3e00e` and merge
+`70df699804f3b797e6d3bb51ead9940022de164d` have identical trees. Clean 2,451 Java tests (six existing
+skips), 121 tooling, Java 11 and both exact-head CI platforms pass in run `40446407196`.
+No Java source is queued. Documentation branch: `codex/panel-guidance-delivery`.
 
-RuneLite closed through its ordinary Close/exit-confirmation controls; no force kill, login or
-in-game input was performed. The supported paired updater preserved task XML/permissions and
-normal-user lifecycle 1, with backup `20261026-183607-beb8517d`. Both installed JARs/manifest verify.
-All 12 original financial/source/projection tables match. A 201-file disposable restoration, six
-configuration copies and old/new Java 11 ledger/stock/scope/continuation/exposure/original-risk
-reads pass. Five live configurations are byte-identical; only hosted generation advanced once,
-with every credential/feature field preserved. Runtime rollback preserves later trades.
-[Delivery receipt](docs/history/episode-lookup-install-2026-10-26.md).
-Private source/install receipts: primary `local-data/live-ack-20261026`.
+The supported primary-checkout updater installed the frozen pair after RuneLite's ordinary Close
+control completed. No force kill, login or game input. Backup `20261026-200132-8982ebc8` restores
+207 files on a disposable copy; all 12 original financial/source/projection tables match. Six
+configuration copies restore, five live files are exact and only hosted generation advances once.
+Old/new Java 11 ledger/stock/scope/continuation/exposure/original-risk reads agree on both the
+frozen account and fresh restored backup. Task XML/permissions and lifecycle 1 are unchanged.
+Both installed JARs/manifest, status, launcher and first cold GET-only pipeline pass. RuneLite
+reopened; the owner must log in manually. Fresh #186 visible guidance, ACKs and timing are pending.
+[Delivery receipt](docs/history/panel-guidance-install-2026-10-26.md).
+Private receipts: primary `local-data/panel-guidance-20261026`.
 
-Status/launcher checks pass. The first cold scoped GET exceeded ten seconds; a later complete
-GET-only pipeline passes. Keep the cold failure visible. RuneLite reopened and logs show the
-installed plugin and account/GLOBAL diagnostic prefixes. The owner's post-update login/GE check
-passes fresh ordered eight-slot sources, matching current projections, visible full-slot guidance
-and MODIFY_SELL delivery. The first 215-completion account prefix includes 94 offer calls with
-zero transport failures and a 25 ms histogram p95 upper bound. This short prefix is not sustained
-acceptance or a financial ACK. Initial guidance took 12,119 ms, including 8,300 ms in the client
-queue; policy calls also remain slower. Sustained/full-loop/chart acceptance stays open.
-Do not claim verification waits resolved from component measurements or successful requests alone.
+Prior #184 live evidence remains historical: ordered eight-slot sources and matching projections,
+full-slot/MODIFY_SELL guidance, 94 completed offer calls without transport failures and a 25 ms
+histogram p95 upper bound. Its first guidance took 12,119 ms, including an 8,300 ms client queue;
+its first cold scoped GET exceeded ten seconds before a later pass. Preserve these failures and
+the independent UI/capture/persistence/worker budgets. A new successful GET or frozen component
+measurement does not establish sustained latency, financial ACKs or player acceptance.
+[Previous receipt](docs/history/episode-lookup-install-2026-10-26.md).
 
 Maintenance 12/replay 28 and sale-receipt family 10 remain active. Hosted enabled/shadow true;
 recommendations/coordination false; automatic recovery true. Local companion is sole financial
@@ -43,32 +38,29 @@ Three unrelated primary-checkout document deletions remain untouched.
 
 ## Latest verified behavior
 
-The owner's pre-update login produced a fresh authenticated ordered eight-slot frame, matching
-projections, an empty pending outbox, visible full-slot guidance and BUY/SELL/MODIFY_SELL/COLLECT
-logs. This was partial live #182 evidence: repeated five-second offer/report timeouts remained.
-Full-depth JFR identifies the new-episode historical JSON lookup inside canonical offer delivery
-(103 native SQLite samples; related planner monitor wait 2.637 seconds). Quiet profiling alone
-missed it. The installed fix merges exact matching/uncertain-source indexes with unchanged row
-ordering, malformed/duplicate-key JSON handling, incoming exclusion and final Gson rejection.
-Four new golden/native-budget/archive tests and existing cleared-episode regressions pass.
+Installed #186 observes editor abandonment and explicitly schedules superseded plans' successors.
+Diagnostics distinguish visible/deferred/paused/replaced guidance. Selected-sale quotes refresh
+before expiry while still-valid instructions remain displayed; changed context/refusal/expiry
+still withdraw prices. Swing paint requests coalesce, identical text/control selections stay
+stable, pause/play resources are reused and late icons cannot replace a newer item's image.
 
-The frozen 183,995-event copy produces identical selected rows/payloads. Old lookup samples are
-10,047/1,519/1,088 ms; indexed samples 0.841/0.254/0.166 ms, with a one-time 2,146 ms index build and
-zero financial DML. These are component observations, not live p95. Old #182 safely reads the
-migrated copy with identical financial/risk results. [Contract](docs/architecture/indexed-offer-episode-lookup.md).
+Validated immutable-prefix preparation avoids repeated historical gap-scope and receipt-identity
+scans without caching authority. A new gap on an earlier EMPTY rebuilds its causal episode;
+external edits/account changes/rollback still invalidate. Receipt source/settings/binding checks
+and current financial checks remain fresh. Background support's malformed-JSON check uses its
+existing partial index: frozen 183,995-event result identical, 25,335 ms versus 0.254 ms in one
+component comparison. Seventeen new regressions pass. No financial/storage/strategy changes.
+[Contract](docs/architecture/panel-guidance-continuity.md).
 
-Installed #183 diagnostics cover fast and slow completed HTTP outcomes in bounded account/epoch
-and GLOBAL cumulative prefixes. Transport body/scope success grants no typed-body validity,
-financial ACK or guidance. Never sum overlapping prefixes or infer an unlogged tail's outcomes.
-[Contract](docs/architecture/transport-latency-totals.md).
-
-Earlier retained work: #177/#178 indexed report/replication and bounded startup fallback;
-#178 recovered independent 24h chart model/cache/manual zoom; #180 protected common-horizon
-non-loss exit comparison; #182 bounded cold immutable-evidence decoding. The latter preserves
-all 165,183 tested source records/occurrences and reduces a three-pair median cold component from
-5,871 to 4,641 ms. [Previous installation](docs/history/pricing-and-cold-install-2026-10-26.md),
-[chart/report receipt](docs/history/combined-chart-install-2026-10-26.md),
+Earlier installed work: #184 indexed canonical episode lookup; #183 bounded cumulative transport
+diagnostics; #177/#178 indexed reports/replication/startup fallback and recovered 24h chart model/
+cache/manual zoom; #180 protected common-horizon non-loss comparison; #182 bounded cold decoding.
+Detailed older measurements remain in the linked receipts above, [pricing/cold installation](docs/history/pricing-and-cold-install-2026-10-26.md),
+[chart/report receipt](docs/history/combined-chart-install-2026-10-26.md) and
 [exit comparison](docs/history/exit-comparison-verification-2026-10-26.md).
+Transport success is not typed-body validity, financial ACK or visible guidance. Never sum
+overlapping cumulative prefixes or infer outcomes for the unlogged tail.
+[Transport contract](docs/architecture/transport-latency-totals.md).
 
 ## Remaining work and contracts
 

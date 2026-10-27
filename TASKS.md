@@ -8,20 +8,24 @@ All game interaction remains manual; batch runtime updates and acceptance work.
 
 ## Current batch
 
-- [ ] Verify/deliver `codex/panel-guidance-continuity`: profiled source preparation and background
+- [x] Verify/deliver #186 `codex/panel-guidance-continuity`: profiled source preparation and background
       SQL scan, editor-close/superseded-plan delivery, pre-expiry selected-sale refresh and reduced
-      Swing churn. Focused regressions pass; clean build/tooling, both CI platforms, frozen old/new
-      financial/risk comparison and paired backup/install remain pending. Installed #184 remains
-      active. [Contract](docs/architecture/panel-guidance-continuity.md).
+      Swing churn. Clean 2,451 Java (six existing skips), 121 tooling, Java 11 and frozen old/new
+      financial/risk reads and both exact-head CI platforms `40446407196` pass. Installed through
+      supported updater; 207-file/six-configuration restore, all 12 original tables and old/new
+      restored-backup/original-risk reads pass. Status/launcher/first cold GET-only pipeline pass.
+      Fresh visible guidance and sustained timing are separate acceptance gates below.
+      [Receipt](docs/history/panel-guidance-install-2026-10-26.md).
 - [x] Install merged #180/#182 at the owner's explicit request before later player verification.
       Both CI platforms, clean 2,419 Java (six existing skips), 121 tooling, all-source parity and
       twelve frozen replays pass. All 12 original tables match; 195-file/six-configuration restores
       and original risk/old-runtime reads pass. Status/launcher/GET pipeline pass; RuneLite reopened.
       [Receipt](docs/history/pricing-and-cold-install-2026-10-26.md).
-- [ ] Accept combined installed #184: fresh post-update ordered eight-slot ACKs, useful visible
+- [ ] Accept combined installed #186: fresh post-update ordered eight-slot ACKs, useful visible
       guidance, preserved trades, cold/warm timing and player-operated cancel/late-fill/collect/
-      relist/restart and native charts. Fresh manual login/GE, eight-slot proof and visible full-slot/
-      MODIFY_SELL guidance pass. The first account prefix has 94 completed offer calls, zero transport
+      relist/restart and native charts. Fresh #186 acceptance is pending. Prior #184 manual login/GE,
+      eight-slot proof and visible full-slot/MODIFY_SELL guidance pass. Its first account prefix has
+      94 completed offer calls, zero transport
       failures and histogram p95 upper bound 25 ms; this short sample is not sustained acceptance.
       Initial guidance still includes an 8.3-second client queue, and policy timings remain open.
       Retain the first cold ten-second pipeline timeout as an open issue despite the later pass.
