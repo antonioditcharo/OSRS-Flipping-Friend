@@ -44,7 +44,7 @@ Read [the contract](architecture/sale-acceptance-renewal.md) and receipt for act
 and event retries must keep progressing through UTC corrections. Preserve first refreshes, negative
 local timer origins, bounded backoff and lifecycle fences. Recorded source/UTC clocks, original
 order deadlines, exact costs and risk/freshness guards remain unchanged.
-Installed PR #153 includes #150â€“#152, canonical capped replacement requests, one fully reauthorized
+Installed PR #153 includes #150–#152, canonical capped replacement requests, one fully reauthorized
 sale-price correction and separately authorized working maintenance after urgent refusals.
 Backup/hash/task/source/financial/risk preservation passed. Read
 [the prior contract](architecture/trading-flow-authority-recovery.md); use the newest receipt for delivery.
@@ -66,8 +66,8 @@ refusals and safe reachability/issuance retention remain separate work; no blind
 
 ## Work in impact order
 
-1. Complete placement â†’ partial fills â†’ instructed cancel â†’ late fills â†’ collect â†’ exact remaining
-   replacement OR supported partial exit â†’ sale completion. Verify refresh/advice changes/logout/
+1. Complete placement → partial fills → instructed cancel → late fills → collect → exact remaining
+   replacement OR supported partial exit → sale completion. Verify refresh/advice changes/logout/
    shutdown/restart/retries/slot reuse/account switches. Keep canonical ledger, physical inventory/
    offers/collection evidence, continuations, exits, sidebar and reports consistent. Accept original
    acquisition targets/stops/durations and margin-preserving sale maintenance through these paths.

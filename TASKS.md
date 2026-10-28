@@ -88,7 +88,7 @@ No outstanding requirement was removed; #194 is closed only against its verified
       relist/restart and native charts. Initial #186 manual login/GE, eight-slot proof and visible
       BUY/full-slot guidance pass, with COLLECT/SELL/BUY logs. The first prefix has 250 completed
       offer calls without transport failures and a 25 ms histogram p95 upper bound. Most sampled
-      delivery times are about 0.5â€“1.5 seconds; sustained targets remain unproven. Prior cold/UI
+      delivery times are about 0.5–1.5 seconds; sustained targets remain unproven. Prior cold/UI
       timing failures remain retained in the linked #184 receipt.
 <!-- REQ-5975361995a6 -->
 - [ ] Remove remaining original-context/execution-prediction history scans with full provenance,
@@ -124,7 +124,7 @@ No outstanding requirement was removed; #194 is closed only against its verified
       collection, exact relisting, completion and restart. All slots were full after installation;
       the copied current sells had no supported routine change. Fresh frame/WAIT and frozen Marlin
       component replay are not controlled maintenance acceptance. Keep sustained UI/event/ACK timing
-      open: cold/later five-second retries and many roughly 0.8â€“2s subsequent refreshes miss the
+      open: cold/later five-second retries and many roughly 0.8–2s subsequent refreshes miss the
       instant-guidance goal.
 
 <!-- REQ-1b76631b79e5 -->

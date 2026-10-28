@@ -7,7 +7,7 @@ Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
 Local plugin/companion **#190 remains installed**. Actual JAR hashes still match its original
 manifest, installed 27 October at 17:12:26 UTC. No client restart or account-database restoration
-occurred during #191â€“#194. Source `a8b2c134f69d868f6636b9f78768e1ff0594221e`, merge
+occurred during #191–#194. Source `a8b2c134f69d868f6636b9f78768e1ff0594221e`, merge
 `4198e215ccd7633be4311b55b346237f7d3cbc55`; clean 2,504 Java tests (six existing skips),
 132 tooling, Java 11 and both CI platforms `40546616198` pass. Backup
 `20261027-091216-f89a7888` restores 255 files, six configurations and all 12 original tables;
@@ -67,7 +67,7 @@ supported paired maintenance; this is not new-runtime evidence or permission to 
 
 ## Verified behavior and limits
 
-#188â€“#190 prepare validated immutable source prefixes, original acquisition/execution context,
+#188–#190 prepare validated immutable source prefixes, original acquisition/execution context,
 unchanged-frame recovery and bounded pre-login work. External edits, account switches, shrinking
 prefixes and rollback invalidate preparation; current financial authority is never cached away.
 Guidance outcomes cover main/editor delivery, supersession and expiry, with bounded successor work.
@@ -83,7 +83,7 @@ ACK latency and player acceptance. Do not relabel them as live profit or public-
 
 Prior live failures remain evidence: first cold scoped GET over ten seconds, 2.04s offer-monitor
 wait, three proposed SELL-to-WAIT outcomes requiring classification, and SELL post-ACK outliers
-1,669/1,012/603ms. Most prior sampled deliveries were roughly 0.5â€“1.5s. Source preparation gains,
+1,669/1,012/603ms. Most prior sampled deliveries were roughly 0.5–1.5s. Source preparation gains,
 transport success or a later successful GET do not establish sustained eligible-action latency.
 The original deployment permission failure and recovery are retained in the hosted receipt.
 
