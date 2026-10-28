@@ -151,24 +151,10 @@ final class MarketIngestionService
 	static Map<Integer, Item> parseMapping(JsonElement array)
 	{
 		Map<Integer, Item> items = new HashMap<>();
-		for (JsonElement element : array.getAsJsonArray())
-		{
-			JsonObject object = element.getAsJsonObject();
-			int id = object.get("id").getAsInt();
-			boolean members = object.has("members") && !object.get("members").isJsonNull()
-				&& object.get("members").getAsBoolean();
-			boolean published = object.has("limit") && !object.get("limit").isJsonNull()
-				&& object.get("limit").getAsInt() > 0;
-			int value = object.has("value") && !object.get("value").isJsonNull()
-				? object.get("value").getAsInt() : 0;
-			// When the wiki does not publish one, use the same rule the plugin already applies in
-			// ItemMetadata.getBuyLimit rather than a second, flatter guess. A hardcoded 8 here capped
-			// every unpublished item at eight units however cheap it was, and erring low is only the
-			// safe direction because an over-estimate produces an offer the game silently refuses to
-			// fill -- so the guess is recorded as a guess.
-			int limit = published ? object.get("limit").getAsInt() : (value >= 100_000 ? 8 : 100);
-			items.put(id, new Item(id, object.get("name").getAsString(), limit, members, published));
-		}
+        for(var metadata:com.flippingfriend.data.PublicMarketNumbers.mapping(array,new Gson())) {
+            items.put(metadata.getId(),new Item(metadata.getId(),metadata.getName(),metadata.getBuyLimit(),
+                metadata.isMembers(),metadata.hasPublishedBuyLimit()));
+        }
 		return items;
 	}
 

@@ -2,13 +2,10 @@ package com.flippingfriend.data;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
-import com.google.gson.reflect.TypeToken;
+import com.google.gson.JsonElement;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import javax.inject.Inject;
@@ -18,8 +15,6 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
 import okhttp3.ResponseBody;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Thin client over the Old School RuneScape Wiki real-time prices API.
@@ -33,25 +28,10 @@ import org.slf4j.LoggerFactory;
 @Singleton
 public class WikiPriceClient
 {
-	private static final Logger log = LoggerFactory.getLogger(WikiPriceClient.class);
-
 	private static final HttpUrl BASE = HttpUrl.get("https://prices.runescape.wiki/api/v1/osrs");
 	private static final String USER_AGENT =
 		"OSRS-Flipping-Friend/1.0.0 - RuneLite plugin - https:" +
 		"//github.com/antonioditcharo/OSRS-Flipping-Friend";
-
-	private static final Type LATEST_MAP = new TypeToken<Map<String, LatestPrice>>()
-	{
-	}.getType();
-	private static final Type CANDLE_MAP = new TypeToken<Map<String, Candle>>()
-	{
-	}.getType();
-	private static final Type CANDLE_LIST = new TypeToken<List<Candle>>()
-	{
-	}.getType();
-	private static final Type METADATA_LIST = new TypeToken<List<ItemMetadata>>()
-	{
-	}.getType();
 
 	private final OkHttpClient httpClient;
 	private final Gson gson;
@@ -63,17 +43,26 @@ public class WikiPriceClient
 		this.gson = gson;
 	}
 
+    public static final class UnsupportedHistoryException extends IOException {
+        public UnsupportedHistoryException(Throwable cause){super("Unsupported public history",cause);}
+    }
+
 	/** Static item facts. Large (~4k items) and changes only with game updates, so cache it hard. */
 	public List<ItemMetadata> fetchMapping() throws IOException
 	{
-		return get(BASE.newBuilder().addPathSegment("mapping").build(), METADATA_LIST, false);
+		try {
+            List<ItemMetadata> mapping=PublicMarketNumbers.mapping(get(BASE.newBuilder().addPathSegment("mapping").build(),false),gson);
+            if(mapping.isEmpty())throw new IOException("No supported public mapping rows");
+            return mapping;
+        }catch(RuntimeException invalid){throw new IOException("Invalid public mapping",invalid);}
 	}
 
 	/** Most recent instant-buy and instant-sell for every item. */
 	public Map<Integer, LatestPrice> fetchLatest() throws IOException
 	{
-		Map<String, LatestPrice> raw = get(BASE.newBuilder().addPathSegment("latest").build(), LATEST_MAP, true);
-		return keyById(raw);
+		JsonElement raw=get(BASE.newBuilder().addPathSegment("latest").build(),true);
+        if(!raw.isJsonObject())throw new IOException("Public quote map required");
+        return PublicMarketNumbers.quotes(raw.getAsJsonObject());
 	}
 
 	/**
@@ -83,54 +72,15 @@ public class WikiPriceClient
 	 */
 	public Map<Integer, Candle> fetchAverages(String window) throws IOException
 	{
-		HttpUrl url = BASE.newBuilder().addPathSegment(window).build();
-		Request request = new Request.Builder()
-			.url(url)
-			.header("User-Agent", USER_AGENT)
-			.build();
-
-		try (Response response = httpClient.newCall(request).execute())
-		{
-			if (!response.isSuccessful())
-			{
-				throw new IOException("wiki prices API returned " + response.code() + " for " + url);
-			}
-
-			ResponseBody body = response.body();
-			if (body == null)
-			{
-				throw new IOException("empty response from " + url);
-			}
-
-			try (InputStreamReader reader = new InputStreamReader(body.byteStream(), StandardCharsets.UTF_8))
-			{
-				JsonObject envelope = gson.fromJson(reader, JsonObject.class);
-				if (envelope == null || !envelope.has("data"))
-				{
-					throw new IOException("response from " + url + " had no data field");
-				}
-				
-				long timestamp = 0;
-				if (envelope.has("timestamp"))
-				{
-					timestamp = envelope.get("timestamp").getAsLong();
-				}
-				
-				Map<String, Candle> raw = gson.fromJson(envelope.get("data"), CANDLE_MAP);
-				if (timestamp > 0 && raw != null)
-				{
-					for (Candle c : raw.values())
-					{
-						if (c != null)
-						{
-							c.setTimestamp(timestamp);
-						}
-					}
-				}
-				return keyById(raw);
-			}
-		}
-	}
+        JsonElement response=get(BASE.newBuilder().addPathSegment(window).build(),false);
+        try {
+            JsonObject envelope=response.getAsJsonObject();
+            if(!envelope.has("data") || !envelope.get("data").isJsonObject())throw new IllegalArgumentException("Public aggregate map required");
+            long timestamp=envelope.has("timestamp")?PublicMarketNumbers.integer(envelope.get("timestamp")):0;
+            if(timestamp<0)throw new IllegalArgumentException("Invalid public aggregate clock");
+            return PublicMarketNumbers.candles(envelope.getAsJsonObject("data"),timestamp);
+        }catch(RuntimeException invalid){throw new IOException("Invalid public aggregate",invalid);}
+    }
 
 	/**
 	 * Up to 365 buckets of history for a single item.
@@ -144,15 +94,15 @@ public class WikiPriceClient
 			.addQueryParameter("id", Integer.toString(itemId))
 			.addQueryParameter("timestep", timestep)
 			.build();
-		List<Candle> series = get(url, CANDLE_LIST, true);
-		return series == null ? Collections.emptyList() : series;
+		try{return PublicMarketNumbers.history(get(url,true));}
+        catch(RuntimeException invalid){throw new UnsupportedHistoryException(invalid);}
 	}
 
 	/**
 	 * @param unwrapData the collection endpoints wrap their payload in a {@code data} object, but
 	 *                   {@code /mapping} returns a bare array
 	 */
-	private <T> T get(HttpUrl url, Type type, boolean unwrapData) throws IOException
+	private JsonElement get(HttpUrl url, boolean unwrapData) throws IOException
 	{
 		Request request = new Request.Builder()
 			.url(url)
@@ -176,7 +126,7 @@ public class WikiPriceClient
 			{
 				if (!unwrapData)
 				{
-					return gson.fromJson(reader, type);
+					return gson.fromJson(reader, JsonElement.class);
 				}
 
 				JsonObject envelope = gson.fromJson(reader, JsonObject.class);
@@ -184,34 +134,9 @@ public class WikiPriceClient
 				{
 					throw new IOException("response from " + url + " had no data field");
 				}
-				return gson.fromJson(envelope.get("data"), type);
-			}
-		}
-	}
+				return envelope.get("data");
+            }catch(RuntimeException invalid){throw new IOException("Malformed public response",invalid);}
+        }
+    }
 
-	/**
-	 * The feed keys everything by item id rendered as a JSON string. Converting once here keeps the
-	 * rest of the plugin working in ints.
-	 */
-	private static <T> Map<Integer, T> keyById(Map<String, T> raw)
-	{
-		if (raw == null)
-		{
-			return Collections.emptyMap();
-		}
-
-		Map<Integer, T> byId = new HashMap<>(raw.size());
-		for (Map.Entry<String, T> entry : raw.entrySet())
-		{
-			try
-			{
-				byId.put(Integer.parseInt(entry.getKey()), entry.getValue());
-			}
-			catch (NumberFormatException ex)
-			{
-				log.debug("skipping non-numeric item key {}", entry.getKey());
-			}
-		}
-		return byId;
-	}
 }

@@ -76,7 +76,7 @@ public class Candle
 	{
 		if (avgHighPrice != null && avgLowPrice != null)
 		{
-			return (avgHighPrice + avgLowPrice) / 2.0;
+			return ((long) avgHighPrice + avgLowPrice) / 2.0;
 		}
 		if (avgHighPrice != null)
 		{

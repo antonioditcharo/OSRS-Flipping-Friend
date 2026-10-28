@@ -780,7 +780,8 @@ final class AccountReplay implements AutoCloseable {
     private com.flippingfriend.data.Candle aggregate(int item,MarketIngestionService.MarketState market) {
         var raw=market.fiveMinute.get(Integer.toString(item));
         if(raw==null || !raw.isJsonObject())return null;
-        var candle=json.fromJson(raw,com.flippingfriend.data.Candle.class);
+        var candle=com.flippingfriend.data.PublicMarketNumbers.candle(raw,market.fiveMinuteStartedAt);
+        if(candle==null)return null;
         if(candle.getTimestamp()==0)candle.setTimestamp(market.fiveMinuteStartedAt);
         return candle;
     }
@@ -795,7 +796,7 @@ final class AccountReplay implements AutoCloseable {
         }
         return value;
     }
-    private LatestPrice latest(int item){var q=frame.latest.get(Integer.toString(item));return q==null?null:json.fromJson(q,LatestPrice.class);}
+    private LatestPrice latest(int item){var q=frame.latest.get(Integer.toString(item));return com.flippingfriend.data.PublicMarketNumbers.quote(q);}
     private int freeSlot(){for(int i=0;i<8;i++)if(offers[i]==null)return i;return -1;}
     private Offer openBuy(int item){for(Offer o:offers)if(o!=null && o.item==item && o.buy && !o.terminal)return o;return null;}
     private int listed(int item){int n=0;for(Offer o:offers)if(o!=null && o.item==item && !o.buy)n=Math.addExact(n,o.remaining());return n;}

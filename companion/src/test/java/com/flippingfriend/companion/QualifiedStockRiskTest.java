@@ -112,12 +112,16 @@ public class QualifiedStockRiskTest {
             assertEquals(Long.valueOf(76_000_000),evaluate(store,account,market).getUnpricedManagedCostReserve());
         }
     }
-    @Test public void fractionalStringAndFutureBidEvidenceStillRefusesRisk()throws Exception {
+    @Test public void unsupportedBidRetainsCostWithoutAQualifiedMarkAndFutureClockStillRefuses()throws Exception {
         try(var store=new SqliteStore(folder.newFolder().toPath().resolve("money.db"))) {
             f.capture(store,100_000_000);f.buy(store,"large-purchase",2,38_000_000);var account=f.capture(store,24_000_000);
             for(JsonElement bad:List.of(new JsonPrimitive("37000000"),new JsonPrimitive(37_000_000.5))) {
                 var market=supported();market.latest.getAsJsonObject("561").add("low",bad);
-                assertFalse(evaluate(store,account,market).isAvailable());
+                var risk=evaluate(store,account,market);
+                assertTrue(risk.getReason(),risk.isAvailable());assertEquals(Set.of(561),risk.getValuationPausedItems());
+                assertEquals(Long.valueOf(76_000_000),risk.getUnpricedManagedCostReserve());
+                assertEquals(Long.valueOf(0),risk.getMarkedUnrealizedProfit());assertEquals(76_000_000,risk.getValuationUncertaintyExcluded());
+                assertEquals(Long.valueOf(15_000_000),risk.getRemainingLossBudget());
             }
             var market=supported();market.latest.getAsJsonObject("561").addProperty("lowTime",f.at+1);
             assertFalse(evaluate(store,account,market).isAvailable());

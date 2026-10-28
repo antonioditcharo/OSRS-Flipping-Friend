@@ -39,6 +39,14 @@ public class BuyMaintenanceServiceAdapterTest
         assertNull(adapter.decide(Collections.singletonList(offer()),
             MarketIngestionService.MarketState.empty(), new BuyLimitLedger(), 2_000));
     }
+    @Test public void wrappedOrFractionalPublicPricesCannotProduceMaintenance()
+    {
+        for(String unsupported:java.util.List.of("4294967401","105.5","\"105\"")) {
+            var state=market(1_950,true);
+            state.latest.getAsJsonObject("561").add("low",new com.google.gson.JsonParser().parse(unsupported));
+            assertNull(adapter.decide(Collections.singletonList(offer()),state,new BuyLimitLedger(),2_000));
+        }
+    }
     private static OfferEvent offer()
     {
         return OfferEvent.builder("c", 1_900, "BUYING")

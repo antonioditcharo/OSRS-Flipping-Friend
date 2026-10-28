@@ -49,12 +49,11 @@ final class DurableRisk {
                 describeReserve(valuationDetails,p.getItemName(),p.getItemId(),p.getQuantity()-quantity,
                     p.getTotalCost()-visibleCost,"not in the current inventory, collection boxes or unsold GE stock");
                 if(quantity==0)continue;
-                var quote=market.latest==null?null:market.latest.getAsJsonObject(Integer.toString(p.getItemId()));
-                if(quote==null || !quote.has("low") || quote.get("low").isJsonNull()
-                    || !quote.has("lowTime") || quote.get("lowTime").isJsonNull())
+                var quote=market.latest==null?null:com.flippingfriend.data.PublicMarketNumbers.quote(market.latest.get(Integer.toString(p.getItemId())));
+                if(quote==null || quote.getLow()==null || quote.getLowTime()==null)
                     {unpricedCost=Math.addExact(unpricedCost,visibleCost);valuationPaused.add(p.getItemId());
-                        describeReserve(valuationDetails,p.getItemName(),p.getItemId(),quantity,visibleCost,"no instant-sell quote available");continue;}
-                long bid=exactInteger(quote.get("low")), quoteAt=exactInteger(quote.get("lowTime"));
+                        describeReserve(valuationDetails,p.getItemName(),p.getItemId(),quantity,visibleCost,"no supported instant-sell quote available");continue;}
+                long bid=quote.getLow(), quoteAt=quote.getLowTime();
                 if(bid<=0 || bid>Integer.MAX_VALUE || quoteAt<=0 || quoteAt>now)
                     return AccountRiskSnapshot.unavailable(id,now,"A managed item's instant-sell quote is unsupported or in the future.");
                 boolean quiet=now-quoteAt>120;
@@ -123,9 +122,4 @@ final class DurableRisk {
             +String.format(Locale.ROOT,"%,d GP",cost)+" reserved).");
     }
 
-    private static long exactInteger(com.google.gson.JsonElement value) {
-        if (!value.isJsonPrimitive() || !value.getAsJsonPrimitive().isNumber())
-            throw new IllegalArgumentException("Risk quotes require integer numbers.");
-        return value.getAsBigDecimal().longValueExact();
-    }
 }

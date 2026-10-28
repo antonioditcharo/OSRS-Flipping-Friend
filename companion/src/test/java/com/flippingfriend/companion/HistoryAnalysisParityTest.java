@@ -34,4 +34,24 @@ public class HistoryAnalysisParityTest {
             if(phase==0)assertFalse(actual.isEmpty());
         }
     }
+    @Test public void oversizedPublicItemCannotBecomeAWrappedCandidateOrSuppressItsValidNeighbour() {
+        var shortBars=bars(300,300,4000);var longBars=bars(400,3600,48000);
+        SeriesSource series=(id,step)->step.equals("5m")?shortBars:longBars;var gson=new Gson();
+        var latest=new com.google.gson.JsonObject();var five=new com.google.gson.JsonObject();var hour=new com.google.gson.JsonObject();
+        for(int id:List.of(1,2)) {
+            var quote=new com.google.gson.JsonObject();quote.addProperty("low",id==1?4294969296L:2000L);
+            quote.addProperty("high",id==1?4294969416L:2120L);quote.addProperty("lowTime",now-60);quote.addProperty("highTime",now-60);
+            latest.add(""+id,quote);five.add(""+id,gson.toJsonTree(new Candle(now,2120,2000,4000,4000)));
+            hour.add(""+id,gson.toJsonTree(new Candle(now,2120,2000,48000,48000)));
+        }
+        var metadata=Map.of(1,new MarketIngestionService.Item(1,"Unsupported",30000),2,new MarketIngestionService.Item(2,"Supported",30000));
+        var mixed=new MarketIngestionService.MarketState(metadata,latest,five,hour,now);
+        var actual=new CandidateFactory(series).build(mixed,2.5,Map.of(1,30000,2,30000),1000000000,true,Instant.ofEpochSecond(now));
+        latest=latest.deepCopy();latest.remove("1");
+        var good=new MarketIngestionService.MarketState(metadata,latest,five,hour,now);
+        var expected=new CandidateFactory(series).build(good,2.5,Map.of(1,30000,2,30000),1000000000,true,Instant.ofEpochSecond(now));
+        assertFalse(expected.isEmpty());assertTrue(actual.stream().allMatch(c->c.getItemId()==2));
+        assertEquals(gson.toJsonTree(expected),gson.toJsonTree(actual));
+        assertEquals(4294969296L,mixed.latest.getAsJsonObject("1").get("low").getAsLong());
+    }
 }

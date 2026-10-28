@@ -607,6 +607,13 @@ final class CompanionService implements AutoCloseable
             var exposure=DurablePlanningExposure.forAccount(read,snapshot,decidedAt);
             var candidate=selected.getCandidate();
             if(exposure==null || candidate==null)throw new IllegalStateException("entry exposure unavailable");
+            // A READY plan can predate a bad public row. Refuse only that allocation: raw
+            // oversized prices must not become a plausible quote or a fabricated stop crossing.
+            var latest=market.state().latest;
+            if(latest!=null && latest.has(Integer.toString(candidate.getItemId()))
+                && com.flippingfriend.data.PublicMarketNumbers.quote(latest.get(Integer.toString(candidate.getItemId())))==null)
+                return CompanionEntryPolicy.abstain(recommendationId,decidedAt,observedAt,
+                    com.flippingfriend.core.PolicyAbstentionReason.MARKET_DATA_STALE,"UNSUPPORTED_PUBLIC_QUOTE");
             var risk=DurableRisk.evaluate(read,snapshot,exposure,market.state(),decidedAt);
             if(!risk.isAvailable())
                 return CompanionEntryPolicy.abstain(recommendationId,decidedAt,observedAt,

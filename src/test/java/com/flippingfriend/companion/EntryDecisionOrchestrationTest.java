@@ -88,6 +88,28 @@ public class EntryDecisionOrchestrationTest
         Assert.assertEquals(1, rank.get());
         Assert.assertEquals(SuggestionType.WAIT, result.getSuggestion().getType());
     }
+    @Test public void itemLocalNumericRefusalSelectsAnotherAuthorizedAllocationWithoutChangingUserSkips()
+    {
+        client.acceptPlan(plan(allocation(1,554,"Fire rune"),allocation(2,561,"Nature rune")));
+        var skips=new HashSet<Integer>();var requested=new java.util.ArrayList<Integer>();
+        var result=client.nextEntryDecisionPresentation(new Explainer(),Collections.emptySet(),skips,Collections.emptySet(),(id,rank)->{
+            requested.add(rank);
+            return rank==1?PolicyDecision.abstain("1","policy","refused",PolicyDecisionType.ENTRY,
+                PolicyAbstentionReason.MARKET_DATA_STALE,"UNSUPPORTED_PUBLIC_QUOTE",10,9,null,id):buy(id,"561:100:110:50");
+        });
+        Assert.assertEquals(Arrays.asList(1,2),requested);Assert.assertTrue(skips.isEmpty());
+        Assert.assertNotNull(result);Assert.assertEquals(561,result.getSuggestion().getItemId());
+    }
+    @Test public void accountRefusalDoesNotTryAnotherAllocation()
+    {
+        client.acceptPlan(plan(allocation(1,554,"Fire rune"),allocation(2,561,"Nature rune")));
+        AtomicInteger calls=new AtomicInteger();
+        var result=client.nextEntryDecisionPresentation(new Explainer(),Collections.emptySet(),Collections.emptySet(),Collections.emptySet(),(id,rank)->{
+            calls.incrementAndGet();return PolicyDecision.abstain("1","policy","refused",PolicyDecisionType.ENTRY,
+                PolicyAbstentionReason.ACCOUNT_STATE_UNAVAILABLE,"DURABLE_RISK_UNAVAILABLE",10,9,null,id);
+        });
+        Assert.assertEquals(1,calls.get());Assert.assertNotNull(result);Assert.assertEquals(SuggestionType.WAIT,result.getSuggestion().getType());
+    }
 
     @Test public void silenceRetrievalFailureAndLinkageFailureRemainClosed()
     {

@@ -116,8 +116,10 @@ final class PricingForecastCalibration {
             for(int item:input.mapping.keySet())if(frame.latest.has(Integer.toString(item))) {
                 var source=frame.latest.getAsJsonObject(Integer.toString(item));
                 for(String side:List.of("low","high"))if(source.has(side) && !source.get(side).isJsonNull())
-                    source.get(side).getAsBigDecimal().intValueExact(); // Never truncate a malformed public price into a label.
-                quotes.put(item,JSON.fromJson(source,LatestPrice.class));
+                    source.get(side).getAsBigDecimal().intValueExact(); // Retain the evaluator's exact-price refusal contract.
+                LatestPrice quote=com.flippingfriend.data.PublicMarketNumbers.quote(source);
+                if(quote==null)throw new IllegalArgumentException("Unsupported public forecast target");
+                quotes.put(item,quote);
             }
             for(var iterator=pending.iterator();iterator.hasNext();) {
                 Pending p=iterator.next();

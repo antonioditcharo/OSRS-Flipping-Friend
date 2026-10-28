@@ -213,14 +213,14 @@ final class PortfolioPlanner
 				if (market.latest != null && market.latest.has(String.valueOf(offer.getItemId())))
 				{
 					com.google.gson.JsonElement pricingEl = market.latest.get(String.valueOf(offer.getItemId()));
-					if (pricingEl.isJsonObject())
+					var latestPricing = com.flippingfriend.data.PublicMarketNumbers.quote(pricingEl);
+					if (latestPricing != null)
 					{
-						com.google.gson.JsonObject latestPricing = pricingEl.getAsJsonObject();
 						if (offer.isBuying())
 						{
-							if (latestPricing.has("low"))
+							if (latestPricing.getLow() != null)
 							{
-								int marketLow = latestPricing.get("low").getAsInt();
+								int marketLow = latestPricing.getLow();
 								if (marketLow > 0 && offer.getPrice() < marketLow * 0.95)
 								{
 									alerts.add(new PortfolioAlert("ABORT", offer.getItemId(), offer.getSlot(), "Buy offer is significantly below market price."));
@@ -229,9 +229,9 @@ final class PortfolioPlanner
 						}
 						else
 						{
-							if (latestPricing.has("high"))
+							if (latestPricing.getHigh() != null)
 							{
-								int marketHigh = latestPricing.get("high").getAsInt();
+								int marketHigh = latestPricing.getHigh();
 								if (marketHigh > 0 && offer.getPrice() > marketHigh * 1.05)
 								{
 									alerts.add(new PortfolioAlert("ABORT", offer.getItemId(), offer.getSlot(), "Sell offer is significantly above market price."));
