@@ -76,6 +76,6 @@ Local verification passes: clean 2,519 Java tests (six existing skips), 138 tool
 own bytecode at version 55. The exact packaged production artifact runs the writer on Java 11;
 Python reads its five sealed segments across 1,740 seconds and explicitly reports the open tail.
 This fixture is synthetic, saved separately and excluded from pricing qualification. Local
-trading, financial and hosted evidence-store classes match installed #190. Exact-head CI and
-Enabled hosted capacity and production activation pass in #192; sustained production coverage and
+trading, financial and hosted evidence-store classes match installed #190. Exact-head CI,
+enabled hosted capacity and production activation pass in #192; sustained production coverage and
 the first real seal remain open. See the [delivery receipt](../history/hosted-public-archive-install-2026-10-27.md).
