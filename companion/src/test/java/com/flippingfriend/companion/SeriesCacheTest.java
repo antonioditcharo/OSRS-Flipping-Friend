@@ -30,6 +30,20 @@ import static org.junit.Assert.assertTrue;
  */
 public class SeriesCacheTest
 {
+    @Test public void oneMalformedCachedHistoryCannotClearTheOtherWarmItems()throws Exception {
+        Path file=folder.newFolder("mixed-numeric").toPath().resolve("series-cache.json.gz");
+        var expected=history();var before=new SeriesCache(file);before.remember(1,"5m",expected,Instant.now());before.remember(2,"5m",expected,Instant.now());before.save();
+        com.google.gson.JsonObject root;
+        try(var in=new java.util.zip.GZIPInputStream(Files.newInputStream(file))) {
+            root=com.google.gson.JsonParser.parseString(new String(in.readAllBytes(),StandardCharsets.UTF_8)).getAsJsonObject();
+        }
+        for(var element:root.getAsJsonArray("entries"))if(element.getAsJsonObject().get("key").getAsString().equals("1@5m"))
+            element.getAsJsonObject().getAsJsonArray("data").get(0).getAsJsonObject().addProperty("avgLowPrice",4_294_967_396L);
+        try(var out=new java.util.zip.GZIPOutputStream(Files.newOutputStream(file))){out.write(root.toString().getBytes(StandardCharsets.UTF_8));}
+        byte[] source=Files.readAllBytes(file);var after=new SeriesCache(file);
+        assertTrue(after.series(1,"5m").isEmpty());assertSameHistory(expected,after.series(2,"5m"));
+        assertTrue(Arrays.equals(source,Files.readAllBytes(file)));assertEquals(1,after.warmCount("5m"));
+    }
     @Test public void maintenanceBudgetVisitsUnfetchedThenOldestItemsInsteadOfRepeatingItsFirstPage()throws Exception {
         var client=org.mockito.Mockito.mock(okhttp3.OkHttpClient.class);var call=org.mockito.Mockito.mock(okhttp3.Call.class);
         var requested=new ArrayList<String>();

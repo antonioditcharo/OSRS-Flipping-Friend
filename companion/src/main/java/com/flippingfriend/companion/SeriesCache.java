@@ -316,12 +316,19 @@ final class SeriesCache implements SeriesSource
 			{
 				return;
 			}
+            var seenKeys=new java.util.HashSet<String>();
 			for (JsonElement element : root.getAsJsonArray("entries"))
 			{
+				try {
 				JsonObject stored = element.getAsJsonObject();
 				String key = stored.get("key").getAsString();
-				Cached cached = new Cached(parse(stored),
-					Instant.ofEpochSecond(stored.get("fetchedAt").getAsLong()));
+				int split=key.indexOf('@');
+				com.flippingfriend.data.PublicMarketNumbers.itemKey(key.substring(0,split));
+				if(!List.of("5m","1h","6h","24h").contains(timestepOf(key)))continue;
+                if(!seenKeys.add(key)){cache.remove(key);continue;}
+                long fetched=com.flippingfriend.data.PublicMarketNumbers.integer(stored.get("fetchedAt"));
+                if(fetched<=0 || fetched>Instant.now().getEpochSecond())continue;
+				Cached cached = new Cached(parse(stored),Instant.ofEpochSecond(fetched));
 				if (cached.isStale(timestepOf(key)))
 				{
 					expired++;
@@ -329,6 +336,9 @@ final class SeriesCache implements SeriesSource
 				}
 				cache.put(key, cached); revision.incrementAndGet();
 				restored++;
+				} catch(RuntimeException unsupported) {
+					log.debug("ignored one unsupported public history cache entry");
+				}
 			}
 		}
 		catch (Throwable ex)
@@ -420,34 +430,7 @@ final class SeriesCache implements SeriesSource
 
 	private static List<Candle> parse(JsonObject root)
 	{
-		List<Candle> candles = new ArrayList<>();
-		if (!root.has("data") || !root.get("data").isJsonArray())
-		{
-			return candles;
-		}
-
-		JsonArray data = root.getAsJsonArray("data");
-		for (JsonElement element : data)
-		{
-			JsonObject bar = element.getAsJsonObject();
-			candles.add(new Candle(
-				number(bar, "timestamp"),
-				boxed(bar, "avgHighPrice"),
-				boxed(bar, "avgLowPrice"),
-				(int) number(bar, "highPriceVolume"),
-				(int) number(bar, "lowPriceVolume")));
-		}
-		return candles;
-	}
-
-	private static long number(JsonObject object, String key)
-	{
-		return object.has(key) && !object.get(key).isJsonNull() ? object.get(key).getAsLong() : 0;
-	}
-
-	private static Integer boxed(JsonObject object, String key)
-	{
-		return object.has(key) && !object.get(key).isJsonNull() ? object.get(key).getAsInt() : null;
+		return com.flippingfriend.data.PublicMarketNumbers.history(root.get("data"));
 	}
 
 	private static final class Cached

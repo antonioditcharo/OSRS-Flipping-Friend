@@ -115,7 +115,8 @@ public final class HostedPilotMain {
                     var row=state.hourly.getAsJsonObject(String.valueOf(item));
                     String side=buy?"lowPriceVolume":"highPriceVolume";
                     if(row==null || !row.has(side))return 0;
-                    return Math.max(0,row.get(side).getAsLong());
+                    try { return com.flippingfriend.data.PublicMarketNumbers.nonnegativeInt(row.get(side)); }
+                    catch(RuntimeException unsupported) { return 0; } // Refuse this side; finish the fair round.
                 },now));
             }catch(Exception failure){System.err.println("Allocation round failed: "+failure.getClass().getSimpleName());}
         }

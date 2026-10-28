@@ -3,7 +3,6 @@ package com.flippingfriend.companion;
 import com.flippingfriend.data.LatestPrice;
 import com.flippingfriend.session.Position;
 import com.flippingfriend.session.StopLossEvidence;
-import com.google.gson.Gson;
 import java.time.Instant;
 import java.util.*;
 
@@ -12,13 +11,12 @@ final class EntryStopPause {
     static Set<Integer> items(SqliteStore.PlanningProjections read,MarketIngestionService.MarketState market,long now) {
         var paused=new HashSet<Integer>();
         if(read==null || read.tradeScope==null || market==null)return paused;
-        var gson=new Gson();
         for(var stock:read.tradeScope.readyPositions()) {
             var raw=market.latest.get(Integer.toString(stock.getItemId()));
             if(raw==null)continue;
             var position=new Position(stock.getItemId(),stock.getItemName(),stock.getQuantity(),stock.getTotalCost(),stock.getOpenedAt(),true);
             position.applyExitContexts(stock.getExitContexts());
-            if(StopLossEvidence.blocksAdditionalBuy(position,gson.fromJson(raw,LatestPrice.class),Instant.ofEpochSecond(now)))paused.add(stock.getItemId());
+            if(StopLossEvidence.blocksAdditionalBuy(position,com.flippingfriend.data.PublicMarketNumbers.quote(raw),Instant.ofEpochSecond(now)))paused.add(stock.getItemId());
         }
         return paused;
     }

@@ -38,7 +38,7 @@ final class CompanionSalePolicy {
             if(reconciliation!=null)for(var scope:reconciliation.values())if(scope.contains(item))paused=true;
             if(slot<0 && paused)return refusal(type,identity,source,now,"SALE_ITEM_PAUSED");
             var raw=market.latest.get(Integer.toString(item));
-            LatestPrice quote=raw==null?null:new com.google.gson.Gson().fromJson(raw,LatestPrice.class);
+            LatestPrice quote=PublicMarketNumbers.quote(raw);
             Instant at=Instant.ofEpochSecond(now);
             if(quote==null || !quote.isComplete() || quote.getHighTime()==null || quote.getLowTime()==null
                 || quote.getHighTime()<=0 || quote.getLowTime()<=0 || quote.secondsSinceHigh(at)<0 || quote.secondsSinceLow(at)<0)

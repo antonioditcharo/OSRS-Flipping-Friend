@@ -91,4 +91,49 @@ public class FrozenReplayInputsTest {
             try{FrozenReplayInputs.load(source).validate();fail(mutation);}catch(IllegalArgumentException expected){}
         }
     }
+    @Test public void legacyFramesAndMetadataRejectNumbersBeforeTypedDeserialization()throws Exception {
+        for(String mutation:List.of("quote","volume","history","mapping","clock","contract","item-key")) {
+            JsonObject raw=json.toJsonTree(input()).getAsJsonObject();
+            JsonObject frame=raw.getAsJsonArray("frames").get(0).getAsJsonObject();
+            if("quote".equals(mutation))frame.getAsJsonObject("latest").getAsJsonObject("1").addProperty("low",4294967396L);
+            if("volume".equals(mutation)) {
+                var flow=new JsonObject();flow.addProperty("itemId",1);flow.addProperty("low",100);flow.addProperty("high",120);
+                flow.addProperty("lowVolume",4294967396L);flow.addProperty("highVolume",100);
+                flow.addProperty("bucketStart",input().startAt-300);flow.addProperty("bucketEnd",input().startAt);
+                frame.getAsJsonArray("flows").add(flow);
+            }
+            if("history".equals(mutation))frame.getAsJsonObject("shortHistory").getAsJsonArray("1").get(0).getAsJsonObject().addProperty("avgHighPrice",120.5);
+            if("mapping".equals(mutation))raw.getAsJsonObject("mapping").getAsJsonObject("1").addProperty("buyLimit",4294967396L);
+            if("clock".equals(mutation))frame.addProperty("availableAt",input().startAt+.5);
+            if("contract".equals(mutation))raw.addProperty("slots",4294967304L);
+            if("item-key".equals(mutation))frame.getAsJsonObject("latest").add("01",frame.getAsJsonObject("latest").remove("1"));
+            Path source=folder.newFolder().toPath().resolve("input.json");Files.writeString(source,json.toJson(raw));
+            try{FrozenReplayInputs.load(source).validate();fail(mutation);}catch(IllegalArgumentException|ArithmeticException expected){}
+        }
+    }
+    @Test public void validBlobHashesCannotHideUnsupportedPricesOrFractionalIndexClocks()throws Exception {
+        var full=input();
+        for(String mutation:List.of("chunk","frame","index")) {
+            Path source=compact(folder.newFolder().toPath(),full);Path blobs=source.getParent().resolve("blobs");
+            JsonObject raw=JsonParser.parseString(Files.readString(source)).getAsJsonObject();
+            var ref=raw.getAsJsonObject("storage").getAsJsonArray("frames").get(0).getAsJsonObject();
+            if("index".equals(mutation))ref.addProperty("availableAt",full.startAt+.5);
+            else {
+                JsonObject stored=json.toJsonTree(full.frames.get(0)).getAsJsonObject();
+                for(String field:List.of("shortHistory","longHistory")) {
+                    JsonObject histories=new JsonObject();
+                    for(var entry:stored.getAsJsonObject(field).entrySet()) {
+                        var bars=entry.getValue().deepCopy().getAsJsonArray();
+                        if("chunk".equals(mutation))bars.get(0).getAsJsonObject().addProperty("avgLowPrice",4294967396L);
+                        JsonArray keys=new JsonArray();keys.add(blob(blobs,bars));histories.add(entry.getKey(),keys);
+                    }
+                    stored.add(field,histories);
+                }
+                if("frame".equals(mutation))stored.getAsJsonObject("latest").getAsJsonObject("1").addProperty("high",4294967416L);
+                ref.addProperty("sha256",blob(blobs,stored));
+            }
+            Files.writeString(source,json.toJson(raw));
+            try{FrozenReplayInputs.load(source).validate();fail(mutation);}catch(IllegalArgumentException|ArithmeticException expected){}
+        }
+    }
 }

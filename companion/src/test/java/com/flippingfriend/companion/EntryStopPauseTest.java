@@ -74,4 +74,22 @@ public class EntryStopPauseTest {
             assertTrue("An item-level client plan cannot supply an absent canonical stop",EntryStopPause.items(read,market(80),now).isEmpty());
         }
     }
+    @Test public void unsupportedCurrentQuoteWithdrawsCachedEntryWithoutInventingAStopOrBlockingOtherItems()throws Exception {
+        try(var store=new SqliteStore(folder.newFolder().toPath().resolve("public-input.db"));var root=new CompanionService(f.json,store);
+            var service=root.forAccountStore(store,f.id)) {
+            var state=seed(store);ExitSlotReservationTest.set(service,"account",state);
+            var ingestion=(MarketIngestionService)ExitSlotReservationTest.get(service,"market");
+            var bad=market(120);var quote=bad.latest.getAsJsonObject("561");
+            quote.addProperty("low",4294967367L);quote.addProperty("high",4294967376L);
+            ExitSlotReservationTest.set(ingestion,"state",bad);int effects=store.positionEventCount();
+            assertTrue("A wrapped quote cannot establish a stop crossing",EntryStopPause.items(store.planningProjections(f.id),bad,now).isEmpty());
+            plan(service,561,"bad-public");
+            assertEquals("UNSUPPORTED_PUBLIC_QUOTE",service.entryDecision("bad-public",1,now).getReasonCode());
+            plan(service,562,"good-public");
+            assertEquals(OfferLifecycleAction.PLACE_BUY,service.entryDecision("good-public",1,now).getAction());
+            assertEquals(effects,store.positionEventCount());
+            assertEquals(301,store.ledgerSnapshot(f.id,now).getTradingPositions().get(0).getTotalCost());
+            assertEquals(4294967376L,quote.get("high").getAsLong());
+        }
+    }
 }

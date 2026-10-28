@@ -201,13 +201,16 @@ public class DurableRiskWindowTest {
             assertTrue("A risk refusal remains a readable plan, not missing health",service.health().canReadPlan(Instant.now().getEpochSecond()));
         }
     }
-    @Test public void marksRefuseFractionalStringFutureAndStalePricesAndExpireWithTheOldestQuote()throws Exception {
+    @Test public void unsupportedPricesPauseValuationWhileFutureScopeAndOldestClockKeepTheirGuards()throws Exception {
         try(var s=new SqliteStore(folder.newFolder().toPath().resolve("quotes.db"))) {
             capture(s,100000000);buy(s,"buy",1,1000);var a=capture(s,99999000);
             var read=s.planningProjections(account);var exposure=DurablePlanningExposure.forAccount(read,a,at);
             for(JsonElement invalid:List.of(new JsonPrimitive(700.9),new JsonPrimitive("700"),new JsonPrimitive(Long.MAX_VALUE))) {
                 var m=market(700);m.latest.getAsJsonObject("561").add("low",invalid);
-                assertFalse(DurableRisk.evaluate(read,a,exposure,m,at).isAvailable());
+                var risk=DurableRisk.evaluate(read,a,exposure,m,at);
+                assertTrue(risk.getReason(),risk.isAvailable());assertEquals(Set.of(561),risk.getValuationPausedItems());
+                assertEquals(Long.valueOf(1000),risk.getUnpricedManagedCostReserve());assertEquals(Long.valueOf(0),risk.getMarkedUnrealizedProfit());
+                assertEquals(1000,s.ledgerSnapshot(account).getTradingPositions().get(0).getTotalCost());
             }
             for(long quoteAt:List.of(at+1)) {
                 var m=market(700);m.latest.getAsJsonObject("561").addProperty("lowTime",quoteAt);

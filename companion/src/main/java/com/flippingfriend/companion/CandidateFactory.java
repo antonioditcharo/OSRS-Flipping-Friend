@@ -969,47 +969,13 @@ final class CandidateFactory
 	}
 
 
-	private static LatestPrice quote(JsonObject root, int itemId)
-	{
-		JsonObject object = root.getAsJsonObject(Integer.toString(itemId));
-		if (object == null)
-		{
-			return null;
-		}
-		Integer high = boxed(object, "high");
-		Integer low = boxed(object, "low");
-		if (high == null || low == null)
-		{
-			return null;
-		}
-		return new LatestPrice(high, longOf(object, "highTime"), low, longOf(object, "lowTime"));
-	}
-
-	private static Candle bar(JsonObject root, int itemId)
-	{
-		JsonObject object = root.getAsJsonObject(Integer.toString(itemId));
-		if (object == null)
-		{
-			return null;
-		}
-		return new Candle(0, boxed(object, "avgHighPrice"), boxed(object, "avgLowPrice"),
-			intOf(object, "highPriceVolume"), intOf(object, "lowPriceVolume"));
-	}
-
-	private static Integer boxed(JsonObject object, String key)
-	{
-		return object.has(key) && !object.get(key).isJsonNull() ? object.get(key).getAsInt() : null;
-	}
-
-	private static Long longOf(JsonObject object, String key)
-	{
-		return object.has(key) && !object.get(key).isJsonNull() ? object.get(key).getAsLong() : null;
-	}
-
-	private static int intOf(JsonObject object, String key)
-	{
-		return object.has(key) && !object.get(key).isJsonNull() ? object.get(key).getAsInt() : 0;
-	}
+    private static LatestPrice quote(JsonObject root,int itemId) {
+        LatestPrice quote=root==null?null:com.flippingfriend.data.PublicMarketNumbers.quote(root.get(Integer.toString(itemId)));
+        return quote!=null && quote.isComplete()?quote:null;
+    }
+    private static Candle bar(JsonObject root,int itemId) {
+        return root==null?null:com.flippingfriend.data.PublicMarketNumbers.candle(root.get(Integer.toString(itemId)),0);
+    }
 
 	/** One item with everything the screen needs, however it was obtained. */
 	static final class QuotedItem

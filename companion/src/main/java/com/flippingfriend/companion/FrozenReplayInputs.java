@@ -2,7 +2,6 @@ package com.flippingfriend.companion;
 
 import com.flippingfriend.data.Candle;
 import com.google.gson.*;
-import com.google.gson.reflect.TypeToken;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
@@ -27,9 +26,15 @@ final class FrozenReplayInputs {
     static AccountReplayInput load(Path source)throws Exception {
         JsonObject object=JSON.fromJson(new String(AccountReplayMain.read(source),StandardCharsets.UTF_8),JsonObject.class);
         if(object==null)throw new IllegalArgumentException("Missing frozen public input");
+        validateMetadataNumbers(object);
         JsonElement value=object.remove("storage");
-        if(value==null)return JSON.fromJson(object,AccountReplayInput.class);
+        if(value==null) {
+            if(object.has("frames"))for(JsonElement frame:object.getAsJsonArray("frames"))validateFrameNumbers(frame.getAsJsonObject(),false);
+            return JSON.fromJson(object,AccountReplayInput.class);
+        }
         if(object.has("frames"))throw new IllegalArgumentException("Conflicting public frame formats");
+        for(JsonElement raw:value.getAsJsonObject().getAsJsonArray("frames"))
+            com.flippingfriend.data.PublicMarketNumbers.integer(raw.getAsJsonObject().get("availableAt"));
         Storage storage=JSON.fromJson(value,Storage.class);
         if(storage==null || !VERSION.equals(storage.version) || storage.frames==null
             || storage.frames.isEmpty() || storage.frames.size()>MAX_FRAMES)
@@ -120,7 +125,9 @@ final class FrozenReplayInputs {
             if(index==lastIndex)return last;
             try {
                 Ref ref=refs.get(index);
-                var f=JSON.fromJson(new String(blob(ref.sha256),StandardCharsets.UTF_8),StoredFrame.class);
+                var raw=JsonParser.parseString(new String(blob(ref.sha256),StandardCharsets.UTF_8)).getAsJsonObject();
+                validateFrameNumbers(raw,true);
+                var f=JSON.fromJson(raw,StoredFrame.class);
                 if(f==null || f.availableAt!=ref.availableAt)throw new IllegalArgumentException("Public frame index disagrees");
                 var result=new AccountReplayInput.Frame();result.availableAt=f.availableAt;result.observedAt=f.observedAt;
                 result.fiveMinuteStartedAt=f.fiveMinuteStartedAt;result.hourlyStartedAt=f.hourlyStartedAt;
@@ -141,7 +148,7 @@ final class FrozenReplayInputs {
                 for(String key:entry.getValue()) {
                     List<Candle> chunk=chunks.get(key);
                     if(chunk==null) {
-                        chunk=JSON.fromJson(new String(blob(key),StandardCharsets.UTF_8),new TypeToken<List<Candle>>(){}.getType());
+                        chunk=com.flippingfriend.data.PublicMarketNumbers.history(JsonParser.parseString(new String(blob(key),StandardCharsets.UTF_8)));
                         if(chunk==null || chunk.isEmpty() || chunk.size()>64 || chunk.contains(null))
                             throw new IllegalArgumentException("Invalid public history chunk");
                         List<Candle> immutable=new ArrayList<>();for(Candle bar:chunk)immutable.add(new FrozenCandle(bar));
@@ -156,6 +163,46 @@ final class FrozenReplayInputs {
         }
         int cachedChunkCount(){return chunks.size();}
         int cachedHistoryCount(){return preparedHistory.size();}
+    }
+    /** Refuse unsupported frozen inputs before Gson can narrow them into a plausible experiment. */
+    private static void validateMetadataNumbers(JsonObject input) {
+        for(String field:List.of("startAt","endAt","initialCoins","minimumProfit"))
+            if(input.has(field))com.flippingfriend.data.PublicMarketNumbers.integer(input.get(field));
+        for(String field:List.of("slots","actionSeconds","visitSeconds","terminalHaircutBps"))
+            if(input.has(field))com.flippingfriend.data.PublicMarketNumbers.nonnegativeInt(input.get(field));
+        for(String field:List.of("missedVisitIndices","restartAt"))if(input.has(field))
+            for(JsonElement number:input.getAsJsonArray(field)) {
+                if("missedVisitIndices".equals(field))com.flippingfriend.data.PublicMarketNumbers.nonnegativeInt(number);
+                else com.flippingfriend.data.PublicMarketNumbers.integer(number);
+            }
+        if(input.has("mapping"))for(var row:input.getAsJsonObject("mapping").entrySet()) {
+            int item=com.flippingfriend.data.PublicMarketNumbers.itemKey(row.getKey());
+            JsonObject metadata=row.getValue().getAsJsonObject();
+            if(item!=com.flippingfriend.data.PublicMarketNumbers.nonnegativeInt(metadata.get("id")))
+                throw new IllegalArgumentException("Public item identity disagrees");
+            com.flippingfriend.data.PublicMarketNumbers.nonnegativeInt(metadata.get("buyLimit"));
+        }
+    }
+    private static void validateFrameNumbers(JsonObject frame,boolean referenced) {
+        for(String field:List.of("availableAt","observedAt","fiveMinuteStartedAt","hourlyStartedAt"))
+            if(frame.has(field))com.flippingfriend.data.PublicMarketNumbers.integer(frame.get(field));
+        if(frame.has("latest"))for(var row:frame.getAsJsonObject("latest").entrySet()) {
+            com.flippingfriend.data.PublicMarketNumbers.itemKey(row.getKey());
+            if(com.flippingfriend.data.PublicMarketNumbers.quote(row.getValue())==null)throw new IllegalArgumentException("Unsupported frozen public quote");
+        }
+        for(String field:List.of("fiveMinute","hourly"))if(frame.has(field))for(var row:frame.getAsJsonObject(field).entrySet()) {
+            com.flippingfriend.data.PublicMarketNumbers.itemKey(row.getKey());
+            if(com.flippingfriend.data.PublicMarketNumbers.candle(row.getValue(),0)==null)throw new IllegalArgumentException("Unsupported frozen public aggregate");
+        }
+        for(String field:List.of("shortHistory","longHistory"))if(frame.has(field))
+            for(var row:frame.getAsJsonObject(field).entrySet())com.flippingfriend.data.PublicMarketNumbers.itemKey(row.getKey());
+        if(!referenced)for(String field:List.of("shortHistory","longHistory"))if(frame.has(field))
+            for(var row:frame.getAsJsonObject(field).entrySet())com.flippingfriend.data.PublicMarketNumbers.history(row.getValue());
+        if(frame.has("flows"))for(JsonElement raw:frame.getAsJsonArray("flows")) {
+            JsonObject flow=raw.getAsJsonObject();
+            for(String field:List.of("itemId","low","high","lowVolume","highVolume"))com.flippingfriend.data.PublicMarketNumbers.nonnegativeInt(flow.get(field));
+            for(String field:List.of("bucketStart","bucketEnd"))com.flippingfriend.data.PublicMarketNumbers.integer(flow.get(field));
+        }
     }
     private static final class FrozenCandle extends Candle {
         FrozenCandle(Candle source){super(source.getTimestamp(),source.getAvgHighPrice(),source.getAvgLowPrice(),source.getHighPriceVolume(),source.getLowPriceVolume());}

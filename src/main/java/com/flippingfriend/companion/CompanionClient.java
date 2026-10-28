@@ -1095,6 +1095,22 @@ public class CompanionClient
 			rank = allocation.getRank();
 		}
 		PolicyDecision decision = fetcher.fetch(plan.getCorrelationId(), rank);
+		// A numeric refusal is item-scoped. Try each other already allocated item at most
+		// once, with its own final authority; never turn an account/risk refusal into a skip.
+		if ("READY".equals(plan.getStatus()))
+		{
+			Set<Integer> unavailable = new java.util.HashSet<>(skipped);
+			for (int tried=0; decision!=null && "UNSUPPORTED_PUBLIC_QUOTE".equals(decision.getReasonCode())
+				&& plan.getCorrelationId().equals(decision.getRecommendationId()) && tried<plan.getAllocations().size(); tried++)
+			{
+				for (PortfolioAllocation allocation:plan.getAllocations())
+					if (allocation.getRank()==rank && allocation.getCandidate()!=null)
+						unavailable.add(allocation.getCandidate().getItemId());
+				PortfolioAllocation next=select(plan,blocked,unavailable,onOffer);
+				if (next==null || offerEvidencePending())break;
+				rank=next.getRank();decision=fetcher.fetch(plan.getCorrelationId(),rank);
+			}
+		}
 		if (decision == null) return null;
 		PresentedEntryDecision presented = EntryDecisionPresenter.present(decision, plan, explainer, requestedAccount);
 		if (presented == null)
@@ -1827,10 +1843,10 @@ public class CompanionClient
 	{
 		try
 		{
-			Candle[] series = gson.fromJson(
+			java.util.List<Candle> series=com.flippingfriend.data.PublicMarketNumbers.history(gson.fromJson(
 				request("market/series?id=" + itemId + "&timestep=" + timestep, "GET", null),
-				Candle[].class);
-			return series == null || series.length == 0 ? null : java.util.Arrays.asList(series);
+				com.google.gson.JsonElement.class));
+			return series.isEmpty()?null:series;
 		}
 		catch (Exception ex)
 		{

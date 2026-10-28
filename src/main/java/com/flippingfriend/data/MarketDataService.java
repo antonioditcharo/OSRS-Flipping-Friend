@@ -417,6 +417,12 @@ public class MarketDataService
 				seriesCache.put(key, CachedSeries.loaded(timestep, candles));
 				settled = true;
 			}
+			catch (WikiPriceClient.UnsupportedHistoryException unsupported)
+			{
+                // This source contradicts the retained numeric model. Do not revive an older
+                // typed value as its replacement; other item/resolution caches stay intact.
+                seriesCache.put(key,CachedSeries.failed(timestep,null));settled=true;
+            }
 			catch (Exception ex)
 			{
 				// Not just IOException. A malformed body throws JsonSyntaxException, which is a
@@ -487,7 +493,7 @@ public class MarketDataService
 			}
 			try (Reader reader = Files.newBufferedReader(cacheFile, StandardCharsets.UTF_8))
 			{
-				List<ItemMetadata> mapping = gson.fromJson(reader, MAPPING_LIST);
+				List<ItemMetadata> mapping = PublicMarketNumbers.mapping(gson.fromJson(reader, com.google.gson.JsonElement.class),gson);
 				if (mapping == null || mapping.isEmpty())
 				{
 					return false;
@@ -612,7 +618,10 @@ public class MarketDataService
 		{
 			try
 			{
-				byId.put(Integer.parseInt(entry.getKey()), gson.fromJson(entry.getValue(), type));
+				int item=PublicMarketNumbers.itemKey(entry.getKey());
+                Object decoded=type==LatestPrice.class?PublicMarketNumbers.quote(entry.getValue())
+                    :type==Candle.class?PublicMarketNumbers.candle(entry.getValue(),0):null;
+                if(decoded!=null)byId.put(item,type.cast(decoded));
 			}
 			catch (RuntimeException ex)
 			{

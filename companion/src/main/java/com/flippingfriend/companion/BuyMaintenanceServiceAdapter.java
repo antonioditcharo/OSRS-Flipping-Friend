@@ -2,8 +2,6 @@ package com.flippingfriend.companion;
 
 import com.flippingfriend.core.OfferEvent;
 import com.flippingfriend.core.PolicyDecision;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -32,30 +30,14 @@ final class BuyMaintenanceServiceAdapter
             for (OfferEvent offer : activeOffers)
             {
                 if (offer == null || !offer.isBuying() || !"BUYING".equals(offer.getEventType())) continue;
-                JsonElement element = market.latest.get(String.valueOf(offer.getItemId()));
-                if (element == null || !element.isJsonObject()) continue;
-                JsonObject quote = element.getAsJsonObject();
-                Integer low = positiveInt(quote, "low");
-                Integer high = positiveInt(quote, "high");
-                if (low != null && high != null)
+                var quote = com.flippingfriend.data.PublicMarketNumbers.quote(
+                    market.latest.get(String.valueOf(offer.getItemId())));
+                if (quote != null && quote.isComplete())
                     prices.put(offer.getItemId(), new BuyMaintenanceMarketInput(
-                        offer.getItemId(), low, high, market.observedAt));
+                        offer.getItemId(), quote.getLow(), quote.getHigh(), market.observedAt));
             }
         }
         Map<Integer, Integer> remaining = buyLimits.remaining(market.mapping, java.time.Instant.ofEpochSecond(decidedAt));
         return orchestrator.decide(activeOffers, prices, remaining, null, decidedAt);
-    }
-    private static Integer positiveInt(JsonObject object, String name)
-    {
-        try
-        {
-            if (!object.has(name) || object.get(name).isJsonNull()) return null;
-            int value = object.get(name).getAsInt();
-            return value > 0 ? value : null;
-        }
-        catch (RuntimeException invalid)
-        {
-            return null;
-        }
     }
 }
