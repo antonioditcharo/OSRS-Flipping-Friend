@@ -35,10 +35,16 @@ All active trading classes match #190; evaluator-only delivery requires no clien
 loss/learning activation.
 [Installed contract](docs/architecture/compact-public-cohorts-and-scope-preparation.md),
 [offline qualification](docs/architecture/public-forecast-qualification.md).
-Queued `codex/hosted-public-archive` adds an optional isolated public worker, durable sealed segments,
+Hosted #192 adds an optional isolated public worker, durable sealed segments,
 shared blobs and verified format-3 replay. Clean 2,519 Java tests (six existing skips), 138 tooling,
-bytecode 55 and actual Java 11 writer/Python reader interoperability pass. Exact-head CI and enabled capacity remain required
-before hosted activation. [Contract](docs/architecture/hosted-public-archive.md).
+bytecode 55, actual Java 11 writer/Python reader interoperability and both CI platforms `40608002851`
+pass. Source `de3197039fc537d8ea7604b5081b3ca23556f2bb`, merge
+`9d7316e358605c4a9b6f377868aeebde54fe82ea`. Enabled synthetic capacity passes 421.02s/1,000 connected/
+100 active/8,400 decisions/zero errors; decision p95 145.30ms, p99 713.18ms. This excludes local
+ACK/rendering. The production worker starts with authenticated health and real seed captures;
+first sealed production segment/sustained coverage remain pending. Local runtime remains #190.
+[Contract](docs/architecture/hosted-public-archive.md),
+[delivery](docs/history/hosted-public-archive-install-2026-10-27.md).
 The repeated #189 hosted hour passes (1,000 connected/100 active/72,000 decisions/zero errors,
 152.17 ms decision p95); this excludes local ACK/rendering. The separate mixed synthetic workflow
 hour completes with 120 group runs, 6,900 checks and zero failures; this excludes native rendering

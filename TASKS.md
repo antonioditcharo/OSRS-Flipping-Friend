@@ -37,13 +37,22 @@ All game interaction remains manual; batch runtime updates and acceptance work.
       bytecode 55, exact-artifact Java 11 smoke and both CI platforms `40605290513` pass. Active
       trading classes match installed #190; no client reinstall. Calibration support cannot replace stressed whole-account
       return gates or activate a model. [Contract](docs/architecture/public-forecast-qualification.md).
-- [ ] Verify/deliver queued `codex/hosted-public-archive`: replace interrupted local public capture with an isolated hosted archive worker, bounded
+- [x] Verify/deliver #192 `codex/hosted-public-archive`: replace interrupted local public capture with an isolated hosted archive worker, bounded
       sealed segments/shared blobs and a versioned verified reader. Keep the incomplete 39/163-
       record captures unchanged, preserve actual availability clocks, test restart/corruption/disk
       limits and repeat hosted capacity with capture before activation. Clean 2,519 Java (six skips),
       138 tooling, bytecode 55 and Java 11 writer/Python reader interoperability pass;
-      exact-head CI/enabled capacity remain required.
-      No financial authority. [Contract](docs/architecture/hosted-public-archive.md).
+      both exact-head CI platforms and enabled hosted capacity pass: 1,000 connected/100 active,
+      8,400 decisions over 421.02s, p95 145.30ms, zero errors; one verified seal/seven captures.
+      Deployed; authenticated health and first real seed captures pass. No local reinstall or
+      financial authority. [Delivery](docs/history/hosted-public-archive-install-2026-10-27.md).
+- [ ] Verify first sealed production public segment, uninterrupted coverage/byte budget through
+      restart and final stop, then freeze the new cohort with retained tuned-fixture exclusions.
+      The 32-item seed worker runs independently; its warm-up cannot delay live guidance.
+- [x] Add a permission-preserving Linux archive switch helper after the retained deployment
+      permission failure: exact-byte backups, owner/group/mode, unchanged account authorization,
+      custom settings, idempotency and concurrent-edit refusal. Six regressions and all 144 tooling
+      checks pass; actual Linux disposable-copy restoration passes without changing live config.
 - [ ] Audit all runtime typed market adapters for exact numeric bounds and item-local refusal.
       The real public feed includes quotes above Integer.MAX_VALUE; new archive/replay preserves
       those exactly and refuses unsupported model inputs. CandidateFactory's unchecked getAsInt

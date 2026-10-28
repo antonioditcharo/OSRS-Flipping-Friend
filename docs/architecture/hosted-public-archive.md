@@ -26,6 +26,13 @@ pressure or incompatible configuration pauses this archive alone. Nothing delete
 or consumes the foreground guidance budget to recover it. Disable the flag to roll back this
 feature while leaving the archive intact. Existing financial backup scopes remain unchanged.
 
+The standalone `tools/hosting/configure_public_archive.py` runs on the Linux pilot through its
+existing encrypted connection. It changes only archive settings, retaining other authorization,
+custom bounds and unknown options. Exact-byte backups and atomic replacement preserve the original
+UID/GID/mode; concurrent edits or metadata-copy failures refuse replacement. Repeating the same
+switch is a no-op. Restart the hosted service normally to apply a changed flag. This does not
+restart RuneLite or replace the local companion.
+
 ## Format and recovery
 
 Format 3 stores shared SHA-256-addressed gzip blobs and small immutable occurrence records.
@@ -70,4 +77,5 @@ own bytecode at version 55. The exact packaged production artifact runs the writ
 Python reads its five sealed segments across 1,740 seconds and explicitly reports the open tail.
 This fixture is synthetic, saved separately and excluded from pricing qualification. Local
 trading, financial and hosted evidence-store classes match installed #190. Exact-head CI and
-enabled hosted capacity/production activation remain separate release requirements.
+Enabled hosted capacity and production activation pass in #192; sustained production coverage and
+the first real seal remain open. See the [delivery receipt](../history/hosted-public-archive-install-2026-10-27.md).
