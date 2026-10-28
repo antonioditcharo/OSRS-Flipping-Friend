@@ -76,10 +76,11 @@ final class HostedPublicArchive implements AutoCloseable {
         Path seeds=root.resolve("seeds.json");
         if(!Files.exists(seeds)) {
             JsonArray selected=catalogue.getAsJsonArray("selectedItems");
-            for(int work=0;work<2 && nextSeed<selected.size()*2;work++,nextSeed++) {
+            for(int work=0;work<2 && nextSeed<selected.size()*2;nextSeed++) {
                 int item=selected.get(nextSeed/2).getAsInt();String step=nextSeed%2==0?"5m":"1h";
                 Path file=root.resolve(String.format(Locale.ROOT,"seed-%03d.json",nextSeed));
                 if(Files.exists(file)){validateSeed(PublicMarketArchive.read(file,65536),item,step);continue;}
+                work++; // Retained attempts are a bounded lookup, not a new request or another minute of warm-up.
                 long request=clock.getAsLong();var result=new JsonObject();result.addProperty("itemId",item);result.addProperty("step",step);result.addProperty("requestAtNs",request);
                 JsonArray captured=null;
                 try {
@@ -132,6 +133,12 @@ final class HostedPublicArchive implements AutoCloseable {
         if(Files.exists(file)){
             catalogue=PublicMarketArchive.read(file,65536);
             if(PublicMarketArchive.integer(catalogue,"requestedSeedItems")!=config.seedItems)throw new IOException("Seed catalogue configuration changed");
+            JsonArray selected=catalogue.getAsJsonArray("selectedItems");var seen=new HashSet<Integer>();
+            if(selected==null || selected.size()<1 || selected.size()>config.seedItems)throw new IOException("Invalid bounded seed catalogue");
+            for(JsonElement value:selected) {
+                if(!value.isJsonPrimitive() || !value.getAsJsonPrimitive().isNumber())throw new IOException("Invalid seed item");
+                int item=value.getAsBigDecimal().intValueExact();if(item<=0 || !seen.add(item))throw new IOException("Invalid/duplicate seed item");
+            }
             return;
         }
         publicFeed(state,at/1000000000L); // Validate public clocks and numeric types before catalogue ranking.

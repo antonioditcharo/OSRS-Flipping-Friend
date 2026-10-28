@@ -45,6 +45,12 @@ ACK/rendering. The production worker starts with authenticated health and real s
 first sealed production segment/sustained coverage remain pending. Local runtime remains #190.
 [Contract](docs/architecture/hosted-public-archive.md),
 [delivery](docs/history/hosted-public-archive-install-2026-10-27.md).
+Queued `codex/public-capture-seed-resume` makes retained seed attempts a bounded immediate lookup,
+so a restart during seeding spends its two-request budget on missing histories. It also checks
+retained catalogue bounds/uniqueness. Clean 2,521 Java tests (six existing skips), bytecode 55 and
+nine exact-artifact Java 11 archive regressions pass; unchanged tooling is covered by #193's 144
+checks and both CI platforms. Exact-head CI and hosted restart proof remain required; no local
+runtime or financial authority change.
 The repeated #189 hosted hour passes (1,000 connected/100 active/72,000 decisions/zero errors,
 152.17 ms decision p95); this excludes local ACK/rendering. The separate mixed synthetic workflow
 hour completes with 120 group runs, 6,900 checks and zero failures; this excludes native rendering
