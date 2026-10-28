@@ -4,10 +4,12 @@ Use `HANDOFF.md`, `TASKS.md` and the linked acceptance inventory for current del
 unfinished requirement. Active/default branch is `CoPilot's-Rebuild-from-Main`; main is historical.
 Work in the attached managed worktree, then fast-forward the normal rebuild checkout for delivery.
 
-Installed local runtime is #190. Hosted runtime is #194; #191 is offline qualification only.
-The new exact-public-market-input batch is queued source until its CI, preservation and paired
-installation receipts pass. Do not infer runtime activation from a merged package or an old alias
-in private delivery-state.json. Read the explicit current delivery section and artifact hashes.
+Installed local runtime is #195; #190 is the compatible fallback and #186 the economic reference.
+Hosted runtime is #194; #191 is offline qualification only. Exact public numeric validation is
+installed locally with verified preservation. The exit-race/delivery-audit follow-up is tooling
+only and needs no JAR replacement. Do not infer activation from an old private alias: use the
+explicit currentDelivery section and the hashes in HANDOFF.
+
 
 Continue implementing the approved optimization/pricing pass. Preserve current trades, original
 acquisition allocation/targets/stops/risk windows, immutable financial IDs, outboxes and original
@@ -17,7 +19,7 @@ Personal inventory is not automatically trading stock; unassigned legacy data st
 
 Priorities:
 
-1. Finish item-local exact public decoding and preservation/delivery. Never narrow an oversized or
+1. Retain installed exact public decoding and preservation. Never narrow an oversized or
    fractional public number into a plausible order, invent missing volume, or freeze unrelated
    verified cash because one managed item has valuation-only uncertainty.
 2. Complete main/editor terminal delivery accounting and actual cold/warm/native latency.

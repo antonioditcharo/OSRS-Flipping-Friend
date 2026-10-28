@@ -40,6 +40,13 @@ tasks.withType(JavaCompile).configureEach {
 }
 
 tasks.named('test') {
+    // Source-boundary/encoding checks read these files directly. Documentation-only changes
+    // must invalidate the test result even when compiled class bytes remain identical.
+    inputs.files(fileTree('docs') { include '**/*.md' },
+        fileTree('src/main/java') { include '**/*.java' },
+        fileTree('core/src/main/java') { include '**/*.java' },
+        fileTree('companion/src/main/java') { include '**/*.java' },
+        files('AGENTS.md', 'HANDOFF.md', 'TASKS.md')).withPropertyName('checkedSourceAndDocumentation')
     testLogging {
         events 'passed', 'skipped', 'failed'
         exceptionFormat 'full'

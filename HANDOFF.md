@@ -5,16 +5,18 @@ Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
 ## Current installed state
 
-Local plugin/companion **#190 remains installed**. Actual JAR hashes still match its original
-manifest, installed 27 October at 17:12:26 UTC. No client restart or account-database restoration
-occurred during #191–#194. Source `a8b2c134f69d868f6636b9f78768e1ff0594221e`, merge
-`4198e215ccd7633be4311b55b346237f7d3cbc55`; clean 2,504 Java tests (six existing skips),
-132 tooling, Java 11 and both CI platforms `40546616198` pass. Backup
-`20261027-091216-f89a7888` restores 255 files, six configurations and all 12 original tables;
-old/new ledger, stock, scope, continuation, exposure and original-risk reads agree, including
-intervening trades. First scoped GET after background preparation passes. Fresh #190 controlled
-trading and sustained/native latency remain open. #186 is the frozen economic reference.
-[Local receipt](docs/history/incremental-scope-install-2026-10-27.md).
+Local plugin/companion **#195 is installed**, 28 October at 21:53:12 UTC. Tested source
+`44fb16bbb1389d973f8b3b0b721a817629cc266d`, merge `2d63c2e8e44eaa7a8b302ffef46ea889315daeb7`;
+both exact-head CI platforms `40773463909`, clean 2,539 Java (six existing skips), 144 tooling,
+bytecode 55 and 80 exact-artifact Java 11 checks pass. Installed hashes: plugin
+`34627219524ecd1bde2494f2effc6e5525434e6eae1ad0d7a65759732ccf8a79`, companion
+`49d921a247cdd3166b555b460702c46b472d407ca82219185d1869b7838933f9`.
+Backup `20261028-135259-030281fa` restores 290 files, six supplemental configurations and all 12
+original financial tables. Previous #190/new-runtime ledger, stock, scope, exposure, continuation
+and original-risk reads agree on the fresh backup and an unchanged earlier frozen database.
+Runtime rollback preserves subsequent trades; no account database restoration occurred.
+#190 is the compatible code fallback; #186 remains the economic reference.
+[Delivery receipt](docs/history/exact-public-input-install-2026-10-28.md).
 
 Hosted **#194 is deployed**, source `8ddd05e0c84e3dd4e371ebe86053363edf48e801`, merge
 `b9a4d5db6115f3868bddd0ec467a27a729507fb4`; JAR SHA-256
@@ -27,9 +29,9 @@ The permission-preserving Linux flag helper #193 passes six regressions, actual 
 UID/GID/mode restoration and both CI platforms `40610225037`.
 [Hosted delivery](docs/history/hosted-public-archive-install-2026-10-27.md).
 
-The public archive is active: the verified prefix has 178 seals, 1,156 captures over 19.25 hours,
-zero failure records, 64/64 successful seed attempts and 1,400 verified referenced component hashes.
-Maximum capture gap is 61.163 seconds; 92,385,071 bytes used against the 2-GiB cap. Latest checked
+The public archive is active: the verified prefix has 196 seals, 1,275 captures over 21.23 hours,
+zero failure records, 64/64 successful seed attempts and 1,544 verified referenced component hashes.
+Maximum capture gap is 61.163 seconds; 101,661,507 bytes used against the 2-GiB cap. Latest checked
 backup at `20261028T200242Z` verifies disposable restore and encrypted off-server upload. The fixed
 capture stops 8 November at 01:31:16 UTC. Sustained completion, final stop and qualification remain
 open; an open tail is not completed evidence. Private current state:
@@ -49,21 +51,25 @@ authority. New market-loss authority and learning remain off. Existing server/bu
 original base quote approximately $36.20 before tax, approved ceiling $50/month. Three unrelated
 primary-checkout document deletions stay untouched.
 
-## Queued source: exact public numeric inputs
+## Current release and queued tooling
 
-`codex/exact-public-market-inputs` adds shared exact decoding across public client/companion/replay
-boundaries, scoped history refusal, widened midpoint arithmetic and current cached-entry rejection.
-Unsupported managed-stock valuation retains exact cost and pauses that item under V3; a valid
-neighbour still receives independent final authority. No financial schema/event/learning migration.
-Clean 2,539 Java tests (six existing skips), 144 tooling and bytecode 55 pass. Java 11 artifact,
-frozen preservation, exact-head CI and installation are not yet claimed.
-[Input contract](docs/architecture/exact-public-market-inputs.md).
+#195 uses PUBLIC_NUMERIC_INPUT_V1 across client/companion/replay numeric boundaries, scoped history
+refusal, overflow-safe midpoint and current cached-entry rejection. Unsupported managed valuation
+retains exact cost and pauses that item under V3; a valid neighbour gets independent final authority.
+No financial schema/event/learning migration. [Contract](docs/architecture/exact-public-market-inputs.md).
 
-On 28 October the client is closed. The old companion PID 6728 remains listening but both global
-and scoped read-only health probes time out after three seconds. A bounded attempt to obtain a
-thread dump also does not complete; the agent's diagnostic helper is stopped, not the companion.
-Retain `exact-market-prior-health.json` and the earlier #190 latency failures. Investigate after
-supported paired maintenance; this is not new-runtime evidence or permission to change account data.
+The old #190 listener timed out and its thread dump did not complete. An update attempt failed
+before artifact replacement after native process access denial; the old process was then absent.
+The supported retry installs #195 and restores service reads. First observed post-preparation reads
+are 19.86–97.83ms, warm health 3.57ms; these are not cold-start/durable-ACK/native acceptance.
+RuneLite has reopened; the owner defers manual login/GE until 19:00 local on 28 October.
+Do not request another login before then. A frozen-artifact 60-minute synthetic
+workflow soak started 21:59:40 UTC and is still pending; never infer completion from its start.
+
+Queued `codex/verified-exit-race-and-delivery-audit` changes tooling only: accept a freshly proven
+exited PID after a native-stop race, retain live/reused/unidentified process refusal, and analyze
+main/editor delivery traces reproducibly. No JAR reinstall for that follow-up. Its own tooling/CI
+receipt remains required before delivery. Native and controlled-trading gates remain open.
 
 ## Verified behavior and limits
 
@@ -90,14 +96,15 @@ The original deployment permission failure and recovery are retained in the host
 ## Remaining work
 
 Every one of the 81 previously unchecked records is mapped in the
-[acceptance inventory](docs/verification/trading-pass-acceptance-inventory.md); 80 remain open.
-#194 is closed against its CI/deployment proof. Completed older details are preserved in
+[acceptance inventory](docs/verification/trading-pass-acceptance-inventory.md); 79 of the original 81 remain open.
+#194 and the #195 numeric audit are closed against their source/test/delivery proof. Completed older details are preserved in
 [the task snapshot](docs/history/tasks-before-input-hardening-2026-10-28.md) and
 [the prior handoff](docs/history/handoff-before-input-hardening-2026-10-28.md).
 
-Next: exact public-market numeric decoding and item-local refusal across client, companion and
-replay; no truncation, clamping or global feed veto. Then finish the main/selected-sale delivery
-matrix and actual cold/warm/native latency, including failures. Targets remain cached render
+Next: finish the main/selected-sale delivery matrix and actual cold/warm/native latency, including
+failures. The historical #190 audit has 811 outcome records and 100 linked main-action post-ACK
+observations: p50 580ms, p95 4,656ms, max 12,021ms. These fail the one-second target; keep WAITs
+separate, repeated working actions explicit and old untraceable records unknown. Targets remain cached render
 p95 <=100ms and eligible publication p95 <=1s after required durable frame ACK; report persistence,
 ACK and total latency independently. Player sale revision/partial/late-fill/cancel/collect/relist/
 completion/restart and native chart acceptance remain manual.
