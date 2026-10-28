@@ -31,15 +31,24 @@ All game interaction remains manual; batch runtime updates and acceptance work.
       original tables and previous-runtime reads pass. Fresh login and sustained acceptance open.
       The 31-observation smoke correctly refuses duration qualification; final test stays unopened.
       [Contract](docs/architecture/compact-public-cohorts-and-scope-preparation.md).
-- [ ] Verify/deliver queued `codex/public-forecast-calibration`: prospective quote targets, separate
+- [x] Verify/deliver #191 `codex/public-forecast-calibration`: prospective quote targets, separate
       low/high/persistence errors, central-band coverage and all unsupported/missing/right-censored
       outcomes in offline qualification v2. Clean 2,512 Java (six existing skips), 132 tooling and
-      bytecode 55 and exact-artifact Java 11 smoke pass; CI remains required. Calibration support cannot replace stressed whole-account
+      bytecode 55, exact-artifact Java 11 smoke and both CI platforms `40605290513` pass. Active
+      trading classes match installed #190; no client reinstall. Calibration support cannot replace stressed whole-account
       return gates or activate a model. [Contract](docs/architecture/public-forecast-qualification.md).
-- [ ] Replace interrupted local public capture with an isolated hosted archive worker, bounded
+- [ ] Verify/deliver queued `codex/hosted-public-archive`: replace interrupted local public capture with an isolated hosted archive worker, bounded
       sealed segments/shared blobs and a versioned verified reader. Keep the incomplete 39/163-
       record captures unchanged, preserve actual availability clocks, test restart/corruption/disk
-      limits and repeat hosted capacity with capture before activation. No financial authority.
+      limits and repeat hosted capacity with capture before activation. Clean 2,519 Java (six skips),
+      138 tooling, bytecode 55 and Java 11 writer/Python reader interoperability pass;
+      exact-head CI/enabled capacity remain required.
+      No financial authority. [Contract](docs/architecture/hosted-public-archive.md).
+- [ ] Audit all runtime typed market adapters for exact numeric bounds and item-local refusal.
+      The real public feed includes quotes above Integer.MAX_VALUE; new archive/replay preserves
+      those exactly and refuses unsupported model inputs. CandidateFactory's unchecked getAsInt
+      and Gson typed readers still need regression coverage before broader pricing activation.
+      Do not infer an affected live trade from this source finding or veto unrelated suggestions.
 - [ ] Complete approved pricing stages B/C: constrained whole-account alternatives, shared entry/
       hold/adjust/exit evaluation, distinct evidence-bound budgeted loss authority and prospective
       decision context. Freeze a new 60/20/20 chronological cohort, exclude tuned fixtures, and

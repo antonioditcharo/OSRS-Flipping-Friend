@@ -19,6 +19,7 @@ public final class HostedPilotMain {
         public int port=38888;
         public String dataDirectory;
         public List<Device> devices=new ArrayList<>();
+        public HostedPublicArchive.Config publicArchive=new HostedPublicArchive.Config();
     }
     private HostedPilotMain() { }
     public static void main(String[] args)throws Exception {
@@ -29,9 +30,14 @@ public final class HostedPilotMain {
         var evidence=new PilotEvidenceStore(data.resolve("pilot-evidence.db"));
         var server=new Server(config,market,evidence,gson);server.start();
         var scheduler=Executors.newScheduledThreadPool(2,r->{var t=new Thread(r,"pilot-background");t.setDaemon(true);return t;});
+        HostedPublicArchive archive;
+        try {archive=new HostedPublicArchive(data.resolve("public-archive"),config.publicArchive,market::state);}
+        catch(Exception invalid){archive=null;System.err.println("Public archive configuration refused; guidance remains independent");}
+        final HostedPublicArchive publicArchive=archive;
+        if(publicArchive!=null)scheduler.scheduleWithFixedDelay(publicArchive::request,1,60,TimeUnit.SECONDS);
         scheduler.scheduleWithFixedDelay(()->{try{market.refresh();}catch(Exception error){System.err.println("Market refresh failed: "+error.getClass().getSimpleName());}},0,60,TimeUnit.SECONDS);
         scheduler.scheduleWithFixedDelay(server::allocate,100,100,TimeUnit.MILLISECONDS);
-        Runtime.getRuntime().addShutdownHook(new Thread(()->{scheduler.shutdownNow();server.close();try{evidence.close();}catch(Exception ignored){}}));
+        Runtime.getRuntime().addShutdownHook(new Thread(()->{scheduler.shutdownNow();if(publicArchive!=null)publicArchive.close();server.close();try{evidence.close();}catch(Exception ignored){}}));
         System.out.println("Hosted pilot ready: "+PilotProtocol.VERSION+"; loopback only");Thread.currentThread().join();
     }
     static final class Server implements AutoCloseable {
