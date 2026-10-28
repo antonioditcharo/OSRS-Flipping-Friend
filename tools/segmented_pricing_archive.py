@@ -120,7 +120,7 @@ def numeric_bar(bar):
         if value is None and price:
             continue
         if (type(value) is not int or value < (1 if price else 0)
-                or value > (2**31 - 1 if price else 2**63 - 1)):
+                or value > 2**63 - 1):
             raise ValueError('Exact positive prices/nonnegative public volumes required')
 
 
@@ -128,8 +128,20 @@ def numeric_feed(feed):
     for row in feed['latest'].values():
         for field in ('low', 'high'):
             value = row.get(field)
-            if value is not None and (type(value) is not int or not 1 <= value <= 2**31 - 1):
+            if value is not None and (type(value) is not int or not 1 <= value <= 2**63 - 1):
                 raise ValueError('Exact positive public quote required')
     for name in ('fiveMinute', 'hourly'):
         for row in feed[name].values():
             numeric_bar(row)
+
+
+def replay_supported(row):
+    """The retained trading model has int prices/volumes. Never use Gson's narrowing conversion."""
+    for field in ('low', 'high', 'avgLowPrice', 'avgHighPrice', 'lowPriceVolume', 'highPriceVolume'):
+        value = row.get(field)
+        if value is not None and (type(value) is not int or not 0 <= value <= 2**31 - 1):
+            return False
+    for fields in [('avgLowPrice', 'avgHighPrice'), ('lowPriceVolume', 'highPriceVolume')]:
+        if sum(row.get(f) or 0 for f in fields) > 2**31 - 1:
+            return False
+    return True

@@ -104,6 +104,11 @@ public class HostedPublicArchiveTest {
         try{HostedPublicArchive.publicFeed(invalid,START/1000000000L);fail();}catch(RuntimeException expected){}
         var data=new JsonArray();data.add(bar(START/1000000000L));
         try{HostedPublicArchive.validateHistory(data,"5m",START);fail();}catch(RuntimeException expected){}
+        var expensive=state(START/1000000000L);expensive.latest.getAsJsonObject("1").addProperty("low",8_770_000_000L);
+        expensive.hourly.getAsJsonObject("1").addProperty("avgLowPrice",2_904_898_134L);
+        var retained=HostedPublicArchive.publicFeed(expensive,START/1000000000L);
+        assertEquals(8_770_000_000L,retained.getAsJsonObject("latest").getAsJsonObject("1").get("low").getAsLong());
+        assertEquals(2_904_898_134L,retained.getAsJsonObject("hourly").getAsJsonObject("1").get("avgLowPrice").getAsLong());
         data=new JsonArray();var b=bar(START/1000000000L-300);b.addProperty("lowPriceVolume",-1);data.add(b);
         try{HostedPublicArchive.validateHistory(data,"5m",START);fail();}catch(RuntimeException expected){}
     }

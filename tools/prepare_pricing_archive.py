@@ -66,10 +66,18 @@ def prepare(source, output, count=24):
                 bars[at] = bar
         histories[item, step] = bars
     initial = []
+    unsupported_initial = []
+    first_components = {field: blobs.get(first['parts'][field]) for field in ('latest', 'fiveMinute', 'hourly')} if segmented else {}
     for item, metadata in mapping.items():
         short = histories.get((item, '5m'), {})
         if not metadata.get('limit') or len(short) < 48:
             continue
+        if segmented:
+            from segmented_pricing_archive import replay_supported
+            if any(not replay_supported(bar) for step in ('5m', '1h') for bar in histories.get((item, step), {}).values()) or any(
+                    not replay_supported(first_components[field].get(str(item), {})) for field in ('latest', 'fiveMinute', 'hourly')):
+                unsupported_initial.append(item)
+                continue
         turnover = sum((bar.get('lowPriceVolume', 0) + bar.get('highPriceVolume', 0))
                        * (bar.get('avgLowPrice') or 0) for bar in [short[t] for t in sorted(short)[-48:]])
         initial.append((turnover, item))
@@ -96,6 +104,10 @@ def prepare(source, output, count=24):
                  'latest': {}, 'fiveMinute': {}, 'hourly': {}, 'shortHistory': {}, 'longHistory': {}, 'flows': []}
         for item in selected:
             key = str(item)
+            if segmented:
+                from segmented_pricing_archive import replay_supported
+                if any(not replay_supported(feed[field].get(key, {})) for field in ('latest', 'fiveMinute', 'hourly')):
+                    raise ValueError('Selected item crossed supported replay numeric bounds; raw evidence remains intact')
             if key in feed['latest']:
                 value['latest'][key] = feed['latest'][key]
             for field, clock, step, seconds in [('fiveMinute', 'fiveMinuteStartedAt', '5m', 300), ('hourly', 'hourlyStartedAt', '1h', 3600)]:
@@ -157,6 +169,7 @@ def prepare(source, output, count=24):
     if segmented:
         receipt['captureSchemaVersion'] = 3
         receipt['sealedPrefix'] = manifest
+        receipt['unsupportedInitialItems'] = unsupported_initial
     (output / 'preparation-receipt.json').write_bytes(encode(receipt))
     return receipt
 

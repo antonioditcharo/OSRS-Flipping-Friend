@@ -45,6 +45,10 @@ while capture continues does not silently include newer data.
 The original format-1 tools, old frozen evaluators and incomplete 39/163-record captures remain
 unchanged. Compact replay retains separate trade, snapshot, aggregate and availability clocks.
 Seed prices, volumes and completed bucket times are checked before numeric conversion.
+Raw public prices/volumes retain exact 64-bit values, including quotes above the current trading
+model's integer range. Those items are excluded using initial information only and reported as
+unsupported. A selected item crossing model bounds later refuses that cohort; it is never silently
+removed retrospectively or narrowed into a false price. Original public blobs remain intact.
 
 ## Release evidence and remaining gates
 
@@ -61,7 +65,7 @@ sale revision/cancel/collect/relist/restart. The chronological fit/validation/on
 cadence-specific stressed account gains, distinct budgeted market-loss evidence and learning
 promotion remain independent gates. Useful baseline suggestions continue throughout.
 
-Local verification passes: clean 2,519 Java tests (six existing skips), 136 tooling tests and all
+Local verification passes: clean 2,519 Java tests (six existing skips), 138 tooling tests and all
 own bytecode at version 55. The exact packaged production artifact runs the writer on Java 11;
 Python reads its five sealed segments across 1,740 seconds and explicitly reports the open tail.
 This fixture is synthetic, saved separately and excluded from pricing qualification. Local

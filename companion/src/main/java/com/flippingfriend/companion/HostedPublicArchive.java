@@ -138,7 +138,8 @@ final class HostedPublicArchive implements AutoCloseable {
         if(state.mapping.size()>20000 || state.mapping.values().stream().anyMatch(i->i.id<=0 || i.name==null || i.name.length()>256))
             throw new IOException("Invalid bounded public mapping");
         var ranked=new ArrayList<MarketIngestionService.Item>();
-        for(var item:state.mapping.values())if(item.id>0 && item.buyLimitPublished && item.buyLimit>0 && state.hourly.has(Integer.toString(item.id)))ranked.add(item);
+        for(var item:state.mapping.values())if(item.id>0 && item.buyLimitPublished && item.buyLimit>0
+            && state.hourly.has(Integer.toString(item.id)) && replaySupported(state,item.id))ranked.add(item);
         ranked.sort(Comparator.<MarketIngestionService.Item,java.math.BigDecimal>comparing(i->turnover(state,i.id)).reversed().thenComparingInt(i->i.id));
         if(ranked.isEmpty())throw new IOException("No published-limit public catalogue");
         var mapping=new JsonArray();
@@ -157,6 +158,19 @@ final class HostedPublicArchive implements AutoCloseable {
         var row=state.hourly.getAsJsonObject(Integer.toString(item));
         var price=row.get("avgLowPrice");if(price==null || price.isJsonNull())return java.math.BigDecimal.ZERO;
         return price.getAsBigDecimal().multiply(row.get("lowPriceVolume").getAsBigDecimal().add(row.get("highPriceVolume").getAsBigDecimal()));
+    }
+    private static boolean replaySupported(MarketIngestionService.MarketState state,int item) {
+        for(JsonObject source:List.of(state.latest,state.fiveMinute,state.hourly)) {
+            JsonObject row=source.getAsJsonObject(Integer.toString(item));if(row==null)continue;
+            for(String field:List.of("low","high","avgLowPrice","avgHighPrice","lowPriceVolume","highPriceVolume")) {
+                JsonElement value=row.get(field);if(value!=null && !value.isJsonNull() && number(value)>Integer.MAX_VALUE)return false;
+            }
+            for(String[] fields:new String[][]{{"avgLowPrice","avgHighPrice"},{"lowPriceVolume","highPriceVolume"}}) {
+                long sum=0;for(String field:fields)if(row.has(field) && !row.get(field).isJsonNull())sum+=number(row.get(field));
+                if(sum>Integer.MAX_VALUE)return false;
+            }
+        }
+        return true;
     }
     private JsonElement readBlob(String key)throws IOException {
         if(!key.matches("[0-9a-f]{64}"))throw new IOException("Invalid public blob key");
@@ -199,7 +213,7 @@ final class HostedPublicArchive implements AutoCloseable {
                 if(name.equals("latest")) {
                     for(String field:List.of("low","high","lowTime","highTime")) {
                         JsonElement v=row.get(field);if(v==null)continue;
-                        if(!v.isJsonNull()){long n=number(v);if(n<=0 || n>(field.endsWith("Time")?state.observedAt:Integer.MAX_VALUE))throw new IllegalArgumentException("Invalid public quote");}
+                        if(!v.isJsonNull()){long n=number(v);if(n<=0 || field.endsWith("Time") && n>state.observedAt)throw new IllegalArgumentException("Invalid public quote");}
                         copy.add(field,v);
                     }
                 } else {aggregate(row);for(String field:List.of("avgLowPrice","avgHighPrice","lowPriceVolume","highPriceVolume"))if(row.has(field))copy.add(field,row.get(field));}
@@ -216,7 +230,7 @@ final class HostedPublicArchive implements AutoCloseable {
     private static void aggregate(JsonObject row) {
         for(String field:List.of("avgLowPrice","avgHighPrice","lowPriceVolume","highPriceVolume")) {
             JsonElement v=row.get(field);if(v==null || v.isJsonNull()){if(field.endsWith("Volume"))throw new IllegalArgumentException("Unknown public volume");continue;}
-            long n=number(v);if(n<0 || field.startsWith("avg") && (n==0 || n>Integer.MAX_VALUE))throw new IllegalArgumentException("Invalid public aggregate");
+            long n=number(v);if(n<0 || field.startsWith("avg") && n==0)throw new IllegalArgumentException("Invalid public aggregate");
         }
     }
     private void release(){if(archive!=null)try{archive.close();}catch(IOException ignored){}finally{archive=null;}}

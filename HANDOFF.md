@@ -36,7 +36,7 @@ loss/learning activation.
 [Installed contract](docs/architecture/compact-public-cohorts-and-scope-preparation.md),
 [offline qualification](docs/architecture/public-forecast-qualification.md).
 Queued `codex/hosted-public-archive` adds an optional isolated public worker, durable sealed segments,
-shared blobs and verified format-3 replay. Clean 2,519 Java tests (six existing skips), 136 tooling,
+shared blobs and verified format-3 replay. Clean 2,519 Java tests (six existing skips), 138 tooling,
 bytecode 55 and actual Java 11 writer/Python reader interoperability pass. Exact-head CI and enabled capacity remain required
 before hosted activation. [Contract](docs/architecture/hosted-public-archive.md).
 The repeated #189 hosted hour passes (1,000 connected/100 active/72,000 decisions/zero errors,

@@ -41,9 +41,14 @@ All game interaction remains manual; batch runtime updates and acceptance work.
       sealed segments/shared blobs and a versioned verified reader. Keep the incomplete 39/163-
       record captures unchanged, preserve actual availability clocks, test restart/corruption/disk
       limits and repeat hosted capacity with capture before activation. Clean 2,519 Java (six skips),
-      136 tooling, bytecode 55 and Java 11 writer/Python reader interoperability pass;
+      138 tooling, bytecode 55 and Java 11 writer/Python reader interoperability pass;
       exact-head CI/enabled capacity remain required.
       No financial authority. [Contract](docs/architecture/hosted-public-archive.md).
+- [ ] Audit all runtime typed market adapters for exact numeric bounds and item-local refusal.
+      The real public feed includes quotes above Integer.MAX_VALUE; new archive/replay preserves
+      those exactly and refuses unsupported model inputs. CandidateFactory's unchecked getAsInt
+      and Gson typed readers still need regression coverage before broader pricing activation.
+      Do not infer an affected live trade from this source finding or veto unrelated suggestions.
 - [ ] Complete approved pricing stages B/C: constrained whole-account alternatives, shared entry/
       hold/adjust/exit evaluation, distinct evidence-bound budgeted loss authority and prospective
       decision context. Freeze a new 60/20/20 chronological cohort, exclude tuned fixtures, and

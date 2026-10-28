@@ -12,6 +12,18 @@ import prepare_pricing_archive as prepare
 
 
 class SegmentedPricingArchiveTest(unittest.TestCase):
+    def replace_part(self, source, index, field, value, blobs):
+        paths = sorted((source / 'segments').iterdir())
+        previous = ZERO
+        for i, path in enumerate(paths):
+            row = json.loads((path / '00000000.json').read_bytes())
+            if i == index:
+                row['parts'][field] = blobs.put(value)
+                (path / '00000000.json').write_bytes(encode(row))
+            seal = json.loads((path / 'seal.json').read_bytes())
+            seal.update(previousSeal=previous, head=sha((path / '00000000.json').read_bytes()))
+            raw = encode(seal); (path / 'seal.json').write_bytes(raw); previous = sha(raw)
+
     def make(self, root):
         root.mkdir()
         (root / 'segments').mkdir()
@@ -109,7 +121,7 @@ class SegmentedPricingArchiveTest(unittest.TestCase):
             self.assertNotEqual(digest, sha(encode(later)))
 
     def test_decimal_overflow_volume_and_future_seed_cannot_be_truncated_into_replay(self):
-        for field, value in [('avgLowPrice', 1.5), ('avgHighPrice', 2**31), ('lowPriceVolume', -1), ('highPriceVolume', 2**63)]:
+        for field, value in [('avgLowPrice', 1.5), ('avgHighPrice', 2**63), ('lowPriceVolume', -1), ('highPriceVolume', 2**63)]:
             row = {'avgLowPrice': 100, 'avgHighPrice': 120, 'lowPriceVolume': 1, 'highPriceVolume': 1}
             row[field] = value
             with self.assertRaises(ValueError):
@@ -120,6 +132,35 @@ class SegmentedPricingArchiveTest(unittest.TestCase):
                           'lowPriceVolume': 1, 'highPriceVolume': 1}]}]}, 1800000000 * 10**9)
         with self.assertRaises(ValueError):
             segmented.numeric_feed({'latest': {'1': {'low': 101.5}}, 'fiveMinute': {}, 'hourly': {}})
+        high = {'latest': {'1': {'low': 8770000000}}, 'fiveMinute': {}, 'hourly': {}}
+        segmented.numeric_feed(high)
+        self.assertFalse(segmented.replay_supported(high['latest']['1']))
+        self.assertEqual(8770000000, high['latest']['1']['low'])
+
+    def test_large_raw_prices_are_preserved_but_initially_unsupported_items_are_not_narrowed(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / 'local-data'; root.mkdir(); source = root / 'archive'; blobs = self.make(source)
+            seed = json.loads((source / 'seeds.json').read_bytes())
+            series_ref = seed['seedFiles']['series-cache.json.gz']; series = blobs.get(series_ref['sha256'])
+            copy = json.loads(json.dumps(series['entries'][0])); copy['key'] = '2@5m'
+            for bar in copy['data']:
+                bar['avgLowPrice'] = 8770000000; bar['avgHighPrice'] = 8865000000
+            series['entries'].append(copy); series_ref['sha256'] = blobs.put(series)
+            ref = seed['seedFiles']['item-mapping.json']; mapping = blobs.get(ref['sha256'])
+            mapping.append({'id': 2, 'name': 'Unsupported synthetic price', 'members': True, 'limit': 100})
+            ref['sha256'] = blobs.put(mapping); (source / 'seeds.json').write_bytes(encode(seed))
+            receipt = prepare.prepare(source, root / 'replay', 2)
+            self.assertEqual([1], receipt['selectedItems']); self.assertEqual([2], receipt['unsupportedInitialItems'])
+            self.assertEqual(8770000000, blobs.get(series_ref['sha256'])['entries'][1]['data'][0]['avgLowPrice'])
+
+    def test_later_crossing_of_model_bounds_refuses_cohort_without_retrospective_item_selection(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / 'local-data'; root.mkdir(); source = root / 'archive'; blobs = self.make(source)
+            changed = {'1': {'low': 8770000000, 'lowTime': 1800000899, 'high': 8865000000, 'highTime': 1800000899}}
+            self.replace_part(source, 1, 'latest', changed, blobs)
+            with self.assertRaisesRegex(ValueError, 'crossed supported replay'):
+                prepare.prepare(source, root / 'unsupported', 1)
+            self.assertFalse((root / 'unsupported/preparation-receipt.json').exists())
 
 
 if __name__ == '__main__':
