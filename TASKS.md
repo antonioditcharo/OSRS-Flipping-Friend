@@ -23,11 +23,23 @@ All game interaction remains manual; batch runtime updates and acceptance work.
       Java 11 and both exact-head CI platforms pass. Installed; 252-file/six-configuration restore,
       12 tables, old/new original-risk reads and fresh frame/main/editor SELL/native BUY pass.
       Sustained/manual acceptance remains open. [Receipt](docs/history/optimization-stage-b-install-2026-10-27.md).
-- [ ] Verify/deliver queued `codex/compact-public-cohorts`: profile-driven persistent acquisition-
+- [x] Verify/deliver #190 `codex/compact-public-cohorts`: profile-driven persistent acquisition-
       context snapshots and incremental unchanged-frame preparation; preserve full-reader/source/
-      financial equivalence. Complete compact public capture/referenced replay and an end-to-end
-      fresh smoke cohort. Full checks, frozen comparison, exact-head CI and release remain required.
+      financial equivalence, compact public capture/referenced replay and a real smoke cohort.
+      Clean 2,504 Java (six skips), 132 tooling, Java 11, frozen readers/financial/risk and both
+      exact-head CI platforms pass. Installed; 255-file/six-configuration restoration, all 12
+      original tables and previous-runtime reads pass. Fresh login and sustained acceptance open.
+      The 31-observation smoke correctly refuses duration qualification; final test stays unopened.
       [Contract](docs/architecture/compact-public-cohorts-and-scope-preparation.md).
+- [ ] Verify/deliver queued `codex/public-forecast-calibration`: prospective quote targets, separate
+      low/high/persistence errors, central-band coverage and all unsupported/missing/right-censored
+      outcomes in offline qualification v2. Clean 2,512 Java (six existing skips), 132 tooling and
+      bytecode 55 and exact-artifact Java 11 smoke pass; CI remains required. Calibration support cannot replace stressed whole-account
+      return gates or activate a model. [Contract](docs/architecture/public-forecast-qualification.md).
+- [ ] Replace interrupted local public capture with an isolated hosted archive worker, bounded
+      sealed segments/shared blobs and a versioned verified reader. Keep the incomplete 39/163-
+      record captures unchanged, preserve actual availability clocks, test restart/corruption/disk
+      limits and repeat hosted capacity with capture before activation. No financial authority.
 - [ ] Complete approved pricing stages B/C: constrained whole-account alternatives, shared entry/
       hold/adjust/exit evaluation, distinct evidence-bound budgeted loss authority and prospective
       decision context. Freeze a new 60/20/20 chronological cohort, exclude tuned fixtures, and
