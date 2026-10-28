@@ -13,7 +13,13 @@ def prepare(source, output, count=24):
         raise ValueError('New private cohort and bounded initial catalogue required')
     manifest_bytes = bounded(source / 'manifest.json')
     manifest = json.loads(manifest_bytes)
-    stream = iter(records(source))
+    segmented = manifest.get('schemaVersion') == 3
+    if segmented:
+        from segmented_pricing_archive import view
+        manifest, stream = view(source)
+        manifest_bytes = encode(manifest)
+    else:
+        stream = iter(records(source))
     first = None
     failures = []
     for row in stream:
@@ -28,8 +34,16 @@ def prepare(source, output, count=24):
     if any(type(v['availableAtNs']) is not int or v['availableAtNs'] > first['availableAtNs'] for v in seeds.values()):
         raise ValueError('Seed history was not available before initial observation')
     series = blobs.get(seeds['series-cache.json.gz']['sha256'])
+    if segmented:
+        from segmented_pricing_archive import validate_seed
+        validate_seed(series, seeds['series-cache.json.gz']['availableAtNs'])
     mapping = {}
     for item in blobs.get(seeds['item-mapping.json']['sha256']):
+        if segmented and (type(item.get('id')) is not int or not 1 <= item['id'] <= 2**31 - 1
+                or type(item.get('limit')) is not int or not 1 <= item['limit'] <= 2**31 - 1
+                or type(item.get('members')) is not bool or not isinstance(item.get('name'), str)
+                or len(item['name']) > 256):
+            raise ValueError('Invalid hosted public mapping')
         if item['id'] in mapping:
             raise ValueError('Duplicate public mapping')
         mapping[item['id']] = item
@@ -75,6 +89,9 @@ def prepare(source, output, count=24):
         feed.update({key: blobs.get(value) for key, value in row['parts'].items()})
         now = (row['availableAtNs'] + 999999999) // 1000000000
         validate(feed, row['availableAtNs'] // 1000000000)
+        if segmented:
+            from segmented_pricing_archive import numeric_feed
+            numeric_feed(feed)
         value = {'availableAt': now, **{key: feed[key] for key in ('observedAt', 'fiveMinuteStartedAt', 'hourlyStartedAt')},
                  'latest': {}, 'fiveMinute': {}, 'hourly': {}, 'shortHistory': {}, 'longHistory': {}, 'flows': []}
         for item in selected:
@@ -137,6 +154,9 @@ def prepare(source, output, count=24):
                'startAt': start, 'endAt': end, 'captureFailures': failures,
                'revisions': revisions, 'compressedPublicBytes': target.used,
                'scope': 'PUBLIC_SCENARIOS_NOT_EXECUTION_OR_PROMOTION'}
+    if segmented:
+        receipt['captureSchemaVersion'] = 3
+        receipt['sealedPrefix'] = manifest
     (output / 'preparation-receipt.json').write_bytes(encode(receipt))
     return receipt
 

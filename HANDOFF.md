@@ -27,12 +27,18 @@ and compact public capture/referenced replay. Full-reader/frozen financial check
 pairs reduce measured append p95 median 9.6239 -> 0.0335 ms; this is not live timing. The real 31-
 capture smoke works and correctly refuses qualification. The later local capture stopped after
 163 records and remains incomplete; persistent hosted capture is the next continuity fix.
-Queued `codex/public-forecast-calibration` adds explicit prospective public targets, unknown/censored
+Merged #191 `codex/public-forecast-calibration` adds explicit prospective public targets, unknown/censored
 outcomes and calibration support to offline qualification v2. Clean 2,512 Java (six existing skips),
-132 tooling, bytecode 55 and exact-artifact Java 11 smoke pass; CI remains required. No runtime pricing/
+132 tooling, bytecode 55, exact-artifact Java 11 smoke and both CI platforms `40605290513` pass.
+Source `d2cc4dfae44ba419a949055c188f7bf4f5804a5b`, merge `b8e40e4d2837c93773d81ebf464e713e464415d4`.
+All active trading classes match #190; evaluator-only delivery requires no client reinstall. No runtime pricing/
 loss/learning activation.
 [Installed contract](docs/architecture/compact-public-cohorts-and-scope-preparation.md),
-[queued qualification](docs/architecture/public-forecast-qualification.md).
+[offline qualification](docs/architecture/public-forecast-qualification.md).
+Queued `codex/hosted-public-archive` adds an optional isolated public worker, durable sealed segments,
+shared blobs and verified format-3 replay. Clean 2,519 Java tests (six existing skips), 136 tooling,
+bytecode 55 and actual Java 11 writer/Python reader interoperability pass. Exact-head CI and enabled capacity remain required
+before hosted activation. [Contract](docs/architecture/hosted-public-archive.md).
 The repeated #189 hosted hour passes (1,000 connected/100 active/72,000 decisions/zero errors,
 152.17 ms decision p95); this excludes local ACK/rendering. The separate mixed synthetic workflow
 hour completes with 120 group runs, 6,900 checks and zero failures; this excludes native rendering
