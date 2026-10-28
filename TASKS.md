@@ -53,6 +53,11 @@ All game interaction remains manual; batch runtime updates and acceptance work.
       permission failure: exact-byte backups, owner/group/mode, unchanged account authorization,
       custom settings, idempotency and concurrent-edit refusal. Six regressions and all 144 tooling
       checks pass; actual Linux disposable-copy restoration passes without changing live config.
+- [ ] Verify/deliver `codex/public-capture-seed-resume`: skip retained attempts immediately after
+      a partial-seed restart, preserve every old attempt/clock and refuse corrupted catalogue bounds.
+      Clean 2,521 Java (six skips), bytecode 55 and nine exact-artifact Java 11 archive tests pass;
+      unchanged tooling has #193's 144-check/both-platform pass. Exact-head CI and real hosted
+      prefix-preserving restart remain required.
 - [ ] Audit all runtime typed market adapters for exact numeric bounds and item-local refusal.
       The real public feed includes quotes above Integer.MAX_VALUE; new archive/replay preserves
       those exactly and refuses unsupported model inputs. CandidateFactory's unchecked getAsInt

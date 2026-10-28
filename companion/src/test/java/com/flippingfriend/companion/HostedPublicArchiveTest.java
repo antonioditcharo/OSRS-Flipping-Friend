@@ -99,6 +99,34 @@ public class HostedPublicArchiveTest {
             finish.countDown();
         } finally {finish.countDown();}
     }
+    @Test public void restartDuringSeedingImmediatelyContinuesMissingRequestsWithoutRewritingPriorAttempts()throws Exception {
+        Path root=temp.getRoot().toPath().resolve("partial-seed");var clock=new AtomicLong(START);var calls=new AtomicInteger();
+        var settings=config();settings.seedItems=3;
+        java.util.function.Supplier<MarketIngestionService.MarketState> source=()-> {
+            var first=state(clock.get()/1000000000L);var mapping=new TreeMap<Integer,MarketIngestionService.Item>();
+            for(int item=1;item<=3;item++) {
+                mapping.put(item,new MarketIngestionService.Item(item,"Synthetic "+item,100,true));
+                if(item>1){first.latest.add(""+item,first.latest.get("1").deepCopy());first.fiveMinute.add(""+item,first.fiveMinute.get("1").deepCopy());}
+            }
+            return new MarketIngestionService.MarketState(mapping,first.latest,first.fiveMinute,first.hourly,first.observedAt,first.fiveMinuteStartedAt,first.hourlyStartedAt);
+        };
+        HostedPublicArchive.History fetch=(item,step)->{calls.incrementAndGet();return new JsonArray();};
+        byte[] original,manifest;
+        try(var worker=new HostedPublicArchive(root,settings,source,fetch,clock::incrementAndGet,()->1024L*1024*1024)) {
+            worker.tick();assertEquals(2,calls.get());assertFalse(Files.exists(root.resolve("seeds.json")));
+            original=Files.readAllBytes(root.resolve("seed-000.json"));manifest=Files.readAllBytes(root.resolve("manifest.json"));
+        }
+        clock.addAndGet(60_000000000L);
+        try(var worker=new HostedPublicArchive(root,settings,source,fetch,clock::incrementAndGet,()->1024L*1024*1024)) {
+            worker.tick();assertEquals(4,calls.get());assertFalse(Files.exists(root.resolve("seeds.json")));
+        }
+        clock.addAndGet(60_000000000L);
+        try(var worker=new HostedPublicArchive(root,settings,source,fetch,clock::incrementAndGet,()->1024L*1024*1024)) {
+            worker.tick();assertEquals(6,calls.get());assertTrue(Files.exists(root.resolve("seeds.json")));
+        }
+        assertArrayEquals(original,Files.readAllBytes(root.resolve("seed-000.json")));
+        assertArrayEquals(manifest,Files.readAllBytes(root.resolve("manifest.json")));
+    }
     @Test public void malformedIntegerPricesVolumesAndIncompleteSeedBucketsCannotBecomeEvidence() {
         var invalid=state(START/1000000000L);invalid.latest.getAsJsonObject("1").addProperty("low",1.5);
         try{HostedPublicArchive.publicFeed(invalid,START/1000000000L);fail();}catch(RuntimeException expected){}
@@ -111,6 +139,21 @@ public class HostedPublicArchiveTest {
         assertEquals(2_904_898_134L,retained.getAsJsonObject("hourly").getAsJsonObject("1").get("avgLowPrice").getAsLong());
         data=new JsonArray();var b=bar(START/1000000000L-300);b.addProperty("lowPriceVolume",-1);data.add(b);
         try{HostedPublicArchive.validateHistory(data,"5m",START);fail();}catch(RuntimeException expected){}
+    }
+    @Test public void corruptedRetainedCatalogueCannotExpandOrRepeatTheBoundedSeedWork()throws Exception {
+        for(String mutation:List.of("large","duplicate","fractional")) {
+            Path root=temp.getRoot().toPath().resolve("catalogue-"+mutation);var clock=new AtomicLong(START);var calls=new AtomicInteger();
+            try(var worker=worker(root,clock,(item,step)->{calls.incrementAndGet();return new JsonArray();})){worker.tick();}
+            assertEquals(2,calls.get());var catalogue=PublicMarketArchive.read(root.resolve("catalogue.json"),65536);var changed=new JsonArray();
+            if(mutation.equals("large"))changed.add(9_000_000_000L);
+            else if(mutation.equals("fractional"))changed.add(1.5);
+            else {changed.add(1);changed.add(1);}
+            catalogue.add("selectedItems",changed);Files.write(root.resolve("catalogue.json"),PublicMarketArchive.bytes(catalogue));
+            try(var worker=worker(root,clock,(item,step)->{calls.incrementAndGet();return new JsonArray();})) {
+                try{worker.tick();fail();}catch(Exception expected){}
+            }
+            assertEquals(2,calls.get());
+        }
     }
     @Test public void disabledOrFailedArchiveLeavesNoForegroundDependency()throws Exception {
         Path root=temp.getRoot().toPath().resolve("disabled");var c=config();c.enabled=false;

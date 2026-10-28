@@ -19,6 +19,11 @@ its actual request/availability clocks and an explicit captured/failed result. U
 history stays missing. New seed data cannot be backdated into earlier observations. Capture starts
 after seeding; later aggregate revisions retain their actual observation times.
 
+Partial-seed restart preparation validates and skips the retained prefix immediately (at most
+64 attempts). Only new history requests consume the two-request budget. Restart cannot spend
+minutes replaying completed attempts, change their source timestamps or extend the original stop
+clock. A changed, duplicate, fractional or oversized retained item catalogue refuses this worker.
+
 An immutable start/stop window bounds capture to 954,000 seconds by default; restarting does not
 extend it. Storage is capped at 2 GiB with a separate 256-MiB disk reserve and 16-MiB component
 limit. Only one cross-process writer owns a root. Malformed data, broken sealed provenance, disk
