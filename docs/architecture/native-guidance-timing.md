@@ -6,7 +6,7 @@ event/learning identity, acknowledgement or authority change. Hosting stays with
 
 ## Correlated delivery and paint evidence
 
-Diagnostic schema 2 binds a process/request trace to MAIN or SELECTED_SALE, generation/revision,
+Diagnostic schema 2 binds a process/request trace to MAIN or SELECTED_SALE, opaque account, generation/revision,
 displayed order and existing advice/offer provenance. Monotonic stages separate capture/persistence,
 worker queue, durable account-frame acknowledgement, plan, pricing/authority, client delivery,
 presentation persistence, EDT delivery and completed action-card painting. Missing stages stay
