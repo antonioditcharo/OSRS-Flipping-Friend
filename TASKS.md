@@ -3,14 +3,29 @@
 Updated 28 October 2026. Read [HANDOFF.md](HANDOFF.md) and the current hosted-pilot receipt at
 `local-data/hosted-pilot/delivery-state.json` first for the installed pair and pending source;
 #162 was the hosted pilot's original baseline. Implemented/tested, merged,
-installed and player accepted are separate states. The owner confirmed login/GE on 26 October.
+installed and player accepted are separate states. The owner's prior login/GE confirmation is historical; fresh #195 login/GE was requested on 28 October.
 All game interaction remains manual; batch runtime updates and acceptance work.
 
 All 81 prior unchecked records have stable IDs in [the acceptance inventory](docs/verification/trading-pass-acceptance-inventory.md).
 Older completed details are retained in [the exact source snapshot](docs/history/tasks-before-input-hardening-2026-10-28.md).
-No outstanding requirement was removed; #194 is closed only against its verified deployment proof.
+No outstanding requirement was removed; #194 deployment and #195 numeric validation are closed
+against their own verified evidence. Controlled/native acceptance records remain open.
 
 ## Current batch
+
+- [ ] Verify/deliver the script-only exit-race and delivery-audit follow-up. Continue a process
+      drain only after fresh proof the target PID is absent; retain all live/reused/unknown
+      listener refusals. Audit main/editor traces, duplicate/conflicting identities, explicit
+      phase timings and unknown coverage without granting native or trading acceptance.
+      No JAR reinstall; exact-head CI and tooling receipt remain required.
+
+- [ ] Replace offline export with hash-bound version-two chunks (4 MiB/1,024 rows, eight-chunk
+      cache, 5-GiB budget, 768-MiB reserve) from one read-only snapshot. Keep V1 readers, exact
+      evaluator semantics and the 1-GiB heap ceiling. Verify/audit all 185,450 frozen rows unchanged.
+- [ ] Repair fixture transport cleanup and persistent bounded loopback workers; collect socket,
+      handle, memory, failure and phase telemetry. Preserve the FAILED 53.7-minute run and require
+      a new uninterrupted 60-minute run with zero failures, without retry filtering.
+      [Contract and retained failures](docs/verification/offline-export-and-soak-repair.md).
 
 - [x] Deliver approved optimization stage A #188: original
       acquisition/execution prefix indexes, explained main/editor outcomes, successor after expiry,
@@ -65,13 +80,14 @@ No outstanding requirement was removed; #194 is closed only against its verified
       all 144 tooling checks and exact-head CI 40611404568 pass. Deployed; all 60 retained attempts,
       selection and stop clock survive restart, and four missing histories continue immediately.
 <!-- REQ-6e77516523b0 -->
-- [ ] Audit all runtime typed market adapters for exact numeric bounds and item-local refusal.
-      Shared PUBLIC_NUMERIC_INPUT_V1 and mixed-item/cache/frozen regressions are implemented in
-      queued source. Clean 2,539 Java (six skips), 144 tooling and bytecode 55 pass. Exact Java 11,
-      frozen preservation, both exact-head CI platforms and paired delivery remain required.
-      Raw archive data, exact stock cost, source/financial/risk/learning identities are preserved.
-      Unsupported managed valuation pauses that item; unrelated verified cash remains usable.
-      [Contract](docs/architecture/exact-public-market-inputs.md).
+- [x] Audit all runtime typed market adapters for exact numeric bounds and item-local refusal.
+      Source #195 and the paired local installation pass: 2,539 Java (six skips), 144 tooling,
+      bytecode 55, 80 exact-artifact Java 11 checks, both CI platforms 40773463909, 290-file/six-
+      configuration restoration, all 12 original tables and previous-runtime financial/risk reads.
+      Exact raw archive data and all source/financial/learning identities remain intact. Unsupported
+      managed valuation pauses that item; unrelated verified cash remains usable. Hosted #194 and
+      unpromoted pricing/learning remain separate. [Receipt](docs/history/exact-public-input-install-2026-10-28.md).
+
 <!-- REQ-0f35c977855a -->
 - [ ] Complete approved pricing stages B/C: constrained whole-account alternatives, shared entry/
       hold/adjust/exit evaluation, distinct evidence-bound budgeted loss authority and prospective

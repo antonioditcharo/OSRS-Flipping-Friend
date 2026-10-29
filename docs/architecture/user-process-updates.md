@@ -78,6 +78,14 @@ manifest-driven repeated updates/start and incomplete-pair refusal. None operate
 real task or account databases. The new lifecycle tests specify a new capability, not a claim that
 old runtime already provided it. The protected-task access failure was reproduced before #76.
 
+A process may finish exiting between the last verified identity read and opening its native stop
+handle. After a native failure, a fresh bounded Win32_Process lookup may prove that exact PID absent;
+the normal drain loop then resumes and checks all owners/listeners again. Any present PID, including
+a reused or unidentifiable one, retains the native refusal. An unidentified listener still blocks
+the update. This does not retry with broader permissions, bypass backup/startup barriers or operate
+the game client. Five provider-boundary regressions exercise exit (including the drain deadline),
+live denial, PID reuse and a new unidentified listener through the real stop-loop control flow.
+
 Scope follows Microsoft's [task security model](https://learn.microsoft.com/en-us/windows/win32/taskschd/security-contexts-for-running-tasks).
 Interop uses the [native Java locking contract](https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/nio/channels/FileLock.html)
 and [.NET file sharing](https://learn.microsoft.com/en-us/dotnet/api/system.io.fileshare).

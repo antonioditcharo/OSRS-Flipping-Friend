@@ -115,11 +115,22 @@ function Stop-OwnedCompanionProcesses([string] $ExpectedSid) {
                 if ($verified.Count -ne 1 -or $verified[0].CreationDate -ne $process.CreationDate) {
                     throw 'Companion process identity changed; no native stop was attempted.'
                 }
-                Stop-NativeVerifiedCompanion $verified[0]
+                try { Stop-NativeVerifiedCompanion $verified[0] }
+                catch {
+                    $nativeFailure = $_
+                    # Termination can finish between verification and opening the native handle.
+                    # A fresh absence is a drained process, not permission to ignore access denial
+                    # for a live/reused PID. The next loop still verifies every listener/owner.
+                    $remaining = @(Get-CimInstance Win32_Process -Filter ("ProcessId=" + [int]$process.ProcessId) -ErrorAction Stop)
+                    if ($remaining.Count -ne 0) { throw $nativeFailure }
+                }
             }
         }
         Start-Sleep -Milliseconds 200
     } while ((Get-Date) -lt $deadline)
+    # A verified termination may consume the drain deadline. Confirm the final state once;
+    # never report a live writer merely because the last empty observation arrived late.
+    if (@(Get-OwnedCompanionProcesses $ExpectedSid).Count -eq 0) { Wait-PortFree; return }
     throw 'Companion did not stop; no account backup was started.'
 }
 function Copy-AtomicRuntimeArtifact([string] $Source, [string] $Destination) {
