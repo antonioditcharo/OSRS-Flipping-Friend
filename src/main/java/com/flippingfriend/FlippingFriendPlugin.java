@@ -525,7 +525,7 @@ public class FlippingFriendPlugin extends Plugin
         if(executor==null || executor.isShutdown() || selectedSalePricing==null || !editorSaleInFlight.compareAndSet(false,true))return;
         long request=editorSaleRequest.incrementAndGet(),context=editorSaleContext,epoch=engineRefreshEpoch.get();
         GuidanceTiming timing=new GuidanceTiming(guidanceTraceProcess+":SELECTED_SALE:"+request,"SELECTED_SALE");
-        timing.context(generation,revision);
+        timing.context(account,generation,revision);
         var frame=frameTiming;
         if(frame!=null && account.equals(frame.account) && generation==frame.generation && revision==frame.revision)timing.acknowledged(frame.nanos);
         timing.mark("workerQueued");
@@ -1052,7 +1052,7 @@ public class FlippingFriendPlugin extends Plugin
 			String observedAccount = observedProfile == null || observedProfile.isBlank() ? null
 				: com.flippingfriend.core.AccountIdentity.fromProfileKey(observedProfile);
 			long observedGeneration = offerObservationGeneration.get();
-            long observedRevision=adviceObservationRevision.get();timing.context(observedGeneration,observedRevision);
+            long observedRevision=adviceObservationRevision.get();timing.context(observedAccount,observedGeneration,observedRevision);
             var planningObservation=companion.capturePlanningObservation(
                 com.flippingfriend.session.PlanningAccountObservation.capture(observedAccount,
                 observedState,client.getGrandExchangeOffers(),observedOffers,java.time.Instant.now().getEpochSecond()));

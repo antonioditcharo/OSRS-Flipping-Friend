@@ -10,6 +10,7 @@ from guidance_timing import TimingAudit
 class GuidanceTimingTest(unittest.TestCase):
     def row(self, trace="p:MAIN:1", source="MAIN", event="DELIVERY", **values):
         return dict(schemaVersion=2, trace=trace, source=source, event=event, action="SELL", item=1,
+                    account="rs-"+"a"*64,
                     quantity=2, price=55, slot=-1, saleSource="origin", deliveryOutcome="VISIBLE", droppedTelemetryRecords=0,
                     stageMicros={"request": 0, "durableAck": 10000, "delivery": 20000}, **values)
 
@@ -83,3 +84,9 @@ class GuidanceTimingTest(unittest.TestCase):
             self.add(audit, paint); result = audit.result()
             self.assertEqual([], result["samples"])
             self.assertEqual("PAINT_DELIVERY_MISMATCH", result["conflicts"][0]["event"])
+
+    def test_identical_event_ids_from_different_accounts_are_independent(self):
+        audit = TimingAudit(); first = self.row(); self.add(audit, first)
+        second = self.row(trace="p:MAIN:2"); second["account"] = "rs-"+"b"*64; self.add(audit, second)
+        unknown = self.row(trace="p:MAIN:3"); unknown.pop("account"); self.add(audit, unknown)
+        self.assertEqual(["FIRST_OBSERVED", "FIRST_OBSERVED", "UNPROVEN_IDENTITY"], [r["decisionOccurrence"] for r in audit.result()["samples"]])
