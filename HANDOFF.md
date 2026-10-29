@@ -70,10 +70,11 @@ The full 185,450-row frozen export also FAILED at the fixed 1-GiB heap while ser
 raw payloads alone are 276,793,276 bytes, exceeding the old 256-MiB file limit.
 [Failed gates and repair contract](docs/verification/offline-export-and-soak-repair.md).
 
-Queued `codex/verified-exit-race-and-delivery-audit` changes tooling only: accept a freshly proven
+#196 is merged (`a4d37d6013dd722727cd01109b543c3d07bdc92c`), tested head
+`1781a1a709bea14514e73eb433ec399e12dc0c5c`, both exact-head CI platforms `40812821792`.
+It changes tooling only: accept a freshly proven
 exited PID after a native-stop race, retain live/reused/unidentified process refusal, and analyze
-main/editor delivery traces reproducibly. No JAR reinstall for that follow-up. All 155 tooling checks and exact-head Windows/Linux CI 40780984649 pass. Release remains
-pending the current documentation correction and its exact-head CI. Native, full-account export,
+main/editor delivery traces reproducibly. No JAR reinstall for that follow-up. All 155 tooling checks pass; the primary checkout is updated and installed #195 is unchanged. Native, full-account export,
 replacement 60-minute soak and controlled-trading gates remain open.
 
 ## Verified behavior and limits

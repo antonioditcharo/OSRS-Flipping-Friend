@@ -18,11 +18,10 @@ public class PromptGuidanceLoopbackTest {
     Object get(Object target,String name)throws Exception{var f=target.getClass().getDeclaredField(name);f.setAccessible(true);return f.get(target);}
     void set(Object target,String name,Object value)throws Exception{var f=target.getClass().getDeclaredField(name);f.setAccessible(true);f.set(target,value);}
     String request(ApiServer api,String endpoint,Object body)throws Exception {
-        var c=(HttpURLConnection)new URL("http://127.0.0.1:"+api.port()+"/v1/accounts/"+account+"/"+endpoint).openConnection();
-        c.setConnectTimeout(2000);c.setReadTimeout(5000);c.setRequestProperty("X-Flipping-Friend-Token","fixture");c.setRequestProperty(AccountIdentity.HEADER,account);
-        if(body!=null){c.setRequestMethod("POST");c.setDoOutput(true);try(var out=c.getOutputStream()){out.write(gson.toJson(body).getBytes(StandardCharsets.UTF_8));}}
-        try {assertTrue("HTTP "+endpoint,c.getResponseCode()<300);return new String(c.getInputStream().readAllBytes(),StandardCharsets.UTF_8);}
-        finally {c.disconnect();}
+        var response=LoopbackFixtureClient.request("http://127.0.0.1:"+api.port()+"/v1/accounts/"+account+"/"+endpoint,
+            Map.of("X-Flipping-Friend-Token","fixture",AccountIdentity.HEADER,account),body==null?null:gson.toJson(body));
+        assertTrue("HTTP "+endpoint+": "+response.statusCode(),response.statusCode()<300);
+        return response.body();
     }
     @Test public void coherentPartialFillsCanReceiveAnEligibleSuccessorOnTheImmediatePlanRead()throws Exception {
         var root=folder.newFolder().toPath();long at=Instant.now().getEpochSecond();

@@ -13,11 +13,12 @@ against their own verified evidence. Controlled/native acceptance records remain
 
 ## Current batch
 
-- [ ] Verify/deliver the script-only exit-race and delivery-audit follow-up. Continue a process
+- [x] Verify/deliver #196, the script-only exit-race and delivery-audit follow-up. Continue a process
       drain only after fresh proof the target PID is absent; retain all live/reused/unknown
       listener refusals. Audit main/editor traces, duplicate/conflicting identities, explicit
       phase timings and unknown coverage without granting native or trading acceptance.
-      No JAR reinstall; exact-head CI and tooling receipt remain required.
+      No JAR reinstall; 155 tooling checks and both exact-head CI platforms 40812821792 pass;
+      merge a4d37d6 is delivered to the primary checkout.
 
 - [ ] Replace offline export with hash-bound version-two chunks (4 MiB/1,024 rows, eight-chunk
       cache, 5-GiB budget, 768-MiB reserve) from one read-only snapshot. Keep V1 readers, exact

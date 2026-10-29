@@ -10,13 +10,23 @@ final class ExecutionSourceSnapshot {
     final Long capturedAt,sourceCursor;
     final List<Row> offers;
     final List<Gap> gaps;
+    private transient List<ExecutionTimingObservation> verifiedObservations;
     ExecutionSourceSnapshot(String account,long capturedAt,List<Row> offers,List<Gap> gaps) {
         schemaVersion="1";accountId=AccountIdentity.require(account);this.capturedAt=capturedAt;
         this.offers=Collections.unmodifiableList(new ArrayList<>(offers));this.gaps=Collections.unmodifiableList(new ArrayList<>(gaps));
         sourceCursor=offers.isEmpty()?0:offers.get(offers.size()-1).rowId;
     }
     List<ExecutionTimingObservation> observations() {
+        if(verifiedObservations!=null)return verifiedObservations;
         return observations(capturedAt==null?0:capturedAt);
+    }
+    private ExecutionSourceSnapshot(String account,long at,List<Row> offers,List<Gap> gaps,long cursor,List<ExecutionTimingObservation> verified) {
+        schemaVersion="1";accountId=AccountIdentity.require(account);capturedAt=at;sourceCursor=cursor;
+        this.offers=Collections.unmodifiableList(offers);this.gaps=Collections.unmodifiableList(gaps);
+        verifiedObservations=verified;
+    }
+    static ExecutionSourceSnapshot verifiedChunks(String account,long at,List<Row> offers,List<Gap> gaps,long cursor,List<ExecutionTimingObservation> verified) {
+        return new ExecutionSourceSnapshot(account,at,offers,gaps,cursor,verified);
     }
     List<ExecutionTimingObservation> observations(long evaluatedAt) {
         if(!"1".equals(schemaVersion) || capturedAt==null || capturedAt<=0 || sourceCursor==null || sourceCursor<0

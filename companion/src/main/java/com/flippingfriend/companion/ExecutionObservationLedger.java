@@ -41,10 +41,20 @@ final class ExecutionObservationLedger {
     static List<ExecutionTimingObservation> compile(String account,long now,List<OfferEvent> history,Set<String> gaps) {
         if(account==null || history==null || gaps==null || gaps.stream().anyMatch(Objects::isNull))
             throw new IllegalArgumentException("Recorded source scope is incomplete.");
-        Map<List<Object>,Episode> episodes=new LinkedHashMap<>();
-        Set<String> knownOffers=new HashSet<>();
+        List<ExecutionTimingObservation> result=new ArrayList<>();
+        compile(account,now,history,gaps,new LinkedHashMap<>(),new HashSet<>(),new HashMap<>(),new HashSet<>(),true,result::add);
+        return Collections.unmodifiableList(result);
+    }
+    static List<ExecutionTimingObservation> compileDisk(String account,long now,Iterable<OfferEvent> history,Set<String> gaps,OfflineScratch disk) {
+        List<ExecutionTimingObservation> result=new ArrayList<>();
+        compile(account,now,history,gaps,disk.map("timing-episodes",Episode.class),disk.set("timing-known"),
+            disk.map("timing-order",OfferEvent.class),disk.set("timing-ids"),false,result::add);
+        return Collections.unmodifiableList(result);
+    }
+    private static void compile(String account,long now,Iterable<OfferEvent> history,Set<String> gaps,
+            Map<List<Object>,Episode> episodes,Set<String> knownOffers,Map<List<Object>,OfferEvent> ordered,
+            Set<String> ids,boolean checkGapMembership,java.util.function.Consumer<ExecutionTimingObservation> output) {
         Map<Integer,Episode> latest=new HashMap<>();Map<Integer,OfferEvent> empty=new HashMap<>();
-        Map<List<Object>,OfferEvent> ordered=new HashMap<>();Set<String> ids=new HashSet<>();
         for(OfferEvent e:history) {
             if(!TradeGapEvidence.valid(e) || !account.equals(e.getAccountId()) || !ids.add(e.getEventId()))
                 throw new IllegalArgumentException("Recorded source identity is inconsistent.");
@@ -56,16 +66,16 @@ final class ExecutionObservationLedger {
             Episode previous=latest.get(e.getSlot());
             if("EMPTY".equals(e.getEventType())) {
                 if(e.isAuthenticatedObservation()) {
-                    if(previous!=null && previous.terminal==null)previous.ended=true;
+                    if(previous!=null && previous.terminal==null){previous.ended=true;episodes.put(key(previous.original),previous);}
                     if(order)empty.put(e.getSlot(),e);else empty.remove(e.getSlot());
                 }
                 continue;
             }
             knownOffers.add(e.getOfferIdentity());
-            List<Object> key=List.of(e.getSessionId(),e.getSlot(),e.getOfferIdentity());Episode episode=episodes.get(key);
+            List<Object> key=List.of(e.getSessionId(),e.getSlot(),e.getOfferIdentity());Episode episode=previous!=null && key(previous.original).equals(key)?previous:episodes.get(key);
             if(episode==null) {
                 episode=new Episode(e);episodes.put(key,episode);
-                if(previous!=null && previous!=episode && previous.terminal==null)previous.ended=true;
+                if(previous!=null && previous!=episode && previous.terminal==null){previous.ended=true;episodes.put(key(previous.original),previous);}
             }
             latest.put(e.getSlot(),episode);
             if(episode.terminal!=null)continue; // First terminal observation stays fixed on later heartbeat/reconnect.
@@ -79,7 +89,7 @@ final class ExecutionObservationLedger {
             episode.comparable&="1".equals(e.getPredictionEvidenceVersion()) && e.isPredictionComparable()
                 && episode.original.getEventId().equals(e.getPredictionSourceEventId())
                 && e.getFirstSeenAt()==episode.original.getFirstSeenAt();
-            if(!e.isAuthenticatedObservation() || !"1".equals(e.getPredictionEvidenceVersion()))continue;
+            if(!e.isAuthenticatedObservation() || !"1".equals(e.getPredictionEvidenceVersion())){episodes.put(key,episode);continue;}
             if(active(e)) {
                 if(episode.firstActive==null) {
                     episode.firstActive=e;OfferEvent before=empty.get(e.getSlot());
@@ -93,9 +103,9 @@ final class ExecutionObservationLedger {
                 if(e.getFilledQuantity()>0)episode.firstPositive=e;
             }
             if(terminal(e))episode.terminal=e;
+            episodes.put(key,episode);
         }
-        if(!knownOffers.containsAll(gaps))throw new IllegalArgumentException("Recorded reconciliation scope has no matching offer source.");
-        List<ExecutionTimingObservation> observations=new ArrayList<>();
+        if(checkGapMembership && !knownOffers.containsAll(gaps))throw new IllegalArgumentException("Recorded reconciliation scope has no matching offer source.");
         try {
             for(Episode e:episodes.values())if(e.prospective) {
                 boolean qualified=e.comparable && !e.invalid && !e.accountingGap;
@@ -104,14 +114,14 @@ final class ExecutionObservationLedger {
                     :e.firstActive==null?"No prospective authenticated open observation."
                     :!qualified?"Original forecast is unknown or incomparable."
                     :"Observed intervals only; forecast decomposition and chronological validation are required.";
-                observations.add(new ExecutionTimingObservation(e.original,e.firstActive,e.emptyBefore,e.lastActive,
+                output.accept(new ExecutionTimingObservation(e.original,e.firstActive,e.emptyBefore,e.lastActive,
                     e.lastZero,e.firstPositive,e.terminal,e.ended,!e.invalid,qualified,reason));
             }
         }catch(ArithmeticException overflow) {
             throw new IllegalArgumentException("Observation time cannot be bounded safely.",overflow);
         }
-        return Collections.unmodifiableList(observations);
     }
+    private static List<Object> key(OfferEvent e){return List.of(e.getSessionId(),e.getSlot(),e.getOfferIdentity());}
     private static final class Episode {
         final OfferEvent original;
         OfferEvent firstActive,lastActive,emptyBefore,lastZero,firstPositive,terminal;
