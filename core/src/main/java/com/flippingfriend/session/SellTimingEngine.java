@@ -31,6 +31,8 @@ public class SellTimingEngine
 	private final FillModel fillModel;
 	private final TaxCalculator taxCalculator;
     private final boolean synchronousAnalysis;
+    public enum PricePolicy { VERIFIED_BASELINE, ACCOUNT_HORIZON_SHADOW }
+    private final PricePolicy pricePolicy;
 
 	@Inject
 	public SellTimingEngine(FillModel fillModel, TaxCalculator taxCalculator)
@@ -39,9 +41,17 @@ public class SellTimingEngine
 	}
     /** Explicit offline harness mode; the price and financial rules are identical. */
     public SellTimingEngine(FillModel fillModel,TaxCalculator taxCalculator,boolean synchronousAnalysis) {
+        this(fillModel,taxCalculator,synchronousAnalysis,PricePolicy.VERIFIED_BASELINE);
+    }
+    /** Explicit offline challenger; all runtime callers retain the verified default constructor. */
+    public SellTimingEngine(FillModel fillModel,TaxCalculator taxCalculator,boolean synchronousAnalysis,PricePolicy pricePolicy) {
+
+		if(pricePolicy==null || pricePolicy==PricePolicy.ACCOUNT_HORIZON_SHADOW && !synchronousAnalysis)
+            throw new IllegalArgumentException("Shadow pricing requires explicit deterministic offline analysis");
 		this.fillModel = fillModel;
 		this.taxCalculator = taxCalculator;
 		this.synchronousAnalysis=synchronousAnalysis;
+        this.pricePolicy=pricePolicy;
 	}
 
 	public SellDecision evaluate(Position position, LatestPrice latest, ItemFeatures features,
@@ -177,6 +187,11 @@ public class SellTimingEngine
             :com.flippingfriend.model.PublicPriceForecast.ready(series,List.of(),now.getEpochSecond());
         int[] prices=com.flippingfriend.model.PredictivePriceChoices.prices(false,latest,series,forecast,seconds,new double[]{0},now.getEpochSecond());
         if(prices.length<2)return fallback;
+        if(pricePolicy==PricePolicy.ACCOUNT_HORIZON_SHADOW)
+            return com.flippingfriend.model.AccountHorizonPricing.sale(position.getItemId(),position.getQuantity(),position.getTotalCost(),
+                fallback,floor,ceiling,prices,horizon.getInterval().getMinutes(),
+                com.flippingfriend.model.AccountHorizonPricing.hours(horizon.legHorizonHours(),horizon.getInterval().getMinutes()),
+                latest,series,forecast,now,fillModel,taxCalculator).selectedPrice;
         return ExitPriceComparison.compare(position.getItemId(),position.getQuantity(),position.getTotalCost(),
             fallback,floor,ceiling,prices,latest,series,horizon.legHorizonHours(),now,fillModel,taxCalculator).selectedPrice;
     }
@@ -190,6 +205,20 @@ public class SellTimingEngine
             return ExitPriceComparison.compare(position.getItemId(),remaining,cost,standing,Math.max(1,floor),Integer.MAX_VALUE,
                 routine==null?new int[0]:new int[]{routine},latest,series,horizon.legHorizonHours(),now,fillModel,taxCalculator);
         }catch(RuntimeException optionalEvidenceUnavailable){return null;}
+    }
+
+    /** Offline hold/adjust comparison only while this actual offer remains working. */
+    public boolean preferWorkingSale(Position position,int remaining,int standing,int proposed,int floor,
+            LatestPrice latest,List<Candle> series,TradingHorizon horizon,Instant now) {
+        if(pricePolicy!=PricePolicy.ACCOUNT_HORIZON_SHADOW || position==null || !position.isCostKnown()
+            || remaining<=0 || remaining>position.getQuantity())return false;
+        long cost=com.flippingfriend.core.SaleAccounting.allocateCost(position.getTotalCost(),position.getQuantity(),remaining);
+        var model=com.flippingfriend.model.PublicPriceForecast.fit(series,List.of(),now.getEpochSecond());
+        var selected=com.flippingfriend.model.AccountHorizonPricing.sale(position.getItemId(),remaining,cost,standing,
+            floor,standing,new int[]{proposed},horizon.getInterval().getMinutes(),
+            com.flippingfriend.model.AccountHorizonPricing.hours(horizon.legHorizonHours(),horizon.getInterval().getMinutes()),
+            latest,series,model,now,fillModel,taxCalculator);
+        return selected.comparison!=null && selected.selectedPrice==standing;
     }
 
 	/**

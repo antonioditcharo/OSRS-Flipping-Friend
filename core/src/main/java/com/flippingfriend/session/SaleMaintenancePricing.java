@@ -13,7 +13,7 @@ public final class SaleMaintenancePricing {
     public enum Status {
         ELIGIBLE, INVALID_QUANTITY, MISSING_PRICES, STALE_PRICES, IMMATERIAL_CHANGE,
         UNPROVEN_QUANTITY, UNKNOWN_CLOCKS, PLACEMENT_PATIENCE, RECENT_PROGRESS,
-        MARKET_SUPPORT, COST_FLOOR
+        MARKET_SUPPORT, COST_FLOOR, ACCOUNT_HORIZON_HOLD
     }
     /** The same decision supplies both pricing and read-only investigation. No trading permission. */
     public static final class Evaluation {
@@ -77,7 +77,7 @@ public final class SaleMaintenancePricing {
             patience=accepted.getMode()==com.flippingfriend.core.SalePolicyReceipt.Mode.ROUTINE?accepted.getPatienceSeconds():0;
         }
         var reduction=evaluate(item,offerPrice,remaining,position,latest,series,horizon,now,sellOnly,exits,tax,
-            firstObservedAt,lastProgressAt,patience);
+            firstObservedAt,lastProgressAt,patience,false);
         // A cancelled loss exit whose supporting evidence vanished must still get its returned
         // stock listed. This grants a fresh exact non-loss limit, never stale loss permission.
         // Keeping this completion readable also permits safe runtime rollback after a later policy.
@@ -134,11 +134,11 @@ public final class SaleMaintenancePricing {
     public Evaluation evaluate(int item,int offerPrice,int remaining,Position position,LatestPrice latest,
         List<Candle> series,TradingHorizon horizon,Instant now,boolean sellOnly,
         SellTimingEngine exits,TaxCalculator tax,long firstObservedAt,long lastProgressAt) {
-        return evaluate(item,offerPrice,remaining,position,latest,series,horizon,now,sellOnly,exits,tax,firstObservedAt,lastProgressAt,-1);
+        return evaluate(item,offerPrice,remaining,position,latest,series,horizon,now,sellOnly,exits,tax,firstObservedAt,lastProgressAt,-1,true);
     }
     private Evaluation evaluate(int item,int offerPrice,int remaining,Position position,LatestPrice latest,
         List<Candle> series,TradingHorizon horizon,Instant now,boolean sellOnly,
-        SellTimingEngine exits,TaxCalculator tax,long firstObservedAt,long lastProgressAt,long acceptedPatience) {
+        SellTimingEngine exits,TaxCalculator tax,long firstObservedAt,long lastProgressAt,long acceptedPatience,boolean working) {
         if(remaining<=0)return Evaluation.waitFor(Status.INVALID_QUANTITY);
         if(latest==null || !latest.isComplete())return Evaluation.waitFor(Status.MISSING_PRICES);
         if(position!=null && remaining>position.getQuantity())return Evaluation.waitFor(Status.UNPROVEN_QUANTITY);
@@ -191,6 +191,8 @@ public final class SaleMaintenancePricing {
                 :"The offer has no recent fills, and two completed market buckets support a profitable reduction. The exact after-tax acquisition cost remains protected; the original target is a reference, not a fill guarantee.";
             if(forecastPrice!=price)reason="The near-term public-price forecast and estimated quantity-specific fill time favor this supported limit over copying the latest quote. "+reason;
             price=forecastPrice;
+            if(working && known && exits.preferWorkingSale(position,remaining,offerPrice,price,floor,latest,series,horizon,now))
+                return Evaluation.waitFor(Status.ACCOUNT_HORIZON_HOLD);
         }
         if(fineTick && price>latest.getHigh())return Evaluation.waitFor(Status.COST_FLOOR);
         if(offerPrice-(long)price<minimumReduction)

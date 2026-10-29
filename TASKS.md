@@ -24,6 +24,11 @@ against their own verified evidence. Controlled/native acceptance records remain
       construction after delivery/latency/provenance gates. Preserve the live baseline and
       5m/30m/2h/8h qualification, original risk and fixed public capture stop. No new loss authority
       or learning promotion in the timing release. Rare live late fills remain explicit if not observed.
+- [ ] Verify/deliver the isolated common-horizon pricing source: shared entry/exit horizon,
+      quantity/tax/partial-fill/terminal-value comparison, working hold versus completed relist,
+      matching offline final authority and qualifier V3/replay 29 provenance. Keep live defaults
+      unchanged and complete chronological qualification before any activation.
+      [Contract](docs/architecture/common-horizon-pricing-shadow.md).
 
 - [x] Verify/deliver #196, the script-only exit-race and delivery-audit follow-up. Continue a process
       drain only after fresh proof the target PID is absent; retain all live/reused/unknown

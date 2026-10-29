@@ -129,7 +129,7 @@ final class PortfolioPlanner
 		candidates.setLearningDisabled(account.isLearningDisabled());
 
         if(pricingExperiment)candidates.usePricingExperiment(account.getCheckIntervalMinutes(),
-            Math.min(48,2*horizonFor(account,appetite)+account.getCheckIntervalMinutes()/30.0));
+            com.flippingfriend.model.AccountHorizonPricing.hours(horizonFor(account,appetite),account.getCheckIntervalMinutes()));
 		List<PortfolioCandidate> tactics = candidates.build(market, horizonFor(account, appetite),
 			buyLimitRemaining, account.getSpendableCoins(), account.isMembers(), now);
 

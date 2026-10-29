@@ -11,6 +11,13 @@ import java.util.*;
 /** Final read-only authority for managed exits and observed sale maintenance. No cost comes from the request. */
 final class CompanionSalePolicy {
     static final String VERSION="companion-sale-10";
+    private final boolean pricingShadow;
+    private final String policyVersion;
+    CompanionSalePolicy(){this(false);}
+    CompanionSalePolicy(boolean pricingShadow) {
+        this.pricingShadow=pricingShadow;
+        policyVersion=pricingShadow?VERSION+"-"+AccountHorizonPricing.VERSION:VERSION;
+    }
     static String identity(int item,int price,int quantity,String source,boolean cut,int slot) {
         return identity(item,price,quantity,source,cut,slot,null);
     }
@@ -28,6 +35,8 @@ final class CompanionSalePolicy {
         String identity=identity(item,price,quantity,source,cut,slot,repriceSource);
         PolicyDecisionType type=slot<0?PolicyDecisionType.EXIT:PolicyDecisionType.SELL_MAINTENANCE;
         try {
+            if(pricingShadow && (history==null || !history.synchronousAnalysis()))
+                return refusal(type,identity,source,now,"SHADOW_REQUIRES_OFFLINE_ANALYSIS");
             if(account==null || account.getObservedAt()>now || now-account.getObservedAt()>150
                 || ledger==null || !ledger.isValid() || !Objects.equals(account.getAccountId(),ledger.getAccountId())
                 || item<=0 || price<=0 || quantity<=0 || source==null || source.isBlank() || slot< -1 || slot>7
@@ -50,7 +59,8 @@ final class CompanionSalePolicy {
             }
             var tax=new TaxCalculator();List<ItemMetadata> metadata=new ArrayList<>();
             for(var m:market.mapping.values())metadata.add(new ItemMetadata(m.id,m.name,m.members,m.buyLimit,0));tax.resolveExemptions(metadata);
-            var exits=new SellTimingEngine(new FillModel(),tax,history.synchronousAnalysis());
+            var exits=new SellTimingEngine(new FillModel(),tax,history.synchronousAnalysis(),pricingShadow
+                ?SellTimingEngine.PricePolicy.ACCOUNT_HORIZON_SHADOW:SellTimingEngine.PricePolicy.VERIFIED_BASELINE);
             TradingHorizon horizon=TradingHorizon.of(RiskProfile.valueOf(account.getRiskAppetite()),AccountReplay.interval(account.getCheckIntervalMinutes()),account.getTargetHoldMinutes());
             List<Candle> series=history.series(item,"5m");
             if(slot>=0) {
@@ -123,11 +133,11 @@ final class CompanionSalePolicy {
                         return refusal(type,identity,source,now,"SALE_EXACT_COST_FLOOR");
                 }
             }
-            return PolicyDecision.action("1",VERSION,identity+":"+now,type,slot<0?OfferLifecycleAction.PLACE_SELL:OfferLifecycleAction.CANCEL_SELL,
+            return PolicyDecision.action("1",policyVersion,identity+":"+now,type,slot<0?OfferLifecycleAction.PLACE_SELL:OfferLifecycleAction.CANCEL_SELL,
                 "SALE_AUTHORIZED",now,Math.min(account.getObservedAt(),market.observedAt),identity,source);
         } catch(RuntimeException unsafe) {return refusal(type,identity,source,now,"SALE_EVIDENCE_INCONSISTENT");}
     }
-    private static PolicyDecision refusal(PolicyDecisionType type,String identity,String source,long at,String reason) {
-        return PolicyDecision.abstain("1",VERSION,identity+":"+at,type,PolicyAbstentionReason.ACCOUNT_STATE_INCONSISTENT,reason,at,at,identity,source);
+    private PolicyDecision refusal(PolicyDecisionType type,String identity,String source,long at,String reason) {
+        return PolicyDecision.abstain("1",policyVersion,identity+":"+at,type,PolicyAbstentionReason.ACCOUNT_STATE_INCONSISTENT,reason,at,at,identity,source);
     }
 }

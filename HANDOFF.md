@@ -61,6 +61,13 @@ hosted #194 remain unchanged. The retained startup outlier is not resolved by in
 Read [the current contract](docs/architecture/native-guidance-timing.md); pricing stays shadow and
 learner construction remains behind delivery/latency/provenance gates.
 
+Following pricing source is isolated in `codex/common-horizon-pricing-shadow`: shared non-loss
+common-horizon entry/exit scoring, working-offer hold comparison, relist completion and matching
+offline final authority; qualifier V3/replay 29 identify it explicitly. Focused selector/replay/
+authority checks pass; full verification and merge remain pending. Live constructors retain the
+baseline. No growing public-tail tuning, final-fold opening, loss authority or learning promotion.
+[Shadow contract](docs/architecture/common-horizon-pricing-shadow.md).
+
 #195 uses PUBLIC_NUMERIC_INPUT_V1 across client/companion/replay numeric boundaries, scoped history
 refusal, overflow-safe midpoint and current cached-entry rejection. Unsupported managed valuation
 retains exact cost and pauses that item under V3; a valid neighbour gets independent final authority.
