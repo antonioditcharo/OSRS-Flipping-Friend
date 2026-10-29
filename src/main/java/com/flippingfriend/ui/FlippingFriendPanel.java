@@ -46,6 +46,8 @@ public class FlippingFriendPanel extends PluginPanel {
     private final JPopupMenu menu = new JPopupMenu();
     private Runnable onRejection = () -> { };
     private final java.util.concurrent.atomic.AtomicBoolean refreshQueued=new java.util.concurrent.atomic.AtomicBoolean();
+    private boolean optionalRefreshQueued,closed;
+    private final Timer optionalRetry=new Timer(25,event->refreshOptionalOnEdt());
     private final java.util.ArrayDeque<PaintRequest> paintRequests=new java.util.ArrayDeque<>();
     private static final class PaintRequest {
         final GuidanceTiming timing;final Suggestion expected;
@@ -59,6 +61,7 @@ public class FlippingFriendPanel extends PluginPanel {
         super(false);
         this.engine = engine; this.accountMonitor = accountMonitor; this.config = config;
         this.configManager = configManager; this.companion = companion; this.stepGuide = stepGuide; this.explainer = explainer;
+        optionalRetry.setRepeats(false);
         suggestion = new CompactSuggestionPanel(itemManager, explainer);
         PositionsPanel holdings = new PositionsPanel(positions, marketData, itemManager, explainer, taxCalculator, engine::getPositionStatuses);
         holdings.setTradingPositions(engine::tradingPositions); holdings.setTradeEvidenceAvailable(engine::hasTradeEvidence);
@@ -151,11 +154,18 @@ public class FlippingFriendPanel extends PluginPanel {
             child.setMaximumSize(new Dimension(Integer.MAX_VALUE, child.getPreferredSize().height));
         column.add(child);
     }
-    private void open(String name) { details.open(this, name); }
-    @Override public void addNotify(){super.addNotify();performanceTimer.start();}
-    @Override public void removeNotify(){performanceTimer.stop();super.removeNotify();}
-    private void refreshPerformance() {
+    private void open(String name) {
         AccountState account=accountMonitor.getState();boolean loggedIn=account!=null && account.isLoggedIn();
+        AccountLedgerSnapshot ledger=loggedIn?companion.lastLedger():null;
+        AccountLedgerSnapshot history=loggedIn?companion.historyLedger():null;
+        if(history==null)history=ledger;
+        details.updateSaleMaintenance(loggedIn);
+        details.update(loggedIn?stepGuide.getSuggestion():null,ledger,history,history!=null && history!=ledger);
+        details.open(this,name);
+    }
+    @Override public void addNotify(){super.addNotify();closed=false;refresh();performanceTimer.start();}
+    @Override public void removeNotify(){performanceTimer.stop();optionalRetry.stop();suggestion.finishPaint("HIDDEN");super.removeNotify();}
+    private void refreshPerformance(boolean loggedIn) {
         if(loggedIn)companion.requestPerformanceRefresh();
         performance.update(loggedIn?companion.performance():null,loggedIn?companion.lastLedger():null,
             loggedIn,item->details.openItemGraph(this,item));
@@ -189,24 +199,21 @@ public class FlippingFriendPanel extends PluginPanel {
         refresh();
     }
     private void refreshOnEdt() {
+        if(closed)return;
+        java.util.List<PaintRequest> measuring=new java.util.ArrayList<>();
+        synchronized(paintRequests) {
+            while(!paintRequests.isEmpty())measuring.add(paintRequests.removeFirst());
+        }
+        measuring.forEach(request->request.timing.mark("edtStarted"));
         AccountState account = accountMonitor.getState();
         boolean loggedIn=account!=null && account.isLoggedIn();
         Suggestion active = loggedIn?stepGuide.getSuggestion():Suggestion.waiting("Log in to start",
             "Log in and open the Grand Exchange for current account guidance.");
         suggestion.update(active, loggedIn?stepGuide.getPending():null);
-        synchronized(paintRequests) {
-            while(!paintRequests.isEmpty()) {
-                PaintRequest request=paintRequests.removeFirst();request.timing.mark("edtDelivery");
-                suggestion.measurePaint(request.timing,request.expected);
-            }
+        for(PaintRequest request:measuring) {
+            request.timing.mark("cardUpdated");request.timing.mark("edtDelivery");
+            suggestion.measurePaint(request.timing,request.expected);
         }
-        AccountLedgerSnapshot ledger = account != null && account.isLoggedIn() ? companion.lastLedger() : null;
-        refreshPerformance();
-        AccountLedgerSnapshot history = account != null && account.isLoggedIn() ? companion.historyLedger() : null;
-        if(history==null)history=ledger;
-        details.updateSaleMaintenance(loggedIn);
-        details.update(active,ledger,history,history!=null && ledger!=history);
-        missedFlips.refresh(account!=null && account.isLoggedIn());
         boolean buying = active != null && active.getType() == SuggestionType.BUY && !stepGuide.isPaused();
         skip.setEnabled(buying); block.setEnabled(buying); graph.setEnabled(active != null && active.getItemId() > 0);
         pause.setIcon(stepGuide.isPaused()?playImage:pauseImage);
@@ -224,8 +231,28 @@ public class FlippingFriendPanel extends PluginPanel {
         String accountMode = account != null && account.isLoggedIn() && account.isFreeToPlay() ? "Free-to-play" : "";
         mode.setText(accountMode + (engine.isSellOnly() ? (accountMode.isEmpty() ? "" : " · ") + "Sell only" : ""));
         bankroll.setToolTipText("Planning budget using bank-value preference, collection coins, live commitments and bankroll cap."); mode.setForeground(UiUtils.WARNING);
+        measuring.forEach(request->request.timing.mark("criticalUiFinished"));
+        // RepaintManager has already queued the action paint. Optional records/metrics work
+        // gets a separate turn and must not run while an exact visible paint is outstanding.
+        if(!optionalRefreshQueued) {
+            optionalRefreshQueued=true;
+            SwingUtilities.invokeLater(this::refreshOptionalOnEdt);
+        }
         // Swing property changes invalidate only the components that changed. An unconditional
         // root revalidation here forced the complete sidebar through layout every second.
+    }
+    private void refreshOptionalOnEdt() {
+        if(closed){optionalRefreshQueued=false;return;}
+        if(suggestion.awaitingPaint()){optionalRetry.restart();return;}
+        optionalRefreshQueued=false;
+        AccountState account=accountMonitor.getState();boolean loggedIn=account!=null && account.isLoggedIn();
+        AccountLedgerSnapshot ledger=loggedIn?companion.lastLedger():null;
+        AccountLedgerSnapshot history=loggedIn?companion.historyLedger():null;
+        if(history==null)history=ledger;
+        refreshPerformance(loggedIn);
+        details.updateSaleMaintenance(loggedIn);
+        details.update(loggedIn?stepGuide.getSuggestion():null,ledger,history,history!=null && ledger!=history);
+        missedFlips.refresh(loggedIn);
     }
     private static void style(JToggleButton button, boolean selected) {
         boolean high=selected && "risk-high".equals(button.getName());
@@ -237,7 +264,9 @@ public class FlippingFriendPanel extends PluginPanel {
     void setWindowPresenter(BiConsumer<String, JComponent> presenter) { details.setPresenter(presenter); missedFlips.setPresenter(presenter); }
     JPopupMenu detailsMenu() { return menu; }
     public void closeWindows() {
-        Runnable close = () -> { performanceTimer.stop();details.dispose(); missedFlips.dispose(); };
+        Runnable close = () -> { closed=true;performanceTimer.stop();optionalRetry.stop();
+            synchronized(paintRequests){while(!paintRequests.isEmpty())paintRequests.removeFirst().timing.paint("HIDDEN");}
+            suggestion.finishPaint("HIDDEN");details.dispose(); missedFlips.dispose(); };
         if (SwingUtilities.isEventDispatchThread()) close.run(); else SwingUtilities.invokeLater(close);
     }
 }

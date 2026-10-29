@@ -15,6 +15,18 @@ against their own verified evidence. Controlled/native acceptance records remain
 
 ## Current batch
 
+- [ ] Verify/deliver the foreground follow-up: critical action/control refresh before optional
+      sidebar work, lazy hidden Records/Missed flips, actual EDT/card stages and serial worker
+      task attribution. Preserve financial ordering and final authority. Require clean checks,
+      exact-head CI, fresh hour, preservation and native/player acceptance. Clean 2,565 Java/six
+      skips, 175 tooling and 38 actual-JAR Java 11 checks pass; #198 stays installed
+      until release gates pass. [Contract](docs/architecture/foreground-guidance-refresh.md).
+
+
+- [ ] Investigate the retained #198 scheduled-companion outage; global health and a thread dump
+      timed out. Same-JAR recovery restores guidance and all 286 original pending sources commit
+      unchanged, but root cause/recurrence and recovered startup/warm sale delays remain open.
+      Do not infer resolution from the ownership-query tooling fix or unrelated successful probes.
 - [x] Deliver #198 timing/display runtime: opaque account-scoped main/selected-sale/maintenance
       traces, bounded asynchronous telemetry, honest visible-paint outcomes, unchanged sidebar
       refreshes and rounded sale/hourly values. Clean 2,556 Java/six skips, 168 tooling, Java 11,

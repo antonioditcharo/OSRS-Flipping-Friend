@@ -111,6 +111,8 @@ final class CompactSuggestionPanel extends JPanel {
         paintTiming.request(timing,expected);paintTiming.validate(this,shown);
         repaint();
     }
+    boolean awaitingPaint(){paintTiming.validate(this,shown);return paintTiming.pending();}
+    void finishPaint(String outcome){paintTiming.finish(outcome);}
     @Override public void paint(Graphics graphics) {
         super.paint(graphics);
         paintTiming.completed(this,shown,graphics);

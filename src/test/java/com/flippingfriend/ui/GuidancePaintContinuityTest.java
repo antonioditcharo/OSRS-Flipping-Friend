@@ -72,7 +72,8 @@ public class GuidancePaintContinuityTest {
             try{publisher.join();}catch(InterruptedException failure){throw new AssertionError(failure);}
             when(f.guide.getSuggestion()).thenReturn(Suggestion.builder(SuggestionType.MODIFY_SELL).item(562,"Latest maintenance").quantity(2).price(222).build());
         });
-        SwingUtilities.invokeAndWait(()->{});verify(f.monitor,times(2)).getState(); // one guidance read and one performance read
+        SwingUtilities.invokeAndWait(()->{});SwingUtilities.invokeAndWait(()->{});
+        verify(f.monitor,times(2)).getState(); // one guidance read and one deferred performance read
         assertTrue(CompactPanelContractTest.tree(f.panel).stream().filter(c->c instanceof JTextArea)
             .map(c->((JTextArea)c).getText()).anyMatch(s->s.equals("Latest maintenance")));
         when(f.config.checkInterval()).thenReturn(CheckInterval.EIGHT_HOURS);f.refresh();

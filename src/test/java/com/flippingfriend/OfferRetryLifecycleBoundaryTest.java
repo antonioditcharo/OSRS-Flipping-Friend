@@ -13,7 +13,7 @@ public class OfferRetryLifecycleBoundaryTest
                 Path root = Path.of("").toAbsolutePath();
                 String plugin = Files.readString(root.resolve("src/main/java/com/flippingfriend/FlippingFriendPlugin.java"), StandardCharsets.UTF_8);
                 String client = Files.readString(root.resolve("src/main/java/com/flippingfriend/companion/CompanionClient.java"), StandardCharsets.UTF_8);
-                Assert.assertTrue(plugin.contains("companion.requestPendingOfferReplay(executor)"));
+                Assert.assertTrue(plugin.contains("companion.requestPendingOfferReplay(GuidanceWorker.named(executor,GuidanceWorker.Task.OFFER_REPLAY))"));
                 Assert.assertTrue(plugin.contains("companion.resumeOfferReplay()"));
                 Assert.assertTrue(plugin.contains("companion.pauseOfferReplay()"));
                 Assert.assertTrue(client.contains("replayGeneration.incrementAndGet()"));

@@ -126,3 +126,13 @@ class GuidanceTimingTest(unittest.TestCase):
         second = self.row(trace="p:MAIN:2"); second["account"] = "rs-"+"b"*64; self.add(audit, second)
         unknown = self.row(trace="p:MAIN:3"); unknown.pop("account"); self.add(audit, unknown)
         self.assertEqual(["FIRST_OBSERVED", "FIRST_OBSERVED", "UNPROVEN_IDENTITY"], [r["decisionOccurrence"] for r in audit.result()["samples"]])
+
+    def test_new_edt_entry_separates_queue_card_update_and_remaining_ui(self):
+        audit=TimingAudit();row=self.row();self.add(audit,row)
+        paint=dict(row,event="PAINT",paintOutcome="PAINTED")
+        paint["stageMicros"]=dict(row["stageMicros"],panelRequested=21000,edtStarted=120000,
+            cardUpdated=125000,edtDelivery=125000,criticalUiFinished=127000,paintEnd=130000)
+        self.add(audit,paint);result=audit.result();self.assertEqual([],result["invalid"])
+        sample=result["samples"][0]
+        self.assertEqual(99,sample["edtQueueMs"]);self.assertEqual(5,sample["cardUpdateMs"])
+        self.assertEqual(2,sample["remainingCriticalUiMs"])

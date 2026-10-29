@@ -14,7 +14,7 @@ GROUPS = {
         'FullBoardSaleReservationWorkflowTest', 'companion.SaleGuidanceDeliveryTest',
         'companion.OfferEventAcknowledgementResponseTest', 'companion.AcceptedBuyPlanDeliveryTest',
         'companion.EntryDecisionOrchestrationTest', 'data.PublicMarketNumbersCompatibilityTest',
-        'ui.GuidanceNativeTimingTest', 'ui.GuidancePaintContinuityTest']],
+        'ui.GuidanceNativeTimingTest', 'ui.GuidancePaintContinuityTest', 'ui.ForegroundGuidanceTest']],
     'companion': ['com.flippingfriend.companion.' + n for n in ['PromptGuidanceLoopbackTest',
         'SalePolicyClientCanonicalRecoveryTest', 'SalePolicyReceiptWorkflowTest', 'BuyReplacementWorkflowTest',
         'ApiReportIsolationTest', 'CanonicalHistoryCacheTest', 'CurrentFrameBaselineTest', 'UnchangedFrameRecoveryTest',
