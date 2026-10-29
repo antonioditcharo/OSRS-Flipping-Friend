@@ -7,7 +7,8 @@ Work in the attached managed worktree, then fast-forward the normal rebuild chec
 Installed local runtime is #195; #190 is the compatible fallback and #186 the economic reference.
 Hosted runtime is #194; #191 is offline qualification only. Exact public numeric validation is
 installed locally with verified preservation. The exit-race/delivery-audit follow-up is tooling
-only and needs no JAR replacement. Do not infer activation from an old private alias: use the
+only, is merged as #196 and needs no JAR replacement. #197 provides chunked offline export
+and persistent-soak repair; read its current receipt/currentDelivery for delivery identity. Do not infer activation from an old private alias: use the
 explicit currentDelivery section and the hashes in HANDOFF.
 
 
@@ -17,7 +18,17 @@ learning associations. Unknown costs or censored outcomes remain unknown. Public
 simulated price touches cannot authorize disposal, repair a financial gap or promote learning.
 Personal inventory is not automatically trading stock; unassigned legacy data stays unassigned.
 
+The owner confirms normal #195 sale revision/cancel/collect/relist and restart; fresh eight-slot
+matching and partial progress are observed without new reconciliation rows. Native/selected-sale
+latency, sustained timing and live late fills remain open. Keep the 2,980ms post-restart outlier.
+
 Priorities:
+
+0. #197 final-source 185,450-row export/verify/audits and old-reader hashes pass at 1 GiB with
+   unchanged database bytes. The strict hour passes 120 groups/7,980 checks/9,300 instrumented
+   requests with zero failures and 119 resource samples. Original socket/OOME and WMI-sampler
+   failures remain retained. Check PR/currentDelivery for exact delivery head and CI; no runtime
+   update is required. Do not repeat completed gates or promote pricing/learning from these counts.
 
 1. Retain installed exact public decoding and preservation. Never narrow an oversized or
    fractional public number into a plausible order, invent missing volume, or freeze unrelated

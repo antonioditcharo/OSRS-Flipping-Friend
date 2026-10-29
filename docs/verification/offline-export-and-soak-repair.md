@@ -45,3 +45,19 @@ until their actual receipts complete. Fresh #195 live main-action delivery sampl
 post-ACK observations, p50 216ms, p95 878ms, maximum 983ms; repeats of working actions are included.
 One SELL-to-WAIT is the explicit selected-editor override. Native rendering, complete controlled
 player workflows and sustained latency remain open. This sample cannot activate pricing/learning.
+
+
+## Completed replacement gates
+
+The final source passes the standard clean build: 2,550 Java cases, six existing skips, own
+bytecode 55 and 81 exact-artifact Java 11 checks. Final-source full 185,450-offer/1,389-gap
+export, verification and both audits pass at 1 GiB with unchanged database bytes and all old #195
+source/observation/score digests equal. No runtime installation or production transport change.
+
+The strict replacement hour passes after 3,601.062s: 120 group runs, 7,980 cases, zero test
+failures, 9,300 instrumented backend-fixture requests with zero transport failures and 119 native
+resource samples. The client worker retains actual production transport, outside the fixture
+wrapper's request counters. Both completion markers and raw logs verify; a zero exit alone cannot
+prove a full run. The original socket/OOME and WMI-sampler failures remain retained. Native
+rendering, selected-sale timing, live late fills and sustained eligible-action acceptance remain
+open. [Current release receipt](../history/chunked-execution-validation-2026-10-28.md).

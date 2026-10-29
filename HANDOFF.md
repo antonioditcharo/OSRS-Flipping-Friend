@@ -51,7 +51,7 @@ authority. New market-loss authority and learning remain off. Existing server/bu
 original base quote approximately $36.20 before tax, approved ceiling $50/month. Three unrelated
 primary-checkout document deletions stay untouched.
 
-## Current release and queued tooling
+## Current release and tooling
 
 #195 uses PUBLIC_NUMERIC_INPUT_V1 across client/companion/replay numeric boundaries, scoped history
 refusal, overflow-safe midpoint and current cached-entry rejection. Unsupported managed valuation
@@ -62,20 +62,34 @@ The old #190 listener timed out and its thread dump did not complete. An update 
 before artifact replacement after native process access denial; the old process was then absent.
 The supported retry installs #195 and restores service reads. First observed post-preparation reads
 are 19.86–97.83ms, warm health 3.57ms; these are not cold-start/durable-ACK/native acceptance.
-RuneLite has reopened; the owner defers manual login/GE until 19:00 local on 28 October.
-Do not request another login before then. The frozen-artifact soak started 21:59:40 UTC and
-FAILED after 3,220.484 seconds (53.7 minutes): 108 group runs, with a final SocketException
-("No buffer space available") during fixture connection setup. It is not a completed hour.
-The full 185,450-row frozen export also FAILED at the fixed 1-GiB heap while serializing JSON;
-raw payloads alone are 276,793,276 bytes, exceeding the old 256-MiB file limit.
+The owner has now logged in, confirmed normal sale revision/cancel/collect/relist without stuck
+cards and performed a normal restart. Fresh post-restart eight-slot durable/account matching passes;
+partial progress is observed and no new reconciliation rows appear. Keep the first startup
+MODIFY_SELL outlier: 3,573ms total / 2,980ms post-ACK. Warm 40-action p95 is 878ms, with repeated
+working cards included; native rendering, selected-sale timing, live late fills and sustained
+acceptance remain open. Installed #195 hashes are unchanged.
+The original 53.7-minute socket-failed soak and monolithic 1-GiB export OOME remain failures.
 [Failed gates and repair contract](docs/verification/offline-export-and-soak-repair.md).
 
 #196 is merged (`a4d37d6013dd722727cd01109b543c3d07bdc92c`), tested head
 `1781a1a709bea14514e73eb433ec399e12dc0c5c`, both exact-head CI platforms `40812821792`.
 It changes tooling only: accept a freshly proven
 exited PID after a native-stop race, retain live/reused/unidentified process refusal, and analyze
-main/editor delivery traces reproducibly. No JAR reinstall for that follow-up. All 155 tooling checks pass; the primary checkout is updated and installed #195 is unchanged. Native, full-account export,
-replacement 60-minute soak and controlled-trading gates remain open.
+main/editor delivery traces reproducibly. All 155 tooling checks pass; the primary checkout is
+updated and installed #195 is unchanged. Current offline gate results follow below; native/
+selected-sale timing, live late fills and sustained eligible latency remain open.
+
+Offline tooling #197 (`codex/chunked-execution-validation`, [PR](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/197))
+provides V2 complete read-only prefixes: 4-MiB/1,024-row chunks, one eight-chunk cache, disk
+indexes, 5-GiB budget and 768-MiB reserve, with V1 readers/evaluation mathematics preserved.
+Final-source 185,450-offer/1,389-gap export, verification and both audits pass at 1 GiB with exact
+#195 source/observation/score hashes and unchanged database bytes. Clean 2,550 Java (six skips),
+81 exact-artifact Java 11 checks and source 7f94d5a CI 40819785528 pass; tooling totals 161 cases.
+The strict hour PASSES: 3,601.062s / 120 groups / 7,980 checks / 9,300 instrumented requests,
+zero failures, 119 native resource samples and verified worker completion markers. Keep the
+original socket/OOME and later WMI-sampler failures. Final delivery-head CI/merge identity is in
+PR #197 and private currentDelivery. This is an offline tool release; installed #195 and all
+357 plugin classes stay unchanged. [Receipt](docs/history/chunked-execution-validation-2026-10-28.md).
 
 ## Verified behavior and limits
 
@@ -107,13 +121,14 @@ Every one of the 81 previously unchecked records is mapped in the
 [the task snapshot](docs/history/tasks-before-input-hardening-2026-10-28.md) and
 [the prior handoff](docs/history/handoff-before-input-hardening-2026-10-28.md).
 
-Next: finish the main/selected-sale delivery matrix and actual cold/warm/native latency, including
+Next: verify #197 delivery identity in currentDelivery, then finish the main/selected-sale delivery matrix and actual cold/warm/native latency, including
 failures. The historical #190 audit has 811 outcome records and 100 linked main-action post-ACK
 observations: p50 580ms, p95 4,656ms, max 12,021ms. These fail the one-second target; keep WAITs
 separate, repeated working actions explicit and old untraceable records unknown. Targets remain cached render
 p95 <=100ms and eligible publication p95 <=1s after required durable frame ACK; report persistence,
-ACK and total latency independently. Player sale revision/partial/late-fill/cancel/collect/relist/
-completion/restart and native chart acceptance remain manual.
+ACK and total latency independently. The owner confirms current #195 sale revision/cancel/collect/relist and restart; observed partial
+progress is retained separately. Live late fills, sustained/native timing and native chart
+acceptance remain open.
 
 Complete common-horizon entry/hold/adjust/exit comparison and separate immutable market-exit
 proof plus durable original-window loss reservations. Age, charts and hypothetical replacement

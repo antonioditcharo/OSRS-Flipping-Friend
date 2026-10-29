@@ -26,6 +26,16 @@ def digest(path):
         for block in iter(lambda: f.read(65536), b''): h.update(block)
     return h.hexdigest()
 
+def summarize_worker(exit_code, rows, stdout):
+    marker = 'COMPLETED_UNINTERRUPTED ' + str(len(rows))
+    if exit_code != 0 or not rows or marker not in stdout.splitlines():
+        raise ValueError('Worker exited without proving uninterrupted completion')
+    if any(row['failures'] or row['fixtureTransportFailures'] for row in rows):
+        raise ValueError('Worker contains retained test or transport failures')
+    return {'exitCode': exit_code, 'groupRuns': len(rows), 'executedChecks': sum(r['tests'] for r in rows),
+        'failures': sum(r['failures'] for r in rows), 'fixtureRequests': rows[-1]['fixtureRequests'],
+        'fixtureTransportFailures': rows[-1]['fixtureTransportFailures'], 'completionMarkerVerified': True}
+
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--classpaths', type=Path, required=True)
@@ -105,11 +115,8 @@ def main():
             time.sleep(1)
         for name, proc in processes.items():
             rows = [json.loads(line) for line in (output / (name + '.jsonl')).read_text(encoding='utf-8').splitlines()]
-            receipt['workers'][name] = {'exitCode': proc.returncode, 'groupRuns': len(rows),
-                'executedChecks': sum(r['tests'] for r in rows), 'failures': sum(r['failures'] for r in rows),
-                'fixtureRequests': rows[-1]['fixtureRequests'] if rows else 0,
-                'fixtureTransportFailures': rows[-1]['fixtureTransportFailures'] if rows else 0}
-            if proc.returncode or not rows or any(r['failures'] or r['fixtureTransportFailures'] for r in rows): receipt['failures'].append({'worker': name})
+            receipt['workers'][name] = summarize_worker(proc.returncode, rows,
+                (output / (name + '.stdout.log')).read_text(encoding='utf-8', errors='backslashreplace'))
         receipt['complete'] = not receipt['failures']
         receipt['acceptancePassed'] = receipt['complete'] and a.seconds >= 3600 and time.monotonic() - started >= 3600
     except Exception as error:
