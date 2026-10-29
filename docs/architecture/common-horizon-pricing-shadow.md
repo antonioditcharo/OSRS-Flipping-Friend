@@ -28,15 +28,15 @@ costs never become known merely to enter the comparison. Stops and wind-down ret
 
 ## Whole-account measurement and limitations
 
-Replay 29 still uses one bankroll/eight physical slots, actual visit/action delays, shared buy
+Replay 30 still uses one bankroll/eight physical slots, actual visit/action delays, shared buy
 limits, partial fills, tax, cancellation/collection and conservative terminal stock. Static
 comparisons credit zero replacement profits. Replay may reuse capital and slots only after the
 simulated collection/placement actually makes them available; future profit is never guaranteed.
 Public completion scenarios retain their unvalidated independence/tail/partial-throughput and
 queue assumptions. Simulation remains distinct from real execution evidence.
 
-Pricing qualification V3 binds `ACCOUNT_HORIZON_PRICING_SHADOW_V1` and the exact evaluator artifact.
-Retained V2 cohorts/evaluators stay unchanged; use their retained artifact, never relabel their
+Pricing qualification V4 binds `ACCOUNT_HORIZON_PRICING_SHADOW_V2_BUDGET_DIVERSITY` and the exact evaluator artifact.
+Retained V2/V3 cohorts/evaluators stay unchanged; use their retained artifact, never relabel their
 old results as this exit policy. The chronological 60/20/20 slices, tuned-input exclusions,
 calibration/coverage checks, three capture-share stresses, original loss bound and unopened-test
 rules stay in force. Report each cadence separately at 100M/member/eight slots. Failed or
@@ -51,3 +51,24 @@ path. Local/Linux and the independent #198 hour are separate evidence. Fixture f
 retain the original deadline/exception/counter, bounded handler/thread state and heap/queue pressure;
 there is no retry, larger timeout, production-transport change or erased failed run. Subsequent
 passes do not establish the original runner's cause or native production latency.
+
+## Budget-diverse entry alternatives
+
+The isolated following version retains the same per-item tactic budget (three in the planner),
+while preserving the highest common-horizon value and cheapest non-dominated affordable shape.
+Remaining places spread across capital requirements using deterministic logarithmic spacing.
+Pruning uses only common-horizon value and resource/preference feasibility: capital, quantity,
+worst loss, full-order profit and expiry. An unfillable or unsupported tactic cannot remove a
+valid one. Mixed item/group/observation/horizon inputs are refused rather than silently compared.
+
+The existing exact portfolio optimizer chooses jointly among the retained alternatives under the
+same fresh-cash, slots, item/group exposure, buy-limit and loss constraints. Its search width does
+not increase. This is a bounded approximation over retained tactics, not proof that every possible
+price/quantity combination was searched. Explicit diagnostics keep the full generated set.
+
+A synthetic counterexample shows why this matters: discarding a smaller order can leave one large
+order chosen, while retaining it allows two different items to fit the same bankroll and slots.
+These are scenario calculations, not executed profit or measured GP/hour superiority. Static
+comparisons still credit no hypothetical replacement income; replay reuses funds/slots only after
+feasible collection. Live/default constructors and metric guard remain unchanged. Replay 30 and
+qualification V4 distinguish this policy; old V2/V3 artifacts and unopened final folds stay intact.
