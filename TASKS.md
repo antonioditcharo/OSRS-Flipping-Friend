@@ -1,10 +1,11 @@
 # Tasks
 
-Updated 28 October 2026. Read [HANDOFF.md](HANDOFF.md) and the current hosted-pilot receipt at
+Updated 29 October 2026. Read [HANDOFF.md](HANDOFF.md) and the current hosted-pilot receipt at
 `local-data/hosted-pilot/delivery-state.json` first for the installed pair and pending source;
 #162 was the hosted pilot's original baseline. Implemented/tested, merged,
 installed and player accepted are separate states. The owner confirms fresh #195 login/GE, sale revision/cancel/collect/relist and restart on 28 October;
-late fills and complete native/sustained timing remain open.
+Those reports belong to #195; #198 is now installed with fresh login/native acceptance pending.
+Late fills and complete native/sustained timing remain open.
 All game interaction remains manual; batch runtime updates and acceptance work.
 
 All 81 prior unchecked records have stable IDs in [the acceptance inventory](docs/verification/trading-pass-acceptance-inventory.md).
@@ -14,16 +15,32 @@ against their own verified evidence. Controlled/native acceptance records remain
 
 ## Current batch
 
-- [ ] Deliver the approved native-guidance qualification pass: correlated main/selected-sale/
-      maintenance stages, bounded asynchronous telemetry, honest visible-paint outcomes,
-      unchanged sidebar refreshes and rounded sale/hourly displays. Keep #195 installed until
-      clean Java/tooling, Java 11, exact-head CI, uninterrupted hour and preservation pass.
-      Profile retained startup/selected-sale delays before extending authority-sensitive caches.
+- [x] Deliver #198 timing/display runtime: opaque account-scoped main/selected-sale/maintenance
+      traces, bounded asynchronous telemetry, honest visible-paint outcomes, unchanged sidebar
+      refreshes and rounded sale/hourly values. Clean 2,556 Java/six skips, 168 tooling, Java 11,
+      both exact-head CI platforms 40848616896 and uninterrupted 3,601.875s hour pass. Installed;
+      339-file/six-configuration restoration, all 12 financial tables and previous-#195 reads pass.
+      #195 remains the immediate rollback target; #186 the economic reference.
+      [Receipt](docs/history/native-guidance-and-shadow-2026-10-29.md).
+- [ ] Finish #198 native qualification: fresh login/GE, retained trades, visible main/editor
+      guidance and distinct eligible decisions. Measure idle/mixed conditions and cached paint
+      p95 <=100 ms / eligible publication p95 <=1s after durable ACK separately per path. Retain
+      failures/missing stages/repeats and profile the old 2,980-ms startup outlier before extending
+      authority-sensitive preparation. Player operations remain manual.
       [Contract](docs/architecture/native-guidance-timing.md).
-- [ ] Follow with common-horizon whole-account pricing in shadow, then observational learner
-      construction after delivery/latency/provenance gates. Preserve the live baseline and
-      5m/30m/2h/8h qualification, original risk and fixed public capture stop. No new loss authority
-      or learning promotion in the timing release. Rare live late fills remain explicit if not observed.
+- [x] Implement/verify the isolated common-horizon pricing source #199: shared entry/exit horizon,
+      quantity/tax/partial-fill/terminal-value comparison, standing hold versus completed relist,
+      matching offline final authority and qualifier V3/replay 29. Clean 2,562 Java/six skips,
+      29 exact-JAR Java 11 checks, 170 tooling checks, five extra strict loopback runs and source-head CI 40852265476
+      pass. Final delivery-head CI/merge is recorded in the PR/currentDelivery. It is not installed;
+      live constructors remain baseline. Retain original Windows CI 40848858178 timeout/cause unknown.
+      [Shadow contract](docs/architecture/common-horizon-pricing-shadow.md).
+- [ ] Complete joint account alternatives and chronological pricing qualification, then observational
+      learner construction only after delivery/latency/provenance gates. Keep 5m/30m/2h/8h results,
+      100M/eight slots, original risk, fixed public stop and unopened final fold. New market-loss
+      authority is separate; no pricing/learning promotion from synthetic results. Deterministic
+      real-handler late-fill regressions plus live monitoring satisfy only the selected construction
+      gate; an unobserved live late fill stays explicitly unverified.
 
 - [x] Verify/deliver #196, the script-only exit-race and delivery-audit follow-up. Continue a process
       drain only after fresh proof the target PID is absent; retain all live/reused/unknown

@@ -12,7 +12,7 @@ import java.util.*;
 
 /** One simulated account, one bankroll and eight physical slots; never opens a live database. */
 final class AccountReplay implements AutoCloseable {
-    static final String VERSION="account-replay-28";
+    static final String VERSION="account-replay-29";
     private static final String ACCOUNT=AccountIdentity.fromProfileKey("synthetic-account-replay-only");
     interface Entries {
         PortfolioPlan plan(MarketIngestionService.MarketState market,AccountSnapshot account,
@@ -58,7 +58,7 @@ final class AccountReplay implements AutoCloseable {
         final String schemaVersion="1",evidence="SIMULATED_PUBLIC_VOLUME_SHARE",policyVersion=VERSION;
         final String completionModel;
         final String pricingObjective;
-        final String salePolicyVersion=CompanionSalePolicy.VERSION;
+        final String salePolicyVersion;
         final int cadenceMinutes,captureShareBps,actionSeconds,missedVisits;
         final long elapsedSeconds,initialCoins,bagCoins,lockedBuyCoins,collectionCoins,inventoryCost,terminalValueLower;
         final long equityLower,netEquityChangeLower,realizedProfit,tax,maximumDrawdown,interactions,completedSales,losingSales,saleUpdates,losingSaleUpdates;
@@ -70,7 +70,8 @@ final class AccountReplay implements AutoCloseable {
         Result(AccountReplay r,long end) throws Exception {
             cadenceMinutes=r.cadence;captureShareBps=r.share;actionSeconds=r.input.actionSeconds;missedVisits=r.missed;
             completionModel=r.completionModel;
-            pricingObjective=r.pricingExperiment?com.flippingfriend.model.AccountPriceScenarios.VERSION:null;
+            pricingObjective=r.pricingExperiment?com.flippingfriend.model.AccountHorizonPricing.VERSION:null;
+            salePolicyVersion=r.pricingExperiment?CompanionSalePolicy.VERSION+"-"+AccountHorizonPricing.VERSION:CompanionSalePolicy.VERSION;
             authorizedSales=r.authorizedSales;withdrawnGuidance=r.withdrawnGuidance;
             replacementBuys=r.replacementBuys;relistedSales=r.relistedSales;
             elapsedSeconds=end-r.input.startAt;initialCoins=r.input.initialCoins;bagCoins=r.cash;
@@ -114,7 +115,7 @@ final class AccountReplay implements AutoCloseable {
     private final Map<Integer,Integer> inventory=new TreeMap<>();
     private final BuyLimitLedger limits=new BuyLimitLedger();
     private final TaxCalculator tax=new TaxCalculator();
-    private final SellTimingEngine exits=new SellTimingEngine(new FillModel(),tax,true);
+    private final SellTimingEngine exits;
     private final SaleMaintenancePricing maintenance=new SaleMaintenancePricing();
     private final AdvisedPriceTracker advisedPrices=new AdvisedPriceTracker();
     private final TradingHorizon horizon;
@@ -152,6 +153,8 @@ final class AccountReplay implements AutoCloseable {
         };
         PortfolioPlanner planner=new PortfolioPlanner(history);
         this.pricingExperiment=pricingExperiment;
+        exits=new SellTimingEngine(new FillModel(),tax,true,pricingExperiment
+            ?SellTimingEngine.PricePolicy.ACCOUNT_HORIZON_SHADOW:SellTimingEngine.PricePolicy.VERIFIED_BASELINE);
         if(pricingExperiment) {
             if(fixture!=null || challenger!=null)throw new IllegalArgumentException("Pricing qualification keeps the baseline completion model and real planner");
             planner.usePricingExperiment();
@@ -466,7 +469,7 @@ final class AccountReplay implements AutoCloseable {
     }
     private boolean authorizeSale(SqliteStore.SaleProjections read,AccountSnapshot account,MarketIngestionService.MarketState market,
         int item,int price,int quantity,String source,boolean cut,int slot,String repriceSource) {
-        var decision=new CompanionSalePolicy().decide(read.planning,read.ledger,account,market,history,item,price,quantity,source,cut,slot,now,repriceSource);
+        var decision=new CompanionSalePolicy(pricingExperiment).decide(read.planning,read.ledger,account,market,history,item,price,quantity,source,cut,slot,now,repriceSource);
         if(decision.getAction()==(slot<0?OfferLifecycleAction.PLACE_SELL:OfferLifecycleAction.CANCEL_SELL))return true;
         abstain(decision.getReasonCode());return false;
     }

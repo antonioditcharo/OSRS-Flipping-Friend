@@ -4,13 +4,14 @@ Use `HANDOFF.md`, `TASKS.md` and the linked acceptance inventory for current del
 unfinished requirement. Active/default branch is `CoPilot's-Rebuild-from-Main`; main is historical.
 Work in the attached managed worktree, then fast-forward the normal rebuild checkout for delivery.
 
-Installed local runtime is #195; #190 is the compatible fallback and #186 the economic reference.
-Hosted runtime is #194; #191 is offline qualification only. Exact public numeric validation is
-installed locally with verified preservation. The exit-race/delivery-audit follow-up is tooling
-only, is merged as #196 and needs no JAR replacement. #197 provides chunked offline export
-and persistent-soak repair; read its current receipt/currentDelivery for delivery identity. Do not infer activation from an old private alias: use the
-explicit currentDelivery section and the hashes in HANDOFF.
-
+Installed local runtime is #198; #195 is the immediate code rollback and #186 the economic reference.
+Hosted #194 is unchanged. #198 preservation, both CI platforms and a fresh 3,601.875-second strict
+hour pass. Fresh native/player acceptance remains pending; do not reuse #195 acceptance as #198.
+#199 is an offline-only common-horizon shadow source, not installed or promoted. Check PR/currentDelivery
+for final delivery-head CI and merge. Reuse #197's completed 185,450-row export/verify/audits at 1 GiB;
+no relevant export implementation changed. Preserve original socket/OOME, intentionally superseded
+1,798-second hour and unproven Windows fixture-timeout failures. Current details and hashes are in
+HANDOFF and the linked 29 October receipt; older private root aliases are historical.
 
 Continue implementing the approved optimization/pricing pass. Preserve current trades, original
 acquisition allocation/targets/stops/risk windows, immutable financial IDs, outboxes and original
@@ -18,7 +19,7 @@ learning associations. Unknown costs or censored outcomes remain unknown. Public
 simulated price touches cannot authorize disposal, repair a financial gap or promote learning.
 Personal inventory is not automatically trading stock; unassigned legacy data stays unassigned.
 
-The owner confirms normal #195 sale revision/cancel/collect/relist and restart; fresh eight-slot
+The owner previously confirmed normal #195 sale revision/cancel/collect/relist and restart; fresh eight-slot
 matching and partial progress are observed without new reconciliation rows. Native/selected-sale
 latency, sustained timing and live late fills remain open. Keep the 2,980ms post-restart outlier.
 
@@ -33,12 +34,13 @@ Priorities:
 1. Retain installed exact public decoding and preservation. Never narrow an oversized or
    fractional public number into a plausible order, invent missing volume, or freeze unrelated
    verified cash because one managed item has valuation-only uncertainty.
-2. Complete main/editor terminal delivery accounting and actual cold/warm/native latency.
+2. Complete actual #198 main/editor cold/warm/native latency using the installed correlated traces.
    Keep valid cards steady; invalid authority withdraws immediately and schedules a successor.
    Preserve healthy working offers and original anti-churn protections. Targets remain cached
    render p95 <=100 ms and eligible publication p95 <=1s after required durable frame ACK, with
    persistence, ACK, failures and total latency separately reported.
-3. Finish common-horizon entry/hold/adjust/exit comparisons and separate immutable market-exit
+3. Qualify the offline common-horizon entry/hold/adjust/exit source; finish joint account alternatives
+   and separate immutable market-exit
    evidence plus durable original-window loss reservations. Do not reuse receipt family 10 as
    this new authority. Age, charts and hypothetical replacement profits cannot grant a loss.
 4. Finish the fixed hosted public capture and freeze a new chronological 60/20/20 cohort with

@@ -1,6 +1,6 @@
 package com.flippingfriend.companion;
 
-import com.flippingfriend.model.AccountPriceScenarios;
+import com.flippingfriend.model.AccountHorizonPricing;
 import com.google.gson.Gson;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
@@ -9,7 +9,7 @@ import java.util.*;
 /** Separate chronological pricing experiment. No live store, policy switch or learning promotion. */
 public final class PricingQualificationMain {
     private static final Gson JSON=new Gson();
-    private static final String VERSION="PRICING_QUALIFICATION_V2";
+    private static final String VERSION="PRICING_QUALIFICATION_V3";
     static final class Exclusions {
         String schemaVersion;
         Long tunedThrough;
@@ -17,7 +17,7 @@ public final class PricingQualificationMain {
         String availabilityEvidence;
     }
     static final class Manifest {
-        String schemaVersion="1",method=VERSION,policy=AccountPriceScenarios.VERSION;
+        String schemaVersion="1",method=VERSION,policy=AccountHorizonPricing.VERSION;
         String inputSha256,exclusionsSha256,artifactSha256;
         long startAt,fitEnd,validationEnd,endAt;
     }
@@ -36,7 +36,7 @@ public final class PricingQualificationMain {
         final Map<Integer,String> cadenceOutcomes;
         final PricingForecastCalibration.Report forecastCalibration;
         Report(String fold,Manifest manifest,List<Pair> pairs,Map<Integer,String> outcomes,PricingForecastCalibration.Report calibration) {
-            method=VERSION;policy=AccountPriceScenarios.VERSION;
+            method=VERSION;policy=AccountHorizonPricing.VERSION;
             this.fold=fold;cohortSha256=manifest.inputSha256;artifactSha256=manifest.artifactSha256;
             comparisons=List.copyOf(pairs);cadenceOutcomes=Collections.unmodifiableMap(new TreeMap<>(outcomes));
             forecastCalibration=calibration;
@@ -74,7 +74,7 @@ public final class PricingQualificationMain {
     static Manifest verify(Path cohort)throws Exception {
         var manifest=JSON.fromJson(Files.readString(cohort.resolve("manifest.json")),Manifest.class);
         if(manifest==null || !"1".equals(manifest.schemaVersion) || !VERSION.equals(manifest.method)
-            || !AccountPriceScenarios.VERSION.equals(manifest.policy) || !Objects.equals(manifest.artifactSha256,artifactIdentity())
+            || !AccountHorizonPricing.VERSION.equals(manifest.policy) || !Objects.equals(manifest.artifactSha256,artifactIdentity())
             || !Objects.equals(manifest.inputSha256,ExecutionEvaluationMain.hash(AccountReplayMain.read(cohort.resolve("input.json"))))
             || !Objects.equals(manifest.exclusionsSha256,ExecutionEvaluationMain.hash(AccountReplayMain.read(cohort.resolve("exclusions.json")))))
             throw new IllegalArgumentException("Frozen cohort, policy or evaluator changed");
@@ -105,7 +105,7 @@ public final class PricingQualificationMain {
                 throw new IllegalArgumentException("Prior fold result changed");
             var previous=JSON.fromJson(new String(previousBytes,StandardCharsets.UTF_8),Report.class);
             if(previous==null || !prior.equals(previous.fold) || !Objects.equals(manifest.inputSha256,previous.cohortSha256)
-                || !VERSION.equals(previous.method) || !AccountPriceScenarios.VERSION.equals(previous.policy)
+                || !VERSION.equals(previous.method) || !AccountHorizonPricing.VERSION.equals(previous.policy)
                 || !Objects.equals(manifest.artifactSha256,previous.artifactSha256))throw new IllegalArgumentException("Prior fold identity mismatch");
             if("test".equals(fold))eligible.removeIf(c->!"PASSED_SIMULATION_ONLY".equals(previous.cadenceOutcomes.get(c)));
         }
