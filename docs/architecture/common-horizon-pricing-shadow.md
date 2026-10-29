@@ -45,3 +45,9 @@ unsupported segments cannot activate the challenger or suppress baseline guidanc
 The active hosted capture retains its original 2026-11-08T01:31:16Z stop and $50/month ceiling.
 Do not tune on its growing tail or open the final held-out fold. Learning construction remains
 behind delivery, native latency and prospective-source gates; promotion is separate.
+
+Retain Windows CI run 40848858178's five-second fixture timeout on the unchanged GE-offer POST
+path. Local/Linux and the independent #198 hour are separate evidence. Fixture failure diagnostics
+retain the original deadline/exception/counter, bounded handler/thread state and heap/queue pressure;
+there is no retry, larger timeout, production-transport change or erased failed run. Subsequent
+passes do not establish the original runner's cause or native production latency.
