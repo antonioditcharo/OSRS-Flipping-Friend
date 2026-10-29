@@ -5,138 +5,109 @@ Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
 ## Installed runtime and preservation
 
-Local plugin/companion **#198 is installed**, 29 October at 10:28:07 UTC. Tested source
-`2c8b5bca943692c2921460f0c818244e66db7e6c`, merge `f87e0b38ed7271cd3be8079aea17c88249cc1319`;
-both exact-head CI platforms `40848616896`, clean 2,556 Java checks (six existing skips),
-168 tooling and own bytecode 55 pass. Installed SHA-256:
+Local plugin/companion **#200 is installed**, 29 October at 21:06:55 UTC. Tested source
+`a05a5616c8ac5a1d48e86282b142372fafd5914b`, merge `579c9fbf6de60435d4879b692e64b684572dc42a`;
+both exact-head CI platforms `40947246833`, clean 2,565 Java checks (six existing skips),
+175 tooling, 38 actual-JAR Java 11 checks and own bytecode 55 pass. Installed SHA-256:
 
-- Plugin: `3af6edd87af388d2531e54657a6c416b03d2d71ea406adb7d71c3a9f17583f95`.
-- Companion: `9ccc6c671b546c7921603096326e552039b91872fc26073e4e719489eaeea5de`.
+- Plugin: `8fb15ee09aabd3428f57911f765c3b0c2da9380db107b3c9ee2a5cbb66c3100e`.
+- Companion: `78b69b0881da3755dd9376bafbe084eb9d23d35d544faba1b7b08acf7ad68c92`.
 
-Backup `20261029-022757-109cdedd` passes disposable restoration of 339 files plus six supplemental
-configurations. All 12 original financial tables are identical. Previous #195/current #198 read the
-same ledger, stock, scope, exposure, continuation and original-risk results from that restored account;
-its database bytes remain unchanged. The unassigned legacy database has a separate read-only backup
-and disposable restore; its owner remains unassigned. No live database restoration or financial replay.
-**#195 is the immediate code rollback target; #186 is the economic reference.** #190 remains retained.
-Rollback changes code while preserving subsequent trades. Protected startup task/XML/permissions are
-unchanged. Normal close, paired update, status/launcher/GET-only pipeline and reopening pass.
-[Current receipt](docs/history/native-guidance-and-shadow-2026-10-29.md).
+Backup `20261029-130649-0cc35552` passes disposable restoration of 345 files plus six supplemental
+configurations. All 12 original financial tables are identical. Previous #195, previous #198 and
+current #200 read the same ledger, stock, scope, exposure, continuation and original-risk results
+from that restored account; database bytes remain unchanged. The unassigned legacy database has
+its own read-only snapshot/disposable restore and stays unassigned. No live database restoration,
+financial replay or risk reset. **#195 remains the immediate code rollback target; #186 is the
+economic reference.** #198/#190 artifacts remain retained; code rollback preserves later trades.
 
-RuneLite reopened at the login screen. Fresh #198 login/GE, visible guidance, current-trade retention
-and native main/editor timing remain pending. The owner's normal sale revision/cancel/collect/relist,
-restart and observed partial progress belong to **#195**. Live late fills are unobserved. Keep its
-2,980-ms post-ACK / 3,573-ms total startup outlier unresolved until the new trace profiles it.
+Protected startup task/XML/permissions are unchanged. Normal close, paired update, status,
+launcher CheckOnly, GET-only pipeline and reopening pass. Fresh cash/slots correctly require the
+client. RuneLite reopened at login; **fresh #200 manual login/GE, native timing and player trading
+acceptance remain open**. Login is requested once; check fresh logs before requesting again.
+The owner's reported sale revision/cancel/collect/relist and restart acceptance belongs to #195.
+[Current delivery receipt](docs/history/foreground-guidance-and-budget-shadow-2026-10-29.md).
 
-## Queued foreground follow-up
+## Foreground behavior and retained failures
 
-`codex/guidance-foreground-fast-path` separates action painting from optional sidebar/hidden
-investigation work and attributes the existing serial worker's active task. The first #198 live
-session has four distinct BUY decisions at post-ACK p95 751 ms but 12 painted cards at render p95
-166 ms; selected-sale timing remains unmeasured. The first pre-ACK worker wait is 5.3 seconds.
-Clean 2,565 Java/six skips, 175 tooling and 38 exact-JAR Java 11 checks pass.
-Final source `a05a5616c8ac5a1d48e86282b142372fafd5914b` passes both CI platforms `40947246833`;
-[#200](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/200) is merged at
-`579c9fbf6de60435d4879b692e64b684572dc42a`. Its fresh hour, preservation and installation are pending;
-#198 stays installed. Retain initial CI `40945815019`'s portable-path/EDT fixture failures. The
-corrected fixtures leave every frozen production class unchanged; neither deadlines nor retries changed.
-[Contract](docs/architecture/foreground-guidance-refresh.md).
+#200 paints the action/current controls before optional sidebar work, lazily populates hidden
+investigations and attributes MAIN/SELECTED_SALE/OFFER_REPLAY waits on the same serial worker.
+Financial ordering, final authority, acknowledgement and learning identities are unchanged.
+Its fresh strict hour passes: 3,601.625 seconds, 120 groups, 8,640 checks, 9,300 instrumented backend
+requests, zero test/transport/telemetry failures, 119 native resource samples, both uninterrupted
+completion markers and all 1,300 frozen input hashes. Final fixture corrections leave every frozen
+production class identical. Retain initial CI `40945815019`'s Linux path/Windows EDT fixture failures;
+no transport retry or deadline change. [Contract](docs/architecture/foreground-guidance-refresh.md).
 
-The later #198 scheduled companion stopped answering global/account reads. Same-JAR companion
-recovery retains a read-only snapshot and original outboxes; all 286 pending identities and financial
-fields subsequently commit unchanged, with zero missing or remaining. RuneLite/installed pair/task
-metadata are unchanged. The outage cause is unproven; keep failed health/thread captures and the
-first recovered SELL's 7.08s total / 2.974s post-ACK delay. New tooling fixes only the demonstrated
-CIM owner-query exit race, retaining live/reused/unknown refusals. The standalone first cold paint
-is 226ms versus 566ms under a controlled slow optional task; native targets remain unqualified.
+The complete pre-update #198 session has 32 MAIN paints at p95 116.429 ms and six proven distinct
+eligible actions at post-ACK p95 1,372.189 ms. Four selected-sale paints have p95 46.868 ms, but all
+four have unproven decision/source identity and remain excluded from successful-publication
+qualification; attempted computation p95 is 1,340.353 ms. Keep the old 2,980-ms startup outlier,
+recovered 7.08s total/2.974s post-ACK SELL and missing stages. Host available memory reached zero
+rounded MiB under uncontrolled background load. Synthetic group timing/standalone paint probes
+are not native acceptance; short JFR sampling does not identify a pricing/transport cause.
 
-## Current source and verification
+The #198 scheduled companion stopped responding to global/account reads; a thread dump timed out.
+Supported same-JAR companion recovery retains a coherent read-only snapshot/original outboxes;
+all 286 pending observations subsequently commit with unchanged original identities/financial
+fields and none missing/remaining. Cause/recurrence remain open. The tooling fix addresses only
+the demonstrated CIM owner-query exit race: fresh PID-specific absence is required; live/reused/
+unreadable/unknown cases still refuse. Two sale-to-WAIT events remain explicit: Jade amulet's
+refusal returns the same sale next pass one second later; enhanced crystal seed's supersession
+cause is unproven. No unsupported stuck/dropped-action conclusion or erased failed observations.
 
-Following `codex/budget-diverse-pricing-shadow` preserves affordable quantity alternatives inside
-the existing three-tactic budget so the shared portfolio optimizer can select combinations across
-items under unchanged financial limits. Live/default constructors retain their current guard.
-Replay 30 / qualification V4 / policy `ACCOUNT_HORIZON_PRICING_SHADOW_V2_BUDGET_DIVERSITY` keep
-older cohorts and evaluator artifacts distinct. Clean 2,568 Java checks (six skips) and 48 actual-JAR
-Java 11 core/authority/replay checks pass. Synthetic fit/validation refuse all four cadences;
-the final fold remains unopened. This is offline source, with exact-head CI/merge still pending;
-neither scenario counts nor the synthetic combination example establish GP/hour improvement.
-Reuse #200's 175 tooling checks for unchanged tooling; both CI platforms must still run on this head.
+## Following offline pricing source
 
-#198 adds opaque account-scoped main/selected-sale diagnostic traces through completed visible Swing
-painting, bounded asynchronous logging, explicit unsuccessful paint outcomes, less unchanged-sidebar
-relayout/resetting, rounded midpoint sale/hourly displays and primitive public cache snapshots with
-unchanged fingerprints. Financial IDs, acknowledgement semantics and live authority are unchanged.
-[Timing contract](docs/architecture/native-guidance-timing.md).
+[#199](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/199) adds shared common-horizon
+entry/hold/adjust/exit scenarios, exact quantities/tax/partial fills, conservative remaining stock,
+standing hold versus cancelled relist and matching offline authority. Its dormant code is included
+in #200; live/asynchronous constructors retain the baseline. Original source/final CI `40852265476`/
+`40859284054` and 29 actual-JAR Java 11 checks pass. Retain Windows CI `40848858178`'s original strict
+GE-offer POST timeout; cause unproven. [Shadow contract](docs/architecture/common-horizon-pricing-shadow.md).
 
-Its fresh strict hour PASSES: 3,601.875 seconds, 120 groups, 8,460 checks, 9,300 instrumented backend
-fixture requests, zero test/transport/telemetry failures, 119 native resource samples and both worker
-completion markers. All 1,293 frozen inputs rehash correctly. The earlier 1,798.11-second run was
-intentionally superseded for account-scope diagnostics and remains incomplete. Host available memory
-fell as low as 3 MiB; uncontrolled background load prevents attributing that pressure to guidance.
-Group timing and the standalone Swing paint probe are not RuneLite eligible-action latency.
+[#201](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/201) retains affordable alternatives
+inside the existing three-tactic budget for joint portfolio selection under unchanged cash/slot/
+quantity/exposure/loss limits. Replay 30 / qualification V4 bind the distinct budget-diversity policy;
+older V2/V3 cohorts/artifacts stay unchanged. Clean 2,568 Java checks (six skips), 48 actual-JAR
+Java 11 checks and initial exact-head CI `40951693894` pass. Synthetic fit/validation refuse all
+four cadences, final fold unopened. Final documentation-head CI/merge is recorded in the PR and
+currentDelivery. **Offline source only: keep installed #200 JARs; no additional installation,
+pricing switch, loss authority, learning activation or profit-superiority claim.**
 
-Following source [#199](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/199) implements an
-**offline-only common-horizon shadow** using existing scenarios/replay: exact quantity/tax/partial-fill/
-remaining-stock value, standing-offer hold versus adjustment, cancelled-sale relist and matching offline
-final authority. Live/asynchronous constructors keep the baseline. Clean 2,562 Java checks (six skips),
-29 exact-JAR Java 11 core/authority checks, 170 tooling checks and five additional strict loopback
-runs pass. The audit excludes failed paints/lost telemetry from successful publication and reports
-distinct versus repeated decisions separately. Source
-`66d35a0d3814798c5c2b29c9778d8f68b9aa4d0a` passes both CI platforms `40852265476`; final documentation
-head `45bbb9e498aa6ea6b63985df502eb7148e3922f2` passes both CI platforms `40859284054`;
-merge `3c167db4061232c7f514a4fed8cd444610fbdd67` is delivered to the primary source checkout.
-#199 is **not installed**.
-[Shadow contract](docs/architecture/common-horizon-pricing-shadow.md).
+#196/#197's delivered V2 export/repaired soak proofs remain reusable: full frozen 185,450-offer/
+1,389-gap export/verify/audits at 1 GiB, original database/observations/scores unchanged. Keep the
+original 53.7-minute socket failure, monolithic OOME and sampler failures. The independent #198
+3,601.875s hour is retained separately. [Tooling receipt](docs/history/chunked-execution-validation-2026-10-28.md).
 
-Retain Windows CI `40848858178`'s strict five-second GE-offer POST timeout. Its cause is unproven;
-bounded failure diagnostics add no retry, timeout increase or production transport change. Later
-passes do not erase it. Static shadow comparisons credit no replacement profit; feasible capital/
-slot reuse is evaluated in replay. Further joint alternatives and chronological qualification remain
-open. Synthetic V3 fit/validation refuses all four cadences and leaves the final fold unopened.
-
-#196/#197 are delivered tooling: exit-race/delivery audit, V2 chunked export and repaired persistent
-soak. Full frozen 185,450-offer/1,389-gap export/verify/audits pass at 1 GiB with unchanged source,
-observations and scores versus #195. Reuse this proof unless relevant code changes. Keep the original
-53.7-minute socket failure, monolithic-export OOME and sampler failures.
-[Tooling receipt](docs/history/chunked-execution-validation-2026-10-28.md).
-
-## Hosted state and future gates
+## Hosted state and remaining gates
 
 Hosted **#194 is unchanged**, source `8ddd05e0c84e3dd4e371ebe86053363edf48e801`, JAR
 `2d7ceac821294d170098391b7d1d940ef2e6ea85fc28b3be7f1b82dc972aa7f4`.
-Enabled/shadow true; recommendations/coordination false; automatic recovery true. Local companion
-remains sole financial authority; no server upgrade. Approved ceiling **$50/month**.
-[Hosted receipt](docs/history/hosted-public-archive-install-2026-10-27.md).
+Enabled/shadow true, recommendations/coordination false, automatic recovery true; local financial
+authority and **$50/month** ceiling remain. [Hosted receipt](docs/history/hosted-public-archive-install-2026-10-27.md).
+Latest read-only integrity audit: 403 seals, 2,621 captures/43.67h, zero failures, 3,231 component
+hashes, about 208 MB of 2 GiB; open tail incomplete. Preserve fixed stop **2026-11-08T01:31:16Z**;
+no growing-tail tuning/final-fold opening. #192 remains the last capacity experiment: 1,000 connected/
+100 active, 8,400 decisions, p95 145.30 ms, zero errors; native/local ACKs/public capacity unqualified.
 
-Latest read-only archive audit: 292 seals, 1,903 captures across 31.7 hours, zero failures,
-2,300 verified component hashes and about 151 MB of 2 GiB. Open tail remains incomplete. Preserve
-fixed stop **2026-11-08T01:31:16Z**; do not tune the growing capture or open the final fold. Capacity
-#192 remains the last experiment: 1,000 connected/100 active, 8,400 decisions, p95 145.30 ms, zero
-errors; this excludes native/local financial ACK latency and public-launch capacity guarantees.
+All 81 original requirements remain in TASKS/the [acceptance inventory](docs/verification/trading-pass-acceptance-inventory.md),
+79 open. Next gates:
 
-Every original unchecked requirement remains in TASKS and the
-[81-record acceptance inventory](docs/verification/trading-pass-acceptance-inventory.md); 79 remain open.
-The next gates are:
+1. Fresh #200 native MAIN/SELECTED_SALE timing, current trades, source attribution and manual sale
+   revision/cancel/collect/relist/restart. Require cached paint p95 <=100 ms and distinct eligible
+   publication p95 <=1s after durable ACK; separate idle/mixed load, missing stages, repeats and
+   healthy WAITs. Retain outliers. Deterministic real-handler late-fill tests plus monitoring satisfy
+   only the selected construction gate; unobserved live late fills stay explicitly unverified.
+2. Chronological whole-account 60/20/20 pricing qualification, tuned exclusions and stress at
+   **5m/30m/2h/8h**, 100M/member/eight slots. Unsupported/failed challengers retain baseline guidance.
+   Separate immutable market-loss proof and durable original-window budget remain a later release.
+3. Begin observational completion calibration on the V2 reader only after delivery/latency/
+   prospective-provenance gates pass. Missing optional context excludes learning association without
+   blocking financial delivery; calibration stays neutral and simulations stay separate.
 
-1. Measure #198 native main and selected-sale paths separately: cached paint p95 <=100 ms and
-   eligible publication p95 <=1 second after required durable ACK. Separate persistence, ACK,
-   queue/planning/authority/presentation/paint, distinct decisions, repeated cards and healthy WAITs;
-   retain failures, outliers and missing stages. Profile before extending authority-sensitive caches.
-2. Complete player-operated sale revision, cancel/collect/relist, restart and stable visible guidance
-   on #198. Deterministic real-handler late-fill regressions plus monitoring satisfy the selected
-   rare-case construction gate; unobserved live examples remain explicitly unverified.
-3. Complete joint whole-account pricing alternatives and frozen chronological 60/20/20 qualification,
-   tuned exclusions and stress at **5m/30m/2h/8h**, 100M GP/member/eight slots. Failed/unsupported
-   challengers retain baseline guidance. Separate immutable market-loss proof and durable original-
-   window loss-budget authority remain a later release; age/charts cannot authorize losses.
-4. Begin observational completion calibration on the existing V2 reader only after delivery/latency/
-   prospective-provenance gates pass. Runtime calibration stays neutral; no learning promotion.
-   Optional context cannot block financial delivery; simulations stay separate from real executions.
-
-Private authoritative state is primary `local-data/hosted-pilot/delivery-state.json`, **currentDelivery**;
-older root aliases are historical. Detailed older receipts are preserved in
-[the previous handoff](docs/history/handoff-before-native-guidance-2026-10-29.md).
-Keep unknown costs/coverage unknown, personal belongings outside trading stock, original IDs/plans/
-risk anchors intact and independently funded suggestions available under live guards. Never clear
-outboxes, restore old account databases or automate game input. Three unrelated primary document
-deletions remain untouched.
+Private authoritative state: primary `local-data/hosted-pilot/delivery-state.json`, **currentDelivery**;
+root aliases are historical. Current proofs: `local-data/foreground-guidance-20261029`. Older root
+notes remain in [the previous handoff](docs/history/handoff-before-foreground-delivery-2026-10-29.md).
+Preserve unknown costs, personal belongings, financial IDs/plans/risk anchors and independently funded
+suggestions under live guards. Never clear outboxes, restore old live databases or send game input.
+Three unrelated primary document deletions remain untouched.

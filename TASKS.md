@@ -4,7 +4,7 @@ Updated 29 October 2026. Read [HANDOFF.md](HANDOFF.md) and the current hosted-pi
 `local-data/hosted-pilot/delivery-state.json` first for the installed pair and pending source;
 #162 was the hosted pilot's original baseline. Implemented/tested, merged,
 installed and player accepted are separate states. The owner confirms fresh #195 login/GE, sale revision/cancel/collect/relist and restart on 28 October;
-Those reports belong to #195; #198 is now installed with fresh login/native acceptance pending.
+Those reports belong to #195; #200 is now installed with fresh login/native acceptance pending.
 Late fills and complete native/sustained timing remain open.
 All game interaction remains manual; batch runtime updates and acceptance work.
 
@@ -15,14 +15,16 @@ against their own verified evidence. Controlled/native acceptance records remain
 
 ## Current batch
 
-- [ ] Verify/deliver the foreground follow-up: critical action/control refresh before optional
+- [ ] Accept the installed #200 foreground follow-up: critical action/control refresh before optional
       sidebar work, lazy hidden Records/Missed flips, actual EDT/card stages and serial worker
       task attribution. Preserve financial ordering and final authority. Require clean checks,
       exact-head CI, fresh hour, preservation and native/player acceptance. Clean 2,565 Java/six
-      skips, 175 tooling and 38 actual-JAR Java 11 checks pass; #198 stays installed
-      until release gates pass. #200 merged at `579c9fb` after both final-head CI platforms
-      `40947246833`; fresh hour/preservation/install remain pending. Retain the initial fixture
-      failures and production-byte-equivalence proof. [Contract](docs/architecture/foreground-guidance-refresh.md).
+      skips, 175 tooling and 38 actual-JAR Java 11 checks pass. #200 merged at `579c9fb` after
+      both final-head CI platforms `40947246833`; installed 29 October 21:06:55 UTC. Fresh hour
+      passes 3,601.625s/8,640 checks/9,300 requests/zero failures, both markers and 1,300 input hashes.
+      Restoration of 345 files/six configurations, all 12 original tables and previous #195/#198
+      financial/risk reads pass. Native/player gates stay open; retain initial fixture failures,
+      production-byte equivalence and outliers. [Receipt](docs/history/foreground-guidance-and-budget-shadow-2026-10-29.md).
 
 
 - [ ] Investigate the retained #198 scheduled-companion outage; global health and a thread dump
@@ -36,18 +38,22 @@ against their own verified evidence. Controlled/native acceptance records remain
       339-file/six-configuration restoration, all 12 financial tables and previous-#195 reads pass.
       #195 remains the immediate rollback target; #186 the economic reference.
       [Receipt](docs/history/native-guidance-and-shadow-2026-10-29.md).
-- [ ] Finish #198 native qualification: fresh login/GE, retained trades, visible main/editor
+- [ ] Finish carried #198 native qualification on installed #200: fresh login/GE, retained trades, visible main/editor
       guidance and distinct eligible decisions. Measure idle/mixed conditions and cached paint
       p95 <=100 ms / eligible publication p95 <=1s after durable ACK separately per path. Retain
       failures/missing stages/repeats and profile the old 2,980-ms startup outlier before extending
       authority-sensitive preparation. Player operations remain manual.
+      Complete #198 session: MAIN 32 paints p95 116.429ms; six distinct eligible actions p95
+      1,372.189ms. Four editor paints exist, but source identity is unproven and zero eligible
+      editor-publication samples qualify. Preserve both sale-to-WAIT events and their limitations.
       [Contract](docs/architecture/native-guidance-timing.md).
 - [x] Implement/verify the isolated common-horizon pricing source #199: shared entry/exit horizon,
       quantity/tax/partial-fill/terminal-value comparison, standing hold versus completed relist,
       matching offline final authority and qualifier V3/replay 29. Clean 2,562 Java/six skips,
       29 exact-JAR Java 11 checks, 170 tooling checks, five extra strict loopback runs and source-head CI 40852265476
-      pass. Final delivery-head CI/merge is recorded in the PR/currentDelivery. It is not installed;
-      live constructors remain baseline. Retain original Windows CI 40848858178 timeout/cause unknown.
+      pass. Final delivery-head CI/merge is recorded in the PR/currentDelivery. Dormant offline
+      code is included in installed #200; live constructors remain baseline. Retain original
+      Windows CI 40848858178 timeout/cause unknown.
       [Shadow contract](docs/architecture/common-horizon-pricing-shadow.md).
 - [ ] Complete joint account alternatives and chronological pricing qualification, then observational
       learner construction only after delivery/latency/provenance gates. Keep 5m/30m/2h/8h results,
@@ -57,7 +63,9 @@ against their own verified evidence. Controlled/native acceptance records remain
       gate; an unobserved live late fill stays explicitly unverified.
       Following offline source retains budget-diverse entry sizes without widening the optimizer:
       clean 2,568 Java/six skips and 48 actual-JAR Java 11 checks pass. Replay 30/qualifier V4 refuse
-      synthetic promotion at all cadences; exact-head CI/merge and real qualification remain open.
+      synthetic promotion at all cadences. Initial #201 exact-head CI `40951693894` passes both
+      platforms; final delivery-head CI/merge is recorded in the PR/currentDelivery. Real
+      qualification and native acceptance remain open; retain installed #200 JARs for offline work.
 
 - [x] Verify/deliver #196, the script-only exit-race and delivery-audit follow-up. Continue a process
       drain only after fresh proof the target PID is absent; retain all live/reused/unknown
