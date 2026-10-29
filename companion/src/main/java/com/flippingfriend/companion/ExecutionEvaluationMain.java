@@ -39,9 +39,7 @@ public final class ExecutionEvaluationMain {
             || !real.getParent().getFileName().toString().equals(account) || real.getParent().getParent()==null
             || !real.getParent().getParent().getFileName().toString().equals("accounts"))
             throw new IllegalArgumentException("Only the explicitly selected scoped accounts/<account>/flipping-friend.db is allowed");
-        ExecutionSourceSnapshot snapshot;
-        try(var store=SqliteStore.openReadOnly(real)){snapshot=store.freezeExecutionSources(account);}
-        writeSnapshot(snapshot,output,revision);
+        ChunkedExecutionBundle.freeze(real,account,output,revision);
     }
     static void writeSnapshot(ExecutionSourceSnapshot snapshot,Path output,String revision)throws Exception {
         if(revision==null || !revision.matches("[0-9a-f]{40}"))throw new IllegalArgumentException("40-character source revision is required");
@@ -63,6 +61,7 @@ public final class ExecutionEvaluationMain {
         Files.write(target.resolve("manifest.json"),bytes(manifest),StandardOpenOption.CREATE_NEW);
     }
     static Verified verify(Path directory)throws Exception {
+        if(ChunkedExecutionBundle.isV2(directory))return ChunkedExecutionBundle.verify(directory);
         byte[] manifestBytes=read(directory,"manifest.json"),sourceBytes=read(directory,"sources.json"),scoreBytes=read(directory,"evaluation.json");
         Manifest manifest=JSON.fromJson(new String(manifestBytes,StandardCharsets.UTF_8),Manifest.class);
         if(manifest==null || !"1".equals(manifest.schemaVersion) || !"HORIZON_BOUNDS_V1".equals(manifest.evaluatorVersion)

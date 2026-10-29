@@ -56,15 +56,27 @@ final class TradeGapEvidence {
         }
         long processedCount(){return processed;}
     }
+    static Collection<Set<Integer>> scopeDisk(Iterable<OfferEvent> history,Map<String,Integer> gaps,String account,OfflineScratch disk) {
+        Scan scan=new Scan(gaps,account,disk);
+        for(OfferEvent event:history)if(!scan.accept(event))throw new IllegalArgumentException("Recorded gap lineage is invalid");
+        if(scan.result.size()!=gaps.size())throw new IllegalArgumentException("Recorded reconciliation scope is unknown");
+        return scan.result.values();
+    }
     private static final class Scan {
         final String account;
         Map<String,Integer> gaps;
-        final Map<String,Set<Integer>> result=new HashMap<>();
-        final Map<Integer,Slot> slots=new HashMap<>();
-        final Map<String,Set<Integer>> episodeItems=new HashMap<>();
-        final Set<String> eventIds=new HashSet<>();
+        final Map<String,Set<Integer>> result;
+        final Map<Integer,Slot> slots;
+        final Map<String,Set<Integer>> episodeItems;
+        final Set<String> eventIds;
+        final boolean diskBacked;
         boolean valid=true;
-        Scan(Map<String,Integer> gaps,String account){this.account=account;addGaps(gaps);}
+        Scan(Map<String,Integer> gaps,String account){this.account=account;diskBacked=false;result=new HashMap<>();slots=new HashMap<>();episodeItems=new HashMap<>();eventIds=new HashSet<>();addGaps(gaps);}
+        @SuppressWarnings({"unchecked","rawtypes"})
+        Scan(Map<String,Integer> gaps,String account,OfflineScratch disk) {
+            this.account=account;this.gaps=gaps;diskBacked=true;result=(Map)disk.map("gap-result",ItemSet.class);
+            slots=disk.map("gap-slots",Slot.class);episodeItems=(Map)disk.map("gap-episodes",ItemSet.class);eventIds=disk.set("gap-source-ids");
+        }
         void addGaps(Map<String,Integer> next) {
             gaps=new HashMap<>(next);
             for(String id:gaps.keySet())result.putIfAbsent(id,Collections.emptySet());
@@ -83,7 +95,7 @@ final class TradeGapEvidence {
                 if (prior!=null) possible.addAll(prior.items);
                 if (e.getItemId()>0) possible.add(e.getItemId());
                 if (e.getOfferIdentity()!=null) possible.addAll(episodeItems.getOrDefault(e.getOfferIdentity(),Set.of()));
-                if (!possible.isEmpty()) result.put(e.getEventId(),Collections.unmodifiableSet(possible));
+                if (!possible.isEmpty()) result.put(e.getEventId(),diskBacked?new ItemSet(possible):Collections.unmodifiableSet(possible));
             }
             Slot next=prior==null?new Slot(e.getSessionId()):prior;
             if (!ordered) next.trusted=false;
@@ -96,7 +108,8 @@ final class TradeGapEvidence {
             } else {
                 next.items.addAll(episodeItems.getOrDefault(e.getOfferIdentity(),Set.of()));
                 next.items.add(e.getItemId());
-                episodeItems.computeIfAbsent(e.getOfferIdentity(),id->new HashSet<>()).add(e.getItemId());
+                Set<Integer> items=episodeItems.get(e.getOfferIdentity());if(items==null)items=new ItemSet();
+                items.add(e.getItemId());OfflineScratch.save(episodeItems,e.getOfferIdentity(),items);
                 OfferLifecycleState state=OfferLifecycleClassifier.classify(e);
                 next.terminal=state==OfferLifecycleState.BUY_FILLED_UNCOLLECTED
                     || state==OfferLifecycleState.BUY_CANCELLED_UNCOLLECTED
@@ -106,7 +119,7 @@ final class TradeGapEvidence {
             next.sequence=Math.max(next.sequence,e.getSequence());
             next.observedAt=Math.max(next.observedAt,e.getObservedAt());
             next.source=e;
-            slots.put(e.getSlot(),next);
+            OfflineScratch.save(slots,e.getSlot(),next);
             return true;
         }
     }
@@ -140,6 +153,9 @@ final class TradeGapEvidence {
         return buy==e.isBuying() && (e.getFilledQuantity()==0 ? e.getSpent()==0 : e.getSpent()>0);
     }
     private static boolean blank(String value) { return value==null || value.isBlank(); }
+    private static final class ItemSet extends HashSet<Integer> {
+        ItemSet(){ } ItemSet(Collection<Integer> values){super(values);}
+    }
     private static final class Slot {
         final String session;
         final Set<Integer> items=new HashSet<>();

@@ -22,7 +22,7 @@ try {
     # Native stderr warnings are retained; the process exit code determines success on PS 5.1.
     $ErrorActionPreference = 'Continue'
     $global:LASTEXITCODE = 1
-    & $javaCommand -cp $companionJar com.flippingfriend.companion.TradeEvidenceAuditMain $Mode.ToLowerInvariant() $Capture $Report
+    & $javaCommand -Xmx1024m -cp $companionJar com.flippingfriend.companion.TradeEvidenceAuditMain $Mode.ToLowerInvariant() $Capture $Report
     $auditExit = $LASTEXITCODE
 } finally { $ErrorActionPreference = $previousPreference }
 if ($auditExit -ne 0) { throw "Offline trade audit failed (exit $auditExit)." }

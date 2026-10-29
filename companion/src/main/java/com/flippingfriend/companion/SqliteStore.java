@@ -425,6 +425,33 @@ final class SqliteStore implements AutoCloseable
     }
 
     /** One SELECT-only snapshot. Existing aggregates, source rows and counted-offer keys are untouched. */
+    interface FrozenRowSink<T> {void accept(T row)throws Exception;}
+    synchronized long streamExecutionSources(String account,FrozenRowSink<ExecutionSourceSnapshot.Row> offers,
+            FrozenRowSink<ExecutionSourceSnapshot.Gap> gaps)throws Exception {
+        com.flippingfriend.core.AccountIdentity.require(account);
+        if(!connection.getAutoCommit())throw new IllegalStateException("A separate snapshot transaction is required");
+        connection.setAutoCommit(false);
+        try {
+            try(var s=connection.createStatement();var r=s.executeQuery(
+                "SELECT id,observed_at,event_id,event_type,length(CAST(payload AS BLOB)),payload FROM event_log WHERE event_id IS NOT NULL AND event_id<>'' ORDER BY id")) {
+                while(r.next()) {
+                    if(r.getLong(5)>ChunkedExecutionBundle.CHUNK_BYTES)throw new IllegalArgumentException("Source row exceeds chunk limit; nothing was truncated");
+                    offers.accept(new ExecutionSourceSnapshot.Row(r.getLong(1),r.getLong(2),r.getString(3),r.getString(4),r.getString(6)));
+                }
+            }
+            checkpoint.reached("EXECUTION_SOURCE_OFFERS_READ");
+            try(var s=connection.createStatement();var r=s.executeQuery(
+                "SELECT id,observed_at,source_event_id,source_offer_identity,item_id FROM position_event WHERE effect_type='RECONCILE' ORDER BY id")) {
+                while(r.next()) {
+                    int item=r.getInt(5);if(r.wasNull())throw new IllegalArgumentException("Reconciliation item is unknown");
+                    gaps.accept(new ExecutionSourceSnapshot.Gap(r.getLong(1),r.getLong(2),r.getString(3),r.getString(4),item));
+                }
+            }
+            long capturedAt=Instant.now().getEpochSecond();connection.commit();return capturedAt;
+        }catch(Exception invalid){connection.rollback();throw invalid;}
+        finally{connection.setAutoCommit(true);}
+    }
+
     synchronized ExecutionSourceSnapshot freezeExecutionSources(String account) throws Exception {
         com.flippingfriend.core.AccountIdentity.require(account);
         if(!connection.getAutoCommit())throw new IllegalStateException("A separate snapshot transaction is required");

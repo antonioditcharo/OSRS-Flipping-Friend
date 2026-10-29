@@ -31,23 +31,23 @@ switch ($Mode) {
         }
         $revision = & git -C $repoRoot rev-parse HEAD
         if ($LASTEXITCODE -ne 0) { throw 'Cannot identify source revision.' }
-        & $javaCommand -cp $companionJar $mainClass freeze $Database $AccountId $Capture $revision
+        & $javaCommand -Xmx1024m -cp $companionJar $mainClass freeze $Database $AccountId $Capture $revision
         if ($LASTEXITCODE -ne 0) { throw "Read-only evaluation capture failed (exit $LASTEXITCODE)." }
         Write-Output "Private capture: $Capture"
     }
     'Verify' {
         if (-not $Capture) { throw 'Specify -Capture.' }
-        & $javaCommand -cp $companionJar $mainClass verify $Capture
+        & $javaCommand -Xmx1024m -cp $companionJar $mainClass verify $Capture
         if ($LASTEXITCODE -ne 0) { throw "Capture verification failed (exit $LASTEXITCODE)." }
     }
     'Audit' {
         if (-not $Capture) { throw 'Specify -Capture. Audit accepts a verified frozen bundle, not a live database.' }
-        & $javaCommand -cp $companionJar $mainClass audit $Capture
+        & $javaCommand -Xmx1024m -cp $companionJar $mainClass audit $Capture
         if ($LASTEXITCODE -ne 0) { throw "Frozen forecast audit failed (exit $LASTEXITCODE)." }
     }
     'Compare' {
         if (-not $Capture -or -not $Validation) { throw 'Specify training -Capture and later -Validation.' }
-        & $javaCommand -cp $companionJar $mainClass compare $Capture $Validation
+        & $javaCommand -Xmx1024m -cp $companionJar $mainClass compare $Capture $Validation
         if ($LASTEXITCODE -ne 0) { throw "Chronological comparison failed (exit $LASTEXITCODE)." }
     }
 }

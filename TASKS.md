@@ -3,7 +3,8 @@
 Updated 28 October 2026. Read [HANDOFF.md](HANDOFF.md) and the current hosted-pilot receipt at
 `local-data/hosted-pilot/delivery-state.json` first for the installed pair and pending source;
 #162 was the hosted pilot's original baseline. Implemented/tested, merged,
-installed and player accepted are separate states. The owner's prior login/GE confirmation is historical; fresh #195 login/GE was requested on 28 October.
+installed and player accepted are separate states. The owner confirms fresh #195 login/GE, sale revision/cancel/collect/relist and restart on 28 October;
+late fills and complete native/sustained timing remain open.
 All game interaction remains manual; batch runtime updates and acceptance work.
 
 All 81 prior unchecked records have stable IDs in [the acceptance inventory](docs/verification/trading-pass-acceptance-inventory.md).
@@ -13,19 +14,24 @@ against their own verified evidence. Controlled/native acceptance records remain
 
 ## Current batch
 
-- [ ] Verify/deliver the script-only exit-race and delivery-audit follow-up. Continue a process
+- [x] Verify/deliver #196, the script-only exit-race and delivery-audit follow-up. Continue a process
       drain only after fresh proof the target PID is absent; retain all live/reused/unknown
       listener refusals. Audit main/editor traces, duplicate/conflicting identities, explicit
       phase timings and unknown coverage without granting native or trading acceptance.
-      No JAR reinstall; exact-head CI and tooling receipt remain required.
+      No JAR reinstall; 155 tooling checks and both exact-head CI platforms 40812821792 pass;
+      merge a4d37d6 is delivered to the primary checkout.
 
-- [ ] Replace offline export with hash-bound version-two chunks (4 MiB/1,024 rows, eight-chunk
+- [x] Replace offline export with hash-bound version-two chunks (4 MiB/1,024 rows, eight-chunk
       cache, 5-GiB budget, 768-MiB reserve) from one read-only snapshot. Keep V1 readers, exact
       evaluator semantics and the 1-GiB heap ceiling. Verify/audit all 185,450 frozen rows unchanged.
-- [ ] Repair fixture transport cleanup and persistent bounded loopback workers; collect socket,
+- [x] Repair fixture transport cleanup and persistent bounded loopback workers; collect socket,
       handle, memory, failure and phase telemetry. Preserve the FAILED 53.7-minute run and require
       a new uninterrupted 60-minute run with zero failures, without retry filtering.
       [Contract and retained failures](docs/verification/offline-export-and-soak-repair.md).
+      Strict hour: 3,601.062s, 120 groups, 7,980 checks, 9,300 instrumented requests, zero failures;
+      119 native resource samples and both completion markers verified. Full-account source/
+      observation/score equivalence to #195 and unchanged database bytes pass at 1 GiB.
+      [Release receipt](docs/history/chunked-execution-validation-2026-10-28.md).
 
 - [x] Deliver approved optimization stage A #188: original
       acquisition/execution prefix indexes, explained main/editor outcomes, successor after expiry,

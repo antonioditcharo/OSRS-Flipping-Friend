@@ -19,16 +19,13 @@ public class ApiReportIsolationTest {
         var field=ApiServer.class.getDeclaredField("reportExecutor");field.setAccessible(true);return (ThreadPoolExecutor)field.get(api);
     }
     private int request(ApiServer api,String endpoint,String account,String token,String payload)throws Exception {
-        var connection=(HttpURLConnection)new URL("http://127.0.0.1:"+api.port()+"/v1/"+endpoint).openConnection();
-        connection.setConnectTimeout(2000);connection.setReadTimeout(4000);connection.setRequestProperty("X-Flipping-Friend-Token",token);
-        if(account!=null)connection.setRequestProperty(AccountIdentity.HEADER,account);
-        try {
-            if(payload!=null){connection.setRequestMethod("POST");connection.setDoOutput(true);try(var output=connection.getOutputStream()){output.write(payload.getBytes(StandardCharsets.UTF_8));}}
-            int status=connection.getResponseCode();assertEquals(AccountIdentity.PROTOCOL,connection.getHeaderField(AccountIdentity.PROTOCOL_HEADER));
-            if(status==200 && endpoint.startsWith("accounts/"))assertEquals(account,connection.getHeaderField(AccountIdentity.HEADER));
-            try(var input=status>=400?connection.getErrorStream():connection.getInputStream()){if(input!=null)input.readAllBytes();}
-            return status;
-        }finally{connection.disconnect();}
+        var headers=new java.util.HashMap<String,String>();headers.put("X-Flipping-Friend-Token",token);
+        if(account!=null)headers.put(AccountIdentity.HEADER,account);
+        var response=LoopbackFixtureClient.request("http://127.0.0.1:"+api.port()+"/v1/"+endpoint,headers,payload);
+        int status=response.statusCode();
+        assertEquals(AccountIdentity.PROTOCOL,response.headers().firstValue(AccountIdentity.PROTOCOL_HEADER).orElse(null));
+        if(status==200 && endpoint.startsWith("accounts/"))assertEquals(account,response.headers().firstValue(AccountIdentity.HEADER).orElse(null));
+        return status;
     }
     @Test public void blockedPublicSeriesReadCannotHoldAnAccountsFinancialQueue()throws Exception {
         var root=folder.newFolder().toPath();var json=new Gson();String account=AccountIdentity.fromProfileKey("market-isolation");
