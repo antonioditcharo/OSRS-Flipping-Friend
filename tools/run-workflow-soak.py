@@ -114,10 +114,15 @@ def main():
         for name, proc in processes.items():
             rows = [json.loads(line) for line in (output / (name + '.jsonl')).read_text(encoding='utf-8').splitlines()]
             receipt['workers'][name] = {'exitCode': proc.returncode, 'groupRuns': len(rows),
-                'executedChecks': sum(r['tests'] for r in rows), 'failures': sum(r['failures'] for r in rows)}
-            if proc.returncode or not rows or any(r['failures'] for r in rows): receipt['failures'].append({'worker': name})
+                'executedChecks': sum(r['tests'] for r in rows), 'failures': sum(r['failures'] for r in rows),
+                'fixtureRequests': rows[-1]['fixtureRequests'] if rows else 0,
+                'fixtureTransportFailures': rows[-1]['fixtureTransportFailures'] if rows else 0}
+            if proc.returncode or not rows or any(r['failures'] or r['fixtureTransportFailures'] for r in rows): receipt['failures'].append({'worker': name})
         receipt['complete'] = not receipt['failures']
         receipt['acceptancePassed'] = receipt['complete'] and a.seconds >= 3600 and time.monotonic() - started >= 3600
+    except Exception as error:
+        receipt['failures'].append({'harnessError': type(error).__name__, 'message': str(error)})
+        raise
     finally:
         # Only owned synthetic helpers; never a game or companion service process.
         for proc in processes.values():
