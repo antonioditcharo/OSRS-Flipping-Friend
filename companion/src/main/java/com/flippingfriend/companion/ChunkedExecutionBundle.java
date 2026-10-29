@@ -17,7 +17,9 @@ final class ChunkedExecutionBundle {
     private ChunkedExecutionBundle(){ }
     static boolean isV2(Path dir)throws Exception {
         // Detection must not narrow the existing V1 256-MiB reader boundary.
-        Path file=regular(dir,"manifest.json",256L*1024*1024);
+        Path file=dir.resolve("manifest.json");
+        if(!Files.isRegularFile(file,LinkOption.NOFOLLOW_LINKS) || Files.size(file)>256L*1024*1024)
+            throw new IllegalArgumentException("Missing, linked or oversized evaluation manifest");
         try(var in=new com.google.gson.stream.JsonReader(Files.newBufferedReader(file,StandardCharsets.UTF_8))) {
             in.beginObject();
             while(in.hasNext()) {

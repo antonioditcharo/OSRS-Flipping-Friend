@@ -150,6 +150,23 @@ public class ChunkedExecutionBundleTest {
         assertEquals(json.toJson(s.observations()),json.toJson(verified.snapshot.observations()));
         assertEquals(json.toJson(new ExecutionHorizonEvaluation(s.observations(),null)),json.toJson(verified.evaluation));
     }
+    @Test public void chronologicalComparisonCanCrossBundleVersionsWithoutRecountingOldAdvice()throws Exception {
+        var first=fixture.history(false);var train=fixture.snapshot(250,first);
+        List<OfferEvent> later=new ArrayList<>(first);
+        later.add(ExecutionHorizonEvaluationTest.event("terminal",4,400,"BOUGHT",10,ExecutionHorizonEvaluationTest.forecast(true,300,.8)));
+        var valid=fixture.snapshot(700,fixture.appendEpisode(later,400));
+        Path a=target("training-v1"),b=write("training-v2",train),c=target("validation-v1"),d=write("validation-v2",valid);
+        ExecutionEvaluationMain.writeSnapshot(train,a,ExecutionEvaluationBundleTest.REVISION);
+        ExecutionEvaluationMain.writeSnapshot(valid,c,ExecutionEvaluationBundleTest.REVISION);
+        var expected=ExecutionEvaluationMain.compare(a,c);
+        for(Path[] pair:List.of(new Path[]{a,d},new Path[]{b,c},new Path[]{b,d})) {
+            var result=ExecutionEvaluationMain.compare(pair[0],pair[1]);
+            assertEquals(json.toJson(expected.training),json.toJson(result.training));
+            assertEquals(json.toJson(expected.validation),json.toJson(result.validation));
+            assertEquals(1,result.validation.eligible);assertEquals(1,result.validation.cohortExcluded);
+            assertEquals("HOLD_FOR_VALIDATION",result.promotionStatus);
+        }
+    }
     @Test public void streamFailureClosesItsSnapshotAndKeepsOriginalDatabaseBytes()throws Exception {
         Path db=folder.newFolder().toPath().resolve("interrupted.db");
         try(var s=new SqliteStore(db)){for(var e:fixture.history(true))s.recordAndProjectOffer(e,json.toJson(e),true);}
