@@ -28,6 +28,24 @@ and native main/editor timing remain pending. The owner's normal sale revision/c
 restart and observed partial progress belong to **#195**. Live late fills are unobserved. Keep its
 2,980-ms post-ACK / 3,573-ms total startup outlier unresolved until the new trace profiles it.
 
+## Queued foreground follow-up
+
+`codex/guidance-foreground-fast-path` separates action painting from optional sidebar/hidden
+investigation work and attributes the existing serial worker's active task. The first #198 live
+session has four distinct BUY decisions at post-ACK p95 751 ms but 12 painted cards at render p95
+166 ms; selected-sale timing remains unmeasured. The first pre-ACK worker wait is 5.3 seconds.
+Clean 2,565 Java/six skips, 175 tooling and 38 exact-JAR Java 11 checks pass.
+Verification of final CI, fresh hour, preservation and delivery remains pending; #198 stays installed.
+[Contract](docs/architecture/foreground-guidance-refresh.md).
+
+The later #198 scheduled companion stopped answering global/account reads. Same-JAR companion
+recovery retains a read-only snapshot and original outboxes; all 286 pending identities and financial
+fields subsequently commit unchanged, with zero missing or remaining. RuneLite/installed pair/task
+metadata are unchanged. The outage cause is unproven; keep failed health/thread captures and the
+first recovered SELL's 7.08s total / 2.974s post-ACK delay. New tooling fixes only the demonstrated
+CIM owner-query exit race, retaining live/reused/unknown refusals. The standalone first cold paint
+is 226ms versus 566ms under a controlled slow optional task; native targets remain unqualified.
+
 ## Current source and verification
 
 #198 adds opaque account-scoped main/selected-sale diagnostic traces through completed visible Swing
@@ -51,7 +69,9 @@ final authority. Live/asynchronous constructors keep the baseline. Clean 2,562 J
 runs pass. The audit excludes failed paints/lost telemetry from successful publication and reports
 distinct versus repeated decisions separately. Source
 `66d35a0d3814798c5c2b29c9778d8f68b9aa4d0a` passes both CI platforms `40852265476`; final documentation
-head/merge identity is recorded in the PR and private currentDelivery. #199 is **not installed**.
+head `45bbb9e498aa6ea6b63985df502eb7148e3922f2` passes both CI platforms `40859284054`;
+merge `3c167db4061232c7f514a4fed8cd444610fbdd67` is delivered to the primary source checkout.
+#199 is **not installed**.
 [Shadow contract](docs/architecture/common-horizon-pricing-shadow.md).
 
 Retain Windows CI `40848858178`'s strict five-second GE-offer POST timeout. Its cause is unproven;

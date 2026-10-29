@@ -23,6 +23,7 @@ import com.flippingfriend.session.TradePlans;
 import com.flippingfriend.session.TrackedOffer;
 import com.flippingfriend.ui.FlippingFriendPanel;
 import com.flippingfriend.ui.GuidanceTiming;
+import com.flippingfriend.ui.GuidanceWorker;
 import com.google.inject.Provides;
 import java.awt.image.BufferedImage;
 import java.time.Instant;
@@ -30,7 +31,6 @@ import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.inject.Inject;
 import net.runelite.api.Client;
@@ -250,12 +250,7 @@ public class FlippingFriendPlugin extends Plugin
         engineRefreshEpoch.incrementAndGet();engineRefreshInFlight.set(false);engineRefreshRequested.set(false);
         geInputAssist.start();
         if(geHistory!=null)geHistory.start();
-		worker = Executors.newSingleThreadExecutor(r ->
-		{
-			Thread thread = new Thread(r, "flipping-friend-engine");
-			thread.setDaemon(true);
-			return thread;
-		});
+		worker = new GuidanceWorker();
 
 		overlayManager.add(grandExchangeOverlay);
 		overlayManager.add(offerEditorOverlay);
@@ -528,11 +523,11 @@ public class FlippingFriendPlugin extends Plugin
         timing.context(account,generation,revision);
         var frame=frameTiming;
         if(frame!=null && account.equals(frame.account) && generation==frame.generation && revision==frame.revision)timing.acknowledged(frame.nanos);
-        timing.mark("workerQueued");
+        GuidanceWorker.describe(executor,timing);timing.mark("workerQueued");
         var listed=Map.copyOf(offerTracker.listedForSale());
         var buying=java.util.Set.copyOf(offerTracker.itemsBeingBought());
         var horizon=TradingHorizon.of(config.riskProfile(),config.checkInterval(),config.targetHoldMinutes());
-        try {executor.execute(()->{
+        try {GuidanceWorker.named(executor,GuidanceWorker.Task.SELECTED_SALE).execute(()->{
             timing.mark("workerStarted");
             Suggestion result;
             try {
@@ -754,7 +749,7 @@ public class FlippingFriendPlugin extends Plugin
                 if (!accountDataLoaded.get()) return;
                 ExecutorService executor = worker;
                 if (executor == null || executor.isShutdown()) return;
-                companion.requestPendingOfferReplay(executor);
+                companion.requestPendingOfferReplay(GuidanceWorker.named(executor,GuidanceWorker.Task.OFFER_REPLAY));
         }
 
 	private void refreshAccountState()
@@ -1062,9 +1057,9 @@ public class FlippingFriendPlugin extends Plugin
                     "Cash and all Grand Exchange slots must agree before new advice is shown."));
                 panel.refresh();return;
             }
-            long localCaptureFinished=System.nanoTime();timing.mark("capturePersisted");timing.mark("workerQueued");
+            long localCaptureFinished=System.nanoTime();timing.mark("capturePersisted");GuidanceWorker.describe(executor,timing);timing.mark("workerQueued");
 
-			executor.execute(() ->
+			GuidanceWorker.named(executor,GuidanceWorker.Task.MAIN).execute(() ->
 			{
                 boolean deliveryQueued=false;
 				try
@@ -1438,7 +1433,7 @@ public class FlippingFriendPlugin extends Plugin
         long observedAt=java.time.Instant.now().getEpochSecond();
         companion.captureObservedOffer(observation,account,observedAt);
         if(offerTracker!=null)offerTracker.reconcileContinuationSources();
-        if(executor!=null && !executor.isShutdown())companion.requestPendingOfferReplay(executor);
+        if(executor!=null && !executor.isShutdown())companion.requestPendingOfferReplay(GuidanceWorker.named(executor,GuidanceWorker.Task.OFFER_REPLAY));
 	}
 
 	private void publishOfferClearedToCompanion(int slot)
@@ -1450,7 +1445,7 @@ public class FlippingFriendPlugin extends Plugin
         long observedAt=java.time.Instant.now().getEpochSecond();
         companion.captureObservedOfferCleared(slot,account,observedAt);
         if(offerTracker!=null)offerTracker.reconcileContinuationSources();
-        if(executor!=null && !executor.isShutdown())companion.requestPendingOfferReplay(executor);
+        if(executor!=null && !executor.isShutdown())companion.requestPendingOfferReplay(GuidanceWorker.named(executor,GuidanceWorker.Task.OFFER_REPLAY));
 	}
 
 	private void notifyIfNeeded(Suggestion suggestion)

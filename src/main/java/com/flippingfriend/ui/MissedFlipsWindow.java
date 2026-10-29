@@ -80,9 +80,13 @@ final class MissedFlipsWindow {
         InvestigationWindow.show(dialog);
     }
     void refresh() {
-        refresh(true);
+        refreshContents(true);
     }
     void refresh(boolean loggedIn) {
+        if(presenter==null && (dialog==null || !dialog.isVisible()))return;
+        refreshContents(loggedIn);
+    }
+    private void refreshContents(boolean loggedIn) {
         if (content == null) return;
         AccountLedgerSnapshot ledger = loggedIn?companion.historyLedger():null;
         boolean sameAccount=ledger!=null && ledger.getAccountId().equals(displayedAccount);

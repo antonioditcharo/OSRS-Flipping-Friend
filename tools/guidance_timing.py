@@ -8,7 +8,7 @@ ACTIONS = {"BUY", "SELL", "MODIFY_BUY", "MODIFY_SELL", "CANCEL", "COLLECT", "PAC
 STAGES = {"request", "captureStarted", "capturePersisted", "workerQueued", "workerStarted", "recoveryFinished",
           "durableAck", "accountPublished", "planFinished", "decisionStarted", "pricingPrepared", "authorityStarted",
           "authorityFinished", "clientDelivery", "presentationStarted", "presentationFinished", "delivery",
-          "panelRequested", "edtDelivery", "paintEnd"}
+          "panelRequested", "edtStarted", "cardUpdated", "edtDelivery", "criticalUiFinished", "paintEnd"}
 
 
 def distribution(values):
@@ -40,7 +40,7 @@ class TimingAudit:
             # ACK may precede a selected-editor request. Never charge that pre-request interval
             # as a selected-sale computation delay or move the original acknowledgement clock.
             ordered = [stages[k] for k in ["workerQueued", "workerStarted", "authorityFinished", "clientDelivery",
-                       "presentationStarted", "presentationFinished", "delivery", "panelRequested", "edtDelivery", "paintEnd"] if k in stages]
+                       "presentationStarted", "presentationFinished", "delivery", "panelRequested", "edtStarted", "cardUpdated", "edtDelivery", "criticalUiFinished", "paintEnd"] if k in stages]
             if ordered != sorted(ordered):
                 raise ValueError("Reversed timing stages")
             key = (value["trace"], value["event"])
@@ -82,6 +82,9 @@ class TimingAudit:
             sample = {"trace": trace, "source": row["source"], "action": row["action"], "paintOutcome": row.get("paintOutcome", "UNMEASURED"),
                       "telemetryLoss": row["droppedTelemetryRecords"], "stageMicros": s}
             for name, start, end in [("cachedRenderMs", "panelRequested", "paintEnd"),
+                                     ("edtQueueMs", "panelRequested", "edtStarted"),
+                                     ("cardUpdateMs", "edtStarted", "cardUpdated"),
+                                     ("remainingCriticalUiMs", "cardUpdated", "criticalUiFinished"),
                                      ("postAckPublicationMs", "durableAck", "delivery"),
                                      ("workerQueueMs", "workerQueued", "workerStarted"),
                                      ("authorityMs", "authorityStarted", "authorityFinished"),

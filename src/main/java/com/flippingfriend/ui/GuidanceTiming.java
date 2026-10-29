@@ -34,6 +34,9 @@ public final class GuidanceTiming {
     public synchronized void context(String account,long generation,long revision) {
         context(generation,revision);values.put("account",account);
     }
+    public synchronized void workerState(String task,long activeMicros,int queued) {
+        values.put("workerActiveTask",task);values.put("workerActiveMicros",activeMicros);values.put("queuedWorkCount",queued);
+    }
     public synchronized void delivery(String outcome,Suggestion action) {
         if(delivered)return;delivered=true;mark("delivery");values.put("deliveryOutcome",outcome);
         if(action!=null) {

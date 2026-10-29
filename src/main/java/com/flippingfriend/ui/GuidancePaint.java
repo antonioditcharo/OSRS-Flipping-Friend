@@ -35,5 +35,6 @@ final class GuidancePaint {
         return null;
     }
     void finish(String outcome) {if(timing!=null)timing.paint(outcome);timing=null;expected=null;}
+    boolean pending(){return timing!=null;}
     private static final class TimeUnitSeconds {static final long FIVE=5_000_000_000L;}
 }

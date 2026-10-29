@@ -40,7 +40,9 @@ final class PanelDetails {
     private final RecordedSalesPanel recordedSales;
     private final JButton copyQuantity = new JButton("Copy quantity"), copyPrice = new JButton("Copy price");
     private Suggestion shown = Suggestion.idle();
-    private boolean syncing,accountLoggedIn;
+    private boolean syncing,accountLoggedIn,exposed;
+    private AccountLedgerSnapshot latestLedger,latestHistory;
+    private boolean latestHistoryUpdating;
     private JFrame dialog;
     private BiConsumer<String, JComponent> presenter;
 
@@ -114,10 +116,16 @@ final class PanelDetails {
     }
     void update(Suggestion advice,AccountLedgerSnapshot ledger,AccountLedgerSnapshot history,boolean historyUpdating) {
         shown = advice == null ? Suggestion.idle() : advice;
+        boolean scopeChanged=!java.util.Objects.equals(latestLedger==null?null:latestLedger.getAccountId(),ledger==null?null:ledger.getAccountId());
+        latestLedger=ledger;latestHistory=history;latestHistoryUpdating=historyUpdating;
+        if(scopeChanged || (dialog==null?exposed:dialog.isVisible()))updateViews();
+        if(dialog!=null && dialog.isVisible())refreshSelected();
+    }
+    private void updateViews() {
         graph.update(shown);
-        performance.updateLedger(ledger);
-        recordedSales.updateLedger(history,historyUpdating);
-        holdings.updateRecordedHistory(history,historyUpdating);
+        performance.updateLedger(latestLedger);
+        recordedSales.updateLedger(latestHistory,latestHistoryUpdating);
+        holdings.updateRecordedHistory(latestHistory,latestHistoryUpdating);
         StringBuilder text = new StringBuilder(shown.getHeadline() == null ? "" : shown.getHeadline());
         if (shown.getDetail() != null && !shown.getDetail().isEmpty()) text.append("\n\n").append(shown.getDetail());
         if (shown.getItemId() > 0) text.append("\n\n").append(shown.getItemName());
@@ -133,7 +141,6 @@ final class PanelDetails {
         setText(recommendation,text.toString());
         copyQuantity.setEnabled(shown.getQuantity() > 0); copyPrice.setEnabled(shown.getPrice() > 0);
         syncing = true; interval.setSelectedItem(config.checkInterval()); sellOnly.setSelected(engine.isSellOnly()); syncing = false;
-        if (dialog != null && dialog.isVisible()) refreshSelected();
     }
 
     /** A duration is an unvalidated estimate; completion probability has its own full-order horizon. */
@@ -150,9 +157,10 @@ final class PanelDetails {
             : "";
     }
     JComponent select(String name) {
+        exposed=true;
         int index = new java.util.ArrayList<>(views.keySet()).indexOf(name);
         if (index < 0) throw new IllegalArgumentException("Unknown details view: " + name);
-        tabs.setSelectedIndex(index); refreshSelected(); return tabs;
+        tabs.setSelectedIndex(index);updateViews();refreshSelected();return tabs;
     }
     JComponent view(String name) { return views.get(name); }
     void open(Component owner, String name) {

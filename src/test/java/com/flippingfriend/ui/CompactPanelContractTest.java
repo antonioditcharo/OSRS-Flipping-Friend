@@ -132,7 +132,10 @@ public class CompactPanelContractTest {
         JCheckBox finish=tree(detail[0]).stream().filter(c->c instanceof JCheckBox).map(c->(JCheckBox)c).findFirst().orElseThrow();
         SwingUtilities.invokeAndWait(finish::doClick); verify(engine).setSellOnly(true); verify(callback).run();
         SwingUtilities.invokeAndWait(()->button("pause-action").doClick()); verify(guide).setPaused(true); verify(callback,times(2)).run();
-        when(guide.isPaused()).thenReturn(true); when(guide.getSuggestion()).thenReturn(Suggestion.waiting("Recommendations paused",""));
+        SwingUtilities.invokeAndWait(()->{
+            when(guide.isPaused()).thenReturn(true);
+            when(guide.getSuggestion()).thenReturn(Suggestion.waiting("Recommendations paused",""));
+        });
         refresh(); assertFalse(button("skip-action").isEnabled());
         assertEquals("Resume recommendations",button("pause-action").getToolTipText());
         SwingUtilities.invokeAndWait(()->button("pause-action").doClick()); verify(guide).setPaused(false);

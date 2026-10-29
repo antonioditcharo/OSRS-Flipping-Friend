@@ -74,13 +74,25 @@ function Assert-CompanionLifecycleGuard([string] $Jar) {
         } finally { $archive.Dispose() }
     } catch { throw "Companion lifecycle guard is missing or unsupported: $($_.Exception.Message)" }
 }
+function Get-CompanionProcessOwner($Process) {
+    try { return Invoke-CimMethod -InputObject $Process -MethodName GetOwnerSid -ErrorAction Stop }
+    catch {
+        $failure = $_
+        # Enumeration can retain a process which exits before its owner query. Absence must be
+        # freshly proven; a live, reused or unreadable PID retains the original refusal.
+        $remaining = @(Get-CimInstance Win32_Process -Filter ("ProcessId=" + [int]$Process.ProcessId) -ErrorAction Stop)
+        if ($remaining.Count -eq 0) { return $null }
+        throw $failure
+    }
+}
 function Get-OwnedCompanionProcesses([string] $ExpectedSid) {
     $matching = @()
     foreach ($process in @(Get-CimInstance Win32_Process -ErrorAction Stop)) {
         if ($process.Name -notin @('java.exe','javaw.exe')) { continue }
         $commandLine = $process.CommandLine
         if (-not $commandLine) {
-            $nativeOwner = Invoke-CimMethod -InputObject $process -MethodName GetOwnerSid -ErrorAction Stop
+            $nativeOwner = Get-CompanionProcessOwner $process
+            if ($null -eq $nativeOwner) { continue }
             if ($nativeOwner.ReturnValue -ne 0 -or $nativeOwner.Sid -ne $ExpectedSid) { continue }
             try { $commandLine = Get-NativeProcessCommandLine $process.ProcessId }
             catch { continue } # An unidentified listener still refuses the entire update below.
@@ -88,7 +100,8 @@ function Get-OwnedCompanionProcesses([string] $ExpectedSid) {
         if ($commandLine -notmatch '(?:^|\s)-jar\s+(?:"(?<quoted>[^"]+)"|(?<bare>\S+))\s*$') { continue }
         $jar = if ($Matches['quoted']) { $Matches['quoted'] } else { $Matches['bare'] }
         if (-not [IO.Path]::IsPathRooted($jar) -or (Normalize-AbsolutePath $jar) -ne (Normalize-AbsolutePath $companionInstalled)) { continue }
-        $owner = Invoke-CimMethod -InputObject $process -MethodName GetOwnerSid -ErrorAction Stop
+        $owner = Get-CompanionProcessOwner $process
+        if ($null -eq $owner) { continue }
         if ($owner.ReturnValue -ne 0 -or $owner.Sid -ne $ExpectedSid) { throw 'Companion process owner cannot be verified as this Windows user.' }
         $matching += [pscustomobject]@{ ProcessId=$process.ProcessId; CreationDate=$process.CreationDate; VerifiedCommandLine=$commandLine }
     }
