@@ -31,7 +31,7 @@ against their own verified evidence. Controlled/native acceptance records remain
 - [x] Implement/verify the isolated common-horizon pricing source #199: shared entry/exit horizon,
       quantity/tax/partial-fill/terminal-value comparison, standing hold versus completed relist,
       matching offline final authority and qualifier V3/replay 29. Clean 2,562 Java/six skips,
-      29 exact-JAR Java 11 checks, five extra strict loopback runs and source-head CI 40852265476
+      29 exact-JAR Java 11 checks, 170 tooling checks, five extra strict loopback runs and source-head CI 40852265476
       pass. Final delivery-head CI/merge is recorded in the PR/currentDelivery. It is not installed;
       live constructors remain baseline. Retain original Windows CI 40848858178 timeout/cause unknown.
       [Shadow contract](docs/architecture/common-horizon-pricing-shadow.md).

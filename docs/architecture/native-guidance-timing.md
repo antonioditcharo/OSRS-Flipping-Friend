@@ -26,7 +26,11 @@ its actual action type; selected-sale quotes have their own independent path.
 
 The audit reports repeated presentations separately when existing decision/offer provenance proves
 that association. Missing identity stays unproven. WAITs, editor deferrals, failed persistence,
-refusals, missing paints and outliers remain in the matrix. A percentile is not release acceptance.
+refusals, missing paints and outliers remain in the matrix. A percentile is not release acceptance. The audit reports successful publication only for lossless,
+PAINTED, identity-proven presentations with a matched durable frame. Failed/hidden/clipped attempts
+retain their delivery timings in attemptedPublication and the raw matrix, not successful samples.
+Distinct first-observed decisions, repeated cards and publication-to-paint clocks have separate
+distributions so repeated fast refreshes cannot dilute a slow new action.
 Existing legacy trace parsing remains available with its original measurement limitations.
 
 ## Bounded preparation and rendering

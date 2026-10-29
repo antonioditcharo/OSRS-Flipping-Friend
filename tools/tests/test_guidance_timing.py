@@ -17,6 +17,12 @@ class GuidanceTimingTest(unittest.TestCase):
     def add(self, audit, row):
         audit.add(json.dumps(row), {"file": "synthetic.log", "line": 1})
 
+    def painted(self, audit, row, **values):
+        at = row["stageMicros"]["delivery"]
+        paint = dict(row, event="PAINT", paintOutcome="PAINTED", **values)
+        paint["stageMicros"] = dict(row["stageMicros"], panelRequested=at+1000, edtDelivery=at+2000, paintEnd=at+3000)
+        self.add(audit, paint)
+
     def test_missing_native_stages_and_waits_are_not_successful_native_samples(self):
         audit = TimingAudit()
         self.add(audit, self.row())
@@ -47,7 +53,8 @@ class GuidanceTimingTest(unittest.TestCase):
     def test_editor_eligibility_does_not_charge_the_time_before_selection_to_computation(self):
         audit = TimingAudit(); row = self.row(source="SELECTED_SALE")
         row["stageMicros"]["durableAck"] = -1_000_000
-        self.add(audit, row); metrics = audit.result()["metrics"]["SELECTED_SALE"]
+        self.add(audit, row); self.painted(audit, row)
+        metrics = audit.result()["metrics"]["SELECTED_SALE"]
         self.assertEqual(20, metrics["eligiblePublication"]["maxMs"])
         self.assertEqual(1020, metrics["postAckPublication"]["maxMs"])
 
@@ -60,7 +67,36 @@ class GuidanceTimingTest(unittest.TestCase):
             self.add(audit, paint)
         result = audit.result()
         self.assertEqual(0, result["metrics"]["MAIN"]["cachedRender"]["count"])
+        self.assertEqual(0, result["metrics"]["MAIN"]["eligiblePublication"]["count"])
+        self.assertEqual(4, result["metrics"]["MAIN"]["attemptedPublication"]["count"])
         self.assertTrue(all(r["telemetryLoss"] == 2 for r in result["samples"]))
+
+    def test_repeated_fast_presentations_cannot_hide_a_slow_distinct_decision(self):
+        audit = TimingAudit()
+        for i in range(101):
+            row = self.row(trace="p:MAIN:"+str(i))
+            row["stageMicros"]["delivery"] = 3_000_000 if i == 0 else 20_000
+            self.add(audit, row); self.painted(audit, row)
+        metrics = audit.result()["metrics"]["MAIN"]
+        self.assertEqual(10, metrics["eligiblePublication"]["p95Ms"])
+        self.assertEqual(2990, metrics["distinctEligiblePublication"]["p95Ms"])
+        self.assertEqual(2993, metrics["distinctEligibleToPaint"]["p95Ms"])
+        self.assertEqual(100, metrics["repeatedEligiblePublication"]["count"])
+
+    def test_painted_but_lost_telemetry_or_unknown_identity_cannot_qualify_publication(self):
+        audit = TimingAudit()
+        lost = self.row(); lost["droppedTelemetryRecords"] = 1
+        self.add(audit, lost); self.painted(audit, lost)
+        unknown = self.row(trace="p:MAIN:2"); unknown.pop("account")
+        self.add(audit, unknown); self.painted(audit, unknown)
+        missing = self.row(trace="p:MAIN:3"); missing["stageMicros"].pop("durableAck")
+        self.add(audit, missing); self.painted(audit, missing)
+        result = audit.result(); metrics = result["metrics"]["MAIN"]
+        self.assertEqual(3, metrics["excludedPublicationSamples"])
+        self.assertEqual(0, metrics["eligiblePublication"]["count"])
+        self.assertEqual(2, metrics["cachedRender"]["count"])
+        self.assertIn("durableAck", result["samples"][-1]["unmeasuredStages"])
+        self.assertFalse(result["acceptancePassed"])
 
     def test_conflicts_duplicates_and_invalid_clock_are_retained(self):
         audit = TimingAudit(); row = self.row()

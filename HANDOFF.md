@@ -47,7 +47,9 @@ Following source [#199](https://github.com/antonioditcharo/OSRS-Flipping-Friend/
 **offline-only common-horizon shadow** using existing scenarios/replay: exact quantity/tax/partial-fill/
 remaining-stock value, standing-offer hold versus adjustment, cancelled-sale relist and matching offline
 final authority. Live/asynchronous constructors keep the baseline. Clean 2,562 Java checks (six skips),
-29 exact-JAR Java 11 core/authority checks and five additional strict loopback runs pass. Source
+29 exact-JAR Java 11 core/authority checks, 170 tooling checks and five additional strict loopback
+runs pass. The audit excludes failed paints/lost telemetry from successful publication and reports
+distinct versus repeated decisions separately. Source
 `66d35a0d3814798c5c2b29c9778d8f68b9aa4d0a` passes both CI platforms `40852265476`; final documentation
 head/merge identity is recorded in the PR and private currentDelivery. #199 is **not installed**.
 [Shadow contract](docs/architecture/common-horizon-pricing-shadow.md).

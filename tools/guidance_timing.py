@@ -101,14 +101,32 @@ class TimingAudit:
                 identities.add(key)
             else:
                 sample["decisionOccurrence"] = "UNPROVEN_IDENTITY"
+            # Delivery alone does not prove that the player could see this presentation.
+            # Keep unsuccessful attempts and their outliers, but never let hidden/clipped
+            # cards, missing identity or telemetry loss improve successful timing statistics.
+            sample["nativeTimingEligible"] = sample["paintOutcome"] == "PAINTED" and sample["telemetryLoss"] == 0
+            sample["publicationTimingEligible"] = (sample["nativeTimingEligible"]
+                and sample["decisionOccurrence"] != "UNPROVEN_IDENTITY" and "durableAck" in s)
+            sample["unmeasuredStages"] = sorted(STAGES - s.keys())
+            if "durableAck" in s and "paintEnd" in s:
+                sample["eligibleToPaintMs"] = (s["paintEnd"]-max(0, s["durableAck"]))/1000
             samples.append(sample)
         metrics = {}
         for source in ["MAIN", "SELECTED_SALE"]:
             rows = [r for r in samples if r["source"] == source]
+            native = [r for r in rows if r["nativeTimingEligible"]]
+            eligible = [r for r in rows if r["publicationTimingEligible"]]
+            distinct = [r for r in eligible if r["decisionOccurrence"] == "FIRST_OBSERVED"]
+            repeated = [r for r in eligible if r["decisionOccurrence"] == "REPEATED"]
             metrics[source] = {"allPresentations": len(rows), "decisionOccurrences": dict(Counter(r["decisionOccurrence"] for r in rows)),
-                "cachedRender": distribution([r["cachedRenderMs"] for r in rows if "cachedRenderMs" in r]),
-                "eligiblePublication": distribution([r["eligiblePublicationMs"] for r in rows if "eligiblePublicationMs" in r]),
-                "postAckPublication": distribution([r["postAckPublicationMs"] for r in rows if "postAckPublicationMs" in r]),
+                "cachedRender": distribution([r["cachedRenderMs"] for r in native if "cachedRenderMs" in r]),
+                "eligiblePublication": distribution([r["eligiblePublicationMs"] for r in eligible]),
+                "postAckPublication": distribution([r["postAckPublicationMs"] for r in eligible]),
+                "distinctEligiblePublication": distribution([r["eligiblePublicationMs"] for r in distinct]),
+                "repeatedEligiblePublication": distribution([r["eligiblePublicationMs"] for r in repeated]),
+                "distinctEligibleToPaint": distribution([r["eligibleToPaintMs"] for r in distinct if "eligibleToPaintMs" in r]),
+                "attemptedPublication": distribution([r["eligiblePublicationMs"] for r in rows if "eligiblePublicationMs" in r]),
+                "excludedPublicationSamples": len(rows)-len(eligible),
                 "overTarget": [r["trace"] for r in rows if r.get("cachedRenderMs", 0) > 100 or r.get("eligiblePublicationMs", 0) > 1000]}
         return {"schemaVersion": 2, "records": self.records, "invalid": self.invalid, "conflicts": self.conflicts,
             "duplicates": self.duplicates, "missingStages": missing, "samples": samples, "metrics": metrics,

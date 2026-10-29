@@ -66,8 +66,12 @@ for non-loss entry/exit alternatives over one horizon. The actual standing offer
 working-sale hold decisions; collected/cancelled sales skip that hold branch so relisting can
 complete. Replay proposals and final companion authority use the same explicit offline policy.
 Default/live/asynchronous constructors retain the verified baseline and reject shadow activation.
+The delivery audit additionally separates lossless visible/identity-proven publication, unsuccessful
+attempts, distinct decisions, repeats and completed painting; hidden cards cannot improve the
+successful timing distribution. The regression retains a slow first decision even after 100 fast
+repeats. This tooling correction needs no runtime replacement.
 
-Clean 2,562 Java checks, six skips and 29 exact-JAR Java 11 core/authority checks pass. The retained
+Clean 2,562 Java checks, six skips, 170 tooling checks and 29 exact-JAR Java 11 core/authority checks pass. The retained
 companion artifact is
 `b6d5134e85eb75e82765e6d14c70a96a7f16f753443b3b48e68b1d8293a79deb`, with 559 own classes at
 bytecode 55. Its synthetic actual-JAR V3 freeze/fit/validation correctly refuses all four cadences
