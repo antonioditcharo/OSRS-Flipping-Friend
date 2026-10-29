@@ -44,6 +44,11 @@ public class ChunkedExecutionBundleTest {
         assertEquals(json.toJson(scoped.observations()),json.toJson(b.snapshot.observations()));
         assertEquals(0,b.evaluation.eligible);assertEquals(1,b.evaluation.unqualified);
     }
+    @Test public void theExistingCausalReaderStillPublishesImmutableScopeSets() {
+        var scope=TradeGapEvidence.scope(fixture.history(true),Map.of("terminal",561),fixture.account).get("terminal");
+        assertTrue(scope.contains(561));
+        try{scope.add(999);fail("Published scope became mutable");}catch(UnsupportedOperationException expected){ }
+    }
     @Test public void chunksRespectBothByteAndRowBoundsAndRetainOpaquePayloads()throws Exception {
         List<ExecutionSourceSnapshot.Row> rows=new ArrayList<>();
         for(int i=0;i<2100;i++) {

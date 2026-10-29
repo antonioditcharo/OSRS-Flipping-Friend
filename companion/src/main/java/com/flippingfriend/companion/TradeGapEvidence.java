@@ -69,11 +69,12 @@ final class TradeGapEvidence {
         final Map<Integer,Slot> slots;
         final Map<String,Set<Integer>> episodeItems;
         final Set<String> eventIds;
+        final boolean diskBacked;
         boolean valid=true;
-        Scan(Map<String,Integer> gaps,String account){this.account=account;result=new HashMap<>();slots=new HashMap<>();episodeItems=new HashMap<>();eventIds=new HashSet<>();addGaps(gaps);}
+        Scan(Map<String,Integer> gaps,String account){this.account=account;diskBacked=false;result=new HashMap<>();slots=new HashMap<>();episodeItems=new HashMap<>();eventIds=new HashSet<>();addGaps(gaps);}
         @SuppressWarnings({"unchecked","rawtypes"})
         Scan(Map<String,Integer> gaps,String account,OfflineScratch disk) {
-            this.account=account;this.gaps=gaps;result=(Map)disk.map("gap-result",ItemSet.class);
+            this.account=account;this.gaps=gaps;diskBacked=true;result=(Map)disk.map("gap-result",ItemSet.class);
             slots=disk.map("gap-slots",Slot.class);episodeItems=(Map)disk.map("gap-episodes",ItemSet.class);eventIds=disk.set("gap-source-ids");
         }
         void addGaps(Map<String,Integer> next) {
@@ -94,7 +95,7 @@ final class TradeGapEvidence {
                 if (prior!=null) possible.addAll(prior.items);
                 if (e.getItemId()>0) possible.add(e.getItemId());
                 if (e.getOfferIdentity()!=null) possible.addAll(episodeItems.getOrDefault(e.getOfferIdentity(),Set.of()));
-                if (!possible.isEmpty()) result.put(e.getEventId(),new ItemSet(possible));
+                if (!possible.isEmpty()) result.put(e.getEventId(),diskBacked?new ItemSet(possible):Collections.unmodifiableSet(possible));
             }
             Slot next=prior==null?new Slot(e.getSessionId()):prior;
             if (!ordered) next.trusted=false;
