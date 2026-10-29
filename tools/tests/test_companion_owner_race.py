@@ -16,7 +16,8 @@ class CompanionOwnerRaceTest(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="friend owner race ") as directory:
             script = Path(directory) / "owner.ps1"
             script.write_text("$ErrorActionPreference='Stop'\n. '" + str(helper).replace("'", "''") + "'\n" + r'''
-$companionInstalled='C:\fixture\flipping-friend-companion.jar'
+$companionInstalled=Join-Path ([IO.Path]::GetTempPath()) 'friend owner fixture/flipping-friend-companion.jar'
+$script:ownerQueries=0
 function Normalize-AbsolutePath([string]$Path){return $Path}
 function Get-NativeProcessCommandLine([int]$ProcessId){throw 'Exited process must not reach native query'}
 function Stop-Process {throw 'Discovery must never stop a process'}
@@ -30,15 +31,17 @@ function Get-CimInstance {
         return [pscustomobject]@{ProcessId=1234;CreationDate=if($env:FF_OWNER_CASE -eq 'reused'){[DateTime]'2026-01-02'}else{[DateTime]'2026-01-01'}}
     }
     return [pscustomobject]@{ProcessId=1234;Name='java.exe';CreationDate=[DateTime]'2026-01-01';
-        CommandLine=if($env:FF_OWNER_MISSING -eq 'yes'){$null}else{'java.exe -jar C:\fixture\flipping-friend-companion.jar'}}
+        CommandLine=if($env:FF_OWNER_MISSING -eq 'yes'){$null}else{'java.exe -jar "'+$companionInstalled+'"'}}
 }
 function Invoke-CimMethod {
     [CmdletBinding()]param($InputObject,[string]$MethodName)
     if($InputObject.ProcessId -ne 1234 -or $MethodName -ne 'GetOwnerSid'){throw 'Wrong ownership query'}
+    $script:ownerQueries++
     throw 'Fixture owner-query Not found'
 }
 $caught=$null;$matching=@()
 try {$matching=@(Get-OwnedCompanionProcesses 'fixture-sid')}catch{$caught=$_.Exception.Message}
+if($script:ownerQueries -ne 1){throw 'Fixture did not reach the real ownership query'}
 if($env:FF_OWNER_CASE -eq 'exited') {
     if($caught -or $matching.Count){throw ('Absent process did not drain: '+$caught)}
 } elseif($env:FF_OWNER_CASE -eq 'unknown-listener') {

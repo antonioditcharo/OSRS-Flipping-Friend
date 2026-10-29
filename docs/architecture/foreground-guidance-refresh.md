@@ -65,3 +65,10 @@ window proves that the new card paints before a 500-ms optional metrics task; fi
 p95 acceptance. The 30-second natural-workload JFR capture contains mostly native blocked samples
 and does not identify the pricing bottleneck; no authority-sensitive cache or production transport
 change is justified from it. Subsequent #198 sale/maintenance timing still exceeds the target.
+
+The first #200 CI run (`40945815019`) fails on two fixture issues: the ownership fixture uses a
+Windows-only path on Linux, and a control test stubs Mockito while the EDT may read that mock.
+Use a host-native absolute fixture path and perform those control stubs on the EDT. Retain both
+failed jobs. Runtime class bytes remain identical; the fresh hour continues on its frozen candidate,
+while final exact-head CI validates the corrected fixtures. No deadlines, retries or assertions
+are weakened and no production transport change is introduced.
