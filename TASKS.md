@@ -20,7 +20,9 @@ against their own verified evidence. Controlled/native acceptance records remain
       task attribution. Preserve financial ordering and final authority. Require clean checks,
       exact-head CI, fresh hour, preservation and native/player acceptance. Clean 2,565 Java/six
       skips, 175 tooling and 38 actual-JAR Java 11 checks pass; #198 stays installed
-      until release gates pass. [Contract](docs/architecture/foreground-guidance-refresh.md).
+      until release gates pass. #200 merged at `579c9fb` after both final-head CI platforms
+      `40947246833`; fresh hour/preservation/install remain pending. Retain the initial fixture
+      failures and production-byte-equivalence proof. [Contract](docs/architecture/foreground-guidance-refresh.md).
 
 
 - [ ] Investigate the retained #198 scheduled-companion outage; global health and a thread dump
@@ -53,6 +55,9 @@ against their own verified evidence. Controlled/native acceptance records remain
       authority is separate; no pricing/learning promotion from synthetic results. Deterministic
       real-handler late-fill regressions plus live monitoring satisfy only the selected construction
       gate; an unobserved live late fill stays explicitly unverified.
+      Following offline source retains budget-diverse entry sizes without widening the optimizer:
+      clean 2,568 Java/six skips and 48 actual-JAR Java 11 checks pass. Replay 30/qualifier V4 refuse
+      synthetic promotion at all cadences; exact-head CI/merge and real qualification remain open.
 
 - [x] Verify/deliver #196, the script-only exit-race and delivery-audit follow-up. Continue a process
       drain only after fresh proof the target PID is absent; retain all live/reused/unknown

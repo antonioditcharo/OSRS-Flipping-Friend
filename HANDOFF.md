@@ -35,7 +35,11 @@ investigation work and attributes the existing serial worker's active task. The 
 session has four distinct BUY decisions at post-ACK p95 751 ms but 12 painted cards at render p95
 166 ms; selected-sale timing remains unmeasured. The first pre-ACK worker wait is 5.3 seconds.
 Clean 2,565 Java/six skips, 175 tooling and 38 exact-JAR Java 11 checks pass.
-Verification of final CI, fresh hour, preservation and delivery remains pending; #198 stays installed.
+Final source `a05a5616c8ac5a1d48e86282b142372fafd5914b` passes both CI platforms `40947246833`;
+[#200](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/200) is merged at
+`579c9fbf6de60435d4879b692e64b684572dc42a`. Its fresh hour, preservation and installation are pending;
+#198 stays installed. Retain initial CI `40945815019`'s portable-path/EDT fixture failures. The
+corrected fixtures leave every frozen production class unchanged; neither deadlines nor retries changed.
 [Contract](docs/architecture/foreground-guidance-refresh.md).
 
 The later #198 scheduled companion stopped answering global/account reads. Same-JAR companion
@@ -47,6 +51,16 @@ CIM owner-query exit race, retaining live/reused/unknown refusals. The standalon
 is 226ms versus 566ms under a controlled slow optional task; native targets remain unqualified.
 
 ## Current source and verification
+
+Following `codex/budget-diverse-pricing-shadow` preserves affordable quantity alternatives inside
+the existing three-tactic budget so the shared portfolio optimizer can select combinations across
+items under unchanged financial limits. Live/default constructors retain their current guard.
+Replay 30 / qualification V4 / policy `ACCOUNT_HORIZON_PRICING_SHADOW_V2_BUDGET_DIVERSITY` keep
+older cohorts and evaluator artifacts distinct. Clean 2,568 Java checks (six skips) and 48 actual-JAR
+Java 11 core/authority/replay checks pass. Synthetic fit/validation refuse all four cadences;
+the final fold remains unopened. This is offline source, with exact-head CI/merge still pending;
+neither scenario counts nor the synthetic combination example establish GP/hour improvement.
+Reuse #200's 175 tooling checks for unchanged tooling; both CI platforms must still run on this head.
 
 #198 adds opaque account-scoped main/selected-sale diagnostic traces through completed visible Swing
 painting, bounded asynchronous logging, explicit unsuccessful paint outcomes, less unchanged-sidebar

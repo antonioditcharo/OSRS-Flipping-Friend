@@ -9,7 +9,7 @@ import java.util.*;
 /** Separate chronological pricing experiment. No live store, policy switch or learning promotion. */
 public final class PricingQualificationMain {
     private static final Gson JSON=new Gson();
-    private static final String VERSION="PRICING_QUALIFICATION_V3";
+    private static final String VERSION="PRICING_QUALIFICATION_V4";
     static final class Exclusions {
         String schemaVersion;
         Long tunedThrough;

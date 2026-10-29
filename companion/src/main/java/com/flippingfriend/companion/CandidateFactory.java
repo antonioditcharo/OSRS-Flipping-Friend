@@ -833,7 +833,11 @@ final class CandidateFactory
                 tactics.set(i,candidate.withAccountPriceScenarios(com.flippingfriend.model.AccountPriceScenarios.entry(
                     candidate,pricingCadence,pricingHorizon,screened.price,now.getEpochSecond(),tax)));
             }
-            tactics.sort(Comparator.comparingDouble((PortfolioCandidate c)->c.getAccountPriceScenarios()==null?0:c.getAccountPriceScenarios().score()).reversed());
+            if(tacticsPerItem==Integer.MAX_VALUE) {
+                tactics.sort(Comparator.comparingDouble((PortfolioCandidate c)->c.getAccountPriceScenarios()==null?0:c.getAccountPriceScenarios().score()).reversed());
+                return tactics; // explicit diagnostics retain the complete generated set
+            }
+            return com.flippingfriend.model.AccountHorizonPricing.entryAlternatives(tactics,tacticsPerItem);
         }else
 		// Keep only the strongest few. Near-duplicate tactics add branching to the optimizer's
 		// search without adding any real choice.
