@@ -12,13 +12,20 @@ final class OfflineScratch implements AutoCloseable {
     private final Gson json=new Gson();
     OfflineScratch(Path parent)throws Exception {
         file=Files.createTempFile(parent,"execution-index-",".sqlite");
-        db=DriverManager.getConnection("jdbc:sqlite:"+file);
-        try(var s=db.createStatement()) {
-            s.execute("PRAGMA journal_mode=OFF");s.execute("PRAGMA synchronous=OFF");
-            s.execute("PRAGMA cache_size=-8192");s.execute("PRAGMA temp_store=FILE");
-            s.execute("CREATE TABLE kv (id INTEGER PRIMARY KEY, namespace TEXT NOT NULL, key TEXT NOT NULL, value TEXT NOT NULL, UNIQUE(namespace,key))");
+        Connection opened=null;
+        try {
+            opened=DriverManager.getConnection("jdbc:sqlite:"+file);
+            try(var s=opened.createStatement()) {
+                s.execute("PRAGMA journal_mode=OFF");s.execute("PRAGMA synchronous=OFF");
+                s.execute("PRAGMA cache_size=-8192");s.execute("PRAGMA temp_store=FILE");
+                s.execute("CREATE TABLE kv (id INTEGER PRIMARY KEY, namespace TEXT NOT NULL, key TEXT NOT NULL, value TEXT NOT NULL, UNIQUE(namespace,key))");
+            }
+            opened.setAutoCommit(false);db=opened;
+        }catch(Exception failure) {
+            if(opened!=null)try{opened.close();}catch(Exception close){failure.addSuppressed(close);}
+            try{Files.deleteIfExists(file);}catch(Exception cleanup){failure.addSuppressed(cleanup);}
+            throw failure;
         }
-        db.setAutoCommit(false);
     }
     <K,V> Map<K,V> map(String name,Class<V> type) {return new DiskMap<>(name,type);}
     @SuppressWarnings("unchecked")

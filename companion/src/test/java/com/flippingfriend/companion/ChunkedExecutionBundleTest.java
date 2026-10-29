@@ -96,6 +96,19 @@ public class ChunkedExecutionBundleTest {
             assertFalse(mode,Files.exists(p.resolve("manifest.json")));refused(p);
         }
     }
+    @Test public void omittedContractFieldsAndRoundedMetadataCannotInheritWriterDefaults()throws Exception {
+        for(String key:List.of("evaluatorVersion","chunkBytes","gapRows","gaps","codeIdentity")) {
+            Path p=write("missing-"+key,source());var m=manifest(p);m.remove(key);manifest(p,m);refused(p);
+        }
+        for(String key:List.of("offerRows","sourceCursor","chunkBytes")) {
+            Path p=write("fraction-"+key,source());var m=manifest(p);
+            m.addProperty(key,new java.math.BigDecimal(m.get(key).getAsString()).add(new java.math.BigDecimal("0.1")));
+            manifest(p,m);refused(p);
+        }
+        Path p=write("overflow-count",source());var m=manifest(p);
+        m.getAsJsonArray("offers").get(0).getAsJsonObject().addProperty("rows",4294967300L);
+        manifest(p,m);refused(p);
+    }
     @Test public void walCommitsBetweenQueriesCannotMixTheStreamedSnapshot()throws Exception {
         Path db=folder.newFolder().toPath().resolve("wal.db");
         try(var s=new SqliteStore(db)){for(var e:fixture.history(true))s.recordAndProjectOffer(e,json.toJson(e),true);}

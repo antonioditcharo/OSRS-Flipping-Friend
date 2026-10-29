@@ -16,10 +16,15 @@ final class ChunkedExecutionBundle {
     private static final long MANIFEST_BYTES=16L*1024*1024;
     private ChunkedExecutionBundle(){ }
     static boolean isV2(Path dir)throws Exception {
-        Path file=regular(dir,"manifest.json",MANIFEST_BYTES);
-        try(var in=Files.newBufferedReader(file,StandardCharsets.UTF_8)) {
-            var raw=JSON.fromJson(in,com.google.gson.JsonObject.class);
-            return raw!=null && raw.has("schemaVersion") && "2".equals(raw.get("schemaVersion").getAsString());
+        // Detection must not narrow the existing V1 256-MiB reader boundary.
+        Path file=regular(dir,"manifest.json",256L*1024*1024);
+        try(var in=new com.google.gson.stream.JsonReader(Files.newBufferedReader(file,StandardCharsets.UTF_8))) {
+            in.beginObject();
+            while(in.hasNext()) {
+                if("schemaVersion".equals(in.nextName()))return "2".equals(in.nextString());
+                in.skipValue();
+            }
+            return false;
         }
     }
     static void freeze(Path db,String account,Path output,String revision)throws Exception {
@@ -72,8 +77,10 @@ final class ChunkedExecutionBundle {
         Files.move(pending,output.resolve("manifest.json"),StandardCopyOption.ATOMIC_MOVE);
     }
     static ExecutionEvaluationMain.Verified verify(Path output)throws Exception {
-        Path file=regular(output,"manifest.json",MANIFEST_BYTES);Manifest m;
-        try(var reader=Files.newBufferedReader(file,StandardCharsets.UTF_8)){m=JSON.fromJson(reader,Manifest.class);}
+        Path file=regular(output,"manifest.json",MANIFEST_BYTES);String manifestHash=hash(file);Manifest m;
+        try(var reader=Files.newBufferedReader(file,StandardCharsets.UTF_8)) {
+            var raw=JSON.fromJson(reader,com.google.gson.JsonObject.class);requiredMetadata(raw);m=JSON.fromJson(raw,Manifest.class);
+        }
         if(m==null || !"2".equals(m.schemaVersion) || !"HORIZON_BOUNDS_V1".equals(m.evaluatorVersion)
             || !ExecutionForecast.MODEL_VERSION.equals(m.baselineModelVersion)
             || m.sourceRevision==null || !m.sourceRevision.matches("[0-9a-f]{40}")
@@ -107,7 +114,38 @@ final class ChunkedExecutionBundle {
             JSON.toJson(evaluation,writer);writer.write('\n');
         }
         if(!hex(digest.digest()).equals(m.evaluationSha256))throw new IllegalArgumentException("Evaluation does not reproduce from the complete prefix");
-        return new ExecutionEvaluationMain.Verified(ExecutionSourceSnapshot.verifiedChunks(m.accountId,m.capturedAt,offers,gaps,m.sourceCursor,observations),evaluation,hash(file));
+        Set<String> rechecked=new HashSet<>();checkChunks(output,"offers",m.offers,rechecked,0);checkChunks(output,"gaps",m.gaps,rechecked,0);
+        if(!hash(file).equals(manifestHash) || !hash(scores).equals(m.evaluationSha256)
+            || m.artifactSha256!=null && !hash(regular(output,"evaluator.jar.bin",BUNDLE_BYTES)).equals(m.artifactSha256))
+            throw new IllegalArgumentException("Bundle changed during verification");
+        return new ExecutionEvaluationMain.Verified(ExecutionSourceSnapshot.verifiedChunks(m.accountId,m.capturedAt,offers,gaps,m.sourceCursor,observations),evaluation,manifestHash);
+    }
+    private static void requiredMetadata(com.google.gson.JsonObject raw) {
+        if(raw==null)throw new IllegalArgumentException("Missing manifest");
+        for(String key:List.of("schemaVersion","evaluatorVersion","baselineModelVersion","accountId","sourceRevision","evaluationSha256","codeIdentity")) {
+            var v=raw.get(key);
+            if(v==null || !v.isJsonPrimitive() || !v.getAsJsonPrimitive().isString())throw new IllegalArgumentException("Missing or invalid manifest string: "+key);
+        }
+        for(String key:List.of("chunkBytes","chunkRows","cacheChunks","bundleBudget","freeSpaceReserve","capturedAt","sourceCursor","gapCursor","offerRows","gapRows")) {
+            integer(raw,key,Set.of("chunkBytes","chunkRows","cacheChunks").contains(key));
+        }
+        for(String key:List.of("offers","gaps")) {
+            if(!raw.has(key) || !raw.get(key).isJsonArray())throw new IllegalArgumentException("Missing chunk references: "+key);
+            for(var row:raw.getAsJsonArray(key)) {
+                if(!row.isJsonObject())throw new IllegalArgumentException("Invalid chunk reference");var c=row.getAsJsonObject();
+                for(String field:List.of("ordinal","rows","bytes","firstCursor","lastCursor"))integer(c,field,field.equals("ordinal") || field.equals("rows"));
+                for(String field:List.of("file","sha256"))if(!c.has(field) || !c.get(field).isJsonPrimitive() || !c.getAsJsonPrimitive(field).isString())
+                    throw new IllegalArgumentException("Invalid chunk string: "+field);
+            }
+        }
+    }
+    private static void integer(com.google.gson.JsonObject raw,String key,boolean narrow) {
+        var v=raw.get(key);
+        if(v==null || !v.isJsonPrimitive() || !v.getAsJsonPrimitive().isNumber())throw new IllegalArgumentException("Missing manifest integer: "+key);
+        try {
+            var number=new java.math.BigDecimal(v.getAsString());
+            if(narrow)number.intValueExact();else number.longValueExact();
+        }catch(ArithmeticException | NumberFormatException invalid){throw new IllegalArgumentException("Inexact manifest integer: "+key,invalid);}
     }
     private static List<ExecutionTimingObservation> validate(Manifest m,List<ExecutionSourceSnapshot.Row> offers,
             List<ExecutionSourceSnapshot.Gap> gaps,Path temp)throws Exception {
