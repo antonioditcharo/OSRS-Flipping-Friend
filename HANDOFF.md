@@ -63,13 +63,18 @@ before artifact replacement after native process access denial; the old process 
 The supported retry installs #195 and restores service reads. First observed post-preparation reads
 are 19.86–97.83ms, warm health 3.57ms; these are not cold-start/durable-ACK/native acceptance.
 RuneLite has reopened; the owner defers manual login/GE until 19:00 local on 28 October.
-Do not request another login before then. A frozen-artifact 60-minute synthetic
-workflow soak started 21:59:40 UTC and is still pending; never infer completion from its start.
+Do not request another login before then. The frozen-artifact soak started 21:59:40 UTC and
+FAILED after 3,220.484 seconds (53.7 minutes): 108 group runs, with a final SocketException
+("No buffer space available") during fixture connection setup. It is not a completed hour.
+The full 185,450-row frozen export also FAILED at the fixed 1-GiB heap while serializing JSON;
+raw payloads alone are 276,793,276 bytes, exceeding the old 256-MiB file limit.
+[Failed gates and repair contract](docs/verification/offline-export-and-soak-repair.md).
 
 Queued `codex/verified-exit-race-and-delivery-audit` changes tooling only: accept a freshly proven
 exited PID after a native-stop race, retain live/reused/unidentified process refusal, and analyze
-main/editor delivery traces reproducibly. No JAR reinstall for that follow-up. Its own tooling/CI
-receipt remains required before delivery. Native and controlled-trading gates remain open.
+main/editor delivery traces reproducibly. No JAR reinstall for that follow-up. All 155 tooling checks and exact-head Windows/Linux CI 40780984649 pass. Release remains
+pending the current documentation correction and its exact-head CI. Native, full-account export,
+replacement 60-minute soak and controlled-trading gates remain open.
 
 ## Verified behavior and limits
 

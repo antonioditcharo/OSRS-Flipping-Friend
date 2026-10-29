@@ -19,6 +19,14 @@ against their own verified evidence. Controlled/native acceptance records remain
       phase timings and unknown coverage without granting native or trading acceptance.
       No JAR reinstall; exact-head CI and tooling receipt remain required.
 
+- [ ] Replace offline export with hash-bound version-two chunks (4 MiB/1,024 rows, eight-chunk
+      cache, 5-GiB budget, 768-MiB reserve) from one read-only snapshot. Keep V1 readers, exact
+      evaluator semantics and the 1-GiB heap ceiling. Verify/audit all 185,450 frozen rows unchanged.
+- [ ] Repair fixture transport cleanup and persistent bounded loopback workers; collect socket,
+      handle, memory, failure and phase telemetry. Preserve the FAILED 53.7-minute run and require
+      a new uninterrupted 60-minute run with zero failures, without retry filtering.
+      [Contract and retained failures](docs/verification/offline-export-and-soak-repair.md).
+
 - [x] Deliver approved optimization stage A #188: original
       acquisition/execution prefix indexes, explained main/editor outcomes, successor after expiry,
       hidden investigation work removed from the card timer, and honest latest-quote chart joins.

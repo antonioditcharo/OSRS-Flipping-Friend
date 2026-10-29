@@ -49,8 +49,13 @@ working actions may be represented more than once. This does not pass the one-se
 Native render and selected-sale post-ACK latency remain unmeasured; missing traces cannot prove
 a dropped action. [Repeatable audit](../verification/guidance-delivery-audit.md).
 
-An isolated 60-minute mixed-workflow soak starts at 21:59:40 UTC against frozen #195 Java 11
-artifacts. Its completion is pending at this receipt; retain failures and actual elapsed time.
+An isolated mixed-workflow soak started at 21:59:40 UTC against frozen #195 Java 11 artifacts.
+It FAILED after 3,220.484 seconds (53.7 minutes), after 108 group runs; the final group has
+46 passing checks and one SocketException during fixture connection setup. The error was
+"No buffer space available (maximum connections reached?)". This does not pass the hour gate.
+The full frozen export also FAILED at the 1-GiB heap: 185,450 rows contain 276,793,276 raw
+payload bytes, beyond the old 256-MiB cap even before JSON wrapping. No verified output bundle
+was published. [Repair contract](../verification/offline-export-and-soak-repair.md).
 It cannot replace player-operated sale revision, partial/late fills, cancel/collect/relist,
 restart or native chart/timing acceptance. The hosted service remains #194 and the fixed public
 capture continues; no hosting responsibility or paid capacity expands in this local release.
