@@ -7,6 +7,18 @@ import org.junit.Test;
 import static org.junit.Assert.*;
 
 public class PublicPriceForecastTest {
+    @Test public void allocationOptimizationPreservesTheExistingPublicFingerprintContract()throws Exception {
+        var key=Class.forName("com.flippingfriend.model.PublicPriceForecast$Key");
+        var constructor=key.getDeclaredConstructor(List.class,List.class,long.class);constructor.setAccessible(true);
+        var fingerprint=key.getDeclaredMethod("fingerprint");fingerprint.setAccessible(true);
+        var rows=new ArrayList<Candle>();rows.add(new Candle(10,20,null,30,40));rows.add(null);
+        Object value=constructor.newInstance(rows,null,1_700_006_400L);
+        assertEquals("774c154db6457126490f0ff533c6f50cb73edcaa1d85add34fd0f8757d5a0a8e",fingerprint.invoke(value));
+        rows.get(0).setTimestamp(11);
+        assertNotEquals(value,constructor.newInstance(rows,null,1_700_006_400L));
+        assertNotEquals(value,constructor.newInstance(java.util.Collections.nCopies(2049,null),null,1_700_006_400L));
+        assertEquals("Snapshot keys cannot mutate with a caller's candle", "774c154db6457126490f0ff533c6f50cb73edcaa1d85add34fd0f8757d5a0a8e",fingerprint.invoke(value));
+    }
     @Test public void liveMissReturnsFallbackWithoutRunningAnalysisOnTheCallingThreadAndCopiesInputs()throws Exception {
         var field=PublicPriceForecast.class.getDeclaredField("WORKER");field.setAccessible(true);
         var worker=(java.util.concurrent.ThreadPoolExecutor)field.get(null);

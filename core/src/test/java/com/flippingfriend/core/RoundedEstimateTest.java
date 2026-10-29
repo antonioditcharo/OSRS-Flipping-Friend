@@ -14,4 +14,11 @@ public class RoundedEstimateTest {
         assertEquals("Unknown", RoundedEstimate.text(null, null));
         assertEquals("Est. -11", RoundedEstimate.text(-11L, -10L));
     }
+    @Test public void hourlyMidpointRoundsOnlyOnceAndCannotOverflowOrUsePositiveTieRoundingForLosses() {
+        assertEquals("1",RoundedEstimate.hourlyMidpoint(0,1,3600).toString());
+        assertEquals("-1",RoundedEstimate.hourlyMidpoint(-1,0,3600).toString());
+        assertEquals("-30",RoundedEstimate.hourlyMidpoint(Long.MIN_VALUE,Long.MAX_VALUE,60).toString());
+        assertEquals("553402322211286548420",RoundedEstimate.hourlyMidpoint(Long.MAX_VALUE,Long.MAX_VALUE,60).toString());
+        assertEquals("0",RoundedEstimate.hourlyMidpoint(-10,10,60).toString());
+    }
 }

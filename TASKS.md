@@ -14,6 +14,17 @@ against their own verified evidence. Controlled/native acceptance records remain
 
 ## Current batch
 
+- [ ] Deliver the approved native-guidance qualification pass: correlated main/selected-sale/
+      maintenance stages, bounded asynchronous telemetry, honest visible-paint outcomes,
+      unchanged sidebar refreshes and rounded sale/hourly displays. Keep #195 installed until
+      clean Java/tooling, Java 11, exact-head CI, uninterrupted hour and preservation pass.
+      Profile retained startup/selected-sale delays before extending authority-sensitive caches.
+      [Contract](docs/architecture/native-guidance-timing.md).
+- [ ] Follow with common-horizon whole-account pricing in shadow, then observational learner
+      construction after delivery/latency/provenance gates. Preserve the live baseline and
+      5m/30m/2h/8h qualification, original risk and fixed public capture stop. No new loss authority
+      or learning promotion in the timing release. Rare live late fills remain explicit if not observed.
+
 - [x] Verify/deliver #196, the script-only exit-race and delivery-audit follow-up. Continue a process
       drain only after fresh proof the target PID is absent; retain all live/reused/unknown
       listener refusals. Audit main/editor traces, duplicate/conflicting identities, explicit
