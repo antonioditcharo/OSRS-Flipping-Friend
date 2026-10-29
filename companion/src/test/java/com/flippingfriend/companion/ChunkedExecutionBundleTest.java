@@ -34,7 +34,7 @@ public class ChunkedExecutionBundleTest {
                 json.toJson(new ExecutionForecastAudit(1,1,"same",b.snapshot.observations())));
             assertEquals(json.toJson(TradeEvidenceAudit.analyze(a.snapshot,"a".repeat(64))),
                 json.toJson(TradeEvidenceAudit.analyze(b.snapshot,"a".repeat(64))));
-            assertEquals(0,Files.list(v2).filter(p->p.toString().endsWith(".sqlite")).count());
+            try(var files=Files.list(v2)){assertEquals(0,files.filter(p->p.toString().endsWith(".sqlite")).count());}
         }
     }
     @Test public void multipleEpisodesAndReconciliationMatchTheFullReader()throws Exception {
@@ -108,5 +108,40 @@ public class ChunkedExecutionBundleTest {
             long at=s.streamExecutionSources(fixture.account,rows::add,gaps::add);assertTrue(gaps.isEmpty());
             assertEquals(1,ExecutionEvaluationMain.verify(write("wal",new ExecutionSourceSnapshot(fixture.account,at,rows,gaps))).evaluation.eligible);
         }
+    }
+    @Test public void interleavedEpisodesRetainOriginalOrderFirstTerminalAndCensoring()throws Exception {
+        List<OfferEvent> events=new ArrayList<>();
+        for(int episode=0;episode<48;episode++) {
+            int row=0;
+            for(var original:fixture.history(episode%3!=0)) {
+                var raw=json.toJsonTree(original).getAsJsonObject();row++;
+                raw.addProperty("eventId",original.getEventId()+"-"+episode);
+                raw.addProperty("sessionId","session-"+(episode/8));raw.addProperty("slot",episode%8);
+                raw.addProperty("sequence",episode*10L+row);raw.addProperty("observedAt",original.getObservedAt()+episode*1000L);
+                if(original.getOfferIdentity()!=null) {
+                    raw.addProperty("offerIdentity","offer-"+episode);raw.addProperty("firstSeenAt",original.getFirstSeenAt()+episode*1000L);
+                    raw.addProperty("adviceObservedAt",original.getAdviceObservedAt()+episode*1000L);
+                    raw.addProperty("predictionSourceEventId","birth-"+episode);
+                    if(episode%7==0 && row==3)raw.addProperty("sequence",1);
+                }
+                events.add(json.fromJson(raw,OfferEvent.class));
+            }
+        }
+        var s=fixture.snapshot(100000,events);var verified=ExecutionEvaluationMain.verify(write("episodes",s));
+        assertEquals(48,verified.snapshot.observations().size());
+        assertEquals(json.toJson(s.observations()),json.toJson(verified.snapshot.observations()));
+        assertEquals(json.toJson(new ExecutionHorizonEvaluation(s.observations(),null)),json.toJson(verified.evaluation));
+    }
+    @Test public void streamFailureClosesItsSnapshotAndKeepsOriginalDatabaseBytes()throws Exception {
+        Path db=folder.newFolder().toPath().resolve("interrupted.db");
+        try(var s=new SqliteStore(db)){for(var e:fixture.history(true))s.recordAndProjectOffer(e,json.toJson(e),true);}
+        byte[] before=Files.readAllBytes(db);
+        try(var reader=SqliteStore.openReadOnly(db)) {
+            try{reader.streamExecutionSources(fixture.account,row->{throw new java.io.IOException("deliberate fixture interruption");},gap->{});fail("ignored interruption");}
+            catch(java.io.IOException expected){ }
+            List<ExecutionSourceSnapshot.Row> rows=new ArrayList<>();reader.streamExecutionSources(fixture.account,rows::add,gap->{});
+            assertEquals(4,rows.size());
+        }
+        assertArrayEquals(before,Files.readAllBytes(db));
     }
 }

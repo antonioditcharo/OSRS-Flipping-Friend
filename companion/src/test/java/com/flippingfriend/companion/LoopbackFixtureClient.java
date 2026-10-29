@@ -9,6 +9,11 @@ import java.util.concurrent.atomic.LongAdder;
 
 /** One bounded, reusable transport per persistent test JVM. Never used by production. */
 final class LoopbackFixtureClient {
+    static {
+        // Also set as worker launch flags, before any JDK HttpClient initialization.
+        System.setProperty("jdk.httpclient.redirects.retrylimit","1");
+        System.setProperty("jdk.httpclient.disableRetryConnect","true");
+    }
     private static final ExecutorService EXECUTOR=Executors.newFixedThreadPool(2,r->{
         Thread t=new Thread(r,"fixture-http");t.setDaemon(true);return t;
     });

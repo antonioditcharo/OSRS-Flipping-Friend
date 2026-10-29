@@ -26,3 +26,22 @@ persistent worker. Record sockets, handles, memory, failures and phase timings t
 uninterrupted 60-minute run. No retries may erase failures or improve measured percentiles.
 Native rendering, eligible publication, player sale revision/partial/late-fill/cancel/collect/relist
 and restart remain open. Pricing and learning stay in shadow. Preserve every prior acceptance ID.
+
+## Replacement source and measurement contract
+
+The persistent runner is tools/run-workflow-soak.py with tools/fixtures/WorkflowSoakWorker.java.
+It freezes both test classpaths and the Java 11 worker, records their hashes, runs one reusable
+bounded HTTP client per worker, and retains every phase/failure plus socket, handle and memory
+samples. Request counters and cumulative request time are included each cycle. JUnit has no
+retry; any test or transport failure ends the run. Host telemetry failures also refuse acceptance.
+The worker launch sets jdk.httpclient.redirects.retrylimit=1 and disableRetryConnect=true before
+HttpClient initializes: the [OpenJDK 11 transport](https://github.com/openjdk/jdk11u/blob/master/src/java.net.http/share/classes/jdk/internal/net/http/MultiExchange.java)
+otherwise permits automatic retries. Production transport remains unchanged.
+
+Two short instrumentation warm-ups are retained separately; neither satisfies the hour gate.
+The acceptance run must use the complete request telemetry and explicit no-retry launch flags.
+The full-account V2 export/verification/audits and previous #195 reader equivalence remain pending
+until their actual receipts complete. Fresh #195 live main-action delivery sample: 40 linked
+post-ACK observations, p50 216ms, p95 878ms, maximum 983ms; repeats of working actions are included.
+One SELL-to-WAIT is the explicit selected-editor override. Native rendering, complete controlled
+player workflows and sustained latency remain open. This sample cannot activate pricing/learning.

@@ -24,11 +24,29 @@ for fixtures. It does not install JARs, start a companion, ask for credentials, 
 game input. Linux can invoke the same ExecutionEvaluationMain class through the built companion
 JAR with arguments freeze, verify or compare; the command prints its exact usage on missing arguments.
 
-Each new private directory under local-data contains sources.json, evaluation.json and manifest.json.
+New exports default to version two (28 October 2026). They stream one complete read-only SQLite
+snapshot into ordered offers-NNNNNN.jsonl and gaps-NNNNNN.jsonl chunks, plus evaluation.json and
+manifest.json. A chunk holds at most 4 MiB or 1,024 rows. One shared eight-chunk cache serves
+both source types. Temporary SQLite indexes hold source identities, reconciliation lineage and
+episode state; they are removed on completion/failure. Raw payload strings remain exact.
+
+The 5-GiB bundle budget and 768-MiB free-space reserve fail closed without publishing a manifest.
+The helper wrappers use a 1-GiB maximum Java heap. Manifest publication is atomic and last; its
+ordered references bind each chunk's ordinal, size, count, first/last cursor and SHA-256, alongside
+account, capture clock, both complete cursors, counts, policy/evaluator version and artifact hash.
+Missing, reordered, duplicate, corrupted or unlisted files fail verification. Validation streams
+chunks and recomputes the original observation/censoring/score mathematics. No financial writes,
+repairs, new samples or model promotion are authorized by this envelope change.
+
+Version-one readers and fixture bundles remain supported unchanged: sources.json, evaluation.json
+and manifest.json retain their original 256-MiB per-file boundary. Their observations and scores
+must equal V2 for the same sources. V2 removes the monolithic serialization that exhausted the
+1-GiB heap on the 185,450-row account; the original failure remains in the delivery receipt.
+
 Packaged captures retain the exact executing artifact as evaluator.jar.bin, bound by its hash.
 It can reproduce the offline command later with `java -cp <capture>/evaluator.jar.bin com.flippingfriend.companion.ExecutionEvaluationMain verify <capture>`.
 Creation never overwrites an existing capture; the manifest is written last. Incomplete directories
-are rejected. The explicit per-file read/write limit is 256 MiB; exceeding it fails without silently
+are rejected. For version one the explicit per-file read/write limit is 256 MiB; exceeding it fails without silently
 truncating a source prefix. The compact HTTP learning/current endpoint remains a bounded diagnostic
 tail, not the input to this evaluator. Full exports retain all qualifying episodes, including over 200.
 
