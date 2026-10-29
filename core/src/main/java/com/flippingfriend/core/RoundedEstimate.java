@@ -18,4 +18,11 @@ public final class RoundedEstimate {
         if (lower == null || upper == null) return "Unknown";
         return (lower.equals(upper) ? "" : "Est. ") + midpoint(lower, upper);
     }
+
+    /** Midpoint hourly rate, rounded once. The result can exceed a long for short windows. */
+    public static BigInteger hourlyMidpoint(long lower,long upper,long seconds) {
+        if(lower>upper || seconds<=0)throw new IllegalArgumentException("invalid rate bounds or duration");
+        BigInteger numerator=BigInteger.valueOf(lower).add(BigInteger.valueOf(upper)).multiply(BigInteger.valueOf(1800));
+        return new BigDecimal(numerator).divide(BigDecimal.valueOf(seconds),0,RoundingMode.HALF_UP).toBigIntegerExact();
+    }
 }

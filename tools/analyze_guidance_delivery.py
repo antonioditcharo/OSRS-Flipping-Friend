@@ -6,6 +6,7 @@ import math
 import hashlib
 from pathlib import Path
 import re
+from guidance_timing import TimingAudit
 
 OUTCOME = re.compile(
     r"Guidance outcome: (\w+); proposed (\w+); visible (\w+); pending (\w+); schema 1; source (\w+); "
@@ -24,6 +25,7 @@ def distribution(rows, field):
 
 
 def analyze(paths, since=None):
+    timing = TimingAudit()
     outcomes, deliveries, acknowledgements, malformed, conflicts = [], [], [], [], []
     sources, decode_issues = [], []
     seen, measurements = {}, {}
@@ -54,6 +56,9 @@ def analyze(paths, since=None):
                 if since and line[:19] < since:
                     continue
                 origin = {"file": str(path), "line": line_number, "loggedAt": line[:19]}
+                if "Guidance timing: " in line:
+                    timing.add(line.split("Guidance timing: ", 1)[1], origin)
+                    continue
                 match = OUTCOME.search(line)
                 if match:
                     outcome, proposed, visible, pending, channel, trace, generation, revision, item, quantity, price, shown, headline = match.groups()
@@ -122,6 +127,7 @@ def analyze(paths, since=None):
         "cachedNativeRender": "UNMEASURED", "selectedSalePostAck": "UNMEASURED",
         "missingProposalOrDeliveryConclusion": "UNKNOWN: absence of a trace cannot prove a dropped action",
         "acceptancePassed": False,
+        "correlatedTiming": timing.result(),
     }
 
 

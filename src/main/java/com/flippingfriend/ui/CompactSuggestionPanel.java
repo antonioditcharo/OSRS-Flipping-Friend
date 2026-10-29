@@ -22,6 +22,7 @@ final class CompactSuggestionPanel extends JPanel {
     private Suggestion shown = Suggestion.idle();
     private int imageItem=Integer.MIN_VALUE;
     private AsyncBufferedImage requestedImage;
+    private final GuidancePaint paintTiming=new GuidancePaint();
 
     CompactSuggestionPanel(ItemManager items, Explainer explainer) {
         this.items = items; this.explainer = explainer;
@@ -54,6 +55,7 @@ final class CompactSuggestionPanel extends JPanel {
 
     void update(Suggestion next, Suggestion pending) {
         shown = next == null ? Suggestion.idle() : next;
+        paintTiming.validate(this,shown);
         String instruction;
         switch (shown.getType()) {
             case BUY: instruction = "Buy " + explainer.formatNumber(shown.getQuantity()); break;
@@ -105,6 +107,15 @@ final class CompactSuggestionPanel extends JPanel {
         if (changed && getParent() != null) { getParent().invalidate(); revalidate(); }
     }
     Suggestion displayed() { return shown; }
+    void measurePaint(GuidanceTiming timing,Suggestion expected) {
+        paintTiming.request(timing,expected);paintTiming.validate(this,shown);
+        repaint();
+    }
+    @Override public void paint(Graphics graphics) {
+        super.paint(graphics);
+        paintTiming.completed(this,shown,graphics);
+    }
+    @Override public void removeNotify() {paintTiming.finish("HIDDEN");super.removeNotify();}
     @Override public Dimension getPreferredSize() {
         Dimension preferred = super.getPreferredSize(); return new Dimension(preferred.width, Math.max(82, preferred.height));
     }

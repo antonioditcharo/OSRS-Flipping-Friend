@@ -53,6 +53,14 @@ primary-checkout document deletions stay untouched.
 
 ## Current release and tooling
 
+Approved continuation source is on `codex/native-guidance-timing`: correlated main/editor phases,
+bounded asynchronous diagnostic logging, visible action-card paint outcomes, removal of root
+timer relayout/metric resets, exact rounded sale/hourly estimates and lower-allocation public
+cache keys with unchanged fingerprints. Verification/delivery is pending; installed #195 and
+hosted #194 remain unchanged. The retained startup outlier is not resolved by instrumentation.
+Read [the current contract](docs/architecture/native-guidance-timing.md); pricing stays shadow and
+learner construction remains behind delivery/latency/provenance gates.
+
 #195 uses PUBLIC_NUMERIC_INPUT_V1 across client/companion/replay numeric boundaries, scoped history
 refusal, overflow-safe midpoint and current cached-entry rejection. Unsupported managed valuation
 retains exact cost and pauses that item under V3; a valid neighbour gets independent final authority.

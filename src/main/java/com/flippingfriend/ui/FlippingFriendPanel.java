@@ -46,6 +46,11 @@ public class FlippingFriendPanel extends PluginPanel {
     private final JPopupMenu menu = new JPopupMenu();
     private Runnable onRejection = () -> { };
     private final java.util.concurrent.atomic.AtomicBoolean refreshQueued=new java.util.concurrent.atomic.AtomicBoolean();
+    private final java.util.ArrayDeque<PaintRequest> paintRequests=new java.util.ArrayDeque<>();
+    private static final class PaintRequest {
+        final GuidanceTiming timing;final Suggestion expected;
+        PaintRequest(GuidanceTiming timing,Suggestion expected){this.timing=timing;this.expected=expected;}
+    }
 
     @Inject public FlippingFriendPanel(SuggestionEngine engine, PositionBook positions, TradeJournal journal,
         AccountMonitor accountMonitor, MarketDataService marketData, ItemManager itemManager,
@@ -175,12 +180,26 @@ public class FlippingFriendPanel extends PluginPanel {
             refreshQueued.set(false);refreshOnEdt();
         });
     }
+    public void refresh(GuidanceTiming timing,Suggestion expected) {
+        timing.mark("panelRequested");
+        synchronized(paintRequests) {
+            if(paintRequests.size()==32)paintRequests.removeFirst().timing.paint("EDT_QUEUE_LIMIT");
+            paintRequests.addLast(new PaintRequest(timing,expected));
+        }
+        refresh();
+    }
     private void refreshOnEdt() {
         AccountState account = accountMonitor.getState();
         boolean loggedIn=account!=null && account.isLoggedIn();
         Suggestion active = loggedIn?stepGuide.getSuggestion():Suggestion.waiting("Log in to start",
             "Log in and open the Grand Exchange for current account guidance.");
         suggestion.update(active, loggedIn?stepGuide.getPending():null);
+        synchronized(paintRequests) {
+            while(!paintRequests.isEmpty()) {
+                PaintRequest request=paintRequests.removeFirst();request.timing.mark("edtDelivery");
+                suggestion.measurePaint(request.timing,request.expected);
+            }
+        }
         AccountLedgerSnapshot ledger = account != null && account.isLoggedIn() ? companion.lastLedger() : null;
         refreshPerformance();
         AccountLedgerSnapshot history = account != null && account.isLoggedIn() ? companion.historyLedger() : null;
@@ -205,7 +224,8 @@ public class FlippingFriendPanel extends PluginPanel {
         String accountMode = account != null && account.isLoggedIn() && account.isFreeToPlay() ? "Free-to-play" : "";
         mode.setText(accountMode + (engine.isSellOnly() ? (accountMode.isEmpty() ? "" : " · ") + "Sell only" : ""));
         bankroll.setToolTipText("Planning budget using bank-value preference, collection coins, live commitments and bankroll cap."); mode.setForeground(UiUtils.WARNING);
-        revalidate(); repaint();
+        // Swing property changes invalidate only the components that changed. An unconditional
+        // root revalidation here forced the complete sidebar through layout every second.
     }
     private static void style(JToggleButton button, boolean selected) {
         boolean high=selected && "risk-high".equals(button.getName());

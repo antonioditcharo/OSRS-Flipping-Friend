@@ -248,16 +248,22 @@ public final class PublicPriceForecast {
             this(Arrays.asList(shortRows,hourly,sixHourly),now);
         }
         private Key(List<List<Candle>> histories,long now) {
-            minute=now/300;List<Long> data=new ArrayList<>();
+            minute=now/300;
+            int capacity=histories.size();
+            for(List<Candle> rows:histories)if(rows!=null && rows.size()<=2048)capacity+=rows.size()*5;
+            long[] data=new long[capacity];int index=0;
             for(List<Candle> rows:histories) {
-                data.add(rows==null?-1L:(long)rows.size());
+                data[index++]=rows==null?-1L:rows.size();
                 if(rows!=null && rows.size()<=2048)for(Candle c:rows) {
-                    if(c==null){data.add(Long.MIN_VALUE);continue;}
-                    data.add(c.getTimestamp());data.add(c.getAvgHighPrice()==null?-1L:c.getAvgHighPrice().longValue());
-                    data.add(c.getAvgLowPrice()==null?-1L:c.getAvgLowPrice().longValue());data.add((long)c.getHighPriceVolume());data.add((long)c.getLowPriceVolume());
+                    if(c==null){data[index++]=Long.MIN_VALUE;continue;}
+                    data[index++]=c.getTimestamp();data[index++]=c.getAvgHighPrice()==null?-1L:c.getAvgHighPrice().longValue();
+                    data[index++]=c.getAvgLowPrice()==null?-1L:c.getAvgLowPrice().longValue();
+                    data[index++]=c.getHighPriceVolume();data[index++]=c.getLowPriceVolume();
                 }
             }
-            values=new long[data.size()];for(int i=0;i<values.length;i++)values[i]=data.get(i);
+            // Exact public-field keys still detect edits and conflicting duplicates. Avoid tens
+            // of thousands of boxed Longs on every cache lookup; never reuse by mutable list identity.
+            values=index==data.length?data:Arrays.copyOf(data,index);
             hash=31*Long.hashCode(minute)+Arrays.hashCode(values);
         }
         @Override public int hashCode(){return hash;}

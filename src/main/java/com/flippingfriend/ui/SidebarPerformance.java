@@ -72,59 +72,61 @@ final class SidebarPerformance extends JPanel {
             :ledger!=null && ledger.getUnresolvedSales()>0?"Known recorded profit":"Recorded profit");
         long low=available?measurement.profitLower:ledger==null?0:ledger.getProfitLower();
         long high=available?measurement.profitUpper:ledger==null?0:ledger.getProfitUpper();
-        profit.setText(available?measurement.saleUpdates>0 && measurement.unresolvedSales==measurement.saleUpdates?"Unresolved":range(low,high)
-            :ledger==null?"Unavailable":ledger.getBoundedSales()==0 && ledger.getSales()>0?"Unresolved":range(low,high));
+        String profitText=available?measurement.saleUpdates>0 && measurement.unresolvedSales==measurement.saleUpdates?"Unresolved":range(low,high)
+            :ledger==null?"Unavailable":ledger.getBoundedSales()==0 && ledger.getSales()>0?"Unresolved":range(low,high);
+        if(!profitText.equals(profit.getText()))profit.setText(profitText);
         profit.setForeground(low>0?UiUtils.profitColor(1):high<0?UiUtils.profitColor(-1):UiUtils.TEXT);
         profit.setToolTipText("Realized after-tax profit from durable sales in the selected measurement window. Unknown profit is excluded and counted below.");
         coverage.setText(available?measurement.archivedUnresolvedSales>0?"<html>"+measurement.saleUpdates+" updates · "+measurement.unresolvedSales+" unresolved<br>"+measurement.archivedUnresolvedSales+" archived (kept in coverage)</html>":measurement.saleUpdates+" updates · "+measurement.unresolvedSales+" unresolved":ledger==null?"Waiting for account records":ledger.getSales()+" updates · "+ledger.getUnresolvedSales()+" unresolved");
         coverage.setToolTipText(Objects.toString(companion.performanceError(),"")+" Sale timestamps are observations; partial fills count once per completed sell offer. Historical coverage may be incomplete.");
-        for(JLabel value:values.values()){value.setText("Unavailable");value.setForeground(UiUtils.TEXT);value.setToolTipText(null);}
+        Map<String,Metric> desired=new LinkedHashMap<>();values.keySet().forEach(key->desired.put(key,new Metric()));
         if(available) {
             if(measurement.spendableCoins!=null) {
-                values.get("Available cash").setText(explainer.formatGp(measurement.spendableCoins));
-                values.get("Available cash").setToolTipText(explainer.formatNumber(measurement.spendableCoins)+" GP from current copied account evidence. Resale estimates are not spendable coins.");
-                values.get("Stock purchase cost").setText(explainer.formatGp(measurement.managedAcquisitionCost));
-                values.get("Stock purchase cost").setToolTipText(valuationTip(measurement));
+                desired.get("Available cash").setText(explainer.formatGp(measurement.spendableCoins));
+                desired.get("Available cash").setToolTipText(explainer.formatNumber(measurement.spendableCoins)+" GP from current copied account evidence. Resale estimates are not spendable coins.");
+                desired.get("Stock purchase cost").setText(explainer.formatGp(measurement.managedAcquisitionCost));
+                desired.get("Stock purchase cost").setToolTipText(valuationTip(measurement));
             }
-            values.get("Flips made").setText(Long.toString(measurement.completedFlips));
-            values.get("Flips made").setToolTipText("Fully completed, cost-matched sell orders. Partial updates contribute profit but do not inflate this count.");
-            if(measurement.appliedCost>0)values.get("ROI").setText((low==high?"":"Est. ")+percent(RoundedEstimate.midpoint(low,high),measurement.appliedCost));
+            desired.get("Flips made").setText(Long.toString(measurement.completedFlips));
+            desired.get("Flips made").setToolTipText("Fully completed, cost-matched sell orders. Partial updates contribute profit but do not inflate this count.");
+            if(measurement.appliedCost>0)desired.get("ROI").setText((low==high?"":"Est. ")+percent(RoundedEstimate.midpoint(low,high),measurement.appliedCost));
             Color realizedColor=low>0?UiUtils.profitColor(1):high<0?UiUtils.profitColor(-1):UiUtils.TEXT;
-            values.get("ROI").setForeground(realizedColor);
-            values.get("ROI").setToolTipText("Known net realized profit / exact applied acquisition cost of priced sales; unknown sales excluded.");
+            desired.get("ROI").setForeground(realizedColor);
+            desired.get("ROI").setToolTipText("Known net realized profit / exact applied acquisition cost of priced sales; unknown sales excluded.");
             if("SESSION".equals(measurement.scope) && measurement.sessionId!=null) {
                 long seconds=Math.max(0,java.time.Instant.now().getEpochSecond()-measurement.startedAt);
-                values.get("Session time").setText(String.format(Locale.ROOT,"%02d:%02d:%02d",seconds/3600,seconds/60%60,seconds%60));
-                values.get("Session time").setForeground(UiUtils.WARNING);
-                values.get("Session time").setToolTipText("Elapsed wall time since the durable measurement start, including offline time. Reset never resets risk.");
-                values.get("Hourly profit").setText(seconds<60?"Measuring":rate(low,high,seconds));
-                values.get("Hourly profit").setForeground(realizedColor);
-                values.get("Hourly profit").setToolTipText("Known realized net profit / elapsed wall time, not slot-hour estimates; unknown sales excluded.");
+                desired.get("Session time").setText(String.format(Locale.ROOT,"%02d:%02d:%02d",seconds/3600,seconds/60%60,seconds%60));
+                desired.get("Session time").setForeground(UiUtils.WARNING);
+                desired.get("Session time").setToolTipText("Elapsed wall time since the durable measurement start, including offline time. Reset never resets risk.");
+                desired.get("Hourly profit").setText(seconds<60?"Measuring":rate(low,high,seconds));
+                desired.get("Hourly profit").setForeground(realizedColor);
+                desired.get("Hourly profit").setToolTipText("Known realized net profit / elapsed wall time, not slot-hour estimates; unknown sales excluded.");
             }
             if(measurement.portfolioValue!=null) {
                 boolean partial=measurement.unpricedCost>0;
-                values.get("Portfolio value").setText("≈ "+explainer.formatGp(measurement.portfolioValue)+(partial?"*":""));
+                desired.get("Portfolio value").setText("≈ "+explainer.formatGp(measurement.portfolioValue)+(partial?"*":""));
                 boolean planned=measurement.intendedExitValue!=null;
                 boolean missingPlan=planned && measurement.unplannedCost>0;
-                values.get("Unrealized profit").setText(planned && missingPlan && measurement.unplannedCost.equals(measurement.managedAcquisitionCost)
+                desired.get("Unrealized profit").setText(planned && missingPlan && measurement.unplannedCost.equals(measurement.managedAcquisitionCost)
                     ?"Target unknown":explainer.formatGp(measurement.unrealizedProfit)+((planned?missingPlan:partial)?"*":""));
-                values.get("Unrealized profit").setForeground(UiUtils.profitColor(Long.compare(measurement.unrealizedProfit,0)));
+                desired.get("Unrealized profit").setForeground(UiUtils.profitColor(Long.compare(measurement.unrealizedProfit,0)));
                 if(measurement.instantSaleProfit!=null) {
-                    values.get("Instant-sale P/L").setText(partial && measurement.unpricedCost.equals(measurement.managedAcquisitionCost)
+                    desired.get("Instant-sale P/L").setText(partial && measurement.unpricedCost.equals(measurement.managedAcquisitionCost)
                         ?"Unpriced":explainer.formatGp(measurement.instantSaleProfit)+(partial?"*":""));
-                    values.get("Instant-sale P/L").setForeground(UiUtils.profitColor(Long.compare(measurement.instantSaleProfit,0)));
-                    values.get("Instant-sale P/L").setToolTipText(valuationTip(measurement));
+                    desired.get("Instant-sale P/L").setForeground(UiUtils.profitColor(Long.compare(measurement.instantSaleProfit,0)));
+                    desired.get("Instant-sale P/L").setToolTipText(valuationTip(measurement));
                 }
-                String tip=valuationTip(measurement);values.get("Portfolio value").setToolTipText(tip);
-                values.get("Unrealized profit").setToolTipText(tip);
+                String tip=valuationTip(measurement);desired.get("Portfolio value").setToolTipText(tip);
+                desired.get("Unrealized profit").setToolTipText(tip);
             }
         }
+        desired.forEach((key,value)->value.apply(values.get(key)));
         java.util.List<PerformanceSnapshot.Sale> visible=available?measurement.sales.stream().filter(s->!s.archived).collect(java.util.stream.Collectors.toList()):java.util.List.of();
         int size=visible.size(),totalPages=Math.max(1,(size+9)/10);pageNumber=Math.min(pageNumber,totalPages-1);
         page.setText("Page "+(pageNumber+1)+" of "+totalPages);previous.setEnabled(available && pageNumber>0);next.setEnabled(available && pageNumber+1<totalPages);
-        String signature=available?measurement.accountId+measurement.scope+measurement.sessionId+pageNumber+measurement.sales.toString():"none";
+        String signature="none";
         // Serialization compares values, so a two-second update does not rebuild unchanged rows or reset focus.
-        if(available)signature=new com.google.gson.Gson().toJson(measurement.sales)+measurement.scope+measurement.accountId+pageNumber;
+        if(available)signature=new com.google.gson.Gson().toJson(visible.subList(pageNumber*10,Math.min(size,(pageNumber+1)*10)))+measurement.scope+measurement.accountId+pageNumber+":"+totalPages+":"+measurement.archivedUnresolvedSales;
         if(signature.equals(saleSignature))return;saleSignature=signature;sales.removeAll();
         if(size==0){JLabel empty=new JLabel(available?measurement.archivedUnresolvedSales>0?"Archived sales: see Missed flips":"No recorded sales in this window":"Waiting for recorded sales");style(empty);addSale(empty);}
         else for(int i=pageNumber*10;i<Math.min(size,(pageNumber+1)*10);i++) {
@@ -176,10 +178,20 @@ final class SidebarPerformance extends JPanel {
         }
         return tip.append("</html>").toString();
     }
+    private static final class Metric {
+        String text="Unavailable",tooltip;Color foreground=UiUtils.TEXT;
+        void setText(String value){text=value;}
+        void setForeground(Color value){foreground=value;}
+        void setToolTipText(String value){tooltip=value;}
+        void apply(JLabel label) {
+            label.setText(text);label.setForeground(foreground);label.setToolTipText(tooltip);
+        }
+    }
     private void addSale(JComponent c){c.setAlignmentX(LEFT_ALIGNMENT);c.setMaximumSize(new Dimension(Integer.MAX_VALUE,c.getPreferredSize().height));sales.add(c);}
     private String amount(Long amount){return amount==null?"Unknown":explainer.formatNumber(amount)+" GP";}
-    private String shortRange(long a,long b){return a==b?explainer.formatGp(a):explainer.formatGp(a)+"…"+explainer.formatGp(b);}
+    private String shortRange(long a,long b){return (a==b?"":"Est. ")+explainer.formatNumber(RoundedEstimate.midpoint(a,b))+" gp";}
     private String range(long a,long b){return (a==b?"":"Est. ")+explainer.formatNumber(RoundedEstimate.midpoint(a,b))+" gp";}
     private static String percent(long p,long cost){return String.format(Locale.ROOT,"%.3f%%",p*100.0/cost);}
-    private String rate(long low,long high,long seconds){return shortRange(Math.round(low*3600.0/seconds),Math.round(high*3600.0/seconds))+"/h";}
+    private String rate(long low,long high,long seconds){return (low==high?"":"Est. ")
+        +String.format(Locale.ROOT,"%,d",RoundedEstimate.hourlyMidpoint(low,high,seconds))+" gp/h";}
 }
