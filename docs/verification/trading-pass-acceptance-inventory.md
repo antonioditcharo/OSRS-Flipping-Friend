@@ -6,7 +6,7 @@ Overlapping records remain separate until each has mapped implementation and acc
 
 | Requirement | Original requirement | Current status | Verification group |
 |---|---|---|---|
-| REQ-7bfec73286cc | Verify first sealed production public segment, uninterrupted coverage/byte budget through | PARTIAL: 196 seals/1,275 captures verified; sustained campaign/final stop/freeze remain open | DELIVERY, WORKFLOW, UI |
+| REQ-7bfec73286cc | Verify first sealed production public segment, uninterrupted coverage/byte budget through | PARTIAL: 292 seals/1,903 captures verified; sustained campaign/final stop/freeze remain open | DELIVERY, WORKFLOW, UI |
 | REQ-3905b72b27ad | Verify/deliver `codex/public-capture-seed-resume`: skip retained attempts immediately after | VERIFIED: merged/deployed #194; CI 40611404568; 60 original attempts preserved, four missing continued | WORKFLOW, UI, RELEASE |
 | REQ-6e77516523b0 | Audit all runtime typed market adapters for exact numeric bounds and item-local refusal. | VERIFIED: #195 source/local paired delivery; 2,539 Java/144 tooling/80 Java 11, CI 40773463909 and preserved financial/risk reads | LEDGER, PRICING, UI |
 | REQ-0f35c977855a | Complete approved pricing stages B/C: constrained whole-account alternatives, shared entry/ | OPEN: evidence must be linked before closure | DELIVERY, LEDGER, PRICING, EVIDENCE |
