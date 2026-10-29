@@ -93,21 +93,11 @@ def main():
                     raise RuntimeError('Persistent worker failed; no retry')
             if time.monotonic() >= next_sample:
                 sample = {'elapsedSeconds': round(time.monotonic() - started, 3)}
-                if os.name == 'nt':
-                    ids = ','.join(str(v.pid) for v in processes.values())
-                    command = ('$ErrorActionPreference="Stop"; [pscustomobject]@{sockets=@(Get-NetTCPConnection | '
-                        'Group-Object State | Select-Object Name,Count); processes=@(Get-Process -Id ' + ids +
-                        ' -ErrorAction SilentlyContinue | Select-Object Id,Handles,WorkingSet64,PrivateMemorySize64,CPU); '
-                        'memory=Get-CimInstance Win32_PerfFormattedData_PerfOS_Memory | '
-                        'Select-Object AvailableMBytes,CommittedBytes,PoolNonpagedBytes} | ConvertTo-Json -Depth 5 -Compress')
-                    try:
-                        run = subprocess.run(['powershell.exe', '-NoProfile', '-Command', command], capture_output=True,
-                            text=True, encoding='utf-8', errors='replace', timeout=25, creationflags=flags, check=True)
-                        sample['host'] = json.loads(run.stdout)
-                    except Exception as e:
-                        sample['measurementError'] = str(e); receipt['failures'].append({'telemetry': str(e)})
-                else:
-                    sample['host'] = subprocess.run(['sh', '-c', 'cat /proc/meminfo; ss -s'], capture_output=True, text=True).stdout
+                try:
+                    from workflow_soak_resources import snapshot
+                    sample['host'] = snapshot([v.pid for v in processes.values()])
+                except Exception as e:
+                    sample['measurementError'] = str(e); receipt['failures'].append({'telemetry': str(e)})
                 with (output / 'resources.jsonl').open('a', encoding='utf-8') as f: f.write(json.dumps(sample) + '\n')
                 next_sample = time.monotonic() + 30
                 save()
