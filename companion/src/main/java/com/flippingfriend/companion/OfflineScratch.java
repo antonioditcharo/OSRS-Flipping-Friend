@@ -21,12 +21,18 @@ final class OfflineScratch implements AutoCloseable {
         db.setAutoCommit(false);
     }
     <K,V> Map<K,V> map(String name,Class<V> type) {return new DiskMap<>(name,type);}
+    @SuppressWarnings("unchecked")
+    static <K,V> void save(Map<K,V> map,K key,V value) {
+        // State transitions do not need the previous value decoded a second time on every write.
+        if(map instanceof OfflineScratch.DiskMap)((OfflineScratch.DiskMap<K,V>)map).write(key,value);
+        else map.put(key,value);
+    }
     Set<String> set(String name) {
         Map<String,Boolean> map=map(name,Boolean.class);
         return new AbstractSet<String>() {
             public int size(){return map.size();}
             public boolean contains(Object key){return map.containsKey(key);}
-            public boolean add(String key){return map.put(key,true)==null;}
+            public boolean add(String key){return ((DiskMap<String,Boolean>)map).insert(key,true);}
             public Iterator<String> iterator(){throw new UnsupportedOperationException("Use membership, not materialization");}
             public boolean containsAll(Collection<?> keys){for(Object key:keys)if(!contains(key))return false;return true;}
         };
@@ -42,10 +48,17 @@ final class OfflineScratch implements AutoCloseable {
         }
         @Override public boolean containsKey(Object key){return get(key)!=null;}
         @Override public V put(K key,V value) {
-            V old=get(key);
+            V old=get(key);write(key,value);return old;
+        }
+        void write(K key,V value) {
             try(var s=db.prepareStatement("INSERT INTO kv(namespace,key,value) VALUES(?,?,?) ON CONFLICT(namespace,key) DO UPDATE SET value=excluded.value")) {
-                s.setString(1,name);s.setString(2,json.toJson(key));s.setString(3,json.toJson(value));s.executeUpdate();return old;
+                s.setString(1,name);s.setString(2,json.toJson(key));s.setString(3,json.toJson(value));s.executeUpdate();
             }catch(SQLException e){throw new IllegalStateException("Offline index write failed",e);}
+        }
+        boolean insert(K key,V value) {
+            try(var s=db.prepareStatement("INSERT OR IGNORE INTO kv(namespace,key,value) VALUES(?,?,?)")) {
+                s.setString(1,name);s.setString(2,json.toJson(key));s.setString(3,json.toJson(value));return s.executeUpdate()==1;
+            }catch(SQLException e){throw new IllegalStateException("Offline identity index write failed",e);}
         }
         @Override public int size() {
             try(var s=db.prepareStatement("SELECT count(*) FROM kv WHERE namespace=?")) {

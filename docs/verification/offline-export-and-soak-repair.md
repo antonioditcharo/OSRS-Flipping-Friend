@@ -31,14 +31,14 @@ and restart remain open. Pricing and learning stay in shadow. Preserve every pri
 
 The persistent runner is tools/run-workflow-soak.py with tools/fixtures/WorkflowSoakWorker.java.
 It freezes both test classpaths and the Java 11 worker, records their hashes, runs one reusable
-bounded HTTP client per worker, and retains every phase/failure plus socket, handle and memory
+bounded HTTP client per worker (two executor threads, a 64-task queue and eight idle connections), and retains every phase/failure plus socket, handle and memory
 samples. Request counters and cumulative request time are included each cycle. JUnit has no
 retry; any test or transport failure ends the run. Host telemetry failures also refuse acceptance.
 The worker launch sets jdk.httpclient.redirects.retrylimit=1 and disableRetryConnect=true before
 HttpClient initializes: the [OpenJDK 11 transport](https://github.com/openjdk/jdk11u/blob/master/src/java.net.http/share/classes/jdk/internal/net/http/MultiExchange.java)
 otherwise permits automatic retries. Production transport remains unchanged.
 
-Two short instrumentation warm-ups are retained separately; neither satisfies the hour gate.
+Short instrumentation warm-ups are retained separately; neither satisfies the hour gate.
 The acceptance run must use the complete request telemetry and explicit no-retry launch flags.
 The full-account V2 export/verification/audits and previous #195 reader equivalence remain pending
 until their actual receipts complete. Fresh #195 live main-action delivery sample: 40 linked

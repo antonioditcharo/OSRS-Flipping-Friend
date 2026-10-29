@@ -81,6 +81,7 @@ def main():
             stderr = (output / (group + '.stderr.log')).open('w', encoding='utf-8'); streams.append(stderr)
             processes[group] = subprocess.Popen([str(a.java), '-Xmx512m', '-Djava.awt.headless=true',
                 '-Djdk.httpclient.redirects.retrylimit=1', '-Djdk.httpclient.disableRetryConnect=true',
+                '-Djdk.httpclient.connectionPoolSize=8',
                 '-cp', str(worker) + os.pathsep + paths[group], 'WorkflowSoakWorker',
                 str(output / (group + '.jsonl')), str(a.seconds), *names], cwd=root, stdout=stdout,
                 stderr=stderr, creationflags=flags)

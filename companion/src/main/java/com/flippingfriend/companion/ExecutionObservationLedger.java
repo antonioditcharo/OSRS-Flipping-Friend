@@ -62,11 +62,11 @@ final class ExecutionObservationLedger {
                 throw new IllegalArgumentException("A prospective observation is in the future.");
             List<Object> scope=List.of(e.getSessionId(),e.getSlot());OfferEvent prior=ordered.get(scope);
             boolean order=prior==null || (e.getSequence()>prior.getSequence() && e.getObservedAt()>=prior.getObservedAt());
-            if(order)ordered.put(scope,e);
+            if(order)OfflineScratch.save(ordered,scope,e);
             Episode previous=latest.get(e.getSlot());
             if("EMPTY".equals(e.getEventType())) {
                 if(e.isAuthenticatedObservation()) {
-                    if(previous!=null && previous.terminal==null){previous.ended=true;episodes.put(key(previous.original),previous);}
+                    if(previous!=null && previous.terminal==null){previous.ended=true;OfflineScratch.save(episodes,key(previous.original),previous);}
                     if(order)empty.put(e.getSlot(),e);else empty.remove(e.getSlot());
                 }
                 continue;
@@ -74,8 +74,8 @@ final class ExecutionObservationLedger {
             knownOffers.add(e.getOfferIdentity());
             List<Object> key=List.of(e.getSessionId(),e.getSlot(),e.getOfferIdentity());Episode episode=previous!=null && key(previous.original).equals(key)?previous:episodes.get(key);
             if(episode==null) {
-                episode=new Episode(e);episodes.put(key,episode);
-                if(previous!=null && previous!=episode && previous.terminal==null){previous.ended=true;episodes.put(key(previous.original),previous);}
+                episode=new Episode(e);OfflineScratch.save(episodes,key,episode);
+                if(previous!=null && previous!=episode && previous.terminal==null){previous.ended=true;OfflineScratch.save(episodes,key(previous.original),previous);}
             }
             latest.put(e.getSlot(),episode);
             if(episode.terminal!=null)continue; // First terminal observation stays fixed on later heartbeat/reconnect.
@@ -89,7 +89,7 @@ final class ExecutionObservationLedger {
             episode.comparable&="1".equals(e.getPredictionEvidenceVersion()) && e.isPredictionComparable()
                 && episode.original.getEventId().equals(e.getPredictionSourceEventId())
                 && e.getFirstSeenAt()==episode.original.getFirstSeenAt();
-            if(!e.isAuthenticatedObservation() || !"1".equals(e.getPredictionEvidenceVersion())){episodes.put(key,episode);continue;}
+            if(!e.isAuthenticatedObservation() || !"1".equals(e.getPredictionEvidenceVersion())){OfflineScratch.save(episodes,key,episode);continue;}
             if(active(e)) {
                 if(episode.firstActive==null) {
                     episode.firstActive=e;OfferEvent before=empty.get(e.getSlot());
@@ -103,7 +103,7 @@ final class ExecutionObservationLedger {
                 if(e.getFilledQuantity()>0)episode.firstPositive=e;
             }
             if(terminal(e))episode.terminal=e;
-            episodes.put(key,episode);
+            OfflineScratch.save(episodes,key,episode);
         }
         if(checkGapMembership && !knownOffers.containsAll(gaps))throw new IllegalArgumentException("Recorded reconciliation scope has no matching offer source.");
         try {

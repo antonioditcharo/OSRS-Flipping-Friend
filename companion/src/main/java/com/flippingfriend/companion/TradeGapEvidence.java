@@ -108,7 +108,7 @@ final class TradeGapEvidence {
                 next.items.addAll(episodeItems.getOrDefault(e.getOfferIdentity(),Set.of()));
                 next.items.add(e.getItemId());
                 Set<Integer> items=episodeItems.get(e.getOfferIdentity());if(items==null)items=new ItemSet();
-                items.add(e.getItemId());episodeItems.put(e.getOfferIdentity(),items);
+                items.add(e.getItemId());OfflineScratch.save(episodeItems,e.getOfferIdentity(),items);
                 OfferLifecycleState state=OfferLifecycleClassifier.classify(e);
                 next.terminal=state==OfferLifecycleState.BUY_FILLED_UNCOLLECTED
                     || state==OfferLifecycleState.BUY_CANCELLED_UNCOLLECTED
@@ -118,7 +118,7 @@ final class TradeGapEvidence {
             next.sequence=Math.max(next.sequence,e.getSequence());
             next.observedAt=Math.max(next.observedAt,e.getObservedAt());
             next.source=e;
-            slots.put(e.getSlot(),next);
+            OfflineScratch.save(slots,e.getSlot(),next);
             return true;
         }
     }

@@ -13,10 +13,12 @@ final class LoopbackFixtureClient {
         // Also set as worker launch flags, before any JDK HttpClient initialization.
         System.setProperty("jdk.httpclient.redirects.retrylimit","1");
         System.setProperty("jdk.httpclient.disableRetryConnect","true");
+        System.setProperty("jdk.httpclient.connectionPoolSize","8");
     }
-    private static final ExecutorService EXECUTOR=Executors.newFixedThreadPool(2,r->{
+    private static final ExecutorService EXECUTOR=new ThreadPoolExecutor(2,2,0,TimeUnit.MILLISECONDS,
+        new ArrayBlockingQueue<>(64),r->{
         Thread t=new Thread(r,"fixture-http");t.setDaemon(true);return t;
-    });
+    },new ThreadPoolExecutor.AbortPolicy());
     private static final HttpClient CLIENT=HttpClient.newBuilder().executor(EXECUTOR)
         .connectTimeout(Duration.ofSeconds(2)).version(HttpClient.Version.HTTP_1_1)
         .followRedirects(HttpClient.Redirect.NEVER).build();
