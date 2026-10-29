@@ -19,14 +19,20 @@ public final class ExecutionPrefixEquivalenceProbe {
     }
     public static void main(String[] args)throws Exception {
         if(args.length!=2)throw new IllegalArgumentException("Explicit scoped frozen database and account required");
+        if("bundle".equals(args[0])) {
+            report(ExecutionEvaluationMain.verify(Path.of(args[1])).snapshot);return;
+        }
         try(var store=SqliteStore.openReadOnly(Path.of(args[0]))) {
-            var source=store.freezeExecutionSources(args[1]);var observations=source.observations();
+            report(store.freezeExecutionSources(args[1]));
+        }
+    }
+    private static void report(ExecutionSourceSnapshot source)throws Exception {
+            var observations=source.observations();
             var evaluation=new ExecutionHorizonEvaluation(observations,null);
             Map<String,Object> result=new LinkedHashMap<>();result.put("sourceRows",source.offers.size());result.put("gapRows",source.gaps.size());
             result.put("sourceCursor",source.sourceCursor);result.put("offersSha256",hash(source.offers));result.put("gapsSha256",hash(source.gaps));
             result.put("observationsSha256",hash(observations));result.put("evaluationSha256",hash(evaluation));
             result.put("totalObservations",evaluation.totalObservations);result.put("eligible",evaluation.eligible);
             result.put("promotionStatus",evaluation.promotionStatus);System.out.println(JSON.toJson(result));
-        }
     }
 }
