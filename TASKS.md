@@ -5,9 +5,9 @@ Updated 30 October 2026. Read [HANDOFF.md](HANDOFF.md) and the current hosted-pi
 #162 was the hosted pilot's original baseline. Implemented/tested, merged,
 installed and player accepted are separate states. The owner confirms fresh #195 login/GE, sale revision/cancel/collect/relist and restart on 28 October;
 Those reports belong to #195; #200 fresh login/GE and durable eight-slot evidence are verified.
-Installed #202 fresh manual login/GE and eight authenticated source-bound slots are verified;
+Previous #202 fresh manual login/GE and eight authenticated source-bound slots are verified;
 the owner reports guidance appeared promptly. Native/sustained and complete controlled trading
-acceptance remain pending. Keep the earlier minutes-at-startup report and measured outliers.
+acceptance remain pending on installed #203. Keep the earlier minutes-at-startup report and measured outliers.
 Late fills and complete native/sustained timing remain open.
 All game interaction remains manual; batch runtime updates and acceptance work.
 
@@ -18,13 +18,13 @@ against their own verified evidence. Controlled/native acceptance records remain
 
 ## Current batch
 
-- [ ] Complete #202 native qualification using the retained combined session: 48 MAIN paints p95
+- [ ] Complete carried #202 native qualification on installed #203 using the retained combined session: 48 MAIN paints p95
       80.356ms / 13 distinct eligible decisions p95 1,057.576ms; ten editor paints p95 44.852ms /
       two distinct eligible quotes p95 1,469.888ms. Keep both publication gates open, separate
       repeats/full-slot WAITs, missing identities and unmeasured stages. Retain the 7.195s first
       refresh, pre-capture/authority/worker outliers and 125.088ms paint. Four editor SELL-to-WAIT
       cases have visible successors; pending Toadflax SELL is retained. Prioritize measured editor
-      preparation/authority and serial-worker waits in the next #203 batch. Current source audit
+      preparation/authority and serial-worker waits in following qualified batches; #203 narrows receipt reads and streams public-cache IO. Current source audit
       verifies original acquisition allocation, final sale completion, partial buys and duplicate
       rejection; it does not close the unobserved post-cancellation late-fill gate.
       [Live receipt](docs/history/startup-public-preparation-delivery-2026-10-29.md).
@@ -35,17 +35,15 @@ against their own verified evidence. Controlled/native acceptance records remain
       351-file/six-configuration restore, all 12 original tables and old #195/#200 financial/risk
       reads pass. Keep final documentation-head CI/merge and fresh native/player acceptance
       visible; initial timeouts and all slower quotes remain. [Receipt](docs/history/startup-public-preparation-delivery-2026-10-29.md).
-- [ ] Deliver queued draft #203 public-cache streaming. Clean 2,573 Java/six skips, 177 tooling,
-      18 relevant actual-JAR Java 11 and both CI platforms pass; 600 histories/172,800 buckets
-      round-trip at 96 MiB with equal old #195/#200 values. Its relevant hour, preservation,
-      installation and native checks remain pending; keep #202's artifacts/hour separate.
-      Batch the profiled item-scoped sale verification: omit unused receipt history for initial/
-      working sales; retain complete canonical history and fresh eight-source checks for relists.
-      Focused equivalence, corrupted-proof and concurrent-progress regressions pass. Combined
-      clean checks, exact-JAR Java 11, both CI platforms, fresh hour and preservation are pending.
-      [Contract](docs/architecture/item-scoped-sale-verification.md).
+- [x] Deliver #203 item-scoped sale verification and streamed public cache. Source `7278eb9`,
+      merge `f89ee24`, both CI platforms `41076599809`; clean 2,576 Java/six skips, 177 tooling,
+      110 actual paired-JAR Java 11 and bytecode 55 pass. Fresh 3,614.234s hour: 121 groups,
+      9,541 checks/9,699 requests/zero failures, both markers/all 1,302 hashes/JAR equivalence.
+      Installed; 365-file/six-configuration restore, all 12 original tables and previous #195/#202
+      financial/risk reads pass. Keep old failures/outliers; fresh native/player acceptance stays
+      open. [Receipt](docs/history/item-scoped-sale-verification-delivery-2026-10-30.md).
 
-- [ ] Finish carried #200 foreground acceptance on installed #202: critical action/control refresh before optional
+- [ ] Finish carried #200 foreground acceptance on installed #203: critical action/control refresh before optional
       sidebar work, lazy hidden Records/Missed flips, actual EDT/card stages and serial worker
       task attribution. Preserve financial ordering and final authority. Require clean checks,
       exact-head CI, fresh hour, preservation and native/player acceptance. Clean 2,565 Java/six
@@ -68,7 +66,7 @@ against their own verified evidence. Controlled/native acceptance records remain
       339-file/six-configuration restoration, all 12 financial tables and previous-#195 reads pass.
       #195 remains the immediate rollback target; #186 the economic reference.
       [Receipt](docs/history/native-guidance-and-shadow-2026-10-29.md).
-- [ ] Finish carried #198 native qualification on installed #202: fresh login/GE, retained trades, visible main/editor
+- [ ] Finish carried #198 native qualification on installed #203: fresh login/GE, retained trades, visible main/editor
       guidance and distinct eligible decisions. Measure idle/mixed conditions and cached paint
       p95 <=100 ms / eligible publication p95 <=1s after durable ACK separately per path. Retain
       failures/missing stages/repeats and profile the old 2,980-ms startup outlier before extending

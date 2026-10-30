@@ -5,67 +5,64 @@ Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
 ## Installed runtime and preservation
 
-Local plugin/companion **#202 is installed**, 2026-10-30T03:43:43.3536286Z. Verified runtime source
-`ce38814ca2aeda23d5fab543a9937ce619b3be3b`; source-head Windows/Linux CI `40993234489`, clean
-2,569 Java checks (six existing skips), 177 tooling, 65 actual-JAR Java 11 checks and bytecode 55
-pass. Final documentation-head CI/merge is recorded in the PR/currentDelivery. Installed SHA-256:
+Local plugin/companion **#203 is installed**, `2026-10-30T16:04:47.2632616Z`. Source
+`7278eb95e5105e12ed2aefca1cd8ca8b17dc36b1`; merge `f89ee240173b04be88b2f46cb28194ba161cac1f`.
+Both exact-head Windows/Linux CI jobs `41076599809`, clean 2,576 Java checks/six existing skips,
+177 tooling, 110 actual paired-JAR Java 11 checks and own bytecode 55 pass. Installed SHA-256:
 
-- Plugin: `c6eb743fb96e5622ac72d4f3368140deab409c855499d742aeb91290149d6f73`.
-- Companion: `7bb61d4876dafee05d1039b3d23995c66005b2395e584930c1ec66dc63e8cd30`.
+- Plugin: `48afd0e9bc830b65e6ee6e38b79f11d6ab036a029cf6a89797baa325539fc215`.
+- Companion: `5134c7ac3e5ec0b8203ac8aa0ac636bf3128bca1d824bc7f89237e7b390be830`.
 
-Backup `20261029-194334-b3ed9526` passes disposable restoration of 351 files plus
-six supplemental configurations. All 12 original financial tables are identical; previous #195,
-previous #200 and #202 return the same ledger, stock, scope, exposure, continuation and original
-risk results. Restored database bytes are unchanged. The unassigned legacy database has its own
-read-only snapshot/restore and stays unassigned. No live database restoration or financial replay.
-**#195 remains immediate code rollback; #186 the economic reference.** #200/#198/#190 are retained;
-code rollback preserves trades recorded afterward.
+Backup `20261030-080437-7983929c` passes disposable restoration of 365 files plus six supplemental
+configuration copies. All 12 original financial tables are identical. Previous #195, previous
+#202 and installed #203 return the same ledger, exact stock, scope, exposure, continuation and
+original-risk results on the new restored account; database bytes are unchanged. The unassigned
+legacy database has its own read-only snapshot/restore and stays unassigned. No live database
+restoration or financial replay. **#195 remains immediate code rollback; #186 the economic reference.**
+#202/#200/#198/#190 are retained; code rollback preserves subsequent trades.
 
-Protected task XML/permissions are identical. Normal close, paired updater, status, launcher
-CheckOnly and GET-only pre-login pipeline pass. Direct launch retains the task's existing
-`-Xmx768m`; no new heap policy. API startup precedes public refresh; existing-account preparation
-completes in 8,552ms separately from client boot. Fresh #202 manual login/GE, eight authenticated
-source-bound slots and an empty pending offer outbox are verified; the owner reports guidance
-appeared promptly. Original risk context is retained. A bounded post-install source audit verifies
-one sale completion using its original exact acquisition pool, four partial-buy effects and no
-duplicate disposal from repeated SOLD callbacks; the other seven offer episodes are unchanged at
-that checkpoint. This does not verify a post-cancellation late fill. Native MAIN/SELECTED_SALE
-qualification remains open. The #200 minutes-at-boot report and every slower sample remain evidence.
-#195 player acceptance stays scoped to #195. No runtime change/restart in this follow-up.
-[Delivery receipt](docs/history/startup-public-preparation-delivery-2026-10-29.md).
+Normal RuneLite closure, supported unattended paired update, status, launcher CheckOnly and
+GET-only pre-login pipeline pass. Protected task XML/permissions and the existing heap policy
+are unchanged. RuneLite reopened; fresh #203 native/player acceptance remains open. currentDelivery
+records the manual login request and subsequent session evidence; do not repeat a completed request.
+The #202 owner reports prompt guidance after login, with eight authenticated source-bound slots,
+empty outbox and retained original risk. Its bounded audit verifies one final sale against its
+original exact acquisition pool, four partial-buy effects and repeated SOLD callbacks without
+duplicate disposal. That is not a post-cancellation late-fill observation.
+[Current delivery receipt](docs/history/item-scoped-sale-verification-delivery-2026-10-30.md).
 
 ## Foreground behavior and retained failures
 
-#202 moves the first public refresh behind API startup onto the existing background scheduler.
-Its blocked-feed/health/durable-offer and heap-option regressions pass. Fresh strict hour:
-3,601.563s, 120 groups, 8,700 checks, 9,540 instrumented requests, zero failures, both uninterrupted
-markers and all 1,301 input hashes verified. Frozen JAR classes match the hour's inputs, including
-the frozen core dependency. This is synthetic qualification; native acceptance remains separate.
-[Contract](docs/architecture/startup-public-preparation.md).
+#203 omits unused historical cancellation-receipt reads for initial/working sales and validates
+item-specific relist receipts against complete canonical history. Every relevant receipt still
+checks its original account payload, all eight sources, ordering and first binding. Financial
+current-state checks and the second corrected-price authorization remain fresh. It also streams
+public-cache IO in the unchanged format. No plugin production class differs from #202.
+[Sale contract](docs/architecture/item-scoped-sale-verification.md),
+[cache contract](docs/architecture/streamed-public-history-cache.md).
 
-The combined #202 session through 30 October 06:41 local has 48 MAIN action paints at p95
-80.356ms and 13 distinct eligible MAIN decisions at p95 1,057.576ms. Ten selected-sale paints
-have p95 44.852ms; two distinct eligible editor quotes have p95 1,469.888ms. Publication remains
-above target. Retain the initial 7,194.822ms refresh (4,561.788ms before capture; cause unproven),
-125.088ms slow paint, selected-sale authority up to 982.253ms and worker waits near 594ms.
-Four SELL-to-WAIT transitions have explicit editor outcomes and visible Toadflax/Lava dragon
-bones SELL successors; deferred Toadflax SELL remains pending. They do not establish dropped
-advice. No invalid/conflicting/unlinked traces; unknown identities and unmeasured stages stay
-explicit. Idle/mixed, sustained and complete controlled acceptance remain open. Private proof:
-primary `local-data/live-202-20261029-2005/live-acceptance-receipt.json` and currentDelivery.
+Fresh strict hour passes 3,614.234s: 121 groups, 9,541 checks, 9,699 requests, zero test/transport/
+telemetry failures, 119 native resource samples, both completion markers and all 1,302 frozen hashes.
+The packaged own classes match the frozen inputs, including core. The companion completed 61
+rounds and the client 60; do not replace the actual totals with expected counts. Synthetic checks
+are separate from native acceptance. Retain host memory pressure (minimum 9 MiB available),
+uncontrolled background load and the initial Java 11 diagnostic classpath failure. The corrected
+paired-JAR run passes. No retries, relaxed deadlines or excluded failed timing samples.
 
-Following [draft #203](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/203) streams
-public-cache gzip writing/one-entry reading without changing its format, clocks or TTLs. Its original clean
-2,573 Java/six skips, 177 tooling, 18 relevant actual-JAR Java 11 checks and both CI platforms
-`40999749710` at rebased head `cae71b0` pass. All 600 histories/172,800 buckets round-trip at 96 MiB and match #195/#200
-reads without changing cache bytes. **Queued source only**: its relevant hour, runtime preservation
-and native checks remain pending. Do not install it under #202's hour receipt.
-The next batch also narrows final sale receipt reads to the current item's relist requirements;
-initial/working sales omit unused historical receipts. Full canonical history, exact costs,
-fresh authority and the second corrected-price authorization remain. Focused regressions pass;
-new clean build, actual-JAR/CI/hour and preservation gates are pending for the combined source.
-Frozen-account profiling identifies repeated validation of 90 receipts (warm full reads 124–300ms),
-without attributing every live outlier to it. [Contract](docs/architecture/item-scoped-sale-verification.md).
+Frozen-account reads conserve financial/first-binding results for all 58 receipt-bearing items.
+Median full read 141.148ms versus initial 34.519ms/item-relist 35.101ms is an offline comparison,
+not a native latency or GP/hour claim. All 600 histories/172,800 buckets round-trip at 96 MiB;
+previous #195/#200 read equal values without changing the cache bytes.
+
+Retain #202's combined native session: 48 MAIN paints p95 80.356ms; 13 distinct eligible decisions
+p95 1,057.576ms. Ten editor paints p95 44.852ms; two distinct eligible quotes p95 1,469.888ms.
+Publication remained above target. Preserve the initial 7,194.822ms refresh (4,561.788ms before
+capture; cause unproven), 125.088ms paint, 982.253ms selected-sale authority and roughly 594ms
+worker wait. Four SELL-to-WAIT transitions have explicit editor outcomes and visible Toadflax/
+Lava dragon bones SELL successors; deferred Toadflax SELL remains pending. These do not establish
+dropped advice. Unknown identities/unmeasured stages stay explicit. Idle/mixed, sustained native,
+controlled trading and unobserved live post-cancellation late fills remain open on #203.
+[Previous #202 receipt](docs/history/startup-public-preparation-delivery-2026-10-29.md).
 
 The extended #200 session has 25 MAIN action paints at p95 80.462ms and 12 distinct eligible
 MAIN actions at p95 1,484.011ms. Ten editor paints have p95 79.707ms; two distinct editor quotes
@@ -121,7 +118,7 @@ quantity/exposure/loss limits. Replay 30 / qualification V4 bind the distinct bu
 older V2/V3 cohorts/artifacts stay unchanged. Clean 2,568 Java checks (six skips), 48 actual-JAR
 Java 11 checks and initial exact-head CI `40951693894` pass. Synthetic fit/validation refuse all
 four cadences, final fold unopened. Final documentation-head CI/merge is recorded in the PR and
-currentDelivery. **Its dormant code is included in #202; live constructors retain the baseline. No pricing switch,
+currentDelivery. **Its dormant code is included in #203; live constructors retain the baseline. No pricing switch,
 new loss authority, learning activation or profit-superiority claim.**
 
 #196/#197's delivered V2 export/repaired soak proofs remain reusable: full frozen 185,450-offer/
