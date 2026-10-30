@@ -142,6 +142,59 @@ public class SalePolicyReceiptWorkflowTest {
             assertTrue(SalePolicyReceiptStore.read(db,f.helper.id,history,index,sourceTail(db)).receipts.isEmpty());
         }
     }
+    @Test public void decisionReadsPreserveExactCostsAndRelistAuthorityWhileSkippingUnusedReceiptHistory()throws Exception {
+        try(var f=new Fixture()) {
+            var receipt=f.issue(UUID.randomUUID().toString());f.collect(receipt);
+            var prefix=financialPrefix(f.path);
+            var full=f.store.saleProjections(f.helper.id,f.now+4);
+            var initial=f.store.saleDecisionProjections(f.helper.id,f.now+4,561,null);
+            var relist=f.store.saleDecisionProjections(f.helper.id,f.now+4,561,f.source.getEventId());
+            assertEquals(OfferLifecycleAction.PLACE_SELL,relistWithDecisionRead(f).getAction());
+            assertFalse(full.planning.salePolicyEvidence.receipts.isEmpty());
+            assertTrue("An initial sale cannot consume a historical cancellation receipt",initial.planning.salePolicyEvidence.receipts.isEmpty());
+            assertEquals(json.toJson(full.ledger),json.toJson(initial.ledger));assertEquals(json.toJson(full.ledger),json.toJson(relist.ledger));
+            assertEquals(full.planning.salePolicyEvidence.receipts,relist.planning.salePolicyEvidence.receipts);
+            for(int price:new int[]{100,118,119,120,150})for(int quantity:new int[]{1,2,3}) {
+                var source=full.ledger.getTradingPositions().get(0).getSourceEventId();
+                for(String origin:Arrays.asList(null,f.source.getEventId())) {
+                    var selected=origin==null?initial:relist;
+                    var expected=new CompanionSalePolicy().decide(full.planning,full.ledger,f.account,f.helper.market(f.now+4,120),
+                        (i,s)->f.helper.bars(f.now+4,120),561,price,quantity,source,false,-1,f.now+4,origin);
+                    var actual=new CompanionSalePolicy().decide(selected.planning,selected.ledger,f.account,f.helper.market(f.now+4,120),
+                        (i,s)->f.helper.bars(f.now+4,120),561,price,quantity,source,false,-1,f.now+4,origin);
+                    assertEquals("Exact decision, revision, quantity, cost floor and original target must agree",json.toJson(expected),json.toJson(actual));
+                }
+            }
+            assertEquals(prefix,financialPrefix(f.path));
+            mutate(f.path,"UPDATE sale_policy_receipt SET issued_after_row=0");
+            assertEquals(OfferLifecycleAction.WAIT,relistWithDecisionRead(f).getAction());
+            assertEquals(json.toJson(f.relist(f.store,119,2)),json.toJson(relistWithDecisionRead(f)));
+        }
+    }
+    private PolicyDecision relistWithDecisionRead(Fixture f)throws Exception {
+        var read=f.store.saleDecisionProjections(f.helper.id,f.now+4,561,f.source.getEventId());
+        var source=read.ledger.getTradingPositions().get(0).getSourceEventId();
+        return new CompanionSalePolicy().decide(read.planning,read.ledger,f.account,f.helper.market(f.now+4,120),
+            (i,s)->f.helper.bars(f.now+4,120),561,119,2,source,false,-1,f.now+4,f.source.getEventId());
+    }
+    @Test public void wrongItemReceiptClaimCannotDisappearFromRelistHistoryOrLaunderAnEarlierAcceptance()throws Exception {
+        try(var f=new Fixture()) {
+            var receipt=f.issue(UUID.randomUUID().toString());
+            var accepted=AcceptedSalePolicyProof.accepted(receipt,f.now,CaptureOrder.next()).captured(CaptureOrder.next());
+            var first=f.helper.event(0,"SELLING","sale",3,0,0,150,f.now+1);
+            var bound=accepted.bindTo(first);assertNotNull(bound);f.accept(first.withAcceptedSalePolicyProof(bound));
+            var wire=json.toJsonTree(bound).getAsJsonObject();wire.getAsJsonObject("receipt").addProperty("itemId",562);
+            var conflict=json.fromJson(wire,AcceptedSalePolicyProof.class);
+            f.accept(f.helper.event(0,"SELLING","sale",3,0,0,150,f.now+2).withAcceptedSalePolicyProof(conflict));
+            f.accept(f.helper.event(0,"CANCELLED_SELL","sale",3,0,0,150,f.now+3).withAcceptedSalePolicyProof(conflict));
+            f.accept(f.helper.event(0,"EMPTY",null,0,0,0,0,f.now+4));f.listed=false;f.captureSettings(480,f.now+5,3);
+            var all=f.store.saleProjections(f.helper.id,f.now+5);
+            var selected=f.store.saleDecisionProjections(f.helper.id,f.now+5,561,f.source.getEventId());
+            assertFalse(SalePolicyEvidence.resolve(all.planning.history,f.source.getEventId(),all.planning.salePolicyEvidence).valid());
+            assertFalse("Item scoping cannot hide a contradictory proof in the complete canonical history",
+                SalePolicyEvidence.resolve(selected.planning.history,f.source.getEventId(),selected.planning.salePolicyEvidence).valid());
+        }
+    }
     @Test public void fineAdjustmentSurvivesLateFillCadenceChangeRestartAndQuietCollectionWithoutRestoringTheAsk()throws Exception {
         try(var f=new Fixture(true,null,3600)) {
             var read=f.store.saleProjections(f.helper.id,f.now);var market=f.helper.market(f.now,3599);

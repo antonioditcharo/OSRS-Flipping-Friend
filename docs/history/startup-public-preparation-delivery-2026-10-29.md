@@ -4,8 +4,9 @@ Local paired #202 installed `2026-10-30T03:43:43.3536286Z` from source
 `ce38814ca2aeda23d5fab543a9937ce619b3be3b`. It starts the API and bounded account preparation before
 scheduling the first public refresh, removing that serial network dependency. Existing account
 preparation completed in 8,552ms. Direct launch retained the configured `-Xmx768m` exactly;
-protected task XML and permissions are unchanged. Full client boot/guidance timing still requires
-fresh player login and native measurements; this is not a claim that every startup delay is solved.
+protected task XML and permissions are unchanged. Fresh player login/GE is now verified and the
+owner reports guidance appeared promptly. Full boot and sustained timing qualification remain open;
+this is not a claim that every startup delay is solved.
 
 Source CI `40993234489` passes Windows/Linux. Clean 2,569 Java checks/six existing skips,
 177 tooling, 65 actual-JAR Java 11 checks and own bytecode 55 pass. The fresh 3,601.563-second
@@ -52,11 +53,36 @@ Hosted #194 and the $50/month ceiling are unchanged. Read-only integrity verific
 237,583,793 bytes of the existing 2-GiB budget. The incomplete tail remains explicit; fixed stop
 2026-11-08T01:31:16Z is unchanged. No final fold or qualification was opened.
 
+Fresh #202 live verification through 30 October 06:41 local binds all eight slots to authenticated
+canonical source IDs/session/sequence; pending offer outbox is zero and the original risk window
+is retained. One bounded 257-row post-install prefix verifies the final seed sale against the
+original remaining acquisition pool, four partial-buy effects with exact source quantities/money,
+and four repeated SOLD callbacks without duplicate disposal. The other seven offer identities
+are unchanged at that checkpoint; no new reconciliation effect appears. Exact fill times and
+a post-cancellation late fill remain unobserved. All reads are diagnostic; no financial repair.
+
+Combined retained logs, including midnight rotation, contain 48 MAIN action paints p95 80.356ms
+and 13 distinct eligible MAIN decisions p95 1,057.576ms. Ten editor paints have p95 44.852ms;
+two distinct eligible editor quotes have p95 1,469.888ms. Repeats and healthy full-slot WAITs do
+not increase the distinct decision count. Publication targets remain unmet; uncontrolled host
+load cannot qualify idle/mixed conditions. Preserve the initial 7,194.822ms refresh, 4,561.788ms
+before capture (cause unproven), 125.088ms paint, 982.253ms selected-sale authority and roughly
+594ms editor worker wait. Selected-sale timing starts no earlier than its request; elapsed time
+since an older durable ACK is recorded separately. Unknown source identities and missing stages
+remain explicit, with no invalid/conflicting/unlinked trace records in this prefix.
+
+Four MAIN SELL-to-WAIT transitions have explicit editor outcomes: two defer while retaining
+pending Toadflax SELL and two use the selected Lava dragon bones quote path. Both have a visible
+SELL successor within approximately two seconds by the log clock; these cases do not prove
+dropped advice. Refusals/supersession remain recorded. Do not extrapolate complete delivery
+coverage from these cases or the owner's prompt-startup report.
+
 All 81 original requirement IDs remain; 79 are still open, including the partial capture campaign.
-Next gates are fresh #202 MAIN/editor timing, idle/mixed and controlled player operations,
+Next gates are sustained #202 MAIN/editor qualification, idle/mixed and controlled player operations,
 source-bound execution provenance, then separate chronological 5m/30m/2h/8h pricing qualification
 and observational learner construction. Baseline guidance stays active under current safeguards.
 
 Private proofs: primary `local-data/startup-preparation-20261029`; previous native evidence:
-`local-data/live-200-20261029-1805`. Authoritative installation state is currentDelivery in the
+`local-data/live-200-20261029-1805`. Fresh #202 proofs and player feedback:
+`local-data/live-202-20261029-2005/live-acceptance-receipt.json`. Authoritative installation state is currentDelivery in the
 private hosted-pilot receipt; older root aliases remain historical.

@@ -140,4 +140,24 @@ public class SalePolicyReceiptLookupTest {
             }
         }
     }
+    @Test public void itemScopedRelistReadRetainsEverySourceCheckWithoutLookingUpOtherItems()throws Exception {
+        var fixtures=fixtures();try(var f=fixtures.new Fixture()) {
+            var receipt=f.issue(UUID.randomUUID().toString());f.collect(receipt);
+            try(var db=DriverManager.getConnection("jdbc:sqlite:"+f.path)) {
+                var history=history(db);var index=new SalePolicyReceiptStore.InputIndex();
+                index.appendCanonical(f.helper.id,null,history);
+                long tail;try(var sql=db.createStatement();var rows=sql.executeQuery("SELECT MAX(id) FROM event_log")){assertTrue(rows.next());tail=rows.getLong(1);}
+                var queries=new Queries();var scoped=SalePolicyReceiptStore.readForItem(queries.counted(db),f.helper.id,history,index,tail,561);
+                var all=SalePolicyReceiptStore.read(db,f.helper.id,history);
+                assertEquals(all.receipts,scoped.receipts);assertEquals(all.eventRows,scoped.eventRows);assertEquals(all.issuedAfter,scoped.issuedAfter);
+                assertEquals("The exact policy source and all eight pinned account sources still require checking",9,queries.count(SalePolicyReceiptStore.SOURCE_LOOKUP_SQL));
+                assertEquals(1,queries.count(SalePolicyReceiptStore.BINDING_ROW_SQL));
+                var unrelated=new Queries();var empty=SalePolicyReceiptStore.readForItem(unrelated.counted(db),f.helper.id,history,index,tail,562);
+                assertTrue(empty.receipts.isEmpty());assertTrue(empty.eventRows.isEmpty());
+                assertTrue("No historical receipt or source reads for an item with no receipt claims",unrelated.executions.isEmpty());
+                try(var sql=db.createStatement()){sql.executeUpdate("UPDATE event_log SET observed_at=observed_at+1 WHERE id="+receipt.getAccountRowId());}
+                assertTrue("Prepared identity never caches authority",SalePolicyReceiptStore.readForItem(db,f.helper.id,history,index,tail,561).receipts.isEmpty());
+            }
+        }
+    }
 }

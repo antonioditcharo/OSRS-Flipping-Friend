@@ -99,8 +99,9 @@ final class SalePolicyReceiptStore {
     static final class InputIndex {
         private List<OfferEvent> canonical;private int authorizedSize,consumed;private String account;
         private Inputs input=new Inputs();private long processed;
+        private final Map<Integer,Inputs> byItem=new HashMap<>();
         private RuntimeException failure;
-        void reset(){canonical=null;authorizedSize=consumed=0;account=null;input=new Inputs();failure=null;}
+        void reset(){canonical=null;authorizedSize=consumed=0;account=null;input=new Inputs();byItem.clear();failure=null;}
         void appendCanonical(String expectedAccount,List<OfferEvent> previous,List<OfferEvent> next) {
             if(previous!=canonical || !Objects.equals(account,expectedAccount) || next==null || next.size()<authorizedSize)reset();
             canonical=next;authorizedSize=next==null?0:next.size();account=expectedAccount;
@@ -114,13 +115,31 @@ final class SalePolicyReceiptStore {
                 reset();canonical=history;authorizedSize=history.size();account=expectedAccount;
             }
             if(failure!=null)throw new IllegalStateException("Sale policy sources require review",failure);
-            while(consumed<history.size()){input.accept(history.get(consumed));consumed++;processed++;}
+            while(consumed<history.size()) {
+                var event=history.get(consumed);input.accept(event);
+                var proof=event.getAcceptedSalePolicyProof();
+                if(proof!=null && proof.getReceipt()!=null)
+                    byItem.computeIfAbsent(proof.getReceipt().getItemId(),ignored->new Inputs()).accept(event);
+                consumed++;processed++;
+            }
             return input;
+        }
+        private Inputs prepareItem(String expectedAccount,List<OfferEvent> history,int item) {
+            prepare(expectedAccount,history);
+            return byItem.getOrDefault(item,new Inputs());
         }
         long processedCount(){return processed;}
     }
     static Evidence read(Connection db,String account,List<OfferEvent> history,InputIndex index,long sourceCursor)throws Exception {
-        var input=index.prepare(account,history);var sources=new HashMap<String,OfferEvent>();
+        return readInputs(db,account,index.prepare(account,history),sourceCursor);
+    }
+    /** A relist can consume only receipts for its item. Each selected receipt still proves its full eight-slot read set. */
+    static Evidence readForItem(Connection db,String account,List<OfferEvent> history,InputIndex index,long sourceCursor,int item)throws Exception {
+        if(item<=0)throw new IllegalArgumentException("Sale receipt item is required");
+        return readInputs(db,account,index.prepareItem(account,history,item),sourceCursor);
+    }
+    private static Evidence readInputs(Connection db,String account,Inputs input,long sourceCursor)throws Exception {
+        var sources=new HashMap<String,OfferEvent>();
         // The cursor belongs to this transaction's complete validated source prefix. An origin
         // outside it cannot borrow authority from a later row, including under rollback/external edit.
         try(var query=db.prepareStatement(SOURCE_LOOKUP_SQL+" AND id<=?")) {

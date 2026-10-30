@@ -1,14 +1,14 @@
 package com.flippingfriend.companion;
 
 import com.flippingfriend.data.Candle;
-import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.google.gson.stream.JsonReader;
+import com.google.gson.stream.JsonToken;
+import com.google.gson.stream.JsonWriter;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
-import java.io.Reader;
-import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -249,40 +249,36 @@ final class SeriesCache implements SeriesSource
 			snapshot = new ArrayList<>(cache.entrySet());
 		}
 
-		JsonArray entries = new JsonArray();
-		for (Map.Entry<String, Cached> entry : snapshot)
-		{
-			Cached cached = entry.getValue();
-			// Failures and empties are not worth a restart's memory, and anything already past its
-			// lifetime would only be dropped again on the way back in.
-			if (cached.failed || cached.candles.isEmpty()
-				|| cached.isStale(timestepOf(entry.getKey())))
-			{
-				continue;
-			}
-			JsonObject stored = new JsonObject();
-			stored.addProperty("key", entry.getKey());
-			stored.addProperty("fetchedAt", cached.fetchedAt.getEpochSecond());
-			stored.add("data", encode(cached.candles));
-			entries.add(stored);
-		}
-
-		JsonObject root = new JsonObject();
-		root.add("entries", entries);
-
 		try
 		{
 			Files.createDirectories(file.getParent());
 			Path temp = file.resolveSibling(file.getFileName() + ".tmp");
 			// Gzipped: the honest shape of this is a few hundred series of a few hundred bars, which
 			// is megabytes of very repetitive JSON and compresses to a fraction of it.
-			try (Writer writer = new OutputStreamWriter(
-				new GZIPOutputStream(Files.newOutputStream(temp)), StandardCharsets.UTF_8))
+			int written=0;
+			try (JsonWriter writer = new JsonWriter(new OutputStreamWriter(
+				new GZIPOutputStream(Files.newOutputStream(temp)), StandardCharsets.UTF_8)))
 			{
-				writer.write(root.toString());
+				writer.setSerializeNulls(true);
+				writer.beginObject().name("entries").beginArray();
+				for (Map.Entry<String, Cached> entry : snapshot) {
+					Cached cached=entry.getValue();
+					if(cached.failed || cached.candles.isEmpty() || cached.isStale(timestepOf(entry.getKey())))continue;
+					writer.beginObject().name("key").value(entry.getKey())
+						.name("fetchedAt").value(cached.fetchedAt.getEpochSecond()).name("data").beginArray();
+					for(Candle candle:cached.candles) {
+						writer.beginObject().name("timestamp").value(candle.getTimestamp())
+							.name("avgHighPrice").value(candle.getAvgHighPrice())
+							.name("avgLowPrice").value(candle.getAvgLowPrice())
+							.name("highPriceVolume").value(candle.getHighPriceVolume())
+							.name("lowPriceVolume").value(candle.getLowPriceVolume()).endObject();
+					}
+					writer.endArray().endObject();written++;
+				}
+				writer.endArray().endObject();
 			}
 			Files.move(temp, file, StandardCopyOption.REPLACE_EXISTING);
-			log.debug("wrote {} cached series to {}", entries.size(), file.getFileName());
+			log.debug("wrote {} cached series to {}", written, file.getFileName());
 		}
 		catch (Exception ex)
 		{
@@ -308,46 +304,52 @@ final class SeriesCache implements SeriesSource
 
 		int restored = 0;
 		int expired = 0;
-		try (Reader reader = new InputStreamReader(
-			new GZIPInputStream(Files.newInputStream(file)), StandardCharsets.UTF_8))
+		try (JsonReader reader = new JsonReader(new InputStreamReader(
+			new GZIPInputStream(Files.newInputStream(file)), StandardCharsets.UTF_8)))
 		{
-			JsonObject root = JsonParser.parseReader(reader).getAsJsonObject();
-			if (!root.has("entries") || !root.get("entries").isJsonArray())
-			{
-				return;
-			}
-            var seenKeys=new java.util.HashSet<String>();
-			for (JsonElement element : root.getAsJsonArray("entries"))
-			{
-				try {
-				JsonObject stored = element.getAsJsonObject();
-				String key = stored.get("key").getAsString();
-				int split=key.indexOf('@');
-				com.flippingfriend.data.PublicMarketNumbers.itemKey(key.substring(0,split));
-				if(!List.of("5m","1h","6h","24h").contains(timestepOf(key)))continue;
-                if(!seenKeys.add(key)){cache.remove(key);continue;}
-                long fetched=com.flippingfriend.data.PublicMarketNumbers.integer(stored.get("fetchedAt"));
-                if(fetched<=0 || fetched>Instant.now().getEpochSecond())continue;
-				Cached cached = new Cached(parse(stored),Instant.ofEpochSecond(fetched));
-				if (cached.isStale(timestepOf(key)))
-				{
-					expired++;
-					continue;
+			// Keep Gson's legacy lenient syntax and last-root-member semantics, but retain only
+			// one history entry's JSON tree. A truncated container still discards the whole cache.
+			reader.setLenient(true);reader.beginObject();
+			while(reader.hasNext()) {
+				if(!"entries".equals(reader.nextName())) {reader.skipValue();continue;}
+				cache.clear();restored=0;expired=0;
+				if(reader.peek()!=JsonToken.BEGIN_ARRAY) {reader.skipValue();continue;}
+				var seenKeys=new java.util.HashSet<String>();reader.beginArray();
+				while(reader.hasNext()) {
+					JsonElement element=JsonParser.parseReader(reader);
+					try {
+						JsonObject stored = element.getAsJsonObject();
+						String key = stored.get("key").getAsString();
+						int split=key.indexOf('@');
+						com.flippingfriend.data.PublicMarketNumbers.itemKey(key.substring(0,split));
+						if(!List.of("5m","1h","6h","24h").contains(timestepOf(key)))continue;
+						if(!seenKeys.add(key)){cache.remove(key);continue;}
+						long fetched=com.flippingfriend.data.PublicMarketNumbers.integer(stored.get("fetchedAt"));
+						if(fetched<=0 || fetched>Instant.now().getEpochSecond())continue;
+						Cached cached = new Cached(parse(stored),Instant.ofEpochSecond(fetched));
+						if (cached.isStale(timestepOf(key)))
+						{
+							expired++;
+							continue;
+						}
+						cache.put(key, cached); revision.incrementAndGet();
+						restored++;
+					} catch(RuntimeException unsupported) {
+						log.debug("ignored one unsupported public history cache entry");
+					}
 				}
-				cache.put(key, cached); revision.incrementAndGet();
-				restored++;
-				} catch(RuntimeException unsupported) {
-					log.debug("ignored one unsupported public history cache entry");
-				}
+				reader.endArray();
 			}
+			reader.endObject();
+			if(reader.peek()!=JsonToken.END_DOCUMENT)throw new IllegalStateException("Trailing public cache input");
 		}
 		catch (Throwable ex)
 		{
 			// Throwable, not Exception, and the difference killed a live session.
 			//
 			// This method's own promise is that nothing here is fatal, because the cache is
-			// rebuildable by definition. Catching Exception does not keep that promise: the whole
-			// file is parsed into a JSON tree before any of it becomes a Candle, and on a cache that
+			// rebuildable by definition. Catching Exception did not keep that promise: the old
+			// reader parsed the whole file into a JSON tree, and on a cache that
 			// has grown past the heap the service died on OutOfMemoryError at startup -- an Error,
 			// straight through the guard written to prevent exactly this. The companion never came
 			// up, the plugin got no plans, and the only trace was a stack trace in a file nobody
@@ -361,24 +363,6 @@ final class SeriesCache implements SeriesSource
 			return;
 		}
 		log.info("restored {} cached series from disk, {} had expired", restored, expired);
-	}
-
-	private static JsonArray encode(List<Candle> candles)
-	{
-		JsonArray data = new JsonArray();
-		for (Candle candle : candles)
-		{
-			JsonObject bar = new JsonObject();
-			bar.addProperty("timestamp", candle.getTimestamp());
-			// Written under the API's own field names and read back through the same parser the live
-			// response goes through. One format, one parser, nothing to drift apart.
-			bar.addProperty("avgHighPrice", candle.getAvgHighPrice());
-			bar.addProperty("avgLowPrice", candle.getAvgLowPrice());
-			bar.addProperty("highPriceVolume", candle.getHighPriceVolume());
-			bar.addProperty("lowPriceVolume", candle.getLowPriceVolume());
-			data.add(bar);
-		}
-		return data;
 	}
 
 	private static String timestepOf(String key)
