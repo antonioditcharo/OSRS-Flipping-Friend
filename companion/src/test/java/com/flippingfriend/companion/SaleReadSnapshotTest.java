@@ -30,11 +30,11 @@ public class SaleReadSnapshotTest {
             var open=event("SELLING",0,0,150);accept(writer,open);
             var progress=event("SELLING",1,150,150);var changed=new AtomicBoolean();
             try(var reader=new SqliteStore(db,stage->{if("SALE_PLANNING_READ".equals(stage) && changed.compareAndSet(false,true))accept(writer,progress);})) {
-                var first=reader.saleProjections(account,1010);
+                var first=reader.saleDecisionProjections(account,1010,561,null);
                 assertTrue(changed.get());
                 assertEquals(open.getEventId(),first.planning.currentEvents.get(0).getEventId());
                 assertEquals(3,first.ledger.getTradingPositions().get(0).getQuantity());assertEquals(0,first.ledger.getSales());
-                var second=reader.saleProjections(account,1011);
+                var second=reader.saleDecisionProjections(account,1011,561,null);
                 assertEquals(progress.getEventId(),second.planning.currentEvents.get(0).getEventId());
                 assertEquals(2,second.ledger.getTradingPositions().get(0).getQuantity());assertEquals(1,second.ledger.getSales());
                 int count=writer.positionEventCount();reader.saleProjections(account,1012);

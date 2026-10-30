@@ -703,7 +703,7 @@ final class CompanionService implements AutoCloseable
     }
     synchronized PolicyDecision saleDecision(int item,int price,int quantity,String source,boolean cut,int slot,long at,String repriceSource) {
 		try {
-			var read=store.saleProjections(accountId,at);
+			var read=store.saleDecisionProjections(accountId,at,item,slot<0?repriceSource:null);
 			return new CompanionSalePolicy().decide(read.planning,read.ledger,account,
 				market.state(),series,item,price,quantity,source,cut,slot,at,repriceSource);
 		}catch(Exception unavailable){return null;}
@@ -713,7 +713,7 @@ final class CompanionService implements AutoCloseable
         if(slot<0 || slot>7)throw new IllegalArgumentException("Working sale slot is required");
         java.util.UUID.fromString(request);
         try {
-            var read=store.saleProjections(accountId,at);
+            var read=store.saleDecisionProjections(accountId,at,item,null);
             var decision=new CompanionSalePolicy().decide(read.planning,read.ledger,account,market.state(),series,
                 item,price,quantity,source,cut,slot,at);
             if(decision.getAction()!=com.flippingfriend.core.OfferLifecycleAction.CANCEL_SELL)return decision;

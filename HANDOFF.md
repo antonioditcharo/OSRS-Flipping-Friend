@@ -1,6 +1,6 @@
 # Agent handoff
 
-Updated 29 October 2026 (America/Anchorage). Read AGENTS.md and TASKS.md.
+Updated 30 October 2026 (America/Anchorage). Read AGENTS.md and TASKS.md.
 Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
 ## Installed runtime and preservation
@@ -24,9 +24,14 @@ code rollback preserves trades recorded afterward.
 Protected task XML/permissions are identical. Normal close, paired updater, status, launcher
 CheckOnly and GET-only pre-login pipeline pass. Direct launch retains the task's existing
 `-Xmx768m`; no new heap policy. API startup precedes public refresh; existing-account preparation
-completes in 8,552ms separately from client boot. RuneLite reopened; fresh manual login/GE and native
-MAIN/SELECTED_SALE timing remain pending. The #200 owner's minutes-at-boot/quick-afterward report
-and all slower samples remain evidence for follow-up. #195 player acceptance stays scoped to #195.
+completes in 8,552ms separately from client boot. Fresh #202 manual login/GE, eight authenticated
+source-bound slots and an empty pending offer outbox are verified; the owner reports guidance
+appeared promptly. Original risk context is retained. A bounded post-install source audit verifies
+one sale completion using its original exact acquisition pool, four partial-buy effects and no
+duplicate disposal from repeated SOLD callbacks; the other seven offer episodes are unchanged at
+that checkpoint. This does not verify a post-cancellation late fill. Native MAIN/SELECTED_SALE
+qualification remains open. The #200 minutes-at-boot report and every slower sample remain evidence.
+#195 player acceptance stays scoped to #195. No runtime change/restart in this follow-up.
 [Delivery receipt](docs/history/startup-public-preparation-delivery-2026-10-29.md).
 
 ## Foreground behavior and retained failures
@@ -38,12 +43,29 @@ markers and all 1,301 input hashes verified. Frozen JAR classes match the hour's
 the frozen core dependency. This is synthetic qualification; native acceptance remains separate.
 [Contract](docs/architecture/startup-public-preparation.md).
 
+The combined #202 session through 30 October 06:41 local has 48 MAIN action paints at p95
+80.356ms and 13 distinct eligible MAIN decisions at p95 1,057.576ms. Ten selected-sale paints
+have p95 44.852ms; two distinct eligible editor quotes have p95 1,469.888ms. Publication remains
+above target. Retain the initial 7,194.822ms refresh (4,561.788ms before capture; cause unproven),
+125.088ms slow paint, selected-sale authority up to 982.253ms and worker waits near 594ms.
+Four SELL-to-WAIT transitions have explicit editor outcomes and visible Toadflax/Lava dragon
+bones SELL successors; deferred Toadflax SELL remains pending. They do not establish dropped
+advice. No invalid/conflicting/unlinked traces; unknown identities and unmeasured stages stay
+explicit. Idle/mixed, sustained and complete controlled acceptance remain open. Private proof:
+primary `local-data/live-202-20261029-2005/live-acceptance-receipt.json` and currentDelivery.
+
 Following [draft #203](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/203) streams
-public-cache gzip writing/one-entry reading without changing its format, clocks or TTLs. Clean
+public-cache gzip writing/one-entry reading without changing its format, clocks or TTLs. Its original clean
 2,573 Java/six skips, 177 tooling, 18 relevant actual-JAR Java 11 checks and both CI platforms
-`40997402820` pass. All 600 histories/172,800 buckets round-trip at 96 MiB and match #195/#200
+`40999749710` at rebased head `cae71b0` pass. All 600 histories/172,800 buckets round-trip at 96 MiB and match #195/#200
 reads without changing cache bytes. **Queued source only**: its relevant hour, runtime preservation
 and native checks remain pending. Do not install it under #202's hour receipt.
+The next batch also narrows final sale receipt reads to the current item's relist requirements;
+initial/working sales omit unused historical receipts. Full canonical history, exact costs,
+fresh authority and the second corrected-price authorization remain. Focused regressions pass;
+new clean build, actual-JAR/CI/hour and preservation gates are pending for the combined source.
+Frozen-account profiling identifies repeated validation of 90 receipts (warm full reads 124–300ms),
+without attributing every live outlier to it. [Contract](docs/architecture/item-scoped-sale-verification.md).
 
 The extended #200 session has 25 MAIN action paints at p95 80.462ms and 12 distinct eligible
 MAIN actions at p95 1,484.011ms. Ten editor paints have p95 79.707ms; two distinct editor quotes

@@ -516,6 +516,13 @@ final class SqliteStore implements AutoCloseable
 	/** One fresh source prefix for final sale authority; never cached between requests. */
 	synchronized SaleProjections saleProjections(String accountId,long evaluatedAt) throws Exception
 	{
+        return readSaleProjections(accountId,evaluatedAt,0,true);
+    }
+    /** Current stock/offer/cost checks stay fresh; only a relist consumes historical policy receipts. */
+    synchronized SaleProjections saleDecisionProjections(String accountId,long evaluatedAt,int item,String repriceSource)throws Exception {
+        return readSaleProjections(accountId,evaluatedAt,item,repriceSource!=null && item>0);
+    }
+    private SaleProjections readSaleProjections(String accountId,long evaluatedAt,int receiptItem,boolean includeReceipts)throws Exception {
 		com.flippingfriend.core.AccountIdentity.require(accountId);
 		if (!connection.getAutoCommit()) throw new IllegalStateException("sale read requires its own transaction");
 		connection.setAutoCommit(false);
@@ -525,7 +532,9 @@ final class SqliteStore implements AutoCloseable
             planning.saleProgressAt=saleProgressEvidence(accountId,planning.currentEvents);
             // Exact cancel/collect relists are checked against this same durable source prefix.
             planning.history=offerHistory(accountId);
-            planning.salePolicyEvidence=SalePolicyReceiptStore.read(connection,accountId,planning.history,salePolicyInputIndex,canonicalHistoryCursor);
+            if(includeReceipts)planning.salePolicyEvidence=receiptItem>0
+                ?SalePolicyReceiptStore.readForItem(connection,accountId,planning.history,salePolicyInputIndex,canonicalHistoryCursor,receiptItem)
+                :SalePolicyReceiptStore.read(connection,accountId,planning.history,salePolicyInputIndex,canonicalHistoryCursor);
 			checkpoint.reached("SALE_PLANNING_READ");
 			AccountLedgerSnapshot ledger=readLedgerSnapshot(accountId,evaluatedAt,planning.tradeScope);
 			connection.commit();
