@@ -18,13 +18,15 @@ against their own verified evidence. Controlled/native acceptance records remain
 
 ## Current batch
 
-- [ ] Complete carried #202 native qualification on installed #203 using the retained combined session: 48 MAIN paints p95
+- [ ] Qualify installed #203 with fresh native MAIN/editor measurements. Retain #202 failure
+      evidence separately: 48 MAIN paints p95
       80.356ms / 13 distinct eligible decisions p95 1,057.576ms; ten editor paints p95 44.852ms /
       two distinct eligible quotes p95 1,469.888ms. Keep both publication gates open, separate
       repeats/full-slot WAITs, missing identities and unmeasured stages. Retain the 7.195s first
       refresh, pre-capture/authority/worker outliers and 125.088ms paint. Four editor SELL-to-WAIT
       cases have visible successors; pending Toadflax SELL is retained. Prioritize measured editor
-      preparation/authority and serial-worker waits in following qualified batches; #203 narrows receipt reads and streams public-cache IO. Current source audit
+      preparation/authority and serial-worker waits in following qualified batches; #203 narrows
+      receipt reads and streams public-cache IO. The previous source audit
       verifies original acquisition allocation, final sale completion, partial buys and duplicate
       rejection; it does not close the unobserved post-cancellation late-fill gate.
       [Live receipt](docs/history/startup-public-preparation-delivery-2026-10-29.md).
