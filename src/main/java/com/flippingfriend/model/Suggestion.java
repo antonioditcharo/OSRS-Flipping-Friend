@@ -55,6 +55,21 @@ public class Suggestion
     private com.flippingfriend.core.DisplayedPricingContext.Configuration displayConfiguration;
     private java.util.List<com.flippingfriend.core.DisplayedPricingContext.Alternative> displayAlternatives=java.util.List.of();
     private com.flippingfriend.core.PortfolioCandidate.MarketPriceEvidence displayMarket;
+    private transient SaleTimingSource saleTimingSource;
+    /** Diagnostic only; never serialized into financial, advice or learning evidence. */
+    public static final class SaleTimingSource {
+        public final int version=1;
+        public final String kind="SALE_AUTHORITY",account,source;
+        private SaleTimingSource(String account,String source){this.account=account;this.source=source;}
+    }
+    public SaleTimingSource getSaleTimingSource(){return saleTimingSource;}
+    public void clearSaleTimingSource(){saleTimingSource=null;}
+    /** Called only after exact final sale authority and the current source recheck succeed. */
+    public void recordSaleTimingSource(String account,String source) {
+        if((type==SuggestionType.SELL || type==SuggestionType.MODIFY_SELL)
+            && account!=null && account.matches("rs-[0-9a-f]{64}") && source!=null && !source.isBlank())
+            saleTimingSource=new SaleTimingSource(account,source);
+    }
     public void bindDisplayConfiguration(com.flippingfriend.core.DisplayedPricingContext.Configuration configuration) {
         if(displayConfiguration==null)displayConfiguration=configuration;
     }

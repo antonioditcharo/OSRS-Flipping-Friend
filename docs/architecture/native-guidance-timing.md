@@ -18,6 +18,10 @@ requests and one pending card paint; replaced, hidden, minimized, clipped, print
 queue-limited requests retain explicit outcomes. Buffered hidden tests cannot qualify native timing.
 Diagnostic failures never authorize or refuse a financial action.
 
+Schema 3 adds optional transient final-sale authority provenance for initial/unlisted sells that
+have no recommendation/relist identity. Schema 2 remains readable unchanged; unproven observations
+are never retroactively qualified. See [ACK preparation and sale timing](acknowledged-outbox-preparation.md).
+
 Selected-sale frame clocks require the same account/generation/revision. If an acknowledgement
 preceded the player selecting an editor quantity, preserve its actual offset; report both elapsed
 post-ACK time and computation after max(request, ACK). Do not count time before a requested quote

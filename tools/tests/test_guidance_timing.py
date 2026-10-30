@@ -136,3 +136,31 @@ class GuidanceTimingTest(unittest.TestCase):
         sample=result["samples"][0]
         self.assertEqual(99,sample["edtQueueMs"]);self.assertEqual(5,sample["cardUpdateMs"])
         self.assertEqual(2,sample["remainingCriticalUiMs"])
+
+    def test_v3_final_sale_provenance_counts_distinct_orders_without_changing_v2(self):
+        audit=TimingAudit()
+        for i in range(3):
+            row=self.row(trace="p:SELECTED_SALE:"+str(i),source="SELECTED_SALE")
+            row.pop("saleSource");row["schemaVersion"]=3
+            row["decisionProvenance"]={"version":1,"kind":"SALE_AUTHORITY","account":row["account"],"source":"acquisition"}
+            if i==2: row["price"]=56
+            self.add(audit,row);self.painted(audit,row)
+        result=audit.result();self.assertEqual([],result["invalid"])
+        self.assertEqual(["FIRST_OBSERVED","REPEATED","FIRST_OBSERVED"],[r["decisionOccurrence"] for r in result["samples"]])
+        self.assertEqual(2,result["metrics"]["SELECTED_SALE"]["distinctEligiblePublication"]["count"])
+
+    def test_foreign_malformed_or_borrowed_sale_provenance_cannot_qualify(self):
+        for invalid in ["account","source","kind","version","legacy","collect"]:
+            audit=TimingAudit();row=self.row();row.pop("saleSource");row["schemaVersion"]=3
+            row["decisionProvenance"]={"version":1,"kind":"SALE_AUTHORITY","account":row["account"],"source":"acquisition"}
+            if invalid=="account": row["decisionProvenance"]["account"]="rs-"+"b"*64
+            elif invalid=="source": row["decisionProvenance"]["source"]=" "
+            elif invalid=="kind": row["decisionProvenance"]["kind"]="CHART"
+            elif invalid=="version": row["decisionProvenance"]["version"]=2
+            elif invalid=="legacy": row["schemaVersion"]=2
+            elif invalid=="collect": row["action"]="COLLECT"
+            self.add(audit,row);self.assertEqual(1,len(audit.result()["invalid"]))
+            self.assertEqual([],audit.result()["samples"])
+        audit=TimingAudit();row=self.row();row.pop("saleSource");row["schemaVersion"]=3
+        self.add(audit,row);self.painted(audit,row)
+        self.assertEqual("UNPROVEN_IDENTITY",audit.result()["samples"][0]["decisionOccurrence"])

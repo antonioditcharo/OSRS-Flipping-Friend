@@ -26,8 +26,9 @@ public class EntryDecisionPresentationNonActivationBoundaryTest
         Assert.assertFalse(plugin.contains("companion.nextBuySuggestion("));
         Assert.assertFalse(plugin.contains("engine.buyFallback()"));
         // Reviewed additive sale-policy bindings and bounded prospective display metadata.
-        // These capture settings/alternatives only; entry authority remains in CompanionClient.
-        Assert.assertEquals("997B73472F0158BD4EDE4738C69D204D3F4BAADEDE2C1886DA6FB00DEC6C2E00",
+        // Transient final-sale timing provenance is diagnostic only and excluded from Gson;
+        // entry authority remains in CompanionClient, with no policy or financial identity change.
+        Assert.assertEquals("A485E008219022CF29CDD4E5E0F37FD23449699DC1D52ECCFBC8FB1EA5F2800D",
             sha256(suggestion));
     }
     private static String read(Path root, String path) throws Exception

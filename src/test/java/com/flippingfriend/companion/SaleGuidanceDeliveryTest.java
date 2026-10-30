@@ -98,6 +98,7 @@ public class SaleGuidanceDeliveryTest {
         assertEquals(121,result.getPrice());assertEquals(57,result.getExpectedProfit());
         assertNotNull(result.getSalePolicyReceipt());assertEquals(2,priceRequests.get());
         assertTrue(result.getSalePolicyReceipt().matchesOrder(561,121,3));
+        assertNotNull(result.getSaleTimingSource());assertEquals(requested.get().get("source"),result.getSaleTimingSource().source);
     }
     @Test public void aCorrectionNeverAuthorizesItselfOrLoopsOnRepeatedRefusal()throws Exception {
         publishSale(0);acknowledge();ledger(true);revisionPrice=121;refuseRevision=true;
@@ -133,6 +134,22 @@ public class SaleGuidanceDeliveryTest {
         Suggestion proposed=sale(false);
         assertSame("A valid response beyond the old 750ms budget must reach the player",proposed,client.authorizeSale(proposed));
         assertEquals("acquisition",requested.get().get("source"));
+    }
+    @Test public void exactInitialSaleSourceIsDiagnosticOnlyAndARefusalClearsIt()throws Exception {
+        ledger(true);var proposed=sale(false);
+        assertSame(proposed,client.authorizeSale(proposed));
+        assertEquals(storage.accountId(),proposed.getSaleTimingSource().account);
+        assertEquals("acquisition",proposed.getSaleTimingSource().source);
+        assertNull("Timing cannot invent a financial recommendation or relist identity",proposed.getRecommendationId());
+        assertNull(proposed.getSaleRepriceSource());assertNull(proposed.getSalePolicyReceipt());
+        assertFalse("Diagnostics must not enter persisted advice or learning payloads",json.toJson(proposed).contains("saleTimingSource"));
+        replySource="wrong-source";assertEquals(SuggestionType.WAIT,client.authorizeSale(proposed).getType());
+        assertNull(proposed.getSaleTimingSource());
+    }
+    @Test public void correctedInitialQuoteBindsOnlyTheSecondExactAuthority()throws Exception {
+        ledger(true);revisionPrice=121;var proposed=sale(false);var result=client.authorizeSale(proposed);
+        assertEquals(121,result.getPrice());assertEquals(2,priceRequests.get());
+        assertNull(proposed.getSaleTimingSource());assertEquals("acquisition",result.getSaleTimingSource().source);
     }
     @Test public void entryReadAlsoWaitsForLedgerAuthorityAndKeepsItsPlanIdentity()throws Exception {
         delay=1100;
@@ -200,6 +217,7 @@ public class SaleGuidanceDeliveryTest {
             missingReceipt=missing;mismatchedReceipt=!missing;var proposed=sale(true);
             assertNull("A refused routine receipt leaves later candidates eligible",client.authorizeSale(proposed));
             assertNull(proposed.getSaleRepriceSource());assertNull(proposed.getSalePolicyReceipt());
+            assertNull(proposed.getSaleTimingSource());
         }
     }
 }

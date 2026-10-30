@@ -13,6 +13,7 @@ GROUPS = {
     'client': ['com.flippingfriend.' + n for n in ['EditorGuidanceDeliveryTest', 'AdviceDeliveryBoundaryTest',
         'FullBoardSaleReservationWorkflowTest', 'companion.SaleGuidanceDeliveryTest',
         'companion.OfferEventAcknowledgementResponseTest', 'companion.AcceptedBuyPlanDeliveryTest',
+        'companion.OfferEventOutboxTest', 'companion.OfferObservationBatchTest',
         'companion.EntryDecisionOrchestrationTest', 'data.PublicMarketNumbersCompatibilityTest',
         'ui.GuidanceNativeTimingTest', 'ui.GuidancePaintContinuityTest', 'ui.ForegroundGuidanceTest']],
     'companion': ['com.flippingfriend.companion.' + n for n in ['PromptGuidanceLoopbackTest',

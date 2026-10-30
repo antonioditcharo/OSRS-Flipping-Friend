@@ -23,8 +23,12 @@ restoration or financial replay. **#195 remains immediate code rollback; #186 th
 
 Normal RuneLite closure, supported unattended paired update, status, launcher CheckOnly and
 GET-only pre-login pipeline pass. Protected task XML/permissions and the existing heap policy
-are unchanged. RuneLite reopened; fresh #203 native/player acceptance remains open. currentDelivery
-records the manual login request and subsequent session evidence; do not repeat a completed request.
+are unchanged. Owner confirms fresh #203 login/GE; eight authenticated source-bound slots and an
+empty outbox are verified, with the original risk window retained. Initial MAIN/editor paints
+p95 148.129/52.163ms; attempted post-ACK/computation p95 711.675/833.164ms. All 13 action samples
+lack decision identity, so zero successful-publication samples qualify. Keep the 4.977s initial
+COLLECT, pre-capture/publication delay and 690ms price preparation. No SELL-to-WAIT transition in
+this initial snapshot. Native/sustained/player acceptance remains open; do not repeat login requests.
 The #202 owner reports prompt guidance after login, with eight authenticated source-bound slots,
 empty outbox and retained original risk. Its bounded audit verifies one final sale against its
 original exact acquisition pool, four partial-buy effects and repeated SOLD callbacks without
@@ -32,6 +36,13 @@ duplicate disposal. That is not a post-cancellation late-fill observation.
 [Current delivery receipt](docs/history/item-scoped-sale-verification-delivery-2026-10-30.md).
 
 ## Foreground behavior and retained failures
+
+Queued source on `codex/prepared-guidance-evidence` reuses only a fully validated private outbox
+after successful ACK-only removal, retaining atomic writes and complete-byte invalidation. It
+also adds transient diagnostic provenance after exact final sale authorization; financial/advice/
+learning identities stay unchanged. #203 remains installed. Verification/release are pending;
+the warm JFR did not capture a sale revision and does not prove its delay's cause.
+[Queued contract](docs/architecture/acknowledged-outbox-preparation.md).
 
 #203 omits unused historical cancellation-receipt reads for initial/working sales and validates
 item-specific relist receipts against complete canonical history. Every relevant receipt still

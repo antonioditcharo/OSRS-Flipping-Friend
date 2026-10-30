@@ -1161,6 +1161,7 @@ public class CompanionClient
         return authorizeSale(proposed,true);
     }
     private Suggestion authorizeSale(Suggestion proposed,boolean mayRevise) {
+        if(proposed!=null)proposed.clearSaleTimingSource();
         if(proposed==null || proposed.getType()!=SuggestionType.MODIFY_SELL
             && !(proposed.getType()==SuggestionType.SELL && proposed.isProfitKnown()))return proposed;
         String requestedAccount=accountContext();long now=Instant.now().getEpochSecond();
@@ -1226,6 +1227,7 @@ public class CompanionClient
                         }
                         proposed.bindSaleRepriceSource(source);proposed.bindSalePolicyReceipt(receipt);
                     }
+                    proposed.recordSaleTimingSource(requestedAccount,source);
                     lastError="";return proposed;
                 }
             reason=decision==null?"SALE_AUTHORITY_UNAVAILABLE":decision.getAction()==OfferLifecycleAction.WAIT
