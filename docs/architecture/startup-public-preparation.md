@@ -25,9 +25,9 @@ installed task uses `-Xmx768m`; direct launch previously discarded that setting.
 configured value, quoted JAR path and no-limit behavior when absent. This changes no task XML,
 permissions or new policy default. Invalid/foreign task actions continue to fail existing checks.
 
-Installed #200 remains running while this candidate is checked. Require clean Java/tooling,
-Java 11, both exact-head CI platforms, the fresh uninterrupted workflow hour, paired backups and
-previous-runtime financial reads before installation. Keep the initial timeouts and all slower
+Installed #202 passes clean Java/tooling, Java 11, both source-head CI platforms, its fresh
+uninterrupted workflow hour, paired restoration and previous-runtime financial reads. Fresh
+manual/native startup acceptance and final documentation-head CI/merge remain tracked separately. Keep the initial timeouts and all slower
 selected-sale samples. A 2.205s editor quote includes 1.155s behind MAIN plus 669ms final authority;
 do not change financial concurrency or remove a required authorization to hide it. Idle/mixed,
 distinct-action and MAIN/SELECTED_SALE timing qualification remain separate from this startup fix.
