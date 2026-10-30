@@ -5,30 +5,58 @@ Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
 ## Installed runtime and preservation
 
-Local plugin/companion **#200 is installed**, 29 October at 21:06:55 UTC. Tested source
-`a05a5616c8ac5a1d48e86282b142372fafd5914b`, merge `579c9fbf6de60435d4879b692e64b684572dc42a`;
-both exact-head CI platforms `40947246833`, clean 2,565 Java checks (six existing skips),
-175 tooling, 38 actual-JAR Java 11 checks and own bytecode 55 pass. Installed SHA-256:
+Local plugin/companion **#202 is installed**, 2026-10-30T03:43:43.3536286Z. Verified runtime source
+`ce38814ca2aeda23d5fab543a9937ce619b3be3b`; source-head Windows/Linux CI `40993234489`, clean
+2,569 Java checks (six existing skips), 177 tooling, 65 actual-JAR Java 11 checks and bytecode 55
+pass. Final documentation-head CI/merge is recorded in the PR/currentDelivery. Installed SHA-256:
 
-- Plugin: `8fb15ee09aabd3428f57911f765c3b0c2da9380db107b3c9ee2a5cbb66c3100e`.
-- Companion: `78b69b0881da3755dd9376bafbe084eb9d23d35d544faba1b7b08acf7ad68c92`.
+- Plugin: `c6eb743fb96e5622ac72d4f3368140deab409c855499d742aeb91290149d6f73`.
+- Companion: `7bb61d4876dafee05d1039b3d23995c66005b2395e584930c1ec66dc63e8cd30`.
 
-Backup `20261029-130649-0cc35552` passes disposable restoration of 345 files plus six supplemental
-configurations. All 12 original financial tables are identical. Previous #195, previous #198 and
-current #200 read the same ledger, stock, scope, exposure, continuation and original-risk results
-from that restored account; database bytes remain unchanged. The unassigned legacy database has
-its own read-only snapshot/disposable restore and stays unassigned. No live database restoration,
-financial replay or risk reset. **#195 remains the immediate code rollback target; #186 is the
-economic reference.** #198/#190 artifacts remain retained; code rollback preserves later trades.
+Backup `20261029-194334-b3ed9526` passes disposable restoration of 351 files plus
+six supplemental configurations. All 12 original financial tables are identical; previous #195,
+previous #200 and #202 return the same ledger, stock, scope, exposure, continuation and original
+risk results. Restored database bytes are unchanged. The unassigned legacy database has its own
+read-only snapshot/restore and stays unassigned. No live database restoration or financial replay.
+**#195 remains immediate code rollback; #186 the economic reference.** #200/#198/#190 are retained;
+code rollback preserves trades recorded afterward.
 
-Protected startup task/XML/permissions are unchanged. Normal close, paired update, status,
-launcher CheckOnly, GET-only pipeline and reopening pass. Fresh cash/slots correctly require the
-client. RuneLite reopened at login; **fresh #200 manual login/GE, native timing and player trading
-acceptance remain open**. Login is requested once; check fresh logs before requesting again.
-The owner's reported sale revision/cancel/collect/relist and restart acceptance belongs to #195.
-[Current delivery receipt](docs/history/foreground-guidance-and-budget-shadow-2026-10-29.md).
+Protected task XML/permissions are identical. Normal close, paired updater, status, launcher
+CheckOnly and GET-only pre-login pipeline pass. Direct launch retains the task's existing
+`-Xmx768m`; no new heap policy. API startup precedes public refresh; existing-account preparation
+completes in 8,552ms separately from client boot. RuneLite reopened; fresh manual login/GE and native
+MAIN/SELECTED_SALE timing remain pending. The #200 owner's minutes-at-boot/quick-afterward report
+and all slower samples remain evidence for follow-up. #195 player acceptance stays scoped to #195.
+[Delivery receipt](docs/history/startup-public-preparation-delivery-2026-10-29.md).
 
 ## Foreground behavior and retained failures
+
+#202 moves the first public refresh behind API startup onto the existing background scheduler.
+Its blocked-feed/health/durable-offer and heap-option regressions pass. Fresh strict hour:
+3,601.563s, 120 groups, 8,700 checks, 9,540 instrumented requests, zero failures, both uninterrupted
+markers and all 1,301 input hashes verified. Frozen JAR classes match the hour's inputs, including
+the frozen core dependency. This is synthetic qualification; native acceptance remains separate.
+[Contract](docs/architecture/startup-public-preparation.md).
+
+Following [draft #203](https://github.com/antonioditcharo/OSRS-Flipping-Friend/pull/203) streams
+public-cache gzip writing/one-entry reading without changing its format, clocks or TTLs. Clean
+2,573 Java/six skips, 177 tooling, 18 relevant actual-JAR Java 11 checks and both CI platforms
+`40997402820` pass. All 600 histories/172,800 buckets round-trip at 96 MiB and match #195/#200
+reads without changing cache bytes. **Queued source only**: its relevant hour, runtime preservation
+and native checks remain pending. Do not install it under #202's hour receipt.
+
+The extended #200 session has 25 MAIN action paints at p95 80.462ms and 12 distinct eligible
+MAIN actions at p95 1,484.011ms. Ten editor paints have p95 79.707ms; two distinct editor quotes
+have p95 2,402.059ms, with a repeated quote at 2,130.035ms. Retain the 4.903s MAIN worker wait,
+5.01s account publication and slower authority work. Six sale-to-WAIT transitions are four
+SELECTED_EDITOR_QUOTE plus two DEFERRED_EDITOR cases retaining pending SELL, rather than proof
+of dropped advice. The passive warm profile includes public-cache/replication work and 1.213s GC
+pauses, but does not prove the earlier quotes' cause. Resource sampling later includes a disconnected
+client and uncontrolled host load; it cannot close idle/mixed native acceptance.
+
+Initial #200 five-second timeouts and first durable ACK at 18:05:41 remain retained in the
+[previous checkpoint](docs/history/handoff-before-startup-2026-10-29.md) and private live receipt.
+Warm samples cannot erase boot delay or close sustained timing acceptance.
 
 #200 paints the action/current controls before optional sidebar work, lazily populates hidden
 investigations and attributes MAIN/SELECTED_SALE/OFFER_REPLAY waits on the same serial worker.
@@ -71,8 +99,8 @@ quantity/exposure/loss limits. Replay 30 / qualification V4 bind the distinct bu
 older V2/V3 cohorts/artifacts stay unchanged. Clean 2,568 Java checks (six skips), 48 actual-JAR
 Java 11 checks and initial exact-head CI `40951693894` pass. Synthetic fit/validation refuse all
 four cadences, final fold unopened. Final documentation-head CI/merge is recorded in the PR and
-currentDelivery. **Offline source only: keep installed #200 JARs; no additional installation,
-pricing switch, loss authority, learning activation or profit-superiority claim.**
+currentDelivery. **Its dormant code is included in #202; live constructors retain the baseline. No pricing switch,
+new loss authority, learning activation or profit-superiority claim.**
 
 #196/#197's delivered V2 export/repaired soak proofs remain reusable: full frozen 185,450-offer/
 1,389-gap export/verify/audits at 1 GiB, original database/observations/scores unchanged. Keep the
@@ -93,7 +121,7 @@ no growing-tail tuning/final-fold opening. #192 remains the last capacity experi
 All 81 original requirements remain in TASKS/the [acceptance inventory](docs/verification/trading-pass-acceptance-inventory.md),
 79 open. Next gates:
 
-1. Fresh #200 native MAIN/SELECTED_SALE timing, current trades, source attribution and manual sale
+1. Fresh #202 native MAIN/SELECTED_SALE timing, current trades, source attribution and manual sale
    revision/cancel/collect/relist/restart. Require cached paint p95 <=100 ms and distinct eligible
    publication p95 <=1s after durable ACK; separate idle/mixed load, missing stages, repeats and
    healthy WAITs. Retain outliers. Deterministic real-handler late-fill tests plus monitoring satisfy
@@ -106,7 +134,7 @@ All 81 original requirements remain in TASKS/the [acceptance inventory](docs/ver
    blocking financial delivery; calibration stays neutral and simulations stay separate.
 
 Private authoritative state: primary `local-data/hosted-pilot/delivery-state.json`, **currentDelivery**;
-root aliases are historical. Current proofs: `local-data/foreground-guidance-20261029`. Older root
+root aliases are historical. Current proofs: `local-data/startup-preparation-20261029`; #200 live evidence is retained separately. Older root
 notes remain in [the previous handoff](docs/history/handoff-before-foreground-delivery-2026-10-29.md).
 Preserve unknown costs, personal belongings, financial IDs/plans/risk anchors and independently funded
 suggestions under live guards. Never clear outboxes, restore old live databases or send game input.

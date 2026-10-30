@@ -4,7 +4,10 @@ Updated 29 October 2026. Read [HANDOFF.md](HANDOFF.md) and the current hosted-pi
 `local-data/hosted-pilot/delivery-state.json` first for the installed pair and pending source;
 #162 was the hosted pilot's original baseline. Implemented/tested, merged,
 installed and player accepted are separate states. The owner confirms fresh #195 login/GE, sale revision/cancel/collect/relist and restart on 28 October;
-Those reports belong to #195; #200 is now installed with fresh login/native acceptance pending.
+Those reports belong to #195; #200 fresh login/GE and durable eight-slot evidence are verified.
+Installed #202 now requires its fresh manual login/GE; native/sustained and complete controlled
+trading acceptance remain pending. The owner reports
+minutes at startup followed by quick suggestions; keep both observations and the measured outliers.
 Late fills and complete native/sustained timing remain open.
 All game interaction remains manual; batch runtime updates and acceptance work.
 
@@ -15,7 +18,19 @@ against their own verified evidence. Controlled/native acceptance records remain
 
 ## Current batch
 
-- [ ] Accept the installed #200 foreground follow-up: critical action/control refresh before optional
+- [x] Deliver #202 startup preparation: API/account preparation precede the first background
+      public refresh; direct launch retains the task's existing heap limit. Clean 2,569 Java/six
+      skips, 177 tooling, 65 actual-JAR Java 11, both source CI platforms and fresh 3,601.563s hour
+      pass: 8,700 checks/9,540 requests/zero failures/all 1,301 hashes/both markers. Installed;
+      351-file/six-configuration restore, all 12 original tables and old #195/#200 financial/risk
+      reads pass. Keep final documentation-head CI/merge and fresh native/player acceptance
+      visible; initial timeouts and all slower quotes remain. [Receipt](docs/history/startup-public-preparation-delivery-2026-10-29.md).
+- [ ] Deliver queued draft #203 public-cache streaming. Clean 2,573 Java/six skips, 177 tooling,
+      18 relevant actual-JAR Java 11 and both CI platforms pass; 600 histories/172,800 buckets
+      round-trip at 96 MiB with equal old #195/#200 values. Its relevant hour, preservation,
+      installation and native checks remain pending; keep #202's artifacts/hour separate.
+
+- [ ] Finish carried #200 foreground acceptance on installed #202: critical action/control refresh before optional
       sidebar work, lazy hidden Records/Missed flips, actual EDT/card stages and serial worker
       task attribution. Preserve financial ordering and final authority. Require clean checks,
       exact-head CI, fresh hour, preservation and native/player acceptance. Clean 2,565 Java/six
@@ -38,7 +53,7 @@ against their own verified evidence. Controlled/native acceptance records remain
       339-file/six-configuration restoration, all 12 financial tables and previous-#195 reads pass.
       #195 remains the immediate rollback target; #186 the economic reference.
       [Receipt](docs/history/native-guidance-and-shadow-2026-10-29.md).
-- [ ] Finish carried #198 native qualification on installed #200: fresh login/GE, retained trades, visible main/editor
+- [ ] Finish carried #198 native qualification on installed #202: fresh login/GE, retained trades, visible main/editor
       guidance and distinct eligible decisions. Measure idle/mixed conditions and cached paint
       p95 <=100 ms / eligible publication p95 <=1s after durable ACK separately per path. Retain
       failures/missing stages/repeats and profile the old 2,980-ms startup outlier before extending

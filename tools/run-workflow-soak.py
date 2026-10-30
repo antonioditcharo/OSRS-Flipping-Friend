@@ -18,7 +18,7 @@ GROUPS = {
     'companion': ['com.flippingfriend.companion.' + n for n in ['PromptGuidanceLoopbackTest',
         'SalePolicyClientCanonicalRecoveryTest', 'SalePolicyReceiptWorkflowTest', 'BuyReplacementWorkflowTest',
         'ApiReportIsolationTest', 'CanonicalHistoryCacheTest', 'CurrentFrameBaselineTest', 'UnchangedFrameRecoveryTest',
-        'EntryStopPauseTest', 'VerifiedCashRiskTest', 'BuyMaintenanceServiceAdapterTest']],
+        'EntryStopPauseTest', 'VerifiedCashRiskTest', 'BuyMaintenanceServiceAdapterTest', 'StartupPublicPreparationTest']],
 }
 
 def digest(path):

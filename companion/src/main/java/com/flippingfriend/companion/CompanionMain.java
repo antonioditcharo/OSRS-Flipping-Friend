@@ -110,7 +110,6 @@ public final class CompanionMain
 		CompanionService service = new CompanionService(gson, store, companion);
 		// Buy-limit windows outlast this process, so recover them before advising anything.
 		service.rehydrate();
-		service.refreshMarket();
 		PilotGateway pilot=PilotGateway.load(companion.resolve("hosted-pilot.json"));
         service.usePilot(pilot);
         CompanionAccounts accounts = new CompanionAccounts(companion.resolve("accounts"), service);
@@ -123,7 +122,7 @@ public final class CompanionMain
         accounts.prepareExistingAccounts();
 		lifecycle.started();
 		ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(2, r -> { Thread t = new Thread(r, "flipping-friend-market"); t.setDaemon(true); return t; });
-		scheduler.scheduleWithFixedDelay(guarded(accounts::refreshMarket), 60, 60, TimeUnit.SECONDS);
+		scheduleMarketRefresh(scheduler, accounts::refreshMarket);
 		// A second timer that only asks whether the first one is still alive. A scheduled task takes
 		// its own error reporting down with it when it dies, so nothing inside the ingestion loop can
 		// report that the ingestion loop has stopped.
@@ -151,6 +150,11 @@ public final class CompanionMain
 		System.out.println("Flipping Friend companion ready on loopback port " + ApiServer.PORT + ".");
 		Thread.currentThread().join();
 	}
+
+    /** Public network preparation must not precede the API or delay copied account evidence. */
+    static java.util.concurrent.ScheduledFuture<?> scheduleMarketRefresh(ScheduledExecutorService scheduler,Runnable refresh) {
+        return scheduler.scheduleWithFixedDelay(guarded(refresh),0,60,TimeUnit.SECONDS);
+    }
 
 	/**
 	 * Stops a scheduled task from killing its own schedule.
