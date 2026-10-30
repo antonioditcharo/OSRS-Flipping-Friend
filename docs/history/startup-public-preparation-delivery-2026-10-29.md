@@ -86,3 +86,7 @@ Private proofs: primary `local-data/startup-preparation-20261029`; previous nati
 `local-data/live-200-20261029-1805`. Fresh #202 proofs and player feedback:
 `local-data/live-202-20261029-2005/live-acceptance-receipt.json`. Authoritative installation state is currentDelivery in the
 private hosted-pilot receipt; older root aliases remain historical.
+
+The carried timing/player gates now continue on installed #203; its independent combined source,
+hour and preservation evidence is in the [30 October receipt](item-scoped-sale-verification-delivery-2026-10-30.md).
+No later delivery erases the #202 measurements or changes their scope.
