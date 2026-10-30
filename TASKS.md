@@ -6,8 +6,9 @@ Updated 30 October 2026. Read [HANDOFF.md](HANDOFF.md) and the current hosted-pi
 installed and player accepted are separate states. The owner confirms fresh #195 login/GE, sale revision/cancel/collect/relist and restart on 28 October;
 Those reports belong to #195; #200 fresh login/GE and durable eight-slot evidence are verified.
 Previous #202 fresh manual login/GE and eight authenticated source-bound slots are verified;
-the owner reports guidance appeared promptly. Native/sustained and complete controlled trading
-acceptance remain pending on installed #203. Keep the earlier minutes-at-startup report and measured outliers.
+the owner reports guidance appeared promptly. Owner also confirms #203 login/GE; all eight current
+authenticated sources, empty outbox and original risk are verified. Native/sustained and complete
+controlled trading acceptance remain pending. Keep earlier startup reports and measured outliers.
 Late fills and complete native/sustained timing remain open.
 All game interaction remains manual; batch runtime updates and acceptance work.
 
@@ -17,6 +18,13 @@ No outstanding requirement was removed; #194 deployment and #195 numeric validat
 against their own verified evidence. Controlled/native acceptance records remain open.
 
 ## Current batch
+
+- [ ] Verify/release queued ACK-only outbox preparation and diagnostic sale provenance. Keep
+      installed #203 until clean checks, Java 11, both exact-head CI platforms, fresh synthetic
+      hour and preservation pass. No general own-write validation bypass. Initial #203 paints
+      p95 MAIN 148.129ms/editor 52.163ms; all 13 action samples have unproven identity, zero
+      successful-publication samples qualify. Retain the 4.977s first COLLECT and 690ms pricing
+      preparation; the warm profile did not capture a revision. [Contract](docs/architecture/acknowledged-outbox-preparation.md).
 
 - [ ] Qualify installed #203 with fresh native MAIN/editor measurements. Retain #202 failure
       evidence separately: 48 MAIN paints p95

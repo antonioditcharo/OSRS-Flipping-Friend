@@ -26,12 +26,20 @@ class TimingAudit:
     def add(self, payload, origin):
         try:
             value = json.loads(payload)
-            if (value.get("schemaVersion") != 2 or value.get("source") not in {"MAIN", "SELECTED_SALE"}
+            if (value.get("schemaVersion") not in {2, 3} or value.get("source") not in {"MAIN", "SELECTED_SALE"}
                     or not isinstance(value.get("trace"), str) or not value["trace"] or len(value["trace"]) > 200
                     or value.get("event") not in {"DELIVERY", "PAINT"}):
                 raise ValueError("Unsupported timing identity")
             if value.get("account") is not None and not re.fullmatch(r"rs-[0-9a-f]{64}", value["account"]):
                 raise ValueError("Invalid account scope")
+            provenance = value.get("decisionProvenance")
+            if provenance is not None and (value["schemaVersion"] != 3 or not isinstance(provenance, dict)
+                    or provenance.get("version") != 1 or provenance.get("kind") != "SALE_AUTHORITY"
+                    or value.get("action") not in {"SELL", "MODIFY_SELL"}
+                    or not value.get("account") or provenance.get("account") != value["account"]
+                    or not isinstance(provenance.get("source"), str) or not provenance["source"].strip()
+                    or len(provenance["source"]) > 512):
+                raise ValueError("Invalid diagnostic sale provenance")
             stages = value["stageMicros"]
             if (not isinstance(stages, dict) or stages.get("request") != 0 or not stages.keys() <= STAGES
                     or any(type(v) is not int or abs(v) > 2**53 or (k != "durableAck" and v < 0) for k, v in stages.items())
@@ -98,6 +106,8 @@ class TimingAudit:
             if sample["paintOutcome"] != "PAINTED":
                 sample.pop("cachedRenderMs", None)
             identity = next((row.get(k) for k in ["recommendation", "offer", "saleSource", "origin"] if row.get(k)), None)
+            if not identity and row.get("decisionProvenance"):
+                identity = ("SALE_AUTHORITY", row["decisionProvenance"]["source"])
             if identity and row.get("account"):
                 key = (trace.split(":", 1)[0], row["account"], row["source"], identity, row["action"], row.get("item"), row.get("quantity"), row.get("price"), row.get("slot"))
                 sample["decisionOccurrence"] = "REPEATED" if key in identities else "FIRST_OBSERVED"

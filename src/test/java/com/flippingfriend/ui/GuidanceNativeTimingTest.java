@@ -10,6 +10,19 @@ import static org.mockito.Mockito.*;
 
 /** Behavioral refusal/continuity checks. Headless painting never qualifies native latency. */
 public class GuidanceNativeTimingTest {
+    @Test public void timingEmitsExactSaleProvenanceOnlyInItsMatchingAccount() {
+        String account=com.flippingfriend.core.AccountIdentity.fromProfileKey("one");
+        var action=Suggestion.builder(SuggestionType.SELL).item(561,"Nature rune").quantity(3).price(120).build();
+        action.recordSaleTimingSource(account,"original-acquisition");
+        var timing=new GuidanceTiming("test:sale","SELECTED_SALE");timing.context(account,1,1);timing.delivery("VISIBLE",action);
+        assertEquals(3,timing.diagnosticSnapshot().get("schemaVersion"));
+        assertSame(action.getSaleTimingSource(),timing.diagnosticSnapshot().get("decisionProvenance"));
+        var foreign=new GuidanceTiming("test:foreign","MAIN");
+        foreign.context(com.flippingfriend.core.AccountIdentity.fromProfileKey("two"),1,1);foreign.delivery("VISIBLE",action);
+        assertFalse(foreign.diagnosticSnapshot().containsKey("decisionProvenance"));
+        var collect=Suggestion.builder(SuggestionType.COLLECT).item(561,"Nature rune").quantity(3).slot(1).build();
+        collect.recordSaleTimingSource(account,"not-sale-authority");assertNull(collect.getSaleTimingSource());
+    }
     @Test public void bufferedHiddenPanelIsNotANativePaintSampleAndHasOneTerminalOutcome() throws Exception {
         var timing=new GuidanceTiming("test:hidden","MAIN");
         var action=Suggestion.builder(SuggestionType.SELL).item(1,"Selected").quantity(2).price(55).build();

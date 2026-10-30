@@ -17,6 +17,45 @@ import static org.junit.Assert.assertTrue;
 public class OfferEventOutboxTest
 {
 	@Rule public final TemporaryFolder folder = new TemporaryFolder();
+    @Test public void acknowledgedPrivateStateReusesItsDecodeButAppendsAndExternalEditsStillValidate()throws Exception {
+        var storage=TestStorage.rootedAt(folder.newFolder("acknowledged-image").toPath(),"one");
+        var outbox=new OfferEventOutbox(storage);
+        var first=outbox.enqueue((e,s,q)->event(e,s,q,561));
+        var second=outbox.enqueue((e,s,q)->event(e,s,q,4151));
+        var third=outbox.enqueue((e,s,q)->event(e,s,q,1603));
+        var pending=outbox.pending();long decoded=outbox.decodedImageCount();
+        assertTrue(outbox.acknowledge(first.getEventId(),first.getSessionId(),first.getSequence()));
+        assertEquals(second.getEventId(),outbox.pending().get(0).getEventId());
+        assertTrue(outbox.acknowledgePrefix(pending.subList(1,3),storage.accountId()));
+        for(int i=0;i<12;i++){assertTrue(outbox.pending().isEmpty());assertEquals(first.getSessionId(),outbox.sessionId());}
+        assertEquals("Removing validated pending identities must not re-decode retained proofs",decoded,outbox.decodedImageCount());
+        assertTrue(new OfferEventOutbox(storage).pending().isEmpty());
+        var fourth=outbox.enqueue((e,s,q)->event(e,s,q,561));
+        assertEquals(third.getSequence()+1,fourth.getSequence());
+        assertEquals(fourth.getEventId(),outbox.pending().get(0).getEventId());
+        assertEquals("New caller objects still require cold validation",decoded+1,outbox.decodedImageCount());
+        assertTrue(outbox.acknowledgePrefix(outbox.pending(),storage.accountId()));
+        var file=storage.accountDir().resolve(OfferEventOutbox.FILE_NAME);var time=Files.getLastModifiedTime(file);
+        String original=Files.readString(file);String corrupt=original.replace("\"formatVersion\":1","\"formatVersion\":2");
+        Files.writeString(file,corrupt);Files.setLastModifiedTime(file,time);
+        try{outbox.pending();org.junit.Assert.fail("ACK cache cannot hide a same-size external edit");}catch(IllegalStateException expected){}
+        assertEquals(corrupt,Files.readString(file));Files.writeString(file,original);
+        assertTrue(outbox.pending().isEmpty());
+    }
+    @Test public void failedAcknowledgementCannotCacheAnUncommittedRemoval()throws Exception {
+        var storage=TestStorage.rootedAt(folder.newFolder("failed-ack-cache").toPath(),"one");
+        var fail=new java.util.concurrent.atomic.AtomicBoolean();
+        var outbox=new OfferEventOutbox(storage,(file,temp)->{if(fail.get())throw new java.io.IOException("fixture write refused");});
+        var event=outbox.enqueue((e,s,q)->event(e,s,q,561));outbox.pending();long decoded=outbox.decodedImageCount();
+        var file=storage.accountDir().resolve(OfferEventOutbox.FILE_NAME);byte[] before=Files.readAllBytes(file);fail.set(true);
+        try{outbox.acknowledge(event.getEventId(),event.getSessionId(),event.getSequence());org.junit.Assert.fail();}
+        catch(java.io.IOException expected){}
+        org.junit.Assert.assertArrayEquals(before,Files.readAllBytes(file));
+        assertEquals(event.getEventId(),outbox.pending().get(0).getEventId());assertEquals(decoded,outbox.decodedImageCount());
+        assertEquals(event.getEventId(),new OfferEventOutbox(storage).pending().get(0).getEventId());
+        fail.set(false);assertTrue(outbox.acknowledgePrefix(outbox.pending(),storage.accountId()));
+        assertTrue(outbox.pending().isEmpty());assertEquals(decoded,outbox.decodedImageCount());
+    }
     @Test public void unchangedBytesAvoidRepeatedDecodeWhileSameSizeSameTimeEditsAndOtherWritersInvalidate() throws Exception {
         PluginStorage storage=TestStorage.rootedAt(folder.newFolder("prepared-image").toPath(),"one");
         var outbox=new OfferEventOutbox(storage);var original=outbox.enqueue((e,s,q)->event(e,s,q,561));

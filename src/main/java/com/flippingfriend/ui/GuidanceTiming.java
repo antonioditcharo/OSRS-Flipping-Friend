@@ -23,7 +23,7 @@ public final class GuidanceTiming {
     private boolean delivered,painted;
 
     public GuidanceTiming(String id,String source) {
-        values.put("schemaVersion",2); values.put("trace",id); values.put("source",source);
+        values.put("schemaVersion",3); values.put("trace",id); values.put("source",source);
         stages.put("request",started);
     }
     public synchronized void mark(String name) { stages.putIfAbsent(name,System.nanoTime()); }
@@ -46,6 +46,9 @@ public final class GuidanceTiming {
             // available to the audit without changing the financial event or recommendation key.
             values.put("recommendation",action.getRecommendationId());values.put("offer",action.getMaintenanceOfferIdentity());
             values.put("saleSource",action.getSaleRepriceSource());values.put("origin",action.getContinuationOriginIdentity());
+            var saleSource=action.getSaleTimingSource();
+            if(saleSource!=null && saleSource.account.equals(values.get("account")))
+                values.put("decisionProvenance",saleSource);
         }
         emit("DELIVERY");
     }

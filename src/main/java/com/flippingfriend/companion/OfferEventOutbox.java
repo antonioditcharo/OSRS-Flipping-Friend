@@ -259,7 +259,7 @@ public final class OfferEventOutbox
                         OfferEvent event = state.pending.get(i);
                         if (same(eventId, event.getEventId()) && same(sessionId, event.getSessionId()) && sequence == event.getSequence())
                         {
-                                State updated = state.copy(); updated.pending.remove(i); write(updated); return true;
+                                State updated = state.copy(); updated.pending.remove(i); writeAcknowledgement(state,updated); return true;
                         }
                 }
                 return false;
@@ -279,7 +279,16 @@ public final class OfferEventOutbox
                 || !same(ack.getSessionId(),pending.getSessionId()) || ack.getSequence()!=pending.getSequence())return false;
             accepted.add(ack.getEventId());
         }
-        State updated=state.copy();updated.pending.removeIf(e->accepted.contains(e.getEventId()));write(updated);return true;
+        State updated=state.copy();updated.pending.removeIf(e->accepted.contains(e.getEventId()));writeAcknowledgement(state,updated);return true;
+    }
+
+    /** Only these two removal-only callers may carry the private validated image across a write. */
+    private void writeAcknowledgement(State previous,State updated)throws Exception {
+        boolean reusable=previous==validatedState && previous.committedImage!=null;
+        // Force, account fencing, both exact-image checks and atomic replacement still complete
+        // before reuse. Appends, legacy upgrades and caller-supplied proofs always decode afresh.
+        write(updated);
+        if(reusable)validatedState=updated;
     }
 	public synchronized String sessionId() throws Exception
 	{
