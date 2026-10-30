@@ -23,12 +23,25 @@ economic reference.** #198/#190 artifacts remain retained; code rollback preserv
 
 Protected startup task/XML/permissions are unchanged. Normal close, paired update, status,
 launcher CheckOnly, GET-only pipeline and reopening pass. Fresh cash/slots correctly require the
-client. RuneLite reopened at login; **fresh #200 manual login/GE, native timing and player trading
-acceptance remain open**. Login is requested once; check fresh logs before requesting again.
+client. Fresh #200 manual login/GE at 18:04 local is verified: eight authenticated slots bind to
+their original durable scoped events, pending outbox zero, and real BUY/SELL/maintenance/collection
+cards are observed. The owner reports minutes at boot, then quick suggestions. **Native timing and
+complete player trading acceptance remain open**; no further login request is currently needed.
 The owner's reported sale revision/cancel/collect/relist and restart acceptance belongs to #195.
 [Current delivery receipt](docs/history/foreground-guidance-and-budget-shadow-2026-10-29.md).
 
 ## Foreground behavior and retained failures
+
+Queued `codex/startup-public-preparation` moves the first public refresh behind API startup onto
+the existing scheduler and preserves the configured task heap limit during normal-user launch.
+Its focused blocked-feed/health/durable-offer and heap-option tests pass; full release gates remain
+pending and #200 stays installed. [Contract](docs/architecture/startup-public-preparation.md).
+The initial #200 live sample has 13 MAIN paints at p95 80.462ms and five distinct eligible decisions
+at p95 906.981ms; three editor paints p95 69.514ms but one distinct editor quote takes 2,204.543ms,
+including 1,155.249ms behind MAIN and 668.615ms authority. Retain initial five-second transport
+timeouts and the first durable ACK at 18:05:41; warm samples cannot erase boot latency. No claim
+of sustained idle/mixed acceptance or explained startup root cause. Private live receipt is primary
+`local-data/live-200-20261029-1805`, alongside the existing authoritative currentDelivery.
 
 #200 paints the action/current controls before optional sidebar work, lazily populates hidden
 investigations and attributes MAIN/SELECTED_SALE/OFFER_REPLAY waits on the same serial worker.

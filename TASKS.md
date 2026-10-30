@@ -4,7 +4,9 @@ Updated 29 October 2026. Read [HANDOFF.md](HANDOFF.md) and the current hosted-pi
 `local-data/hosted-pilot/delivery-state.json` first for the installed pair and pending source;
 #162 was the hosted pilot's original baseline. Implemented/tested, merged,
 installed and player accepted are separate states. The owner confirms fresh #195 login/GE, sale revision/cancel/collect/relist and restart on 28 October;
-Those reports belong to #195; #200 is now installed with fresh login/native acceptance pending.
+Those reports belong to #195; #200 fresh login/GE and durable eight-slot evidence are verified.
+Native/sustained and complete controlled trading acceptance remain pending. The owner reports
+minutes at startup followed by quick suggestions; keep both observations and the measured outliers.
 Late fills and complete native/sustained timing remain open.
 All game interaction remains manual; batch runtime updates and acceptance work.
 
@@ -14,6 +16,12 @@ No outstanding requirement was removed; #194 deployment and #195 numeric validat
 against their own verified evidence. Controlled/native acceptance records remain open.
 
 ## Current batch
+
+- [ ] Verify/deliver `codex/startup-public-preparation`: start API/account preparation before the
+      first background public refresh, preserve the configured task heap during user-process launch.
+      Focused blocked-feed real-handler and heap tests pass. Full clean/tooling/Java 11/exact-head
+      CI/fresh hour/preservation remain pending; #200 stays installed. Retain the initial timeouts,
+      2.205s selected quote and open native/player gates. [Contract](docs/architecture/startup-public-preparation.md).
 
 - [ ] Accept the installed #200 foreground follow-up: critical action/control refresh before optional
       sidebar work, lazy hidden Records/Missed flips, actual EDT/card stages and serial worker

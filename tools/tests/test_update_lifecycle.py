@@ -30,6 +30,7 @@ $global:ffHealthTimeouts = [System.Collections.Generic.List[int]]::new()
 $global:ffHealthClockOrigin = [DateTime]::UtcNow
 $global:ffProcessStopped = $false
 $global:ffSchedulerRaceInjected = $false
+$global:ffProcessArguments = @()
 $env:USERNAME = 'fixture-user'
 
 # Every command that can affect a real process, task or network connection is intercepted.
@@ -114,6 +115,7 @@ function Start-ScheduledTask {
 function Start-Process {
     [CmdletBinding()] param($FilePath, $ArgumentList, $WorkingDirectory, $WindowStyle, $RedirectStandardOutput, $RedirectStandardError)
     $global:ffUpdateTestEvents.Add('start-process')
+    $global:ffProcessArguments = @($ArgumentList)
     $global:ffUpdateTestStarted = $true
 }
 function Start-Sleep {
@@ -280,6 +282,7 @@ try {
 catch { $failure = $_.Exception.Message }
 Write-Output ('HARNESS_RESULT=' + (@{
     error = $failure; events = @($global:ffUpdateTestEvents)
+    processArguments = @($global:ffProcessArguments)
     healthProbes = $global:ffHealthProbes; healthTimeouts = @($global:ffHealthTimeouts); elapsed = $global:ffUpdateTestClock
 } | ConvertTo-Json -Compress))
 """
@@ -419,6 +422,21 @@ function Stop-NativeVerifiedCompanion($Process) {
             self.assertNotIn(event, result['events'], self.output)
         self.assertFalse(any(e.startswith('prompt:') for e in result['events']))
         self.assertEqual(1, json.loads(self.manifest.read_text(encoding='utf-8-sig'))['processLifecycleVersion'])
+
+    def test_direct_process_preserves_the_existing_configured_heap_limit(self):
+        self.process_candidate()
+        result = self.run_update()
+        self.assertIsNone(result['error'], self.output)
+        self.assertEqual(['-Xmx768m', '-jar', f'"{self.installed_companion}"'], result['processArguments'])
+        self.assertNotIn('register-task', result['events'])
+        self.assertNotIn('grant-task-access', result['events'])
+
+    def test_direct_process_without_configured_heap_does_not_invent_a_limit(self):
+        self.process_candidate()
+        self.scenario['arguments'] = f'-jar "{self.installed_companion}"'
+        result = self.run_update()
+        self.assertIsNone(result['error'], self.output)
+        self.assertEqual(['-jar', f'"{self.installed_companion}"'], result['processArguments'])
 
     def test_masked_cim_command_line_uses_verified_native_identity_without_task_changes(self):
         self.process_candidate()

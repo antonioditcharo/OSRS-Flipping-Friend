@@ -312,6 +312,14 @@ function Wait-ExistingCompanion([int] $ListenerPid) {
     } while ((Get-Date) -lt $deadline)
     throw "The existing listener did not pass the scoped health check within 60s. $script:companionHealthFailure Run 3 - Status; no second copy was started."
 }
+function Get-TaskJvmOptions($candidate) {
+    if (-not $candidate) { return @() }
+    # Parse the same validated action used by the protected task; do not invent a new heap policy.
+    Get-TaskJar $candidate | Out-Null
+    $configuredHeap = [regex]::Match([string]$candidate.Actions[0].Arguments, '^\s*(-Xmx[1-9][0-9]*[kKmMgG])\s+')
+    if ($configuredHeap.Success) { return @($configuredHeap.Groups[1].Value) }
+    return @()
+}
 function Start-Companion($candidate, [string] $java, [switch] $Direct) {
     Assert-InstalledPair
     Assert-Task $candidate
@@ -323,7 +331,8 @@ function Start-Companion($candidate, [string] $java, [switch] $Direct) {
     New-Item -ItemType Directory -Force -Path $logDir | Out-Null
     if ($candidate -and -not $Direct) { Start-ScheduledTask -TaskName $taskName -TaskPath '\' }
     else {
-        Start-Process -FilePath $java -ArgumentList '-jar', "`"$companionInstalled`"" `
+        $companionArguments = @(Get-TaskJvmOptions $candidate) + @('-jar', "`"$companionInstalled`"")
+        Start-Process -FilePath $java -ArgumentList $companionArguments `
             -WorkingDirectory $root -WindowStyle Hidden `
             -RedirectStandardOutput (Join-Path $logDir 'companion.log') `
             -RedirectStandardError (Join-Path $logDir 'companion.log.err')
