@@ -1,5 +1,14 @@
 # Agent handoff
 
+2 November compatibility continuation: official RuneLite is 1.13.5. Branch
+`codex/runelite-1-13-5` updates only the API pin on merged #205 (`baf2eeb`). #205's
+exact-head CI and 3,602.282s/10,920-check uninterrupted hour passed, but it was never
+installed before the interruption; installed runtime remains #203 until this update passes.
+Current verification receipts: `local-data/runelite-1-13-5-20261102` in the primary checkout.
+Keep all native/player gates open; no financial, pricing or learning activation is authorized
+by changing the RuneLite version. The prior #205 receipts remain in
+`local-data/prepared-guidance-20261030`.
+
 Updated 30 October 2026 (America/Anchorage). Read AGENTS.md and TASKS.md.
 Active/default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
