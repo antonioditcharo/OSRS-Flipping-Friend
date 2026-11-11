@@ -25,4 +25,6 @@ history, or discard unique frozen baselines/failure evidence. Retention of updat
 a separate reviewed policy; this maintenance does not prune them.
 
 11 November 2026 maintenance receipts: primary `local-data/runelite-1-13-6-20261111`.
-The historical evidence remains at its original paths; reproducible build output is the only deletion.
+The historical evidence remains at its original paths. This pass compressed 703 files with matching
+SHA-256 before/after, reclaiming 26,887,397,867 bytes (25.04 GiB). Automatic approval review rejected
+the broad stale-build deletion command with "blocked by policy"; no stale worktree build output was deleted.
