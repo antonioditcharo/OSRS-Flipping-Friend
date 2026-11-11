@@ -48,9 +48,13 @@ def files_under(root):
     root = plain(root)
     result = []
     for folder, directories, files in os.walk(root, followlinks=False):
+        plain(folder)
         for name in directories + files:
-            entry = plain(Path(folder) / name)
-            if entry.is_file():
+            entry = Path(folder) / name
+            info = entry.lstat()
+            if stat.S_ISLNK(info.st_mode) or getattr(info, 'st_file_attributes', 0) & 0x400:
+                raise ValueError('Linked storage path refused')
+            if stat.S_ISREG(info.st_mode):
                 result.append(entry)
     return result
 
@@ -338,7 +342,9 @@ def main():
         while True:
             # Load the current checked-out tool each pass; updates need no stale-worker termination.
             result = subprocess.run([sys.executable, str(Path(__file__).resolve()), '--workspace',
-                                     str(workspace), '--apply'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                                     str(workspace), '--apply'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                    creationflags=(subprocess.CREATE_NO_WINDOW | subprocess.BELOW_NORMAL_PRIORITY_CLASS)
+                                    if os.name == 'nt' else 0)
             if result.returncode:
                 atomic_json(storage.control / 'status.json', {'checkedAt': time.time(),
                             'error': 'Maintenance refused; inspect registrations and run the storage report',
