@@ -12,9 +12,10 @@ class BoundedConsoleTest(unittest.TestCase):
         cls.shell = os.environ.get('FF_UPDATE_TEST_SHELL') or shutil.which('powershell') or shutil.which('pwsh')
         if not cls.shell: raise RuntimeError('PowerShell required for bounded console tests')
 
-    def run_script(self, body):
+    def run_script(self, body, prepare=None):
         with tempfile.TemporaryDirectory(prefix='bounded console ') as temp:
             root = Path(temp).resolve()
+            if prepare: prepare(root)
             helper = Path(__file__).resolve().parents[1] / 'bounded-console.ps1'
             script = root / 'test.ps1'
             script.write_text("$ErrorActionPreference='Stop'\n. '" + str(helper).replace("'", "''") + "'\n" + body,
@@ -66,16 +67,16 @@ Write-Output 'CALLER_SURVIVED'
         self.assertEqual(1, output.count('Client console logging degraded'))
 
     def test_even_a_dangling_link_is_refused_before_directory_creation(self):
+        def prepare(root):
+            try: (root / 'linked').symlink_to(root / 'not-created', target_is_directory=True)
+            except OSError: self.skipTest('Symbolic link privilege unavailable')
         output = self.run_script(r'''
 $link=Join-Path $PWD 'linked';$target=Join-Path $PWD 'not-created'
-try { New-Item -ItemType SymbolicLink -Path $link -Target $target -ErrorAction Stop | Out-Null }
-catch { Write-Output 'LINK_PRIVILEGE_UNAVAILABLE'; exit 0 }
 $refused=$false
 try { Assert-PlainDiagnosticPath $link } catch { $refused=$true }
 if(-not $refused -or (Test-Path -LiteralPath $target)) {throw 'Dangling link not refused'}
 Write-Output 'DANGLING_LINK_REFUSED'
-''')
-        if 'LINK_PRIVILEGE_UNAVAILABLE' in output: self.skipTest('Symbolic link privilege unavailable')
+''', prepare=prepare)
         self.assertIn('DANGLING_LINK_REFUSED', output)
 
 

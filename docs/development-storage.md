@@ -20,7 +20,9 @@ owned log names with the diagnostic header can be replaced; unknown files, links
 are refused. After a write/rotation failure, a single warning is emitted and further diagnostics
 are discarded until restart; logging failure does not stop financial delivery or the client.
 RuneLite's own rotating client logs are separate. Old launch/companion logs and frozen investigations
-are preserved. Capture logs needed for an investigation before the rolling window expires.
+are preserved: the updater now redirects only pre-logger output to `companion-bootstrap.log`/`.err`,
+leaving the former `companion.log`/`.err` files intact. Bootstrap output is replaced per launch;
+normal service diagnostics use the bounded files. Capture investigations before their rolling window expires.
 
 `tools/verify_pilot_backup.py` now budgets and registers **new** disposable restoration copies.
 After 24 hours, cleanup rechecks every copy/source hash against the still-existing VERIFIED backup
