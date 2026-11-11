@@ -15,6 +15,9 @@ from tools import verify_pilot_backup as backup
 
 class StorageRetentionTest(unittest.TestCase):
     def setUp(self):
+        # Test policy decisions deterministically, including on small hosted-runner volumes.
+        capacity = patch.object(storage.shutil, 'disk_usage', return_value=SimpleNamespace(free=100 * storage.GIB))
+        capacity.start(); self.addCleanup(capacity.stop)
         self.temp = tempfile.TemporaryDirectory(prefix='storage retention ')
         self.addCleanup(self.temp.cleanup)
         self.base = Path(self.temp.name).resolve()
