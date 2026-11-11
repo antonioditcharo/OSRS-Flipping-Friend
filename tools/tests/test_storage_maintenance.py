@@ -3,6 +3,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import sqlite3
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -59,6 +60,38 @@ class StorageRetentionTest(unittest.TestCase):
         (self.copy / 'accounts' / 'original.db').write_bytes(b'new prospective evidence')
         result = self.manager.maintain(now=self.clock + storage.RESTORE_LIFETIME)
         self.assertTrue(result['refusals']); self.assertTrue(self.copy.exists())
+
+    def test_new_empty_directory_also_pins_a_copy(self):
+        self.registered_copy(); (self.copy / 'new-investigation').mkdir()
+        result = self.manager.maintain(now=self.clock + storage.RESTORE_LIFETIME)
+        self.assertTrue(result['refusals']); self.assertTrue((self.copy / 'new-investigation').is_dir())
+
+    def test_wal_integrity_and_read_marks_preserve_durable_bytes_but_do_not_pin_derived_shm(self):
+        live = self.base / 'synthetic-live'; live.mkdir()
+        writer = sqlite3.connect(live / 'flipping-friend.db')
+        try:
+            writer.execute('PRAGMA journal_mode=WAL'); writer.execute('PRAGMA wal_autocheckpoint=0')
+            writer.execute('CREATE TABLE trades(id,cost)'); writer.execute('INSERT INTO trades VALUES(1,123)'); writer.commit()
+            account = self.source / 'accounts' / ('rs-' + 'a' * 64); account.mkdir()
+            for file in live.iterdir(): shutil.copy2(file, account / file.name)
+        finally: writer.close()
+        original = {p.name: storage.digest(p) for p in account.iterdir()}
+        self.registered_copy()
+        restored = self.copy / account.relative_to(self.source) / 'flipping-friend.db'
+        with sqlite3.connect(restored.as_uri() + '?mode=ro', uri=True) as reader:
+            self.assertEqual([(1, 123)], reader.execute('SELECT * FROM trades').fetchall())
+        reader.close()
+        result = self.manager.maintain(now=self.clock + storage.RESTORE_LIFETIME)
+        self.assertFalse(result['refusals']); self.assertFalse(self.copy.exists())
+        self.assertEqual(original, {p.name: storage.digest(p) for p in account.iterdir()})
+
+    def test_wal_cannot_be_declared_disposable_shared_memory(self):
+        record = self.registered_copy()
+        value = json.loads(record.read_text()); value['derivedCaches'] = ['accounts/original.db']
+        record.write_text(json.dumps(value), encoding='utf-8')
+        with self.assertRaisesRegex(ValueError, 'cache manifest'):
+            self.manager.maintain(now=self.clock + storage.RESTORE_LIFETIME)
+        self.assertTrue(self.copy.exists())
 
     def test_missing_or_changed_original_backup_prevents_deletion(self):
         self.registered_copy()

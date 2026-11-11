@@ -28,6 +28,9 @@ and a permanent receipt outside the scratch directory. It removes only the exact
 Changed/missing sources or receipts, extra/changed files, overlaps and links retain the copy and
 produce an attention report. An added `KEEP` file therefore pins an investigation. Interrupted
 cleanup resumes only the previously verified remaining files. Full updater backups never expire.
+Only the explicitly scoped SQLite `flipping-friend.db-shm` index in a disposable copy is treated as
+derived cache: read-only integrity checks can change its read marks. Database and WAL bytes must
+still match exactly; neither is ever treated as cache. See SQLite's [WAL file roles](https://sqlite.org/walformat.html#the_wal_index_or_shm_file).
 Use this helper for routine restoration checks rather than retaining ad-hoc duplicate database copies.
 
 Optional managed restores are limited to **5 GiB of scratch**. Optional restore/soak admission also

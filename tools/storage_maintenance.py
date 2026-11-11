@@ -6,6 +6,7 @@ import functools
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 import shutil
 import stat
@@ -70,6 +71,19 @@ def digest(path):
     if (before.st_size, before.st_mtime_ns, before.st_ino) != (after.st_size, after.st_mtime_ns, after.st_ino):
         raise ValueError('Storage artifact changed during verification')
     return value.hexdigest()
+
+
+def directories_under(root):
+    return sorted(str(inside(Path(folder) / name, root).relative_to(root))
+                  for folder, names, _ in os.walk(root, followlinks=False) for name in names)
+
+
+def derived_sqlite_cache(name, hashes):
+    parts = Path(name).parts
+    return (len(parts) == 3 and parts[0] == 'accounts' and
+            re.fullmatch(r'rs-[0-9a-f]{64}', parts[1]) is not None and
+            parts[2] == 'flipping-friend.db-shm' and
+            str(Path(name).with_name('flipping-friend.db')) in hashes)
 
 
 @functools.lru_cache(maxsize=1)
@@ -156,6 +170,10 @@ class Storage:
                 if (record.get('expiresAt') != record['sealedAt'] + RESTORE_LIFETIME or
                         not isinstance(record.get('source'), str) or not isinstance(record.get('receipt'), str)):
                     raise ValueError('Invalid disposable lifetime; retained')
+                if (not isinstance(record.get('directories'), list) or
+                        any(not derived_sqlite_cache(n, record['files']) for n in record.get('derivedCaches', []))):
+                    raise ValueError('Invalid disposable directory/cache manifest; retained')
+                for name in record['directories']: inside(artifact / name, artifact)
             records.append((path, record, artifact))
         return records
 
@@ -185,14 +203,14 @@ class Storage:
                 (scratch and report['scratchBytes'] + requested_bytes > SCRATCH_BUDGET)):
             raise ValueError('Optional capture/restore refused by storage budget; retained evidence and player state unchanged')
 
-    def register(self, artifact, kind, hashes, source=None, receipt=None, now=None):
+    def register(self, artifact, kind, hashes, source=None, receipt=None, now=None, derived_caches=()):
         artifact = self.validate_destination(artifact)
 
         stamp = time.time() if now is None else now
         if kind not in ('verified-restore', 'sealed-evidence'):
             raise ValueError('Unsupported artifact lifetime')
         record = {'schema': 1, 'kind': kind, 'path': str(artifact.relative_to(self.root)),
-                  'sealedAt': stamp, 'files': hashes}
+                  'sealedAt': stamp, 'files': hashes, 'directories': directories_under(artifact)}
         if kind == 'verified-restore':
             source = plain(source)
             proof = json.loads(plain(source / 'backup-verification.json').read_text(encoding='utf-8-sig'))
@@ -202,9 +220,12 @@ class Storage:
             if receipt == artifact or artifact in receipt.parents:
                 raise ValueError('Restoration receipt must survive outside the disposable copy')
             record.update(source=str(source), receipt=str(receipt.relative_to(self.root)),
-                          receiptSha256=digest(receipt), expiresAt=stamp + RESTORE_LIFETIME)
+                          receiptSha256=digest(receipt), expiresAt=stamp + RESTORE_LIFETIME,
+                          derivedCaches=sorted(derived_caches))
+            if any(not derived_sqlite_cache(n, hashes) for n in derived_caches):
+                raise ValueError('Only an explicit account SQLite shared-memory index is derived cache')
             for name, sha in hashes.items():
-                if name != 'restore-verification.json' and digest(inside(source / name, source)) != sha:
+                if name != 'restore-verification.json' and name not in derived_caches and digest(inside(source / name, source)) != sha:
                     raise ValueError('Disposable artifact is not an exact copy of the verified backup')
         if set(hashes) != {str(p.relative_to(artifact)) for p in files_under(artifact)}:
             raise ValueError('Registration must describe the complete sealed artifact')
@@ -240,16 +261,21 @@ class Storage:
         if proof.get('status') != 'VERIFIED':
             raise ValueError('Source backup is no longer verified; disposable copy retained')
         expected = record['files']
+        caches = set(record.get('derivedCaches', []))
         paths = files_under(artifact)
         present = {str(p.relative_to(artifact)) for p in paths}
         if (not present.issubset(expected) or
-                (not record.get('cleanupStarted') and set(expected) != present)):
+                (not record.get('cleanupStarted') and not (set(expected) - present).issubset(caches))):
             raise ValueError('Disposable copy has new/missing files; retained')
+        present_dirs = set(directories_under(artifact))
+        if (not present_dirs.issubset(record['directories']) or
+                (not record.get('cleanupStarted') and present_dirs != set(record['directories']))):
+            raise ValueError('Disposable copy has new/missing directories; retained')
         for name, sha in expected.items():
             target = inside(artifact / name, artifact)
-            if name in present and digest(target) != sha:
+            if name in present and name not in caches and digest(target) != sha:
                 raise ValueError('Disposable copy changed; retained')
-            if name != 'restore-verification.json' and digest(inside(source / name, source)) != sha:
+            if name != 'restore-verification.json' and name not in caches and digest(inside(source / name, source)) != sha:
                 raise ValueError('Source backup differs; disposable copy retained')
         removed = sum(allocated(p) for p in paths)
         record['cleanupStarted'] = True
@@ -257,7 +283,8 @@ class Storage:
         # Only exact, previously verified registered files; no recursive deletion or name heuristic.
         for path in paths:
             # Revalidate the named file at the destructive boundary, including after interrupted cleanup.
-            if digest(path) != expected[str(path.relative_to(artifact))]:
+            name = str(path.relative_to(artifact))
+            if name not in caches and digest(path) != expected[name]:
                 raise ValueError('Disposable artifact changed during cleanup; remaining files retained')
             inside(path, artifact).unlink()
         directories = sorted((p for p in artifact.rglob('*') if p.is_dir()), key=lambda p: len(p.parts), reverse=True)

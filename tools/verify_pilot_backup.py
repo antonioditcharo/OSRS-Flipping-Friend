@@ -71,8 +71,20 @@ def _verify(source, destination, storage):
             if connection.execute('PRAGMA integrity_check').fetchone()[0] != 'ok':
                 raise ValueError('Restored account database failed integrity verification')
         checked += 1
+    try:
+        from storage_maintenance import derived_sqlite_cache, files_under
+    except ModuleNotFoundError:
+        from tools.storage_maintenance import derived_sqlite_cache, files_under
+    derived = [str(p.relative_to(destination)) for p in files_under(destination)
+               if derived_sqlite_cache(str(p.relative_to(destination)), hashes)]
+    # SQLite read marks can change its derived SHM index even on a read-only connection.
+    # Recheck every durable file after integrity validation; DB/WAL bytes are never exempt.
+    for name, expected in hashes.items():
+        if name not in derived and (digest(destination / name) != expected or digest(source / name) != expected):
+            raise ValueError('Durable backup bytes changed during integrity verification')
     result = {'status': 'RESTORE_VERIFIED', 'source': str(source), 'restored': str(destination),
               'files': hashes, 'accountDatabasesChecked': checked, 'runtimeOnlyRollback': True}
+    if derived: result['derivedSharedMemoryCaches'] = derived
     (destination / 'restore-verification.json').write_text(json.dumps(result, indent=2), encoding='utf-8')
     if storage is not None:
         # Keep proof outside the scratch copy so expiration cannot erase the restoration receipt.
@@ -81,8 +93,9 @@ def _verify(source, destination, storage):
             raise ValueError('External restoration receipt already exists; copy retained')
         external.write_text(json.dumps(result, indent=2), encoding='utf-8')
         owned = dict(hashes)
+        for name in derived: owned[name] = digest(destination / name)
         owned['restore-verification.json'] = digest(destination / 'restore-verification.json')
-        storage.register(destination, 'verified-restore', owned, source=source, receipt=external)
+        storage.register(destination, 'verified-restore', owned, source=source, receipt=external, derived_caches=derived)
     return result
 
 
