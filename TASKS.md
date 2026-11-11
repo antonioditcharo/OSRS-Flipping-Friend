@@ -1,6 +1,6 @@
 # Tasks
 
-Updated 2 November 2026. Read [HANDOFF.md](HANDOFF.md) and the current hosted-pilot receipt at
+Updated 11 November 2026. Read [HANDOFF.md](HANDOFF.md) and the current hosted-pilot receipt at
 `local-data/hosted-pilot/delivery-state.json` first for the installed pair and pending source;
 #162 was the hosted pilot's original baseline. Implemented/tested, merged,
 installed and player accepted are separate states. The owner confirms fresh #195 login/GE, sale revision/cancel/collect/relist and restart on 28 October;
@@ -18,6 +18,13 @@ No outstanding requirement was removed; #194 deployment and #195 numeric validat
 against their own verified evidence. Controlled/native acceptance records remain open.
 
 ## Current batch
+
+- [ ] Deliver official RuneLite 1.13.6 compatibility pair after clean Java/tooling, actual Java 11,
+      unchanged-production-class comparison, both exact-head CI platforms and verified unattended
+      update. Installed #206 remains API 1.13.5 until delivery receipt. Keep native/player gates open.
+- [ ] Reclaim historical offline evidence space with lossless compression and hash verification;
+      remove reproducible stale build outputs. Preserve live/account state, updater backups and
+      original receipts. Record actual allocated-byte savings in the private maintenance receipt.
 
 - [x] Install RuneLite client 1.13.5 matching pair #206 after clean Java/tooling, actual Java 11,
       both exact-head CI platforms, pre-install restoration and previous-runtime financial reads.
