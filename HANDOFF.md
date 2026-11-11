@@ -16,6 +16,8 @@ Clean build: **2,575 Java passes/six existing skips**, 179 tooling checks and 10
 Java 11 checks. Own bytecode is 55. Both exact-head Windows/Linux CI **43080172833** pass.
 The first build failed because a locally present sprite activated an obsolete raster-less test mock;
 the test now always uses a real AsyncBufferedImage. Original failure log is retained.
+Initial documentation CI 43082355886 caught a Windows-encoding error in TASKS.md;
+the original UTF-8 text was restored and the failure receipt retained. Runtime is unchanged.
 
 Every companion JAR entry equals installed #206; only the plugin manifest API pin differs.
 All 930 own production classes are identical. Reuse qualified #205's uninterrupted 3,602.282s /

@@ -219,7 +219,7 @@ against their own verified evidence. Controlled/native acceptance records remain
       relist/restart and native charts. Initial #186 manual login/GE, eight-slot proof and visible
       BUY/full-slot guidance pass, with COLLECT/SELL/BUY logs. The first prefix has 250 completed
       offer calls without transport failures and a 25 ms histogram p95 upper bound. Most sampled
-      delivery times are about 0.5â€“1.5 seconds; sustained targets remain unproven. Prior cold/UI
+      delivery times are about 0.5–1.5 seconds; sustained targets remain unproven. Prior cold/UI
       timing failures remain retained in the linked #184 receipt.
 <!-- REQ-5975361995a6 -->
 - [ ] Remove remaining original-context/execution-prediction history scans with full provenance,
@@ -255,7 +255,7 @@ against their own verified evidence. Controlled/native acceptance records remain
       collection, exact relisting, completion and restart. All slots were full after installation;
       the copied current sells had no supported routine change. Fresh frame/WAIT and frozen Marlin
       component replay are not controlled maintenance acceptance. Keep sustained UI/event/ACK timing
-      open: cold/later five-second retries and many roughly 0.8â€“2s subsequent refreshes miss the
+      open: cold/later five-second retries and many roughly 0.8–2s subsequent refreshes miss the
       instant-guidance goal.
 
 <!-- REQ-1b76631b79e5 -->
@@ -425,7 +425,7 @@ against their own verified evidence. Controlled/native acceptance records remain
       [receipt](docs/history/ordinary-sale-queue-delivery-2026-10-21.md).
 
 <!-- REQ-3ff5a52a22bd -->
-- [ ] Accept active managed-sale wait explanations in Records Ã¢â€ â€™ Recommendation: shared evaluator,
+- [ ] Accept active managed-sale wait explanations in Records → Recommendation: shared evaluator,
       exact episode/progress and evidence expiry, separate original actual-order estimates and
       clock-only reassessment. Eligibility never bypasses final authority or changes pricing/risk.
       [Contract](docs/architecture/sale-maintenance-diagnostics.md) /
@@ -521,7 +521,7 @@ against their own verified evidence. Controlled/native acceptance records remain
 - [ ] Resolve already affected stock safely with auditable evidence (issue #70). A nine-unit offer has 11 acquired units in affected rows; maxima/aggregate positions are unsafe remaining-stock/cost proof. Preserve unknowns, all original rows and risk anchor; retained Copilot export has insufficient overlap.
       [Contract](docs/architecture/trade-evidence-audit.md).
 <!-- REQ-a40188cfa928 -->
-- [ ] Complete controlled player buy Ã¢â€ â€™ partial/full fill Ã¢â€ â€™ collect Ã¢â€ â€™ sell Ã¢â€ â€™ collect, partial cancel/relist and restart. Source tests/fresh capture do not establish controlled trading acceptance.
+- [ ] Complete controlled player buy → partial/full fill → collect → sell → collect, partial cancel/relist and restart. Source tests/fresh capture do not establish controlled trading acceptance.
       [Contract](docs/architecture/automatic-trade-scope.md).
 <!-- REQ-9e00b7d89fc5 -->
 - [ ] Observe new full-counter progress/terminal buy accounting in a controlled trade. Prevention/source capture does not prove completion or fresh buying power.
@@ -551,7 +551,7 @@ against their own verified evidence. Controlled/native acceptance records remain
 - [ ] Finish calibration provenance/cancellation censoring before strategy changes. Preserve immutable prospective advice, deduplication and unknown/censored labels; complete compatible runtime forecast loader, frozen challenger/training, chronological return/loss/calibration gates and explicit promotion/rollback/drift controls. Current cohorts do not establish improvement.
       [Contract](docs/architecture/frozen-execution-evaluation.md).
 <!-- REQ-ee319548df3a -->
-- [ ] Finish manual cancel Ã¢â€ â€™ collect Ã¢â€ â€™ fresh revalidation Ã¢â€ â€™ exact replacement and partial-fill protection as a complete production workflow, including original acquisition target/stop/duration through restart.
+- [ ] Finish manual cancel → collect → fresh revalidation → exact replacement and partial-fill protection as a complete production workflow, including original acquisition target/stop/duration through restart.
       [Contract](docs/architecture/trade-continuations.md).
 <!-- REQ-0a4df0acd4fb -->
 - [ ] Finish account chronological replay/qualified frozen benchmarks for 100M GP members, eight slots, separately at 5m/30m/2h/8h. Include cash/limits/tax/losses/partial fills/missed visits/terminal inventory. Complete real foreground/editor/transport/action-order parity; synthetic scenarios and price touches are not returns.
