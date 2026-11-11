@@ -811,6 +811,15 @@ function Stop-NativeVerifiedCompanion($Process) {
         self.assertIsNotNone(result["error"], self.output)
         self.assertNotIn("launch-runelite", result["events"], self.output)
 
+    def test_daily_start_activates_storage_worker_after_pair_guard_without_changing_tasks(self):
+        self.scenario["entry"] = "start.ps1"
+        (self.checkout / "tools/apply-update.ps1").write_text(
+            "param([switch]$StartOnly)\n$global:ffUpdateTestEvents.Add('guarded-start')\n", encoding="utf-8")
+        (self.checkout / "tools/storage_maintenance.py").write_text("# isolated worker launch boundary", encoding="utf-8")
+        result = self.run_update()
+        self.assertIsNone(result["error"], self.output)
+        self.assertEqual(["guarded-start", "start-process", "launch-runelite"], result["events"], self.output)
+
     def test_update_requires_backup_review_before_installation(self):
         self.scenario["decline"] = True
         result = self.run_update()

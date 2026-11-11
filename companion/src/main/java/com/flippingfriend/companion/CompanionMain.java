@@ -45,7 +45,12 @@ public final class CompanionMain
 			}
 			CompanionLifecycle.verifyInstalledPair(root,
 				Paths.get(CompanionMain.class.getProtectionDomain().getCodeSource().getLocation().toURI()));
-			run(root, lifecycle);
+            // Install only after singleton/pair verification, before any service logger is initialized.
+            // Stdout/stderr retention is independent of durable account/source evidence.
+            try (BoundedDiagnosticLogs logs = BoundedDiagnosticLogs.install(root))
+            {
+                run(root, lifecycle);
+            }
 		}
 	}
 

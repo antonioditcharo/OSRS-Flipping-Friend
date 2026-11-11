@@ -61,6 +61,7 @@ class RunDevTest(unittest.TestCase):
         tools = self.checkout / "tools"
         tools.mkdir(parents=True)
         shutil.copyfile(Path(__file__).resolve().parents[1] / "run-dev.ps1", tools / "run-dev.ps1")
+        shutil.copyfile(Path(__file__).resolve().parents[1] / "bounded-console.ps1", tools / "bounded-console.ps1")
         self.repository = self.fixture / "profile/.runelite/repository2"
         self.repository.mkdir(parents=True)
         self.bootstrap = {"version": "1.13.1", "artifacts": []}

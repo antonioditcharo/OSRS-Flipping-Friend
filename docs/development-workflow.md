@@ -15,6 +15,12 @@ into a separate documentation/build/install cycle. Repeat checks for new changes
 
 ## Routine agent delivery
 
+For new private diagnostics/restoration work, use the managed entry points in
+[development storage](development-storage.md). The restoration helper keeps its verification receipt
+outside its expiring scratch copy; freeze investigations before rolling runtime logs expire. Required
+account state and full updater backups are excluded from deletion. Normal Start enables the hourly
+workspace worker; Status reports its last result without modifying files or starting a helper.
+
 Start reuses a healthy existing companion. Transient health connection/server failures wait up to
 60 seconds on the same port-owning PID; credentials, protocol/body failures or a changed/disappeared
 listener fail closed. It never starts a duplicate or stops a listener to recover health. Status stays

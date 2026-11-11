@@ -1,5 +1,5 @@
 """Verify a supported, quiescent installation backup through a disposable restoration copy."""
-from contextlib import closing
+from contextlib import closing, nullcontext
 import argparse
 import hashlib
 import json
@@ -16,7 +16,19 @@ def digest(path):
     return result.hexdigest()
 
 
-def verify(source, destination):
+def verify(source, destination, managed_root=None):
+    try:
+        from storage_maintenance import Storage, plain
+    except ModuleNotFoundError:
+        from tools.storage_maintenance import Storage, plain
+    plain(source); plain(destination)
+    storage = Storage(managed_root) if managed_root is not None else None
+    # Serialize admission, copying and registration against both other restores and cleanup.
+    with storage.lock() if storage is not None else nullcontext():
+        return _verify(source, destination, storage)
+
+
+def _verify(source, destination, storage):
     source, destination = Path(source).resolve(), Path(destination).resolve()
     receipt = json.loads((source / 'backup-verification.json').read_text(encoding='utf-8-sig'))
     if receipt.get('status') != 'VERIFIED' or destination.exists() or source == destination:
@@ -37,6 +49,13 @@ def verify(source, destination):
     required = sum(path.stat().st_size for path in files) + 768 * 1024 * 1024
     if shutil.disk_usage(volume).free < required:
         raise ValueError('Insufficient disposable restore space; backup and destination are unchanged')
+    if storage is not None:
+        storage.validate_destination(destination)
+        if destination.with_name(destination.name + '.restore-verification.json').exists():
+            raise ValueError('External restoration receipt already exists; no disposable copy created')
+        if (source / 'restore-verification.json').exists():
+            raise ValueError('Source contains reserved restoration metadata; no disposable copy created')
+        storage.admit(sum(path.stat().st_size for path in files))
     hashes = {str(p.relative_to(source)): digest(p) for p in files}
     shutil.copytree(source, destination)
     for relative, expected in hashes.items():
@@ -54,7 +73,16 @@ def verify(source, destination):
         checked += 1
     result = {'status': 'RESTORE_VERIFIED', 'source': str(source), 'restored': str(destination),
               'files': hashes, 'accountDatabasesChecked': checked, 'runtimeOnlyRollback': True}
-    (destination / 'restore-verification.json').write_text(json.dumps(result, indent=2))
+    (destination / 'restore-verification.json').write_text(json.dumps(result, indent=2), encoding='utf-8')
+    if storage is not None:
+        # Keep proof outside the scratch copy so expiration cannot erase the restoration receipt.
+        external = destination.with_name(destination.name + '.restore-verification.json')
+        if external.exists():
+            raise ValueError('External restoration receipt already exists; copy retained')
+        external.write_text(json.dumps(result, indent=2), encoding='utf-8')
+        owned = dict(hashes)
+        owned['restore-verification.json'] = digest(destination / 'restore-verification.json')
+        storage.register(destination, 'verified-restore', owned, source=source, receipt=external)
     return result
 
 
@@ -66,6 +94,6 @@ if __name__ == '__main__':
     allowed=Path(__file__).resolve().parents[1]/'local-data'
     if allowed.resolve() not in arguments.destination.resolve().parents:
         parser.error('Disposable restoration must be inside this repository local-data directory')
-    result = verify(arguments.source, arguments.destination)
+    result = verify(arguments.source, arguments.destination, managed_root=allowed)
     print(json.dumps({'status': result['status'], 'filesVerified': len(result['files']),
                       'accountDatabasesChecked': result['accountDatabasesChecked']}))

@@ -8,6 +8,10 @@ from pathlib import Path
 import shutil
 import subprocess
 import time
+try:
+    from storage_maintenance import Storage, check_run_budget
+except ModuleNotFoundError:
+    from tools.storage_maintenance import Storage, check_run_budget
 
 GROUPS = {
     'client': ['com.flippingfriend.' + n for n in ['EditorGuidanceDeliveryTest', 'AdviceDeliveryBoundaryTest',
@@ -50,8 +54,11 @@ def main():
     if a.seconds <= 0: raise ValueError('Positive duration required')
     output = a.output.resolve()
     if 'local-data' not in output.parts: raise ValueError('Private local-data output required')
-    output.mkdir(parents=True, exist_ok=False)
     root = Path(__file__).resolve().parent.parent
+    output.relative_to(root / 'local-data')
+    storage = Storage(root / 'local-data')
+    storage.admit(256 * 1024 * 1024, scratch=False)
+    output.mkdir(parents=True, exist_ok=False)
     cp = json.loads(a.classpaths.read_text(encoding='utf-8'))
     manifest = {'head': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=root, text=True).strip(), 'files': {}}
     paths = {}
@@ -105,6 +112,7 @@ def main():
                     receipt['failures'].append({'worker': name, 'exitCode': proc.returncode}); save()
                     raise RuntimeError('Persistent worker failed; no retry')
             if time.monotonic() >= next_sample:
+                check_run_budget(output)
                 sample = {'elapsedSeconds': round(time.monotonic() - started, 3)}
                 try:
                     from workflow_soak_resources import snapshot
@@ -131,6 +139,9 @@ def main():
             if proc.poll() is None: proc.terminate(); proc.wait(timeout=30)
         for stream in streams: stream.close()
         save()
+        # Completed and failed raw captures remain evidence. Only lossless compression is allowed.
+        storage.register(output, 'sealed-evidence',
+                         {str(f.relative_to(output)): digest(f) for f in output.rglob('*') if f.is_file()})
     if not receipt['complete']: raise RuntimeError('Soak failed; preserve result and all raw telemetry')
 
 if __name__ == '__main__': main()
