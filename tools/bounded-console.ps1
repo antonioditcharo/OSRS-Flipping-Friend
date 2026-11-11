@@ -2,8 +2,9 @@
 function Assert-PlainDiagnosticPath([string] $Path) {
     $current = [IO.Path]::GetFullPath($Path)
     while ($current) {
-        if (Test-Path -LiteralPath $current) {
-            if ((Get-Item -LiteralPath $current -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) {
+        $entry = Get-Item -LiteralPath $current -Force -ErrorAction SilentlyContinue
+        if ($entry) {
+            if ($entry.Attributes -band [IO.FileAttributes]::ReparsePoint) {
                 throw 'Linked diagnostic path refused.'
             }
         }

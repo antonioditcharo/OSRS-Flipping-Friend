@@ -65,5 +65,18 @@ Write-Output 'CALLER_SURVIVED'
         self.assertIn('CALLER_SURVIVED', output)
         self.assertEqual(1, output.count('Client console logging degraded'))
 
+    def test_even_a_dangling_link_is_refused_before_directory_creation(self):
+        output = self.run_script(r'''
+$link=Join-Path $PWD 'linked';$target=Join-Path $PWD 'not-created'
+try { New-Item -ItemType SymbolicLink -Path $link -Target $target -ErrorAction Stop | Out-Null }
+catch { Write-Output 'LINK_PRIVILEGE_UNAVAILABLE'; exit 0 }
+$refused=$false
+try { Assert-PlainDiagnosticPath $link } catch { $refused=$true }
+if(-not $refused -or (Test-Path -LiteralPath $target)) {throw 'Dangling link not refused'}
+Write-Output 'DANGLING_LINK_REFUSED'
+''')
+        if 'LINK_PRIVILEGE_UNAVAILABLE' in output: self.skipTest('Symbolic link privilege unavailable')
+        self.assertIn('DANGLING_LINK_REFUSED', output)
+
 
 if __name__ == '__main__': unittest.main()
