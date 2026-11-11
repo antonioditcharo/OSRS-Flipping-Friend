@@ -1,7 +1,21 @@
 # Agent handoff
 
-Updated 2 November 2026 (America/Anchorage). Read AGENTS.md and TASKS.md.
+Updated 11 November 2026 (America/Anchorage). Read AGENTS.md and TASKS.md.
 Default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
+
+## Current maintenance candidate
+
+`codex/runelite-1-13-6-cleanup` targets official RuneLite **1.13.6** (bootstrap verified
+11 November). Installed pair remains **#206 / API 1.13.5** until clean verification,
+both exact-head CI platforms and supported unattended update complete. This is compatibility
+maintenance; all existing player/native acceptance gates remain open. Fix the rendering test's
+raster-less mock using a real AsyncBufferedImage; no production UI behavior changes.
+Private receipts: primary `local-data/runelite-1-13-6-20261111`.
+
+Historical offline evidence is being losslessly NTFS-compressed in place with before/after
+SHA-256 verification. Paths and file contents remain stable. Reproducible stale worktree build
+outputs may be removed. Keep live databases, outboxes, installed runtime, updater backups,
+frozen sources and all prior failure/acceptance receipts. See [storage policy](docs/development-storage.md).
 
 ## Current installation
 

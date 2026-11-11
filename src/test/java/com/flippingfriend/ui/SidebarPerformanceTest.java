@@ -90,12 +90,16 @@ public class SidebarPerformanceTest {
             SwingUtilities.invokeAndWait(()->assertTrue(net.runelite.client.ui.laf.RuneLiteLAF.setup()));
             var f=new CompactPanelContractTest();f.setup();when(f.companion.performance()).thenReturn(fixture(5));
             when(f.config.riskProfile()).thenReturn(com.flippingfriend.RiskProfile.HIGH);
+            // The panel paints this BufferedImage directly; a Mockito image has no raster.
+            // Always exercise an actual icon, including clean checkouts without local sprites.
+            var icon=new net.runelite.client.util.AsyncBufferedImage(
+                mock(net.runelite.client.callback.ClientThread.class),32,32,BufferedImage.TYPE_INT_ARGB);
             File sprite=new File(".gradle/reference/nature-rune.png");
             if(sprite.isFile()) {
-                var image=ImageIO.read(sprite);var icon=mock(net.runelite.client.util.AsyncBufferedImage.class);
-                doAnswer(c->{((JLabel)c.getArgument(0)).setIcon(new ImageIcon(image));return null;}).when(icon).addTo(any(JLabel.class));
-                when(f.items.getImage(561)).thenReturn(icon);
+                var image=ImageIO.read(sprite);var graphics=icon.createGraphics();
+                try { graphics.drawImage(image,0,0,null); } finally { graphics.dispose(); }
             }
+            when(f.items.getImage(561)).thenReturn(icon);
             when(f.guide.getSuggestion()).thenReturn(com.flippingfriend.model.Suggestion.builder(com.flippingfriend.model.SuggestionType.BUY)
                 .item(561,"Nature rune").quantity(1000).price(100).expectedProfit(48800).expectedMinutes(10).build());f.refresh();
             for(int height:new int[]{1003,1026,499}) {
