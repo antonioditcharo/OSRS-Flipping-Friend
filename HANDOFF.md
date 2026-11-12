@@ -3,80 +3,80 @@
 Updated 11 November 2026 (America/Anchorage). Read AGENTS.md and TASKS.md.
 Default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
-## Storage retention candidate
-
-`codex/bounded-storage-retention` adds bounded diagnostic streams (120 MiB total), an hourly
-workspace worker, exact-source disposable restoration expiration and protected-evidence budgets.
-Installed runtime remains #208 until candidate verification and supported paired delivery complete.
-Financial/pricing/learning source is unchanged; existing native/player gates remain open.
-See [storage contract](docs/development-storage.md). Private receipts:
-`local-data/storage-retention-20261111`. Unknown historical folders and full updater backups are
-protected; only newly registered, unchanged disposable copies with retained source/proof can expire.
-
 ## Installed runtime
 
-Official RuneLite **client 1.13.6** and compatible local pair **#208 are installed** at
-`2026-11-11T18:52:11.4513800Z`. Verified source `73cb8c6f3ca6f0cd6fcca4b4c542b3a3072d7e81`,
-merge `fd23e2eb62fd61301ac060d9ad89c610a2d51421`. Installed SHA-256:
+RuneLite **client 1.13.6** / compatible local pair **#210 are installed** at
+`2026-11-12T01:35:21.0260978Z` (11 November local). Verified source
+`312bdb79464f98793abd36c5b13cad314d7ee4ef`, merge `f22762f2666a42cc9336e6cdd3dd1469b678037d`.
+Installed SHA-256:
 
-- Plugin: `1cd7202f6b71b822ad30041dcd7ddadd217b08e4bd537ddbad9d3d4f5109b7b0`.
-- Companion: `994e49de4506fa2a9c17bfb939ab63b4c4a63bd9c69e35096f0a6864f471d216`.
+- Plugin: `099b8655acb2b435bbe6dce1c469b8179d2d496e05fb3ed24ed6c48e4a1ef192`.
+- Companion: `7fd5dfa5d73f930139893106c77afab1c2e163a58b52458f29a095bc0de6b319`.
 
-Clean build: **2,575 Java passes/six existing skips**, 179 tooling checks and 100 actual paired-JAR
-Java 11 checks. Own bytecode is 55. Both exact-head Windows/Linux CI **43080172833** pass.
-The first build failed because a locally present sprite activated an obsolete raster-less test mock;
-the test now always uses a real AsyncBufferedImage. Original failure log is retained.
-Initial documentation CI 43082355886 caught a Windows-encoding error in TASKS.md;
-the original UTF-8 text was restored and the failure receipt retained. Runtime is unchanged.
+Clean 2,581 Java passes/six existing skips, 202 full tooling checks and 120 actual paired-JAR
+Java 11 checks pass; own bytecode is 55. Both exact-source Windows/Linux CI **43134523417** pass.
+Earlier dispatches **43096557239 / 43097432645** failed inside GitHub startup with zero jobs/tests;
+queued/failed receipts are retained. No source test failure was excluded to obtain the release.
 
-Every companion JAR entry equals installed #206; only the plugin manifest API pin differs.
-All 930 own production classes are identical. Reuse qualified #205's uninterrupted 3,602.282s /
-10,920-check / 9,540-request hour through #206; this is **not** a new 1.13.6 native soak.
-No pricing, accounting, risk, learning or hosted behavior changed.
+Only CompanionMain and two new diagnostic logger classes differ from #208; every other own
+plugin/companion class is identical. Synthetic smoke passes 181.687s, six groups, 546 checks,
+477 fixture requests, zero failures, both completion markers/all 1,306 frozen hashes. Its source
+manifest retains d037d38; subsequent changes are tooling/tests, with identical production JARs.
+This is not a fresh hour or native/trading acceptance. Pricing, risk, accounting and learning stay unchanged.
 
-Supported unattended paired update passes. Backup **20261111-095157-4c5b01ff** restores all
-**563 files**; six supplemental configurations restore separately. All **12 original financial/source
-tables** equal the fresh backup; the unassigned legacy database remains byte-identical and unassigned.
-Protected startup task/permissions are unchanged; normal-user process lifecycle remains enabled.
-Status, official bootstrap/API/hash CheckOnly and authenticated GET-only pipeline pass.
-Pre-login WAIT correctly awaits current client cash/slots. Keep 41 unresolved historical sales and
-seven profit ranges; no synthetic account events, repair, replay or risk release.
+Supported unattended paired update passes; task XML/ACL and heap policy are unchanged. Fresh backup
+**20261111-163510-593016db** restores all **565 files**, with six supplemental configuration restores.
+All **12 original financial/source tables** match the fresh restored copy. Unassigned legacy bytes and
+old diagnostic log prefixes are preserved. Original backup databases were never opened in SQLite;
+only the restored copy and live account were read. Database/WAL hashes remain strict; explicitly
+scoped SHM indexes are derived cache. Status, official bootstrap/API/hash CheckOnly and authenticated
+GET-only pipeline pass. Pre-login WAIT still requires current cash/slots; 41 unresolved sales and
+seven profit ranges remain. No financial replay, synthetic source or risk release.
 
-Primary private receipts: `local-data/runelite-1-13-6-20261111/verification-receipt.json` and supporting
-logs/proofs. Authoritative index: `local-data/hosted-pilot/delivery-state.json`, **currentDelivery**;
-historical root aliases may describe older releases. #195 remains code rollback, #186 economic
-reference; #203/#206 artifacts and updater backups are retained. Code rollback never restores old data.
+Primary private receipts: `local-data/storage-retention-20261111/verification-receipt.json` and
+supporting logs/proofs. Authoritative index: `local-data/hosted-pilot/delivery-state.json`,
+**currentDelivery**. #195 remains code rollback, #186 economic reference; #203/#206/#208 artifacts
+and full updater backups are retained. Code rollback never restores old financial data.
 
-## Storage maintenance
+## Active storage policy
 
-703 historical offline files were NTFS-compressed **in place**, preserving every path and before/after
-SHA-256: stored bytes 50,256,142,827 -> 23,368,744,960, reclaiming **26,887,397,867 bytes (25.04 GiB)**.
-Original financial captures, frozen inputs, failure logs and restoration receipts remain readable.
-Live state, installed runtime and updater backups were outside this operation. A broad command to
-remove stale worktree build outputs was rejected by automatic approval review ("blocked by policy");
-those outputs remain. See [storage policy](docs/development-storage.md), private compression summary
-and per-file `history-compression.jsonl`. Three owner document deletions remain untouched.
+See [development storage](docs/development-storage.md). Companion stdout/stderr and supported client
+console output each keep 8 MiB plus four archives: **120 MiB total**. Unknown files/links are refused;
+post-start logging failures discard further diagnostics with one warning, without stopping the app.
+The updater preserves former companion.log/.err and uses separate per-launch bootstrap logs.
+
+Normal Start enables one hidden, non-elevated hourly workspace worker when Python is available;
+Status reads its latest report and flags errors/staleness. Newly verified disposable restorations
+expire after 24h only with unchanged financial/source bytes, an intact VERIFIED original backup,
+permanent external receipt and exact registered files/directories. Modified/extra files or directories
+pin the copy. Only the named account SHM index is derived cache; databases/WALs are never cache.
+Interrupted expiration resumes conservatively. Updater backups and unknown historical folders never expire.
+
+Optional restore/soak work is admitted within 5 GiB scratch / 50 GiB allocated local-data and a
+10 GiB free reserve. Soak captures check a 1 GiB budget at 30-second samples and retain failed raw
+output. Sealed evidence is only compressed in place with matching SHA-256, at most 2 GiB/eight files
+per pass after 24h. Required data can grow legitimately: alerts/refusal of optional work replace deletion.
+Existing 703-file compression savings **26,887,397,867 bytes (25.04 GiB)** remain; old failed broad
+worktree-build deletion was not retried. Three owner document deletions remain untouched.
 
 ## Remaining acceptance and direction
 
 All 81 original requirements remain in [TASKS](TASKS.md) and the
 [acceptance inventory](docs/verification/trading-pass-acceptance-inventory.md); 79 remain open,
-including one partial. Package/CI/transport success does not close native or trading acceptance.
+including one partial. Older-version native/player checklists carry forward to #210.
 
-- Fresh #208 manual login/GE, visible guidance, MAIN/editor timing, idle/mixed/sustained checks and
-  controlled revision/cancel/collect/relist/partial-fill/restart remain unverified. Keep cached paint
-  p95 <=100ms and distinct eligible publication p95 <=1s after durable ACK as separate gates.
-- Retain #203 MAIN paint p95 148.129ms, one eligible 900.258ms decision, editor paint p95 52.163ms
-  with zero eligible editor decisions, initial COLLECT 4.977s and 690ms preparation. Keep older
-  #202/#200 delays, #198 outage/root cause, missing identities and unobserved live late fills.
-- #199/#201 pricing stays in shadow; 100M/member/eight slots and separate **5m/30m/2h/8h** chronological
-  whole-account qualification remain open. Observational learning stays neutral until its gates pass.
-- Hosted #194 is unchanged, shadow enabled, recommendations/coordination disabled and $50/month
-  ceiling retained. Prior fixed stop **2026-11-08T01:31:16Z** is unchanged; this maintenance did not
-  audit actual hosted stop/completion or authorize further capture/tuning.
-- Launcher executable remains 2.7.2; the previous separate 2.8.0 installer execution was blocked by
-  automatic approval review and still requires the player. Do not retry it through another mechanism.
-  The existing launcher successfully refreshed client 1.13.6. Login and all game actions stay manual.
+- Fresh manual login/GE, visible guidance, idle/mixed/sustained MAIN/editor timing and controlled
+  revision/cancel/collect/relist/partial-fill/restart remain open. Keep cached paint p95 <=100ms
+  and distinct eligible publication p95 <=1s after durable ACK as separate gates.
+- Retain #203 MAIN paint 148.129ms, one eligible 900.258ms decision, editor paint 52.163ms/zero
+  eligible editor decisions, initial COLLECT 4.977s and 690ms preparation, plus older delays,
+  #198 outage/root cause, missing source identities and unobserved live late fills.
+- #199/#201 pricing remains shadow; chronological 100M/member/eight-slot **5m/30m/2h/8h** qualification
+  and neutral observational learning gates remain open. No profit-superiority claim.
+- Hosted #194, disabled recommendations/coordination and $50/month ceiling are unchanged. Prior
+  fixed stop **2026-11-08T01:31:16Z** remains; actual hosted stop/completion was not audited here.
+- Separate launcher 2.8.0 installer remains manual after its earlier execution-policy rejection;
+  do not retry it through another mechanism. Login and all game actions remain manual.
 
-Prior installed #206/#205 delivery, detailed preservation and retained failures remain in the
-[previous handoff](docs/history/handoff-before-runelite-1-13-6-2026-11-11.md) and its linked history.
+Previous installed #208 and retained detailed failures remain in the
+[previous handoff](docs/history/handoff-before-bounded-storage-2026-11-11.md) and linked history.

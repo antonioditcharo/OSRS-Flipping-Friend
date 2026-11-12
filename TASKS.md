@@ -19,12 +19,13 @@ against their own verified evidence. Controlled/native acceptance records remain
 
 ## Current batch
 
-- [ ] Deliver bounded runtime logging and managed development storage: 120 MiB diagnostic cap,
-      hourly maintenance, 24h verified scratch lifetime, 5 GiB scratch/50 GiB allocated workspace
-      admission budgets and 10 GiB free reserve. Preserve financial/source data, full updater backups,
-      unknown folders and investigation receipts. Require behavioral retention/logging tests,
-      standard clean build/tooling, both exact-head CI platforms and verified paired installation.
-      Native/player/trading requirements remain open. [Contract](docs/development-storage.md).
+- [x] Deliver #210 bounded diagnostics and managed development storage: 120 MiB managed logs,
+      hourly worker, 24h exact-source verified scratch expiration, 5 GiB scratch/50 GiB allocated
+      workspace admission budgets and 10 GiB free reserve. Clean 2,581 Java/six skips, 202 tooling,
+      120 actual paired-JAR Java 11 and both source CI platforms 43134523417 pass. Installed via
+      supported updater; 565-file backup/six configurations restore, all 12 original tables,
+      unassigned bytes and legacy diagnostic prefixes preserved. Full backups and unknown evidence
+      stay protected. Native/player/strategy requirements remain open. [Contract](docs/development-storage.md).
 
 - [x] Deliver official RuneLite 1.13.6 pair #208: clean 2,575 Java passes/six skips, 179 tooling,
       100 actual paired-JAR Java 11 checks, both exact-head CI platforms 43080172833 and unchanged
