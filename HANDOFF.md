@@ -3,6 +3,16 @@
 Updated 11 November 2026 (America/Anchorage). Read AGENTS.md and TASKS.md.
 Default branch: `CoPilot's-Rebuild-from-Main`; `main` is historical.
 
+## Storage retention candidate
+
+`codex/bounded-storage-retention` adds bounded diagnostic streams (120 MiB total), an hourly
+workspace worker, exact-source disposable restoration expiration and protected-evidence budgets.
+Installed runtime remains #208 until candidate verification and supported paired delivery complete.
+Financial/pricing/learning source is unchanged; existing native/player gates remain open.
+See [storage contract](docs/development-storage.md). Private receipts:
+`local-data/storage-retention-20261111`. Unknown historical folders and full updater backups are
+protected; only newly registered, unchanged disposable copies with retained source/proof can expire.
+
 ## Installed runtime
 
 Official RuneLite **client 1.13.6** and compatible local pair **#208 are installed** at

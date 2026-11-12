@@ -131,4 +131,16 @@ if (-not (Test-Path $credentials)) {
 Write-Host 'Starting RuneLite in developer mode...' -ForegroundColor Cyan
 
 # -ea is required: RuneLite refuses to enable developer mode without assertions on.
-& $java -ea -Xmx1g -Xss2m -cp $classpath net.runelite.client.RuneLite --developer-mode
+. "$PSScriptRoot\bounded-console.ps1"
+$consoleDirectory = Join-Path $env:USERPROFILE '.runelite\osrs-flipping-friend\diagnostics\runtime-logs'
+$consoleLog = Open-BoundedConsole $consoleDirectory
+$consoleErrorPreference = $ErrorActionPreference
+try {
+    # PS 5.1 treats native stderr as error records. Preserve their text without aborting the pipe.
+    $ErrorActionPreference = 'Continue'
+    $global:LASTEXITCODE = -1
+    & $java -ea -Xmx1g -Xss2m -cp $classpath net.runelite.client.RuneLite --developer-mode 2>&1 |
+        ForEach-Object { Write-BoundedConsole $consoleLog $_.ToString() }
+    $clientExit = $LASTEXITCODE
+} finally { Close-BoundedConsole $consoleLog; $ErrorActionPreference = $consoleErrorPreference }
+if ($clientExit -ne 0) { throw "RuneLite exited with code $clientExit. See $consoleDirectory\client-console.log" }

@@ -116,6 +116,8 @@ function Start-Process {
     [CmdletBinding()] param($FilePath, $ArgumentList, $WorkingDirectory, $WindowStyle, $RedirectStandardOutput, $RedirectStandardError)
     $global:ffUpdateTestEvents.Add('start-process')
     $global:ffProcessArguments = @($ArgumentList)
+    $global:ffProcessStdout = $RedirectStandardOutput
+    $global:ffProcessStderr = $RedirectStandardError
     $global:ffUpdateTestStarted = $true
 }
 function Start-Sleep {
@@ -283,6 +285,7 @@ catch { $failure = $_.Exception.Message }
 Write-Output ('HARNESS_RESULT=' + (@{
     error = $failure; events = @($global:ffUpdateTestEvents)
     processArguments = @($global:ffProcessArguments)
+    processStdout = $global:ffProcessStdout; processStderr = $global:ffProcessStderr
     healthProbes = $global:ffHealthProbes; healthTimeouts = @($global:ffHealthTimeouts); elapsed = $global:ffUpdateTestClock
 } | ConvertTo-Json -Compress))
 """
@@ -430,6 +433,16 @@ function Stop-NativeVerifiedCompanion($Process) {
         self.assertEqual(['-Xmx768m', '-jar', f'"{self.installed_companion}"'], result['processArguments'])
         self.assertNotIn('register-task', result['events'])
         self.assertNotIn('grant-task-access', result['events'])
+
+    def test_direct_start_uses_bootstrap_logs_and_preserves_legacy_diagnostics(self):
+        self.process_candidate()
+        legacy = self.properties.parent / 'companion.log.err'
+        legacy.write_bytes(b'previous investigation evidence')
+        result = self.run_update()
+        self.assertIsNone(result['error'], self.output)
+        self.assertEqual('companion-bootstrap.log', Path(result['processStdout']).name)
+        self.assertEqual('companion-bootstrap.log.err', Path(result['processStderr']).name)
+        self.assertEqual(b'previous investigation evidence', legacy.read_bytes())
 
     def test_direct_process_without_configured_heap_does_not_invent_a_limit(self):
         self.process_candidate()
@@ -810,6 +823,15 @@ function Stop-NativeVerifiedCompanion($Process) {
         result = self.run_update()
         self.assertIsNotNone(result["error"], self.output)
         self.assertNotIn("launch-runelite", result["events"], self.output)
+
+    def test_daily_start_activates_storage_worker_after_pair_guard_without_changing_tasks(self):
+        self.scenario["entry"] = "start.ps1"
+        (self.checkout / "tools/apply-update.ps1").write_text(
+            "param([switch]$StartOnly)\n$global:ffUpdateTestEvents.Add('guarded-start')\n", encoding="utf-8")
+        (self.checkout / "tools/storage_maintenance.py").write_text("# isolated worker launch boundary", encoding="utf-8")
+        result = self.run_update()
+        self.assertIsNone(result["error"], self.output)
+        self.assertEqual(["guarded-start", "start-process", "launch-runelite"], result["events"], self.output)
 
     def test_update_requires_backup_review_before_installation(self):
         self.scenario["decline"] = True

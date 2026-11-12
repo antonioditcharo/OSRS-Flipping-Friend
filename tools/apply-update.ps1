@@ -334,8 +334,8 @@ function Start-Companion($candidate, [string] $java, [switch] $Direct) {
         $companionArguments = @(Get-TaskJvmOptions $candidate) + @('-jar', "`"$companionInstalled`"")
         Start-Process -FilePath $java -ArgumentList $companionArguments `
             -WorkingDirectory $root -WindowStyle Hidden `
-            -RedirectStandardOutput (Join-Path $logDir 'companion.log') `
-            -RedirectStandardError (Join-Path $logDir 'companion.log.err')
+            -RedirectStandardOutput (Join-Path $logDir 'companion-bootstrap.log') `
+            -RedirectStandardError (Join-Path $logDir 'companion-bootstrap.log.err')
     }
     $deadline = (Get-Date).AddSeconds(60)
     while ((Get-Date) -lt $deadline) {
@@ -343,7 +343,7 @@ function Start-Companion($candidate, [string] $java, [switch] $Direct) {
         Start-Sleep -Seconds 3
     }
     if ($candidate) { throw 'Companion did not pass its scoped health check within 60s. Run 3 - Status and inspect the companion task Last Run Result in Task Scheduler.' }
-    throw "Companion did not pass its scoped health check within 60s. See $logDir\companion.log.err"
+    throw "Companion did not pass its scoped health check within 60s. See $logDir\companion-bootstrap.log.err and diagnostics\runtime-logs."
 }
 
 . "$PSScriptRoot\process-companion.ps1"

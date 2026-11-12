@@ -3,6 +3,21 @@ $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $dataRoot = Join-Path $env:USERPROFILE '.runelite\osrs-flipping-friend'
 Write-Host 'FLIPPING FRIEND - STATUS'
+Write-Host "Managed console logs: $dataRoot\diagnostics\runtime-logs (8 MiB x 5 files per stream; three streams, 120 MiB total)."
+$storageStatus = Join-Path $root 'local-data\.storage\status.json'
+if (Test-Path -LiteralPath $storageStatus -PathType Leaf) {
+    try {
+        $storage = Get-Content -LiteralPath $storageStatus -Raw | ConvertFrom-Json
+        $ageHours = ([DateTime]::UtcNow - [DateTimeOffset]::FromUnixTimeSeconds([long]$storage.checkedAt).UtcDateTime).TotalHours
+        if ($storage.error -or $ageHours -gt 2 -or $ageHours -lt 0) { Write-Host 'Workspace storage: maintenance needs attention (error or stale report).' }
+        else {
+            Write-Host "Workspace storage: checked $([Math]::Round($ageHours, 1))h ago; stored $([Math]::Round($storage.report.storedBytes / 1GB, 2)) GiB; scratch $([Math]::Round($storage.report.scratchBytes / 1GB, 2)) GiB."
+            foreach ($warning in @($storage.report.warnings) + @($storage.refusals | ForEach-Object { $_.reason })) {
+                if ($warning) { Write-Host "Storage attention: $warning" }
+            }
+        }
+    } catch { Write-Host 'Workspace storage: report unreadable; retained files were not changed by this status check.' }
+} else { Write-Host 'Workspace storage: no maintenance report yet; normal Start enables the hourly worker when Python is available.' }
 foreach ($entry in @(
     @('Plugin', (Join-Path $env:USERPROFILE '.runelite\sideloaded-plugins\osrs-flipping-friend.jar')),
     @('Installed companion', (Join-Path $dataRoot 'runtime\flipping-friend-companion.jar')),

@@ -27,6 +27,7 @@ public class CompanionLifecycleTest
         {
             assertNull(CompanionLifecycle.tryStart(root));
             assertFalse(Files.exists(root.resolve("companion")));
+            assertFalse(Files.exists(root.resolve("diagnostics")));
         }
         try (CompanionLifecycle ready = CompanionLifecycle.tryStart(root)) { assertNotNull(ready); }
     }
@@ -57,6 +58,7 @@ public class CompanionLifecycleTest
             try { System.setProperty("user.home", home.toString()); CompanionMain.main(new String[0]); }
             finally { System.setProperty("user.home", previous); }
             assertFalse(Files.exists(root.resolve("companion")));
+            assertFalse(Files.exists(root.resolve("diagnostics")));
         }
     }
 
